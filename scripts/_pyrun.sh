@@ -8,11 +8,11 @@
 # Exits 0 silently if no Python is found — hooks must never block the AI tool.
 set -u
 
-if command -v python3 >/dev/null 2>&1; then
+if python3 -c "exit(0)" >/dev/null 2>&1; then
   PY=python3
-elif command -v python >/dev/null 2>&1; then
+elif python -c "exit(0)" >/dev/null 2>&1; then
   PY=python
-elif command -v py >/dev/null 2>&1; then
+elif py -3 -c "exit(0)" >/dev/null 2>&1; then
   PY="py -3"
 else
   # PATH lookup failed — probe standard Windows install locations.
