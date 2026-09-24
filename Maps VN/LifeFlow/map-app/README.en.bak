@@ -10,7 +10,7 @@ API tạm thời không hoạt động.
 2. Mở PowerShell và chạy một lệnh:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 3. Mở `http://127.0.0.1:5173` trong trình duyệt.
@@ -23,7 +23,7 @@ Nhấn `Ctrl+C` để dừng frontend, sau đó chạy `Stop-LifeFlow.ps1` ở t
 
 ```powershell
 docker start osrm-hcm osrm-hanoi osrm-danang
-Set-Location "D:\Bản đồ VN\LifeFlow\map-app"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 

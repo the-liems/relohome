@@ -33,21 +33,21 @@ The following components already work and must remain available during future de
 ### 2.1 Geographic source data
 
 ```text
-D:\Bản đồ VN\Raw\vietnam-260922.osm.pbf
-D:\Bản đồ VN\Cities\boundaries\hcm.geojson
-D:\Bản đồ VN\Cities\boundaries\hanoi.geojson
-D:\Bản đồ VN\Cities\boundaries\danang.geojson
-D:\Bản đồ VN\Cities\pbf\hcm.osm.pbf
-D:\Bản đồ VN\Cities\pbf\hanoi.osm.pbf
-D:\Bản đồ VN\Cities\pbf\danang.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Raw\vietnam-260922.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hcm.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hanoi.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\danang.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hcm.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hanoi.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\danang.osm.pbf
 ```
 
 ### 2.2 POI data
 
 ```text
-D:\Bản đồ VN\Extracts\accommodations.osm.pbf
-D:\Bản đồ VN\Extracts\hotels.osm.pbf
-D:\Bản đồ VN\Extracts\accommodations.geojson
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\hotels.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.geojson
 ```
 
 The current frontend uses a copy of `accommodations.geojson` and contains 13,120 real accommodation records. It is not yet a complete restaurant, hospital, supermarket or general business dataset.
@@ -65,7 +65,7 @@ Each routing directory contains one complete OSRM MLD graph. Files sharing the `
 ### 2.4 Frontend
 
 ```text
-D:\Bản đồ VN\LifeFlow\map-app
+D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app
 ```
 
 The current frontend provides:
@@ -83,7 +83,7 @@ The current frontend provides:
 The startup script is:
 
 ```text
-D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1
+D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1
 ```
 
 ## 3. Core design principles
@@ -146,7 +146,7 @@ The frontend should call the Platform API, not PostgreSQL or MCP directly. The M
 ## 5. Proposed repository structure
 
 ```text
-D:\Bản đồ VN\LifeFlow\
+D:\Demo AI thực chiến\Maps VN\LifeFlow\
 |-- map-app\
 |-- platform-api\
 |-- mcp-server\

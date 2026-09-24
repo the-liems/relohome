@@ -24,7 +24,7 @@ vì vậy truy vấn nhà ở trả về danh sách rỗng thay vì tự tạo d
 3. Chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 4. Mở các địa chỉ:
@@ -50,7 +50,7 @@ volume.
 Nhấn `Ctrl+C` trong cửa sổ PowerShell đang chạy frontend, sau đó chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Stop-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Stop-LifeFlow.ps1"
 ```
 
 Lệnh này dừng Platform API, ba container OSRM và container PostGIS của LifeFlow.
@@ -95,7 +95,7 @@ Trong môi trường phát triển, API chỉ lắng nghe trên máy cục bộ.
 Build và chạy MCP server cục bộ:
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run build
 npm run dev:mcp
 ```
@@ -106,10 +106,10 @@ Cấu hình dành cho MCP client:
 {
   "command": "node",
   "args": [
-    "D:\\Bản đồ VN\\LifeFlow\\mcp-server\\dist\\server.js"
+    "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
   ],
   "env": {
-    "LIFEFLOW_ENV_FILE": "D:\\Bản đồ VN\\LifeFlow\\.env"
+    "LIFEFLOW_ENV_FILE": "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\.env"
   }
 }
 ```
@@ -134,7 +134,7 @@ checksum, thống kê từng lần nhập và không ghi đè bản ghi đã đ�
 `lifeflow_verified`.
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run db:up
 npm run db:migrate
 npm run db:import:places
@@ -163,11 +163,11 @@ thật, API và MCP hiện tại có thể truy vấn ngay mà không cần thay
 ## Chạy kiểm thử
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run build
 npm test
 
-Set-Location "D:\Bản đồ VN\LifeFlow\map-app"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
 npm run lint
 npm run build
 npm run test:e2e

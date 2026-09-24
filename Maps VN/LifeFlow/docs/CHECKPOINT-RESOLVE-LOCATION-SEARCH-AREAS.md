@@ -56,7 +56,7 @@ Không tích hợp public Nominatim vào runtime vì:
 Giải pháp đã chọn là trích trực tiếp từ:
 
 ```text
-D:\Bản đồ VN\Raw\vietnam-260922.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Raw\vietnam-260922.osm.pbf
 ```
 
 File nguồn chỉ được đọc, không bị thay đổi.
@@ -64,8 +64,8 @@ File nguồn chỉ được đọc, không bị thay đổi.
 ### 3. Artifact đã tạo
 
 ```text
-D:\Bản đồ VN\LifeFlow\data\administrative\vietnam-admin.osm.pbf
-D:\Bản đồ VN\LifeFlow\data\administrative\vietnam-admin.geojsonseq
+D:\Demo AI thực chiến\Maps VN\LifeFlow\data\administrative\vietnam-admin.osm.pbf
+D:\Demo AI thực chiến\Maps VN\LifeFlow\data\administrative\vietnam-admin.geojsonseq
 ```
 
 Lệnh lọc đúng đã dùng:

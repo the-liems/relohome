@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "prepare:data": "node scripts/prepare-poi.mjs \"D:/Bản đồ VN/Extracts/accommodations.geojson\" public/data/accommodations.geojson",
+    "prepare:data": "node scripts/prepare-poi.mjs \"D:/Demo AI thực chiến/Maps VN/Extracts/accommodations.geojson\" public/data/accommodations.geojson",
     "prepare:worker": "node scripts/copy-maplibre-worker.mjs",
     "postinstall": "npm run prepare:worker",
     "predev": "npm run prepare:worker",

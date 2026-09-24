@@ -25,7 +25,7 @@ records.
 3. Run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 4. Open:
@@ -50,7 +50,7 @@ It does not reimport data, delete data or recreate Docker volumes.
 Press `Ctrl+C` in the PowerShell window that is running the frontend, then run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Stop-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Stop-LifeFlow.ps1"
 ```
 
 This stops the LifeFlow API, the three OSRM containers and the LifeFlow PostGIS
@@ -95,7 +95,7 @@ The API is bound to loopback for local development.
 Build and run the local MCP server:
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run build
 npm run dev:mcp
 ```
@@ -106,10 +106,10 @@ For an MCP client, use:
 {
   "command": "node",
   "args": [
-    "D:\\Bản đồ VN\\LifeFlow\\mcp-server\\dist\\server.js"
+    "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
   ],
   "env": {
-    "LIFEFLOW_ENV_FILE": "D:\\Bản đồ VN\\LifeFlow\\.env"
+    "LIFEFLOW_ENV_FILE": "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\.env"
   }
 }
 ```
@@ -134,7 +134,7 @@ source payloads, records checksums and import counts, and does not overwrite
 `lifeflow_verified` records.
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run db:up
 npm run db:migrate
 npm run db:import:places
@@ -164,11 +164,11 @@ available without changing their contracts.
 ## Validation
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
 npm run build
 npm test
 
-Set-Location "D:\Bản đồ VN\LifeFlow\map-app"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
 npm run lint
 npm run build
 npm run test:e2e

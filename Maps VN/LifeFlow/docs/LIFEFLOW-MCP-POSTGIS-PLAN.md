@@ -37,21 +37,21 @@ Các thành phần sau đang hoạt động và phải tiếp tục được b�
 ### 2.1 Dữ liệu địa lý nguồn
 
 ```text
-D:\Bản đồ VN\Raw\vietnam-260922.osm.pbf
-D:\Bản đồ VN\Cities\boundaries\hcm.geojson
-D:\Bản đồ VN\Cities\boundaries\hanoi.geojson
-D:\Bản đồ VN\Cities\boundaries\danang.geojson
-D:\Bản đồ VN\Cities\pbf\hcm.osm.pbf
-D:\Bản đồ VN\Cities\pbf\hanoi.osm.pbf
-D:\Bản đồ VN\Cities\pbf\danang.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Raw\vietnam-260922.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hcm.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hanoi.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\danang.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hcm.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hanoi.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\danang.osm.pbf
 ```
 
 ### 2.2 Dữ liệu POI
 
 ```text
-D:\Bản đồ VN\Extracts\accommodations.osm.pbf
-D:\Bản đồ VN\Extracts\hotels.osm.pbf
-D:\Bản đồ VN\Extracts\accommodations.geojson
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\hotels.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.geojson
 ```
 
 Nguồn `accommodations.geojson` có 13.120 địa điểm lưu trú thật. Đây chưa phải
@@ -71,7 +71,7 @@ tố `.osrm.*` tạo thành một graph và không được chỉnh sửa hoặc
 ### 2.4 Frontend
 
 ```text
-D:\Bản đồ VN\LifeFlow\map-app
+D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app
 ```
 
 Frontend hiện hỗ trợ:
@@ -90,7 +90,7 @@ Frontend hiện hỗ trợ:
 Script khởi động:
 
 ```text
-D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1
+D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1
 ```
 
 ## 3. Nguyên tắc thiết kế cốt lõi
@@ -154,7 +154,7 @@ server tái sử dụng cùng lớp dịch vụ với Platform API để tránh 
 ## 5. Cấu trúc repository
 
 ```text
-D:\Bản đồ VN\LifeFlow\
+D:\Demo AI thực chiến\Maps VN\LifeFlow\
 |-- map-app\
 |-- platform-api\
 |-- mcp-server\

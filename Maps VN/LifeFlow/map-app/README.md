@@ -10,7 +10,7 @@ GeoJSON hiện có vẫn được giữ làm phương án dự phòng khi API t�
 2. Mở PowerShell và chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Bản đồ VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 3. Mở `http://127.0.0.1:5173`.
@@ -22,7 +22,7 @@ dừng các dịch vụ còn lại mà không xóa dữ liệu.
 ### Chạy riêng frontend
 
 ```powershell
-Set-Location "D:\Bản đồ VN\LifeFlow\map-app"
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
 npm run dev:lifeflow
 ```
 

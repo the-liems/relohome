@@ -60,12 +60,12 @@ out/
 .ai-log/archive/
 
 # Local map workspace artifacts
-LifeFlow/.runtime/
-LifeFlow/node_modules/
-LifeFlow/map-app/node_modules/
-LifeFlow/**/dist/
-LifeFlow/.env
-LifeFlow/**/*.local
+Maps\ VN/LifeFlow/.runtime/
+Maps\ VN/LifeFlow/node_modules/
+Maps\ VN/LifeFlow/map-app/node_modules/
+Maps\ VN/LifeFlow/**/dist/
+Maps\ VN/LifeFlow/.env
+Maps\ VN/LifeFlow/**/*.local
 test-results/
 
 # Large OSM and OSRM datasets are kept outside Git
@@ -75,6 +75,6 @@ test-results/
 *.geojson
 
 # Small map assets required by the frontend
-!Cities/boundaries/*.geojson
-!LifeFlow/map-app/public/data/
-!LifeFlow/map-app/public/data/*.geojson
+!Maps\ VN/Cities/boundaries/*.geojson
+!Maps\ VN/LifeFlow/map-app/public/data/
+!Maps\ VN/LifeFlow/map-app/public/data/*.geojson
