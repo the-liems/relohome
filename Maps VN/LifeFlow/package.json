@@ -16,6 +16,7 @@
     "db:stop": "docker compose --env-file .env -f infra/compose.yaml stop postgis",
     "db:migrate": "npm run db:migrate --workspace @lifeflow/platform-api",
     "db:import:places": "npm run db:import:places --workspace @lifeflow/platform-api",
+    "db:import:areas": "npm run db:import:areas --workspace @lifeflow/platform-api",
     "dev:api": "npm run dev --workspace @lifeflow/platform-api",
     "dev:mcp": "npm run dev --workspace @lifeflow/mcp-server",
     "dev:map": "npm run dev:lifeflow --prefix map-app"

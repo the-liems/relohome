@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { HousingSearchRequestSchema } from '../src/housing.js'
+import {
+  ResolveLocationRequestSchema,
+  SearchAreasRequestSchema,
+} from '../src/location.js'
+import { PlaceSearchRequestSchema } from '../src/place.js'
 
 const validRequest = {
   administrative_area_ids: ['district_7'],
@@ -38,5 +43,34 @@ describe('HousingSearchRequestSchema', () => {
       max_price: { amount: 1_000, currency: 'USD', period: 'month' },
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('location contracts', () => {
+  it('accepts accent-insensitive area search constraints', () => {
+    expect(
+      SearchAreasRequestSchema.parse({
+        text: 'go vap',
+        levels: ['6'],
+        bounding_box: { west: 106.5, south: 10.7, east: 106.8, north: 11 },
+      }),
+    ).toMatchObject({ text: 'go vap', levels: ['6'], limit: 10 })
+  })
+
+  it('requires center and radius together when resolving a location', () => {
+    expect(
+      ResolveLocationRequestSchema.safeParse({
+        text: 'Gò Vấp',
+        center: { lng: 106.68, lat: 10.84 },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts canonical administrative area filters for place search', () => {
+    expect(
+      PlaceSearchRequestSchema.parse({
+        administrative_area_ids: ['osm:relation:38522189'],
+      }).administrative_area_ids,
+    ).toEqual(['osm:relation:38522189'])
   })
 })

@@ -8,7 +8,7 @@ liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 - Mô hình dữ liệu tách riêng bất động sản, căn/phòng, tin đăng và báo giá.
 - Dịch vụ Housing Query có kiểu dữ liệu rõ ràng và lọc cứng bằng PostGIS.
 - Platform API chạy tại `127.0.0.1:4100`.
-- Sáu MCP tool chỉ đọc, giao tiếp qua `stdio`.
+- Tám MCP tool chỉ đọc, giao tiếp qua `stdio`.
 - Ứng dụng MapLibre chạy tại `127.0.0.1:5173`.
 - Ba dịch vụ OSRM hiện có cho TP.HCM, Hà Nội và Đà Nẵng.
 - GeoJSON gốc vẫn được giữ làm phương án dự phòng cho frontend.
@@ -16,6 +16,8 @@ liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 Nguồn hiện tại có 13.120 POI. Sau khi chuẩn hóa, hệ thống lưu 13.118 địa điểm
 chuẩn và ghi nhận hai mã nguồn bị trùng. Hiện chưa có nguồn tin đăng nhà ở thật,
 vì vậy truy vấn nhà ở trả về danh sách rỗng thay vì tự tạo dữ liệu giả.
+PostGIS còn lưu 8.732 ranh giới hành chính OSM có ID truy nguồn, bên cạnh ba
+boundary thành phố cục bộ.
 
 ## Khởi động hằng ngày
 
@@ -68,6 +70,8 @@ LifeFlow Agent
   `-- MCP server qua stdio
         |-- search_housing / get_housing --> Housing Query --> PostGIS
         |-- search_places / get_place ----> Place Query ---> PostGIS
+        |-- search_areas -----------------> Area Query ----> PostGIS
+        |-- resolve_location -------------> Location Query > PostGIS
         |-- find_nearby_places -----------> PostGIS
         `-- calculate_route -------------> OSRM
 ```
@@ -84,6 +88,8 @@ và kết quả này.
 | `POST` | `/v1/places/search` | Tìm địa điểm theo chữ, loại và không gian |
 | `GET` | `/v1/places/:placeId` | Lấy chi tiết địa điểm chuẩn |
 | `POST` | `/v1/places/nearby` | Tìm địa điểm gần nhất bằng spatial index |
+| `POST` | `/v1/areas/search` | Tìm ranh giới hành chính không phân biệt dấu |
+| `POST` | `/v1/locations/resolve` | Phân giải tên thành nhiều ứng viên area/POI |
 | `POST` | `/v1/housing/search` | Lọc nhà ở theo các điều kiện bắt buộc |
 | `GET` | `/v1/housing/:listingId` | Lấy chi tiết tin đăng |
 | `POST` | `/v1/routes` | Lấy quãng đường, thời gian và hình học từ OSRM |
@@ -121,6 +127,8 @@ search_housing
 get_housing
 search_places
 get_place
+search_areas
+resolve_location
 find_nearby_places
 calculate_route
 ```
@@ -143,6 +151,34 @@ npm run db:import:places
 Luôn giữ file nguồn theo phiên bản. Không ghi đè trực tiếp file OSM/PBF đang hoạt
 động. Dữ liệu OSM và dữ liệu riêng của LifeFlow được phân biệt theo nguồn, nên
 dữ liệu tùy chỉnh không bị mất khi cập nhật OSM.
+
+## Nhập dữ liệu địa giới mới
+
+Importer đọc GeoJSON sequence được cấu hình qua `ADMIN_AREA_SOURCE_PATH`, tính
+checksum, nhập theo batch và chỉ upsert các bản ghi `source='osm'`. Nó không xóa
+boundary cục bộ hoặc dữ liệu tùy chỉnh:
+
+```powershell
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+npm run db:up
+npm run db:migrate
+npm run db:import:areas
+```
+
+Luồng dùng cho LLM:
+
+```text
+search_areas({ text: "go vap" })
+  -> lấy area_id = "osm:relation:38522189"
+  -> search_places({
+       categories: ["hotel"],
+       administrative_area_ids: ["osm:relation:38522189"]
+     })
+```
+
+`resolve_location` tìm đồng thời trong ranh giới hành chính và POI, luôn trả
+danh sách ứng viên có `match_type`/`match_score`; tool không tự khẳng định một
+kết quả mơ hồ là duy nhất.
 
 ## Thêm dữ liệu nhà ở
 

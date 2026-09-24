@@ -4,10 +4,13 @@ import {
   HousingSearchRequestSchema,
   NearbyPlaceConstraintSchema,
   PlaceSearchRequestSchema,
+  ResolveLocationRequestSchema,
   RouteRequestSchema,
+  SearchAreasRequestSchema,
 } from '@lifeflow/contracts'
 import {
   HousingQueryService,
+  LocationService,
   NotFoundError,
   PlaceService,
   QueryValidationError,
@@ -30,6 +33,7 @@ export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
   const app = Fastify({ logger: true })
   const routeService = new RouteService(config.osrmUrls)
   const housingService = new HousingQueryService(pool, routeService, config)
+  const locationService = new LocationService(pool)
   const placeService = new PlaceService(pool)
 
   void app.register(cors, {
@@ -53,6 +57,14 @@ export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
 
   app.post('/v1/places/search', async (request) => {
     return placeService.search(PlaceSearchRequestSchema.parse(request.body))
+  })
+
+  app.post('/v1/areas/search', async (request) => {
+    return locationService.searchAreas(SearchAreasRequestSchema.parse(request.body))
+  })
+
+  app.post('/v1/locations/resolve', async (request) => {
+    return locationService.resolve(ResolveLocationRequestSchema.parse(request.body))
   })
 
   app.get('/v1/places/:placeId', async (request) => {

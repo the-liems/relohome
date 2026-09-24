@@ -32,7 +32,7 @@ afterAll(async () => {
 })
 
 describe('LifeFlow MCP stdio server', () => {
-  it('publishes only the six factual read tools', async () => {
+  it('publishes the eight factual read tools', async () => {
     const { tools } = await client.listTools()
     const names = tools.map((tool) => tool.name).sort()
 
@@ -41,11 +41,48 @@ describe('LifeFlow MCP stdio server', () => {
       'find_nearby_places',
       'get_housing',
       'get_place',
+      'resolve_location',
+      'search_areas',
       'search_housing',
       'search_places',
     ])
     expect(names).not.toContain('recommend_housing')
     expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+  })
+
+  it('searches administrative areas through MCP stdio without accents', async () => {
+    const result = await client.callTool({
+      name: 'search_areas',
+      arguments: { text: 'go vap', levels: ['6'], limit: 10 },
+    })
+
+    expect(result.isError).not.toBe(true)
+    const output = result.structuredContent as {
+      results: Array<{ area_id: string; name: string }>
+    }
+    expect(output.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          area_id: 'osm:relation:38522189',
+          name: 'Phường Gò Vấp',
+        }),
+      ]),
+    )
+  })
+
+  it('resolves location candidates through MCP stdio', async () => {
+    const result = await client.callTool({
+      name: 'resolve_location',
+      arguments: { text: 'go vap', limit: 10 },
+    })
+
+    expect(result.isError).not.toBe(true)
+    const output = result.structuredContent as {
+      ambiguous: boolean
+      results: Array<{ entity_type: string; canonical_id: string }>
+    }
+    expect(output.results.length).toBeGreaterThan(0)
+    expect(output.results.some((item) => item.entity_type === 'administrative_area')).toBe(true)
   })
 
   it('returns imported HCM places as validated structured content', async () => {

@@ -2,6 +2,7 @@ import {
   createDatabasePool,
   getRuntimeConfig,
   HousingQueryService,
+  LocationService,
   PlaceService,
   RouteService,
 } from '@lifeflow/housing-query'
@@ -12,10 +13,11 @@ const config = getRuntimeConfig()
 const pool = createDatabasePool(config.databaseUrl)
 const routeService = new RouteService(config.osrmUrls)
 const housingService = new HousingQueryService(pool, routeService, config)
+const locationService = new LocationService(pool)
 const placeService = new PlaceService(pool)
 
 const handle = serveStdio(
-  () => createLifeFlowMcpServer({ pool, housingService, placeService, routeService }),
+  () => createLifeFlowMcpServer({ pool, housingService, locationService, placeService, routeService }),
   {
     onerror(error) {
       console.error('LifeFlow MCP transport error:', error)

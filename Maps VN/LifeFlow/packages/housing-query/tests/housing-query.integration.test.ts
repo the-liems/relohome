@@ -2,6 +2,8 @@ import {
   createDatabasePool,
   getRuntimeConfig,
   HousingQueryService,
+  LocationService,
+  PlaceService,
   RouteService,
   type QueryExecutor,
 } from '../src/index.js'
@@ -31,6 +33,8 @@ const ids = {
 let pool: ReturnType<typeof createDatabasePool>
 let client: pg.PoolClient
 let service: HousingQueryService
+let locationService: LocationService
+let placeService: PlaceService
 
 beforeAll(async () => {
   const config = getRuntimeConfig()
@@ -43,6 +47,8 @@ beforeAll(async () => {
     new RouteService(config.osrmUrls),
     { commuteCandidateLimit: 20 },
   )
+  locationService = new LocationService(client as unknown as QueryExecutor)
+  placeService = new PlaceService(client as unknown as QueryExecutor)
 })
 
 afterAll(async () => {
@@ -153,12 +159,49 @@ describe('HousingQueryService hard constraints', () => {
   })
 })
 
+describe('location queries', () => {
+  it('searches administrative areas without Vietnamese accents', async () => {
+    const response = await locationService.searchAreas({ text: 'go vap test', limit: 10 })
+    expect(response.results[0]).toMatchObject({
+      area_id: 'ward_go_vap_test',
+      name: 'Phường Gò Vấp Test',
+      match_type: 'contains',
+    })
+  })
+
+  it('resolves both administrative areas and canonical places', async () => {
+    const response = await locationService.resolve({ text: 'go vap test', limit: 10 })
+    expect(response.results.some((item) => item.entity_type === 'administrative_area')).toBe(true)
+    expect(response.results.some((item) => item.entity_type === 'place')).toBe(true)
+    expect(response.ambiguous).toBe(true)
+  })
+
+  it('filters canonical places with ST_Covers using an area ID', async () => {
+    const response = await placeService.search({
+      categories: ['apartment'],
+      administrative_area_ids: ['ward_go_vap_test'],
+      pagination: { limit: 20, cursor: null },
+    })
+    expect(response.results.map((item) => item.place_id)).toEqual([ids.validPlace])
+  })
+})
+
 async function insertFixtures(db: pg.PoolClient) {
   await db.query(
     `INSERT INTO geo.administrative_areas (id, name, level, source, source_id, geom)
      VALUES (
        'district_7_test', 'District 7 Test', 'district', 'import', 'district_7_test',
        ST_Multi(ST_GeomFromText('POLYGON((106.68 10.75,106.75 10.75,106.75 10.82,106.68 10.82,106.68 10.75))', 4326))
+     )`,
+  )
+  await db.query(
+    `INSERT INTO geo.administrative_areas (id, name, level, source, source_id, geom)
+     VALUES (
+       'ward_go_vap_test', 'Phường Gò Vấp Test', '6', 'import', 'ward_go_vap_test',
+       ST_Multi(ST_GeomFromText(
+         'POLYGON((106.699 10.769,106.702 10.769,106.702 10.772,106.699 10.772,106.699 10.769))',
+         4326
+       ))
      )`,
   )
 
@@ -169,7 +212,7 @@ async function insertFixtures(db: pg.PoolClient) {
 
   const places = [
     [ids.hospitalPlace, categoryIds.hospital, 'Test Hospital', 106.701, 10.771],
-    [ids.validPlace, categoryIds.apartment, 'Valid Apartment', 106.7, 10.77],
+    [ids.validPlace, categoryIds.apartment, 'Gò Vấp Test Hotel', 106.7, 10.77],
     [ids.expensivePlace, categoryIds.apartment, 'Expensive Apartment', 106.705, 10.775],
     [ids.unknownPlace, categoryIds.apartment, 'Unknown Bedrooms', 106.706, 10.776],
     [ids.slowPlace, categoryIds.apartment, 'Slow Commute Apartment', 106.73, 10.79],

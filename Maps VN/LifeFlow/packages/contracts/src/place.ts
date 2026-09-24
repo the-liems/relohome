@@ -24,6 +24,7 @@ export const PlaceSearchRequestSchema = z
   .object({
     text: z.string().trim().min(1).max(200).optional(),
     categories: z.array(z.string().min(1)).min(1).max(50).optional(),
+    administrative_area_ids: z.array(z.string().min(1)).min(1).max(50).optional(),
     bounding_box: BoundingBoxSchema.optional(),
     center: CoordinateSchema.optional(),
     radius_m: z.number().positive().max(100_000).optional(),

@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "db:migrate": "tsx src/migrate.ts",
     "db:import:places": "tsx src/import-places.ts",
+    "db:import:areas": "tsx src/import-admin-areas.ts",
     "test": "vitest run tests"
   },
   "dependencies": {

@@ -3,7 +3,7 @@
 ## Thời điểm dừng
 
 - Ngày: 2026-09-24
-- Trạng thái: đang triển khai, chưa hoàn thành
+- Trạng thái: hoàn thành ngày 2026-09-24
 - Yêu cầu: thêm hai MCP tool local `resolve_location` và `search_areas`
 - Nguyên tắc: dùng dữ liệu PBF đang sở hữu, không phụ thuộc dịch vụ geocoding công khai
 
@@ -129,17 +129,17 @@ Vì vậy:
 - Nếu người dùng muốn phạm vi quận Gò Vấp cũ, cần dataset ranh giới lịch sử hoặc alias/legacy area riêng.
 - Không được âm thầm coi một phường mới là toàn bộ quận cũ.
 
-## Chưa thực hiện
+## Trạng thái sau khi tiếp tục
 
-- Chưa tạo migration mới.
-- Chưa nhập 8.732 ranh giới vào PostGIS.
-- Chưa thay đổi contract TypeScript.
-- Chưa tạo `AreaService` hoặc `LocationService`.
-- Chưa thêm endpoint API.
-- Chưa đăng ký hai MCP tool.
-- Chưa mở rộng `search_places` với `administrative_area_ids`.
-- Chưa thêm test.
-- Chưa restart API/MCP sau thay đổi vì chưa có thay đổi code.
+- Đã áp dụng migration `005_administrative_area_search.sql`.
+- Đã nhập 8.732 ranh giới OSM, không có bản ghi bị từ chối.
+- Đã giữ nguyên ba boundary `local_boundary`.
+- Đã thêm contract và `LocationService`.
+- Đã thêm endpoint `/v1/areas/search` và `/v1/locations/resolve`.
+- Đã đăng ký `search_areas` và `resolve_location`; MCP hiện có tám tool.
+- Đã mở rộng `search_places` với `administrative_area_ids`.
+- Đã kiểm tra contract, query, API và MCP stdio.
+- Đã tạo backup PostgreSQL trước migration/import.
 
 ## Thiết kế cần triển khai tiếp
 

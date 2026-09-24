@@ -39,6 +39,66 @@ describe('LifeFlow Platform API', () => {
     expect(body.results[0].source.type).toBe('osm')
   })
 
+  it('searches imported administrative areas without Vietnamese accents', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/areas/search',
+      payload: { text: 'go vap', levels: ['6'], limit: 10 },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          area_id: 'osm:relation:38522189',
+          name: 'Phường Gò Vấp',
+          level: '6',
+        }),
+      ]),
+    )
+  })
+
+  it('uses a bounding box to disambiguate an administrative area search', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/areas/search',
+      payload: {
+        text: 'ha noi',
+        levels: ['4'],
+        bounding_box: { west: 105.2, south: 20.5, east: 106.2, north: 21.5 },
+        limit: 10,
+      },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().results[0]).toMatchObject({
+      area_id: 'osm:relation:3807033',
+      name: 'Thành phố Hà Nội',
+      level: '4',
+    })
+  })
+
+  it('resolves local location candidates and reports ambiguity explicitly', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/locations/resolve',
+      payload: { text: 'go vap', limit: 10 },
+    })
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.results.length).toBeGreaterThan(0)
+    expect(body.results.some((item: { entity_type: string }) => item.entity_type === 'administrative_area')).toBe(true)
+    expect(typeof body.ambiguous).toBe('boolean')
+  })
+
+  it('rejects invalid location input at the API boundary', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/locations/resolve',
+      payload: { text: '', radius_m: -1 },
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.json().code).toBe('VALIDATION_ERROR')
+  })
+
   it('returns an empty factual housing set when no production housing source exists', async () => {
     const response = await app.inject({
       method: 'POST',

@@ -4,5 +4,6 @@ coverage/
 **/dist/
 database/backups/*.sql
 database/backups/*.dump
+backups/
 *.log
 .runtime/

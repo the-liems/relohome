@@ -41,6 +41,16 @@ export class PlaceService {
     if (request.categories) {
       conditions.push(`c.slug = ANY(${sql.parameter(request.categories)}::text[])`)
     }
+    if (request.administrative_area_ids) {
+      conditions.push(
+        `EXISTS (
+          SELECT 1
+          FROM geo.administrative_areas area
+          WHERE area.id = ANY(${sql.parameter(request.administrative_area_ids)}::text[])
+            AND ST_Covers(area.geom, p.geom)
+        )`,
+      )
+    }
     if (request.bounding_box) {
       const box = request.bounding_box
       conditions.push(
