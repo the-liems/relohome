@@ -112,6 +112,12 @@ docker-compose.yml   Chạy backend bằng Docker
 README_boilerplate.md  Khung README cho dự án của đội
 ```
 
+## Tổ chức dự án của đội
+
+Xem [đề xuất tổ chức spec, ADR, issue và milestone](docs/project-organization.md)
+để biết nơi lưu từng loại tài liệu, quy ước đặt tên, phân công ownership và quy
+trình theo dõi công việc theo milestone, dựa trên quy ước trong Technical Guidebook.
+
 ## Technical Guidebook
 
 | Chương | Nội dung | Thời gian |
