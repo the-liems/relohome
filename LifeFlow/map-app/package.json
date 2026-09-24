@@ -1,0 +1,36 @@
+{
+  "name": "lifeflow-map-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "prepare:data": "node scripts/prepare-poi.mjs \"D:/Bản đồ VN/Extracts/accommodations.geojson\" public/data/accommodations.geojson",
+    "prepare:worker": "node scripts/copy-maplibre-worker.mjs",
+    "postinstall": "npm run prepare:worker",
+    "predev": "npm run prepare:worker",
+    "predev:lifeflow": "npm run prepare:worker",
+    "prebuild": "npm run prepare:worker",
+    "dev": "vite",
+    "dev:lifeflow": "vite --host 127.0.0.1 --port 5173",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint src tests playwright.config.ts vite.config.ts",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "lucide-react": "^1.47.0",
+    "maplibre-gl": "^6.11.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

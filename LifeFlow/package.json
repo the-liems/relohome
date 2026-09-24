@@ -1,0 +1,26 @@
+{
+  "name": "lifeflow-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/contracts",
+    "packages/housing-query",
+    "platform-api",
+    "mcp-server"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @lifeflow/contracts && npm run build --workspace @lifeflow/housing-query && npm run build --workspace @lifeflow/platform-api && npm run build --workspace @lifeflow/mcp-server",
+    "test": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/housing-query && npm run test --workspace @lifeflow/platform-api && npm run test --workspace @lifeflow/mcp-server",
+    "db:up": "docker compose --env-file .env -f infra/compose.yaml up -d postgis",
+    "db:stop": "docker compose --env-file .env -f infra/compose.yaml stop postgis",
+    "db:migrate": "npm run db:migrate --workspace @lifeflow/platform-api",
+    "db:import:places": "npm run db:import:places --workspace @lifeflow/platform-api",
+    "dev:api": "npm run dev --workspace @lifeflow/platform-api",
+    "dev:mcp": "npm run dev --workspace @lifeflow/mcp-server",
+    "dev:map": "npm run dev:lifeflow --prefix map-app"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
