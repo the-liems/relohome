@@ -7,7 +7,11 @@ $apiPidPath = Join-Path $runtimePath 'platform-api.pid'
 $apiOutLog = Join-Path $runtimePath 'platform-api.out.log'
 $apiErrorLog = Join-Path $runtimePath 'platform-api.error.log'
 $apiHealthUrl = 'http://127.0.0.1:4100/health'
-$containers = @('osrm-hcm', 'osrm-hanoi', 'osrm-danang')
+$containers = @(
+    'lifeflow-osrm-hcm-driving', 'lifeflow-osrm-hanoi-driving', 'lifeflow-osrm-danang-driving',
+    'lifeflow-osrm-hcm-walking', 'lifeflow-osrm-hanoi-walking', 'lifeflow-osrm-danang-walking',
+    'lifeflow-osrm-hcm-motorcycle', 'lifeflow-osrm-hanoi-motorcycle', 'lifeflow-osrm-danang-motorcycle'
+)
 
 function Invoke-Checked {
     param(
@@ -61,7 +65,7 @@ Write-Host '[1/5] Starting isolated LifeFlow PostGIS...' -ForegroundColor Cyan
 Set-Location -LiteralPath $rootPath
 Invoke-Checked docker compose --env-file .env -f infra/compose.yaml up -d --wait postgis
 
-Write-Host '[2/5] Starting the three existing OSRM containers...' -ForegroundColor Cyan
+Write-Host '[2/5] Starting the nine OSRM city/profile containers...' -ForegroundColor Cyan
 foreach ($container in $containers) {
     docker inspect $container *> $null
     if ($LASTEXITCODE -ne 0) {

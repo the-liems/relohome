@@ -44,7 +44,10 @@ export interface RuntimeConfig {
   postgresAppPassword: string
   postgresIngestUser: string
   postgresIngestPassword: string
-  osrmUrls: Record<'hcm' | 'hanoi' | 'danang', string>
+  osrmUrls: Record<
+    'hcm' | 'hanoi' | 'danang',
+    Record<'driving' | 'motorcycle' | 'walking', string>
+  >
   commuteCandidateLimit: number
 }
 
@@ -54,6 +57,10 @@ export function getRuntimeConfig(): RuntimeConfig {
   const appPassword = required('POSTGRES_APP_PASSWORD')
   const ingestUser = required('POSTGRES_INGEST_USER')
   const ingestPassword = required('POSTGRES_INGEST_PASSWORD')
+  const commuteCandidateLimit = Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100)
+  if (!Number.isInteger(commuteCandidateLimit) || commuteCandidateLimit < 1 || commuteCandidateLimit > 1_000) {
+    throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
+  }
 
   return {
     databaseUrl: process.env.DATABASE_URL || databaseUrl(appUser, appPassword),
@@ -66,10 +73,22 @@ export function getRuntimeConfig(): RuntimeConfig {
     postgresIngestUser: ingestUser,
     postgresIngestPassword: ingestPassword,
     osrmUrls: {
-      hcm: process.env.OSRM_HCM_URL || 'http://127.0.0.1:5000',
-      hanoi: process.env.OSRM_HANOI_URL || 'http://127.0.0.1:5001',
-      danang: process.env.OSRM_DANANG_URL || 'http://127.0.0.1:5002',
+      hcm: {
+        driving: process.env.OSRM_HCM_DRIVING_URL || process.env.OSRM_HCM_URL || 'http://127.0.0.1:5000',
+        walking: process.env.OSRM_HCM_WALKING_URL || 'http://127.0.0.1:5010',
+        motorcycle: process.env.OSRM_HCM_MOTORCYCLE_URL || 'http://127.0.0.1:5020',
+      },
+      hanoi: {
+        driving: process.env.OSRM_HANOI_DRIVING_URL || process.env.OSRM_HANOI_URL || 'http://127.0.0.1:5001',
+        walking: process.env.OSRM_HANOI_WALKING_URL || 'http://127.0.0.1:5011',
+        motorcycle: process.env.OSRM_HANOI_MOTORCYCLE_URL || 'http://127.0.0.1:5021',
+      },
+      danang: {
+        driving: process.env.OSRM_DANANG_DRIVING_URL || process.env.OSRM_DANANG_URL || 'http://127.0.0.1:5002',
+        walking: process.env.OSRM_DANANG_WALKING_URL || 'http://127.0.0.1:5012',
+        motorcycle: process.env.OSRM_DANANG_MOTORCYCLE_URL || 'http://127.0.0.1:5022',
+      },
     },
-    commuteCandidateLimit: Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100),
+    commuteCandidateLimit,
   }
 }

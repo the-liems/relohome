@@ -1,14 +1,16 @@
-import { Clock3, Flag, MapPin, RotateCcw, Route, Ruler } from 'lucide-react'
-import type { CityConfig, RoutePoint, RouteResult, RouteStatus } from '../types'
+import { Bike, CarFront, Clock3, Flag, Footprints, MapPin, RotateCcw, Route, Ruler } from 'lucide-react'
+import type { CityConfig, RoutePoint, RouteProfile, RouteResult, RouteStatus } from '../types'
 
 interface RoutePanelProps {
   city: CityConfig
   points: RoutePoint[]
   route: RouteResult | null
+  profile: RouteProfile
   status: RouteStatus
   error: string
   poiCount: number
   onReset: () => void
+  onProfileChange: (profile: RouteProfile) => void
 }
 
 function formatCoordinate([lng, lat]: [number, number]) {
@@ -19,10 +21,12 @@ export function RoutePanel({
   city,
   points,
   route,
+  profile,
   status,
   error,
   poiCount,
   onReset,
+  onProfileChange,
 }: RoutePanelProps) {
   return (
     <aside className="route-panel" aria-label="Thông tin tuyến đường">
@@ -42,6 +46,39 @@ export function RoutePanel({
             <RotateCcw size={17} />
           </button>
         )}
+      </div>
+
+      <div className="route-profile" role="group" aria-label="Phương tiện di chuyển">
+        <button
+          type="button"
+          className={profile === 'driving' ? 'is-active' : ''}
+          title="Ô tô"
+          aria-pressed={profile === 'driving'}
+          onClick={() => onProfileChange('driving')}
+        >
+          <CarFront size={17} aria-hidden="true" />
+          <span>Ô tô</span>
+        </button>
+        <button
+          type="button"
+          className={profile === 'motorcycle' ? 'is-active' : ''}
+          title="Xe máy"
+          aria-pressed={profile === 'motorcycle'}
+          onClick={() => onProfileChange('motorcycle')}
+        >
+          <Bike size={17} aria-hidden="true" />
+          <span>Xe máy</span>
+        </button>
+        <button
+          type="button"
+          className={profile === 'walking' ? 'is-active' : ''}
+          title="Đi bộ"
+          aria-pressed={profile === 'walking'}
+          onClick={() => onProfileChange('walking')}
+        >
+          <Footprints size={17} aria-hidden="true" />
+          <span>Đi bộ</span>
+        </button>
       </div>
 
       <div className="route-points">
@@ -106,7 +143,7 @@ export function RoutePanel({
 
       <div className="route-panel__footer">
         <span>{poiCount.toLocaleString('vi-VN')} POI</span>
-        <span>{new URL(city.osrmBaseUrl).port}</span>
+        <span>{new URL(city.osrmBaseUrls[profile]).port}</span>
       </div>
     </aside>
   )

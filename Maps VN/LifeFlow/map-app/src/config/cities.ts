@@ -13,7 +13,11 @@ export const CITY_CONFIG: Record<CityId, CityConfig> = {
       [106.34, 10.34],
       [107.05, 11.2],
     ],
-    osrmBaseUrl: 'http://127.0.0.1:5000',
+    osrmBaseUrls: {
+      driving: 'http://127.0.0.1:5000',
+      walking: 'http://127.0.0.1:5010',
+      motorcycle: 'http://127.0.0.1:5020',
+    },
   },
   hanoi: {
     id: 'hanoi',
@@ -25,7 +29,11 @@ export const CITY_CONFIG: Record<CityId, CityConfig> = {
       [105.28, 20.55],
       [106.04, 21.4],
     ],
-    osrmBaseUrl: 'http://127.0.0.1:5001',
+    osrmBaseUrls: {
+      driving: 'http://127.0.0.1:5001',
+      walking: 'http://127.0.0.1:5011',
+      motorcycle: 'http://127.0.0.1:5021',
+    },
   },
   danang: {
     id: 'danang',
@@ -37,7 +45,11 @@ export const CITY_CONFIG: Record<CityId, CityConfig> = {
       [107.78, 15.88],
       [108.42, 16.3],
     ],
-    osrmBaseUrl: 'http://127.0.0.1:5002',
+    osrmBaseUrls: {
+      driving: 'http://127.0.0.1:5002',
+      walking: 'http://127.0.0.1:5012',
+      motorcycle: 'http://127.0.0.1:5022',
+    },
   },
 }
 

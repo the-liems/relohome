@@ -1,4 +1,4 @@
-import type { Coordinates, RouteResult } from '../types'
+import type { Coordinates, RouteProfile, RouteResult } from '../types'
 
 interface OsrmPayload {
   code?: string
@@ -15,6 +15,7 @@ interface OsrmPayload {
 
 export async function fetchRoute(
   baseUrl: string,
+  profile: RouteProfile,
   start: Coordinates,
   end: Coordinates,
   signal?: AbortSignal,
@@ -25,7 +26,7 @@ export async function fetchRoute(
     geometries: 'geojson',
     steps: 'true',
   })
-  const url = `${baseUrl}/route/v1/driving/${coordinates}?${params}`
+  const url = `${baseUrl}/route/v1/${profile}/${coordinates}?${params}`
 
   const response = await fetch(url, { signal })
   if (!response.ok) {

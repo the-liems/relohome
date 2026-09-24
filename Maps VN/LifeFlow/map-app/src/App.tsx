@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Navigation2, X } from 'lucide-react'
+import { AlertTriangle, BedDouble, Bus, Dumbbell, GraduationCap, HeartPulse, Landmark, Layers, Navigation2, ShoppingBag, Utensils, X } from 'lucide-react'
 import { CitySwitcher } from './components/CitySwitcher'
 import { MapView } from './components/MapView'
 import { RoutePanel } from './components/RoutePanel'
 import { SearchBar } from './components/SearchBar'
 import { CITY_CONFIG, isWithinBounds } from './config/cities'
+import { POI_GROUPS, type PoiGroup } from './config/poi-groups'
 import { fetchRoute } from './services/osrm'
 import { loadPois } from './services/platform-poi'
 import type {
@@ -13,15 +14,18 @@ import type {
   PoiCollection,
   PoiFeature,
   RoutePoint,
+  RouteProfile,
   RouteResult,
   RouteStatus,
 } from './types'
 
 function App() {
+  const [poiGroup, setPoiGroup] = useState<PoiGroup | 'all'>('all')
   const [cityId, setCityId] = useState<CityId>('hcm')
   const [pois, setPois] = useState<PoiCollection | null>(null)
   const [poiLoading, setPoiLoading] = useState(true)
   const [points, setPoints] = useState<RoutePoint[]>([])
+  const [routeProfile, setRouteProfile] = useState<RouteProfile>('driving')
   const [route, setRoute] = useState<RouteResult | null>(null)
   const [routeStatus, setRouteStatus] = useState<RouteStatus>('idle')
   const [routeError, setRouteError] = useState('')
@@ -60,12 +64,17 @@ function App() {
     [],
   )
 
+  const visiblePois = useMemo(() => {
+    if (!pois || poiGroup === 'all') return pois
+    return { ...pois, features: pois.features.filter((feature) => feature.properties.group === poiGroup) }
+  }, [pois, poiGroup])
+
   const poiCount = useMemo(
     () =>
-      pois?.features.filter((feature) =>
+      visiblePois?.features.filter((feature) =>
         isWithinBounds(feature.geometry.coordinates as Coordinates, city),
       ).length || 0,
-    [city, pois],
+    [city, visiblePois],
   )
 
   const resetRoute = useCallback(() => {
@@ -85,10 +94,17 @@ function App() {
     setPoiLoading(true)
     setPois(null)
     setCityId(nextCity)
+    setPoiGroup('all')
+  }
+
+  const changePoiGroup = (nextGroup: PoiGroup | 'all') => {
+    if (nextGroup === poiGroup) return
+    setFocusRequest(null)
+    setPoiGroup(nextGroup)
   }
 
   const calculateRoute = useCallback(
-    async (start: Coordinates, end: Coordinates) => {
+    async (start: Coordinates, end: Coordinates, profile = routeProfile) => {
       routeRequestRef.current?.abort()
       const controller = new AbortController()
       routeRequestRef.current = controller
@@ -96,7 +112,13 @@ function App() {
       setRouteError('')
 
       try {
-        const result = await fetchRoute(city.osrmBaseUrl, start, end, controller.signal)
+        const result = await fetchRoute(
+          city.osrmBaseUrls[profile],
+          profile,
+          start,
+          end,
+          controller.signal,
+        )
         setRoute(result)
         setRouteStatus('ready')
       } catch (error) {
@@ -110,8 +132,20 @@ function App() {
         )
       }
     },
-    [city.osrmBaseUrl],
+    [city.osrmBaseUrls, routeProfile],
   )
+
+  const changeRouteProfile = (nextProfile: RouteProfile) => {
+    if (nextProfile === routeProfile) return
+    setRouteProfile(nextProfile)
+    setRoute(null)
+    setRouteError('')
+    if (points.length === 2) {
+      void calculateRoute(points[0].coordinate, points[1].coordinate, nextProfile)
+    } else {
+      setRouteStatus(points.length === 1 ? 'selecting-end' : 'idle')
+    }
+  }
 
   const selectMapPoint = useCallback(
     (coordinate: Coordinates) => {
@@ -153,15 +187,54 @@ function App() {
           city={city}
           pois={pois}
           loading={poiLoading}
-          onSelect={(poi) => setFocusRequest({ poi, token: Date.now() })}
+          onSelect={(poi) => {
+            setPoiGroup('all')
+            setFocusRequest({ poi, token: Date.now() })
+          }}
         />
         <CitySwitcher activeCity={cityId} onChange={changeCity} />
       </header>
 
+      <nav className="poi-groups" aria-label="Nhóm địa điểm">
+        <button
+          type="button"
+          className={poiGroup === 'all' ? 'poi-group is-active' : 'poi-group'}
+          aria-pressed={poiGroup === 'all'}
+          onClick={() => changePoiGroup('all')}
+        >
+          <Layers size={16} aria-hidden="true" />
+          <span>Tất cả</span>
+        </button>
+        {(Object.keys(POI_GROUPS) as PoiGroup[]).map((group) => {
+          const Icon = {
+            accommodation: BedDouble,
+            healthcare: HeartPulse,
+            shopping: ShoppingBag,
+            education: GraduationCap,
+            food: Utensils,
+            transport: Bus,
+            utility: Landmark,
+            lifestyle: Dumbbell,
+          }[group]
+          return (
+            <button
+              key={group}
+              type="button"
+              className={group === poiGroup ? 'poi-group is-active' : 'poi-group'}
+              aria-pressed={group === poiGroup}
+              onClick={() => changePoiGroup(group)}
+            >
+              <Icon size={16} aria-hidden="true" />
+              <span>{POI_GROUPS[group].label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
       <main className="workspace">
         <MapView
           city={city}
-          pois={pois}
+          pois={visiblePois}
           points={points}
           route={route}
           focusRequest={focusRequest}
@@ -172,10 +245,12 @@ function App() {
           city={city}
           points={points}
           route={route}
+          profile={routeProfile}
           status={routeStatus}
           error={routeError}
           poiCount={poiCount}
           onReset={resetRoute}
+          onProfileChange={changeRouteProfile}
         />
 
         {notice && (

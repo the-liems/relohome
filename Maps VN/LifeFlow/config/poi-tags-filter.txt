@@ -1,0 +1,9 @@
+nwr/tourism=hotel,guest_house,hostel,motel,apartment,camp_site,chalet,resort,homestay
+nwr/amenity=hospital,clinic,pharmacy,doctors,dentist,marketplace,school,kindergarten,college,university,restaurant,cafe,fast_food,food_court,bus_station,bank,atm,fuel,parking,charging_station
+nwr/healthcare
+nwr/shop
+nwr/public_transport
+nwr/railway=station,halt
+nwr/highway=bus_stop
+nwr/aeroway=aerodrome,terminal
+nwr/leisure=fitness_centre,sports_centre,park,swimming_pool

@@ -33,9 +33,20 @@ const StringOrListSchema = <T extends z.ZodType>(item: T) =>
 
 export const CommuteConstraintSchema = z.object({
   destination: CoordinateSchema,
-  max_duration_seconds: z.number().int().positive().max(86_400),
+  max_duration_seconds: z.number().int().positive().max(86_400).optional(),
+  max_distance_m: z.number().positive().max(100_000).optional(),
+  min_distance_m: z.number().nonnegative().max(100_000).optional(),
+  direction: z.enum(['listing_to_destination', 'destination_to_listing']).default('listing_to_destination'),
   profile: RouteProfileSchema.default('driving'),
   city: z.enum(['hcm', 'hanoi', 'danang']).optional(),
+}).superRefine((commute, context) => {
+  if (commute.max_duration_seconds === undefined && commute.max_distance_m === undefined) {
+    context.addIssue({ code: 'custom', message: 'A commute requires a maximum duration or distance.', path: ['max_distance_m'] })
+  }
+  if (commute.min_distance_m !== undefined &&
+      (commute.max_distance_m === undefined || commute.min_distance_m > commute.max_distance_m)) {
+    context.addIssue({ code: 'custom', message: 'min_distance_m requires max_distance_m and cannot exceed it.', path: ['min_distance_m'] })
+  }
 })
 
 export const HousingSortSchema = z.object({
@@ -192,6 +203,7 @@ export const HousingSearchResponseSchema = z.object({
     coarse_candidate_count: z.number().int().nonnegative(),
     commute_evaluated_count: z.number().int().nonnegative(),
     excluded_unknown_count: z.number().int().nonnegative(),
+    candidate_limit_reached: z.boolean().default(false),
   }),
 })
 

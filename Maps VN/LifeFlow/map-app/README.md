@@ -3,6 +3,9 @@
 Ứng dụng MapLibre cho TP.HCM, Hà Nội và Đà Nẵng. POI được tải từ LifeFlow
 Platform API và PostGIS; ba dịch vụ OSRM cục bộ đảm nhiệm định tuyến. File
 GeoJSON hiện có vẫn được giữ làm phương án dự phòng khi API tạm ngừng.
+Thanh nhóm địa điểm cho chọn Lưu trú, Y tế, Mua sắm, Giáo dục, Ăn uống,
+Giao thông, Tiện ích hoặc Giải trí. Mỗi lần chọn chỉ tải category của nhóm đó
+từ API; fallback GeoJSON chỉ áp dụng cho Lưu trú.
 
 ## Chạy cục bộ
 
@@ -15,7 +18,7 @@ powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\Life
 
 3. Mở `http://127.0.0.1:5173`.
 
-Script tự khởi động PostGIS, ba container OSRM, Platform API và frontend. Nhấn
+Script tự khởi động PostGIS, chín container OSRM, Platform API và frontend. Nhấn
 `Ctrl+C` để dừng frontend, sau đó chạy `Stop-LifeFlow.ps1` ở thư mục cha để
 dừng các dịch vụ còn lại mà không xóa dữ liệu.
 

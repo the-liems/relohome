@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson'
 
 export type CityId = 'hcm' | 'hanoi' | 'danang'
+export type RouteProfile = 'driving' | 'motorcycle' | 'walking'
 export type Coordinates = [number, number]
 export type Bounds = [Coordinates, Coordinates]
 
@@ -11,7 +12,7 @@ export interface CityConfig {
   center: Coordinates
   zoom: number
   bounds: Bounds
-  osrmBaseUrl: string
+  osrmBaseUrls: Record<RouteProfile, string>
 }
 
 export interface PoiProperties {
@@ -22,6 +23,9 @@ export interface PoiProperties {
   address?: string
   phone?: string
   website?: string
+  opening_hours?: string
+  category?: string
+  group?: string
 }
 
 export type PoiFeature = Feature<Point, PoiProperties>

@@ -33,12 +33,15 @@ export class RouteService {
 
   async calculate(input: RouteRequest, signal?: AbortSignal): Promise<RouteResult> {
     const request = RouteRequestSchema.parse(input)
-    const baseUrl = this.osrmUrls[request.city]
+    const baseUrl = this.osrmUrls[request.city][request.profile]
     const path = `${request.origin.lng},${request.origin.lat};${request.destination.lng},${request.destination.lat}`
     const url = new URL(`/route/v1/${request.profile}/${path}`, baseUrl)
     url.searchParams.set('overview', 'full')
     url.searchParams.set('geometries', 'geojson')
     url.searchParams.set('steps', String(request.steps))
+    if (request.snap_radius_m !== undefined) {
+      url.searchParams.set('radiuses', `${request.snap_radius_m};${request.snap_radius_m}`)
+    }
 
     const timeout = AbortSignal.timeout(10_000)
     const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout
@@ -53,16 +56,19 @@ export class RouteService {
       )
     }
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 400) {
       throw new RouteServiceError('OSRM_OFFLINE', `OSRM returned HTTP ${response.status}.`)
     }
 
-    const payload = (await response.json()) as {
+    const payload = (await response.json().catch(() => {
+      throw new RouteServiceError('INVALID_RESPONSE', 'OSRM returned invalid JSON.')
+    })) as {
       code?: string
       message?: string
       routes?: Array<{ distance?: number; duration?: number; geometry?: unknown }>
+      waypoints?: Array<{ distance?: number }>
     }
-    if (payload.code === 'NoRoute') {
+    if (payload.code === 'NoRoute' || payload.code === 'NoSegment') {
       throw new RouteServiceError('NO_ROUTE', payload.message || 'No route was found.')
     }
     const route = payload.routes?.[0]
@@ -70,11 +76,20 @@ export class RouteService {
       throw new RouteServiceError('INVALID_RESPONSE', payload.message || 'OSRM returned an invalid response.')
     }
 
-    return RouteResultSchema.parse({
+    const snapDistances = payload.waypoints?.map((waypoint) => waypoint.distance)
+    if (request.snap_radius_m !== undefined &&
+        (snapDistances?.length !== 2 || snapDistances.some((distance) =>
+          typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0 || distance > request.snap_radius_m!))) {
+      throw new RouteServiceError('INVALID_RESPONSE', 'OSRM returned invalid snapping distances.')
+    }
+    const result = RouteResultSchema.safeParse({
       code: 'Ok',
       distance_meters: route.distance,
       duration_seconds: route.duration,
       geometry: route.geometry,
+      ...(snapDistances ? { snap_distances_meters: snapDistances } : {}),
     })
+    if (!result.success) throw new RouteServiceError('INVALID_RESPONSE', 'OSRM returned invalid route data.')
+    return result.data
   }
 }

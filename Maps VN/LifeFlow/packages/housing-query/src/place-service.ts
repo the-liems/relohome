@@ -1,5 +1,6 @@
 import {
   PlaceSchema,
+  PlaceMapRequestSchema,
   PlaceSearchRequestSchema,
   type Coordinate,
   type NearbyPlaceConstraint,
@@ -9,6 +10,7 @@ import {
 } from '@lifeflow/contracts'
 import type { QueryExecutor } from './database.js'
 import { decodeCursor, encodeCursor } from './cursor.js'
+import { QueryValidationError } from './errors.js'
 
 interface SqlBuilder {
   values: unknown[]
@@ -28,6 +30,43 @@ function createSqlBuilder(): SqlBuilder {
 
 export class PlaceService {
   constructor(private readonly pool: QueryExecutor) {}
+
+  async map(input: unknown) {
+    const { bounding_box: box } = PlaceMapRequestSchema.parse(input)
+    const result = await this.pool.query(
+      `SELECT p.id, p.name, c.slug AS category, COALESCE(c.parent_slug, c.slug) AS poi_group,
+              ST_X(p.geom) AS lng, ST_Y(p.geom) AS lat,
+              p.address, p.phone, p.website, p.opening_hours
+       FROM catalog.places p
+       JOIN catalog.place_categories c ON c.id = p.category_id
+       WHERE p.status = 'active' AND p.deleted_at IS NULL
+         AND ST_Intersects(p.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+       ORDER BY p.id
+       LIMIT 50001`,
+      [box.west, box.south, box.east, box.north],
+    )
+    if (result.rows.length > 50_000) {
+      throw new QueryValidationError('Map area exceeds 50000 places; request a smaller bounding box.')
+    }
+    return {
+      type: 'FeatureCollection',
+      features: result.rows.map((row) => ({
+        type: 'Feature',
+        id: row.id,
+        geometry: { type: 'Point', coordinates: [Number(row.lng), Number(row.lat)] },
+        properties: {
+          ...(row.address as Record<string, unknown> || {}),
+          place_id: row.id,
+          name: row.name,
+          category: row.category,
+          group: row.poi_group,
+          phone: row.phone,
+          website: row.website,
+          opening_hours: row.opening_hours,
+        },
+      })),
+    }
+  }
 
   async search(input: PlaceSearchRequest) {
     const request = PlaceSearchRequestSchema.parse(input)
@@ -84,6 +123,7 @@ export class PlaceService {
          p.address,
          p.phone,
          p.website,
+         p.opening_hours,
          p.verification_status,
          p.verified_at,
          p.verified_by,
@@ -126,6 +166,7 @@ export class PlaceService {
          p.address,
          p.phone,
          p.website,
+         p.opening_hours,
          p.verification_status,
          p.verified_at,
          p.verified_by,
@@ -204,6 +245,7 @@ function rowToPlace(row: Record<string, unknown>): Place {
     address: row.address || {},
     phone: row.phone,
     website: row.website,
+    opening_hours: row.opening_hours ?? null,
     verification: {
       status: row.verification_status,
       verified_at: row.verified_at ? new Date(String(row.verified_at)).toISOString() : null,

@@ -17,6 +17,27 @@ afterAll(async () => {
 })
 
 describe('LifeFlow Platform API', () => {
+  it('serves all eight POI groups in one city map layer', async () => {
+    const response = await app.inject({
+      method: 'POST', url: '/v1/places/map',
+      payload: { bounding_box: { west: 106.34, south: 10.34, east: 107.05, north: 11.2 } },
+    })
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.type).toBe('FeatureCollection')
+    expect(body.features.length).toBeGreaterThan(30_000)
+    expect([...new Set(body.features.map((feature: { properties: { group: string } }) => feature.properties.group))].sort())
+      .toEqual(['accommodation', 'education', 'food', 'healthcare', 'lifestyle', 'shopping', 'transport', 'utility'])
+    expect(new Set(body.features.map((feature: { id: string }) => feature.id)).size).toBe(body.features.length)
+  })
+
+  it('rejects unbounded map requests', async () => {
+    for (const payload of [{}, { bounding_box: { west: 100, south: 5, east: 110, north: 25 } }]) {
+      const response = await app.inject({ method: 'POST', url: '/v1/places/map', payload })
+      expect(response.statusCode).toBe(400)
+    }
+  })
+
   it('reports PostgreSQL/PostGIS health', async () => {
     const response = await app.inject({ method: 'GET', url: '/health' })
     expect(response.statusCode).toBe(200)

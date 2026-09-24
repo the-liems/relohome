@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Building2, Search, X } from 'lucide-react'
+import { MapPin, Search, X } from 'lucide-react'
 import { getPoiAddress, searchPois } from '../services/poi'
 import type { CityConfig, PoiCollection, PoiFeature } from '../types'
 
@@ -16,7 +16,7 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
   const results = useMemo(() => searchPois(pois, city, query), [city, pois, query])
 
   const choosePoi = (poi: PoiFeature) => {
-    const name = typeof poi.properties?.name === 'string' ? poi.properties.name : 'Điểm lưu trú'
+    const name = typeof poi.properties?.name === 'string' ? poi.properties.name : 'Địa điểm'
     setQuery(name)
     setOpen(false)
     onSelect(poi)
@@ -32,7 +32,7 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        placeholder={loading ? 'Đang tải địa điểm…' : `Tìm lưu trú tại ${city.label}`}
+        placeholder={loading ? 'Đang tải địa điểm…' : `Tìm địa điểm tại ${city.label}`}
         aria-label={`Tìm địa điểm tại ${city.label}`}
         disabled={loading}
       />
@@ -56,9 +56,9 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
           {results.length ? (
             results.map((poi, index) => {
               const properties = poi.properties || {}
-              const name = typeof properties.name === 'string' ? properties.name : 'Điểm lưu trú'
+              const name = typeof properties.name === 'string' ? properties.name : 'Địa điểm'
               const address = getPoiAddress(properties)
-              const category = String(properties.tourism || properties.amenity || 'accommodation')
+              const category = String(properties.category || properties.tourism || properties.amenity || 'Địa điểm')
               return (
                 <button
                   type="button"
@@ -66,7 +66,7 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
                   onClick={() => choosePoi(poi)}
                   key={`${poi.id ?? name}-${index}`}
                 >
-                  <Building2 size={17} aria-hidden="true" />
+                  <MapPin size={17} aria-hidden="true" />
                   <span>
                     <strong>{name}</strong>
                     <small>{address || category}</small>

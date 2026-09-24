@@ -4,6 +4,7 @@ import {
   HousingSearchRequestSchema,
   NearbyPlaceConstraintSchema,
   PlaceSearchRequestSchema,
+  PlaceMapRequestSchema,
   ResolveLocationRequestSchema,
   RouteRequestSchema,
   SearchAreasRequestSchema,
@@ -57,6 +58,10 @@ export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
 
   app.post('/v1/places/search', async (request) => {
     return placeService.search(PlaceSearchRequestSchema.parse(request.body))
+  })
+
+  app.post('/v1/places/map', async (request) => {
+    return placeService.map(PlaceMapRequestSchema.parse(request.body))
   })
 
   app.post('/v1/areas/search', async (request) => {

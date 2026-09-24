@@ -7,6 +7,13 @@ import {
   VerificationSchema,
 } from './common.js'
 
+export const PlaceMapRequestSchema = z.object({
+  bounding_box: BoundingBoxSchema.refine(
+    (box) => box.east - box.west <= 2 && box.north - box.south <= 2,
+    'Map requests must cover at most 2 degrees per axis.',
+  ),
+})
+
 export const PlaceSchema = z.object({
   place_id: z.uuid(),
   name: z.string().min(1).nullable(),
@@ -15,6 +22,7 @@ export const PlaceSchema = z.object({
   address: z.record(z.string(), z.unknown()).default({}),
   phone: z.string().nullable(),
   website: z.string().trim().min(1).nullable(),
+  opening_hours: z.string().trim().min(1).nullable(),
   verification: VerificationSchema,
   source: SourceSchema,
   attributes: z.record(z.string(), z.unknown()).default({}),

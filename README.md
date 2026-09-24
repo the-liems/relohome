@@ -1,5 +1,11 @@
 # AI20K Agent Template
 
+## Module bản đồ LifeFlow
+
+Toàn bộ dữ liệu, routing, PostGIS, Platform API, MCP server và giao diện bản đồ
+của LifeFlow được gom trong [`Maps VN`](Maps%20VN). Hướng dẫn chạy chi tiết nằm
+tại [`Maps VN/LifeFlow/README.md`](Maps%20VN/LifeFlow/README.md).
+
 Template chính thức cho học viên VinUni AI20K Build Phase: cấu trúc dự án, code
 mẫu và hướng dẫn kỹ thuật để xây dựng một AI Agent hoàn chỉnh — từ kiến trúc,
 code, test cho đến deploy và nộp bài Demo Day.

@@ -1,0 +1,1323 @@
+{
+  "generated_at": "2026-09-24T15:53:09.652Z",
+  "city_scope": "Map city bounding boxes, not administrative boundaries",
+  "latest_import": {
+    "id": "9f26ec18-5549-4e35-ae57-74279197aeb4",
+    "source_path": "D:/Demo AI thực chiến/Maps VN/Raw/vietnam-260922.osm.pbf",
+    "source_checksum": "3b03e0de5add781bb3b68c71fbf651d432c88c534cda600bee50c95a3ab5627a",
+    "source_version": "vietnam-260922",
+    "status": "completed",
+    "started_at": "2026-09-24T15:50:50.039Z",
+    "completed_at": "2026-09-24T15:51:05.793Z",
+    "input_count": 156276,
+    "staged_count": 156276,
+    "accepted_count": 152206,
+    "rejected_count": 4070,
+    "duplicate_count": 0,
+    "published_count": 0,
+    "unchanged_count": 152206,
+    "diagnostics": {
+      "extract_path": "D:/Demo AI thực chiến/Maps VN/Extracts/POI/vietnam-260922/vietnam-pois-v2.geojsonseq",
+      "accounting_valid": true,
+      "extract_checksum": "cdebbb5fc83bf53b22f83913854bb9f175f90fa71d4fded4173df655df8842ae"
+    }
+  },
+  "staging": [
+    {
+      "validation_status": "accepted",
+      "publish_action": "updated",
+      "total": 152206
+    },
+    {
+      "validation_status": "rejected",
+      "publish_action": "rejected",
+      "total": 4070
+    }
+  ],
+  "canonical": {
+    "canonical_total": 152044,
+    "active_total": 152044
+  },
+  "coverage": [
+    {
+      "city": "danang",
+      "category": "accommodation",
+      "total": 6,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "airport",
+      "total": 4,
+      "with_name": 4,
+      "with_address": 2,
+      "with_phone": 2,
+      "with_website": 2,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "airport_terminal",
+      "total": 6,
+      "with_name": 6,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 2,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "apartment",
+      "total": 99,
+      "with_name": 92,
+      "with_address": 27,
+      "with_phone": 7,
+      "with_website": 3,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "atm",
+      "total": 358,
+      "with_name": 27,
+      "with_address": 17,
+      "with_phone": 1,
+      "with_website": 1,
+      "with_opening_hours": 18
+    },
+    {
+      "city": "danang",
+      "category": "bank",
+      "total": 114,
+      "with_name": 108,
+      "with_address": 68,
+      "with_phone": 6,
+      "with_website": 7,
+      "with_opening_hours": 8
+    },
+    {
+      "city": "danang",
+      "category": "bus_station",
+      "total": 23,
+      "with_name": 22,
+      "with_address": 6,
+      "with_phone": 3,
+      "with_website": 4,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "danang",
+      "category": "bus_stop",
+      "total": 813,
+      "with_name": 784,
+      "with_address": 1,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "cafe",
+      "total": 1192,
+      "with_name": 1049,
+      "with_address": 267,
+      "with_phone": 82,
+      "with_website": 47,
+      "with_opening_hours": 149
+    },
+    {
+      "city": "danang",
+      "category": "camp_site",
+      "total": 11,
+      "with_name": 3,
+      "with_address": 2,
+      "with_phone": 1,
+      "with_website": 1,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "chalet",
+      "total": 2,
+      "with_name": 1,
+      "with_address": 1,
+      "with_phone": 1,
+      "with_website": 1,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "clinic",
+      "total": 5,
+      "with_name": 5,
+      "with_address": 4,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "danang",
+      "category": "college",
+      "total": 28,
+      "with_name": 28,
+      "with_address": 10,
+      "with_phone": 2,
+      "with_website": 4,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "convenience_store",
+      "total": 465,
+      "with_name": 393,
+      "with_address": 247,
+      "with_phone": 98,
+      "with_website": 23,
+      "with_opening_hours": 47
+    },
+    {
+      "city": "danang",
+      "category": "dentist",
+      "total": 13,
+      "with_name": 9,
+      "with_address": 5,
+      "with_phone": 0,
+      "with_website": 1,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "danang",
+      "category": "doctor",
+      "total": 6,
+      "with_name": 3,
+      "with_address": 2,
+      "with_phone": 1,
+      "with_website": 0,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "ev_charging",
+      "total": 5,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "fast_food",
+      "total": 115,
+      "with_name": 89,
+      "with_address": 18,
+      "with_phone": 5,
+      "with_website": 4,
+      "with_opening_hours": 12
+    },
+    {
+      "city": "danang",
+      "category": "food_court",
+      "total": 4,
+      "with_name": 1,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "fuel",
+      "total": 202,
+      "with_name": 115,
+      "with_address": 147,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 11
+    },
+    {
+      "city": "danang",
+      "category": "guest_house",
+      "total": 132,
+      "with_name": 104,
+      "with_address": 48,
+      "with_phone": 27,
+      "with_website": 7,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "danang",
+      "category": "gym",
+      "total": 33,
+      "with_name": 24,
+      "with_address": 11,
+      "with_phone": 6,
+      "with_website": 5,
+      "with_opening_hours": 11
+    },
+    {
+      "city": "danang",
+      "category": "hospital",
+      "total": 78,
+      "with_name": 77,
+      "with_address": 40,
+      "with_phone": 1,
+      "with_website": 4,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "hostel",
+      "total": 114,
+      "with_name": 89,
+      "with_address": 73,
+      "with_phone": 49,
+      "with_website": 8,
+      "with_opening_hours": 13
+    },
+    {
+      "city": "danang",
+      "category": "hotel",
+      "total": 821,
+      "with_name": 735,
+      "with_address": 340,
+      "with_phone": 122,
+      "with_website": 162,
+      "with_opening_hours": 23
+    },
+    {
+      "city": "danang",
+      "category": "kindergarten",
+      "total": 55,
+      "with_name": 51,
+      "with_address": 10,
+      "with_phone": 0,
+      "with_website": 1,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "marketplace",
+      "total": 111,
+      "with_name": 102,
+      "with_address": 52,
+      "with_phone": 2,
+      "with_website": 0,
+      "with_opening_hours": 7
+    },
+    {
+      "city": "danang",
+      "category": "motel",
+      "total": 35,
+      "with_name": 21,
+      "with_address": 13,
+      "with_phone": 6,
+      "with_website": 0,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "danang",
+      "category": "other_healthcare",
+      "total": 1,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "park",
+      "total": 350,
+      "with_name": 62,
+      "with_address": 9,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 6
+    },
+    {
+      "city": "danang",
+      "category": "parking",
+      "total": 205,
+      "with_name": 4,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "pharmacy",
+      "total": 95,
+      "with_name": 52,
+      "with_address": 19,
+      "with_phone": 10,
+      "with_website": 5,
+      "with_opening_hours": 12
+    },
+    {
+      "city": "danang",
+      "category": "public_transport_other",
+      "total": 27,
+      "with_name": 17,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "rail_station",
+      "total": 11,
+      "with_name": 11,
+      "with_address": 2,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "danang",
+      "category": "restaurant",
+      "total": 1136,
+      "with_name": 856,
+      "with_address": 365,
+      "with_phone": 173,
+      "with_website": 85,
+      "with_opening_hours": 220
+    },
+    {
+      "city": "danang",
+      "category": "school",
+      "total": 401,
+      "with_name": 361,
+      "with_address": 190,
+      "with_phone": 20,
+      "with_website": 27,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "shop_other",
+      "total": 929,
+      "with_name": 655,
+      "with_address": 277,
+      "with_phone": 129,
+      "with_website": 96,
+      "with_opening_hours": 132
+    },
+    {
+      "city": "danang",
+      "category": "shopping_mall",
+      "total": 20,
+      "with_name": 18,
+      "with_address": 12,
+      "with_phone": 2,
+      "with_website": 8,
+      "with_opening_hours": 10
+    },
+    {
+      "city": "danang",
+      "category": "sports_centre",
+      "total": 23,
+      "with_name": 18,
+      "with_address": 4,
+      "with_phone": 2,
+      "with_website": 3,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "danang",
+      "category": "supermarket",
+      "total": 61,
+      "with_name": 57,
+      "with_address": 22,
+      "with_phone": 10,
+      "with_website": 1,
+      "with_opening_hours": 17
+    },
+    {
+      "city": "danang",
+      "category": "swimming_pool",
+      "total": 253,
+      "with_name": 9,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "danang",
+      "category": "university",
+      "total": 52,
+      "with_name": 52,
+      "with_address": 33,
+      "with_phone": 12,
+      "with_website": 20,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "accommodation",
+      "total": 11,
+      "with_name": 1,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "airport",
+      "total": 5,
+      "with_name": 5,
+      "with_address": 1,
+      "with_phone": 0,
+      "with_website": 1,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "airport_terminal",
+      "total": 8,
+      "with_name": 8,
+      "with_address": 2,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "apartment",
+      "total": 73,
+      "with_name": 48,
+      "with_address": 48,
+      "with_phone": 15,
+      "with_website": 11,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "hanoi",
+      "category": "atm",
+      "total": 1453,
+      "with_name": 647,
+      "with_address": 349,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 26
+    },
+    {
+      "city": "hanoi",
+      "category": "bank",
+      "total": 688,
+      "with_name": 666,
+      "with_address": 443,
+      "with_phone": 24,
+      "with_website": 27,
+      "with_opening_hours": 40
+    },
+    {
+      "city": "hanoi",
+      "category": "bus_station",
+      "total": 48,
+      "with_name": 43,
+      "with_address": 16,
+      "with_phone": 8,
+      "with_website": 8,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hanoi",
+      "category": "bus_stop",
+      "total": 5200,
+      "with_name": 5111,
+      "with_address": 11,
+      "with_phone": 1,
+      "with_website": 1,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "cafe",
+      "total": 1664,
+      "with_name": 1345,
+      "with_address": 885,
+      "with_phone": 199,
+      "with_website": 106,
+      "with_opening_hours": 271
+    },
+    {
+      "city": "hanoi",
+      "category": "camp_site",
+      "total": 37,
+      "with_name": 27,
+      "with_address": 2,
+      "with_phone": 13,
+      "with_website": 12,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hanoi",
+      "category": "chalet",
+      "total": 8,
+      "with_name": 7,
+      "with_address": 5,
+      "with_phone": 5,
+      "with_website": 1,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hanoi",
+      "category": "clinic",
+      "total": 315,
+      "with_name": 289,
+      "with_address": 117,
+      "with_phone": 17,
+      "with_website": 14,
+      "with_opening_hours": 16
+    },
+    {
+      "city": "hanoi",
+      "category": "college",
+      "total": 245,
+      "with_name": 243,
+      "with_address": 113,
+      "with_phone": 8,
+      "with_website": 30,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "convenience_store",
+      "total": 1278,
+      "with_name": 1196,
+      "with_address": 1017,
+      "with_phone": 144,
+      "with_website": 116,
+      "with_opening_hours": 87
+    },
+    {
+      "city": "hanoi",
+      "category": "dentist",
+      "total": 67,
+      "with_name": 44,
+      "with_address": 45,
+      "with_phone": 11,
+      "with_website": 8,
+      "with_opening_hours": 8
+    },
+    {
+      "city": "hanoi",
+      "category": "doctor",
+      "total": 26,
+      "with_name": 17,
+      "with_address": 12,
+      "with_phone": 2,
+      "with_website": 1,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "hanoi",
+      "category": "ev_charging",
+      "total": 344,
+      "with_name": 250,
+      "with_address": 3,
+      "with_phone": 0,
+      "with_website": 2,
+      "with_opening_hours": 27
+    },
+    {
+      "city": "hanoi",
+      "category": "fast_food",
+      "total": 430,
+      "with_name": 340,
+      "with_address": 162,
+      "with_phone": 46,
+      "with_website": 23,
+      "with_opening_hours": 54
+    },
+    {
+      "city": "hanoi",
+      "category": "food_court",
+      "total": 16,
+      "with_name": 15,
+      "with_address": 5,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hanoi",
+      "category": "fuel",
+      "total": 636,
+      "with_name": 459,
+      "with_address": 152,
+      "with_phone": 6,
+      "with_website": 0,
+      "with_opening_hours": 14
+    },
+    {
+      "city": "hanoi",
+      "category": "guest_house",
+      "total": 110,
+      "with_name": 78,
+      "with_address": 60,
+      "with_phone": 8,
+      "with_website": 3,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "hanoi",
+      "category": "gym",
+      "total": 63,
+      "with_name": 39,
+      "with_address": 19,
+      "with_phone": 9,
+      "with_website": 4,
+      "with_opening_hours": 4
+    },
+    {
+      "city": "hanoi",
+      "category": "hospital",
+      "total": 498,
+      "with_name": 482,
+      "with_address": 340,
+      "with_phone": 43,
+      "with_website": 79,
+      "with_opening_hours": 13
+    },
+    {
+      "city": "hanoi",
+      "category": "hostel",
+      "total": 212,
+      "with_name": 146,
+      "with_address": 116,
+      "with_phone": 37,
+      "with_website": 25,
+      "with_opening_hours": 16
+    },
+    {
+      "city": "hanoi",
+      "category": "hotel",
+      "total": 822,
+      "with_name": 718,
+      "with_address": 550,
+      "with_phone": 179,
+      "with_website": 174,
+      "with_opening_hours": 26
+    },
+    {
+      "city": "hanoi",
+      "category": "kindergarten",
+      "total": 1410,
+      "with_name": 1350,
+      "with_address": 491,
+      "with_phone": 34,
+      "with_website": 39,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "hanoi",
+      "category": "marketplace",
+      "total": 405,
+      "with_name": 333,
+      "with_address": 81,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 23
+    },
+    {
+      "city": "hanoi",
+      "category": "motel",
+      "total": 90,
+      "with_name": 24,
+      "with_address": 18,
+      "with_phone": 8,
+      "with_website": 1,
+      "with_opening_hours": 8
+    },
+    {
+      "city": "hanoi",
+      "category": "other_healthcare",
+      "total": 99,
+      "with_name": 24,
+      "with_address": 13,
+      "with_phone": 1,
+      "with_website": 3,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "park",
+      "total": 1517,
+      "with_name": 526,
+      "with_address": 72,
+      "with_phone": 5,
+      "with_website": 0,
+      "with_opening_hours": 37
+    },
+    {
+      "city": "hanoi",
+      "category": "parking",
+      "total": 1369,
+      "with_name": 119,
+      "with_address": 30,
+      "with_phone": 1,
+      "with_website": 0,
+      "with_opening_hours": 3
+    },
+    {
+      "city": "hanoi",
+      "category": "parking_entrance",
+      "total": 1,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "pharmacy",
+      "total": 298,
+      "with_name": 148,
+      "with_address": 156,
+      "with_phone": 26,
+      "with_website": 16,
+      "with_opening_hours": 38
+    },
+    {
+      "city": "hanoi",
+      "category": "public_transport_other",
+      "total": 281,
+      "with_name": 146,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hanoi",
+      "category": "rail_station",
+      "total": 73,
+      "with_name": 73,
+      "with_address": 12,
+      "with_phone": 1,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hanoi",
+      "category": "restaurant",
+      "total": 2285,
+      "with_name": 1804,
+      "with_address": 1113,
+      "with_phone": 418,
+      "with_website": 195,
+      "with_opening_hours": 392
+    },
+    {
+      "city": "hanoi",
+      "category": "school",
+      "total": 3571,
+      "with_name": 3406,
+      "with_address": 1162,
+      "with_phone": 86,
+      "with_website": 393,
+      "with_opening_hours": 6
+    },
+    {
+      "city": "hanoi",
+      "category": "shop_other",
+      "total": 4944,
+      "with_name": 3643,
+      "with_address": 2202,
+      "with_phone": 681,
+      "with_website": 482,
+      "with_opening_hours": 517
+    },
+    {
+      "city": "hanoi",
+      "category": "shopping_mall",
+      "total": 101,
+      "with_name": 91,
+      "with_address": 50,
+      "with_phone": 20,
+      "with_website": 20,
+      "with_opening_hours": 33
+    },
+    {
+      "city": "hanoi",
+      "category": "sports_centre",
+      "total": 260,
+      "with_name": 184,
+      "with_address": 69,
+      "with_phone": 7,
+      "with_website": 10,
+      "with_opening_hours": 10
+    },
+    {
+      "city": "hanoi",
+      "category": "supermarket",
+      "total": 305,
+      "with_name": 268,
+      "with_address": 167,
+      "with_phone": 53,
+      "with_website": 36,
+      "with_opening_hours": 64
+    },
+    {
+      "city": "hanoi",
+      "category": "swimming_pool",
+      "total": 488,
+      "with_name": 89,
+      "with_address": 8,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 5
+    },
+    {
+      "city": "hanoi",
+      "category": "university",
+      "total": 268,
+      "with_name": 266,
+      "with_address": 192,
+      "with_phone": 42,
+      "with_website": 110,
+      "with_opening_hours": 6
+    },
+    {
+      "city": "hcm",
+      "category": "accommodation",
+      "total": 12,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "airport",
+      "total": 6,
+      "with_name": 6,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "airport_terminal",
+      "total": 12,
+      "with_name": 8,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "apartment",
+      "total": 104,
+      "with_name": 75,
+      "with_address": 74,
+      "with_phone": 9,
+      "with_website": 6,
+      "with_opening_hours": 7
+    },
+    {
+      "city": "hcm",
+      "category": "atm",
+      "total": 661,
+      "with_name": 299,
+      "with_address": 39,
+      "with_phone": 5,
+      "with_website": 6,
+      "with_opening_hours": 213
+    },
+    {
+      "city": "hcm",
+      "category": "bank",
+      "total": 993,
+      "with_name": 898,
+      "with_address": 450,
+      "with_phone": 18,
+      "with_website": 5,
+      "with_opening_hours": 51
+    },
+    {
+      "city": "hcm",
+      "category": "bus_station",
+      "total": 129,
+      "with_name": 117,
+      "with_address": 16,
+      "with_phone": 4,
+      "with_website": 1,
+      "with_opening_hours": 1
+    },
+    {
+      "city": "hcm",
+      "category": "bus_stop",
+      "total": 6245,
+      "with_name": 6171,
+      "with_address": 50,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "cafe",
+      "total": 2188,
+      "with_name": 1816,
+      "with_address": 991,
+      "with_phone": 206,
+      "with_website": 126,
+      "with_opening_hours": 298
+    },
+    {
+      "city": "hcm",
+      "category": "camp_site",
+      "total": 5,
+      "with_name": 3,
+      "with_address": 1,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "chalet",
+      "total": 6,
+      "with_name": 4,
+      "with_address": 4,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "clinic",
+      "total": 386,
+      "with_name": 343,
+      "with_address": 238,
+      "with_phone": 10,
+      "with_website": 7,
+      "with_opening_hours": 17
+    },
+    {
+      "city": "hcm",
+      "category": "college",
+      "total": 199,
+      "with_name": 194,
+      "with_address": 94,
+      "with_phone": 4,
+      "with_website": 15,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "hcm",
+      "category": "convenience_store",
+      "total": 1634,
+      "with_name": 1506,
+      "with_address": 633,
+      "with_phone": 152,
+      "with_website": 144,
+      "with_opening_hours": 121
+    },
+    {
+      "city": "hcm",
+      "category": "dentist",
+      "total": 98,
+      "with_name": 65,
+      "with_address": 56,
+      "with_phone": 11,
+      "with_website": 6,
+      "with_opening_hours": 14
+    },
+    {
+      "city": "hcm",
+      "category": "doctor",
+      "total": 53,
+      "with_name": 38,
+      "with_address": 21,
+      "with_phone": 10,
+      "with_website": 7,
+      "with_opening_hours": 12
+    },
+    {
+      "city": "hcm",
+      "category": "ev_charging",
+      "total": 30,
+      "with_name": 11,
+      "with_address": 6,
+      "with_phone": 0,
+      "with_website": 1,
+      "with_opening_hours": 3
+    },
+    {
+      "city": "hcm",
+      "category": "fast_food",
+      "total": 405,
+      "with_name": 348,
+      "with_address": 145,
+      "with_phone": 25,
+      "with_website": 22,
+      "with_opening_hours": 65
+    },
+    {
+      "city": "hcm",
+      "category": "food_court",
+      "total": 119,
+      "with_name": 108,
+      "with_address": 34,
+      "with_phone": 6,
+      "with_website": 1,
+      "with_opening_hours": 8
+    },
+    {
+      "city": "hcm",
+      "category": "fuel",
+      "total": 944,
+      "with_name": 531,
+      "with_address": 322,
+      "with_phone": 5,
+      "with_website": 0,
+      "with_opening_hours": 46
+    },
+    {
+      "city": "hcm",
+      "category": "guest_house",
+      "total": 94,
+      "with_name": 62,
+      "with_address": 34,
+      "with_phone": 9,
+      "with_website": 4,
+      "with_opening_hours": 4
+    },
+    {
+      "city": "hcm",
+      "category": "gym",
+      "total": 94,
+      "with_name": 74,
+      "with_address": 46,
+      "with_phone": 15,
+      "with_website": 10,
+      "with_opening_hours": 16
+    },
+    {
+      "city": "hcm",
+      "category": "hospital",
+      "total": 412,
+      "with_name": 396,
+      "with_address": 218,
+      "with_phone": 27,
+      "with_website": 32,
+      "with_opening_hours": 27
+    },
+    {
+      "city": "hcm",
+      "category": "hostel",
+      "total": 190,
+      "with_name": 133,
+      "with_address": 102,
+      "with_phone": 40,
+      "with_website": 11,
+      "with_opening_hours": 28
+    },
+    {
+      "city": "hcm",
+      "category": "hotel",
+      "total": 936,
+      "with_name": 825,
+      "with_address": 484,
+      "with_phone": 148,
+      "with_website": 109,
+      "with_opening_hours": 44
+    },
+    {
+      "city": "hcm",
+      "category": "kindergarten",
+      "total": 593,
+      "with_name": 559,
+      "with_address": 235,
+      "with_phone": 16,
+      "with_website": 6,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "hcm",
+      "category": "marketplace",
+      "total": 577,
+      "with_name": 535,
+      "with_address": 149,
+      "with_phone": 2,
+      "with_website": 5,
+      "with_opening_hours": 36
+    },
+    {
+      "city": "hcm",
+      "category": "motel",
+      "total": 24,
+      "with_name": 17,
+      "with_address": 10,
+      "with_phone": 3,
+      "with_website": 1,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "hcm",
+      "category": "other_healthcare",
+      "total": 39,
+      "with_name": 35,
+      "with_address": 16,
+      "with_phone": 1,
+      "with_website": 1,
+      "with_opening_hours": 2
+    },
+    {
+      "city": "hcm",
+      "category": "park",
+      "total": 2146,
+      "with_name": 516,
+      "with_address": 202,
+      "with_phone": 0,
+      "with_website": 9,
+      "with_opening_hours": 42
+    },
+    {
+      "city": "hcm",
+      "category": "parking",
+      "total": 905,
+      "with_name": 63,
+      "with_address": 24,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 4
+    },
+    {
+      "city": "hcm",
+      "category": "parking_entrance",
+      "total": 1,
+      "with_name": 0,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "pharmacy",
+      "total": 490,
+      "with_name": 288,
+      "with_address": 290,
+      "with_phone": 9,
+      "with_website": 5,
+      "with_opening_hours": 18
+    },
+    {
+      "city": "hcm",
+      "category": "public_transport_other",
+      "total": 399,
+      "with_name": 312,
+      "with_address": 6,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "rail_station",
+      "total": 32,
+      "with_name": 32,
+      "with_address": 0,
+      "with_phone": 0,
+      "with_website": 0,
+      "with_opening_hours": 0
+    },
+    {
+      "city": "hcm",
+      "category": "restaurant",
+      "total": 3024,
+      "with_name": 2594,
+      "with_address": 1481,
+      "with_phone": 450,
+      "with_website": 218,
+      "with_opening_hours": 499
+    },
+    {
+      "city": "hcm",
+      "category": "school",
+      "total": 2991,
+      "with_name": 2918,
+      "with_address": 1466,
+      "with_phone": 126,
+      "with_website": 257,
+      "with_opening_hours": 26
+    },
+    {
+      "city": "hcm",
+      "category": "shop_other",
+      "total": 5280,
+      "with_name": 4136,
+      "with_address": 2893,
+      "with_phone": 573,
+      "with_website": 418,
+      "with_opening_hours": 569
+    },
+    {
+      "city": "hcm",
+      "category": "shopping_mall",
+      "total": 99,
+      "with_name": 84,
+      "with_address": 42,
+      "with_phone": 2,
+      "with_website": 2,
+      "with_opening_hours": 18
+    },
+    {
+      "city": "hcm",
+      "category": "sports_centre",
+      "total": 182,
+      "with_name": 144,
+      "with_address": 39,
+      "with_phone": 2,
+      "with_website": 4,
+      "with_opening_hours": 7
+    },
+    {
+      "city": "hcm",
+      "category": "supermarket",
+      "total": 423,
+      "with_name": 331,
+      "with_address": 228,
+      "with_phone": 49,
+      "with_website": 34,
+      "with_opening_hours": 98
+    },
+    {
+      "city": "hcm",
+      "category": "swimming_pool",
+      "total": 872,
+      "with_name": 105,
+      "with_address": 14,
+      "with_phone": 0,
+      "with_website": 2,
+      "with_opening_hours": 13
+    },
+    {
+      "city": "hcm",
+      "category": "university",
+      "total": 290,
+      "with_name": 286,
+      "with_address": 159,
+      "with_phone": 11,
+      "with_website": 45,
+      "with_opening_hours": 6
+    }
+  ]
+}

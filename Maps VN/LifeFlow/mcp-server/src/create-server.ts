@@ -150,7 +150,7 @@ export function createLifeFlowMcpServer(dependencies: Dependencies) {
     'calculate_route',
     {
       title: 'Calculate route',
-      description: 'Calculate a factual OSRM driving route, distance and duration.',
+      description: 'Calculate a factual OSRM driving, motorcycle or walking route, distance and duration.',
       inputSchema: RouteRequestSchema,
       outputSchema: RouteResultSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },

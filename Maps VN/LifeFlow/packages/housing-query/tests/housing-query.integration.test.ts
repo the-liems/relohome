@@ -7,7 +7,7 @@ import {
   RouteService,
   type QueryExecutor,
 } from '../src/index.js'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type pg from 'pg'
 
 const ids = {
@@ -36,6 +36,8 @@ let service: HousingQueryService
 let locationService: LocationService
 let placeService: PlaceService
 
+afterEach(() => vi.unstubAllGlobals())
+
 beforeAll(async () => {
   const config = getRuntimeConfig()
   pool = createDatabasePool(config.ingestDatabaseUrl, 1)
@@ -59,6 +61,89 @@ afterAll(async () => {
 })
 
 describe('HousingQueryService hard constraints', () => {
+  it('coarse-filters in PostGIS then checks the 1-2 km road-distance interval', async () => {
+    const fetchMock = vi.fn(async (input: URL | RequestInfo) => {
+      const url = String(input)
+      const distance = url.includes('106.705,10.775;') ? 2_500 : url.includes('106.706,10.776;') ? 800 : 1_800
+      return routeResponse(distance)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await service.search({
+      commute: { destination: { lng: 106.701, lat: 10.771 }, min_distance_m: 1_000, max_distance_m: 2_000 },
+    })
+    expect(result.results.map((item) => item.listing_id)).toEqual([ids.validListing])
+    expect(result.results[0]?.commute?.distance_meters).toBe(1_800)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('106.73,10.79'))).toBe(true)
+    expect(new URL(String(fetchMock.mock.calls[0]![0])).searchParams.get('radiuses')).toBe('100;100')
+  })
+
+  it('keeps candidates just outside the raw radius when road snapping can bring them inside', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => routeResponse(1_990)))
+    const result = await service.search({
+      min_bedrooms: 2,
+      max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
+      commute: { destination: { lng: 106.719, lat: 10.77 }, max_distance_m: 2_000 },
+    })
+    expect(result.results.some((item) => item.listing_id === ids.validListing)).toBe(true)
+  })
+
+  it('evaluates the requested direction instead of treating roads as symmetric', async () => {
+    const fetchMock = vi.fn(async (input: URL | RequestInfo) =>
+      routeResponse(new URL(String(input)).pathname.includes('/106.701,10.771;') ? 2_500 : 1_800))
+    vi.stubGlobal('fetch', fetchMock)
+    const query = {
+      min_bedrooms: 2,
+      max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
+      commute: { destination: { lng: 106.701, lat: 10.771 }, max_distance_m: 2_000 },
+    }
+    expect((await service.search(query)).results.map((item) => item.listing_id)).toEqual([ids.validListing])
+    expect((await service.search({ ...query, commute: { ...query.commute, direction: 'destination_to_listing' } })).results).toEqual([])
+  })
+
+  it('continues beyond a full candidate budget even when the first page has no matches', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: URL | RequestInfo) => routeResponse(1_800, String(input).includes('106.73') ? 2_400 : 600)))
+    const boundedService = new HousingQueryService(client as unknown as QueryExecutor, new RouteService(getRuntimeConfig().osrmUrls), { commuteCandidateLimit: 1 })
+    const query = {
+      min_bedrooms: 2,
+      max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
+      commute: { destination: { lng: 106.72, lat: 10.79 }, max_duration_seconds: 1_200 },
+      pagination: { limit: 5, cursor: null as string | null },
+    }
+    const first = await boundedService.search(query)
+    expect(first.results).toEqual([])
+    expect(first.diagnostics.candidate_limit_reached).toBe(true)
+    expect(first.page.next_cursor).not.toBeNull()
+    const second = await boundedService.search({ ...query, pagination: { ...query.pagination, cursor: first.page.next_cursor } })
+    expect(second.results.map((item) => item.listing_id)).toEqual([ids.validListing])
+    expect(second.page.next_cursor).toBeNull()
+  })
+
+  it('paginates filtered matches without skipping candidates evaluated in the same batch', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => routeResponse(1_800)))
+    const query = {
+      commute: { destination: { lng: 106.701, lat: 10.771 }, max_distance_m: 2_000 },
+      pagination: { limit: 1, cursor: null as string | null },
+    }
+    const seen: string[] = []
+    do {
+      const result = await service.search(query)
+      seen.push(...result.results.map((item) => item.listing_id))
+      query.pagination.cursor = result.page.next_cursor
+    } while (query.pagination.cursor)
+    expect(seen).toEqual([ids.unknownListing, ids.validListing, ids.expensiveListing])
+  })
+
+  it('excludes unroutable candidates but surfaces an OSRM outage', async () => {
+    const query = { commute: { destination: { lng: 106.701, lat: 10.771 }, max_distance_m: 2_000 } }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: 'NoRoute' }), { status: 400 })))
+    const result = await service.search(query)
+    expect(result.results).toEqual([])
+    expect(result.diagnostics.excluded_unknown_count).toBe(3)
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    await expect(service.search(query)).rejects.toMatchObject({ code: 'OSRM_OFFLINE' })
+  })
+
   it('enforces price, bedroom and area filters in PostgreSQL', async () => {
     const response = await service.search({
       max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
@@ -185,6 +270,14 @@ describe('location queries', () => {
     expect(response.results.map((item) => item.place_id)).toEqual([ids.validPlace])
   })
 })
+
+function routeResponse(distance: number, duration = 600) {
+  return new Response(JSON.stringify({
+    code: 'Ok',
+    waypoints: [{ distance: 30 }, { distance: 20 }],
+    routes: [{ distance, duration, geometry: { type: 'LineString', coordinates: [[106.7, 10.77], [106.701, 10.771]] } }],
+  }), { headers: { 'content-type': 'application/json' } })
+}
 
 async function insertFixtures(db: pg.PoolClient) {
   await db.query(

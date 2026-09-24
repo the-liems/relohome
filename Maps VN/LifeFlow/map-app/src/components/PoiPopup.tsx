@@ -1,4 +1,4 @@
-import { Building2, Globe2, MapPin, Phone } from 'lucide-react'
+import { Clock3, Globe2, MapPin, Phone } from 'lucide-react'
 import { getPoiAddress, getProperty } from '../services/poi'
 import type { PoiProperties } from '../types'
 
@@ -7,17 +7,18 @@ interface PoiPopupProps {
 }
 
 export function PoiPopup({ properties }: PoiPopupProps) {
-  const name = getProperty(properties, 'name', 'name:vi', 'name:en') || 'Điểm lưu trú'
-  const category = getProperty(properties, 'tourism', 'amenity')
+  const name = getProperty(properties, 'name', 'name:vi', 'name:en') || 'Địa điểm'
+  const category = getProperty(properties, 'category', 'tourism', 'amenity')
   const address = getPoiAddress(properties)
   const phone = getProperty(properties, 'phone', 'contact:phone', 'mobile')
   const website = getProperty(properties, 'website', 'contact:website', 'url')
+  const openingHours = getProperty(properties, 'opening_hours')
   const websiteUrl = website && (/^https?:\/\//i.test(website) ? website : `https://${website}`)
 
   return (
     <article className="poi-popup">
       <div className="poi-popup__heading">
-        <Building2 size={18} aria-hidden="true" />
+        <MapPin size={18} aria-hidden="true" />
         <div>
           <h3>{name}</h3>
           {category && <p>{category}</p>}
@@ -34,6 +35,12 @@ export function PoiPopup({ properties }: PoiPopupProps) {
           <Phone size={15} aria-hidden="true" />
           <span>{phone}</span>
         </a>
+      )}
+      {openingHours && (
+        <div className="poi-popup__row">
+          <Clock3 size={15} aria-hidden="true" />
+          <span>{openingHours}</span>
+        </div>
       )}
       {websiteUrl && (
         <a className="poi-popup__row" href={websiteUrl} target="_blank" rel="noreferrer">

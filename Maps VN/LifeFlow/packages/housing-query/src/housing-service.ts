@@ -16,6 +16,9 @@ import { NotFoundError, QueryValidationError, RouteServiceError } from './errors
 import { PlaceService } from './place-service.js'
 import { RouteService } from './route-service.js'
 
+const COMMUTE_SNAP_RADIUS_M = 100
+const ROUTE_CONCURRENCY = 4
+
 interface SqlBuilder {
   values: unknown[]
   parameter(value: unknown): string
@@ -63,41 +66,53 @@ export class HousingQueryService {
     validateSort(request)
     const offset = decodeCursor(request.pagination.cursor)
     const rows = await this.selectCandidates(request, offset)
-    const coarseCandidateCount = rows.length
-    const mapped = await Promise.all(rows.map((row) => this.mapCandidate(row, request)))
-
     let commuteEvaluatedCount = 0
     let excludedUnknownCount = 0
-    const evaluated: HousingSearchResult[] = []
-    for (const item of mapped) {
-      if (request.nearby && item.nearby.length !== request.nearby.length) {
-        excludedUnknownCount += 1
-        continue
+    let scanned = 0
+    const results: HousingSearchResult[] = []
+    const scanLimit = request.commute ? this.config.commuteCandidateLimit : request.pagination.limit
+    const candidates = rows.slice(0, scanLimit)
+    for (let start = 0; start < candidates.length && results.length < request.pagination.limit; start += ROUTE_CONCURRENCY) {
+      const batch = candidates.slice(start, start + ROUTE_CONCURRENCY)
+      const mapped = await Promise.all(batch.map((row) => this.mapCandidate(row, request)))
+      if (request.commute) commuteEvaluatedCount += batch.length
+      for (const item of mapped) {
+        scanned += 1
+        if (request.nearby && item.nearby.length !== request.nearby.length) {
+          excludedUnknownCount += 1
+          continue
+        }
+        if (request.commute) {
+          if (!item.commute) {
+            excludedUnknownCount += 1
+            continue
+          }
+          const constraint = request.commute
+          if (constraint.max_duration_seconds !== undefined && item.commute.duration_seconds > constraint.max_duration_seconds) continue
+          if (constraint.max_distance_m !== undefined && item.commute.distance_meters > constraint.max_distance_m) continue
+          if (constraint.min_distance_m !== undefined && item.commute.distance_meters < constraint.min_distance_m) continue
+        }
+        results.push(item)
+        if (results.length === request.pagination.limit) break
       }
-      if (request.commute) {
-        commuteEvaluatedCount += 1
-        if (!item.commute || item.commute.duration_seconds > request.commute.max_duration_seconds) continue
-      }
-      evaluated.push(item)
     }
-
-    const pageStart = request.commute ? offset : 0
-    const page = evaluated.slice(pageStart, pageStart + request.pagination.limit + 1)
-    const hasNext = page.length > request.pagination.limit
-    const results = page.slice(0, request.pagination.limit)
+    // The cursor advances through SQL candidates, not through already-filtered matches.
+    // A scan-budget page may be empty; its cursor still exposes the remaining candidates.
+    const hasNext = rows.length > scanned
 
     return HousingSearchResponseSchema.parse({
       query_id: randomUUID(),
       contract_version: '1.0.0',
       results,
       page: {
-        next_cursor: hasNext ? encodeCursor(offset + request.pagination.limit) : null,
+        next_cursor: hasNext ? encodeCursor(offset + scanned) : null,
         returned_count: results.length,
       },
       diagnostics: {
-        coarse_candidate_count: coarseCandidateCount,
+        coarse_candidate_count: scanned,
         commute_evaluated_count: commuteEvaluatedCount,
         excluded_unknown_count: excludedUnknownCount,
+        candidate_limit_reached: hasNext && results.length < request.pagination.limit,
       },
     })
   }
@@ -165,6 +180,16 @@ export class HousingQueryService {
       )
     }
 
+    if (request.commute?.max_distance_m !== undefined) {
+      const destination = request.commute.destination
+      // OSRM measures between snapped road points. Include both snap radii and a
+      // conservative geodesic/model margin so the coarse filter cannot trim the edge.
+      const coarseRadius = (request.commute.max_distance_m + 2 * COMMUTE_SNAP_RADIUS_M) * 1.01
+      conditions.push(
+        `ST_DWithin(cp.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(destination.lng)}, ${sql.parameter(destination.lat)}), 4326)::geography, ${sql.parameter(coarseRadius)})`,
+      )
+    }
+
     if (request.min_price) {
       conditions.push(`o.price_amount >= ${sql.parameter(request.min_price.amount)}`)
       conditions.push(`o.currency = ${sql.parameter(request.min_price.currency)}`)
@@ -214,9 +239,9 @@ export class HousingQueryService {
     }
 
     const orderBy = buildOrderBy(request)
-    const queryLimit = request.commute ? this.config.commuteCandidateLimit : request.pagination.limit + 1
+    const queryLimit = request.commute ? this.config.commuteCandidateLimit + 1 : request.pagination.limit + 1
     const limitParameter = sql.parameter(queryLimit)
-    const offsetClause = request.commute ? '' : `OFFSET ${sql.parameter(offset)}`
+    const offsetClause = `OFFSET ${sql.parameter(offset)}`
 
     const result = await this.pool.query(
       `SELECT
@@ -272,13 +297,14 @@ export class HousingQueryService {
       try {
         commute = await this.routeService.calculate({
           city: request.commute.city || this.routeService.inferCity(location),
-          origin: location,
-          destination: request.commute.destination,
+          origin: request.commute.direction === 'destination_to_listing' ? request.commute.destination : location,
+          destination: request.commute.direction === 'destination_to_listing' ? location : request.commute.destination,
           profile: request.commute.profile,
           steps: false,
+          ...(request.commute.max_distance_m !== undefined ? { snap_radius_m: COMMUTE_SNAP_RADIUS_M } : {}),
         })
       } catch (error) {
-        if (!(error instanceof RouteServiceError)) throw error
+        if (!(error instanceof RouteServiceError) || !['NO_ROUTE', 'OUTSIDE_ROUTING_AREA'].includes(error.code)) throw error
       }
     }
 

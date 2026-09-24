@@ -5,6 +5,7 @@ import {
   SearchAreasRequestSchema,
 } from '../src/location.js'
 import { PlaceSearchRequestSchema } from '../src/place.js'
+import { RouteRequestSchema } from '../src/route.js'
 
 const validRequest = {
   administrative_area_ids: ['district_7'],
@@ -21,6 +22,28 @@ const validRequest = {
 }
 
 describe('HousingSearchRequestSchema', () => {
+  it('accepts distance-only commute constraints and an explicit direction', () => {
+    const commute = {
+      destination: { lng: 105.8431, lat: 21.007 },
+      min_distance_m: 1_000,
+      max_distance_m: 2_000,
+      direction: 'destination_to_listing',
+    }
+    expect(HousingSearchRequestSchema.parse({ commute }).commute).toMatchObject(commute)
+  })
+
+  it.each([
+    {},
+    { max_distance_m: 0 },
+    { min_distance_m: 1_000 },
+    { max_distance_m: 2_000, min_distance_m: 3_000 },
+    { max_distance_m: 2_000, direction: 'both' },
+  ])('rejects invalid commute thresholds %j', (thresholds) => {
+    expect(HousingSearchRequestSchema.safeParse({
+      commute: { destination: { lng: 105.8431, lat: 21.007 }, ...thresholds },
+    }).success).toBe(false)
+  })
+
   it('accepts the agreed hard-constraint request', () => {
     expect(HousingSearchRequestSchema.parse(validRequest)).toMatchObject(validRequest)
   })
@@ -72,5 +95,18 @@ describe('location contracts', () => {
         administrative_area_ids: ['osm:relation:38522189'],
       }).administrative_area_ids,
     ).toEqual(['osm:relation:38522189'])
+  })
+})
+
+describe('route contracts', () => {
+  it.each(['driving', 'motorcycle', 'walking'] as const)('accepts the %s profile', (profile) => {
+    expect(
+      RouteRequestSchema.parse({
+        city: 'hcm',
+        origin: { lng: 106.7009, lat: 10.7769 },
+        destination: { lng: 106.7218, lat: 10.7952 },
+        profile,
+      }).profile,
+    ).toBe(profile)
   })
 })

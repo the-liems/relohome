@@ -61,9 +61,9 @@ bộ dữ liệu đầy đủ về nhà hàng, bệnh viện, siêu thị hoặc
 
 | Khu vực | Container | Cổng | Thư mục graph |
 |---|---|---:|---|
-| TP.HCM | `osrm-hcm` | 5000 | `Routing-HCM` |
-| Hà Nội | `osrm-hanoi` | 5001 | `Routing-Hanoi` |
-| Đà Nẵng | `osrm-danang` | 5002 | `Routing-Danang` |
+| TP.HCM | `lifeflow-osrm-hcm-driving` | 5000 | `Routing/hcm/driving` |
+| Hà Nội | `lifeflow-osrm-hanoi-driving` | 5001 | `Routing/hanoi/driving` |
+| Đà Nẵng | `lifeflow-osrm-danang-driving` | 5002 | `Routing/danang/driving` |
 
 Mỗi thư mục routing chứa một graph OSRM MLD hoàn chỉnh. Các file có chung tiền
 tố `.osrm.*` tạo thành một graph và không được chỉnh sửa hoặc thay riêng lẻ.
@@ -713,9 +713,9 @@ Tên file/thư mục đề xuất:
 
 ```text
 Raw\vietnam-YYYYMMDD.osm.pbf
-Routing-HCM\versions\YYYYMMDD\
-Routing-Hanoi\versions\YYYYMMDD\
-Routing-Danang\versions\YYYYMMDD\
+Routing\hcm\versions\YYYYMMDD\
+Routing\hanoi\versions\YYYYMMDD\
+Routing\danang\versions\YYYYMMDD\
 ```
 
 OSM và dữ liệu tùy chỉnh LifeFlow phải được hợp nhất theo quy tắc nguồn, không

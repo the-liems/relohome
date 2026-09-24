@@ -73,6 +73,7 @@ test-results/
 *.osrm*
 *.pbf
 *.geojson
+*.geojsonseq
 
 # Small map assets required by the frontend
 !Maps\ VN/Cities/boundaries/*.geojson
