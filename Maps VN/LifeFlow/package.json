@@ -28,7 +28,7 @@
     "dev:mcp": "npm run dev --workspace @lifeflow/mcp-server",
     "dev:moving-api": "npm run dev --workspace @lifeflow/moving-api",
     "dev:moving-mcp": "npm run dev --workspace @lifeflow/moving-mcp-server",
-    "test:moving:live": "npm run test:live --workspace @lifeflow/moving-mcp-server",
+    "test:moving:live": "npm run test:live --workspace @lifeflow/moving-service && npm run test:live --workspace @lifeflow/moving-mcp-server",
     "dev:map": "npm run dev:lifeflow --prefix map-app"
   },
   "engines": {

@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { config as loadDotEnv } from 'dotenv'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { AhaMoveClient } from '../src/ahamove-client.js'
 import { getMovingRuntimeConfig } from '../src/config.js'
+
+const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const rootDirectory = resolve(packageDirectory, '../..')
+loadDotEnv({
+  path: process.env.LIFEFLOW_ENV_FILE || resolve(rootDirectory, '.env'),
+  quiet: true,
+})
 
 const live = process.env.RUN_AHAMOVE_STAGING_INTEGRATION === '1'
 

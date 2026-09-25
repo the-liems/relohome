@@ -67,6 +67,10 @@ npm run test:moving:live
 Remove-Item Env:RUN_AHAMOVE_STAGING_INTEGRATION
 ```
 
+This command first verifies AhaMove directly (cities, services and service
+detail), then starts the real Moving MCP process and verifies its tool catalog
+and `list_service_areas` call.
+
 The discovery test needs no hardcoded scenario. To exercise a real estimate,
 also set operator-owned values for `AHAMOVE_TEST_SERVICE_ID`, pickup/destination
 address, latitude, longitude, contact name and mobile. Optional values include
