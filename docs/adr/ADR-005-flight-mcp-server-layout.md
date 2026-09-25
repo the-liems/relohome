@@ -44,7 +44,7 @@ src/mcp_servers/flights/            # MCP server (FastMCP, mcp>=1.26,<2)
   server.py    tools.py              # lớp MCP: đăng ký tool/resource/prompt, không chứa logic nghiệp vụ
   search/      booking_engine.py     # lớp nghiệp vụ / adapter: provider tìm chuyến, engine đặt vé
   storage.py                         # SQLite: offer, search cache, booking
-  schemas.py   settings.py  data/    # hợp đồng dữ liệu (Pydantic) + cấu hình FLIGHT_*
+  schemas.py   settings.py  catalog_data/  # hợp đồng dữ liệu (Pydantic) + cấu hình FLIGHT_*
 src/agents/tools/flight_mcp.py       # cầu nối LangGraph ↔ MCP (langchain-mcp-adapters)
 tests/test_mcp_flights/              # test theo module, giống tests/test_agents/, tests/test_api/
 ```

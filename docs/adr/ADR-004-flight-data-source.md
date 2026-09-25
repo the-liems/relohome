@@ -54,7 +54,7 @@ Kết hợp **Lựa chọn 4 và 5**, chọn qua biến `FLIGHT_SEARCH_PROVIDER`
 ## Hệ quả (Consequences)
 
 - Vé "đã đặt" chỉ tồn tại trong SQLite của server. README và instructions của server đều ghi rõ điều này.
-- Điều kiện hành lý và phí hủy trong `data/airlines.json` là số liệu mẫu, không phải quy định chính thức của hãng.
+- Điều kiện hành lý và phí hủy trong `catalog_data/airlines.json` là số liệu mẫu, không phải quy định chính thức của hãng.
 - Khi dùng SerpApi:
   - Phải quản lý `FLIGHT_SERPAPI_API_KEY` trong `.env`, không commit.
   - Kết quả được cache (`FLIGHT_SEARCH_CACHE_TTL`) để tiết kiệm lượt. Hết lượt thì server báo lỗi và gợi ý chuyển về `mock`.

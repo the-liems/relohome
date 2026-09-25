@@ -6,7 +6,8 @@ from pathlib import Path
 from src.mcp_servers.flights.errors import InvalidRequestError
 from src.mcp_servers.flights.schemas import Airline, Airport, CabinClass, FareRules, strip_accents
 
-DATA_DIR = Path(__file__).parent / "data"
+# Không đặt tên "data": .gitignore chặn mọi thư mục tên data/ nên file sẽ không được commit
+DATA_DIR = Path(__file__).parent / "catalog_data"
 EARTH_RADIUS_KM = 6371.0
 DEFAULT_FARE_RULES = FareRules(
     checked_baggage_kg=0,

@@ -11,7 +11,7 @@ Tài liệu liên quan:
 [Ví dụ request/response của từng tool](../../../docs/api/examples/flights/README.md)
 
 > ⚠️ Phần **giữ chỗ / xuất vé / hủy là GIẢ LẬP**. Server không trừ tiền và không tạo vé thật.
-> Điều kiện hành lý, phí đổi và phí hủy trong `data/airlines.json` là số liệu mẫu, không
+> Điều kiện hành lý, phí đổi và phí hủy trong `catalog_data/airlines.json` là số liệu mẫu, không
 > phải quy định chính thức của hãng.
 
 ## Bắt đầu nhanh (3 phút, không cần API key)
@@ -70,7 +70,7 @@ src/mcp_servers/flights/
 │   ├── base.py        # Protocol FlightSearchProvider, validate, sort
 │   ├── mock.py        # Sinh lịch bay giả lập, deterministic
 │   └── serpapi.py     # Gọi SerpApi Google Flights
-└── data/              # airports.json (22 sân bay), airlines.json (VN, VJ, QH, VU, 9G)
+└── catalog_data/      # airports.json (22 sân bay), airlines.json (VN, VJ, QH, VU, 9G)
 
 src/agents/tools/flight_mcp.py   # Nạp tool vào LangGraph qua langchain-mcp-adapters
 tests/test_mcp_flights/          # Unit test + test MCP in-memory
@@ -290,7 +290,7 @@ offer và cùng hành khách sẽ trả về booking cũ, không giữ chỗ tr�
 
 ### Kiểm tra dữ liệu đầu vào
 
-- Chỉ nhận sân bay trong `data/airports.json`. Ngày bay phải nằm trong khoảng từ hôm nay đến 330 ngày tới.
+- Chỉ nhận sân bay trong `catalog_data/airports.json`. Ngày bay phải nằm trong khoảng từ hôm nay đến 330 ngày tới.
 - Tối đa 9 khách. Số em bé không vượt quá số người lớn.
 - Tuổi tính tại ngày bay: người lớn ≥ 12, trẻ em 2–11, em bé < 2. Số khách từng loại phải khớp với offer.
 - Tên được chuẩn hóa về dạng viết hoa, không dấu: "Nguyễn Văn An" → `NGUYEN` / `VAN AN`.
@@ -321,7 +321,7 @@ Test không gọi mạng. Phần SerpApi được test bằng `httpx.MockTranspo
 | `No module named 'mcp.server.fastmcp'` | Máy đang cài mcp 2.x | `pip install "mcp[cli]>=1.26,<2"` (hoặc `pip install -r requirements.txt`) |
 | `FLIGHT_SEARCH_PROVIDER=serpapi nhưng chưa đặt FLIGHT_SERPAPI_API_KEY` | Thiếu key trong `.env` | Thêm key, hoặc chuyển về `mock` |
 | `FLIGHT_SERPAPI_API_KEY không hợp lệ` / `Đã hết lượt gọi SerpApi` | Key sai, key đã tạo lại, hoặc hết 100 lượt/tháng | Kiểm tra key trên dashboard SerpApi, hoặc tạm chuyển về `mock` |
-| `Sân bay 'XXX' không nằm trong danh sách nội địa…` | Mã không có trong `data/airports.json` | Dùng `search_airports` để tra mã |
+| `Sân bay 'XXX' không nằm trong danh sách nội địa…` | Mã không có trong `catalog_data/airports.json` | Dùng `search_airports` để tra mã |
 | `Ngày bay … đã qua` | Ví dụ cũ có ngày trong quá khứ | Đổi `departure_date` thành ngày trong tương lai |
 | `Offer … đã hết hạn` / booking `EXPIRED` | Quá 30 phút (offer) hoặc 15 phút (giữ chỗ) | Tìm lại hoặc giữ chỗ lại; thời hạn chỉnh bằng `FLIGHT_OFFER_TTL_MINUTES` / `FLIGHT_HOLD_MINUTES` |
 | Muốn xóa sạch dữ liệu test | | Xóa file `data/flights.db`; server tự tạo lại khi chạy |
