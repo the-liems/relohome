@@ -1,5 +1,48 @@
 # Nền tảng bản đồ và vị trí LifeFlow
 
+## Chạy nhanh trên DEMO_1
+
+Yêu cầu: Docker Desktop đang chạy, Node.js/npm đã cài và PowerShell.
+
+### Cài lần đầu
+
+```powershell
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
+npm install
+Set-Location .\map-app
+npm install
+Set-Location ..
+```
+
+Nếu các container OSRM chưa từng được tạo trên máy, tạo và kiểm tra graph một
+lần:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Setup-Routing.ps1
+```
+
+### Khởi động hằng ngày
+
+```powershell
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
+powershell -ExecutionPolicy Bypass -File .\Start-LifeFlow.ps1
+```
+
+Giữ cửa sổ PowerShell này mở để frontend MapLibre tiếp tục chạy. Mở bản đồ tại
+<http://127.0.0.1:5173/> và kiểm tra API tại
+<http://127.0.0.1:4100/health>.
+
+### Dừng hệ thống
+
+Trong cửa sổ PowerShell khác:
+
+```powershell
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
+powershell -ExecutionPolicy Bypass -File .\Stop-LifeFlow.ps1
+```
+
+Lệnh dừng không xóa database, Docker volume, graph routing hoặc file nguồn.
+
 LifeFlow hiện có một nền tảng dữ liệu vị trí chạy cục bộ, được xây dựng từ dữ
 liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 
@@ -57,7 +100,7 @@ Quy tắc đặt tên container là `lifeflow-osrm-<city>-<profile>`, ví dụ
 Khi cài mới, kiểm tra health hoặc cần build profile còn thiếu, chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Setup-Routing.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow\Setup-Routing.ps1"
 ```
 
 Script xác minh checksum trước khi tiếp tục một build dở dang, không ghi đè graph
@@ -73,7 +116,7 @@ trong thư mục phiên bản mới rồi mới chuyển container sau khi accep
 3. Chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 4. Mở các địa chỉ:
@@ -99,7 +142,7 @@ volume.
 Nhấn `Ctrl+C` trong cửa sổ PowerShell đang chạy frontend, sau đó chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Stop-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow\Stop-LifeFlow.ps1"
 ```
 
 Lệnh này dừng Platform API, chín container OSRM và container PostGIS của LifeFlow.
@@ -159,7 +202,7 @@ Trong môi trường phát triển, API chỉ lắng nghe trên máy cục bộ.
 Build và chạy MCP server cục bộ:
 
 ```powershell
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
 npm run build
 npm run dev:mcp
 ```
@@ -170,10 +213,10 @@ Cấu hình dành cho MCP client:
 {
   "command": "node",
   "args": [
-    "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
+    "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
   ],
   "env": {
-    "LIFEFLOW_ENV_FILE": "D:\\Demo AI thực chiến\\Maps VN\\LifeFlow\\.env"
+    "LIFEFLOW_ENV_FILE": "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\.env"
   }
 }
 ```
@@ -200,7 +243,7 @@ checksum, thống kê từng lần nhập và không ghi đè bản ghi đã đ�
 `lifeflow_verified`.
 
 ```powershell
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
 npm run db:up
 npm run db:migrate
 npm run db:import:places
@@ -219,7 +262,7 @@ sequence tại `../Extracts/POI/vietnam-260922/`. Importer đọc các đường
 Script extract không ghi đè artifact đã có.
 
 ```powershell
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
 powershell -ExecutionPolicy Bypass -File .\Extract-Poi-V2.ps1
 npm run db:migrate
 npm run db:import:pois:v2
@@ -258,7 +301,7 @@ checksum, nhập theo batch và chỉ upsert các bản ghi `source='osm'`. Nó 
 boundary cục bộ hoặc dữ liệu tùy chỉnh:
 
 ```powershell
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
 npm run db:up
 npm run db:migrate
 npm run db:import:areas
@@ -298,11 +341,11 @@ thật, API và MCP hiện tại có thể truy vấn ngay mà không cần thay
 ## Chạy kiểm thử
 
 ```powershell
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
 npm run build
 npm test
 
-Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
+Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow\map-app"
 npm run lint
 npm run build
 npm run test:e2e

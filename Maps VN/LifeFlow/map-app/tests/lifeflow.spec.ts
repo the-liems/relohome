@@ -93,6 +93,38 @@ test('opens a real POI popup', async ({ page }) => {
   await page.screenshot({ path: 'test-results/poi-popup.png', fullPage: true })
 })
 
+test('uses clustered symbol POIs and a dedicated selected highlight', async ({ page }) => {
+  const style = await page.evaluate(() => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__: {
+        getStyle: () => {
+          sources: Record<string, { cluster?: boolean; clusterMaxZoom?: number }>
+          layers: Array<{ id: string; type: string }>
+        }
+      }
+    }).__LIFEFLOW_MAP__
+    return map.getStyle()
+  })
+  expect(style.sources['lifeflow-pois'].cluster).toBe(true)
+  expect(style.sources['lifeflow-pois'].clusterMaxZoom).toBe(13)
+  expect(style.layers.find((layer) => layer.id === 'poi-points')?.type).toBe('symbol')
+  expect(style.layers.find((layer) => layer.id === 'housing-price-markers')?.type).toBe('symbol')
+  expect(style.layers.find((layer) => layer.id === 'selected-poi')?.type).toBe('symbol')
+
+  await page.getByRole('button', { name: 'Hà Nội' }).click()
+  const search = page.getByRole('textbox', { name: /Tìm địa điểm/ })
+  await search.fill('Khách Sạn Đức Thái')
+  await page.getByRole('button', { name: /Khách Sạn Đức Thái/ }).click()
+  await expect.poll(async () => page.evaluate(async () => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__: {
+        getSource: (id: string) => { getData: () => Promise<{ features: unknown[] }> }
+      }
+    }).__LIFEFLOW_MAP__
+    return (await map.getSource('lifeflow-selected-poi').getData()).features.length
+  })).toBe(1)
+})
+
 test('routes A to B through the live HCM OSRM service', async ({ page }) => {
   await clickMapCoordinate(page, [106.7009, 10.7769])
   await expect(page.getByText('Chọn tiếp điểm B.')).toBeVisible()

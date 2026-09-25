@@ -21,7 +21,7 @@ export function PoiPopup({ properties }: PoiPopupProps) {
         <MapPin size={18} aria-hidden="true" />
         <div>
           <h3>{name}</h3>
-          {category && <p>{category}</p>}
+          {category && <p>{category.replaceAll('_', ' ')}</p>}
         </div>
       </div>
       {address && (
