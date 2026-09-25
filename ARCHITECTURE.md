@@ -1,8 +1,26 @@
-# Architecture Document
+# LifeFlow Architecture
 
-## System Overview
+## Current implementation
 
-[Tóm tắt 2-3 câu về kiến trúc hệ thống]
+The repository contains a Python FastAPI/LangGraph application and a bounded
+TypeScript LifeFlow workspace for spatial, housing and moving integrations. The
+TypeScript layout exception and service boundaries are recorded in
+[`docs/adr/`](docs/adr/README.md).
+
+Detailed current designs:
+
+- [MCP service standard](docs/architecture/mcp-service-standard.md)
+- [Moving/AhaMove service](docs/architecture/moving-service.md)
+- [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
+
+Moving is an independently startable MCP server. It shares canonical contracts
+and MCP behavior packages with other services but owns its provider adapter,
+configuration, persistence and tool registry.
+
+## Template/future system overview
+
+The remainder of this document originated as the course template and describes
+future system areas that are not all implemented yet.
 
 ## Architecture Diagram
 

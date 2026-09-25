@@ -5,7 +5,6 @@ from src.models.schemas import ChatRequest, ChatResponse
 
 router = APIRouter()
 
-
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     """Chat với AI agent."""

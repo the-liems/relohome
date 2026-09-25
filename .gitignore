@@ -58,3 +58,24 @@ out/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+# Local map workspace artifacts
+Maps\ VN/LifeFlow/.runtime/
+Maps\ VN/LifeFlow/node_modules/
+Maps\ VN/LifeFlow/map-app/node_modules/
+Maps\ VN/LifeFlow/**/dist/
+Maps\ VN/LifeFlow/.env
+Maps\ VN/LifeFlow/**/*.local
+test-results/
+
+# Large OSM and OSRM datasets are kept outside Git
+*.osm.pbf
+*.osrm*
+*.pbf
+*.geojson
+*.geojsonseq
+
+# Small map assets required by the frontend
+!Maps\ VN/Cities/boundaries/*.geojson
+!Maps\ VN/LifeFlow/map-app/public/data/
+!Maps\ VN/LifeFlow/map-app/public/data/*.geojson

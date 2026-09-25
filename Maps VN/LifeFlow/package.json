@@ -1,0 +1,37 @@
+{
+  "name": "lifeflow-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/contracts",
+    "packages/housing-query",
+    "packages/mcp-core",
+    "packages/moving-service",
+    "platform-api",
+    "mcp-server",
+    "moving-api",
+    "moving-mcp-server"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @lifeflow/contracts && npm run build --workspace @lifeflow/housing-query && npm run build --workspace @lifeflow/mcp-core && npm run build --workspace @lifeflow/moving-service && npm run build --workspace @lifeflow/platform-api && npm run build --workspace @lifeflow/mcp-server && npm run build --workspace @lifeflow/moving-api && npm run build --workspace @lifeflow/moving-mcp-server",
+    "test": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/housing-query && npm run test --workspace @lifeflow/mcp-core && npm run test --workspace @lifeflow/moving-service && npm run test --workspace @lifeflow/platform-api && npm run test --workspace @lifeflow/mcp-server && npm run test --workspace @lifeflow/moving-api && npm run test --workspace @lifeflow/moving-mcp-server",
+    "test:ci": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/mcp-core && npm run test --workspace @lifeflow/moving-service && npm run test --workspace @lifeflow/moving-api && npm run test --workspace @lifeflow/moving-mcp-server",
+    "db:up": "docker compose --env-file .env -f infra/compose.yaml up -d postgis",
+    "db:stop": "docker compose --env-file .env -f infra/compose.yaml stop postgis",
+    "db:migrate": "npm run db:migrate --workspace @lifeflow/platform-api",
+    "db:import:places": "npm run db:import:places --workspace @lifeflow/platform-api",
+    "db:import:pois:v2": "npm run db:import:pois:v2 --workspace @lifeflow/platform-api",
+    "db:report:pois": "npm run db:report:pois --workspace @lifeflow/platform-api",
+    "db:import:areas": "npm run db:import:areas --workspace @lifeflow/platform-api",
+    "dev:api": "npm run dev --workspace @lifeflow/platform-api",
+    "dev:mcp": "npm run dev --workspace @lifeflow/mcp-server",
+    "dev:moving-api": "npm run dev --workspace @lifeflow/moving-api",
+    "dev:moving-mcp": "npm run dev --workspace @lifeflow/moving-mcp-server",
+    "test:moving:live": "npm run test:live --workspace @lifeflow/moving-mcp-server",
+    "dev:map": "npm run dev:lifeflow --prefix map-app"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

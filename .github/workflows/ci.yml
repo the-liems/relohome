@@ -30,3 +30,29 @@ jobs:
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
+
+  lifeflow-typescript:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Maps VN/LifeFlow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript workspaces
+        run: npm run build
+
+      - name: Run portable workspace tests
+        run: npm run test:ci
