@@ -1,5 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
 
@@ -23,10 +25,16 @@ HOLD = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint
 COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
 
 
-def create_server(services: FlightServices | None = None) -> FastMCP:
-    """Tạo MCP server; truyền `services` để test với provider/DB riêng."""
-    tools = FlightTools(services or build_services())
-    mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS)
+def create_server(services: FlightServices | None = None, host: str = "127.0.0.1", port: int = 8765) -> FastMCP:
+    """Tạo MCP server; truyền `services` để test với provider/DB riêng.
+
+    `host` phải truyền ngay lúc khởi tạo: FastMCP chỉ bật chống DNS rebinding (chỉ nhận
+    Host localhost) khi host là loopback. Trong container dùng `0.0.0.0` để service khác
+    trong mạng Docker gọi được qua tên service.
+    """
+    services = services or build_services()
+    tools = FlightTools(services)
+    mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port)
 
     mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)
@@ -40,6 +48,12 @@ def create_server(services: FlightServices | None = None) -> FastMCP:
     mcp.resource("flights://airlines", mime_type="application/json")(tools.airlines_resource)
     mcp.resource("flights://bookings/{booking_ref}", mime_type="application/json")(tools.booking_resource)
     mcp.prompt(name="plan_domestic_trip")(plan_domestic_trip)
+
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health(_: Request) -> JSONResponse:
+        """Healthcheck cho Docker/compose (chỉ có khi chạy streamable-http)."""
+        return JSONResponse({"status": "ok", "server": SERVER_NAME, "provider": services.provider.name})
+
     return mcp
 
 

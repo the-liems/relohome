@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   backend:
     build:
@@ -9,11 +7,39 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Agent gọi flight MCP server trong container qua HTTP thay vì tự mở process stdio
+      - FLIGHT_MCP_URL=http://flights-mcp:8765/mcp
     volumes:
       - ./data:/app/data
+    depends_on:
+      flights-mcp:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ---- MCP servers: mỗi service một container, Dockerfile nằm trong src/mcp_servers/<tên>/ ----
+  flights-mcp:
+    build:
+      context: .
+      dockerfile: src/mcp_servers/flights/Dockerfile
+    image: flights-mcp:latest
+    ports:
+      - "8765:8765"
+    env_file:
+      - .env
+    environment:
+      # Ghi đè giá trị trong .env (vốn dành cho chạy local)
+      - FLIGHT_MCP_HOST=0.0.0.0
+      - FLIGHT_MCP_PORT=8765
+      - FLIGHT_DB_PATH=/app/data/flights.db
+    volumes:
+      - flights-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  flights-data:

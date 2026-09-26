@@ -82,4 +82,4 @@ tests/test_mcp_flights/              # test theo module, giống tests/test_agen
 - Phải giữ `mcp<2` cho đến khi `langchain-mcp-adapters` hỗ trợ mcp 2.x (bản 2.x đổi `FastMCP` thành `MCPServer`). Khi nâng cấp thì cập nhật `server.py` và ADR này.
 - Server mới phải chạy từ thư mục gốc dự án (hoặc đặt `PYTHONPATH`) vì template không đóng gói `src/` thành package cài được.
 - MCP server khác sau này (ví dụ khách sạn, di chuyển) dùng lại mẫu `src/mcp_servers/<tên>/` này.
-- Chưa có xác thực. Transport HTTP chỉ bind `127.0.0.1`. Nếu deploy công khai thì phải bổ sung auth, có thể bằng một ADR riêng.
+- Chưa có xác thực. Transport HTTP chỉ bind `127.0.0.1` khi chạy local (trong container bind `0.0.0.0`, xem [ADR-006](ADR-006-containerized-mcp-servers.md)). Nếu deploy công khai thì phải bổ sung auth, có thể bằng một ADR riêng.

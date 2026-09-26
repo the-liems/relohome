@@ -27,3 +27,6 @@ httpx>=0.28.0
 # MCP server (src/mcp_servers/) — langchain-mcp-adapters chưa hỗ trợ mcp 2.x
 mcp[cli]>=1.26,<2
 langchain-mcp-adapters>=0.3.2
+
+# Giao diện demo kết nối API vé máy bay (src/ui/flight_demo.py)
+streamlit>=1.46

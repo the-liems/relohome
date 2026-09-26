@@ -1,7 +1,25 @@
-.PHONY: run test lint format typecheck check clean
+.PHONY: run ui mcp-build mcp-up mcp-down test lint format typecheck check clean
+
+# Mỗi MCP server là một thư mục src/mcp_servers/<tên>/ có Dockerfile riêng -> image/service <tên>-mcp
+MCP_SERVERS := $(notdir $(patsubst %/Dockerfile,%,$(wildcard src/mcp_servers/*/Dockerfile)))
 
 run:
 	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+
+ui:
+	streamlit run src/ui/flight_demo.py
+
+mcp-build:
+	@for s in $(MCP_SERVERS); do \
+		echo "==> build $$s-mcp"; \
+		docker build -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:latest . || exit 1; \
+	done
+
+mcp-up:
+	docker compose up -d --build $(addsuffix -mcp,$(MCP_SERVERS))
+
+mcp-down:
+	docker compose down
 
 test:
 	pytest tests/ -v

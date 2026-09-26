@@ -39,6 +39,20 @@ Trên Windows PowerShell: dùng `.venv\Scripts\activate`, rồi chạy các lệ
 [Tích hợp vào phần khác](#tích-hợp-vào-phần-khác). Nhớ đổi `departure_date` thành một ngày
 trong tương lai.
 
+## Giao diện demo (Streamlit)
+
+```bash
+make ui            # hoặc: streamlit run src/ui/flight_demo.py
+```
+
+Mở <http://localhost:8501>. Giao diện gọi server qua MCP stdio giống agent thật:
+
+- Công tắc **🌐 Dùng API thật** ở sidebar đổi giữa `mock` và `serpapi` (không cần sửa `.env`).
+- **Kiểm tra ngay**: handshake MCP, liệt kê tool/resource; ở chế độ thật còn kiểm tra API key
+  và số lượt còn lại qua `serpapi.com/account.json` (không tốn lượt).
+- Các tab Tìm chuyến → Đặt vé → Tra cứu/Hủy chạy đủ luồng; mỗi lần gọi đều có request/response
+  JSON và độ trễ, tab **Nhật ký API** tải được toàn bộ log dạng JSON.
+
 ## Vì sao chọn nguồn dữ liệu này
 
 | Lựa chọn | Tình trạng (09/2026) |
@@ -119,6 +133,28 @@ python -m src.mcp_servers.flights
 # Streamable HTTP tại http://127.0.0.1:8765/mcp
 python -m src.mcp_servers.flights --transport streamable-http
 ```
+
+### Chạy bằng Docker
+
+Server có `Dockerfile` riêng trong thư mục này (quy ước ở
+[ADR-006](../../../docs/adr/ADR-006-containerized-mcp-servers.md)). Image chỉ chứa code của
+server và `requirements.txt` cùng thư mục, chạy Streamable HTTP tại `:8765/mcp`, healthcheck ở `/health`.
+
+```bash
+# Cách 1: docker compose (đọc .env, dữ liệu SQLite trong volume flights-data)
+make mcp-up                 # = docker compose up -d --build flights-mcp
+curl localhost:8765/health  # {"status":"ok","server":"vn-flight-booking","provider":"mock"}
+make mcp-down
+
+# Cách 2: docker thuần (build context là thư mục gốc dự án)
+docker build -f src/mcp_servers/flights/Dockerfile -t flights-mcp .
+docker run --rm -p 8765:8765 -e FLIGHT_SEARCH_PROVIDER=mock flights-mcp
+# Giá thật: -e FLIGHT_SEARCH_PROVIDER=serpapi -e FLIGHT_SERPAPI_API_KEY=...
+```
+
+Cho agent LangGraph dùng server trong container: đặt `FLIGHT_MCP_URL=http://localhost:8765/mcp`
+(trong compose, `backend` đã được đặt sẵn `http://flights-mcp:8765/mcp`). Không có biến này thì
+agent tự mở server qua stdio như cũ.
 
 ### Thử bằng MCP Inspector (cần Node.js)
 

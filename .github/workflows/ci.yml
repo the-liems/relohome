@@ -30,3 +30,22 @@ jobs:
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
+
+  mcp-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image of every MCP server
+        run: make mcp-build
+
+      - name: Smoke test flights-mcp container
+        run: |
+          docker run -d --name flights-mcp -p 8765:8765 flights-mcp:latest
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' flights-mcp)" = healthy ] && break
+            sleep 2
+          done
+          curl --fail --silent http://localhost:8765/health
+          docker rm -f flights-mcp
