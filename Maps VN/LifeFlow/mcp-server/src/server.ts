@@ -1,23 +1,11 @@
-import {
-  createDatabasePool,
-  getRuntimeConfig,
-  HousingQueryService,
-  LocationService,
-  PlaceService,
-  RouteService,
-} from '@lifeflow/housing-query'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { createLifeFlowMcpServer } from './create-server.js'
+import { createLifeFlowMcpRuntime } from './runtime.js'
 
-const config = getRuntimeConfig()
-const pool = createDatabasePool(config.databaseUrl)
-const routeService = new RouteService(config.osrmUrls)
-const housingService = new HousingQueryService(pool, routeService, config)
-const locationService = new LocationService(pool)
-const placeService = new PlaceService(pool)
+const { pool, dependencies } = createLifeFlowMcpRuntime()
 
 const handle = serveStdio(
-  () => createLifeFlowMcpServer({ pool, housingService, locationService, placeService, routeService }),
+  () => createLifeFlowMcpServer(dependencies),
   {
     onerror(error) {
       console.error('LifeFlow MCP transport error:', error)

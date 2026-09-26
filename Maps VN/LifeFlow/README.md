@@ -51,7 +51,7 @@ liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 - Mô hình dữ liệu tách riêng bất động sản, căn/phòng, tin đăng và báo giá.
 - Dịch vụ Housing Query có kiểu dữ liệu rõ ràng và lọc cứng bằng PostGIS.
 - Platform API chạy tại `127.0.0.1:4100`.
-- Tám MCP tool chỉ đọc, giao tiếp qua `stdio`.
+- Tám MCP tool chỉ đọc, giao tiếp qua `stdio` hoặc Streamable HTTP.
 - Ứng dụng MapLibre chạy tại `127.0.0.1:5173`.
 - Chín dịch vụ OSRM: ba thành phố nhân với ba chế độ ô tô, xe máy và đi bộ.
 - GeoJSON gốc vẫn được giữ làm phương án dự phòng cho frontend.
@@ -156,8 +156,8 @@ Frontend MapLibre
   |-- dự phòng --------------> accommodations.geojson
   `-- định tuyến tương tác --> OSRM của từng thành phố
 
-LifeFlow Agent
-  `-- MCP server qua stdio
+LifeFlow Agent / MCP client
+  `-- MCP server qua stdio hoặc Streamable HTTP
         |-- search_housing / get_housing --> Housing Query --> PostGIS
         |-- search_places / get_place ----> Place Query ---> PostGIS
         |-- search_areas -----------------> Area Query ----> PostGIS
@@ -198,6 +198,9 @@ Ví dụ route xe máy:
 Trong môi trường phát triển, API chỉ lắng nghe trên máy cục bộ.
 
 ## MCP server
+
+Tài liệu đóng gói, vận hành và bàn giao container nằm tại
+[`docs/MCP-CONTAINER-HANDOFF.md`](docs/MCP-CONTAINER-HANDOFF.md).
 
 Build và chạy MCP server cục bộ:
 

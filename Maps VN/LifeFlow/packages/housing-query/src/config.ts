@@ -36,14 +36,8 @@ function databaseUrl(user: string, password: string) {
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`
 }
 
-export interface RuntimeConfig {
+export interface ApplicationRuntimeConfig {
   databaseUrl: string
-  adminDatabaseUrl: string
-  ingestDatabaseUrl: string
-  postgresAppUser: string
-  postgresAppPassword: string
-  postgresIngestUser: string
-  postgresIngestPassword: string
   osrmUrls: Record<
     'hcm' | 'hanoi' | 'danang',
     Record<'driving' | 'motorcycle' | 'walking', string>
@@ -51,27 +45,30 @@ export interface RuntimeConfig {
   commuteCandidateLimit: number
 }
 
-export function getRuntimeConfig(): RuntimeConfig {
+export interface RuntimeConfig extends ApplicationRuntimeConfig {
+  adminDatabaseUrl: string
+  ingestDatabaseUrl: string
+  postgresAppUser: string
+  postgresAppPassword: string
+  postgresIngestUser: string
+  postgresIngestPassword: string
+}
+
+export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
   loadEnvironment()
-  const appUser = required('POSTGRES_APP_USER')
-  const appPassword = required('POSTGRES_APP_PASSWORD')
-  const ingestUser = required('POSTGRES_INGEST_USER')
-  const ingestPassword = required('POSTGRES_INGEST_PASSWORD')
   const commuteCandidateLimit = Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100)
   if (!Number.isInteger(commuteCandidateLimit) || commuteCandidateLimit < 1 || commuteCandidateLimit > 1_000) {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
   }
 
+  const configuredDatabaseUrl = process.env.DATABASE_URL
+  const resolvedDatabaseUrl = configuredDatabaseUrl || databaseUrl(
+    required('POSTGRES_APP_USER'),
+    required('POSTGRES_APP_PASSWORD'),
+  )
+
   return {
-    databaseUrl: process.env.DATABASE_URL || databaseUrl(appUser, appPassword),
-    adminDatabaseUrl:
-      process.env.ADMIN_DATABASE_URL ||
-      databaseUrl(required('POSTGRES_ADMIN_USER'), required('POSTGRES_ADMIN_PASSWORD')),
-    ingestDatabaseUrl: process.env.INGEST_DATABASE_URL || databaseUrl(ingestUser, ingestPassword),
-    postgresAppUser: appUser,
-    postgresAppPassword: appPassword,
-    postgresIngestUser: ingestUser,
-    postgresIngestPassword: ingestPassword,
+    databaseUrl: resolvedDatabaseUrl,
     osrmUrls: {
       hcm: {
         driving: process.env.OSRM_HCM_DRIVING_URL || process.env.OSRM_HCM_URL || 'http://127.0.0.1:5000',
@@ -90,5 +87,25 @@ export function getRuntimeConfig(): RuntimeConfig {
       },
     },
     commuteCandidateLimit,
+  }
+}
+
+export function getRuntimeConfig(): RuntimeConfig {
+  const applicationConfig = getApplicationRuntimeConfig()
+  const appUser = required('POSTGRES_APP_USER')
+  const appPassword = required('POSTGRES_APP_PASSWORD')
+  const ingestUser = required('POSTGRES_INGEST_USER')
+  const ingestPassword = required('POSTGRES_INGEST_PASSWORD')
+
+  return {
+    ...applicationConfig,
+    adminDatabaseUrl:
+      process.env.ADMIN_DATABASE_URL ||
+      databaseUrl(required('POSTGRES_ADMIN_USER'), required('POSTGRES_ADMIN_PASSWORD')),
+    ingestDatabaseUrl: process.env.INGEST_DATABASE_URL || databaseUrl(ingestUser, ingestPassword),
+    postgresAppUser: appUser,
+    postgresAppPassword: appPassword,
+    postgresIngestUser: ingestUser,
+    postgresIngestPassword: ingestPassword,
   }
 }
