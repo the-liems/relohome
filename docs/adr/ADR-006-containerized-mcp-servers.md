@@ -39,7 +39,7 @@ Chọn **Lựa chọn 2**. Mọi MCP server `src/mcp_servers/<tên>/` phải có
 
 Quy ước được kiểm tra tự động bởi `tests/test_mcp_servers_layout.py` (thiếu Dockerfile là
 test đỏ). CI job `mcp-images` build image của mọi server (`make mcp-build`) và smoke test
-container flights.
+container của mọi server (cổng đọc từ dòng `EXPOSE`).
 
 Chi tiết cho flight server:
 

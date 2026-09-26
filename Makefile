@@ -1,4 +1,4 @@
-.PHONY: run ui mcp-build mcp-up mcp-down test lint format typecheck check clean
+.PHONY: run ui ui-payment mcp-build mcp-up mcp-down test lint format typecheck check clean
 
 # Mỗi MCP server là một thư mục src/mcp_servers/<tên>/ có Dockerfile riêng -> image/service <tên>-mcp
 MCP_SERVERS := $(notdir $(patsubst %/Dockerfile,%,$(wildcard src/mcp_servers/*/Dockerfile)))
@@ -8,6 +8,9 @@ run:
 
 ui:
 	streamlit run src/ui/flight_demo.py
+
+ui-payment:
+	streamlit run src/ui/payment_demo.py --server.port 8502
 
 mcp-build:
 	@for s in $(MCP_SERVERS); do \

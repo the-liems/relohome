@@ -10,10 +10,13 @@ services:
     environment:
       # Agent gọi flight MCP server trong container qua HTTP thay vì tự mở process stdio
       - FLIGHT_MCP_URL=http://flights-mcp:8765/mcp
+      - PAYMENT_MCP_URL=http://payments-mcp:8766/mcp
     volumes:
       - ./data:/app/data
     depends_on:
       flights-mcp:
+        condition: service_healthy
+      payments-mcp:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -41,5 +44,23 @@ services:
       - flights-data:/app/data
     restart: unless-stopped
 
+  payments-mcp:
+    build:
+      context: .
+      dockerfile: src/mcp_servers/payments/Dockerfile
+    image: payments-mcp:latest
+    ports:
+      - "8766:8766"
+    env_file:
+      - .env
+    environment:
+      - PAYMENT_MCP_HOST=0.0.0.0
+      - PAYMENT_MCP_PORT=8766
+      - PAYMENT_DB_PATH=/app/data/payments.db
+    volumes:
+      - payments-data:/app/data
+    restart: unless-stopped
+
 volumes:
   flights-data:
+  payments-data:

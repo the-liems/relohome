@@ -28,5 +28,6 @@ httpx>=0.28.0
 mcp[cli]>=1.26,<2
 langchain-mcp-adapters>=0.3.2
 
-# Giao diện demo kết nối API vé máy bay (src/ui/flight_demo.py)
+# Giao diện demo (src/ui/flight_demo.py, src/ui/payment_demo.py)
 streamlit>=1.46
+segno>=1.6  # vẽ QR thanh toán ngay trên máy (src/ui/payment_demo.py)

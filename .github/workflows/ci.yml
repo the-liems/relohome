@@ -40,12 +40,17 @@ jobs:
       - name: Build Docker image of every MCP server
         run: make mcp-build
 
-      - name: Smoke test flights-mcp container
+      - name: Smoke test every MCP server container
         run: |
-          docker run -d --name flights-mcp -p 8765:8765 flights-mcp:latest
-          for i in $(seq 1 30); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' flights-mcp)" = healthy ] && break
-            sleep 2
+          for dockerfile in src/mcp_servers/*/Dockerfile; do
+            server=$(basename "$(dirname "$dockerfile")")
+            port=$(awk '/^EXPOSE/ {print $2; exit}' "$dockerfile")
+            docker run -d --name "$server-mcp" -p "$port:$port" "$server-mcp:latest"
+            for i in $(seq 1 30); do
+              [ "$(docker inspect -f '{{.State.Health.Status}}' "$server-mcp")" = healthy ] && break
+              sleep 2
+            done
+            curl --fail --silent "http://localhost:$port/health"
+            echo
+            docker rm -f "$server-mcp"
           done
-          curl --fail --silent http://localhost:8765/health
-          docker rm -f flights-mcp
