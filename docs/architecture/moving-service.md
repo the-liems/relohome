@@ -26,10 +26,31 @@ flowchart LR
 - `packages/mcp-core`: shared MCP handler and redacted audit behavior.
 - `packages/moving-service`: provider-independent policy, persistence boundary,
   AhaMove client and mapping.
-- `moving-mcp-server`: separate stdio MCP executable and tool catalog.
+- `moving-mcp-server`: independent stdio and authenticated HTTP MCP entrypoints, sharing the same 13 tools.
 - `moving-api`: separate HTTP process for webhook ingestion and health.
 - `database/migrations/008_moving_service.sql`: quotes, approvals, idempotency,
   orders and webhook events.
+- `Dockerfile.moving`: separate images for MCP, webhook API and one-off migrations.
+- `compose.moving.yaml`: isolated local stack with a real PostgreSQL database.
+- `packages/moving-service/src/migrate.ts`: Moving-only schema and runtime role provisioning.
+
+## Container boundary
+
+```mermaid
+flowchart LR
+  AI[AI Service container] -->|HTTP /mcp + bearer token| MCP[Moving MCP :4400]
+  MCP --> PG[(PostgreSQL: moving + audit)]
+  MCP --> AHA[AhaMove staging]
+  AHA -->|HTTPS callback through infra proxy| API[Moving API :4200]
+  API --> PG
+  JOB[One-off moving-migrate image] --> PG
+```
+
+`MovingService` and the adapter are TypeScript libraries inside the two application
+images. They are not extra containers. The AI backend obtains the MCP bearer token
+from secret storage, never from tool arguments. Only the webhook route needs a
+public HTTPS ingress. See [container runbook](../runbooks/moving-containers.md) and
+[infra handoff](../../deploy/coolify/staging/moving.md).
 
 ## Interaction with Map and Housing
 

@@ -27,6 +27,12 @@ adapter. Cross-domain work is coordinated by the orchestrator through MCP.
 8. Secrets never accepted as tool arguments.
 9. Audit contains only tool name, input key names, result, duration and code.
 10. Graceful transport and resource shutdown.
+11. Network deployments use authenticated HTTP MCP, Host/Origin validation and bounded bodies.
+12. Separate process liveness (`/health`) from database/schema readiness (`/ready`).
+13. Container images run non-root, keep secrets out of build layers, and report a release identity.
+
+Moving implements this network profile first; it retains stdio. Its private
+service bearer token is not a user identity or a general OAuth integration.
 
 ## Tool classes
 

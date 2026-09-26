@@ -5,7 +5,7 @@ import { MovingServiceError } from './errors.js'
 
 let loaded = false
 
-function loadEnvironment() {
+export function loadMovingEnvironment() {
   if (loaded) return
   loaded = true
   const candidates = [
@@ -43,6 +43,7 @@ function enabled(name: string, fallback = false) {
 }
 
 function applicationDatabaseUrl() {
+  if (process.env.MOVING_DATABASE_URL) return process.env.MOVING_DATABASE_URL
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
   const user = required('POSTGRES_APP_USER')
   const password = required('POSTGRES_APP_PASSWORD')
@@ -69,7 +70,7 @@ export interface MovingRuntimeConfig {
 }
 
 export function getMovingRuntimeConfig(): MovingRuntimeConfig {
-  loadEnvironment()
+  loadMovingEnvironment()
   const environment = (process.env.AHAMOVE_ENV || 'staging') as 'staging' | 'production'
   if (!['staging', 'production'].includes(environment)) {
     throw new MovingServiceError('CONFIGURATION_ERROR', 'AHAMOVE_ENV must be staging or production.')

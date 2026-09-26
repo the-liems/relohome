@@ -4,7 +4,7 @@
 - Reviewers: Agent planning, contracts, backend/security, Map service
 - Status: Draft
 - Parent issue: To be created
-- Related ADRs: ADR-001, ADR-002, ADR-003, ADR-004
+- Related ADRs: ADR-001, ADR-002, ADR-003, ADR-004, ADR-005
 - Canonical schemas: `Maps VN/LifeFlow/packages/contracts/src/moving.ts`
 
 ## Problem
@@ -27,7 +27,8 @@ responses or callbacks are delayed.
 - Create, read, batch read, lookup by tracking number, tracking link, callback
   history, allowed order updates, cancellation and driver rating.
 - Webhook ingestion, deduplication and normalized order persistence.
-- MCP tools over stdio, with one independent Moving MCP server.
+- MCP tools over stdio and authenticated HTTP, with one independent Moving MCP server.
+- Independent MCP/API images, one-off migrations and container readiness.
 
 ## Non-goals
 
@@ -113,6 +114,17 @@ provider-independent models in `@lifeflow/contracts`.
 - `SPEC-004/AC-13`: Production and all write operations are disabled by default.
 - `SPEC-004/AC-14`: Every tool publishes accurate read-only, idempotent,
   destructive and open-world annotations.
+- `SPEC-004/AC-15`: A network MCP client can list the same 13 tools and perform
+  staging reads through `/mcp`; missing/incorrect bearer tokens and disallowed
+  Host/Origin headers are rejected before tool execution.
+- `SPEC-004/AC-16`: Separate MCP/API images run non-root with runtime-only secrets;
+  `/health` works without database connectivity, while `/ready` reports HTTP 503
+  when the schema, runtime grants or required webhook configuration is unavailable.
+- `SPEC-004/AC-17`: A separate migration job initializes Moving and audit without
+  requiring Housing/Map, serializes concurrent migration jobs and rejects changed
+  migration checksums. Repeating the job preserves existing data.
+- `SPEC-004/AC-18`: CI builds affected Moving images; documentation/test-only changes
+  do not publish images. Real staging verification is opt-in in a trusted environment.
 
 ## Open questions
 

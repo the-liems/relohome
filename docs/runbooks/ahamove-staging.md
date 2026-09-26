@@ -1,5 +1,10 @@
 # AhaMove staging runbook
 
+For independent Docker images, HTTP MCP and Coolify handoff, use
+[Moving container runbook](moving-containers.md). The instructions below retain
+the original local stdio workflow. Credentials may stay in the repository root
+`.env` when `LIFEFLOW_ENV_FILE` points to that file.
+
 ## Security prerequisite
 
 Revoke any credential that appeared in a screenshot, chat message, log or commit.
@@ -41,7 +46,8 @@ npm run dev:moving-api
 npm run dev:moving-mcp
 ```
 
-The Moving API health endpoint is `http://127.0.0.1:4200/health`. MCP uses stdio
+The Moving API liveness endpoint is `http://127.0.0.1:4200/health`; database and
+webhook readiness is `/ready`. This MCP entrypoint uses stdio
 and writes protocol output only to stdout; diagnostics go to stderr.
 
 ## MCP client configuration

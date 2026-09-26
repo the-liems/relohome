@@ -16,6 +16,8 @@ Housing/Map. Thiết kế, contract và runbook nằm tại:
 - [`docs/specs/SPEC-004-ahamove-moving-service.md`](docs/specs/SPEC-004-ahamove-moving-service.md)
 - [`docs/architecture/moving-service.md`](docs/architecture/moving-service.md)
 - [`docs/runbooks/ahamove-staging.md`](docs/runbooks/ahamove-staging.md)
+- [Chạy Moving bằng Docker, MCP qua HTTP](docs/runbooks/moving-containers.md)
+- [Bàn giao Moving cho infra/Coolify](deploy/coolify/staging/moving.md)
 
 Template chính thức cho học viên VinUni AI20K Build Phase: cấu trúc dự án, code
 mẫu và hướng dẫn kỹ thuật để xây dựng một AI Agent hoàn chỉnh — từ kiến trúc,

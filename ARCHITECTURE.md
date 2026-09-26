@@ -17,6 +17,14 @@ Moving is an independently startable MCP server. It shares canonical contracts
 and MCP behavior packages with other services but owns its provider adapter,
 configuration, persistence and tool registry.
 
+Moving now exposes authenticated HTTP MCP in its own `moving-mcp` image, separate
+from the AI application. A `moving-api` image receives AhaMove webhooks, and a
+one-shot `moving-migrate` image prepares its PostgreSQL schema and runtime role.
+Stdio remains available for local clients. See the
+[container runbook](docs/runbooks/moving-containers.md) and
+[deployment handoff](deploy/coolify/staging/moving.md). AI graph wiring and actual
+Coolify deployment remain integration work, not automatically enabled features.
+
 ## Template/future system overview
 
 The remainder of this document originated as the course template and describes

@@ -1,5 +1,5 @@
 import type { MovingDatabasePool, MovingRuntimeConfig } from '@lifeflow/moving-service'
-import { MovingService, MovingServiceError } from '@lifeflow/moving-service'
+import { checkMovingReadiness, MovingService, MovingServiceError } from '@lifeflow/moving-service'
 import Fastify from 'fastify'
 
 export function buildMovingApp(
@@ -12,11 +12,22 @@ export function buildMovingApp(
       redact: ['req.headers.authorization', 'req.headers.apikey', 'req.body.mobile', 'req.body.api_key'],
     },
     bodyLimit: 1_000_000,
+    requestTimeout: 30_000,
+    return503OnClosing: true,
   })
 
   app.get('/health', async () => {
-    await db.query('SELECT 1')
-    return { status: 'ok', service: 'lifeflow-moving', environment: config.environment }
+    return { status: 'ok', service: 'lifeflow-moving-api', environment: config.environment,
+      release: process.env.RELEASE_SHA || 'development' }
+  })
+
+  app.get('/ready', async (_request, reply) => {
+    try { await checkMovingReadiness(db) }
+    catch { return reply.status(503).send({ status: 'not_ready', dependency: 'database' }) }
+    if (!config.webhookSecret || config.webhookSecret.startsWith('replace-with-')) {
+      return reply.status(503).send({ status: 'not_ready', dependency: 'webhook_configuration' })
+    }
+    return { status: 'ok', service: 'lifeflow-moving-api' }
   })
 
   app.post('/v1/integrations/ahamove/webhooks/order-status', async (request, reply) => {
@@ -42,7 +53,11 @@ export function buildMovingApp(
             : error.retryable ? 503 : 422
       return reply.status(status).send({ code: error.code, message: error.message, retryable: error.retryable })
     }
-    app.log.error(error)
+    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? error.statusCode : undefined
+    if (statusCode === 400 || statusCode === 413 || statusCode === 415) {
+      return reply.status(statusCode).send({ code: 'INVALID_REQUEST' })
+    }
+    app.log.error({ event: 'moving_api_error' })
     return reply.status(500).send({ code: 'INTERNAL_ERROR', message: 'Unexpected moving API error.' })
   })
 

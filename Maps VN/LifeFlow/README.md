@@ -122,7 +122,7 @@ LifeFlow Agent
         |-- resolve_location -------------> Location Query > PostGIS
         |-- find_nearby_places -----------> PostGIS
         `-- calculate_route -------------> OSRM
-  `-- Moving MCP server qua stdio
+  `-- Moving MCP container qua HTTP (local vẫn hỗ trợ stdio)
         |-- discovery / estimate --------> AhaMove API v3
         |-- get / tracking / events -----> AhaMove API v3
         `-- approved create/update/cancel > AhaMove API v3
@@ -205,6 +205,17 @@ chuẩn handler/audit:
 npm run dev:moving-mcp
 npm run dev:moving-api
 ```
+
+Để chạy Moving độc lập bằng Docker, bao gồm database và migration tự động:
+
+```powershell
+npm run moving:up
+npm run moving:verify
+```
+
+AI Service kết nối `http://moving-mcp:4400/mcp` trên cùng Docker network,
+qua bearer token nội bộ. Xem [hướng dẫn container](../../docs/runbooks/moving-containers.md)
+và [bàn giao infra](../../deploy/coolify/staging/moving.md).
 
 Moving API nhận webhook tại
 `POST /v1/integrations/ahamove/webhooks/order-status`. Staging, write tools,
