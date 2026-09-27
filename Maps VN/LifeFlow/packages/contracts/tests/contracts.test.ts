@@ -29,7 +29,9 @@ describe('HousingSearchRequestSchema', () => {
       max_distance_m: 2_000,
       direction: 'destination_to_listing',
     }
-    expect(HousingSearchRequestSchema.parse({ commute }).commute).toMatchObject(commute)
+    const parsed = HousingSearchRequestSchema.parse({ commute }).commute
+    expect(parsed).toMatchObject(commute)
+    expect(parsed?.profile).toBe('motorcycle')
   })
 
   it.each([
@@ -99,6 +101,16 @@ describe('location contracts', () => {
 })
 
 describe('route contracts', () => {
+  it('defaults to the motorcycle profile', () => {
+    expect(
+      RouteRequestSchema.parse({
+        city: 'hcm',
+        origin: { lng: 106.7009, lat: 10.7769 },
+        destination: { lng: 106.7218, lat: 10.7952 },
+      }).profile,
+    ).toBe('motorcycle')
+  })
+
   it.each(['driving', 'motorcycle', 'walking'] as const)('accepts the %s profile', (profile) => {
     expect(
       RouteRequestSchema.parse({

@@ -7,7 +7,7 @@ export const RouteRequestSchema = z.object({
   city: z.enum(['hcm', 'hanoi', 'danang']),
   origin: CoordinateSchema,
   destination: CoordinateSchema,
-  profile: RouteProfileSchema.default('driving'),
+  profile: RouteProfileSchema.default('motorcycle'),
   steps: z.boolean().default(false),
   snap_radius_m: z.number().positive().max(1_000).optional(),
 })

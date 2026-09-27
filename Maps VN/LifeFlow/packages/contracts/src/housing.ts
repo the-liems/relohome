@@ -37,7 +37,7 @@ export const CommuteConstraintSchema = z.object({
   max_distance_m: z.number().positive().max(100_000).optional(),
   min_distance_m: z.number().nonnegative().max(100_000).optional(),
   direction: z.enum(['listing_to_destination', 'destination_to_listing']).default('listing_to_destination'),
-  profile: RouteProfileSchema.default('driving'),
+  profile: RouteProfileSchema.default('motorcycle'),
   city: z.enum(['hcm', 'hanoi', 'danang']).optional(),
 }).superRefine((commute, context) => {
   if (commute.max_duration_seconds === undefined && commute.max_distance_m === undefined) {

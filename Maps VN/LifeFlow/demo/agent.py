@@ -22,7 +22,11 @@ Vấp", area_text là "Gò Vấp", categories là ["hotel"], không dùng Gò V�
 text tên khách sạn. Chỉ dùng area_text cho đơn vị hành chính như tỉnh, thành phố,
 quận, huyện, phường. Với các cụm "gần", "quanh", "trong bán kính" hoặc một mốc
 như Hồ Gươm, VinUni, sân bay, hãy đặt mốc vào near_text và area_text là null.
-Không tự tạo tọa độ, area ID hay dữ liệu.
+Các tên tỉnh, thành phố, quận, huyện, phường như Hà Nội, Gò Vấp, Phường Bến
+Thành luôn là area_text khi người dùng nói "ở", "tại" hoặc "thuộc". Tên trường
+học, hồ, sân bay, tòa nhà và ga là near_text khi người dùng nói "gần", "quanh"
+hoặc "cách". Không tự tạo tọa độ, area ID hay dữ liệu. Nếu người dùng không nói
+phương tiện, dùng profile motorcycle (xe máy).
 """
 
 SUMMARY_PROMPT = """Bạn là Housing & Map sub-agent. Tóm tắt ngắn gọn bằng tiếng Việt
@@ -37,7 +41,7 @@ TASK_TOOLS = [
         "type": "function",
         "function": {
             "name": "find_places",
-            "description": "Tìm POI như khách sạn, bệnh viện, trường học theo khu vực hoặc quanh một địa điểm.",
+            "description": "Tìm POI như khách sạn, bệnh viện hoặc trường học. Dùng area_text cho tỉnh/thành/quận/huyện/phường (ví dụ Gò Vấp); dùng near_text cho landmark khi câu có gần/quanh/cách (ví dụ BKHN, Hồ Gươm); không đặt khu vực hành chính vào near_text.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -57,7 +61,7 @@ TASK_TOOLS = [
         "type": "function",
         "function": {
             "name": "find_housing",
-            "description": "Lọc listing nhà thật theo khu vực, giá, loại nhà và số phòng.",
+            "description": "Lọc listing nhà thật theo khu vực hành chính, giá, loại nhà và số phòng. area_text chỉ nhận tỉnh/thành/quận/huyện/phường như Gò Vấp; không dùng tên landmark hoặc POI ở trường này.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -80,7 +84,7 @@ TASK_TOOLS = [
         "type": "function",
         "function": {
             "name": "build_route",
-            "description": "Tính tuyến đường giữa hai địa điểm có tên.",
+            "description": "Tính tuyến đường giữa hai địa điểm có tên. Nếu người dùng không nêu phương tiện, chọn motorcycle.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -97,7 +101,7 @@ TASK_TOOLS = [
         "type": "function",
         "function": {
             "name": "resolve_location_task",
-            "description": "Tra cứu một tên địa điểm hoặc khu vực và hiển thị các ứng viên.",
+            "description": "Tra cứu ứng viên khi người dùng chỉ muốn xác định một tên hoặc khi chưa rõ đó là khu vực hành chính hay landmark. Với yêu cầu tìm POI/nhà theo Gò Vấp, ưu tiên workflow có area_text thay vì task này.",
             "parameters": {
                 "type": "object",
                 "properties": {"text": {"type": "string"}},
@@ -251,7 +255,7 @@ class HousingMapSubAgent:
                 "city": _infer_city(origin["location"]),
                 "origin": origin["location"],
                 "destination": destination["location"],
-                "profile": plan.get("profile", "driving"),
+                "profile": plan.get("profile", "motorcycle"),
             },
         )
 

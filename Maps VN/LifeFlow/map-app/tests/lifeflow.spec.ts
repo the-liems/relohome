@@ -46,31 +46,86 @@ test('loads every POI group by default in a single map request', async ({ page }
   })
 
   await page.reload()
-  await expect(page.getByRole('textbox', { name: /Tìm địa điểm/ })).toBeEnabled()
+  await expect(page.locator('.search input')).toBeEnabled()
   expect(apiStatuses.length).toBeGreaterThan(0)
   expect(apiStatuses.every((status) => status === 200)).toBe(true)
   expect(fallbackWarnings).toEqual([])
   const data = await mapPois(page)
   expect(data.features.length).toBeGreaterThan(30_000)
   expect(new Set(data.features.map((feature) => feature.properties.group)).size).toBe(8)
-  await expect(page.getByRole('button', { name: 'Tất cả', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.poi-groups')).toHaveCount(0)
   await page.screenshot({ path: 'test-results/all-pois-desktop.png', fullPage: true })
 })
 
-test('filters the shared layer locally and searches across groups', async ({ page }) => {
-  await expect(page.getByRole('textbox', { name: /Tìm địa điểm/ })).toBeEnabled()
+test('keeps amenities automatic and searches housing and places together', async ({ page }) => {
+  await expect(page.locator('.search input')).toBeEnabled()
   const all = await mapPois(page)
   const namedHotel = all.features.find((feature) => feature.properties.group === 'accommodation' && feature.properties.name && feature.properties.name.length > 5)!
   let requests = 0
   page.on('request', (request) => { if (request.url().includes('/v1/places/')) requests += 1 })
-  await page.getByRole('button', { name: 'Y tế' }).click()
-  await expect(page.getByRole('button', { name: 'Y tế' })).toHaveAttribute('aria-pressed', 'true')
-  await expect.poll(async () => [...new Set((await mapPois(page)).features.map((feature) => feature.properties.group))]).toEqual(['healthcare'])
-  await page.getByRole('textbox', { name: /Tìm địa điểm/ }).fill(namedHotel.properties.name!)
+  await expect(page.locator('.poi-groups')).toHaveCount(0)
+  expect(new Set(all.features.map((feature) => feature.properties.group)).size).toBe(8)
+  await page.locator('.search input').fill(namedHotel.properties.name!)
   await page.locator('.search-result').first().click()
-  await expect(page.getByRole('button', { name: 'Tất cả', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect.poll(async () => (await mapPois(page)).features.length).toBe(all.features.length)
   expect(requests).toBe(0)
+})
+
+test('renders housing listings as the primary price-marker layer', async ({ page }) => {
+  await page.route('**/v1/housing/search', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      results: [{
+        listing_id: '11111111-1111-4111-8111-111111111111',
+        title: 'Phòng trọ gần Đại học Quốc gia',
+        property_type: 'room',
+        listing_type: 'rent',
+        location: { lng: 106.7009, lat: 10.7769 },
+        address: { street: 'Đường Lê Duẩn', city: 'TP.HCM' },
+        price: { amount: 3_500_000, currency: 'VND', period: 'month' },
+        bedrooms: 1,
+        bathrooms: 1,
+        area: { value: 25, unit: 'm2' },
+        amenities: ['wifi', 'air_conditioning'],
+        source: { source_url: 'https://example.com/listing/1' },
+      }],
+    }),
+  }))
+  await page.reload()
+  await page.waitForFunction(() => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__?: { isStyleLoaded: () => boolean; getSource: (id: string) => unknown }
+    }).__LIFEFLOW_MAP__
+    return map?.isStyleLoaded() && Boolean(map.getSource('lifeflow-housing'))
+  })
+  await expect.poll(async () => page.evaluate(async () => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__: {
+        getSource: (id: string) => { getData: () => Promise<{ features: Array<{ properties: { entity_kind: string; price_amount: number } }> }> }
+      }
+    }).__LIFEFLOW_MAP__
+    const data = await map.getSource('lifeflow-housing').getData()
+    return data.features.map((feature) => feature.properties)
+  })).toEqual([{
+    entity_kind: 'housing',
+    listing_id: '11111111-1111-4111-8111-111111111111',
+    name: 'Phòng trọ gần Đại học Quốc gia',
+    title: 'Phòng trọ gần Đại học Quốc gia',
+    property_type: 'room',
+    listing_type: 'rent',
+    category: 'room',
+    group: 'accommodation',
+    address: 'Đường Lê Duẩn, TP.HCM',
+    price_amount: 3_500_000,
+    price_currency: 'VND',
+    price_period: 'month',
+    price_label: '3,5 tr/tháng',
+    bedrooms: 1,
+    bathrooms: 1,
+    area_m2: 25,
+    amenities: ['wifi', 'air_conditioning'],
+    source_url: 'https://example.com/listing/1',
+  }])
 })
 
 test('reports API failure instead of silently replacing all POIs with accommodation data', async ({ page }) => {
@@ -84,7 +139,7 @@ test('reports API failure instead of silently replacing all POIs with accommodat
 
 test('opens a real POI popup', async ({ page }) => {
   await page.getByRole('button', { name: 'Hà Nội' }).click()
-  const search = page.getByRole('textbox', { name: /Tìm địa điểm/ })
+  const search = page.locator('.search input')
   await search.fill('Khách Sạn Đức Thái')
   await page.getByRole('button', { name: /Khách Sạn Đức Thái/ }).click()
   await expect(page.locator('.maplibregl-popup')).toBeVisible()
@@ -112,7 +167,7 @@ test('uses clustered symbol POIs and a dedicated selected highlight', async ({ p
   expect(style.layers.find((layer) => layer.id === 'selected-poi')?.type).toBe('symbol')
 
   await page.getByRole('button', { name: 'Hà Nội' }).click()
-  const search = page.getByRole('textbox', { name: /Tìm địa điểm/ })
+  const search = page.locator('.search input')
   await search.fill('Khách Sạn Đức Thái')
   await page.getByRole('button', { name: /Khách Sạn Đức Thái/ }).click()
   await expect.poll(async () => page.evaluate(async () => {

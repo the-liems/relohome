@@ -16,7 +16,8 @@ export function registerPlaceTools(server: McpServer, dependencies: LifeFlowMcpD
     'search_places',
     {
       title: 'Search places',
-      description: 'Search canonical places using text, category and spatial constraints.',
+      description:
+        'Search canonical POIs and named places such as hotels, hospitals, schools, shops or bus stops using text, category and spatial filters. For a province, city, district or ward such as Gò Vấp, first use search_areas and pass its administrative_area_id; do not treat an administrative area as a POI name. Use search_housing instead for rental or sale listings.',
       inputSchema: PlaceSearchRequestSchema,
       outputSchema: z.object({
         results: z.array(PlaceSchema),
@@ -31,7 +32,8 @@ export function registerPlaceTools(server: McpServer, dependencies: LifeFlowMcpD
     'get_place',
     {
       title: 'Get place',
-      description: 'Get one canonical place by ID.',
+      description:
+        'Get full factual details for exactly one canonical POI using a place_id returned by search_places, resolve_location or find_nearby_places. Do not use this tool to search by free-form name or administrative area.',
       inputSchema: z.object({ place_id: z.uuid() }),
       outputSchema: PlaceSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -47,7 +49,8 @@ export function registerPlaceTools(server: McpServer, dependencies: LifeFlowMcpD
     'find_nearby_places',
     {
       title: 'Find nearby places',
-      description: 'Return the nearest factual place matching each category and distance constraint.',
+      description:
+        'From one already resolved coordinate, return the nearest factual POI matching each requested category and maximum straight-line distance. Resolve a landmark name with resolve_location before calling this tool. Use search_areas for administrative names such as Gò Vấp. This tool finds nearby amenities; it does not search housing or calculate road routes.',
       inputSchema: z.object({
         origin: CoordinateSchema,
         constraints: z.array(NearbyPlaceConstraintSchema).min(1).max(10),

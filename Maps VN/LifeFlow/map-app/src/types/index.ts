@@ -31,6 +31,28 @@ export interface PoiProperties {
 export type PoiFeature = Feature<Point, PoiProperties>
 export type PoiCollection = FeatureCollection<Point, PoiProperties>
 
+export interface HousingMapProperties extends PoiProperties {
+  entity_kind: 'housing'
+  listing_id: string
+  name: string
+  title: string
+  property_type: string
+  listing_type: string
+  address: string
+  price_amount: number
+  price_currency: 'VND' | 'USD'
+  price_period: 'day' | 'week' | 'month' | 'year' | 'total'
+  price_label: string
+  bedrooms: number | null
+  bathrooms: number | null
+  area_m2: number | null
+  amenities: string[]
+  source_url: string | null
+}
+
+export type HousingFeature = Feature<Point, HousingMapProperties>
+export type HousingCollection = FeatureCollection<Point, HousingMapProperties>
+
 export interface RouteResult {
   distanceMeters: number
   durationSeconds: number

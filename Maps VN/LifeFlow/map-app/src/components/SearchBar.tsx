@@ -32,8 +32,8 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        placeholder={loading ? 'Đang tải địa điểm…' : `Tìm địa điểm tại ${city.label}`}
-        aria-label={`Tìm địa điểm tại ${city.label}`}
+        placeholder={loading ? 'Đang tải dữ liệu…' : `Tìm nhà ở hoặc địa điểm tại ${city.label}`}
+        aria-label={`Tìm nhà ở hoặc địa điểm tại ${city.label}`}
         disabled={loading}
       />
       {query && (

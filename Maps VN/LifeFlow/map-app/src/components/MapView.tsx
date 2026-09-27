@@ -8,6 +8,8 @@ import type { PoiGroup } from '../config/poi-groups'
 import type {
   CityConfig,
   Coordinates,
+  HousingCollection,
+  HousingMapProperties,
   PoiCollection,
   PoiFeature,
   PoiProperties,
@@ -15,8 +17,10 @@ import type {
   RouteResult,
 } from '../types'
 import { PoiPopup } from './PoiPopup'
+import { HousingPopup } from './HousingPopup'
 
 const EMPTY_COLLECTION: PoiCollection = { type: 'FeatureCollection', features: [] }
+const EMPTY_HOUSING: HousingCollection = { type: 'FeatureCollection', features: [] }
 const EMPTY_SELECTED: GeoJSON.FeatureCollection<GeoJSON.Point, PoiProperties> = {
   type: 'FeatureCollection',
   features: [],
@@ -43,6 +47,7 @@ interface FocusRequest {
 interface MapViewProps {
   city: CityConfig
   pois: PoiCollection | null
+  housing: HousingCollection | null
   points: RoutePoint[]
   route: RouteResult | null
   focusRequest: FocusRequest | null
@@ -58,6 +63,7 @@ interface ActivePopup {
 export function MapView({
   city,
   pois,
+  housing,
   points,
   route,
   focusRequest,
@@ -149,7 +155,20 @@ export function MapView({
       )
     })
 
-    for (const layer of [MAP_LAYER_IDS.cluster, MAP_LAYER_IDS.poi]) {
+    map.on('click', MAP_LAYER_IDS.housing, (event) => {
+      const feature = event.features?.[0]
+      const coordinate = getFeaturePoint(feature)
+      if (!feature || !coordinate) return
+      setSelectedPoi(map, null)
+      openHousingPopup(
+        map,
+        activePopupRef,
+        coordinate,
+        feature.properties as HousingMapProperties,
+      )
+    })
+
+    for (const layer of [MAP_LAYER_IDS.cluster, MAP_LAYER_IDS.poi, MAP_LAYER_IDS.housing]) {
       map.on('mouseenter', layer, () => {
         map.getCanvas().style.cursor = 'pointer'
       })
@@ -185,7 +204,8 @@ export function MapView({
     })
 
     map.on('click', (event) => {
-      const interactiveLayers = [MAP_LAYER_IDS.cluster, MAP_LAYER_IDS.poi].filter((layer) => map.getLayer(layer))
+      const interactiveLayers = [MAP_LAYER_IDS.cluster, MAP_LAYER_IDS.poi, MAP_LAYER_IDS.housing]
+        .filter((layer) => map.getLayer(layer))
       if (interactiveLayers.length) {
         const features = map.queryRenderedFeatures(event.point, { layers: interactiveLayers })
         if (features.length) return
@@ -218,6 +238,13 @@ export function MapView({
     const source = map.getSource(MAP_LAYER_IDS.poiSource) as GeoJSONSource | undefined
     source?.setData(pois || EMPTY_COLLECTION)
   }, [mapReady, pois])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    const source = map.getSource(MAP_LAYER_IDS.housingSource) as GeoJSONSource | undefined
+    source?.setData(housing || EMPTY_HOUSING)
+  }, [housing, mapReady])
 
   useEffect(() => {
     const map = mapRef.current
@@ -273,12 +300,12 @@ export function MapView({
       zoom: Math.max(map.getZoom(), MAP_ZOOM_RULES.selectedZoom),
       duration: 850,
     })
-    openPoiPopup(
-      map,
-      activePopupRef,
-      coordinate,
-      focusRequest.poi.properties || {},
-    )
+    const properties = focusRequest.poi.properties || {}
+    if (properties.entity_kind === 'housing') {
+      openHousingPopup(map, activePopupRef, coordinate, properties as HousingMapProperties)
+    } else {
+      openPoiPopup(map, activePopupRef, coordinate, properties)
+    }
   }, [focusRequest, mapReady])
 
   return (
@@ -658,4 +685,29 @@ function closePopup(popupRef: MutableRefObject<ActivePopup | null>) {
   popupRef.current = null
   active.popup.remove()
   active.root.unmount()
+}
+
+function openHousingPopup(
+  map: maplibregl.Map,
+  popupRef: MutableRefObject<ActivePopup | null>,
+  coordinate: Coordinates,
+  properties: HousingMapProperties,
+) {
+  closePopup(popupRef)
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  root.render(<HousingPopup properties={properties} />)
+
+  const popup = new maplibregl.Popup({ offset: 14, maxWidth: '340px' })
+    .setLngLat(coordinate)
+    .setDOMContent(container)
+    .addTo(map)
+
+  popupRef.current = { popup, root }
+  popup.on('close', () => {
+    if (popupRef.current?.popup === popup) {
+      root.unmount()
+      popupRef.current = null
+    }
+  })
 }

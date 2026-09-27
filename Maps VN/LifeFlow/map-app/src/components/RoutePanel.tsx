@@ -9,6 +9,7 @@ interface RoutePanelProps {
   status: RouteStatus
   error: string
   poiCount: number
+  housingCount: number
   onReset: () => void
   onProfileChange: (profile: RouteProfile) => void
 }
@@ -25,6 +26,7 @@ export function RoutePanel({
   status,
   error,
   poiCount,
+  housingCount,
   onReset,
   onProfileChange,
 }: RoutePanelProps) {
@@ -142,7 +144,7 @@ export function RoutePanel({
       )}
 
       <div className="route-panel__footer">
-        <span>{poiCount.toLocaleString('vi-VN')} POI</span>
+        <span>{housingCount.toLocaleString('vi-VN')} nhà ở · {poiCount.toLocaleString('vi-VN')} tiện ích</span>
         <span>{new URL(city.osrmBaseUrls[profile]).port}</span>
       </div>
     </aside>

@@ -14,7 +14,7 @@ export function registerLocationTools(server: McpServer, dependencies: LifeFlowM
     {
       title: 'Search administrative areas',
       description:
-        'Search locally owned administrative boundaries by accent-insensitive name and return canonical area IDs, parents, centers and bounding boxes.',
+        'Use only for administrative boundaries: province, municipality, district, county, city, commune or ward. Examples include Hà Nội, Gò Vấp and Phường Bến Thành. Search is accent-insensitive and returns canonical area IDs, parents, centers and bounding boxes for downstream filtering. Do not use for landmarks, universities, buildings, hotels, POIs or housing listings.',
       inputSchema: SearchAreasRequestSchema,
       outputSchema: SearchAreasResponseSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -29,7 +29,7 @@ export function registerLocationTools(server: McpServer, dependencies: LifeFlowM
     {
       title: 'Resolve location',
       description:
-        'Resolve a location name against local canonical places and administrative areas, returning multiple factual candidates when the name is ambiguous.',
+        'Resolve a free-form named landmark or place such as a university, lake, airport, building or station into canonical coordinates. It can also recover ambiguous input when the entity type is unknown. If the input is clearly a province, city, district or ward such as Gò Vấp, prefer search_areas. Results may be ambiguous: use category, parent area or bounding_box to disambiguate instead of silently selecting the first candidate.',
       inputSchema: ResolveLocationRequestSchema,
       outputSchema: ResolveLocationResponseSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },

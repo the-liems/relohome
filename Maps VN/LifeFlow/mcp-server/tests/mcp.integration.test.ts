@@ -48,6 +48,14 @@ describe('LifeFlow MCP stdio server', () => {
     ])
     expect(names).not.toContain('recommend_housing')
     expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+
+    const descriptions = Object.fromEntries(tools.map((tool) => [tool.name, tool.description || '']))
+    expect(Object.values(descriptions).every((description) => description.length >= 100)).toBe(true)
+    expect(descriptions.search_areas).toContain('Gò Vấp')
+    expect(descriptions.resolve_location).toContain('prefer search_areas')
+    expect(descriptions.search_places).toContain('do not treat an administrative area as a POI')
+    expect(descriptions.search_housing).toContain('commute.profile defaults to motorcycle')
+    expect(descriptions.calculate_route).toContain('motorcycle by default')
   })
 
   it('searches administrative areas through MCP stdio without accents', async () => {
