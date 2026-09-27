@@ -41,17 +41,33 @@ export interface HousingMapProperties extends PoiProperties {
   address: string
   price_amount: number
   price_currency: 'VND' | 'USD'
-  price_period: 'day' | 'week' | 'month' | 'year' | 'total'
+  price_period: 'night' | 'day' | 'week' | 'month' | 'year' | 'total'
   price_label: string
   bedrooms: number | null
   bathrooms: number | null
   area_m2: number | null
   amenities: string[]
   source_url: string | null
+  thumbnail_url: string | null
+  location_accuracy: 'rooftop' | 'approximate' | 'unknown'
 }
 
-export type HousingFeature = Feature<Point, HousingMapProperties>
-export type HousingCollection = FeatureCollection<Point, HousingMapProperties>
+export interface HousingClusterProperties extends PoiProperties {
+  entity_kind: 'housing_cluster'
+  cluster_id: string
+  cluster_count: number
+  price_amount: number
+  price_currency: 'VND' | 'USD'
+  price_label: string
+}
+
+export type HousingFeature = Feature<Point, HousingMapProperties | HousingClusterProperties>
+export type HousingCollection = FeatureCollection<Point, HousingMapProperties | HousingClusterProperties>
+
+export interface HousingViewport {
+  boundingBox: { west: number; south: number; east: number; north: number }
+  zoom: number
+}
 
 export interface RouteResult {
   distanceMeters: number

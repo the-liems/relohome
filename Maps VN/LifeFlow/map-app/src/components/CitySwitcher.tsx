@@ -12,13 +12,9 @@ export function CitySwitcher({ activeCity, onChange }: CitySwitcherProps) {
       {CITY_ORDER.map((cityId) => {
         const city = CITY_CONFIG[cityId]
         return (
-          <button
-            className={cityId === activeCity ? 'city-button is-active' : 'city-button'}
-            type="button"
-            aria-pressed={cityId === activeCity}
-            onClick={() => onChange(cityId)}
-            key={cityId}
-          >
+          <button className={cityId === activeCity ? 'city-button is-active' : 'city-button'}
+            type="button" title={city.label} aria-label={city.label} aria-pressed={cityId === activeCity}
+            onClick={() => onChange(cityId)} key={cityId}>
             {city.shortLabel}
           </button>
         )

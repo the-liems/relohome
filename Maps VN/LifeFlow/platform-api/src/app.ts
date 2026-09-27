@@ -2,6 +2,7 @@ import cors from '@fastify/cors'
 import {
   CoordinateSchema,
   HousingSearchRequestSchema,
+  HousingMapRequestSchema,
   NearbyPlaceConstraintSchema,
   PlaceSearchRequestSchema,
   PlaceMapRequestSchema,
@@ -49,6 +50,10 @@ export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
 
   app.post('/v1/housing/search', async (request) => {
     return housingService.search(HousingSearchRequestSchema.parse(request.body))
+  })
+
+  app.post('/v1/housing/map', async (request) => {
+    return housingService.map(HousingMapRequestSchema.parse(request.body))
   })
 
   app.get('/v1/housing/:listingId', async (request) => {

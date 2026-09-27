@@ -10,7 +10,7 @@ import { NearbyPlaceConstraintSchema, NearbyPlaceMatchSchema } from './place.js'
 import { RouteProfileSchema, RouteResultSchema } from './route.js'
 
 export const CurrencySchema = z.enum(['VND', 'USD'])
-export const PricePeriodSchema = z.enum(['day', 'week', 'month', 'year', 'total'])
+export const PricePeriodSchema = z.enum(['night', 'day', 'week', 'month', 'year', 'total'])
 export const ListingTypeSchema = z.enum(['rent', 'sale', 'short_stay'])
 export const PropertyTypeSchema = z.enum([
   'apartment',
@@ -213,9 +213,55 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
   extra_attributes: z.record(z.string(), z.unknown()),
 })
 
+export const HousingMapRequestSchema = z.object({
+  bounding_box: BoundingBoxSchema,
+  zoom: z.number().finite().min(0).max(24),
+  property_type: z.array(PropertyTypeSchema).min(1).max(20).optional(),
+  listing_type: z.array(ListingTypeSchema).min(1).max(10).optional(),
+  limit: z.number().int().min(1).max(2_000).default(500),
+})
+
+export const HousingMapMarkerSchema = z.object({
+  kind: z.literal('listing'),
+  listing_id: z.uuid(),
+  location: CoordinateSchema,
+  title: z.string().min(1),
+  property_type: PropertyTypeSchema,
+  listing_type: ListingTypeSchema,
+  price: MoneySchema,
+  bedrooms: z.number().nonnegative().nullable(),
+  bathrooms: z.number().nonnegative().nullable(),
+  area_m2: z.number().positive().nullable(),
+  address: z.record(z.string(), z.unknown()),
+  amenities: z.array(z.string()),
+  source_url: z.url().nullable(),
+  thumbnail_url: z.url().nullable(),
+  location_accuracy: z.enum(['rooftop', 'approximate', 'unknown']),
+})
+
+export const HousingMapClusterSchema = z.object({
+  kind: z.literal('cluster'),
+  cluster_id: z.string().min(1),
+  location: CoordinateSchema,
+  count: z.number().int().positive(),
+  min_price_amount: z.number().nonnegative(),
+  currency: CurrencySchema,
+})
+
+export const HousingMapResponseSchema = z.object({
+  features: z.array(z.discriminatedUnion('kind', [HousingMapMarkerSchema, HousingMapClusterSchema])),
+  meta: z.object({
+    mode: z.enum(['clusters', 'listings']),
+    returned_count: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+  }),
+})
+
 export type HousingSearchRequest = z.input<typeof HousingSearchRequestSchema>
 export type ParsedHousingSearchRequest = z.output<typeof HousingSearchRequestSchema>
 export type HousingSearchResponse = z.infer<typeof HousingSearchResponseSchema>
 export type HousingSearchResult = z.infer<typeof HousingSearchResultSchema>
 export type HousingDetail = z.infer<typeof HousingDetailSchema>
 export type CommuteConstraint = z.infer<typeof CommuteConstraintSchema>
+export type HousingMapRequest = z.infer<typeof HousingMapRequestSchema>
+export type HousingMapResponse = z.infer<typeof HousingMapResponseSchema>

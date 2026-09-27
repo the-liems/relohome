@@ -19,6 +19,7 @@
     "mcp:stop": "docker compose --env-file .env -f infra/compose.yaml stop location-mcp",
     "db:import:places": "npm run db:import:places --workspace @lifeflow/platform-api",
     "db:import:pois:v2": "npm run db:import:pois:v2 --workspace @lifeflow/platform-api",
+    "db:import:housing": "npm run db:import:housing --workspace @lifeflow/platform-api",
     "db:report:pois": "npm run db:report:pois --workspace @lifeflow/platform-api",
     "db:import:areas": "npm run db:import:areas --workspace @lifeflow/platform-api",
     "dev:api": "npm run dev --workspace @lifeflow/platform-api",

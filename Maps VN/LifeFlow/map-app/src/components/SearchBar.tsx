@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { MapPin, Search, X } from 'lucide-react'
+import { House, MapPin, Search, X } from 'lucide-react'
 import { getPoiAddress, searchPois } from '../services/poi'
 import type { CityConfig, PoiCollection, PoiFeature } from '../types'
 
@@ -8,6 +8,16 @@ interface SearchBarProps {
   pois: PoiCollection | null
   loading: boolean
   onSelect: (poi: PoiFeature) => void
+}
+
+const HOUSING_LABELS: Record<string, string> = {
+  apartment: 'Căn hộ',
+  house: 'Nhà nguyên căn',
+  room: 'Phòng trọ',
+  studio: 'Studio',
+  serviced_apartment: 'Căn hộ dịch vụ',
+  homestay: 'Homestay',
+  other: 'Nhà ở',
 }
 
 export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
@@ -32,21 +42,13 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        placeholder={loading ? 'Đang tải dữ liệu…' : `Tìm nhà ở hoặc địa điểm tại ${city.label}`}
-        aria-label={`Tìm nhà ở hoặc địa điểm tại ${city.label}`}
+        placeholder={loading ? 'Đang tải dữ liệu…' : 'Tìm khu vực, địa chỉ, trường học hoặc tiện ích gần nhà…'}
+        aria-label={`Tìm nhà ở và vị trí tại ${city.label}`}
         disabled={loading}
       />
       {query && (
-        <button
-          className="icon-button"
-          type="button"
-          title="Xóa tìm kiếm"
-          aria-label="Xóa tìm kiếm"
-          onClick={() => {
-            setQuery('')
-            setOpen(false)
-          }}
-        >
+        <button className="icon-button" type="button" title="Xóa tìm kiếm" aria-label="Xóa tìm kiếm"
+          onClick={() => { setQuery(''); setOpen(false) }}>
           <X size={17} />
         </button>
       )}
@@ -58,24 +60,25 @@ export function SearchBar({ city, pois, loading, onSelect }: SearchBarProps) {
               const properties = poi.properties || {}
               const name = typeof properties.name === 'string' ? properties.name : 'Địa điểm'
               const address = getPoiAddress(properties)
-              const category = String(properties.category || properties.tourism || properties.amenity || 'Địa điểm')
+              const isHousing = properties.entity_kind === 'housing'
+              const category = isHousing
+                ? HOUSING_LABELS[String(properties.property_type || 'other')] || 'Nhà ở'
+                : String(properties.category || properties.tourism || properties.amenity || 'Địa điểm').replaceAll('_', ' ')
               return (
-                <button
-                  type="button"
-                  className="search-result"
-                  onClick={() => choosePoi(poi)}
-                  key={`${poi.id ?? name}-${index}`}
-                >
-                  <MapPin size={17} aria-hidden="true" />
-                  <span>
+                <button type="button" className={`search-result${isHousing ? ' search-result--housing' : ''}`}
+                  onClick={() => choosePoi(poi)} key={`${poi.id ?? name}-${index}`}>
+                  <span className="search-result__icon">
+                    {isHousing ? <House size={17} aria-hidden="true" /> : <MapPin size={17} aria-hidden="true" />}
+                  </span>
+                  <span className="search-result__content">
                     <strong>{name}</strong>
-                    <small>{address || category}</small>
+                    <small><b>{category}</b>{address && <span> · {address}</span>}</small>
                   </span>
                 </button>
               )
             })
           ) : (
-            <p className="search-empty">Không tìm thấy địa điểm phù hợp.</p>
+            <p className="search-empty">Không tìm thấy nhà ở hoặc địa điểm phù hợp.</p>
           )}
         </div>
       )}

@@ -43,6 +43,9 @@ beforeAll(async () => {
   pool = createDatabasePool(config.ingestDatabaseUrl, 1)
   client = await pool.connect()
   await client.query('BEGIN')
+  // Production housing may already exist in a developer database. Hide it only
+  // inside this transaction so fixture assertions remain deterministic.
+  await client.query("UPDATE housing.listings SET status = 'stale' WHERE source_type = 'partner'")
   await insertFixtures(client)
   service = new HousingQueryService(
     client as unknown as QueryExecutor,

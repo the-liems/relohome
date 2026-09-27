@@ -120,7 +120,7 @@ describe('LifeFlow Platform API', () => {
     expect(response.json().code).toBe('VALIDATION_ERROR')
   })
 
-  it('returns an empty factual housing set when no production housing source exists', async () => {
+  it('returns imported factual housing without recommendation fields', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/v1/housing/search',
@@ -132,8 +132,26 @@ describe('LifeFlow Platform API', () => {
     })
     expect(response.statusCode).toBe(200)
     const body = response.json()
-    expect(body.results).toEqual([])
+    expect(Array.isArray(body.results)).toBe(true)
+    if (body.results[0]) expect(body.results[0].source.type).toBe('partner')
     expect(JSON.stringify(body)).not.toContain('recommendation_score')
+  })
+
+  it('returns viewport-aware housing map features', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/housing/map',
+      payload: {
+        bounding_box: { west: 106.45, south: 10.55, east: 106.95, north: 11.2 },
+        zoom: 10,
+        limit: 1000,
+      },
+    })
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.meta.mode).toBe('clusters')
+    expect(Array.isArray(body.features)).toBe(true)
+    if (body.features[0]) expect(body.features[0].kind).toBe('cluster')
   })
 
   it('rejects invalid hard constraints at the API boundary', async () => {

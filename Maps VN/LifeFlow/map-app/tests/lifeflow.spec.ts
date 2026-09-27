@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('loads real POIs and switches all cities without reload', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: 'TP.HCM' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'TP.HCM', pressed: true })).toBeVisible()
   const poiCount = await page.evaluate(async () => {
     const response = await fetch('/data/accommodations.geojson')
     const data = await response.json()
@@ -19,9 +19,9 @@ test('loads real POIs and switches all cities without reload', async ({ page }) 
   expect(poiCount).toBe(13_120)
 
   await page.getByRole('button', { name: 'Hà Nội' }).click()
-  await expect(page.getByRole('heading', { name: 'Hà Nội' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hà Nội', pressed: true })).toBeVisible()
   await page.getByRole('button', { name: 'Đà Nẵng' }).click()
-  await expect(page.getByRole('heading', { name: 'Đà Nẵng' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Đà Nẵng', pressed: true })).toBeVisible()
   await waitForMapToSettle(page)
   await expect.poll(async () => {
     return page.evaluate(() => {
@@ -72,10 +72,11 @@ test('keeps amenities automatic and searches housing and places together', async
 })
 
 test('renders housing listings as the primary price-marker layer', async ({ page }) => {
-  await page.route('**/v1/housing/search', (route) => route.fulfill({
+  await page.route('**/v1/housing/map', (route) => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({
-      results: [{
+      features: [{
+        kind: 'listing',
         listing_id: '11111111-1111-4111-8111-111111111111',
         title: 'Phòng trọ gần Đại học Quốc gia',
         property_type: 'room',
@@ -85,10 +86,13 @@ test('renders housing listings as the primary price-marker layer', async ({ page
         price: { amount: 3_500_000, currency: 'VND', period: 'month' },
         bedrooms: 1,
         bathrooms: 1,
-        area: { value: 25, unit: 'm2' },
+        area_m2: 25,
         amenities: ['wifi', 'air_conditioning'],
-        source: { source_url: 'https://example.com/listing/1' },
+        source_url: 'https://example.com/listing/1',
+        thumbnail_url: null,
+        location_accuracy: 'rooftop',
       }],
+      meta: { mode: 'listings', returned_count: 1, truncated: false },
     }),
   }))
   await page.reload()
@@ -125,7 +129,39 @@ test('renders housing listings as the primary price-marker layer', async ({ page
     area_m2: 25,
     amenities: ['wifi', 'air_conditioning'],
     source_url: 'https://example.com/listing/1',
+    thumbnail_url: null,
+    location_accuracy: 'rooftop',
   }])
+})
+
+test('keeps housing list, selected marker, detail, and filters synchronized', async ({ page }) => {
+  await expect(page.locator('.housing-card').first()).toBeVisible()
+  const firstCard = page.locator('.housing-card').first()
+  await firstCard.locator('.housing-card__main').click()
+  await expect(firstCard).toHaveClass(/is-selected/)
+  await expect(page.locator('.housing-detail')).toBeVisible()
+  await expect.poll(async () => page.evaluate(async () => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__: {
+        getSource: (id: string) => { getData: () => Promise<{ features: Array<{ properties: { interaction_state: string } }> }> }
+      }
+    }).__LIFEFLOW_MAP__
+    const data = await map.getSource('lifeflow-housing-interaction').getData()
+    return data.features.map((feature) => feature.properties.interaction_state)
+  })).toContain('selected')
+
+  await page.getByLabel('Đóng chi tiết').click()
+  await page.getByLabel('Lọc theo giá tối đa').selectOption('5000000')
+  await expect.poll(async () => page.evaluate(async () => {
+    const map = (window as unknown as {
+      __LIFEFLOW_MAP__: {
+        getSource: (id: string) => { getData: () => Promise<{ features: Array<{ properties: { price_amount: number } }> }> }
+      }
+    }).__LIFEFLOW_MAP__
+    const data = await map.getSource('lifeflow-housing').getData()
+    return data.features.every((feature) => feature.properties.price_amount <= 5_000_000)
+  })).toBe(true)
+  await expect(page.locator('.housing-card').first()).toBeVisible()
 })
 
 test('reports API failure instead of silently replacing all POIs with accommodation data', async ({ page }) => {
@@ -181,11 +217,12 @@ test('uses clustered symbol POIs and a dedicated selected highlight', async ({ p
 })
 
 test('routes A to B through the live HCM OSRM service', async ({ page }) => {
+  await page.getByRole('button', { name: 'Chỉ đường' }).click()
   await clickMapCoordinate(page, [106.7009, 10.7769])
   await expect(page.getByText('Chọn tiếp điểm B.')).toBeVisible()
   await clickMapCoordinate(page, [106.7218, 10.7952])
 
-  await expect(page.getByText('OSRM đã tìm thấy tuyến phù hợp.')).toBeVisible()
+  await expect(page.getByText('Đã tìm thấy tuyến đường phù hợp.')).toBeVisible()
   await expect(page.getByText(/\d+\.\d km/)).toBeVisible()
   await expect(page.getByText(/\d+ phút/)).toBeVisible()
   await expect.poll(async () =>
@@ -206,17 +243,18 @@ test('switches between motorcycle and walking routing graphs', async ({ page }) 
     if (url.pathname.includes('/route/v1/')) requestedPorts.push(url.port)
   })
 
+  await page.getByRole('button', { name: 'Chỉ đường' }).click()
   await clickMapCoordinate(page, [106.7009, 10.7769])
   await clickMapCoordinate(page, [106.7218, 10.7952])
-  await expect(page.getByText('OSRM đã tìm thấy tuyến phù hợp.')).toBeVisible()
+  await expect(page.getByText('Đã tìm thấy tuyến đường phù hợp.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Xe máy' }).click()
   await expect.poll(() => requestedPorts.includes('5020')).toBe(true)
-  await expect(page.getByText('OSRM đã tìm thấy tuyến phù hợp.')).toBeVisible()
+  await expect(page.getByText('Đã tìm thấy tuyến đường phù hợp.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Đi bộ' }).click()
   await expect.poll(() => requestedPorts.includes('5010')).toBe(true)
-  await expect(page.getByText('OSRM đã tìm thấy tuyến phù hợp.')).toBeVisible()
+  await expect(page.getByText('Đã tìm thấy tuyến đường phù hợp.')).toBeVisible()
 })
 
 test('keeps the map usable on a mobile viewport', async ({ page }) => {
@@ -227,6 +265,7 @@ test('keeps the map usable on a mobile viewport', async ({ page }) => {
       .__LIFEFLOW_MAP__
     return map?.isStyleLoaded()
   })
+  await expect(page.locator('.search input')).toBeEnabled()
   await expect(page.locator('.map-canvas')).toBeVisible()
   await expect(page.locator('.route-panel')).toBeVisible()
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true })

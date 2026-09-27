@@ -177,6 +177,7 @@ export class LocationService {
     const conditions = [
       "p.status = 'active'",
       'p.deleted_at IS NULL',
+      "COALESCE(p.attributes->>'entity_role', '') <> 'housing_anchor'",
       'p.name IS NOT NULL',
       `(geo.normalize_search(p.name) LIKE '%' || q.value || '%'
         OR geo.normalize_search(p.name) % q.value

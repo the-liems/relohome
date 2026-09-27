@@ -116,7 +116,7 @@ describe('LifeFlow MCP stdio server', () => {
     expect(output.results[0]?.source.source_id).toBeTruthy()
   })
 
-  it('returns an empty factual housing set when no listing source was imported', async () => {
+  it('returns imported factual housing without recommendation fields', async () => {
     const result = await client.callTool({
       name: 'search_housing',
       arguments: {
@@ -127,11 +127,11 @@ describe('LifeFlow MCP stdio server', () => {
 
     expect(result.isError).not.toBe(true)
     const output = result.structuredContent as {
-      results: unknown[]
+      results: Array<{ listing_id: string; source: { type: string } }>
       page: { returned_count: number }
     }
-    expect(output.results).toEqual([])
-    expect(output.page.returned_count).toBe(0)
+    expect(output.page.returned_count).toBe(output.results.length)
+    if (output.results[0]) expect(output.results[0].source.type).toBe('partner')
     expect(JSON.stringify(output)).not.toMatch(/recommend|score|best_choice/i)
   })
 })

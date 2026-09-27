@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import {
   HousingDetailSchema,
+  HousingMapRequestSchema,
+  HousingMapResponseSchema,
   HousingSearchRequestSchema,
   HousingSearchResponseSchema,
   type HousingDetail,
+  type HousingMapResponse,
   type HousingSearchResponse,
   type HousingSearchResult,
   type ParsedHousingSearchRequest,
@@ -126,11 +129,115 @@ export class HousingQueryService {
     const row = rows[0]
     if (!row) throw new NotFoundError(`Housing listing not found: ${listingId}`)
     const result = await this.mapCandidate(row, HousingSearchRequestSchema.parse({}))
+    const media = await this.pool.query(
+      `SELECT url, alt_text FROM housing.listing_media
+       WHERE listing_id = $1 ORDER BY position, id`,
+      [listingId],
+    )
     return HousingDetailSchema.parse({
       ...result,
       description: row.description,
-      images: [],
+      images: media.rows.map((image) => ({ url: image.url, alt: image.alt_text })),
       extra_attributes: row.listing_attributes || {},
+    })
+  }
+
+  async map(input: unknown): Promise<HousingMapResponse> {
+    const request = HousingMapRequestSchema.parse(input)
+    const sql = createSqlBuilder()
+    const box = request.bounding_box
+    const conditions = [
+      "l.status = 'active'",
+      'l.deleted_at IS NULL',
+      'p.deleted_at IS NULL',
+      'cp.deleted_at IS NULL',
+      "cp.status = 'active'",
+      `ST_Intersects(cp.geom, ST_MakeEnvelope(${sql.parameter(box.west)}, ${sql.parameter(box.south)}, ${sql.parameter(box.east)}, ${sql.parameter(box.north)}, 4326))`,
+    ]
+    if (request.property_type) conditions.push(`p.property_type = ANY(${sql.parameter(request.property_type)}::text[])`)
+    if (request.listing_type) conditions.push(`l.listing_type = ANY(${sql.parameter(request.listing_type)}::text[])`)
+
+    const limit = request.limit + 1
+    if (request.zoom < 13) {
+      const gridSize = Math.max(0.002, 60 * 360 / (256 * 2 ** request.zoom))
+      const result = await this.pool.query(
+        `WITH candidates AS (
+           SELECT cp.geom, o.price_amount, o.currency,
+             ST_SnapToGrid(cp.geom, ${sql.parameter(gridSize)}) AS grid_cell
+           FROM housing.listings l
+           JOIN housing.properties p ON p.id = l.property_id
+           JOIN housing.current_offers o ON o.listing_id = l.id
+           JOIN catalog.places cp ON cp.id = p.place_id
+           WHERE ${conditions.join(' AND ')}
+         )
+         SELECT md5(ST_AsText(grid_cell) || ':' || currency) AS cluster_id,
+           AVG(ST_X(geom)) AS lng, AVG(ST_Y(geom)) AS lat,
+           count(*) AS count, min(price_amount) AS min_price_amount, currency
+         FROM candidates
+         GROUP BY grid_cell, currency
+         ORDER BY count(*) DESC, cluster_id
+         LIMIT ${sql.parameter(limit)}`,
+        sql.values,
+      )
+      const truncated = result.rows.length > request.limit
+      const features = result.rows.slice(0, request.limit).map((row) => ({
+        kind: 'cluster' as const,
+        cluster_id: String(row.cluster_id),
+        location: { lng: Number(row.lng), lat: Number(row.lat) },
+        count: Number(row.count),
+        min_price_amount: Number(row.min_price_amount),
+        currency: row.currency,
+      }))
+      return HousingMapResponseSchema.parse({
+        features,
+        meta: { mode: 'clusters', returned_count: features.length, truncated },
+      })
+    }
+
+    const result = await this.pool.query(
+      `SELECT l.id AS listing_id, l.title, l.listing_type, l.source_url,
+         p.property_type, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat, cp.address,
+         o.price_amount, o.currency, o.price_period,
+         u.bedrooms, u.bathrooms, u.area_m2, COALESCE(u.amenities, '{}') AS amenities,
+         COALESCE(l.attributes->>'location_accuracy', 'unknown') AS location_accuracy,
+         thumbnail.url AS thumbnail_url
+       FROM housing.listings l
+       JOIN housing.properties p ON p.id = l.property_id
+       LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
+       JOIN housing.current_offers o ON o.listing_id = l.id
+       JOIN catalog.places cp ON cp.id = p.place_id
+       LEFT JOIN LATERAL (
+         SELECT lm.url FROM housing.listing_media lm
+         WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
+       ) thumbnail ON true
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY l.updated_at DESC, l.id
+       LIMIT ${sql.parameter(limit)}`,
+      sql.values,
+    )
+    const truncated = result.rows.length > request.limit
+    const features = result.rows.slice(0, request.limit).map((row) => ({
+      kind: 'listing' as const,
+      listing_id: String(row.listing_id),
+      location: { lng: Number(row.lng), lat: Number(row.lat) },
+      title: String(row.title),
+      property_type: row.property_type,
+      listing_type: row.listing_type,
+      price: { amount: Number(row.price_amount), currency: row.currency, period: row.price_period },
+      bedrooms: row.bedrooms === null ? null : Number(row.bedrooms),
+      bathrooms: row.bathrooms === null ? null : Number(row.bathrooms),
+      area_m2: row.area_m2 === null ? null : Number(row.area_m2),
+      address: row.address || {},
+      amenities: row.amenities || [],
+      source_url: row.source_url || null,
+      thumbnail_url: row.thumbnail_url || null,
+      location_accuracy: ['rooftop', 'approximate'].includes(row.location_accuracy)
+        ? row.location_accuracy
+        : 'unknown',
+    }))
+    return HousingMapResponseSchema.parse({
+      features,
+      meta: { mode: 'listings', returned_count: features.length, truncated },
     })
   }
 
@@ -271,6 +378,7 @@ export class HousingQueryService {
          l.source_listing_id,
          l.source_url,
          l.attributes AS listing_attributes,
+         l.attributes->>'observed_at' AS observed_at,
          l.created_at,
          ${distanceExpression} AS distance_meters
        FROM housing.listings l
@@ -343,7 +451,7 @@ export class HousingQueryService {
         type: row.source_type as HousingSearchResult['source']['type'],
         source_id: String(row.source_listing_id),
         source_url: row.source_url ? String(row.source_url) : null,
-        observed_at: new Date(String(row.created_at)).toISOString(),
+        observed_at: new Date(String(row.observed_at || row.created_at)).toISOString(),
       },
       matched_constraints: matchedConstraints(request),
       unknown_fields: unknownFields,

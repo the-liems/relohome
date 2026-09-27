@@ -40,6 +40,7 @@ export class PlaceService {
        FROM catalog.places p
        JOIN catalog.place_categories c ON c.id = p.category_id
        WHERE p.status = 'active' AND p.deleted_at IS NULL
+         AND COALESCE(p.attributes->>'entity_role', '') <> 'housing_anchor'
          AND ST_Intersects(p.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))
        ORDER BY p.id
        LIMIT 50001`,
@@ -71,7 +72,11 @@ export class PlaceService {
   async search(input: PlaceSearchRequest) {
     const request = PlaceSearchRequestSchema.parse(input)
     const sql = createSqlBuilder()
-    const conditions = ["p.status = 'active'", 'p.deleted_at IS NULL']
+    const conditions = [
+      "p.status = 'active'",
+      'p.deleted_at IS NULL',
+      "COALESCE(p.attributes->>'entity_role', '') <> 'housing_anchor'",
+    ]
 
     if (request.text) {
       const parameter = sql.parameter(`%${request.text}%`)
@@ -220,6 +225,7 @@ export class PlaceService {
          ) source ON true
          WHERE p.status = 'active'
            AND p.deleted_at IS NULL
+           AND COALESCE(p.attributes->>'entity_role', '') <> 'housing_anchor'
            AND c.slug = $3
            AND ST_DWithin(
              p.geog,

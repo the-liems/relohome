@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HousingSearchRequestSchema } from '../src/housing.js'
+import { HousingMapRequestSchema, HousingSearchRequestSchema, PricePeriodSchema } from '../src/housing.js'
 import {
   ResolveLocationRequestSchema,
   SearchAreasRequestSchema,
@@ -22,6 +22,10 @@ const validRequest = {
 }
 
 describe('HousingSearchRequestSchema', () => {
+  it('accepts nightly accommodation prices', () => {
+    expect(PricePeriodSchema.parse('night')).toBe('night')
+  })
+
   it('accepts distance-only commute constraints and an explicit direction', () => {
     const commute = {
       destination: { lng: 105.8431, lat: 21.007 },
@@ -68,6 +72,23 @@ describe('HousingSearchRequestSchema', () => {
       max_price: { amount: 1_000, currency: 'USD', period: 'month' },
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('HousingMapRequestSchema', () => {
+  it('accepts viewport-driven map requests', () => {
+    expect(HousingMapRequestSchema.parse({
+      bounding_box: { west: 106.6, south: 10.7, east: 106.8, north: 10.9 },
+      zoom: 13,
+    })).toMatchObject({ zoom: 13, limit: 500 })
+  })
+
+  it('rejects unsafe map limits', () => {
+    expect(HousingMapRequestSchema.safeParse({
+      bounding_box: { west: 106.6, south: 10.7, east: 106.8, north: 10.9 },
+      zoom: 13,
+      limit: 10_000,
+    }).success).toBe(false)
   })
 })
 

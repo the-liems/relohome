@@ -1,14 +1,13 @@
 import type {
-  CityConfig,
   HousingCollection,
   HousingMapProperties,
+  HousingViewport,
 } from '../types'
 
 const API_BASE_URL = (import.meta.env.VITE_PLATFORM_API_URL || 'http://127.0.0.1:4100').replace(/\/$/, '')
-const cityCache = new Map<string, { collection: HousingCollection; loadedAt: number }>()
-const CACHE_TTL_MS = 5 * 60_000
 
-interface HousingSearchResult {
+interface HousingMapListing {
+  kind: 'listing'
   listing_id: string
   title: string
   property_type: string
@@ -18,72 +17,78 @@ interface HousingSearchResult {
   price: {
     amount: number
     currency: 'VND' | 'USD'
-    period: 'day' | 'week' | 'month' | 'year' | 'total'
+    period: 'night' | 'day' | 'week' | 'month' | 'year' | 'total'
   }
   bedrooms: number | null
   bathrooms: number | null
-  area: { value: number; unit: 'm2' } | null
+  area_m2: number | null
   amenities: string[]
-  source: { source_url?: string | null }
+  source_url: string | null
+  thumbnail_url: string | null
+  location_accuracy: 'rooftop' | 'approximate' | 'unknown'
 }
 
-interface HousingSearchResponse {
-  results: HousingSearchResult[]
+interface HousingMapCluster {
+  kind: 'cluster'
+  cluster_id: string
+  location: { lng: number; lat: number }
+  count: number
+  min_price_amount: number
+  currency: 'VND' | 'USD'
+}
+
+interface HousingMapResponse {
+  features: Array<HousingMapListing | HousingMapCluster>
+  meta: { mode: 'clusters' | 'listings'; returned_count: number; truncated: boolean }
 }
 
 export async function loadHousing(
-  city: CityConfig,
+  viewport: HousingViewport,
   signal?: AbortSignal,
 ): Promise<HousingCollection> {
-  const cached = cityCache.get(city.id)
-  if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) return cached.collection
-
-  const [[west, south], [east, north]] = city.bounds
-  const response = await fetch(`${API_BASE_URL}/v1/housing/search`, {
+  const response = await fetch(`${API_BASE_URL}/v1/housing/map`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      bounding_box: { west, south, east, north },
-      property_type: [
-        'apartment',
-        'house',
-        'room',
-        'studio',
-        'serviced_apartment',
-        'homestay',
-      ],
+      bounding_box: viewport.boundingBox,
+      zoom: viewport.zoom,
+      property_type: ['apartment', 'house', 'room', 'studio', 'serviced_apartment', 'homestay'],
       listing_type: ['rent', 'short_stay'],
-      pagination: { limit: 100, cursor: null },
-      sort: [{ field: 'created_at', direction: 'desc' }],
+      limit: 1_000,
     }),
     signal,
   })
   if (!response.ok) throw new Error(`Không tải được dữ liệu nhà ở (Platform API ${response.status}).`)
 
-  const payload = await response.json() as HousingSearchResponse
-  if (!Array.isArray(payload.results)) {
-    throw new Error('Platform API trả về dữ liệu nhà ở không hợp lệ.')
-  }
+  const payload = await response.json() as HousingMapResponse
+  if (!Array.isArray(payload.features)) throw new Error('Platform API trả về dữ liệu nhà ở không hợp lệ.')
 
-  const collection: HousingCollection = {
+  return {
     type: 'FeatureCollection',
-    features: payload.results.map((listing) => ({
-      type: 'Feature',
-      id: listing.listing_id,
-      geometry: {
-        type: 'Point',
-        coordinates: [listing.location.lng, listing.location.lat],
-      },
-      properties: toMapProperties(listing),
-    })),
+    features: payload.features.map((feature) => feature.kind === 'listing'
+      ? {
+          type: 'Feature' as const,
+          id: feature.listing_id,
+          geometry: { type: 'Point' as const, coordinates: [feature.location.lng, feature.location.lat] },
+          properties: toMapProperties(feature),
+        }
+      : {
+          type: 'Feature' as const,
+          id: `cluster:${feature.cluster_id}`,
+          geometry: { type: 'Point' as const, coordinates: [feature.location.lng, feature.location.lat] },
+          properties: {
+            entity_kind: 'housing_cluster' as const,
+            cluster_id: feature.cluster_id,
+            cluster_count: feature.count,
+            price_amount: feature.min_price_amount,
+            price_currency: feature.currency,
+            price_label: `từ ${formatPrice(feature.min_price_amount, feature.currency, 'total')}`,
+          },
+        }),
   }
-
-  signal?.throwIfAborted()
-  cityCache.set(city.id, { collection, loadedAt: Date.now() })
-  return collection
 }
 
-function toMapProperties(listing: HousingSearchResult): HousingMapProperties {
+function toMapProperties(listing: HousingMapListing): HousingMapProperties {
   return {
     entity_kind: 'housing',
     listing_id: listing.listing_id,
@@ -100,15 +105,18 @@ function toMapProperties(listing: HousingSearchResult): HousingMapProperties {
     price_label: formatPrice(listing.price.amount, listing.price.currency, listing.price.period),
     bedrooms: listing.bedrooms,
     bathrooms: listing.bathrooms,
-    area_m2: listing.area?.value ?? null,
+    area_m2: listing.area_m2,
     amenities: listing.amenities,
-    source_url: listing.source.source_url ?? null,
+    source_url: listing.source_url,
+    thumbnail_url: listing.thumbnail_url,
+    location_accuracy: listing.location_accuracy,
   }
 }
 
 function formatAddress(address: Record<string, unknown>) {
-  return Object.values(address)
-    .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+  return Object.entries(address)
+    .filter(([key, value]) => key !== 'raw' && typeof value === 'string' && Boolean(value.trim()))
+    .map(([, value]) => value)
     .join(', ')
 }
 
@@ -118,6 +126,7 @@ function formatPrice(
   period: HousingMapProperties['price_period'],
 ) {
   const suffix = {
+    night: '/đêm',
     day: '/ngày',
     week: '/tuần',
     month: '/tháng',
