@@ -46,20 +46,31 @@ graph TB
 - **Authentication:** [JWT/None]
 
 ### 3. AI Agent (LangGraph)
-- **Agent Type:** [ReAct / Plan-and-Execute / Custom]
-- **State:** [mô tả state schema]
-- **Nodes:** [danh sách nodes]
-- **Tools:** [danh sách tools]
+
+Thiết kế đề xuất, chưa implement. Chi tiết: [agent graph design](docs/architecture/agent-graph.md).
+
+- **Agent Type:** Intake + Plan-and-Execute + Result Validator + human-in-the-loop (sơ đồ v4, kết hợp góp ý mentor).
+- **State:** `WorkflowState`; kế hoạch (Dependency DAG) là dữ liệu trong state và được checkpoint theo `thread_id`.
+- **Nodes:** `load_context`, `intake` (hiểu yêu cầu, hỏi lại), Routing Orchestrator = `orchestrator` (Planner) + `executor` + `change_impact`, 5 node nối tới subagent của từng service, `validator`, `cost_summary`, `confirm`, `transaction`, `respond`.
+- **Tools:** mỗi service có subagent riêng do chủ service viết, nối vào graph qua contract chung (manifest + `run_task`); subagent chỉ đọc, thao tác ghi đi qua commit endpoint sau approval. Giai đoạn khung dùng `FakeAgent`.
 - **Flow:**
 
 ```mermaid
 graph LR
-    START --> A[Node A]
-    A --> B{Decision}
-    B -->|Yes| C[Node C]
-    B -->|No| D[Node D]
-    C --> E[END]
-    D --> E
+    S([START]) --> ctx[load_context] --> intake[intake]
+    intake -->|thiếu thông tin chặn| resp[respond]
+    intake -->|đủ| orch[orchestrator]
+    intake -->|CHANGE| ci[change_impact] --> orch
+    orch --> exe[executor]
+    exe -. Send .-> agents[subagent của service] --> exe
+    exe --> val[validator]
+    val -->|RETRY| exe
+    val -->|REPLAN| orch
+    val -->|ASK_USER / GIVE_UP| resp
+    val -->|PASS| cost[cost_summary] --> conf[confirm / interrupt]
+    conf -->|CONFIRM + approval| tx[transaction] --> resp
+    conf -->|CHANGE / REJECT| intake
+    resp --> F([END])
 ```
 
 ### 4. Database
