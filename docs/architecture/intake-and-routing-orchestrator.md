@@ -2,6 +2,10 @@
 
 Status: analysis for team review (2026-09-28); chưa chốt phương án hoặc triển khai.
 
+Update: Khoa đã yêu cầu triển khai hướng B dưới dạng hai thành phần độc lập.
+Xem [thiết kế đã triển khai](standalone-agent-services.md) và [ADR-006](../adr/ADR-006-standalone-intake-routing.md).
+Phần bên dưới giữ lại phân tích ban đầu; không dùng làm trạng thái triển khai hiện tại.
+
 ## Đọc đúng hai sơ đồ hiện có
 
 Hai hình [kiến trúc v4](agentic-multi-service-v4.png) và

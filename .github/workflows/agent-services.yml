@@ -1,0 +1,49 @@
+name: Standalone Intake and Routing Orchestrator
+on:
+  pull_request:
+    paths:
+      - 'src/agent_services/**'
+      - 'config/agent-services/**'
+      - 'tests/test_agent_services/**'
+      - 'requirements*.txt'
+      - 'Dockerfile.agents*'
+      - 'compose.agents.yaml'
+      - 'scripts/*agent*'
+      - '.github/workflows/agent-services.yml'
+      - 'Maps VN/LifeFlow/packages/contracts/**'
+      - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
+  push:
+    branches: [khoa, main]
+    paths:
+      - 'src/agent_services/**'
+      - 'config/agent-services/**'
+      - 'tests/test_agent_services/**'
+      - 'requirements*.txt'
+      - 'Dockerfile.agents*'
+      - 'compose.agents.yaml'
+      - 'scripts/*agent*'
+      - '.github/workflows/agent-services.yml'
+      - 'Maps VN/LifeFlow/packages/contracts/**'
+      - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
+permissions:
+  contents: read
+jobs:
+  contracts-and-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt -r requirements-agents.txt
+      - run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
+      - run: pytest tests/test_agent_services -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci && npm run build --workspace=@lifeflow/contracts
+        working-directory: Maps VN/LifeFlow
+      - run: node scripts/export-agent-registry.mjs --check
+      - run: docker build -f Dockerfile.agents --target intake -t lifeflow-intake:local .
+      - run: docker build -f Dockerfile.agents --target orchestrator -t lifeflow-orchestrator:local .
+      - run: python scripts/smoke-agent-containers.py

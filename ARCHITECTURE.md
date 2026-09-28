@@ -13,9 +13,13 @@ Detailed current designs:
 - [Moving/AhaMove service](docs/architecture/moving-service.md)
 - [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
 
-Proposed future AI workflow: [Intake and Routing Orchestrator](docs/architecture/intake-and-routing-orchestrator.md).
-The proposal applies the mentor's distinction between request understanding and
-workflow orchestration; it is not part of the current agent implementation.
+Independent [Intake and Routing Orchestrator services](docs/architecture/standalone-agent-services.md)
+implement direction B from the [original analysis](docs/architecture/intake-and-routing-orchestrator.md).
+They have separate HTTP entrypoints and images. Intake understands requests;
+Routing owns planning, scheduling, internal tool-call control and persisted workflow
+state. There is no separate Executor agent. Their integration into the chat graph,
+domain MCP connections and trusted approval backend remains future work.
+See the [standalone runbook](docs/runbooks/agent-services.md).
 
 Moving is an independently startable MCP server. It shares canonical contracts
 and MCP behavior packages with other services but owns its provider adapter,

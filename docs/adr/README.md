@@ -7,3 +7,4 @@
 | [ADR-003](ADR-003-approval-idempotency-and-recovery.md) | Approval, idempotency and recovery | Accepted |
 | [ADR-004](ADR-004-one-mcp-server-per-domain.md) | One MCP server per domain | Accepted |
 | [ADR-005](ADR-005-moving-container-http-boundary.md) | Moving containers and HTTP MCP boundary | Accepted |
+| [ADR-006](ADR-006-standalone-intake-routing.md) | Standalone Intake and Routing Orchestrator | Accepted |
