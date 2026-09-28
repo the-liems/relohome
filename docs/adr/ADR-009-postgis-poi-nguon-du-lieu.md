@@ -1,4 +1,4 @@
-# ADR-003: PostGIS là nguồn truy vấn vị trí chuẩn
+# ADR-009: PostGIS là nguồn truy vấn vị trí chuẩn
 
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  

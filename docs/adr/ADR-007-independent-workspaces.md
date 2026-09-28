@@ -1,4 +1,4 @@
-# ADR-001: Giữ hai workspace ứng dụng độc lập
+# ADR-007: Giữ hai workspace ứng dụng độc lập
 
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  

@@ -44,5 +44,5 @@ bất động sản hay recommendation trong phạm vi này.
 
 Kiểm chứng: [test housing](../../Maps%20VN/LifeFlow/packages/housing-query/tests/housing-query.integration.test.ts),
 [test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts).
-Quyết định liên quan: [ADR-003](../adr/ADR-003-postgis-poi-nguon-du-lieu.md),
-[ADR-004](../adr/ADR-004-osrm-routing.md).
+Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md),
+[ADR-010](../adr/ADR-010-osrm-routing.md).

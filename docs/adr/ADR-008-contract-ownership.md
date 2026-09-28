@@ -1,4 +1,4 @@
-# ADR-002: Một nguồn schema chuẩn cho mỗi runtime
+# ADR-008: Một nguồn schema chuẩn cho mỗi runtime
 
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  

@@ -37,4 +37,4 @@ API báo giá được cấp quyền: estimate Ahamove/Grab vẫn `not_configure
   ra giá từ khoảng cách Euclid.
 
 Kiểm chứng: [test mobility](../../Maps%20VN/LifeFlow/packages/housing-query/tests/mobility-service.test.ts).
-Quyết định liên quan: [ADR-005](../adr/ADR-005-ranh-gioi-gia-doi-tac.md).
+Quyết định liên quan: [ADR-011](../adr/ADR-011-ranh-gioi-gia-doi-tac.md).

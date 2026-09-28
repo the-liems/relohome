@@ -1,4 +1,4 @@
-# ADR-005: Không suy đoán giá hay vùng phục vụ của đối tác
+# ADR-011: Không suy đoán giá hay vùng phục vụ của đối tác
 
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  

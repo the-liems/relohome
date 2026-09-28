@@ -45,5 +45,5 @@ trên dữ liệu production chỉ bằng các test schema/tool.
 - **SPEC-013/AC-04:** Server chạy độc lập với root Python agent.
 
 Kiểm chứng: [test MCP](../../Maps%20VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts).
-Quyết định liên quan: [ADR-001](../adr/ADR-001-independent-workspaces.md),
-[ADR-002](../adr/ADR-002-contract-ownership.md).
+Quyết định liên quan: [ADR-007](../adr/ADR-007-independent-workspaces.md),
+[ADR-008](../adr/ADR-008-contract-ownership.md).

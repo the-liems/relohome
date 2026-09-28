@@ -50,4 +50,4 @@ Kiểm chứng: [test route](../../Maps%20VN/LifeFlow/packages/housing-query/tes
 [test route trực tiếp](../../Maps%20VN/LifeFlow/map-app/tests/osrm-live.spec.ts).
 Kiểm tra runtime: [`Test-Routing-Samples.ps1`](../../Maps%20VN/LifeFlow/Test-Routing-Samples.ps1)
 (chỉ là smoke test, không chứng minh toàn bộ độ phủ).
-Quyết định liên quan: [ADR-004](../adr/ADR-004-osrm-routing.md).
+Quyết định liên quan: [ADR-010](../adr/ADR-010-osrm-routing.md).

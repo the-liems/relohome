@@ -1,4 +1,4 @@
-# ADR-004: PostGIS lấy ứng viên, OSRM xác nhận quãng đường đi
+# ADR-010: PostGIS lấy ứng viên, OSRM xác nhận quãng đường đi
 
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  

@@ -41,4 +41,4 @@ offline. Thiết kế style riêng bằng Maputnik/PMTiles là công việc khá
 
 Kiểm chứng: [test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts),
 [test UI](../../Maps%20VN/LifeFlow/map-app/tests/lifeflow.spec.ts).
-Quyết định liên quan: [ADR-003](../adr/ADR-003-postgis-poi-nguon-du-lieu.md).
+Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md).

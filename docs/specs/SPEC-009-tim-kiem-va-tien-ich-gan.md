@@ -45,4 +45,4 @@ Tìm kiếm không phải dịch vụ geocoding toàn quốc với độ phủ G
 
 Kiểm chứng: [test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts),
 [test contracts](../../Maps%20VN/LifeFlow/packages/contracts/tests/contracts.test.ts).
-Quyết định liên quan: [ADR-003](../adr/ADR-003-postgis-poi-nguon-du-lieu.md).
+Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md).

@@ -8,11 +8,11 @@ qua PR; nếu thay đổi quyết định, tạo ADR mới và đánh dấu ADR 
 
 | Câu hỏi | ADR |
 |---|---|
-| Vì sao Maps không chuyển vào `src/`? | [001 - Hai workspace](ADR-001-independent-workspaces.md) |
-| Schema nào là nguồn chuẩn? | [002 - Sở hữu contract](ADR-002-contract-ownership.md) |
-| Vì sao POI lưu trong PostGIS, MapLibre chỉ vẽ? | [003 - Dữ liệu vị trí](ADR-003-postgis-poi-nguon-du-lieu.md) |
-| Vì sao PostGIS lọc trước, OSRM tính đường đi sau? | [004 - Routing](ADR-004-osrm-routing.md) |
-| Vì sao chưa trả giá Ahamove/Grab? | [005 - Giá đối tác](ADR-005-ranh-gioi-gia-doi-tac.md) |
+| Vì sao Maps không chuyển vào `src/`? | [007 - Hai workspace](ADR-007-independent-workspaces.md) |
+| Schema nào là nguồn chuẩn? | [008 - Sở hữu contract](ADR-008-contract-ownership.md) |
+| Vì sao POI lưu trong PostGIS, MapLibre chỉ vẽ? | [009 - Dữ liệu vị trí](ADR-009-postgis-poi-nguon-du-lieu.md) |
+| Vì sao PostGIS lọc trước, OSRM tính đường đi sau? | [010 - Routing](ADR-010-osrm-routing.md) |
+| Vì sao chưa trả giá Ahamove/Grab? | [011 - Giá đối tác](ADR-011-ranh-gioi-gia-doi-tac.md) |
 
 Mỗi ADR dẫn tới SPEC liên quan. Tạo quyết định mới bằng
 [`_template.md`](_template.md); không viết ADR cho một thay đổi nhỏ không
