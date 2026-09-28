@@ -1,0 +1,42 @@
+# LifeFlow Map (English backup)
+
+MapLibre cho TP.HCM, Hà Nội và Đà Nẵng, sử dụng POI thật từ LifeFlow Platform API,
+PostGIS và ba OSRM service chạy local. GeoJSON hiện có được giữ làm fallback nếu
+API tạm thời không hoạt động.
+
+## Chạy local
+
+1. Mở Docker Desktop và chờ Docker Engine báo Running.
+2. Mở PowerShell và chạy một lệnh:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
+```
+
+3. Mở `http://127.0.0.1:5173` trong trình duyệt.
+
+Script trên tự khởi động PostGIS, ba container OSRM, Platform API và frontend.
+Nhấn `Ctrl+C` để dừng frontend, sau đó chạy `Stop-LifeFlow.ps1` ở thư mục cha
+để dừng các dịch vụ còn lại mà không xóa dữ liệu.
+
+### Chạy thủ công
+
+```powershell
+docker start osrm-hcm osrm-hanoi osrm-danang
+Set-Location "D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app"
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+Chỉ cần chạy `npm install` nếu `node_modules` bị xóa hoặc khi cài project trên máy khác.
+
+Các OSRM container cần chạy ở cổng `5000` (TP.HCM), `5001` (Hà Nội) và `5002` (Đà Nẵng).
+
+## Kiểm tra
+
+```powershell
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+`public/data/accommodations.geojson` là bản Point GeoJSON được tạo từ file nguồn, không thay đổi dữ liệu gốc.

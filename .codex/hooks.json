@@ -1,13 +1,14 @@
 {
-  "version": "1.0",
+  "description": "Ghi prompt Codex vào AI usage log của project.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
-            "name": "log-prompt",
             "type": "command",
             "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
+            "commandWindows": "py -3 scripts/log_hook.py --tool=codex",
+            "statusMessage": "Đang ghi AI usage log",
             "timeout": 10
           }
         ]
@@ -17,9 +18,10 @@
       {
         "hooks": [
           {
-            "name": "log-stop",
             "type": "command",
             "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
+            "commandWindows": "py -3 scripts/log_hook.py --tool=codex",
+            "statusMessage": "Đang hoàn tất AI usage log",
             "timeout": 10
           }
         ]

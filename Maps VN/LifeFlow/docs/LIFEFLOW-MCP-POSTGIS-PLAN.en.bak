@@ -1,0 +1,1009 @@
+# LifeFlow MCP, PostGIS and Custom Map Plan (English backup)
+
+## Document status
+
+- Status: Approved factual foundation implemented
+- Date: 2026-09-24
+- Scope: Architecture plan plus implementation baseline
+- Implementation status: Phases 1-6 complete for the factual local-development slice
+- Safety rule: Preserve all existing OSM, OSRM, POI and PostgreSQL data
+
+Implementation evidence and known deployment gaps are recorded in
+`HOUSING-QUERY-IMPLEMENTATION.md`. Recommendation, booking, payment, public
+deployment and custom basemap work remain explicitly out of scope.
+
+## 1. Objective
+
+LifeFlow is a multi-service daily-life agent. Mapping is one capability inside a larger system that may coordinate:
+
+- Housing search and relocation
+- Moving and transport services
+- Nearby healthcare
+- Flights and travel
+- Schedules, reminders and approvals
+- Cost estimation and payment workflows
+- Integration with a separately owned AI recommendation module
+
+The target is not to clone every Google Maps feature. The target is to own a configurable LifeFlow map and location platform that can combine OpenStreetMap data with private LifeFlow data, partner data and agent workflows.
+
+## 2. Current baseline
+
+The following components already work and must remain available during future development.
+
+### 2.1 Geographic source data
+
+```text
+D:\Demo AI thực chiến\Maps VN\Raw\vietnam-260922.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hcm.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\hanoi.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\boundaries\danang.geojson
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hcm.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\hanoi.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Cities\pbf\danang.osm.pbf
+```
+
+### 2.2 POI data
+
+```text
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\hotels.osm.pbf
+D:\Demo AI thực chiến\Maps VN\Extracts\accommodations.geojson
+```
+
+The current frontend uses a copy of `accommodations.geojson` and contains 13,120 real accommodation records. It is not yet a complete restaurant, hospital, supermarket or general business dataset.
+
+### 2.3 Routing
+
+| Area | Container | Port | Graph directory |
+|---|---|---:|---|
+| Ho Chi Minh City | `osrm-hcm` | 5000 | `Routing-HCM` |
+| Hanoi | `osrm-hanoi` | 5001 | `Routing-Hanoi` |
+| Da Nang | `osrm-danang` | 5002 | `Routing-Danang` |
+
+Each routing directory contains one complete OSRM MLD graph. Files sharing the `.osrm.*` prefix form one graph and must not be edited or replaced individually.
+
+### 2.4 Frontend
+
+```text
+D:\Demo AI thực chiến\Maps VN\LifeFlow\map-app
+```
+
+The current frontend provides:
+
+- MapLibre map rendering
+- OpenFreeMap basemap
+- Pan, zoom and navigation controls
+- HCM, Hanoi and Da Nang switching
+- POI clustering and popup details
+- Search over the current POI dataset
+- A/B selection and OSRM routing
+- Route geometry, distance and estimated duration
+- Desktop and mobile layouts
+
+The startup script is:
+
+```text
+D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1
+```
+
+## 3. Core design principles
+
+1. MCP is an interface for agents, not a database.
+2. PostgreSQL with PostGIS is the system of record for LifeFlow business and spatial data.
+3. OSRM remains the routing engine; routing algorithms will not be rewritten.
+4. MapLibre remains the renderer.
+5. Basemap, routing and business POI are independent layers.
+6. Raw OSM files and generated OSRM graphs are immutable build inputs and artifacts.
+7. LifeFlow custom data must survive every OSM update.
+8. An LLM must never receive unrestricted SQL access.
+9. Tools that spend money or change state require explicit user approval.
+10. Every write operation must be auditable and idempotent.
+11. Housing search performs factual, deterministic filtering; recommendation remains a separate downstream responsibility.
+
+## 4. Target architecture
+
+```text
+User
+  |
+  v
+LifeFlow Web / Mobile
+  |-- Dashboard, chat and workflow UI
+  |-- MapLibre map
+  |
+  v
+LifeFlow Platform API
+  |-- Place and housing services
+  |-- Workflow and approval services
+  |-- Integration adapters
+  |
+  +------------------+------------------+
+  |                  |                  |
+  v                  v                  v
+PostgreSQL/PostGIS   OSRM               External providers
+                    routing            transport, health, flight
+  ^
+  |
+LifeFlow MCP Server
+  ^
+  |
+LifeFlow Agent / LLM
+```
+
+### 4.1 Runtime responsibility
+
+| Component | Responsibility |
+|---|---|
+| MapLibre frontend | Render map, POI, route, selections and workflow results |
+| Platform API | Authentication, validation and reusable business services |
+| MCP server | Expose safe tools, resources and prompts to agents |
+| PostgreSQL/PostGIS | Store canonical places, housing, workflows and spatial data |
+| OSRM | Calculate routes, distance and duration |
+| Object storage | Store images and large media files |
+| Workers | Import OSM, synchronize providers and run background jobs |
+
+The frontend should call the Platform API, not PostgreSQL or MCP directly. The MCP server should reuse the same application services as the Platform API instead of duplicating business logic.
+
+## 5. Proposed repository structure
+
+```text
+D:\Demo AI thực chiến\Maps VN\LifeFlow\
+|-- map-app\
+|-- platform-api\
+|-- mcp-server\
+|-- packages\
+|   `-- contracts\
+|-- database\
+|   |-- migrations\
+|   |-- seeds\
+|   `-- importers\
+|-- workers\
+|   |-- osm-import\
+|   `-- provider-sync\
+|-- infra\
+|   `-- compose.yaml
+|-- docs\
+`-- Start-LifeFlow.ps1
+```
+
+Start as a modular monolith. Do not introduce many independent microservices until load, team ownership or deployment requirements justify them.
+
+## 6. PostgreSQL and PostGIS design
+
+### 6.1 Proposed database schemas
+
+| Schema | Purpose |
+|---|---|
+| `geo` | OSM places, boundaries, addresses and imported geometry |
+| `catalog` | Canonical places, categories, media and opening hours |
+| `housing` | Properties, units, listings, offers, amenities and availability |
+| `mobility` | Transport providers, service areas, quotes and trips |
+| `identity` | Users, preferences, saved places and consent |
+| `workflow` | Plans, steps, execution state and approvals |
+| `integration` | External providers, source identifiers and synchronization state |
+| `audit` | Tool calls, data changes, approvals and security events |
+
+### 6.2 Canonical place model
+
+The central `catalog.places` record should include at least:
+
+```text
+id
+name
+category_id
+geom
+address
+phone
+website
+status
+verified
+attributes
+created_at
+updated_at
+deleted_at
+```
+
+Related tables should include:
+
+- `catalog.place_categories`
+- `catalog.place_sources`
+- `catalog.place_media`
+- `catalog.place_opening_hours`
+- `catalog.place_revisions`
+- `geo.import_runs`
+- `geo.source_records`
+
+Recommended spatial storage:
+
+- `geometry(Point, 4326)` for map output and spatial relationships
+- Optional `geography(Point, 4326)` for meter-based distance calculations
+- GiST indexes on spatial columns
+- B-tree indexes on source IDs, categories and workflow foreign keys
+- Trigram or full-text indexes for place and address search
+
+### 6.3 Source and precedence model
+
+Every record must retain its origin:
+
+```text
+source=osm
+source=partner
+source=user
+source=lifeflow_admin
+```
+
+Default precedence:
+
+```text
+Verified LifeFlow data
+  > verified partner data
+  > approved user data
+  > imported OSM data
+```
+
+An OSM update must not overwrite verified LifeFlow fields or delete private places. Missing imported records should first be marked stale or inactive, not immediately hard-deleted.
+
+### 6.4 Media storage
+
+PostgreSQL stores media metadata and URLs. Image binaries should be stored in S3, MinIO or an equivalent object store.
+
+## 7. Housing query and data contracts
+
+### 7.1 Housing query scope
+
+The objective of this subsystem is:
+
+> Given explicit user constraints, return all suitable housing or listing candidates that satisfy those constraints, together with structured factual attributes needed by downstream services.
+
+This subsystem owns:
+
+- Housing data contracts
+- PostgreSQL/PostGIS housing data model
+- Housing data ingestion and source traceability
+- Exact numeric, categorical, text and spatial filtering
+- Nearby-place constraints
+- Route and commute constraints through OSRM
+- Housing query API and read-only MCP tools
+- Query correctness and determinism tests
+
+This subsystem does not decide:
+
+- Which listing is best
+- Which listing a user should choose
+- Personalized ranking
+- Recommendation scoring
+- LLM-based recommendation or recommendation explanations
+
+Recommendation is owned by a separate MCP or module and consumes the factual contracts produced here.
+
+### 7.2 Terminology and constraint ownership
+
+```text
+search     = retrieve and filter factual data
+compare    = place factual attributes side by side
+recommend  = apply preferences, ranking or advice
+```
+
+This plan is responsible for **search**. A factual comparison may be added later, but it must not declare a winner, score a listing or provide personalized advice.
+
+Hard constraints are mandatory. A returned record must satisfy every applicable hard constraint. For example:
+
+```text
+district = District 7
+bedrooms >= 2
+price_amount <= 15000000
+price_period = month
+area_m2 >= 60
+hospital_distance_m <= 3000
+```
+
+Soft preferences may be parsed and preserved in query metadata. The housing query subsystem must not convert a phrase such as `near a park would be nice` into a score unless a deterministic rule is explicitly defined by a versioned contract.
+
+### 7.3 Housing entity separation
+
+The data model must distinguish the physical location from changing commercial records:
+
+```text
+catalog.places
+       |
+housing.properties
+       |
+housing.units
+       |
+housing.listings
+       |
+housing.offers
+```
+
+| Entity | Meaning |
+|---|---|
+| `catalog.places` | Canonical geographic place and address |
+| `housing.properties` | Long-lived building, house or property |
+| `housing.units` | A specific apartment, room or rentable unit |
+| `housing.listings` | A source-specific publication advertising a unit/property |
+| `housing.offers` | Time-varying price, deposit, availability and commercial terms |
+
+An early dataset may not populate every entity fully, but contracts and identifiers must not collapse property, unit, listing and current offer into one ambiguous record.
+
+### 7.4 Base housing record
+
+The housing contract must be machine-readable and shared by the API, MCP server, agent, frontend and external Recommendation MCP.
+
+Minimum factual fields:
+
+```text
+property_id
+unit_id
+listing_id
+offer_id
+place_id
+title
+property_type
+listing_type
+price_amount
+currency
+price_period
+deposit_amount
+bedrooms
+bathrooms
+area_value
+area_unit
+address
+location
+amenities
+availability
+images
+source
+source_url
+verified_at
+extra_attributes
+```
+
+Validation rules:
+
+- Currency and pricing period are explicit.
+- Area units are explicit; the preferred normalized unit is square meters.
+- Missing values are represented as `null`; no service or agent may invent them.
+- Invalid values produce structured validation errors.
+- `extra_attributes` preserves supplied information not yet modeled.
+- Valid and invalid example records accompany the schema.
+- Contract versions are explicit and backward compatibility is documented.
+
+### 7.5 `HousingSearchRequest` contract
+
+The machine-readable request must support:
+
+| Constraint | Fields |
+|---|---|
+| Text | `text` |
+| Property | `property_type`, `listing_type` |
+| Administrative area | `district`, `administrative_area_ids` |
+| Bounding box | `bounding_box` |
+| Radius | `center`, `radius_m` |
+| Price | `min_price`, `max_price`, `currency`, `price_period` |
+| Rooms | `min_bedrooms`, `max_bedrooms`, `min_bathrooms` |
+| Area | `min_area_m2`, `max_area_m2` |
+| Amenities | `amenities` |
+| Availability | `availability_from`, `availability_to` |
+| Trust | `verification_requirement`, `source_filters` |
+| Nearby | `nearby` place constraints |
+| Commute | `commute` route constraint |
+| Result control | `pagination`, `sort` |
+| Unscored metadata | `soft_preferences` |
+
+Conceptual valid request:
+
+```json
+{
+  "administrative_area_ids": ["district_7"],
+  "listing_type": "rent",
+  "max_price": {
+    "amount": 15000000,
+    "currency": "VND",
+    "period": "month"
+  },
+  "min_bedrooms": 2,
+  "min_area_m2": 60,
+  "nearby": [
+    {
+      "category": "hospital",
+      "max_distance_m": 3000
+    }
+  ],
+  "commute": {
+    "destination": {
+      "lng": 106.7009,
+      "lat": 10.7769
+    },
+    "max_duration_seconds": 1800,
+    "profile": "driving"
+  },
+  "pagination": {
+    "limit": 50,
+    "cursor": null
+  },
+  "sort": [
+    { "field": "price_amount", "direction": "asc" },
+    { "field": "listing_id", "direction": "asc" }
+  ]
+}
+```
+
+Unknown values do not satisfy hard constraints by default. For example, a listing with `bedrooms = null` must not pass `min_bedrooms = 2`. Any future exception must be explicit in the request contract and visible in the response.
+
+### 7.6 `HousingSearchResponse` contract
+
+The response contains factual data only:
+
+```json
+{
+  "query_id": "...",
+  "contract_version": "...",
+  "results": [
+    {
+      "listing_id": "...",
+      "property_id": "...",
+      "unit_id": "...",
+      "offer_id": "...",
+      "place_id": "...",
+      "title": "...",
+      "location": {
+        "lng": 106.7,
+        "lat": 10.77
+      },
+      "price": {
+        "amount": 14000000,
+        "currency": "VND",
+        "period": "month"
+      },
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "area": {
+        "value": 78,
+        "unit": "m2"
+      },
+      "amenities": [],
+      "verification": {},
+      "source": {},
+      "matched_constraints": [],
+      "unknown_fields": [],
+      "nearby": [],
+      "commute": null
+    }
+  ],
+  "page": {
+    "next_cursor": null,
+    "returned_count": 1
+  }
+}
+```
+
+The response must not contain `recommendation_score`, `recommended`, `best_choice`, `best_listing` or LLM reasoning.
+
+Allowed ordering is factual and deterministic, for example:
+
+- Price ascending or descending
+- Distance ascending
+- Area ascending or descending
+- Creation or verification time
+- A stable ID tie-breaker
+
+This ordering is search result ordering, not recommendation.
+
+### 7.7 PostgreSQL/PostGIS query capability
+
+`search_housing` must execute precise filtering in PostgreSQL/PostGIS rather than asking an LLM to filter records. It must support:
+
+- Numeric filters for price, bedrooms, bathrooms and area
+- Categorical filters for property type, listing type, amenities, source and verification
+- Text search over normalized titles and addresses
+- Administrative-area containment
+- Bounding-box queries
+- Center-and-radius queries
+- `ST_DWithin` or an equivalent indexed nearby query
+- Spatial indexes
+- Cursor-based pagination
+- Deterministic ordering with a stable tie-breaker
+- Route/commute verification when requested
+
+Examples such as `price <= 15000000`, `bedrooms >= 2` and `within District 7` are database constraints, not LLM judgments.
+
+### 7.8 Nearby-place filtering
+
+Nearby constraints use canonical places stored in PostGIS, not the frontend GeoJSON:
+
+```text
+housing candidate
+       |
+       | ST_DWithin / indexed spatial join
+       v
+catalog.places
+category = hospital
+```
+
+For each matched nearby place, return factual fields such as:
+
+```text
+place_id
+name
+category
+distance_meters
+verification
+source
+```
+
+If `max_distance_m = 3000` is a hard constraint, a housing result must have at least one valid matching place within 3,000 meters. Missing nearby data does not count as a match.
+
+### 7.9 Commute filtering
+
+Straight-line distance must not be used to claim that a commute is under a requested duration. Use this bounded pipeline:
+
+```text
+PostGIS hard filters
+  -> coarse spatial prefilter
+  -> enforce configurable candidate limit
+  -> OSRM route checks for remaining candidates
+  -> duration_seconds hard filter
+  -> factual route data in response
+```
+
+For `max_duration_seconds = 1800`, only candidates with a successful OSRM route whose duration is at most 1,800 seconds may pass. Route failures, `NoRoute` and timeouts must be reported or excluded according to the explicit unknown/error policy; they must not be treated as satisfying the constraint.
+
+The service must cap and batch candidate evaluation where supported. It must not issue uncontrolled OSRM requests for thousands of records.
+
+## 8. MCP server design
+
+The MCP server exposes controlled capabilities to the LifeFlow Agent. Use schemas for input validation and structured results.
+
+### 8.1 Read-only tools for the first release
+
+```text
+search_places
+get_place
+find_nearby_places
+calculate_route
+search_housing
+get_housing
+```
+
+An optional future `evaluate_housing_constraints` tool may report whether specified candidates satisfy a versioned set of factual constraints. It must not rank, score or recommend candidates.
+
+`compare_housing` is outside the first release. If introduced later, it may only return a factual table such as price, area, bedrooms, nearby distance and commute duration. It must not return a winner, personalized score or recommendation.
+
+### 8.2 Recommendation MCP boundary
+
+Recommendation is a downstream consumer owned by another team member or module:
+
+```text
+Housing Query API / MCP
+          |
+          | HousingSearchRequest
+          | HousingSearchResponse
+          | canonical IDs and factual route/nearby data
+          v
+External Recommendation MCP
+```
+
+The external Recommendation MCP may consume:
+
+- `HousingSearchRequest`
+- `HousingSearchResponse`
+- Canonical property, unit, listing, offer and place IDs
+- Factual nearby-place results
+- Factual route and commute results
+
+It must consume shared contracts, API responses or MCP tool results. It must not depend directly on internal housing tables. The Recommendation MCP is not implemented in this repository slice.
+
+### 8.3 Write tools for later releases
+
+```text
+save_place
+save_housing_shortlist
+create_move_plan
+request_transport_quote
+submit_for_approval
+confirm_booking
+cancel_booking
+```
+
+These tools belong to the broader LifeFlow platform and are outside the current Housing Query implementation scope.
+
+### 8.4 MCP resources
+
+Suggested read-only resources:
+
+```text
+lifeflow://schemas/place
+lifeflow://schemas/housing
+lifeflow://catalog/categories
+lifeflow://providers/capabilities
+lifeflow://workflows/moving
+```
+
+User-specific resources must require authentication and authorization.
+
+### 8.5 Tool safety
+
+- No `execute_sql` or arbitrary HTTP tools
+- Separate read tools from state-changing tools
+- Validate every input and output schema
+- Require `user_id`, authorization context and tenant context
+- Require an `idempotency_key` for writes
+- Require an approval token for bookings and payments
+- Record calls, duration, result status and actor in `audit.tool_calls`
+- Redact secrets and sensitive personal data from logs
+
+### 8.6 Transport
+
+- Use `stdio` for local development and MCP Inspector testing.
+- Use authenticated Streamable HTTP for the LifeFlow application environment.
+- Bind local development servers to `127.0.0.1` unless remote access is explicitly required.
+- Pin the MCP SDK version and record protocol compatibility.
+
+## 9. End-to-end agent flow
+
+Example request:
+
+```text
+Find a two-bedroom apartment in District 7 below 15 million VND,
+within 3 km of a hospital,
+and with a commute under 30 minutes.
+```
+
+Expected execution:
+
+```text
+1. Parse a structured HousingSearchRequest.
+2. search_housing queries candidate listings.
+3. Apply price, bedroom, area and location hard filters in PostgreSQL.
+4. Use PostGIS to verify the hospital distance constraint.
+5. Use OSRM to verify the commute-duration constraint.
+6. Return only candidates satisfying all known hard constraints.
+7. Include source, verification, matched constraints and unknown fields.
+8. Frontend or the external Recommendation MCP consumes the factual results.
+```
+
+The Housing Query subsystem stops here. It does not rank candidates, recommend a listing or choose a winner. The map, API, MCP and external consumer must use the same canonical IDs.
+
+## 10. Map integration plan
+
+### 10.1 Current state
+
+```text
+MapLibre -> public/data/accommodations.geojson
+```
+
+### 10.2 Transitional state
+
+```text
+MapLibre -> GET /places?bbox=...&categories=...
+                 |
+                 v
+              PostGIS
+
+Fallback -> existing accommodations.geojson
+```
+
+### 10.3 Target state
+
+The frontend requests only records visible in the current map bounding box. The API supports category, text, verification, source and distance filters.
+
+Suggested API surface:
+
+```text
+GET  /places
+GET  /places/{id}
+GET  /housing
+GET  /housing/{id}
+POST /routes
+POST /workflows
+GET  /workflows/{id}
+POST /workflows/{id}/approvals
+```
+
+## 11. OSM update pipeline
+
+Never overwrite the currently working dataset in place.
+
+```text
+New versioned Vietnam PBF
+  |-- Validate file and checksum
+  |-- Clip HCM, Hanoi and Da Nang
+  |-- Build OSRM in new versioned directories
+  |-- Test new graphs on temporary ports
+  |-- Import POI into database staging tables
+  |-- Normalize categories and deduplicate
+  |-- Compare counts and validation reports
+  |-- Publish database changes transactionally
+  |-- Switch routing containers after acceptance
+  `-- Keep the previous version for rollback
+```
+
+Recommended naming:
+
+```text
+Raw\vietnam-YYYYMMDD.osm.pbf
+Routing-HCM\versions\YYYYMMDD\
+Routing-Hanoi\versions\YYYYMMDD\
+Routing-Danang\versions\YYYYMMDD\
+```
+
+OSM and LifeFlow custom records must be merged by source-aware rules, not by replacing entire tables.
+
+## 12. Custom basemap plan
+
+Custom basemap work begins only after PostGIS, API and MCP read tools are stable.
+
+```text
+OSM PBF
+  -> Planetiler
+  -> PMTiles or compatible vector tiles
+  -> MapLibre style.json
+  -> Maputnik
+  -> LifeFlow visual style
+```
+
+The basemap should contain roads, water, parks, buildings and administrative labels. Hotels, rentals, hospitals, partners and recommendations remain dynamic business layers.
+
+Desired LifeFlow style:
+
+- Clean and minimal
+- Clear primary roads
+- Subtle secondary roads and buildings
+- Light water and park treatment
+- Clear city and district labels
+- Configurable category icons and colors
+- No default POI overload
+
+## 13. Security and operational requirements
+
+- Separate database roles for migrations, ingestion, API and read-only jobs
+- No application superuser credentials
+- Authentication and tenant authorization on API and MCP requests
+- Encryption for secrets and sensitive personal data
+- Approval workflow for financial or booking actions
+- Audit logs for tool calls and state changes
+- Database backups and tested restoration procedures
+- Health checks for PostgreSQL, MCP, API and OSRM
+- Metrics for latency, failures, route errors and tool usage
+- Rate limiting for public or external endpoints
+- Timeouts and circuit breakers for partner APIs
+
+## 14. Implementation phases
+
+### Phase 0: Preserve the baseline
+
+- Inventory current files, versions, ports and container configuration
+- Record checksums for source PBF files
+- Export PostgreSQL schema and create a verified backup
+- Keep the existing frontend and GeoJSON fallback working
+- Preserve current browser acceptance tests
+
+Exit criteria: Existing map, POI and routing behavior is reproducible and recoverable.
+
+### Phase 1: Shared contracts
+
+- Define place, housing and route schemas
+- Define `HousingSearchRequest` and `HousingSearchResponse`
+- Add valid and invalid examples
+- Define null, unit, currency and additional metadata behavior
+- Version contracts and document compatibility
+
+Exit criteria: API, MCP, agent, frontend and external Recommendation MCP can consume the same factual schemas without inventing fields or depending on internal tables.
+
+### Phase 2: PostGIS foundation
+
+- Enable PostGIS without replacing the existing database
+- Add versioned migrations
+- Create schemas, roles, constraints and indexes
+- Add ingestion and audit tables
+
+Exit criteria: Spatial queries work with indexes and all migrations are reversible or have documented recovery steps.
+
+### Phase 3: POI and housing ingestion
+
+- Import current accommodation data into staging
+- Normalize, deduplicate and publish canonical places
+- Preserve all source properties and IDs
+- Compare source, staging and published counts
+- Implement the property, unit, listing and offer separation required by available housing data
+- Record missing fields, validation failures and source provenance
+
+Exit criteria: All 13,120 source POIs are accounted for, including rejected or duplicate records, and available housing records can be queried without collapsing long-lived properties and time-varying offers.
+
+### Phase 4: Platform API
+
+- Implement `search_housing` and `get_housing`
+- Add numeric, categorical, text, bounding-box and radius filtering
+- Add nearby-place filtering through canonical PostGIS places
+- Add route adapter for the three OSRM endpoints
+- Add authentication and structured error responses
+
+Exit criteria: API integration tests prove hard-filter correctness, deterministic pagination, missing-value behavior, nearby constraints, OSRM commute constraints, offline errors and no-route responses.
+
+### Phase 5: Read-only MCP
+
+- Implement MCP server using shared services and contracts
+- Add `search_housing` and `get_housing`
+- Add `search_places` and `find_nearby_places`
+- Add `calculate_route`
+- Test with MCP Inspector
+- Add audit logging and input/output validation
+
+Exit criteria: The agent can search housing, find nearby places and calculate routes without direct database access.
+
+### Phase 6: Frontend migration
+
+- Load visible POI from the Platform API
+- Retain current GeoJSON as temporary fallback
+- Use canonical place IDs in map, chat and workflows
+- Preserve current city switching and routing UX
+
+Exit criteria: Existing browser tests pass and the map no longer needs to load all POIs at startup.
+
+Recommendation implementation is explicitly out of scope for Phases 0-6. A separately owned Recommendation MCP may consume the published contracts and factual results after the Housing Query foundation passes its acceptance tests.
+
+### Phase 7: Workflow and approval tools
+
+- Create moving-plan workflow
+- Add quotes, approvals and execution states
+- Add idempotent write tools
+- Integrate transport providers behind adapters
+
+Exit criteria: No booking, payment or external commitment can occur without explicit approval and an audit record.
+
+### Phase 8: Custom basemap
+
+- Build versioned PMTiles
+- Create and validate a LifeFlow style
+- Host tiles with rollback support
+- Keep business data outside the basemap
+
+Exit criteria: The map can run with the LifeFlow basemap while POI and routing behavior remains unchanged.
+
+### Phase 9: Production hardening
+
+- Backups, monitoring and alerts
+- Security review and load testing
+- Scheduled OSM/provider updates
+- Disaster recovery and rollback exercises
+
+Exit criteria: Recovery, update and operational procedures are documented and tested.
+
+## 15. Acceptance criteria for the complete platform foundation
+
+- Existing MapLibre and OSRM functions do not regress.
+- Existing source files and graphs remain untouched.
+- Current POI data is fully traceable from source to database.
+- Custom records survive an OSM refresh.
+- Nearby and bounding-box queries use spatial indexes.
+- MCP tools return structured and validated results.
+- The agent has no arbitrary SQL capability.
+- The same place ID works across map, API, MCP and workflow records.
+- Financial and booking actions require explicit approval.
+- Every write operation is idempotent and auditable.
+- Database and routing updates support rollback.
+- Custom basemap styling does not contain private business data.
+
+### 15.1 Housing Query acceptance criteria
+
+| Case | Given | Required result |
+|---|---|---|
+| Price | `max_price = 15,000,000 VND/month` | No result exceeds 15,000,000 VND/month |
+| Bedrooms | `min_bedrooms = 2` | No result has fewer than two bedrooms |
+| Missing bedroom value | `bedrooms = null` and `min_bedrooms = 2` | The record does not satisfy the constraint |
+| Area | `min_area_m2 = 60` | Every result has a known normalized area of at least 60 m2 |
+| Radius | `radius_m = 5000` | Every result is inside the indexed spatial query radius |
+| Nearby hospital | `max_distance_m = 3000` | Every result has at least one valid hospital within 3,000 meters |
+| Commute | `max_duration_seconds = 1800` | Every result has a successful OSRM route of at most 1,800 seconds |
+| Source traceability | Any returned listing/place | IDs and factual fields can be traced to source records |
+| Unknown field | A source field is missing | The response reports `null`/unknown and does not invent a value |
+| Determinism | Same database state and request | The same hard-filter result set and stable ordering are returned |
+| Recommendation separation | Any housing search | No recommendation flag, score, winner or advice is returned |
+
+If a hard constraint cannot be evaluated because required source data is unknown, the candidate does not pass by default. The response or query diagnostics should make this exclusion observable where appropriate.
+
+### 15.2 Housing Query contract tests
+
+Valid request example:
+
+```json
+{
+  "administrative_area_ids": ["district_7"],
+  "listing_type": "rent",
+  "max_price": {
+    "amount": 15000000,
+    "currency": "VND",
+    "period": "month"
+  },
+  "min_bedrooms": 2,
+  "min_area_m2": 60,
+  "nearby": [
+    {
+      "category": "hospital",
+      "max_distance_m": 3000
+    }
+  ],
+  "commute": {
+    "destination": {
+      "lng": 106.7009,
+      "lat": 10.7769
+    },
+    "max_duration_seconds": 1800,
+    "profile": "driving"
+  }
+}
+```
+
+Required invalid cases:
+
+- Negative price
+- Unsupported currency
+- Price amount without a pricing period where the contract requires one
+- Longitude outside `[-180, 180]`
+- Latitude outside `[-90, 90]`
+- Negative or zero radius where a positive radius is required
+- Negative bedroom or bathroom count
+- Unsupported area unit
+- Malformed or inverted bounding box
+- Unsupported commute profile
+- Pagination limit outside the configured range
+
+## 16. Explicitly out of scope for the first implementation
+
+- Housing recommendation
+- LLM-based ranking or recommendation explanations
+- Recommendation scores or personalized winner selection
+- Implementation of the separately owned Recommendation MCP
+- Payments and automatic booking
+- Production deployment
+- Public remote MCP access
+- Live traffic estimation
+- Satellite imagery and street view
+- Public transport routing
+- Custom PMTiles basemap
+- Replacing the current OSRM graphs
+- Removing the GeoJSON fallback
+- Migrating every LifeFlow service into separate microservices
+
+## 17. Decisions requiring approval
+
+- [x] Use a modular monolith for the initial platform
+- [x] Use TypeScript for the Platform API and MCP server
+- [x] Use PostgreSQL with PostGIS as the system of record
+- [x] Store media metadata in PostgreSQL; object storage is deferred until media ingestion
+- [x] Start with read-only MCP tools
+- [x] Use `stdio` locally; authenticated Streamable HTTP remains deployment work
+- [x] Keep OSRM and the current MapLibre UX unchanged during Phases 1-5
+- [x] Use versioned imports and preserve rollback inputs
+- [x] Require approval for every future booking, payment or external commitment
+- [x] Defer the custom basemap until the data and tool foundation is stable
+- [x] Limit this repository slice to factual Housing Query behavior
+- [x] Treat the Recommendation MCP as an external consumer of shared contracts
+
+## 18. Recommended first implementation slice
+
+After this plan is approved, implement only:
+
+1. Shared Place contract
+2. Shared Housing contract
+3. `HousingSearchRequest` and `HousingSearchResponse`
+4. Route contract
+5. PostgreSQL/PostGIS migrations and restricted roles
+6. Housing and POI ingestion with source traceability
+7. `search_housing` Platform API
+8. `get_housing` Platform API
+9. Nearby-place query through PostGIS
+10. OSRM route adapter and bounded commute filtering
+11. MCP tools: `search_housing`, `get_housing`, `find_nearby_places`, `calculate_route`
+12. Contract, query and integration tests
+
+Do not implement `recommend_housing`, LLM ranking, recommendation scores, bookings, payments or custom basemap work in this slice.
+
+## 19. References
+
+- MCP TypeScript SDK: https://ts.sdk.modelcontextprotocol.io/v2/
+- MCP server concepts: https://modelcontextprotocol.io/specification/draft/server/index
+- PostGIS introduction: https://postgis.net/docs/manual-3.7/en/postgis_introduction.html
+- PostGIS spatial indexes: https://postgis.net/documentation/faq/spatial-indexes/
+- OpenFreeMap quick start: https://openfreemap.org/quick_start/
+- MapLibre GL JS documentation: https://maplibre.org/maplibre-gl-js/docs/

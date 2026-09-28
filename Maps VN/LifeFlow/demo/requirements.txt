@@ -1,0 +1,5 @@
+openai>=1.0.0
+python-dotenv>=1.0.0
+streamlit>=1.44.0
+streamlit-searchbox>=0.1.24
+pydeck>=0.9.1
