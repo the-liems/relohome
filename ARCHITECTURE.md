@@ -13,6 +13,13 @@ Detailed current designs:
 - [Moving/AhaMove service](docs/architecture/moving-service.md)
 - [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
 
+The chat agent is one LangGraph graph (`src/agents/`, [agent graph design](docs/architecture/agent-graph.md),
+ADR-016 Proposed): intake → Routing Orchestrator → domain subagents → validator → confirm → transaction.
+It connects to the Location (housing, place, route), Moving/AhaMove, Flight and Payment MCP services
+through `src/services/adapters/` (`AGENT_SUBAGENTS=live`), or runs fully offline with fake subagents.
+The LLM Intake and LLM Planner are not implemented yet (the graph uses stubs / the rule-based
+`TemplatePlanner`).
+
 Independent [Intake and Routing Orchestrator services](docs/architecture/standalone-agent-services.md)
 implement direction B from the [original analysis](docs/architecture/intake-and-routing-orchestrator.md).
 They have separate HTTP entrypoints and images. Intake understands requests;
@@ -81,12 +88,13 @@ graph TB
 
 ### 3. AI Agent (LangGraph)
 
-Thiết kế đề xuất, chưa implement. Chi tiết: [agent graph design](docs/architecture/agent-graph.md).
+Đã implement khung (M0–M2) và nối service bằng subagent nền (M3); Intake / Planner dùng LLM chưa làm (M4).
+Chi tiết và hiện trạng: [agent graph design](docs/architecture/agent-graph.md) §13.
 
 - **Agent Type:** Intake + Plan-and-Execute + Result Validator + human-in-the-loop (sơ đồ v4, kết hợp góp ý mentor).
 - **State:** `WorkflowState`; kế hoạch (Dependency DAG) là dữ liệu trong state và được checkpoint theo `thread_id`.
 - **Nodes:** `load_context`, `intake` (hiểu yêu cầu, hỏi lại), Routing Orchestrator = `orchestrator` (Planner) + `executor` + `change_impact`, 4 node nối tới subagent của từng service (property, relocation, flight, map; Contract & Policy đã bỏ), `validator`, `cost_summary`, `confirm`, `transaction`, `await_payment` (chờ thanh toán bất đồng bộ), `respond`. Tái dùng phần kiểm evidence, approval, `validate_plan` từ nhánh `khoa` (xem agent-graph.md §3.3).
-- **Tools:** mỗi service có subagent riêng do chủ service viết, nối vào graph qua contract chung (manifest + `run_task`); subagent chỉ đọc, thao tác ghi đi qua commit endpoint sau approval. Giai đoạn khung dùng `FakeAgent`.
+- **Tools:** mỗi service có subagent riêng do chủ service viết, nối vào graph qua contract chung (manifest + `run_task`); subagent chỉ đọc, thao tác ghi đi qua commit endpoint sau approval. Hiện dùng `FakeAgent` (mặc định) hoặc subagent nền bọc MCP tool đọc của Location, Moving, Flight (`AGENT_SUBAGENTS=live`); `transaction` gọi tool ghi của Flight, Payment, Moving theo chuỗi tất định.
 - **Flow:**
 
 ```mermaid

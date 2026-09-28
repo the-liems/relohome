@@ -1,0 +1,17 @@
+{
+  "data": {
+    "area_name": "TP.HCM",
+    "candidates": [
+      {"id": "lst_001", "title": "Phòng 20m² gần BV Chợ Rẫy", "price_vnd": 4500000, "deposit_vnd": null, "area_m2": 20, "address": "12 Nguyễn Chí Thanh, Quận 5, TP.HCM", "city": "TP.HCM", "lat": 10.7578, "lng": 106.6597, "wifi": true},
+      {"id": "lst_002", "title": "Studio 28m² Quận 10", "price_vnd": 5800000, "deposit_vnd": 5800000, "area_m2": 28, "address": "45 Thành Thái, Quận 10, TP.HCM", "city": "TP.HCM", "lat": 10.7693, "lng": 106.6641, "wifi": true},
+      {"id": "lst_003", "title": "Phòng 18m² Quận 5", "price_vnd": 3900000, "deposit_vnd": null, "area_m2": 18, "address": "88 Hồng Bàng, Quận 5, TP.HCM", "city": "TP.HCM", "lat": 10.7545, "lng": 106.6623, "wifi": null}
+    ]
+  },
+  "quotes": [
+    {"option_id": "lst_001", "label": "Phòng 20m² gần BV Chợ Rẫy", "amount_vnd": 4500000, "recurrence": "monthly"},
+    {"option_id": "lst_002", "label": "Studio 28m² Quận 10", "amount_vnd": 5800000, "recurrence": "monthly"},
+    {"option_id": "lst_003", "label": "Phòng 18m² Quận 5", "amount_vnd": 3900000, "recurrence": "monthly"}
+  ],
+  "missing_fields": ["candidates[0].deposit_vnd", "candidates[2].deposit_vnd", "candidates[2].wifi"],
+  "source_refs": ["lst_001", "lst_002", "lst_003"]
+}

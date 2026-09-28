@@ -1,0 +1,372 @@
+"""`TransactionPort` thật: chuỗi gọi tool ghi tất định theo `CommitActionKind` (agent-graph.md §6.9).
+
+Không qua LLM (R3). Mỗi bước kiểm lại giá với số tiền đã được approve; khác thì dừng, không tự đổi giá.
+
+| Kind | Bước |
+|---|---|
+| flight_booking | get_offer → hold_booking (PII qua pii_ref) → create_payment → [chờ PAID] → confirm_booking |
+| moving_booking | estimate_move lại với liên hệ thật → ghi approval sang Moving (Q22) → create_move_order (CASH, Q21) |
+| cancel_order   | flight: cancel_booking(confirm=true); moving: ghi approval → cancel_move_order |
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any
+
+from src.agents.common import fingerprint, utcnow
+from src.agents.models import Approval, CommitActionKind, PendingPayment, Receipt, SourceKind
+from src.services.adapters.mcp import McpToolClient, ToolCallError
+from src.services.adapters.moving_approval import (
+    MissingMovingApprovalBridge,
+    MovingApprovalBridge,
+    MovingApprovalError,
+    moving_approval_id,
+)
+from src.services.adapters.ports import CommitError, CommitRequest
+
+logger = logging.getLogger(__name__)
+
+
+def opaque_ref(prefix: str, key: str) -> str:
+    """Mã tham chiếu vô danh cho Payment (chữ, số, gạch, ≤ 30 ký tự; không chứa dữ liệu cá nhân)."""
+    return f"{prefix}_{key[:24]}"
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value)) if value else None
+    except ValueError:
+        return None
+
+
+class McpTransaction:
+    def __init__(
+        self,
+        *,
+        flight: McpToolClient | None,
+        payment: McpToolClient | None,
+        moving: McpToolClient | None,
+        moving_approvals: MovingApprovalBridge | None = None,
+        moving_source_kind: SourceKind = "sandbox",
+        payment_source_kind: SourceKind = "sandbox",
+        clock: Callable[[], datetime] = utcnow,
+    ):
+        self.flight, self.payment, self.moving = flight, payment, moving
+        self.moving_approvals = moving_approvals or MissingMovingApprovalBridge()
+        self.moving_source_kind, self.payment_source_kind = moving_source_kind, payment_source_kind
+        self.clock = clock
+        # Receipt theo idempotency_key trong process. Backend nên lưu bền (Q17); provider cũng tự chống trùng
+        # (Payment theo order_ref + amount, Moving theo workflow_id + action_id).
+        self._receipts: dict[str, Receipt] = {}
+        self._holds: dict[str, PendingPayment] = {}
+        self._approval_of: dict[str, Approval] = {}  # receipt_id -> approval đã dùng (để compensate)
+
+    # --- tiện ích ---
+
+    @staticmethod
+    async def _call(
+        client: McpToolClient | None, service: str, tool: str, args: dict[str, Any], *, write: bool = False
+    ) -> Any:
+        if client is None:
+            raise CommitError(f"service {service} chưa được cấu hình")
+        try:
+            return await client.call(tool, args)
+        except ToolCallError as exc:
+            # Lỗi sau khi đã gửi thao tác ghi: không rõ provider đã ghi chưa.
+            uncertain = write and not exc.transport and exc.retryable
+            raise CommitError(
+                f"{service}.{tool}: {exc.message}",
+                uncertain=uncertain or (write and exc.code == "timeout"),
+                code=exc.code,
+            ) from exc
+
+    def _receipt(
+        self,
+        req: CommitRequest,
+        receipt_id: str,
+        provider: str,
+        amount: int,
+        source_kind: SourceKind,
+        status: str,
+        details: dict[str, Any],
+    ) -> Receipt:
+        receipt = Receipt(
+            receipt_id=receipt_id,
+            action_id=req.action.id,
+            kind=req.action.kind,
+            provider=provider,
+            amount_vnd=amount,
+            source_kind=source_kind,
+            status=status,
+            details=details,
+            created_at=self.clock(),
+        )
+        self._receipts[req.idempotency_key] = receipt
+        self._approval_of[receipt_id] = req.approval
+        return receipt
+
+    async def lookup(self, idempotency_key: str) -> Receipt | None:
+        return self._receipts.get(idempotency_key)
+
+    # --- Flight + Payment ---
+
+    async def start_payment(self, req: CommitRequest) -> PendingPayment:
+        if req.action.kind != CommitActionKind.FLIGHT_BOOKING:
+            raise CommitError(f"{req.action.kind.value} không đi qua Payment")
+        if req.idempotency_key in self._holds:
+            return self._holds[req.idempotency_key]
+        detail = await self._call(self.flight, "flight", "get_offer", {"offer_id": req.option_id})
+        price = ((detail or {}).get("offer") or {}).get("total_price")
+        if price != req.amount_vnd:
+            raise CommitError(f"giá vé đã đổi ({price} ≠ {req.amount_vnd}); cần xác nhận lại")
+        booking = await self._call(
+            self.flight,
+            "flight",
+            "hold_booking",
+            {
+                "request": {
+                    "offer_id": req.option_id,
+                    "passengers": req.pii.get("passengers"),
+                    "contact": req.pii.get("contact"),
+                }
+            },
+            write=True,
+        )
+        booking_id = booking["booking_id"]
+        if booking.get("total_price") != req.amount_vnd:
+            await self._safe_cancel_booking(booking_id)
+            raise CommitError("tổng tiền giữ chỗ khác số tiền đã xác nhận; đã huỷ giữ chỗ")
+        payment = await self._call(
+            self.payment,
+            "payment",
+            "create_payment",
+            {
+                "order_ref": opaque_ref("fb", req.idempotency_key),
+                "amount": req.amount_vnd,
+                "customer_ref": opaque_ref("u", fingerprint(req.approval.user_id)),
+            },
+            write=True,
+        )
+        expires = [d for d in (_parse_dt(payment.get("expires_at")), _parse_dt(booking.get("hold_expires_at"))) if d]
+        pending = PendingPayment(
+            action_id=req.action.id,
+            payment_ref=payment["payment_id"],
+            pay_url=payment.get("pay_url"),
+            qr_code=payment.get("qr_code"),
+            amount_vnd=req.amount_vnd,
+            expires_at=min(expires) if expires else self.clock(),
+            status="PENDING",
+            source_kind=self.payment_source_kind,
+            pre_payment_receipt=Receipt(
+                receipt_id=booking_id,
+                action_id=req.action.id,
+                kind=req.action.kind,
+                provider="lifeflow-flights",
+                amount_vnd=req.amount_vnd,
+                source_kind="demo",
+                status="HELD",
+                details={"pnr": booking.get("pnr")},
+                created_at=self.clock(),
+            ),
+        )
+        self._holds[req.idempotency_key] = pending
+        return pending
+
+    async def payment_status(self, payment_ref: str) -> str:
+        payment = await self._call(self.payment, "payment", "get_payment", {"payment_ref": payment_ref})
+        return payment["status"]
+
+    async def cancel_payment(self, payment_ref: str) -> str:
+        payment = await self._call(self.payment, "payment", "cancel_payment", {"payment_ref": payment_ref}, write=True)
+        return payment["status"]
+
+    async def complete_after_payment(self, req: CommitRequest, pending: PendingPayment) -> Receipt:
+        booking_id = pending.pre_payment_receipt.receipt_id
+        try:
+            booking = await self._call(
+                self.flight, "flight", "confirm_booking", {"booking_ref": booking_id}, write=True
+            )
+        except CommitError as exc:
+            # Đã trả tiền mà xuất vé lỗi: không tự thử lại; cần hoàn tiền (refund chưa có trong MVP của Payment).
+            raise CommitError(
+                f"đã thanh toán nhưng xuất vé lỗi ({exc.message}); cần hoàn tiền thủ công", uncertain=True
+            ) from exc
+        self._holds.pop(req.idempotency_key, None)
+        return self._receipt(
+            req,
+            booking_id,
+            "lifeflow-flights",
+            req.amount_vnd,
+            "demo",
+            booking.get("status", "TICKETED"),
+            {
+                "pnr": booking.get("pnr"),
+                "ticket_count": len(booking.get("ticket_numbers") or []),
+                "payment_ref": pending.payment_ref,
+                "payment_source_kind": pending.source_kind,
+            },
+        )
+
+    async def abort_after_payment(self, req: CommitRequest, pending: PendingPayment) -> None:
+        if pending.pre_payment_receipt is not None:
+            await self._safe_cancel_booking(pending.pre_payment_receipt.receipt_id)
+        self._holds.pop(req.idempotency_key, None)
+
+    async def _safe_cancel_booking(self, booking_id: str) -> None:
+        try:
+            await self._call(
+                self.flight, "flight", "cancel_booking", {"booking_ref": booking_id, "confirm": True}, write=True
+            )
+        except CommitError as exc:  # giữ chỗ tự hết hạn phía provider
+            logger.warning("cancel hold failed booking=%s: %s", booking_id, exc.message)
+
+    # --- Moving + huỷ đơn ---
+
+    async def commit(self, req: CommitRequest) -> Receipt:
+        kind = req.action.kind
+        if kind == CommitActionKind.MOVING_BOOKING:
+            return await self._moving_booking(req)
+        if kind == CommitActionKind.CANCEL_ORDER:
+            return await self._cancel(req)
+        raise CommitError(f"{kind.value} chưa được hỗ trợ")
+
+    async def _moving_approval(
+        self, approval: Approval, action_id: str, step: str, action_type: str, payload: dict
+    ) -> str:
+        approval_id = moving_approval_id(approval.approval_id, action_id, step)
+        # Compensate có thể chạy sau khi chờ thanh toán; hạn ngắn tính từ lúc ghi.
+        expires_at = approval.expires_at if step != "compensate" else self.clock() + timedelta(minutes=5)
+        try:
+            return await self.moving_approvals.register(
+                approval_id=approval_id,
+                action_type=action_type,
+                payload=payload,
+                approved_by=approval.user_id,
+                expires_at=expires_at,
+            )
+        except MovingApprovalError as exc:
+            raise CommitError(str(exc)) from exc
+
+    async def _moving_booking(self, req: CommitRequest) -> Receipt:
+        route = req.task_data.get("route") or {}
+        service_id = req.option.get("service_id") or req.option_id.split(":", 1)[-1]
+        pickup, destination = route.get("pickup"), route.get("destination")
+        contacts = (req.pii.get("pickup_contact"), req.pii.get("destination_contact"))
+        if not pickup or not destination or not all(contacts):
+            raise CommitError("thiếu điểm lấy / giao hoặc liên hệ để đặt xe")
+
+        def point(p: dict, contact: dict) -> dict[str, Any]:
+            return {
+                "address": p["address"],
+                "coordinate": {"lat": p["lat"], "lng": p["lng"]},
+                "name": contact["name"],
+                "mobile": contact["mobile"],
+            }
+
+        draft: dict[str, Any] = {
+            "pickup": point(pickup, contacts[0]),
+            "destinations": [point(destination, contacts[1])],
+            "payment_method": "CASH",
+        }
+        if route.get("order_time"):
+            draft["order_time"] = route["order_time"]
+        # 1. Báo giá lại với liên hệ thật (đọc) và kiểm giá đã approve.
+        estimate = await self._call(
+            self.moving, "moving", "estimate_move", {"draft": draft, "services": [{"service_id": service_id}]}
+        )
+        quote = estimate["quote"]
+        option = next((o for o in quote.get("options", []) if o.get("service_id") == service_id), None)
+        total = (option or {}).get("fee", {}).get("total_price")
+        if total is None or int(total) != req.amount_vnd:
+            raise CommitError(f"giá chuyển đồ đã đổi ({total} ≠ {req.amount_vnd}); cần xác nhận lại")
+        workflow_id, action_id = f"lifeflow:{req.approval.thread_id}", req.idempotency_key
+        # 2. Ghi approval sang Moving (Q22). 3. Tạo đơn, trả tiền mặt cho tài xế (Q21).
+        approval_id = await self._moving_approval(
+            req.approval,
+            req.action.id,
+            "create",
+            "create",
+            {
+                "action": "create",
+                "quote_id": quote["quote_id"],
+                "quote_fingerprint": quote["request_fingerprint"],
+                "service_id": service_id,
+                "total_price": total,
+                "workflow_id": workflow_id,
+                "action_id": action_id,
+            },
+        )
+        created = await self._call(
+            self.moving,
+            "moving",
+            "create_move_order",
+            {
+                "quote_id": quote["quote_id"],
+                "service_id": service_id,
+                "approval_id": approval_id,
+                "workflow_id": workflow_id,
+                "action_id": action_id,
+            },
+            write=True,
+        )
+        order = created["order"]
+        return self._receipt(
+            req,
+            order["order_id"],
+            "ahamove",
+            req.amount_vnd,
+            self.moving_source_kind,
+            order["status"],
+            {
+                "order_id": order["order_id"],
+                "shared_link": order.get("shared_link"),
+                "payment_method": "CASH",
+                "to_address": req.task_data.get("to_address"),
+            },
+        )
+
+    async def _cancel(self, req: CommitRequest) -> Receipt:
+        target = req.action.target_receipt_id or ""
+        if req.task_data.get("booking") or target.startswith("bk_"):
+            result = await self._call(
+                self.flight, "flight", "cancel_booking", {"booking_ref": target, "confirm": True}, write=True
+            )
+            return self._receipt(
+                req,
+                target,
+                "lifeflow-flights",
+                int(result.get("cancel_fee") or 0),
+                "demo",
+                result.get("status", "CANCELLED"),
+                {"refund_amount": result.get("refund_amount")},
+            )
+        order = await self._cancel_move_order(req.approval, req.action.id, "cancel", target)
+        return self._receipt(req, target, "ahamove", 0, self.moving_source_kind, order.get("status", "CANCELLED"), {})
+
+    async def _cancel_move_order(self, approval: Approval, action_id: str, step: str, order_id: str) -> dict:
+        comment = "Khách huỷ qua LifeFlow"
+        approval_id = await self._moving_approval(
+            approval, action_id, step, "cancel", {"action": "cancel", "order_id": order_id, "comment": comment}
+        )
+        result = await self._call(
+            self.moving,
+            "moving",
+            "cancel_move_order",
+            {"order_id": order_id, "comment": comment, "approval_id": approval_id},
+            write=True,
+        )
+        return result.get("order", result) if isinstance(result, dict) else {}
+
+    async def compensate(self, receipt: Receipt) -> None:
+        if receipt.kind == CommitActionKind.FLIGHT_BOOKING:
+            await self._safe_cancel_booking(receipt.receipt_id)
+            return
+        approval = self._approval_of.get(receipt.receipt_id)
+        if receipt.kind == CommitActionKind.MOVING_BOOKING and approval is not None:
+            # Người dùng đã xác nhận cả nhóm thao tác (S7): phần sau lỗi thì huỷ phần đã đặt trong cùng lần xác nhận.
+            await self._cancel_move_order(approval, receipt.action_id, "compensate", receipt.receipt_id)
+            return
+        raise CommitError(f"không compensate được {receipt.kind.value}")

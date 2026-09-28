@@ -1,7 +1,8 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
-Status: proposed — tài liệu thiết kế, **chưa implement**. Code hiện tại trong
-`src/agents/` vẫn là template (`analyze → respond`).
+Status: proposed (ADR-016). **Đã implement khung** trên nhánh `integration/langgraph-services`
+(M0–M2, nối service ở mức subagent nền của M3); Intake và Planner dùng LLM chưa làm (M4). Hiện trạng
+và các điểm code khác bản đặc tả: §13.
 Date: 2026-09-27. Cập nhật 2026-09-28: thêm tầng `intake` và ranh giới "Routing
 Orchestrator" theo góp ý mentor (§3.2); chốt quy tắc hỏi ngay / hỏi sau và tự điền
 từ dữ liệu đã lưu (§6.1); thêm kiểm soát chi phí (§7.5); chốt chính sách bộ nhớ người
@@ -663,6 +664,9 @@ class AgentInput(TypedDict):
     upstream: dict[str, TaskResult]   # kết quả của các task trong task.depends_on
     budget_left: AgentBudget          # phần còn lại của trần lượt (§7.5)
 ```
+
+(Code: không có `budget_left` trong payload; `run_with_policy` tính ngân sách từ `UsageMeter` ngay
+trước khi gọi subagent, xem §13.)
 
 Subagent không nhận nguyên `SessionContext`; chỉ nhận các key khai báo trong
 `constraint_keys` / `hint_keys` của manifest.
@@ -1412,7 +1416,7 @@ gọi tool tất định**, không qua LLM:
 | `CommitActionKind` | Các bước trong `transaction` | Qua Payment? | Khi lỗi / huỷ |
 |---|---|---|---|
 | `flight_booking` | 1. `get_offer` kiểm giá và điều kiện vé (đọc). 2. `hold_booking` với dữ liệu hành khách lấy qua `pii_ref`. 3. Tổng tiền giữ chỗ khác số tiền đã được approve → dừng, `cancel_booking(confirm=true)` huỷ giữ chỗ, xin xác nhận lại. 4. `create_payment` (`order_ref` = commit action id). 5. Chờ `PAID` (`await_payment`). 6. `confirm_booking` | Có | Không trả / hết hạn → huỷ giữ chỗ. Xuất vé lỗi sau khi đã `PAID` → `pending_verification`, cần hoàn tiền (`refund_payment` chưa hỗ trợ trong MVP của Payment → báo rõ cho người dùng) |
-| `moving_booking` | 1. `estimate_move` kiểm lại giá (đọc). 2. Ghi bản ghi approval sang backend Moving qua endpoint nội bộ (Q22). 3. `create_move_order` với `approval_id` đó, `payment_method = CASH`, tên + SĐT người gửi / người nhận lấy qua `pii_ref` (`pii_required = [pickup_contact, destination_contact]`, D16) | **Không**: `CASH`, trả tiền mặt cho tài xế (Q21) | Kết quả không rõ → đối soát bằng tracking number (ADR-003 nhánh `khoa`); huỷ bằng `cancel_move_order` |
+| `moving_booking` | 1. `estimate_move` kiểm lại giá (đọc), lần này với liên hệ thật lấy qua `pii_ref` (AhaMove bắt buộc tên + SĐT ngay cả khi báo giá; subagent báo giá bằng liên hệ tổng đài của hệ thống, §13); giá khác số đã approve thì dừng. 2. Ghi bản ghi approval sang backend Moving qua endpoint nội bộ (Q22). 3. `create_move_order` với `approval_id` đó, `payment_method = CASH`, tên + SĐT người gửi / người nhận lấy qua `pii_ref` (`pii_required = [pickup_contact, destination_contact]`, D16) | **Không**: `CASH`, trả tiền mặt cho tài xế (Q21) | Kết quả không rõ → đối soát bằng tracking number (ADR-003 nhánh `khoa`); huỷ bằng `cancel_move_order` |
 | `deposit` | **Ngoài phạm vi MVP** (Q25) | — | Không tạo commit action này, không gợi ý đặt cọc |
 | `cancel_order` | Gọi bản "báo phí" trước nếu service có (`cancel_booking(confirm=false)`), đưa phí vào `confirm`; sau approval gọi tool huỷ (`cancel_booking(confirm=true)`, `cancel_move_order`, `cancel_payment`) | Hoàn tiền nếu đã trả qua Payment | — |
 | `update_order` | `update_move_order` | — | — |
@@ -1986,6 +1990,9 @@ Code dùng lại từ nhánh `khoa` (evidence, `validate_plan`, approval, `Struc
 khung. `requirements.txt` đang ghi `langgraph>=0.2.0`; nên nâng lên `>=1.0` vì thiết
 kế dùng `interrupt`, `Command`, `input_schema` (bản đã cài trong `.venv` là 1.2.11).
 
+Layout thực tế sau khi implement (thêm `wiring.py`, `llm.py`, `subagents/services/`,
+`src/services/adapters/mcp.py` …) ghi ở §13.
+
 **Thứ tự implement** (tiến độ theo dõi ở GitHub Issues, không cập nhật ở đây):
 
 | Mốc | Nội dung | Kết quả kiểm chứng |
@@ -2023,7 +2030,7 @@ kế dùng `interrupt`, `Command`, `input_schema` (bản đã cài trong `.venv`
 | Q19 | Khi đặt (S2) mà kết quả tìm có nhiều lựa chọn tương đương: `cost_summary` tự chọn phương án xếp hạng đầu để người dùng xác nhận, hay bắt buộc người dùng chọn trước (thêm một lượt)? | `cost_summary`, S4, Q7. |
 | Q20 | ~~Nhà cung cấp và model LLM?~~ **Đã chốt 2026-09-29:** tạm thời mọi agent (node của graph và subagent của service) dùng **OpenAI**; chọn model theo độ nặng của việc (bảng tầng model ở §7.5). | `StructuredLLM`, `llm_models`. |
 | Q21 | ~~Đặt xe AhaMove thanh toán thế nào?~~ **Đã chốt 2026-09-29:** `payment_method = CASH`, người gửi trả tiền mặt cho tài xế; `moving_booking` không qua Payment MCP (`requires_payment = False`). `confirm` ghi rõ "giá ước tính X, trả tiền mặt cho tài xế". `BALANCE` / thu tiền qua ZaloPay để sau MVP. | Bảng thực thi §6.9. |
-| Q22 | ~~Cầu nối approval sang backend Moving?~~ **Đã chốt 2026-09-29:** sau khi `check_approval` qua, `transaction` gọi endpoint nội bộ của Moving (credential ghi) để ghi bản ghi approval cho đúng action (`approval_id`, `approved_by`, payload theo cách Moving tính hash, hạn), rồi mới gọi `create_move_order`. Việc cần làm phía Moving: thêm endpoint ghi approval (chủ service: Khoa). | `commit.py`, §6.9. |
+| Q22 | ~~Cầu nối approval sang backend Moving?~~ **Đã chốt 2026-09-29:** sau khi `check_approval` qua, `transaction` gọi endpoint nội bộ của Moving (credential ghi) để ghi bản ghi approval cho đúng action (`approval_id`, `approved_by`, payload theo cách Moving tính hash, hạn), rồi mới gọi `create_move_order`. Việc cần làm phía Moving: thêm endpoint ghi approval (chủ service: Khoa). Contract graph đang gọi (`src/services/adapters/moving_approval.py`): `POST MOVING_APPROVAL_URL` + Bearer, body `{approval_id (UUID), action_type: create/update/cancel, payload, approved_by, expires_at}`, trả 200/201; endpoint gọi `MovingService.registerApproval`. Chưa có endpoint thì `transaction` từ chối đặt xe với lỗi rõ ràng. | `commit.py`, §6.9. |
 | Q23 | ~~Trùng số ADR giữa các nhánh~~ **Đã chốt 2026-09-29:** bảng đánh số lại ở §12.1; nhánh `khoa` giữ ADR-001…006, nhánh `QuangDung` và `Doan/api` đánh số tiếp. | `docs/adr/`. |
 | Q24 | Flight và Payment MCP (nhánh `Doan/api`) hiện nhận mọi request, không kiểm header `Authorization: Bearer <token>` như Location / Moving. Ai gọi được tới cổng `8765` / `8766` đều gọi được `confirm_booking`, `create_payment`. Chủ service bổ sung kiểm token trước khi đăng ký vào registry, tốt nhất tách hai token: chỉ-đọc (subagent) và ghi (`transaction`). | Registry, §6.3.5. |
 | Q25 | ~~Đặt cọc phòng làm thế nào?~~ **Đã chốt 2026-09-29:** MVP **không có** đặt cọc. Phòng chỉ dừng ở tìm kiếm / xem chi tiết; không có commit action `deposit`, không gợi ý đặt cọc. | §6.9, S9. |
@@ -2056,14 +2063,75 @@ Ba nhánh đang dùng trùng số ADR. Quy tắc: nhánh `khoa` giữ nguyên s�
 
 **Tình trạng áp dụng (2026-09-29):**
 
-- `Doan/api`: đã đổi tên 4 file và sửa mọi tham chiếu, **chưa commit**.
-- `QuangDung`: đã chuẩn bị trên nhánh cục bộ `adr-renumber-quangdung` (tách từ
-  `origin/QuangDung`), **chưa commit, chưa push**; cần Dũng đồng ý.
+- `Doan/api`: đã đổi tên 4 file và sửa mọi tham chiếu, đã push.
+- `QuangDung`: nhánh gốc giữ nguyên; việc đổi số 001–005 → 007–011 làm trong nhánh tích hợp
+  `integration/langgraph-services`.
 - `khoa`: không đổi số. ADR-006 chỉ đổi trạng thái khi ADR-016 được Accepted.
-- ADR-016 đã viết trên nhánh `docs/agent-graph-design` (trạng thái Proposed):
-  [ADR-016](../adr/ADR-016-agent-graph-with-domain-subagents.md).
+- ADR-016 (trạng thái Proposed): [ADR-016](../adr/ADR-016-agent-graph-with-domain-subagents.md).
+  Mục lục thống nhất 001–016: [docs/adr/README.md](../adr/README.md).
 
 Khi áp dụng, chủ mỗi nhánh: đổi tên file, sửa tiêu đề `# ADR-0xx`, sửa mọi link và
 chú thích tham chiếu số cũ (nhánh `Doan/api` có tham chiếu trong `docs/api/examples/`,
 `src/mcp_servers/*/README.md`, `settings.py`, `storage.py`, `privacy.py`, `Dockerfile`,
 `src/ui/`), và cập nhật `docs/adr/README.md`.
+
+---
+
+## 13. Hiện trạng implement (2026-09-29)
+
+Nhánh `integration/langgraph-services` (gộp tài liệu này, `Doan/api`, `QuangDung`, `khoa`).
+Chạy test: `pytest tests/test_agents tests/test_api` (không cần mạng; `test_live_flight_payment.py`
+chạy Flight + Payment MCP thật qua stdio với provider mock).
+
+### 13.1. Đã có
+
+| Mốc | Nội dung | Ở đâu |
+|---|---|---|
+| M0 | Models, state, routing, `build_graph`, contract §6.3 + JSON Schema (`docs/api/agent-contract/`), `FakeAgent` 4 lĩnh vực, `run_with_policy`, `resolve_missing`, `respond` template, `InMemoryUsageMeter` | `src/agents/` |
+| M1 | Validator V1–V5 + bảng quyết định, `cost_summary`, `change_impact`, chính sách bộ nhớ (`memory.py`) | `src/agents/nodes/`, `memory.py` |
+| M2 | `confirm` + `interrupt`, approval (kiểm của nhánh `khoa`), `pii_refs`, `transaction` + `await_payment`, API `/chat`, `/decision`, `/payment/check`, `/payment/cancel`, `/state`, khoá 409 theo thread | `nodes/confirm.py`, `nodes/transaction.py`, `src/api/routes.py` |
+| M3 (một phần) | Client MCP (Streamable HTTP + Bearer / stdio, allowlist read/write), `ServiceRegistry` từ `.env`, **subagent nền** cho Location (property + map), Moving (báo giá, tra đơn), Flight (tìm chuyến, tra booking); `McpTransaction` gọi tool ghi của Flight, Payment, Moving; `RemoteAgent` cho `run_task`; bộ kiểm tuân thủ R1–R12 | `src/services/adapters/`, `src/agents/subagents/`, `wiring.py` |
+| (thêm) | `TemplatePlanner` tất định cho cả 4 lĩnh vực (không chỉ một lĩnh vực), dùng làm Planner mặc định khi chưa có LLM Planner và làm `fallback` ngược lại; `StructuredLLM` (OpenAI, từ nhánh `khoa`) cho Intake / Planner thật | `planning.py`, `llm.py` |
+
+`AGENT_SUBAGENTS=fake` (mặc định) dùng `FakeAgent` + `FakeTransaction`; `AGENT_SUBAGENTS=live` nối
+service nào có cấu hình trong `.env` (`.env.example` có danh sách biến). App mặc định vẫn dùng
+`PassThroughIntake` + `NotImplementedPlanner` như §8, nên `/chat` trả `UNSUPPORTED` cho tới khi có Intake
+thật (issue Intake). Test dùng `ScriptedIntake` + `TemplatePlanner`.
+
+**Subagent nền** (`src/agents/subagents/services/`) là bản tất định, không LLM, do kiến trúc viết để
+nối service ngay. Chủ service thay bằng subagent riêng (manifest + `run_task`, đăng ký bằng
+`RemoteAgent` ở `wiring.py`) sau khi qua `check_conformance`; graph không đổi (D13).
+
+### 13.2. Khác với đặc tả ở trên
+
+| Chỗ | Đặc tả | Code | Lý do |
+|---|---|---|---|
+| `WorkflowState` | — | thêm `thread_id`, `request_id` (API ghi) và `outcome` (node nào route sang `respond` thì ghi lý do; `load_context` reset mỗi lượt) | `respond` biết lượt này kết thúc vì sao mà không đọc nhầm kết quả lượt trước |
+| `AgentInput` | có `budget_left` | không có; `run_with_policy` tính từ `UsageMeter` | Hàm routing là hàm thuần, không đọc được bộ đếm async |
+| `UsageMeter` | `record_*` không có id | mọi hàm nhận `thread_id`, `request_id` | Đếm theo lượt / thread |
+| `TransactionPort` | `commit`, `lookup`, `compensate`, `status`, `payment_status` | thêm `start_payment`, `complete_after_payment`, `abort_after_payment`, `cancel_payment`; tham số gộp trong `CommitRequest` (có `pii`, không bao giờ vào state) | Luồng thanh toán bất đồng bộ §6.9 cần bước trước / sau thanh toán |
+| Thứ tự commit | theo `commit_actions` | thao tác không qua Payment trước, qua Payment sau | Thanh toán lỗi thì còn huỷ được đơn chuyển nhà; vé đã xuất thì chưa hoàn tiền được trong MVP |
+| `order_ref` của Payment | = commit action id | `fb_<24 ký tự đầu của idempotency_key>` | Payment chỉ nhận `[A-Za-z0-9_-]{1,30}` (ADR-015); vẫn tất định nên tạo lại không trùng |
+| Báo giá chuyển đồ | subagent chỉ đọc, không có dữ liệu cá nhân | `estimate_move` của AhaMove bắt buộc tên + SĐT: subagent dùng liên hệ tổng đài cấu hình ở `MOVING_QUOTE_CONTACT_*`; `transaction` báo giá lại với liên hệ thật rồi mới ghi approval + tạo đơn | Giữ D16 (dữ liệu cá nhân chỉ ở `transaction`) |
+| Compensate đơn chuyển nhà | `TransactionPort.compensate` | ghi approval `cancel` sang Moving (id dẫn xuất từ approval của cùng lần xác nhận, hạn 5 phút) rồi `cancel_move_order` | Người dùng đã xác nhận cả nhóm thao tác (S7) |
+| Khoá dữ kiện | `selected_listing_id`, `date` | fact `selected:<agent>` (lựa chọn, S4), `commit:<kind>` (ý muốn đặt, S2); constraint vé là `flight_date`; phần thiếu dạng `domain.field` (ví dụ `relocation.selected:property`) | Không trùng tên giữa các lĩnh vực |
+| Ý muốn đặt qua các lượt | — | fact `commit:<kind>` bị bỏ khi đã có receipt cùng loại tạo sau fact đó; `NEW_GOAL` bắt đầu dữ kiện mới | Không đặt lại ngoài ý muốn |
+| Gộp constraint | LLM giữ qua `previous` | node `intake` gộp thêm constraint lượt trước (trừ giá trị tự điền) khi không phải `NEW_GOAL` | Không phụ thuộc LLM để khỏi mất ràng buộc |
+| Replan vô ích | — | `REPLAN` mà Planner trả plan y hệt → `GIVE_UP` | Tránh lặp tới `max_replans` |
+| Fixture `FakeAgent` | `tests/fixtures/agents/` | `src/agents/subagents/fixtures/` | App mặc định cũng dùng |
+| `RemoteAgent` | MCP `run_task` | tham số `{"request": AgentTaskRequest}` | Chốt dạng tham số cho Q15 |
+| V2 | — | `a\|b` = có ít nhất một; `list[].field` = mọi phần tử có field | Lĩnh vực có hai chế độ (báo giá / tra đơn) |
+
+### 13.3. Chưa làm / chờ người khác
+
+- **Intake và Planner dùng LLM** (issue Intake, issue Routing Orchestrator): implement `Intake` và
+  `Planner` với `StructuredLLM`; đặt `uses_llm = True` và `last_usage` để node kiểm trần, ghi token.
+  Node, `resolve_missing`, `validate_plan`, executor, `change_impact` đã có; hai issue chỉ còn phần LLM.
+- **Moving (Khoa):** endpoint ghi approval (Q22, contract ở bảng §12); cho phép ghi trên staging khi test.
+- **Flight / Payment (Doan/api):** kiểm Bearer, tách token đọc / ghi (Q24).
+- **Location (Dũng):** dữ liệu tin nhà thật (hiện `search_housing` trả rỗng khi chưa import).
+- **Backend / hạ tầng:** checkpointer bền vững (ADR-017, Q3), Approval Store và kho dữ liệu cá nhân
+  thật (hiện in-memory trong process), `SessionPort` và `UsageMeter` thật, xác thực người dùng
+  (API đang tin header `X-User-Id` từ gateway), lưu receipt theo `idempotency_key` bền vững (Q17).
+- `GET /chat/{thread_id}/stream`, LLM composer cho `respond`.
+- Test live với Location / Moving thật (cần PostGIS, credential AhaMove staging).

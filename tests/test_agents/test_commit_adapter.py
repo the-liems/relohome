@@ -1,0 +1,123 @@
+"""McpTransaction cho Moving: báo giá lại, ghi approval sang Moving (Q22), tạo đơn CASH (Q21)."""
+
+from datetime import timedelta
+
+import pytest
+
+from src.agents.common import utcnow
+from src.agents.models import Approval, CommitAction, CommitActionKind
+from src.services.adapters.commit import McpTransaction
+from src.services.adapters.moving_approval import moving_approval_id
+from src.services.adapters.ports import CommitError, CommitRequest
+from tests.test_agents.test_service_subagents import FakeToolClient, moving_client
+
+APPROVAL = Approval(
+    approval_id="0b8f6a4e-0000-4000-8000-000000000001",
+    user_id="u1",
+    thread_id="th",
+    plan_version=2,
+    payload_hash="h",
+    created_at=utcnow(),
+    expires_at=utcnow() + timedelta(minutes=10),
+)
+ACTION = CommitAction(
+    id="moving_booking:t4",
+    kind=CommitActionKind.MOVING_BOOKING,
+    source_task_id="t4",
+    pii_required=["pickup_contact", "destination_contact"],
+)
+ROUTE = {
+    "pickup": {"address": "12 Láng Hạ", "lat": 21.0, "lng": 105.8},
+    "destination": {"address": "45 Thành Thái", "lat": 10.77, "lng": 106.66},
+    "order_time": None,
+}
+CONTACT = {"name": "Nguyen Van A", "mobile": "0901234567"}
+
+
+class RecordingBridge:
+    def __init__(self):
+        self.calls = []
+
+    async def register(self, **kw):
+        self.calls.append(kw)
+        return kw["approval_id"]
+
+
+def request(amount=250_000) -> CommitRequest:
+    return CommitRequest(
+        action=ACTION,
+        option_id="q_old:SGN-TRUCK-500",
+        amount_vnd=amount,
+        idempotency_key="k" * 64,
+        approval=APPROVAL,
+        option={"service_id": "SGN-TRUCK-500"},
+        task_data={"route": ROUTE, "to_address": "45 Thành Thái"},
+        pii={"pickup_contact": CONTACT, "destination_contact": CONTACT},
+    )
+
+
+def tx(client, bridge=None) -> McpTransaction:
+    return McpTransaction(flight=None, payment=None, moving=client, moving_approvals=bridge)
+
+
+@pytest.mark.asyncio
+async def test_moving_booking_registers_approval_then_creates_cash_order():
+    client = moving_client()
+    client.handlers["create_move_order"] = {
+        "order": {"order_id": "O1", "status": "ASSIGNING", "shared_link": "https://t"}
+    }
+    bridge = RecordingBridge()
+    receipt = await tx(client, bridge).commit(request())
+    tools = [c[0] for c in client.calls]
+    assert tools == ["estimate_move", "create_move_order"]
+    estimate = client.calls[0][1]["draft"]
+    assert estimate["pickup"]["mobile"] == "0901234567" and estimate["payment_method"] == "CASH"
+    registered = bridge.calls[0]
+    assert registered["action_type"] == "create"
+    assert registered["payload"]["quote_id"] == "q1" and registered["payload"]["total_price"] == 250_000
+    create = client.calls[1][1]
+    assert create["approval_id"] == moving_approval_id(APPROVAL.approval_id, ACTION.id, "create")
+    assert receipt.receipt_id == "O1" and receipt.details["payment_method"] == "CASH"
+    assert "0901234567" not in str(receipt.model_dump())
+
+
+@pytest.mark.asyncio
+async def test_price_change_stops_before_writing():
+    client = moving_client(total=300_000)
+    bridge = RecordingBridge()
+    with pytest.raises(CommitError, match="giá chuyển đồ đã đổi"):
+        await tx(client, bridge).commit(request(amount=250_000))
+    assert bridge.calls == [] and [c[0] for c in client.calls] == ["estimate_move"]
+
+
+@pytest.mark.asyncio
+async def test_missing_approval_endpoint_refuses_clearly():
+    client = moving_client()
+    with pytest.raises(CommitError, match="MOVING_APPROVAL_URL"):
+        await tx(client).commit(request())
+    assert "create_move_order" not in [c[0] for c in client.calls]
+
+
+@pytest.mark.asyncio
+async def test_flight_hold_amount_mismatch_releases_hold():
+    flight = FakeToolClient(
+        {
+            "get_offer": {"offer": {"total_price": 100}},
+            "hold_booking": {"booking_id": "bk_1", "total_price": 120, "hold_expires_at": None},
+            "cancel_booking": {"status": "CANCELLED"},
+        }
+    )
+    action = CommitAction(
+        id="flight_booking:t1", kind=CommitActionKind.FLIGHT_BOOKING, source_task_id="t1", requires_payment=True
+    )
+    req = CommitRequest(
+        action=action,
+        option_id="off_1",
+        amount_vnd=100,
+        idempotency_key="k" * 64,
+        approval=APPROVAL,
+        pii={"passengers": [{}], "contact": {}},
+    )
+    with pytest.raises(CommitError, match="đã huỷ giữ chỗ"):
+        await McpTransaction(flight=flight, payment=FakeToolClient({}), moving=None).start_payment(req)
+    assert flight.calls[-1] == ("cancel_booking", {"booking_ref": "bk_1", "confirm": True})

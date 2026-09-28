@@ -19,6 +19,16 @@ Housing/Map. Thiết kế, contract và runbook nằm tại:
 - [Chạy Moving bằng Docker, MCP qua HTTP](docs/runbooks/moving-containers.md)
 - [Bàn giao Moving cho infra/Coolify](deploy/coolify/staging/moving.md)
 
+## Agent graph (LangGraph)
+
+Chat agent là một graph LangGraph trong [`src/agents`](src/agents): intake → Routing Orchestrator →
+subagent của từng service (phòng, bản đồ, vé máy bay, chuyển đồ) → kiểm kết quả → xác nhận →
+đặt / thanh toán. Nối với Location, Moving, Flight và Payment MCP qua
+[`src/services/adapters`](src/services/adapters).
+
+- Hướng dẫn code, chạy và nối service: [`src/agents/README.md`](src/agents/README.md)
+- Thiết kế: [`docs/architecture/agent-graph.md`](docs/architecture/agent-graph.md)
+
 Template chính thức cho học viên VinUni AI20K Build Phase: cấu trúc dự án, code
 mẫu và hướng dẫn kỹ thuật để xây dựng một AI Agent hoàn chỉnh — từ kiến trúc,
 code, test cho đến deploy và nộp bài Demo Day.

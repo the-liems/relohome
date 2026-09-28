@@ -1,0 +1,145 @@
+"""Subagent nền cho lĩnh vực `flight`, bọc MCP tool đọc của service Flight (nhánh `Doan/api`).
+
+Chỉ đọc (R3): tìm chuyến, xem offer, tra booking. Điểm đến có thể suy ra từ kết quả tìm phòng
+(`upstream`). Booking trả về có thông tin hành khách: subagent bỏ các trường đó trước khi trả.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from datetime import datetime
+
+from src.agents.common import utcnow
+from src.agents.contracts import AgentTaskRequest, AgentTaskResult, reject_unsupported
+from src.agents.models import AgentName, AgentUsage, Question, Quote, SourceKind
+from src.agents.subagents.capabilities import FLIGHT
+from src.agents.subagents.services.common import BudgetExceededError, CountingClient, first, tool_failure
+from src.services.adapters.mcp import McpToolClient, ToolCallError
+
+SOURCE = "lifeflow-flights"
+IATA = re.compile(r"^[A-Z]{3}$")
+
+
+def booking_view(booking: dict) -> dict:
+    """Bỏ hành khách / liên hệ (dữ liệu cá nhân) khỏi booking."""
+    offer = booking.get("offer") or {}
+    segments = offer.get("segments") or [{}]
+    return {
+        "booking_id": booking.get("booking_id"),
+        "pnr": booking.get("pnr"),
+        "status": booking.get("status"),
+        "total_price": booking.get("total_price"),
+        "hold_expires_at": booking.get("hold_expires_at"),
+        "ticket_count": len(booking.get("ticket_numbers") or []),
+        "flight": f"{segments[0].get('flight_number', '')} {segments[0].get('origin', '')}→{segments[-1].get('destination', '')}",
+    }
+
+
+class FlightSubagent:
+    def __init__(self, client: McpToolClient, clock: Callable[[], datetime] = utcnow):
+        self.capability = FLIGHT
+        self.client, self.clock = client, clock
+
+    async def run(self, req: AgentTaskRequest) -> AgentTaskResult:
+        if (rejected := reject_unsupported(req, SOURCE, "demo")) is not None:
+            return rejected
+        tools = CountingClient(self.client, req.budget.max_provider_calls)
+        try:
+            if req.inputs.get("booking_ref"):
+                got = await tools.call("get_booking", {"booking_ref": req.inputs["booking_ref"]})
+                view = booking_view(got or {})
+                return self._result(
+                    req, tools, "demo", status="done", data={"booking": view}, source_refs=[str(view["booking_id"])]
+                )
+            return await self._search(req, tools)
+        except (ToolCallError, BudgetExceededError) as exc:
+            return tool_failure(req, exc, SOURCE, "demo", tools.calls)
+
+    def _result(self, req: AgentTaskRequest, tools: CountingClient, source_kind: SourceKind, **kw) -> AgentTaskResult:
+        return AgentTaskResult(
+            task_id=req.task_id,
+            plan_version=req.plan_version,
+            source=SOURCE,
+            source_kind=source_kind,
+            fetched_at=self.clock(),
+            usage=AgentUsage(provider_calls=tools.calls),
+            **kw,
+        )
+
+    async def _airport(self, tools: CountingClient, text: str | None) -> str | None:
+        if not text:
+            return None
+        if IATA.match(text.strip()):
+            return text.strip()
+        found = first(await tools.call("search_airports", {"query": text, "limit": 1}))
+        return found.get("code") if isinstance(found, dict) else None
+
+    async def _search(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
+        inp = req.inputs
+        destination_text = inp.get("destination")
+        if not destination_text:
+            for upstream in req.upstream.values():
+                if upstream.agent == AgentName.PROPERTY:
+                    candidate = first(upstream.data.get("candidates"))
+                    destination_text = (candidate or {}).get("city") or upstream.data.get("area_name")
+        origin = await self._airport(tools, inp.get("origin"))
+        destination = await self._airport(tools, destination_text)
+        questions = []
+        if origin is None:
+            questions.append(
+                Question(field="origin", text=f'Mình chưa tìm thấy sân bay cho "{inp.get("origin")}"; bạn bay từ đâu?')
+            )
+        if destination is None:
+            questions.append(Question(field="destination", text="Bạn bay tới thành phố nào?"))
+        if questions:
+            return self._result(req, tools, "demo", status="needs_input", questions=questions)
+        passengers = inp.get("passengers") or {"adults": 1}
+        found = await tools.call(
+            "search_flights",
+            {
+                "request": {
+                    "origin": origin,
+                    "destination": destination,
+                    "departure_date": inp["date"],
+                    "passengers": passengers,
+                    "sort_by": "price",
+                    "max_results": 5,
+                }
+            },
+        )
+        found = found or {}
+        offers, quotes = [], []
+        for offer in found.get("offers", []):
+            segments = offer.get("segments") or [{}]
+            carrier = segments[0].get("airline_name") or segments[0].get("airline_code") or "?"
+            item = {
+                "id": offer["offer_id"],
+                "carrier": carrier,
+                "fare_vnd": offer.get("total_price"),
+                "baggage_kg": None,  # điều kiện hành lý xem qua get_offer; không suy đoán
+                "depart_at": segments[0].get("departure_time"),
+                "arrive_at": segments[-1].get("arrival_time"),
+                "seats_left": offer.get("seats_left"),
+                "stops": offer.get("stops"),
+                "expires_at": offer.get("expires_at"),
+            }
+            offers.append(item)
+            if item["fare_vnd"] is not None:
+                label = f"{carrier} {str(item['depart_at'])[11:16]} {origin}→{destination}"
+                quotes.append(
+                    Quote(option_id=item["id"], label=label, amount_vnd=int(item["fare_vnd"]), recurrence="one_time")
+                )
+        missing = [f"offers[{i}].baggage_kg" for i in range(len(offers))]
+        # Giá từ SerpApi là dữ liệu thật; mock là giả lập. Phần đặt vé luôn là giả lập (ADR-012).
+        source_kind: SourceKind = "live" if found.get("source") == "serpapi" else "demo"
+        return self._result(
+            req,
+            tools,
+            source_kind,
+            status="done",
+            data={"offers": offers, "origin": origin, "destination": destination},
+            quotes=quotes,
+            missing_fields=missing,
+            source_refs=[o["id"] for o in offers],
+        )
