@@ -13,6 +13,10 @@ Detailed current designs:
 - [Moving/AhaMove service](docs/architecture/moving-service.md)
 - [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
 
+Proposed future AI workflow: [Intake and Routing Orchestrator](docs/architecture/intake-and-routing-orchestrator.md).
+The proposal applies the mentor's distinction between request understanding and
+workflow orchestration; it is not part of the current agent implementation.
+
 Moving is an independently startable MCP server. It shares canonical contracts
 and MCP behavior packages with other services but owns its provider adapter,
 configuration, persistence and tool registry.

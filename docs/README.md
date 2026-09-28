@@ -6,6 +6,7 @@
 - Capability specifications: [`specs/`](specs/README.md)
 - Architecture decisions: [`adr/`](adr/README.md)
 - Architecture details: [`architecture/`](architecture/)
+- [Intake and Routing Orchestrator proposal](architecture/intake-and-routing-orchestrator.md)
 - Integration contracts: [`api/`](api/)
 - Operational runbooks: [`runbooks/`](runbooks/)
 - [Moving containers and HTTP MCP](runbooks/moving-containers.md)
