@@ -5,7 +5,15 @@ Status: proposed — tài liệu thiết kế, **chưa implement**. Code hiện 
 Date: 2026-09-27. Cập nhật 2026-09-28: thêm tầng `intake` và ranh giới "Routing
 Orchestrator" theo góp ý mentor (§3.2); chốt quy tắc hỏi ngay / hỏi sau và tự điền
 từ dữ liệu đã lưu (§6.1); thêm kiểm soát chi phí (§7.5); chốt chính sách bộ nhớ người
-dùng (§6.0, §6.1, Q14); chuẩn contract cho subagent của từng service (§6.3, D13).
+dùng (§6.0, §6.1, Q14); chuẩn contract cho subagent của từng service (§6.3, D13); bỏ
+dịch vụ hợp đồng / pháp lý (Contract & Policy agent), còn 4 lĩnh vực (D1); hỗ trợ cả
+yêu cầu một mục đích lẫn chuỗi liên hoàn (D14, quy tắc S1–S10 ở §6.2, ví dụ §10.2);
+gợi ý bước tiếp theo sau mỗi kết quả (S9, §6.10). Cập nhật 2026-09-29: hợp nhất với
+code nhánh `khoa` theo hướng giữ tài liệu này (D15, §3.3); đối chiếu tool thật của các
+service (§6.3.7); dữ liệu cá nhân qua form và thanh toán bất đồng bộ với node
+`await_payment` (D16, §6.9); quản lý đơn đã đặt (S10); chốt Q20 (OpenAI cho mọi
+agent, model theo tầng), Q21 (AhaMove trả tiền mặt), Q22 (ghi approval sang Moving),
+Q23 (đánh số lại ADR, §12.1; thêm ADR-016), Q25 (MVP không có đặt cọc).
 
 **Người viết subagent cho service** đọc §6.3 (contract, quy tắc R1–R12), §6.3.8
 (input/output tối thiểu theo lĩnh vực) và §6.9 (commit endpoint, nếu service có thao
@@ -41,9 +49,10 @@ Bản chi tiết (baseline) dùng để đối chiếu thành phần:
 **Ngoài phạm vi (làm sau)**
 
 - Logic bên trong Intake và Planner — **để trống**, chỉ có contract và stub.
-- Bên trong subagent của từng service (housing/location, moving, flight, hợp đồng /
-  chính sách dùng RAG, payment): do chủ service viết theo §6.3, gồm cả adapter tới
-  provider thật.
+- Bên trong subagent của từng service (housing/location, moving, flight, payment): do
+  chủ service viết theo §6.3, gồm cả adapter tới provider thật.
+- Dịch vụ hợp đồng / pháp lý (Contract & Policy agent của sơ đồ v4): **đã bỏ khỏi phạm
+  vi** (2026-09-28).
 - Prompt LLM, lựa chọn model, đánh giá chất lượng.
 - UI, deployment (xem `docs/architecture/infrastructure.md` trên branch
   `docs/coolify-migration-plan`).
@@ -58,7 +67,7 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 
 | # | Quyết định | Lý do |
 |---|---|---|
-| D1 | Theo sơ đồ **v4**: 5 domain agent trong Phase 2; Transaction/Payment tách riêng ở Phase 5; Booking/Reservation của baseline gộp vào Transaction. | Tách rõ "thu thập thông tin" (không side-effect) với "commit" (có side-effect, cần xác nhận). |
+| D1 | Theo sơ đồ **v4**, trừ Contract & Policy agent (đã bỏ): 4 domain agent trong Phase 2 (property, relocation, flight, map); Transaction/Payment tách riêng ở Phase 5; Booking/Reservation của baseline gộp vào Transaction. | Tách rõ "thu thập thông tin" (không side-effect) với "commit" (có side-effect, cần xác nhận). |
 | D2 | Mô hình **Intake + Plan-and-Execute + Validator + Human-in-the-loop**, không phải một ReAct agent duy nhất. | Đúng với 5 phase trong sơ đồ; dễ kiểm soát, dễ test. |
 | D3 | **Graph LangGraph cố định; kế hoạch (Dependency DAG) là dữ liệu trong state.** | Orchestrator sinh DAG động mỗi request; graph không đổi. Xem §3.1. |
 | D4 | Subagent và API ngoài đi qua **Protocol + dependency injection** (`GraphDeps`). | Chạy được với fake ngay; ráp API thật không đổi graph. |
@@ -66,11 +75,14 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 | D6 | Lỗi của subagent là **dữ liệu** (`TaskResult.status = FAILED`), không làm crash graph. | Validator quyết định retry/replan/hỏi user dựa trên dữ liệu đó. |
 | D7 | State top-level là `TypedDict` (theo [guide state.md](../guide/langgraph/state.md)); kiểu con dùng Pydantic v2. | TypedDict hợp với reducer của LangGraph; Pydantic validate output của Intake, Planner và adapter. Checkpointer của LangGraph serialize được Pydantic. |
 | D8 | **Ba ranh giới: hiểu (`intake`) → lập kế hoạch (`orchestrator`) → thực thi (`executor`).** `orchestrator` + `executor` + `change_impact` gọi chung là **Routing Orchestrator**. Mọi tin nhắn tự nhiên của người dùng, kể cả đổi ý, đi qua `intake`. | Kết hợp hai phương án đã cân nhắc. Xem §3.2. |
-| D9 | **Domain agent chỉ đọc.** Mọi thao tác ghi (đặt cọc, đặt xe, đặt vé, thanh toán) chỉ nằm ở `transaction`, sau khi có **approval do backend lưu**, không phải do model tạo. | Không có side-effect trong fan-out song song; approval không thể bị model giả mạo. |
+| D9 | **Domain agent chỉ đọc.** Mọi thao tác ghi (đặt xe, đặt vé, thanh toán, huỷ / sửa đơn) chỉ nằm ở `transaction`, sau khi có **approval do backend lưu**, không phải do model tạo. | Không có side-effect trong fan-out song song; approval không thể bị model giả mạo. |
 | D10 | **Chỉ hỏi ngay khi không task nào trong yêu cầu chạy được** (hoặc có mâu thuẫn); còn lại chạy phần làm được rồi hỏi sau. Được **tự điền** thông tin thiếu từ dữ liệu người dùng đã cung cấp trước đó, nhưng **phải thông báo** để người dùng sửa. | Ít lượt hỏi, người dùng thấy kết quả sớm; không tự đoán vì dữ liệu tự điền đến từ chính người dùng. §6.1 |
 | D11 | **Chi phí có trần theo lượt và theo thread.** LLM của graph chỉ dùng ở `intake` và `orchestrator`; LLM bên trong subagent (D13) báo qua `usage` và vẫn tính vào trần; `respond` dùng template ở giai đoạn khung; các node còn lại là code. | Chi phí dự đoán được, đo được theo request. §7.5 |
 | D12 | **Bộ nhớ người dùng tách khỏi dữ liệu gốc** và chỉ chứa điều người dùng nói ra hoặc xác nhận, chia ba mức (tự điền / chỉ gợi ý / không dùng), có hạn theo thời gian và theo sự kiện. | Tự điền không thành tự đoán; không dùng lại dữ liệu phòng/giá đã hết hạn. §6.0, §6.1 |
 | D13 | **Mỗi service có subagent riêng do chủ service viết**; graph chỉ nối vào qua contract chung (manifest + `run_task`, §6.3). DAG của Planner ở mức **giữa các lĩnh vực**; việc bên trong lĩnh vực là của subagent. Subagent chỉ đọc, không hỏi người dùng trực tiếp, không gọi chéo lĩnh vực; thao tác ghi đi qua commit endpoint tất định. | Các đội làm song song, đổi bên trong subagent không phải sửa graph; giữ được kiểm soát chi phí, phụ thuộc và an toàn ghi ở graph. |
+| D14 | **Một graph cho mọi phạm vi yêu cầu**: vừa một mục đích (chỉ tìm phòng, chỉ đặt vé, chỉ đặt xe) vừa chuỗi liên hoàn (tìm phòng → vé → chuyển đồ → thanh toán). Mặc định chỉ tìm / báo giá; chỉ đặt và thanh toán thứ người dùng yêu cầu rõ; sau mỗi bước có thể gợi ý bước tiếp theo nhưng không tự làm. Quy tắc S1–S10. | Không phải làm luồng riêng cho từng dịch vụ; không đặt hay trả tiền cho thứ người dùng chưa yêu cầu. §6.2, §10.2 |
+| D15 | **Hợp nhất với code Intake / Routing trên nhánh `khoa` theo hướng giữ tài liệu này** (chốt 2026-09-29): giữ kiến trúc một graph + subagent theo lĩnh vực; tái dùng các phần an toàn đã có của nhánh `khoa` (kiểm evidence, `validate_plan`, approval binding, lease / reconciliation, LLM wrapper); registry 13 tool Moving trở thành phần bên trong subagent moving. ADR-006 của nhánh `khoa` (hai service HTTP riêng) được thay bằng ADR-016 khi merge (§12.1). | Giữ quyết định subagent do chủ service viết (D13) mà không bỏ công sức đã làm. §3.3 |
+| D16 | **Dữ liệu cá nhân để đặt chỗ (hành khách, liên hệ) không đi qua LLM.** UI thu bằng form, backend giữ và chỉ đưa vào `transaction` qua tham chiếu (`pii_ref`). **Thanh toán là bất đồng bộ**: `transaction` tạo yêu cầu thanh toán rồi chờ kết quả qua `interrupt`. | Bảo vệ dữ liệu cá nhân (thống nhất ADR-015, hiện là ADR-007 trên nhánh `Doan/api`, §12.1); khớp cách ZaloPay hoạt động thật. §6.9 |
 
 ---
 
@@ -84,14 +96,14 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 | Lead Orchestrator — phần decompose → task DAG | node `orchestrator` gọi `deps.planner` | **Stub.** §6.2 |
 | Intent + constraints / Task decomposition / Dependency DAG | `IntakeResult.intent`, `.constraints`; `Plan.tasks[].depends_on` | Dữ liệu, không phải node. |
 | Executor / Dynamic Router (READY tasks, dispatch) | node `executor` + conditional edge `route_from_executor` trả về `list[Send]` | Fan-out song song. §6.4 |
-| 5 domain agent | node `property_agent`, `relocation_agent`, `flight_agent`, `map_agent`, `contract_agent` | Mỗi node nối tới **subagent của service** (do chủ service viết) qua `DomainAgent`; chỉ đọc. §6.3 |
+| Domain agent (4 trên 5 của v4; Contract & Policy đã bỏ) | node `property_agent`, `relocation_agent`, `flight_agent`, `map_agent` | Mỗi node nối tới **subagent của service** (do chủ service viết) qua `DomainAgent`; chỉ đọc. §6.3 |
 | Collect Results | reducer `merge_dict` trên `task_results`, `task_status` | Fan-in: các agent chạy song song đều quay về `executor`, executor chạy **một lần** ở superstep kế tiếp. |
 | Result Validator (PASS / NEED MORE) | node `validator` + conditional edge `route_from_validator` | §6.5 |
 | Cost & Plan Summary | node `cost_summary` | §6.6 |
 | User Confirmation | node `confirm` dùng `interrupt()`; resume bằng `Command(resume=...)` | §6.7 |
 | CONFIRM | edge `confirm → transaction` (kèm approval hợp lệ) | |
 | CHANGE / REJECT | `confirm` → `intake` → `change_impact` → `orchestrator` | §6.8 |
-| Transaction / Payment Agent | node `transaction` | Idempotent, kiểm approval. §6.9 |
+| Transaction / Payment Agent | node `transaction` + node `await_payment` (chờ thanh toán bất đồng bộ bằng `interrupt`) | Idempotent, kiểm approval. §6.9 |
 | Response | node `respond` | §6.10 |
 | Workflow State / Checkpoint | `WorkflowState` + checkpointer, key theo `thread_id` | §7.1 |
 | Retry / Timeout / Fallback | wrapper `run_with_policy` quanh mỗi subagent (timeout, budget); retry provider bên trong subagent; `FallbackAgent` | §6.3.6, §7.2 |
@@ -166,6 +178,46 @@ flowchart LR
 | `transaction` | Kiểm approval, commit idempotent qua commit endpoint tất định, compensate | Tự tạo approval, gọi subagent LLM để ghi |
 | Backend (ngoài graph) | Xác thực người dùng, lưu `Approval` gắn hash payload | Quyết định plan |
 
+### 3.3. Hợp nhất với code trên nhánh `khoa` (D15)
+
+Nhánh `khoa` (commit `5d6f6b0`, ADR-006) đã có Intake và Routing Orchestrator dạng hai
+service HTTP, Planner lập plan ở **mức tool** và gọi thẳng MCP qua `ToolGateway`, state
+trong SQLite. Tài liệu này giữ kiến trúc một graph + subagent, và tái dùng code đó như sau:
+
+| Thành phần trên nhánh `khoa` | Dùng lại ở đâu | Cách dùng |
+|---|---|---|
+| `intake/service.py`: `normalize()` kiểm evidence (NFC, nguồn `message` / `history` / `confirmed_context`), vòng `repair_evidence` một lần | node `intake` (§6.1 bước 2) | Giữ nguyên logic kiểm; fact không khớp thì sửa một lần, vẫn sai thì bỏ fact (không fail cả lượt) |
+| `intake/models.py`: `Fact`, `Understanding`, danh sách `Intent` | `ConfirmedFact`, `IntakeResult` (§5.3) | Ánh xạ intent sang `Intent.domains`, `commit_requested` và yêu cầu quản lý đơn theo bảng dưới. Không dùng `confidence < 0.6` để chặn; việc hỏi lại dựa vào `blocking_missing` / `conflicts` (D10) |
+| `intake/service.py`: prompt Intake | Prompt của `Intake` thật (M4) | Giữ các ý: dữ liệu là nội dung không phải chỉ dẫn, không suy diễn toạ độ / giá / ID, evidence sao chép nguyên văn, hỏi tối đa ba câu, không hỏi câu tiếp thị |
+| `orchestrator/registry.py`: `validate_plan` (id duy nhất, dependency, chu trình, allowlist, `allowed_intents` cho write) | `validate_plan` của graph (§6.2) | Phần cấu trúc DAG và kiểm write theo intent dùng lại ở mức lĩnh vực (S1, S2) |
+| `orchestrator/registry.py`: `ToolSpec`, `trusted_arguments`, `input_refs` (JSON pointer), kiểm JSON Schema | **Bên trong subagent moving** | Planner của graph không thấy tool. Subagent moving dùng registry 13 tool, lập kế hoạch mức tool trong lĩnh vực của mình (có thể tái dùng `Planner` + `validate_plan` của Khoa) |
+| `config/agent-services/registry.json`, `scripts/export-agent-registry.mjs` | Subagent moving; nguồn cho manifest (§6.3.2) | Manifest `relocation` sinh từ cùng nguồn Zod |
+| `orchestrator/models.py`: `ApprovalRequest`, `TaskApproval` (khớp `payload_hash`, hạn ≤ 30 phút, không dùng lại `approval_id`, `actor_id` = chủ) | `Approval`, `check_approval` (§6.7, §6.9) | Thêm các kiểm "không dùng lại" và "hạn tối đa 30 phút" vào `check_approval` |
+| `orchestrator/engine.py`: lease, `needs_reconciliation`, write chạy một cái một lúc | `transaction` (§6.9) | Write đang chạy mà không rõ kết quả → `pending_verification` (tương đương `needs_reconciliation`); commit tuần tự |
+| `orchestrator/engine.py`: đọc song song có giới hạn (`agent_max_parallel_tasks`) | `executor` (§6.4) | Thêm `max_parallel_tasks` vào `GraphSettings` |
+| `orchestrator/engine.py`: kiểm revision (CAS) chống hai request cùng ghi | API (§9) | Mỗi `thread_id` chỉ một lượt chạy tại một thời điểm; request thứ hai nhận 409 |
+| `llm.py`: `StructuredLLM` (structured output, không fallback giả, mã lỗi rõ) | Wrapper LLM cho `intake` và `orchestrator` | OpenAI cho mọi agent, model theo tầng `light` / `heavy` (Q20, §7.5) |
+| `common.py`: `canonical`, `fingerprint` | `confirmation_hash`, `idempotency_key` | Dùng lại nguyên |
+| `orchestrator/store.py` (SQLite WAL) | Không dùng | State do LangGraph checkpointer giữ (§7.1, Q3); không để hai nguồn sự thật |
+| `intake/app.py`, `orchestrator/app.py` (HTTP `:8011`, `:8012`, `/v1/workflows…`) | Không dùng | Graph được gọi qua Chat API (§9) |
+| `tests/test_agent_services/` | `tests/test_agents/` | Chuyển các case về evidence, approval, DAG, revision |
+
+**Ánh xạ intent của nhánh `khoa`:**
+
+| Intent (`khoa`) | Trong tài liệu này |
+|---|---|
+| `housing_search` | domain `property` |
+| `location_lookup`, `route` | domain `map` |
+| `moving_quote`, `moving_catalog` | domain `relocation` (đọc) |
+| `moving_create` | domain `relocation` + `commit_requested: moving_booking` |
+| `moving_status`, `moving_update`, `moving_cancel` | quản lý đơn đã đặt (S10) |
+| `flight_search` | domain `flight` |
+| `flight_booking` | domain `flight` + `commit_requested: flight_booking` |
+| `payment` | gắn với một commit action (S6); không rõ cho gì thì hỏi lại |
+| `information` | câu hỏi chung thuộc các lĩnh vực: task đọc của lĩnh vực tương ứng nếu cần dữ liệu (ví dụ khu vực AhaMove phục vụ); không cần dữ liệu thì giai đoạn khung trả `UNSUPPORTED`, sau này LLM composer của `respond` trả lời |
+| `out_of_scope` | `RequestKind.UNSUPPORTED` |
+| `unknown` | `conflicts` → hỏi lại |
+
 ---
 
 ## 4. Topology graph
@@ -195,20 +247,17 @@ flowchart TD
         relocation_agent
         flight_agent
         map_agent
-        contract_agent
     end
 
     executor -. "Send(task)" .-> property_agent
     executor -. "Send(task)" .-> relocation_agent
     executor -. "Send(task)" .-> flight_agent
     executor -. "Send(task)" .-> map_agent
-    executor -. "Send(task)" .-> contract_agent
 
     property_agent --> executor
     relocation_agent --> executor
     flight_agent --> executor
     map_agent --> executor
-    contract_agent --> executor
 
     executor -->|không còn task chạy được| validator
 
@@ -224,7 +273,10 @@ flowchart TD
     confirm -->|"CHANGE / REJECT"| intake
     confirm -->|CANCEL| respond
 
-    transaction --> respond
+    transaction -->|"có thanh toán đang chờ"| await_payment
+    await_payment -->|"PENDING: interrupt lại"| await_payment
+    await_payment -->|"PAID / FAILED / EXPIRED / CANCELLED"| transaction
+    transaction -->|"xong hoặc lỗi"| respond
     respond --> finish([END])
 ```
 
@@ -239,7 +291,7 @@ flowchart TD
 | | | `kind == CHANGE` và `plan` đã có | `change_impact` |
 | | | ngược lại (`NEW_GOAL`, `REFINE`, hoặc `CHANGE` khi chưa có plan) | `orchestrator` |
 | `orchestrator` | `route_from_orchestrator` | `plan` có ≥ 1 task và không có lỗi validate plan | `executor` |
-| | | ngược lại (stub trả plan rỗng, plan lỗi, vượt `max_replans` hoặc trần LLM) | `respond` |
+| | | ngược lại (stub trả plan rỗng, plan lỗi, vượt `max_replans` hoặc trần LLM, hoặc thay đổi chỉ nhắm vào thứ đã đặt: `change_context.blocked_by_commit` có mà `invalidated_task_ids` rỗng) | `respond` |
 | `executor` | `route_from_executor` | `state["dispatch"]` không rỗng | `[Send(f"{task.agent}_agent", AgentInput) for task in dispatch]` |
 | | | không còn task `READY` hay `RUNNING` | `validator` |
 | `*_agent` | — | luôn | `executor` |
@@ -253,7 +305,10 @@ flowchart TD
 | | | `CHANGE`, `REJECT` | `intake` |
 | | | `CANCEL` | `respond` |
 | `change_impact` | — | luôn | `orchestrator` |
-| `transaction` | — | luôn | `respond` |
+| `transaction` | `route_from_transaction` | `pending_payment` có và `status == PENDING` | `await_payment` |
+| | | ngược lại (mọi commit action đã xong, lỗi, hoặc cần xác nhận lại) | `respond` |
+| `await_payment` | `route_from_await_payment` | `pending_payment.status == PENDING` (sau khi hỏi `get_payment`) | `await_payment` (interrupt lại) |
+| | | trạng thái cuối | `transaction` |
 | `respond` | — | luôn | `END` |
 
 `CANCEL` là bổ sung so với sơ đồ v4 (người dùng bỏ hẳn, không muốn phương án khác).
@@ -277,6 +332,8 @@ Có bốn vòng lặp: `executor ↔ agents`, `validator → executor`,
   vì mỗi vòng executor/agent tốn 2 superstep. Truyền qua `config={"recursion_limit": ...}`.
 
 Hỏi lại (`CLARIFY`) luôn kết thúc lượt ở `END`, nên không tạo vòng lặp trong một lượt.
+Vòng `await_payment` dừng ở `interrupt` mỗi lần, nên mỗi lần resume chỉ chạy một vòng;
+nó kết thúc khi thanh toán có trạng thái cuối hoặc hết hạn.
 
 ---
 
@@ -311,7 +368,10 @@ class WorkflowState(TypedDict, total=False):
     user_decision: UserDecision | None
 
     # --- Phase 5: Commit & Respond ---
-    transaction: TransactionResult | None
+    transaction: TransactionResult | None        # kết quả của lần commit gần nhất
+    pending_payment: PendingPayment | None       # transaction / await_payment ghi (§6.9)
+    committed: Annotated[dict[str, Receipt], merge_dict]  # commit_action.id -> receipt; tích luỹ qua các lượt (S8)
+    declined_suggestions: Annotated[list[str], operator.add]  # key gợi ý người dùng đã từ chối trong thread (S9)
     response: AgentResponse | None
 
     # --- Chẩn đoán ---
@@ -348,7 +408,10 @@ def merge_dict(left: dict | None, right: dict | None) -> dict:
 | `cost_summary` | `cost_summary` | `confirm`, `transaction`, `respond` |
 | `user_decision` | `confirm` | `route_from_confirm`, `intake`, `transaction` |
 | `transaction` | `transaction` | `respond` |
-| `response` | `respond` | API |
+| `pending_payment` | `transaction` (tạo, xoá khi xong), `await_payment` (cập nhật `status`); hai node chạy tuần tự, không bao giờ song song | `transaction`, `await_payment`, `respond` |
+| `committed` | `transaction` | `orchestrator` (`validate_plan`, S8), `cost_summary`, `change_impact`, `respond` |
+| `declined_suggestions` | `intake` | `respond` (`next_step_suggestions`) |
+| `response` | `respond` | API, `intake` (đọc `suggestions` của lượt trước để hiểu câu trả lời ngắn như "có", S9) |
 | `errors` | mọi node | `respond`, logging |
 
 ### 5.3. Kiểu dữ liệu con (Pydantic v2)
@@ -359,11 +422,11 @@ class AgentName(StrEnum):
     RELOCATION = "relocation"    # Room Relocation (moving)
     FLIGHT = "flight"            # Flight / Travel
     MAP = "map"                  # Map & Nearby Utility
-    CONTRACT = "contract"        # Contract & Policy
+    # Contract & Policy của sơ đồ v4 đã bỏ khỏi phạm vi (2026-09-28)
 
 class RequestKind(StrEnum):
-    NEW_GOAL = "new_goal"        # mục tiêu mới
-    REFINE = "refine"            # bổ sung thông tin / trả lời câu hỏi lại
+    NEW_GOAL = "new_goal"        # mục tiêu mới, không liên quan plan hiện tại (S5)
+    REFINE = "refine"            # bổ sung thông tin / trả lời câu hỏi lại / thêm lĩnh vực vào mục tiêu hiện tại (S5)
     CHANGE = "change"            # đổi lựa chọn hoặc ràng buộc của plan đã có
     UNSUPPORTED = "unsupported"  # ngoài phạm vi hệ thống
 
@@ -397,6 +460,8 @@ class IntakeResult(BaseModel):
     blocking_missing: list[str] = [] # không task nào chạy được nếu thiếu → CLARIFY ngay
     conflicts: list[str] = []        # ví dụ "ngân sách 3 triệu nhưng yêu cầu căn hộ 2 phòng ở Q1"
     user_confirmed_facts: dict[str, ConfirmedFact] = {}  # gộp dần qua các lượt; chỉ điều người dùng nói
+    commit_requested: list[CommitActionKind] = []  # người dùng nói rõ muốn đặt / thanh toán (S2);
+                                                   # mỗi loại cần fact "commit:<kind>" có evidence
     change_request: str | None = None          # khi kind == CHANGE
     target_task_ids: list[str] = []            # task người dùng muốn đổi (nếu xác định được)
 
@@ -422,14 +487,28 @@ class Task(BaseModel, frozen=True):
     required: bool = True            # False: thiếu cũng PASS được, chỉ ghi chú
 
 class CommitActionKind(StrEnum):
-    DEPOSIT = "deposit"                  # đặt cọc phòng
+    DEPOSIT = "deposit"                  # đặt cọc phòng — NGOÀI PHẠM VI MVP (Q25); validate_plan từ chối
     MOVING_BOOKING = "moving_booking"    # đặt dịch vụ chuyển đồ
     FLIGHT_BOOKING = "flight_booking"    # đặt vé
+    CANCEL_ORDER = "cancel_order"        # huỷ đơn đã đặt (S10)
+    UPDATE_ORDER = "update_order"        # sửa đơn đã đặt (S10)
 
 class CommitAction(BaseModel, frozen=True):
-    id: str
+    id: str                          # ổn định qua các version, ví dụ "flight_booking:t3"
     kind: CommitActionKind
-    source_task_id: str              # task cung cấp lựa chọn (ví dụ listing, quote)
+    source_task_id: str              # task cung cấp lựa chọn (ví dụ listing, quote, tra cứu đơn)
+    target_receipt_id: str | None = None  # bắt buộc với CANCEL_ORDER / UPDATE_ORDER
+    requires_payment: bool = False   # đi qua Payment MCP (§6.9, bảng thực thi)
+    pii_required: list[str] = []     # ví dụ ["passengers", "contact"]; UI thu bằng form (D16)
+
+class PendingPayment(BaseModel):
+    action_id: str
+    payment_ref: str
+    pay_url: str | None = None       # link / QR của cổng thanh toán
+    amount_vnd: int
+    expires_at: datetime
+    status: Literal["PENDING", "PAID", "FAILED", "EXPIRED", "CANCELLED"]
+    pre_payment_receipt: Receipt | None = None  # ví dụ giữ chỗ vé đã tạo trước khi thanh toán
 
 class Plan(BaseModel, frozen=True):
     version: int
@@ -497,6 +576,7 @@ class UserDecision(BaseModel):
     kind: Literal["CONFIRM", "CHANGE", "REJECT", "CANCEL"]
     plan_version: int                # phải khớp plan hiện tại, chống xác nhận nhầm bản cũ
     approval_id: str | None = None   # bắt buộc khi CONFIRM; do backend tạo (§9), không phải model
+    pii_refs: dict[str, str] = {}    # action_id -> pii_ref do backend tạo từ form (D16); không chứa dữ liệu thật
     change_request: str | None = None
     target_task_ids: list[str] = []  # phần user muốn đổi (ví dụ bấm "đổi phòng" trên UI)
 
@@ -512,16 +592,25 @@ class ChangeContext(BaseModel):
     request: str | None
     invalidated_task_ids: list[str]
     reusable_task_ids: list[str]
+    blocked_by_commit: list[str] = []   # commit_action.id đã đặt mà người dùng muốn đổi (§6.8 bước 7)
 
 class TransactionResult(BaseModel):
     status: Literal["committed", "failed", "compensated", "pending_verification"]
     receipts: list[Receipt] = []
     error: str | None = None
 
+class Suggestion(BaseModel):
+    key: str                         # ví dụ "quote:relocation"; dùng để không lặp lại (S9)
+    label: str                       # chữ hiển thị trên nút, ví dụ "Báo giá chuyển đồ"
+    message: str                     # câu gửi đi như tin nhắn của người dùng khi bấm
+    domain: AgentName
+    kind: Literal["search", "quote", "book"]
+
 class AgentResponse(BaseModel):
     kind: Literal["ANSWER", "PARTIAL", "CLARIFY", "COMMITTED", "CANCELLED", "UNSUPPORTED", "ERROR"]
     text: str
     data: dict[str, Any] = {}
+    suggestions: list[Suggestion] = []  # gợi ý bước tiếp theo (S9, §6.10); UI hiện thành nút
 
 class ErrorRecord(BaseModel):
     node: str
@@ -538,7 +627,7 @@ class MemoryValue(BaseModel):
     stated_at: datetime              # lần đầu người dùng nói
     last_confirmed_at: datetime      # lần gần nhất người dùng dùng lại mà không sửa và làm tiếp
     source_thread: str
-    stop_prefill: bool = False       # ví dụ khu vực tìm phòng sau khi đã đặt cọc
+    stop_prefill: bool = False       # ví dụ khu vực tìm phòng sau khi đã chuyển nhà xong
 
 class SessionContext(BaseModel):
     preferences: dict[str, MemoryValue] = {}  # mức 1: khu vực, ngân sách, loại phòng, tiện ích
@@ -615,7 +704,7 @@ class SessionPort(Protocol):
 
 | | Bộ nhớ người dùng | Dữ liệu gốc | Kết quả trong một lần xử lý |
 |---|---|---|---|
-| Nói về | Người dùng: khu vực muốn ở, ngân sách, có xe máy… | Thế giới: phòng trọ, giá, địa chỉ, chính sách cọc | Bản chụp dữ liệu gốc cho một yêu cầu |
+| Nói về | Người dùng: khu vực muốn ở, ngân sách, có xe máy… | Thế giới: phòng trọ, giá, tiền cọc, địa chỉ | Bản chụp dữ liệu gốc cho một yêu cầu |
 | Nguồn | Lời người dùng trong chat | `crawler/` + `preprocess/`, API provider | Domain agent gọi Port |
 | Phạm vi | Riêng từng người | Dùng chung | Riêng một thread |
 | Nằm ở | `SessionPort` (Q8) | Property DB, Vector DB, provider | `task_results` trong checkpoint |
@@ -633,8 +722,8 @@ Bộ nhớ người dùng **không** lưu thông tin phòng, báo giá hay giá 
 - Giá trị tự điền mà người dùng dùng tiếp không sửa: cập nhật `last_confirmed_at`.
   Chỉ im lặng rồi bỏ đi thì không tính là xác nhận.
 - Người dùng sửa giá trị tự điền: ghi đè ngay.
-- Sự kiện làm hết hạn (§6.1): ví dụ `transaction` commit đặt cọc thành công thì đặt
-  `stop_prefill` cho khu vực tìm phòng và lưu `hints.current_address` = địa chỉ phòng.
+- Sự kiện làm hết hạn (§6.1): ví dụ `transaction` đặt xe chuyển nhà thành công thì đặt
+  `stop_prefill` cho khu vực tìm phòng và lưu `hints.current_address` = điểm đến của đơn.
 - Chỉ giá trị thuộc mức 1 hoặc mức 2 (§6.1) mới được lưu.
 - `save` là upsert theo `(user_id, group, key)`, nên chạy lại không sai. Lỗi khi lưu
   chỉ ghi `errors`, không làm hỏng câu trả lời.
@@ -661,6 +750,7 @@ class IntakeInput(BaseModel):
     plan_outline: list[TaskOutline] | None   # id, agent, lựa chọn đang chọn; để hiểu câu đổi ý
     decision: UserDecision | None            # khi đến từ confirm (CHANGE / REJECT)
     pending_questions: list[Question]        # câu hỏi lượt trước (intake hoặc subagent) để hiểu câu trả lời
+    last_suggestions: list[Suggestion]       # gợi ý lượt trước (S9), để hiểu "có", "cái thứ hai", "không cần"
     supported_domains: list[AgentName]       # từ AgentRegistry
 
 class Intake(Protocol):
@@ -672,12 +762,29 @@ class Intake(Protocol):
 1. Gọi `deps.intake.understand(...)`. Output phải qua Pydantic validate.
 2. Gộp `user_confirmed_facts` của lần trước. Dữ kiện người dùng đã xác nhận chỉ
    bị ghi đè khi có `CHANGE` rõ ràng. Fact mới phải có `evidence` là chuỗi con của
-   một tin nhắn người dùng; không có thì bỏ (đó là điều model tự suy ra).
+   một tin nhắn người dùng (so sánh sau chuẩn hoá Unicode NFC, chỉ lấy tin nhắn của
+   người dùng, không lấy tin nhắn của assistant); không có thì cho LLM trích lại **một
+   lần**, vẫn sai thì bỏ fact đó (đó là điều model tự suy ra). Dùng lại `normalize()` /
+   `repair_evidence` của nhánh `khoa` (§3.3).
+   Dữ liệu cá nhân người dùng tự gõ vào chat (họ tên, ngày sinh, CCCD, email, SĐT)
+   **không** được ghi thành fact; `respond` hướng người dùng nhập qua form (D16).
+   `commit_requested` chỉ giữ loại có fact `commit:<kind>` với evidence (ví dụ
+   "đặt giúp vé máy bay"). Có ý muốn thanh toán nhưng không rõ cho thứ gì thì đưa vào
+   `conflicts` để hỏi lại (S6).
 3. **Tính lại phần thiếu bằng code** (hàm thuần `resolve_missing`, xem bên dưới),
    không tin vào LLM. Hàm này ghi `constraints` (kể cả giá trị tự điền), `prefilled`,
    `blocking_missing` và `constraints.missing`.
 4. `REJECT` không kèm lời: `kind = CHANGE`, `target_task_ids` = task trong
    `decision.target_task_ids`, hoặc mọi task có `quotes` nếu người dùng không chỉ rõ.
+4a. **Trả lời gợi ý (S9).** Người dùng bấm gợi ý hoặc đồng ý ngắn ("có", "ừ, báo giá
+   chuyển đồ đi", "cái thứ hai") → hiểu như người dùng đã gửi `Suggestion.message`
+   tương ứng: `kind = REFINE`, thêm lĩnh vực; nếu là gợi ý loại `book` thì lời đồng ý
+   là evidence cho `commit_requested` (fact ghi lời đồng ý kèm `key` của gợi ý; code
+   kiểm `key` có trong `last_suggestions`, vì câu "có" một mình không đủ làm căn cứ).
+   Lượt trước có nhiều gợi ý mà người dùng chỉ nói "có" → mơ hồ, đưa vào `conflicts`
+   để hỏi lại. Người dùng từ chối ("không cần") → ghi `key`
+   vào `declined_suggestions`. Người dùng bỏ qua gợi ý và hỏi việc khác → không coi là
+   từ chối.
 5. `intake` **không** chọn agent/tool, không tạo DAG, không tạo approval.
    `Intent.domains` chỉ là gợi ý cho Planner.
 
@@ -690,7 +797,6 @@ task của từng domain chạy được, và input nào suy ra được từ ta
 | relocation (báo giá chuyển đồ) | `from_address`, `to_address`, `move_date` | `to_address` ← phòng đã chọn (property) | paid |
 | flight (tìm vé) | `origin`, `destination`, `date` | `destination` ← thành phố của phòng (property) | paid |
 | map (tiện ích xung quanh) | toạ độ | toạ độ ← phòng (property) | cheap |
-| contract (hợp đồng / chính sách) | listing | listing ← phòng (property) | cheap |
 
 Ngân sách, loại phòng, tiện ích bắt buộc (`must_have`) là **bộ lọc**, không nằm
 trong bảng và **không bao giờ chặn**.
@@ -712,6 +818,10 @@ trong bảng và **không bao giờ chặn**.
    Planner **không** tạo task còn thiếu input; validator hỏi sau khi đã có kết quả
    một phần (§6.5). Khi người dùng bổ sung (`REFINE`), Planner thêm task đó vào plan
    version mới và giữ các task đã `DONE`.
+
+Cột "suy ra từ task khác" chỉ áp dụng khi lĩnh vực nguồn có trong **cùng yêu cầu hoặc
+plan hiện tại** (S3, §6.2). Người dùng chỉ đặt xe chuyển nhà thì `to_address` phải do
+người dùng nói; chỉ tìm vé thì `destination` phải do người dùng nói.
 7. `conflicts` không rỗng thì cũng hỏi ngay, giống `blocking_missing`.
 
 Người dùng sửa giá trị tự điền ("không, lần này ở Thủ Đức") thì `intake` trả
@@ -751,7 +861,7 @@ Mở rộng sau khi chạy ổn.
 |---|---|
 | Người dùng sửa giá trị tự điền | Ghi đè ngay, `last_confirmed_at = now` |
 | Người dùng nói hoàn cảnh mới ("mình chuyển việc sang Thủ Đức") | Bỏ khu vực cũ |
-| Đặt cọc thành công | Khu vực tìm phòng `stop_prefill = True`; lưu `hints.current_address` = địa chỉ phòng mới, làm gợi ý cho lần chuyển đồ sau |
+| Đặt xe chuyển nhà thành công (MVP không có đặt cọc, Q25) | Khu vực tìm phòng `stop_prefill = True`; lưu `hints.current_address` = điểm đến của đơn chuyển nhà, làm gợi ý cho lần chuyển đồ sau |
 | Người dùng yêu cầu "quên thông tin của mình" | `SessionPort.forget` (làm sau, xem Q14) |
 
 **Quy tắc đi kèm.** Một số giá trị chỉ đúng trong bối cảnh của giá trị khác. Bảng
@@ -818,7 +928,11 @@ class Planner(Protocol):
    - `task.agent` có trong `AgentRegistry` (đây là allowlist, xem §6.3);
    - `task.inputs` hợp lệ với `input_schema` trong manifest của subagent;
    - `commit_actions[].source_task_id` tồn tại, và `kind` nằm trong `commit_kinds`
-     của service tương ứng.
+     của service tương ứng;
+   - `commit_actions[].kind` nằm trong `intake.commit_requested` (S2) và action chưa
+     có trong `committed` (S8);
+   - task `paid` chỉ thuộc lĩnh vực có trong `intake.intent.domains` (S1);
+   - không có commit action `deposit` (ngoài phạm vi MVP, Q25).
 4. Ghi `plan` với `version = (plan cũ).version + 1`.
 5. Khởi tạo `task_status` cho mọi task của plan mới:
    - `DONE` nếu id nằm trong `change_context.reusable_task_ids` và đã có kết quả DONE
@@ -831,6 +945,28 @@ class Planner(Protocol):
 Hỏi lại người dùng **không** còn là việc của Planner: thiếu thông tin chặn đã được
 `intake` xử lý. Planner vẫn có thể trả plan rỗng nếu không có cách đáp ứng yêu cầu;
 khi đó `respond` trả `UNSUPPORTED` hoặc `PARTIAL`.
+
+**Quy tắc phạm vi yêu cầu (D14).** Cùng một graph phục vụ cả yêu cầu **một mục đích**
+(chỉ tìm phòng, chỉ đặt vé, chỉ đặt xe chuyển nhà) lẫn **chuỗi liên hoàn** (tìm phòng
+→ tìm vé → đặt xe chuyển đồ → thanh toán). Không có luồng riêng cho từng dịch vụ; khác
+nhau chỉ ở số task và số commit action trong plan. Ví dụ ở §10.2.
+
+| Mã | Quy tắc |
+|---|---|
+| S1 | **Chỉ làm lĩnh vực người dùng yêu cầu.** Task `paid` chỉ được tạo cho lĩnh vực có trong `intake.intent.domains`. Task `cheap` bổ trợ (ví dụ map cho property) chỉ được thêm khi phục vụ một ràng buộc người dùng đã nêu (ví dụ "gần bệnh viện"). |
+| S2 | **Tìm / báo giá khác đặt / thanh toán.** Mặc định mọi lĩnh vực dừng ở tìm kiếm hoặc báo giá. `commit_actions` chỉ có cho loại nằm trong `intake.commit_requested`, tức người dùng nói rõ "đặt", "chốt", "thanh toán" cho lĩnh vực đó (có evidence). Người dùng có thể đặt lĩnh vực này nhưng chỉ xem giá lĩnh vực khác. |
+| S3 | **Mỗi lĩnh vực đứng một mình được.** Input suy ra từ task khác (§6.1) chỉ được suy ra khi lĩnh vực nguồn có trong cùng yêu cầu hoặc plan hiện tại; nếu không, input đó do người dùng cung cấp. |
+| S4 | **Phụ thuộc vào lựa chọn của người dùng.** Task cần một lựa chọn (ví dụ báo giá chuyển đồ tới *phòng đã chọn*) chỉ được tạo khi `user_confirmed_facts` đã có lựa chọn đó. Trước đó, lựa chọn là một input còn thiếu, validator `ASK_USER` kèm kết quả để người dùng chọn. Phụ thuộc chỉ vào kết quả (ví dụ điểm đến của vé = thành phố của phòng) thì không cần chờ chọn. |
+| S5 | **Mở rộng dần trong một thread.** Người dùng thêm lĩnh vực vào mục tiêu đang làm ("đặt luôn vé bay vào đó") → `intake` trả `REFINE`; Planner thêm task, giữ task `DONE`, input suy ra từ kết quả đã có. Mục tiêu không liên quan ("giờ tìm vé đi Đà Nẵng") → `NEW_GOAL`; plan mới không tái dùng task cũ, nhưng `committed` giữ nguyên. |
+| S6 | **Thanh toán gắn với một thao tác đặt.** Thanh toán không phải lĩnh vực riêng mà là một phần của commit action (đặt xe, đặt vé), do `transaction` thực hiện qua Payment. "Thanh toán" mà không rõ cho thứ gì → `intake` hỏi lại. |
+| S7 | **Một lần xác nhận cho các thao tác được yêu cầu.** `confirm` gom mọi commit action của plan hiện tại vào một `payload_hash`. Muốn đặt từng thứ ở những thời điểm khác nhau thì mỗi lần plan chỉ có commit action của thứ được yêu cầu lúc đó (theo S2). |
+| S8 | **Không đặt lại cái đã đặt.** Commit action đã có trong `committed` không được đưa lại vào plan. Đổi ý với thứ đã đặt không tự huỷ (§6.8). |
+| S10 | **Quản lý đơn đã đặt.** Tra cứu trạng thái đơn (đơn trong `committed` hoặc mã đơn người dùng đưa) là task **đọc** của lĩnh vực tương ứng. Huỷ / sửa đơn là thao tác **ghi**: `intake` ghi `commit_requested` (`cancel_order` / `update_order`, có evidence), Planner tạo commit action trỏ tới receipt, đi qua `confirm` + approval + `transaction` như mọi thao tác ghi. Mã đơn người dùng đưa phải được backend xác nhận thuộc về người dùng trước khi dùng. Luôn báo phí huỷ / hoàn tiền (nếu service cho biết) trước khi xác nhận. |
+| S9 | **Gợi ý bước tiếp theo, không tự làm.** Sau khi trả kết quả, `respond` có thể gợi ý bước kế tiếp trong chuỗi (ví dụ tìm phòng xong gợi ý báo giá chuyển đồ, tìm vé). Gợi ý **không** gọi subagent nào; chỉ khi người dùng đồng ý thì mới thành yêu cầu, đi qua `intake` như `REFINE` (S5). Chi tiết ở §6.10. |
+
+`TemplatePlanner` xử lý tốt các yêu cầu một lĩnh vực (S1–S3 đơn giản); LLM Planner
+dùng cho chuỗi nhiều lĩnh vực. Cả hai đều phải qua `validate_plan`, nên S1, S2, S8 được
+ép bằng code, không phụ thuộc vào LLM.
 
 **Implementation giai đoạn khung**
 
@@ -845,7 +981,7 @@ Các câu hỏi mở của Intake và Orchestrator được liệt kê ở §12.
 
 ### 6.3. Subagent của service — chuẩn contract
 
-Mỗi service (housing/location, moving, flight, hợp đồng/chính sách, …) có **subagent
+Mỗi service (housing/location, moving, flight, …) có **subagent
 riêng do chủ service viết**, có thể dùng LLM bên trong. Graph không biết và không
 quản lý bên trong subagent; graph chỉ **nối vào** qua contract ở mục này. Người viết
 subagent làm theo mục này; subagent qua được bộ test tuân thủ (§11) thì đăng ký vào
@@ -864,7 +1000,7 @@ Pydantic trong repo là nguồn schema chính; khi code sẽ export JSON Schema 
 | Retry với provider | — | Subagent, trong `budget` (R7) |
 | Timeout tổng, ngân sách, đếm chi phí | `run_with_policy`, `UsageMeter` | Tôn trọng `budget`, báo `usage` (R6, R11) |
 | Kiểm schema, độ mới, xung đột | `validator` | Cung cấp đủ nguồn gốc dữ liệu (R2) |
-| Thao tác ghi (đặt cọc, đặt xe, đặt vé, thanh toán) | `transaction` gọi commit endpoint | Cung cấp commit endpoint tất định; subagent **không** ghi (R3) |
+| Thao tác ghi (đặt xe, đặt vé, thanh toán, huỷ / sửa đơn) | `transaction` gọi commit endpoint | Cung cấp commit endpoint tất định; subagent **không** ghi (R3) |
 | Bộ nhớ người dùng | Graph (§6.0) | Không lưu dữ liệu người dùng (R8) |
 
 Mức chia task: mỗi `Task` trong DAG là **một mục tiêu cho một lĩnh vực** (ví dụ "tìm
@@ -1042,9 +1178,10 @@ chỉ giữ port cho những gì graph tự làm.
 | `map_agent` | Subagent location (có thể cùng subagent với housing) | Service location (nhánh `QuangDung`) | `FakeAgent(map)` |
 | `relocation_agent` | Subagent moving | Service Moving / AhaMove (nhánh `khoa`) | `FakeAgent(relocation)` |
 | `flight_agent` | Subagent flight | Service Flight (nhánh `Doan/api`) | `FakeAgent(flight)` |
-| `contract_agent` | Subagent hợp đồng / chính sách, dùng RAG | Service chính sách riêng (chủ khác); nội dung RAG ngoài phạm vi tài liệu này | `FakeAgent(contract)` |
 | `transaction` | `TransactionPort` → commit endpoint của từng service + Payment | Commit endpoint của các service trên + Payment ZaloPay **sandbox** (nhánh `Doan/api`) | `FakeTransaction` (ghi nhận, idempotent) |
 | `transaction`, `confirm` | `ApprovalPort.get(approval_id)` | Approval Store của backend | `InMemoryApprovalStore` |
+| `transaction` | `PiiPort.get(pii_ref)` (D16) | Kho dữ liệu cá nhân của backend, hạn ngắn | `InMemoryPiiStore` |
+| `await_payment` | `TransactionPort.payment_status(payment_ref)` → `get_payment` | Payment MCP (nhánh `Doan/api`) | `FakeTransaction` (đổi trạng thái theo kịch bản test) |
 | `load_context` (đọc), `respond` (ghi) | `SessionPort` (§6.0) | Long-term user memory (DB / LangGraph Store, Q8) | `InMemorySessionPort` |
 
 `source_kind` của mỗi service ghi trong registry (ví dụ Flight booking giả lập là
@@ -1052,6 +1189,17 @@ chỉ giữ port cho những gì graph tự làm.
 
 Có thể có nhiều subagent cho cùng một `AgentName` (ví dụ hai nguồn tìm phòng):
 `FallbackAgent([a, b])` thử lần lượt và ghi `source` là subagent đã trả kết quả.
+
+**Hiện trạng service (kiểm ngày 2026-09-29).** Chưa service nào có `run_task` /
+`get_manifest`; tất cả đang expose MCP tool thô. Subagent của mỗi service sẽ bọc các
+tool dưới đây. Tool **đọc** do subagent gọi; tool **ghi** chỉ do `transaction` gọi (R3).
+
+| Service (nhánh) | Tool đọc (cho subagent) | Tool ghi (cho `transaction`) | Việc bên trong subagent / ghi chú nối |
+|---|---|---|---|
+| Location: housing + place + route (`QuangDung`); Streamable HTTP + Bearer | `search_housing`, `get_housing`, `search_places`, `get_place`, `find_nearby_places`, `search_areas`, `resolve_location`, `calculate_route` | — (chưa có đặt cọc) | Một subagent phục vụ cả `property` và `map`. `search_housing` chỉ lọc, **không xếp hạng** → subagent xếp hạng. Tìm gần địa danh: `resolve_location` rồi mới `search_housing` với `commute.destination`. `search_housing` trả rỗng khi chưa có dữ liệu thật (không bịa) |
+| Moving / AhaMove (`khoa`); HTTP `/mcp` + Bearer | `list_service_areas`, `list_moving_services`, `get_moving_service`, `estimate_move`, `get_move_order`, `get_move_orders`, `find_move_orders_by_tracking_number`, `get_move_tracking_link`, `get_move_order_events` | `create_move_order`, `update_move_order`, `cancel_move_order`, `rate_move_driver` | Registry 13 tool và planner mức tool của nhánh `khoa` nằm trong subagent (§3.3). Tool ghi cần `approval_id` **khớp bản ghi approval trong backend Moving** (ADR-003 nhánh `khoa`) → cần cầu nối approval (Q22). Tạo đơn không rõ kết quả thì đối soát bằng tracking number |
+| Flight (`Doan/api`); FastMCP, **chưa có Bearer** | `search_airports`, `search_flights`, `get_offer`, `get_booking` | `hold_booking`, `confirm_booking`, `cancel_booking` (gọi `confirm=false` trước để lấy phí huỷ) | Đặt vé 2 bước giữ chỗ → xuất vé; phần đặt là **giả lập** (`source_kind = demo`). `hold_booking` cần thông tin hành khách + liên hệ (D16). Cần thêm Bearer trước khi đăng ký registry |
+| Payment / ZaloPay sandbox (`Doan/api`); FastMCP, **chưa có Bearer** | `get_payment` (polling trạng thái) | `create_payment` (trả link / QR), `cancel_payment`, `refund_payment` | Không phải lĩnh vực của Planner; chỉ `transaction` dùng (S6). Không nhận tên / email / SĐT (ADR-015, hiện là ADR-007 trên nhánh `Doan/api`); `order_ref` = commit action id |
 
 #### 6.3.8. Input/output tối thiểu theo lĩnh vực
 
@@ -1064,14 +1212,13 @@ Manifest của từng lĩnh vực phải **ít nhất** bao được bảng dư�
 | relocation | `from_address`, `move_date`, `volume?` (`to_address` lấy từ upstream property) | `quotes: [MovingQuote{id, provider, price_vnd, vehicle, movers, date}]` | `quotes`, `quotes[].price_vnd` | giá chuyển (one_time) | 24h |
 | flight | `origin`, `destination`, `date`, `passengers` | `offers: [FlightOffer{id, carrier, fare_vnd, baggage_kg?, depart_at, arrive_at, seats_left?}]` | `offers`, `offers[].fare_vnd`, `offers[].depart_at` | giá vé (one_time) | 15m |
 | map | `categories` (hospital, school, market, pharmacy, gym…), `radius_m`; toạ độ lấy từ upstream | `nearby: {listing_id: [Poi{name, category, distance_m}]}` | `nearby` | — | 7d |
-| contract | `topics` (deposit, cancellation, lease_term); listing lấy từ upstream | `policies: {listing_id: Policy{deposit_rule?, cancellation?, lease_term_months?, citations: [Citation{doc_id, snippet}]}}` | `policies`, `policies[].citations` | — | 30d |
 
 `?` là field có thể thiếu. Thiếu thì để `None` **và** thêm tên vào
 `missing_fields`; không suy đoán (ví dụ không mặc định "có Wi-Fi", không tự tính cọc
 = 1 tháng tiền nhà).
 
-`cost_tier` tạm theo bảng ở §6.1: property, map, contract là `cheap` (DB nội bộ /
-PostGIS / RAG nội bộ); relocation, flight là `paid` (provider bên ngoài). Giá trị chính
+`cost_tier` tạm theo bảng ở §6.1: property, map là `cheap` (DB nội bộ / PostGIS /
+Vector DB nội bộ); relocation, flight là `paid` (provider bên ngoài). Giá trị chính
 thức do manifest khai báo (Q13). Nếu subagent dùng LLM (`uses_llm`), chi phí LLM của nó
 vẫn tính vào trần qua `usage`, dù `cost_tier` là `cheap`.
 
@@ -1101,6 +1248,7 @@ trong `dispatch`; `upstream` lấy từ `task_results` của các task trong `de
 - Nhánh "conditional" (ví dụ chỉ đặt vé nếu user bay) do Planner thể hiện bằng việc
   có hay không có task trong plan; executor không đánh giá điều kiện nghiệp vụ.
 - Executor **không bao giờ sửa plan**. Mọi thay đổi plan đều quay về `orchestrator`.
+- Mỗi vòng dispatch tối đa `max_parallel_tasks` task; task `READY` còn lại chờ vòng sau.
 - Trước khi đưa task `paid` vào `dispatch`, executor kiểm `max_paid_calls_per_turn` /
   `max_paid_calls_per_thread` qua `deps.usage`. Vượt trần thì đánh dấu task `FAILED`
   (`retryable=False`, lỗi `budget_exceeded`) để validator trả `GIVE_UP` → `PARTIAL` (§7.5).
@@ -1141,7 +1289,10 @@ Deterministic, không LLM:
 2. Tạo `CostLine`, tính `total_one_time_vnd` và `total_monthly_vnd` bằng số nguyên
    VND (không float).
 3. Gắn `commit_actions` từ plan; `route_from_cost_summary` quyết định có cần xác nhận
-   hay không. Đây là nút "Critical action?" của baseline.
+   hay không. Đây là nút "Critical action?" của baseline. Yêu cầu chỉ tìm / báo giá
+   (không có commit action, S2) đi thẳng `respond` (`ANSWER`), không qua `confirm`.
+   Khoản đã có trong `committed` được hiển thị là "đã đặt", không tính lại vào tổng
+   cần xác nhận.
 4. Tính `payload_hash` (hàm thuần `confirmation_hash`, JSON canonical) và
    `quotes_expire_at`.
 
@@ -1157,6 +1308,7 @@ async def confirm_node(state: WorkflowState) -> dict:
         "cost_summary": summary.model_dump(),
         "payload_hash": summary.payload_hash,
         "expires_at": summary.quotes_expire_at,
+        "pii_required": {a.id: a.pii_required for a in summary.commit_actions if a.pii_required},  # UI hiện form (D16)
     }
     decision = UserDecision.model_validate(interrupt(payload))  # graph dừng, state được checkpoint
     update = {"user_decision": decision}
@@ -1175,7 +1327,10 @@ async def confirm_node(state: WorkflowState) -> dict:
   và interrupt lại.
 - `check_approval` với `CONFIRM`: `approval_id` tồn tại trong `ApprovalPort`, cùng
   `user_id` và `thread_id`, `payload_hash` khớp `cost_summary.payload_hash`, chưa hết
-  hạn. Sai bất kỳ điều kiện nào thì không đi tiếp sang `transaction`.
+  hạn, hạn không quá 30 phút kể từ lúc tạo, và `approval_id` chưa từng được dùng cho
+  commit action khác (các kiểm tra lấy từ nhánh `khoa`, §3.3). Mọi action có
+  `pii_required` phải có `pii_refs` tương ứng. Sai bất kỳ điều kiện nào thì không đi
+  tiếp sang `transaction`.
 - `CHANGE`/`REJECT` đi về `intake`, không đi thẳng `change_impact`, vì câu đổi ý là
   ngôn ngữ tự nhiên cần được hiểu trước.
 
@@ -1185,7 +1340,7 @@ Khi `intake` trả `kind = CHANGE` và đã có plan (ví dụ "phòng này đ�
 
 1. Lấy `intake.target_task_ids` (hoặc toàn bộ task có `quotes` nếu intake không xác
    định được).
-2. Tính **downstream closure** theo `depends_on` (ví dụ đổi phòng thì map, contract,
+2. Tính **downstream closure** theo `depends_on` (ví dụ đổi phòng thì map,
    relocation phụ thuộc phòng cũng bị ảnh hưởng; flight thì không).
 3. Ghi `task_status[id] = STALE` cho target + downstream.
 4. Ghi `change_context` với `invalidated_task_ids`, `reusable_task_ids` (các task còn
@@ -1195,6 +1350,11 @@ Khi `intake` trả `kind = CHANGE` và đã có plan (ví dụ "phòng này đ�
 6. Compensation: giai đoạn này chưa có side-effect nào trước `confirm`, nên không cần
    release gì. Nếu sau này có "giữ chỗ tạm" (hold) ở Phase 2 thì gọi
    `TransactionPort.release_hold` tại đây.
+7. **Thứ đã đặt** (target có commit action nằm trong `committed`, S8): `change_impact`
+   **không** tự đánh dấu `STALE` và không tự huỷ. Task đó giữ nguyên; `change_context`
+   ghi `blocked_by_commit` để `respond` báo "đã đặt, muốn huỷ không?". Huỷ là một thao
+   tác ghi, phải đi qua `confirm` + approval + `TransactionPort.compensate`; luồng huỷ
+   chi tiết chốt ở Q18.
 
 ### 6.9. `transaction` — Transaction / Payment Agent
 
@@ -1205,6 +1365,10 @@ class TransactionPort(Protocol):
     async def lookup(self, idempotency_key: str) -> Receipt | None: ...
     async def compensate(self, receipt: Receipt) -> None: ...
     async def status(self, receipt_id: str) -> Receipt: ...
+    async def payment_status(self, payment_ref: str) -> PendingPayment: ...  # luôn hỏi cổng thanh toán
+
+class PiiPort(Protocol):
+    async def get(self, pii_ref: str) -> dict[str, Any]: ...  # chỉ transaction gọi; không log, không lưu vào state
 ```
 
 - Chỉ chạy khi `user_decision.kind == "CONFIRM"`, `plan_version` khớp và approval
@@ -1213,6 +1377,10 @@ class TransactionPort(Protocol):
 - `idempotency_key = sha256(thread_id, plan.version, action.id, option_id)`.
 - Trước mỗi `commit`, gọi `lookup(idempotency_key)`. Đã có receipt thì dùng lại,
   không commit lần hai (xử lý trường hợp node chạy lại khi resume/retry).
+- Receipt thành công được ghi vào `committed[action.id]` (tích luỹ qua các lượt). Nhờ
+  vậy người dùng có thể đặt vé ở lượt này, đặt xe ở lượt sau mà không đặt lại vé (S7, S8).
+- Thanh toán đi kèm từng commit action qua Payment (S6); không có commit action nào
+  chỉ để "thanh toán".
 - **Timeout hoặc kết quả không rõ sau `commit`**: gọi `lookup` trước. Chỉ gọi
   `commit` lại khi provider hỗ trợ idempotency key; nếu không, trả
   `TransactionResult(status="pending_verification")` và báo người dùng, không tự
@@ -1221,10 +1389,11 @@ class TransactionPort(Protocol):
   receipt đã thành công theo thứ tự ngược lại, và trả
   `TransactionResult(status="compensated")`.
 - Theo v4, Booking/Reservation được gộp ở đây: adapter thật dispatch theo
-  `CommitActionKind` (đặt cọc phòng, đặt chuyển đồ, đặt vé) và Payment Gateway.
-- **Commit endpoint của service là tất định, không qua subagent LLM** (R3). Mỗi
-  service hỗ trợ ghi công bố commit endpoint cho các `commit_kinds` trong manifest,
-  với contract tối thiểu:
+  `CommitActionKind` (đặt chuyển đồ, đặt vé; đặt cọc ngoài phạm vi MVP) và Payment Gateway.
+- **Commit endpoint của service là tất định, không qua subagent LLM** (R3). Về lâu dài
+  mỗi service hỗ trợ ghi công bố commit endpoint cho các `commit_kinds` trong manifest;
+  trước khi có, adapter `commit.py` gọi tool ghi hiện có theo bảng bên dưới. Contract
+  tối thiểu của commit endpoint:
   - vào: `action_kind`, `option_id` (id trong `source_refs` của kết quả đã được xác
     nhận), `amount_vnd`, `idempotency_key`, `approval_id`;
   - ra: `Receipt` hoặc lỗi có cấu trúc;
@@ -1233,8 +1402,51 @@ class TransactionPort(Protocol):
   giá. Chỉ `transaction` có credential ghi.
 - Receipt từ adapter `sandbox`/`demo` phải mang `source_kind` đó; `respond` không
   được trình bày như đặt/thanh toán thật.
-- Đặt cọc thành công là sự kiện hết hạn của bộ nhớ (§6.1). `transaction` không tự
-  ghi bộ nhớ; `respond` ghi qua `memory_updates` (§6.0).
+- Đặt xe chuyển nhà thành công là sự kiện hết hạn của bộ nhớ (§6.1). `transaction`
+  không tự ghi bộ nhớ; `respond` ghi qua `memory_updates` (§6.0).
+
+Các service hiện expose tool MCP ghi (§6.3.7), chưa có "commit endpoint" gộp. Adapter
+`commit.py` (implement `TransactionPort`) ánh xạ mỗi `CommitActionKind` thành **chuỗi
+gọi tool tất định**, không qua LLM:
+
+| `CommitActionKind` | Các bước trong `transaction` | Qua Payment? | Khi lỗi / huỷ |
+|---|---|---|---|
+| `flight_booking` | 1. `get_offer` kiểm giá và điều kiện vé (đọc). 2. `hold_booking` với dữ liệu hành khách lấy qua `pii_ref`. 3. Tổng tiền giữ chỗ khác số tiền đã được approve → dừng, `cancel_booking(confirm=true)` huỷ giữ chỗ, xin xác nhận lại. 4. `create_payment` (`order_ref` = commit action id). 5. Chờ `PAID` (`await_payment`). 6. `confirm_booking` | Có | Không trả / hết hạn → huỷ giữ chỗ. Xuất vé lỗi sau khi đã `PAID` → `pending_verification`, cần hoàn tiền (`refund_payment` chưa hỗ trợ trong MVP của Payment → báo rõ cho người dùng) |
+| `moving_booking` | 1. `estimate_move` kiểm lại giá (đọc). 2. Ghi bản ghi approval sang backend Moving qua endpoint nội bộ (Q22). 3. `create_move_order` với `approval_id` đó, `payment_method = CASH`, tên + SĐT người gửi / người nhận lấy qua `pii_ref` (`pii_required = [pickup_contact, destination_contact]`, D16) | **Không**: `CASH`, trả tiền mặt cho tài xế (Q21) | Kết quả không rõ → đối soát bằng tracking number (ADR-003 nhánh `khoa`); huỷ bằng `cancel_move_order` |
+| `deposit` | **Ngoài phạm vi MVP** (Q25) | — | Không tạo commit action này, không gợi ý đặt cọc |
+| `cancel_order` | Gọi bản "báo phí" trước nếu service có (`cancel_booking(confirm=false)`), đưa phí vào `confirm`; sau approval gọi tool huỷ (`cancel_booking(confirm=true)`, `cancel_move_order`, `cancel_payment`) | Hoàn tiền nếu đã trả qua Payment | — |
+| `update_order` | `update_move_order` | — | — |
+
+**Giữ chỗ (Q5 cho flight):** giữ chỗ là thao tác ghi, nên chỉ làm **sau** approval,
+bên trong `transaction` (bước 2 ở trên). Không giữ chỗ trước `confirm`.
+
+**Dữ liệu cá nhân khi đặt (D16).** Commit action cần dữ liệu cá nhân (ví dụ
+`flight_booking` cần họ tên, ngày sinh, email, SĐT; CCCD tuỳ chọn) khai báo trong
+`confirm` payload (`pii_required`). UI hiện **form**, không hỏi qua chat. Backend lưu
+dữ liệu vào kho riêng có hạn ngắn và trả `pii_ref`; resume `CONFIRM` mang `pii_refs`
+theo từng action (backend gắn vào `Approval`). `transaction` lấy dữ liệu qua
+`PiiPort.get(pii_ref)` rồi đưa thẳng vào tool ghi. Dữ liệu cá nhân **không** nằm trong
+`messages`, `WorkflowState`, log hay prompt; chỉ `pii_ref` nằm trong state.
+
+**Thanh toán bất đồng bộ (D16).** ZaloPay trả link / QR, người dùng trả trong app,
+trạng thái lấy bằng polling `get_payment`. Vì vậy:
+
+1. `transaction` làm các bước trước thanh toán, gọi `create_payment`, ghi
+   `pending_payment` (action id, `payment_ref`, link / QR, số tiền, hạn, receipt giữ chỗ)
+   rồi route sang node `await_payment`. Kết quả các bước trước đã nằm trong state,
+   nên resume không làm lại.
+2. `await_payment` gọi `interrupt({"type": "payment_required", ...})`. API trả link / QR
+   cho UI. Khi người dùng bấm "Tôi đã thanh toán" hoặc UI hỏi định kỳ, API resume.
+3. Sau resume, `await_payment` gọi `get_payment` (luôn hỏi cổng, không tin client):
+   `PENDING` → interrupt lại; trạng thái cuối (`PAID`, `FAILED`, `EXPIRED`,
+   `CANCELLED`) → quay lại `transaction` để làm bước sau thanh toán hoặc huỷ giữ chỗ.
+   Resume kèm yêu cầu huỷ (người dùng bấm huỷ) → gọi `cancel_payment` trước, rồi xử lý
+   như `CANCELLED`.
+4. `create_payment` phải idempotent theo `order_ref`; `transaction` tra `pending_payment`
+   trước khi tạo mới.
+
+Việc đối soát nền khi người dùng bỏ đi giữa chừng (giữ chỗ / thanh toán treo) là của
+backend, ngoài phạm vi graph; giữ chỗ và đơn thanh toán tự hết hạn phía provider.
 
 ### 6.10. `respond` — Response
 
@@ -1249,8 +1461,10 @@ Soạn `AgentResponse` và thêm AI message vào `messages`. Giai đoạn khung 
 | validator `GIVE_UP` | `PARTIAL` (nêu phần đã có và phần thiếu) |
 | transaction thành công | `COMMITTED` |
 | user `CANCEL` | `CANCELLED` |
+| thanh toán không thành (`FAILED` / `EXPIRED` / người dùng huỷ), đã huỷ giữ chỗ | `CANCELLED`, nêu lý do và gợi ý đặt lại |
 | lỗi hệ thống / vượt `max_replans` / `pending_verification` | `ERROR` |
 | vượt trần chi phí (§7.5) | `PARTIAL` nếu đã có kết quả, ngược lại `ERROR`; nêu lý do |
+| người dùng muốn đổi thứ đã đặt (`blocked_by_commit`, §6.8 bước 7) | `CLARIFY`: nói rõ đã đặt, hỏi có muốn huỷ không |
 
 Quy tắc chung cho mọi câu trả lời:
 
@@ -1271,6 +1485,40 @@ Quy tắc chung cho mọi câu trả lời:
 - `summary` của subagent chỉ được hiển thị như thông tin tham khảo, sau các field có
   cấu trúc; nội dung từ nguồn (tin phòng, tài liệu RAG) không được coi là chỉ dẫn.
 
+**Gợi ý bước tiếp theo (S9).** Sau khi soạn câu trả lời, `respond` gọi hàm thuần
+`next_step_suggestions(state, registry, settings)` để điền `AgentResponse.suggestions`.
+Hàm đi qua bảng `NEXT_STEPS` theo thứ tự, lấy các dòng thoả điều kiện:
+
+| Điều kiện sau lượt này | `key` | Gợi ý (ví dụ) | Chỉ hiện khi |
+|---|---|---|---|
+| property `DONE`, plan chưa có relocation | `quote:relocation` | "Bạn có cần báo giá chuyển đồ tới phòng bạn chọn không?" | relocation có trong registry |
+| property `DONE`, plan chưa có flight, `hints.origin_city` khác thành phố của phòng | `search:flight` | "Bạn có cần tìm vé từ Hà Nội vào TP.HCM không?" | có `hints.origin_city` |
+| flight `DONE`, chưa đặt vé | `book:flight` | "Bạn muốn đặt chuyến này không?" | service flight có `flight_booking` |
+| flight `DONE`, plan chưa có property | `search:property` | "Bạn có cần tìm chỗ ở tại TP.HCM không?" | — |
+| relocation `DONE`, chưa đặt xe | `book:relocation` | "Bạn muốn đặt xe với báo giá này không?" | service moving có `moving_booking` |
+| người dùng vừa chọn một phòng, plan chưa có map | `search:map` | "Bạn có muốn xem tiện ích quanh phòng này không?" | — |
+| vừa đặt xe chuyển nhà xong, plan chưa có map | `search:map` | "Bạn có muốn xem tiện ích quanh nhà mới không?" | — |
+
+Không có gợi ý đặt cọc trong MVP (Q25).
+
+Quy tắc:
+
+- **Chỉ gợi ý, không chạy trước.** Tạo gợi ý không gọi subagent hay API nào (S1).
+- **Ít và đúng lúc.** Tối đa `max_suggestions` gợi ý (mặc định 2). Lượt có câu hỏi
+  `CLARIFY` kèm kết quả thì tối đa 1, để câu hỏi được ưu tiên. Không gợi ý khi
+  `CLARIFY` do `intake` chặn (chưa có kết quả), `UNSUPPORTED`, `CANCELLED`, `ERROR`.
+- **Không lặp.** Bỏ gợi ý có `key` đã nằm trong `declined_suggestions`, lĩnh vực đã có
+  trong plan, hoặc thao tác đã có trong `committed`.
+- **Chỉ gợi ý thứ làm được.** Gợi ý loại `book` chỉ hiện khi service có commit endpoint
+  cho thao tác đó (manifest `commit_kinds`, Q17). Không có thì không gợi ý đặt.
+- **Bộ nhớ chỉ để gợi ý.** Giá trị từ `session.hints` (ví dụ thành phố xuất phát) chỉ
+  xuất hiện trong câu hỏi, không được coi là người dùng đã xác nhận.
+- **Đồng ý mới là yêu cầu.** Bấm hoặc đồng ý với gợi ý → `intake` xử lý như tin nhắn
+  của người dùng (§6.1 bước 4a). Gợi ý loại `book` được đồng ý vẫn phải qua `confirm`
+  và approval như mọi thao tác đặt khác.
+- Giai đoạn khung, câu gợi ý lấy từ template; sau này LLM composer có thể viết lại cho
+  tự nhiên nhưng không được thêm gợi ý ngoài danh sách hàm trả về.
+
 Cuối lượt, sau khi soạn câu trả lời, `respond` gọi `SessionPort.save` với
 `memory_updates(state)` (§6.0). Lỗi khi lưu chỉ ghi `errors`.
 
@@ -1282,7 +1530,7 @@ Cuối lượt, sau khi soạn câu trả lời, `respond` gọi `SessionPort.sa
 
 - `build_graph(deps, checkpointer=None)`. Dev/test dùng `InMemorySaver`
   (`langgraph.checkpoint.memory`); môi trường thật dùng Postgres checkpointer. Chọn
-  loại cụ thể trong ADR-001 (dự kiến, xem [project organization](../project-organization.md)).
+  loại cụ thể trong một ADR mới (số ADR chốt khi merge, Q23; xem [project organization](../project-organization.md)).
 - `thread_id` = id phiên hội thoại; mỗi request gửi `config={"configurable": {"thread_id": ...}, "recursion_limit": ...}`.
 - State checkpoint chứa đủ những gì sơ đồ yêu cầu: `intake` (dữ kiện đã xác nhận),
   `plan.version`, `task_status`, lựa chọn đang chọn (`cost_summary.selected`), quotes,
@@ -1315,15 +1563,17 @@ Cuối lượt, sau khi soạn câu trả lời, `respond` gọi `SessionPort.sa
 class GraphSettings(BaseModel):
     max_task_attempts: int = 2
     max_replans: int = 2
+    max_parallel_tasks: int = 4                  # số task đọc chạy song song tối đa mỗi vòng (§3.3)
     recursion_limit: int = 100
     agent_timeout_s: dict[AgentName, float]      # mặc định 20s; subagent dùng LLM có thể cần lâu hơn
     agent_transport_retries: int = 1             # chỉ lỗi đường truyền trước khi subagent nhận task (§6.3.6)
     # stale_ttl lấy từ manifest (stale_ttl_s); có thể ghi đè ở đây nếu cần chặt hơn
     stale_ttl_override: dict[AgentName, timedelta] = {}
     approval_ttl: timedelta = timedelta(minutes=10)  # trần; không vượt quotes_expire_at
+    max_suggestions: int = 2                     # gợi ý bước tiếp theo mỗi lượt (S9, §6.10)
 
     # --- Kiểm soát chi phí (§7.5) ---
-    llm_models: dict[str, str]                   # node -> model id; intake: model nhỏ, orchestrator: model mạnh
+    llm_models: dict[Literal["light", "heavy"], str]  # tầng -> model id OpenAI (Q20, §7.5)
     max_llm_calls_per_turn: int = 4              # LLM của graph (intake, orchestrator)
     max_subagent_llm_calls_per_turn: int = 20    # tổng LLM call báo qua usage của các subagent
     max_paid_calls_per_turn: int = 6             # tổng call tới agent cost_tier="paid"
@@ -1357,9 +1607,19 @@ môi trường.
 
 **Nguyên tắc**
 
-1. **Phân tầng model.** `intake` dùng model nhỏ; `orchestrator` dùng model mạnh;
-   `respond` dùng template (sau có thể dùng model nhỏ). Node khác không gọi LLM (D11).
-   Cấu hình qua `GraphSettings.llm_models`, không ghi cứng trong node.
+1. **Phân tầng model (Q20).** Mọi agent dùng **OpenAI** (Responses API, structured
+   output, qua `StructuredLLM` của nhánh `khoa`). Chọn model theo độ nặng của việc:
+
+   | Tầng | Dùng cho | Đặc điểm việc |
+   |---|---|---|
+   | `light` | `intake`, `respond` (khi có LLM composer), subagent chỉ trích xuất / định dạng, `TemplatePlanner` không cần LLM | Một lĩnh vực, đầu ra ngắn, schema đơn giản |
+   | `heavy` | `orchestrator` với yêu cầu nhiều lĩnh vực, replan sau đổi ý, subagent phải suy luận nhiều bước (ví dụ moving lập kế hoạch mức tool) | Nhiều phụ thuộc, cần suy luận |
+
+   `GraphSettings.llm_models` ánh xạ tầng → model id (ví dụ nhánh `khoa` đang dùng
+   `gpt-4o-mini` cho cả hai); đổi model không phải sửa code. Node chọn tầng theo quy tắc
+   cố định (ví dụ `orchestrator` dùng `light` khi `intake.intent.domains` chỉ có một
+   lĩnh vực, `heavy` khi nhiều hơn). Subagent của service tự chọn model trong cùng nhà
+   cung cấp và báo qua `usage`. Node khác không gọi LLM (D11).
 2. **Bỏ qua LLM Planner khi không cần** (đề xuất). Yêu cầu chỉ có một domain và không
    có dependency (ví dụ `find_room → [property]`) dùng `TemplatePlanner` với plan mẫu.
    LLM Planner chỉ dùng cho yêu cầu nhiều domain. Cả hai implement cùng `Planner`,
@@ -1422,6 +1682,7 @@ class GraphDeps:
     session: SessionPort
     transaction: TransactionPort
     approvals: ApprovalPort
+    pii: PiiPort                     # dữ liệu cá nhân để đặt chỗ (D16)
     settings: GraphSettings
     usage: UsageMeter                # đo token / call provider, kiểm trần chi phí (§7.5)
     clock: Callable[[], datetime]    # inject để test V3 (stale), hạn approval, tuổi sở thích
@@ -1460,9 +1721,21 @@ Endpoint hiện tại ([routes.py](../../src/api/routes.py)) gọi
 | `POST /chat` `{thread_id?, message}` | Tạo `thread_id` nếu chưa có. Nếu thread đang chờ xác nhận (`aget_state` có `interrupts`), coi tin nhắn là đổi ý: `Command(resume={"kind": "CHANGE", "plan_version": <hiện tại>, "change_request": message})`. Ngược lại `graph.ainvoke({"messages": [HumanMessage(message)], "user_id": ...}, config)`. |
 | | Nếu kết quả có `__interrupt__` thì trả `{status: "pending_confirmation", thread_id, confirmation: <payload>}`. |
 | | Ngược lại trả `{status: "done", thread_id, response: AgentResponse}`. |
-| `POST /chat/{thread_id}/decision` `{kind, plan_version, payload_hash?, change_request?, target_task_ids?}` | Với `CONFIRM`: backend xác thực user, so `payload_hash` client gửi với payload đang chờ (lấy từ `aget_state`), tạo `Approval` trong Approval Store, rồi resume với `approval_id`. Client **không** tự gửi `approval_id`. Các kind khác resume trực tiếp. |
+| `POST /chat/{thread_id}/decision` `{kind, plan_version, payload_hash?, change_request?, target_task_ids?, pii_forms?}` | Với `CONFIRM`: backend xác thực user, so `payload_hash` client gửi với payload đang chờ (lấy từ `aget_state`), lưu dữ liệu form cá nhân (`pii_forms`) vào kho riêng để lấy `pii_ref`, tạo `Approval` (gắn `pii_refs`), rồi resume với `approval_id` + `pii_refs`. Client **không** tự gửi `approval_id` hay `pii_ref`. Các kind khác resume trực tiếp. |
+| | Nếu interrupt mới là `payment_required` thì trả `{status: "pending_payment", thread_id, payment: {pay_url, amount_vnd, expires_at}}`. |
+| `POST /chat/{thread_id}/payment/check` | Resume `await_payment` để hỏi lại cổng thanh toán (người dùng bấm "Tôi đã thanh toán" hoặc UI hỏi định kỳ). |
+| `POST /chat/{thread_id}/payment/cancel` | Resume `await_payment` với yêu cầu huỷ: gọi `cancel_payment`, rồi `transaction` huỷ giữ chỗ. |
 | `GET /chat/{thread_id}/state` | `graph.aget_state(config)`: intake, plan, task_status, cost_summary, đang chờ gì (`next`, `interrupts`). |
 | (sau) `GET /chat/{thread_id}/stream` | `graph.astream(..., stream_mode="updates")` để hiển thị tiến độ từng task. |
+
+**Một lượt chạy cho mỗi thread.** API giữ khoá theo `thread_id`: đang có lượt chạy
+thì request mới của cùng thread nhận 409 (ý tưởng kiểm revision của nhánh `khoa`,
+§3.3). Khi thread đang dừng ở `payment_required`, tin nhắn chat mới không đổi luồng
+thanh toán; API nhắc người dùng thanh toán hoặc huỷ bằng hai endpoint ở trên.
+
+`AgentResponse.suggestions` được trả kèm trong `response`; UI hiện thành nút. Bấm nút
+thì gửi `POST /chat` với `message = Suggestion.message` (và tuỳ chọn `suggestion_key`
+để `intake` khớp chính xác), không có endpoint riêng cho gợi ý.
 
 Cần cập nhật `ChatRequest`/`ChatResponse` trong
 [schemas.py](../../src/models/schemas.py). App tạo graph một lần khi khởi động bằng
@@ -1477,16 +1750,18 @@ Cần cập nhật `ChatRequest`/`ChatResponse` trong
 > Chợ Rẫy, có Wi-Fi; đặt giúp chuyển đồ và vé máy bay."
 
 **Lượt 1 — `intake`** (giai đoạn khung là `FixedIntake`) trả `kind = NEW_GOAL`,
-`intent = relocate_and_rent` (domains: property, relocation, flight, map, contract),
+`intent = relocate_and_rent` (domains: property, relocation, flight, map),
 `constraints.values = {city: HCM, max_price_vnd: 6_000_000, near: "BV Chợ Rẫy",
-must_have: [wifi], origin_city: HN, move_month: 2026-11}`.
+must_have: [wifi], origin_city: HN, move_month: 2026-11}`,
+`commit_requested = [moving_booking, flight_booking]` (evidence: "đặt giúp chuyển đồ
+và vé máy bay"). Phòng chỉ dừng ở tìm kiếm (S2; MVP không có đặt cọc, Q25).
 
 Áp quy tắc §6.1:
 
 | Domain | Còn thiếu | Chạy được? |
 |---|---|---|
 | property | — | có |
-| map, contract | — (lấy từ phòng) | có, sau property |
+| map | — (toạ độ lấy từ phòng) | có, sau property |
 | flight | `date` (mới có tháng) | chưa |
 | relocation | `from_address` (mới có thành phố), `move_date`; `to_address` lấy từ phòng | chưa |
 
@@ -1499,23 +1774,23 @@ Plan v1 (do Planner sinh ra; ở giai đoạn khung là `FixedPlanner`) chỉ g�
 | Task | Agent | depends_on | inputs (rút gọn) |
 |---|---|---|---|
 | `t1` | property | — | `city=HCM, max_price_vnd=6_000_000, near="BV Chợ Rẫy", must_have=["wifi"]` |
-| `t3` | map | `t1` | `categories=[hospital, market, pharmacy], radius_m=1500` |
-| `t4` | contract | `t1` | `topics=[deposit, cancellation, lease_term]` |
+| `t2` | map | `t1` | `categories=[hospital, market, pharmacy], radius_m=1500` |
 
 Validator không thấy lỗi nhưng `constraints.missing` còn, nên `ASK_USER`. Câu trả lời
-lượt 1 gồm danh sách phòng kèm tiện ích, chính sách cọc và câu hỏi: *"Bạn chọn phòng
+lượt 1 gồm danh sách phòng kèm tiện ích xung quanh và câu hỏi: *"Bạn chọn phòng
 nào? Bay ngày nào? Chuyển đồ ngày nào, từ địa chỉ nào ở Hà Nội?"*
 
 **Lượt 2** — người dùng: *"Phòng số 2. Bay 15/11, chuyển đồ 14/11 từ 12 Láng Hạ."*
 `intake` trả `REFINE`, ghi `selected_listing_id` vào `user_confirmed_facts`, không
-còn thiếu gì. Plan v2 giữ `t1`, `t3`, `t4` ở `DONE` và thêm:
+còn thiếu gì. Plan v2 giữ `t1`, `t2` ở `DONE` và thêm:
 
 | Task | Agent | depends_on | inputs (rút gọn) |
 |---|---|---|---|
-| `t2` | flight | — | `origin=HAN, destination=SGN, date=2026-11-15` |
-| `t5` | relocation | `t1` | `from_address="12 Láng Hạ", move_date=2026-11-14`; `to_address` từ phòng đã chọn trong `t1` |
+| `t3` | flight | — | `origin=HAN, destination=SGN, date=2026-11-15` |
+| `t4` | relocation | `t1` | `from_address="12 Láng Hạ", move_date=2026-11-14`; `to_address` từ phòng đã chọn trong `t1` |
 
-`commit_actions`: `deposit(t1)`, `flight_booking(t2)`, `moving_booking(t5)`.
+`commit_actions`: `flight_booking(t3)`, `moving_booking(t4)`. Không có `deposit(t1)` vì
+MVP không có đặt cọc (Q25); `t4` được tạo ở lượt 2 vì cần phòng đã chọn (S4).
 
 ```mermaid
 sequenceDiagram
@@ -1531,33 +1806,33 @@ sequenceDiagram
     Note over API,T: Lượt 1
     API->>I: messages
     I->>O: IntakeResult (NEW_GOAL, missing: date, from_address, move_date)
-    O->>E: plan v1 (t1, t3, t4)
+    O->>E: plan v1 (t1, t2)
     E->>A: Send t1 (property)
     A-->>E: task_results t1
-    E->>A: Send t3 (map), t4 (contract) — song song
-    A-->>E: task_results t3, t4
+    E->>A: Send t2 (map)
+    A-->>E: task_results t2
     E->>V: không còn task
     V-->>API: ASK_USER → respond CLARIFY (kèm danh sách phòng)
     Note over API,T: Lượt 2
     API->>I: "Phòng số 2, bay 15/11, chuyển 14/11 từ 12 Láng Hạ"
     I->>O: IntakeResult (REFINE, đủ thông tin)
-    O->>E: plan v2 (t1, t3, t4 DONE; thêm t2, t5)
-    E->>A: Send t2 (flight), t5 (relocation) — song song
-    A-->>E: task_results t2, t5
+    O->>E: plan v2 (t1, t2 DONE; thêm t3, t4)
+    E->>A: Send t3 (flight), t4 (relocation) — song song
+    A-->>E: task_results t3, t4
     E->>V: không còn task
     V->>C: PASS
     C-->>API: interrupt(confirmation_required v2, payload_hash)
     API->>C: Command(resume=CHANGE "phòng đắt quá", target t1)
     C->>I: câu đổi ý (messages)
     I->>X: IntakeResult (CHANGE, target t1)
-    X->>O: t1, t3, t4, t5 STALE; t2 reusable
-    O->>E: plan v3 (t1 mới, t2 giữ DONE)
+    X->>O: t1, t2, t4 STALE; t3 reusable
+    O->>E: plan v3 (t1 mới, t3 giữ DONE)
     Note over E,V: lặp lại Phase 2–3 chỉ cho task bị ảnh hưởng
     C-->>API: interrupt(confirmation_required v3, payload_hash mới)
     Note over API: backend xác thực user, lưu Approval(payload_hash v3)
     API->>C: Command(resume=CONFIRM v3 + approval_id)
     C->>T: approval hợp lệ
-    T->>T: lookup → commit deposit, flight, moving (idempotent)
+    T->>T: lookup → commit flight, moving (idempotent) → ghi committed
     T-->>API: respond COMMITTED (ghi rõ sandbox/demo nếu có)
 ```
 
@@ -1598,6 +1873,33 @@ Nếu 5 triệu ở Quận 10 cho 0 kết quả: agent tìm lại không có `so
 `relaxed_filters = [max_price_vnd]`; câu trả lời nói rõ ngân sách như lần trước đã
 được nới.
 
+### 10.2. Một mục đích và chuỗi liên hoàn
+
+Cùng một graph, chỉ khác số task và commit action (D14, S1–S10). Các dòng dưới đây
+dùng làm test case cho Intake và Orchestrator.
+
+| # | Người dùng nói | `domains` / `commit_requested` | Plan | Luồng và kết quả |
+|---|---|---|---|---|
+| 1 | "Tìm phòng dưới 5 triệu ở Quận 10" | property / — | `t1 property` | validator `PASS` → không có commit action → `ANSWER` |
+| 2 | "Tìm vé Hà Nội – Sài Gòn ngày 15/11" | flight / — | `t1 flight` | `ANSWER` với danh sách chuyến; không qua `confirm` |
+| 3 | "Đặt vé Hà Nội – Sài Gòn sáng 15/11 cho 1 người" | flight / `flight_booking` | `t1 flight`; `flight_booking(t1)` (`requires_payment`, `pii_required = [passengers, contact]`) | tìm chuyến → `cost_summary` chọn chuyến xếp hạng đầu → `confirm` (người dùng thấy rõ chuyến, điền form hành khách, có thể `CHANGE`) → `transaction`: `get_offer` → `hold_booking` → `create_payment` → `await_payment` (trả link ZaloPay, chờ `PAID`) → `confirm_booking` → `COMMITTED` (ghi rõ vé giả lập, thanh toán sandbox) |
+| 4 | "Báo giá chuyển nhà từ 12 Láng Hạ sang 45 Kim Mã ngày 5/10" | relocation / — | `t1 relocation` | `ANSWER` với các báo giá; không đặt |
+| 5 | "Đặt xe chuyển nhà từ 12 Láng Hạ sang 45 Kim Mã ngày 5/10" | relocation / `moving_booking` | `t1 relocation`; `moving_booking(t1)` | báo giá → `confirm` → `transaction` → `COMMITTED` |
+| 6 | "Mình muốn chuyển nhà" | relocation / — | — | không task nào chạy được → `intake` hỏi ngay điểm đi, điểm đến, ngày (S3: không có tìm phòng nên `to_address` phải hỏi). Relocation là `paid` nên không tự điền; nếu bộ nhớ có `current_address` thì chỉ gợi ý "Chuyển từ 12 Láng Hạ?" |
+| 7 | Chuỗi đầy đủ ở §10 | property, map, flight, relocation / `flight_booking`, `moving_booking` | lượt 1: `t1`, `t2`; lượt 2 thêm `t3`, `t4` | hỏi sau (D10), chờ chọn phòng (S4), một lần xác nhận cho vé và xe (S7) |
+| 8 | Lượt 1: "Tìm phòng ở Thủ Đức dưới 4 triệu"; lượt 2: "Đặt luôn vé bay từ Hà Nội vào đó ngày 15/11" | lượt 2 thêm flight / `flight_booking` | lượt 1: `t1 property`; lượt 2 thêm `t2 flight` (`destination` ← thành phố của phòng) | lượt 2 là `REFINE` (S5), `t1` giữ `DONE`; chỉ vé cần xác nhận |
+| 9 | Đã đặt vé ở lượt trước; giờ: "Đặt xe chuyển đồ tới phòng số 2, từ 12 Láng Hạ ngày 14/11" | relocation / `moving_booking` | thêm `t4 relocation`; chỉ `moving_booking(t4)` | `flight_booking` đã có trong `committed` nên không đặt lại (S8); `cost_summary` hiện vé là "đã đặt" |
+| 10 | Đã đặt vé; giờ: "Đổi sang chuyến chiều" | flight / — | — | `change_impact` thấy vé đã đặt → không tự huỷ; `respond` hỏi có muốn huỷ vé đã đặt không (§6.8 bước 7, Q18) |
+| 11 | "Thanh toán giúp mình" (chưa có gì để trả) | — | — | không rõ thanh toán cho thứ gì → `intake` hỏi lại (S6) |
+| 11a | Sau dòng 3, người dùng không trả tiền, link hết hạn | — | — | `await_payment` hỏi `get_payment` → `EXPIRED` → `transaction` gọi `cancel_booking(confirm=true)` huỷ giữ chỗ → `respond` báo chưa đặt được, gợi ý đặt lại |
+| 11b | "Đơn chuyển nhà của mình tới đâu rồi?" (có đơn trong `committed`) | relocation / — | `t1 relocation` (tra cứu: `get_move_order` / `get_move_tracking_link` bên trong subagent) | `ANSWER` với trạng thái đơn và link theo dõi (S10) |
+| 11c | "Huỷ đơn chuyển nhà hôm qua giúp mình" (mã đơn ở phiên khác) | relocation / `cancel_order` | `t1 relocation` tra đơn theo mã (backend xác nhận đơn thuộc người dùng); `cancel_order(t1, target_receipt_id)` | `confirm` hiện phí huỷ (nếu có) → approval → `transaction` gọi `cancel_move_order` (S10) |
+| 11d | Người dùng gõ họ tên, ngày sinh, CCCD vào chat | — | — | `intake` không ghi thành fact; `respond` hướng người dùng điền form khi xác nhận đặt (D16) |
+| 12 | Sau dòng 1 (tìm phòng xong), bộ nhớ có `origin_city = Hà Nội` | — | — | `ANSWER` kèm tối đa 2 gợi ý: `quote:relocation`, `search:flight` (không có gợi ý đặt cọc trong MVP, Q25). Không gọi subagent nào cho gợi ý (S9) |
+| 13 | Sau dòng 12, người dùng bấm "Báo giá chuyển đồ" | relocation / — | thêm `t2 relocation` khi đã có phòng được chọn (S4) | `intake` hiểu là `REFINE`; chưa chọn phòng và chưa có điểm đi → `ASK_USER` hỏi phòng nào, chuyển từ đâu, ngày nào |
+| 14 | Sau dòng 12, người dùng: "không cần chuyển đồ, mình tự chở" | — | — | `quote:relocation` vào `declined_suggestions`; các lượt sau trong thread không gợi ý lại |
+| 15 | Sau dòng 2 (tìm vé xong, lượt trước chỉ có gợi ý `book:flight`), người dùng: "có" | flight / `flight_booking` | `flight_booking(t1)` | "có" trả lời gợi ý `book:flight` → `commit_requested` (evidence = lời đồng ý + `key`) → `confirm` → `transaction`. Nếu lượt trước có nhiều gợi ý thì "có" là mơ hồ → `intake` hỏi lại muốn cái nào |
+
 ---
 
 ## 11. Layout code đề xuất và thứ tự implement
@@ -1613,6 +1915,7 @@ src/agents/
   planning.py           # Planner Protocol, validate_plan, NotImplementedPlanner, FixedPlanner, TemplatePlanner
   approval.py           # confirmation_hash, check_approval (hàm thuần)
   memory.py             # MEMORY_TIERS, PREFILL_ANCHORS, prefill_from_memory, memory_updates (hàm thuần)
+  suggestions.py        # NEXT_STEPS, next_step_suggestions (hàm thuần, S9)
   cost.py               # UsageMeter Protocol, UsageCounts, check_budget (hàm thuần)
   nodes/
     load_context.py
@@ -1624,6 +1927,7 @@ src/agents/
     confirm.py
     change_impact.py    # + downstream_closure (hàm thuần)
     transaction.py
+    await_payment.py    # interrupt chờ thanh toán, hỏi lại cổng (§6.9)
     respond.py
   contracts/
     agent_task.py       # AgentManifest, AgentCapability, AgentBudget, AgentTaskRequest,
@@ -1639,7 +1943,8 @@ src/services/adapters/
   ports.py              # TransactionPort, ApprovalPort, SessionPort (port của graph; port provider nằm trong subagent)
   registry.py           # ServiceRegistry: URL, credential ref (read / write), tool allowlist, source_kind, manifest
   commit.py             # TransactionPort thật: gọi commit endpoint của từng service (§6.9)
-  fakes.py              # FakeTransaction, InMemorySessionPort, InMemoryApprovalStore, InMemoryUsageMeter
+  fakes.py              # FakeTransaction, InMemorySessionPort, InMemoryApprovalStore, InMemoryPiiStore,
+                        # InMemoryUsageMeter
 docs/api/agent-contract/  # JSON Schema xuất từ contracts/agent_task.py, cho chủ service
 tests/fixtures/agents/    # JSON fixture cho FakeAgent
 tests/contract/agent_conformance/  # bộ test tuân thủ R1–R12, chủ service chạy với subagent của mình
@@ -1648,13 +1953,22 @@ tests/test_agents/
   test_intake.py        # resolve_missing: chặn chỉ khi không task nào chạy được, chỉ hỏi task gốc,
                         # tự điền cho cheap / không cho paid, prefill quá hạn, REJECT → CHANGE,
                         # fact không có evidence bị bỏ
-  test_memory.py        # quá hạn không điền; sửa thì ghi đè; đặt cọc xong ngừng điền khu vực;
+  test_memory.py        # quá hạn không điền; sửa thì ghi đè; đặt xe chuyển nhà xong ngừng điền khu vực;
                         # đổi khu vực không điền ngân sách; mức 2 chỉ gợi ý; mức 3 và điều
                         # model suy ra không được lưu; save chạy lại không sai; 0 kết quả → nới
   test_executor.py      # compute_ready: song song, tuần tự, SKIPPED, max attempts
   test_validator.py     # V1–V5 và bảng quyết định
-  test_change_impact.py # downstream closure, reusable
-  test_approval.py      # hash lệch, hết hạn, sai user, sai plan_version
+  test_change_impact.py # downstream closure, reusable, thứ đã đặt không tự STALE / huỷ
+  test_request_scope.py # S1–S10 với các dòng ở §10.2: một mục đích, chuỗi liên hoàn, mở rộng
+                        # dần, chỉ tìm không qua confirm, không đặt lại cái đã đặt
+  test_suggestions.py   # S9: đúng gợi ý theo NEXT_STEPS, tối đa max_suggestions, không lặp gợi ý
+                        # đã từ chối / đã làm / đã đặt, không gợi ý đặt khi service không hỗ trợ,
+                        # không gọi subagent; "có" với một / nhiều gợi ý
+  test_approval.py      # hash lệch, hết hạn, quá 30 phút, dùng lại approval_id, sai user,
+                        # sai plan_version, thiếu pii_refs
+  test_payment_flow.py  # hold → create_payment → PENDING (interrupt) → PAID → confirm_booking;
+                        # EXPIRED / huỷ → huỷ giữ chỗ; resume không tạo thanh toán / giữ chỗ lần hai;
+                        # dữ liệu cá nhân không xuất hiện trong state, log, messages
   test_cost_limits.py   # vượt trần paid/LLM → PARTIAL/ERROR, cache hit không tính call, TemplatePlanner,
                         # usage của subagent tính vào trần
   test_run_with_policy.py  # lọc constraint/hint theo manifest, budget, deadline, retry 1 lần chỉ
@@ -1662,6 +1976,10 @@ tests/test_agents/
   test_graph_e2e.py     # FixedIntake + FixedPlanner + fakes: PASS → confirm → CONFIRM → COMMITTED
   test_interrupt.py     # interrupt / resume CHANGE → intake → replan v2; restart không lặp side-effect
 ```
+
+Code dùng lại từ nhánh `khoa` (evidence, `validate_plan`, approval, `StructuredLLM`,
+`canonical` / `fingerprint`) chuyển vào các file tương ứng ở trên theo bảng §3.3;
+`src/agent_services/` (HTTP app, SQLite store) không giữ lại.
 
 `example_node.py`, `example_tool.py` và test hiện có trong
 [test_graph.py](../../tests/test_agents/test_graph.py) sẽ được thay thế khi code
@@ -1672,10 +1990,10 @@ kế dùng `interrupt`, `Command`, `input_schema` (bản đã cài trong `.venv`
 
 | Mốc | Nội dung | Kết quả kiểm chứng |
 |---|---|---|
-| M0 — Khung | models, state, routing, `build_graph`, `PassThroughIntake`/`FixedIntake`, `NotImplementedPlanner`/`FixedPlanner`, `resolve_missing`, `InMemoryUsageMeter`, contract §6.3 + JSON Schema, `FakeAgent` cho 5 lĩnh vực, `run_with_policy`, `respond` template | `test_graph_e2e` chạy hết hai lượt ở §10 và hai trường hợp ở §10.1 không cần mạng |
+| M0 — Khung | models, state, routing, `build_graph`, `PassThroughIntake`/`FixedIntake`, `NotImplementedPlanner`/`FixedPlanner`, `resolve_missing`, `InMemoryUsageMeter`, contract §6.3 + JSON Schema, `FakeAgent` cho 4 lĩnh vực, `run_with_policy`, `respond` template | `test_graph_e2e` chạy hết hai lượt ở §10, hai trường hợp ở §10.1 và các dòng một mục đích ở §10.2 không cần mạng |
 | M1 — Kiểm soát | validator V1–V5, cost_summary, change_impact, chính sách bộ nhớ (`memory.py`, `SessionPort.save`) với `InMemorySessionPort` | test bảng quyết định, closure, `test_memory` |
-| M2 — Human-in-the-loop | `confirm` + checkpointer, approval với `InMemoryApprovalStore`, transaction với `FakeTransaction`, API `/chat` + `/decision` | test interrupt/resume, approval, idempotency |
-| M3 — Subagent thật | bộ test tuân thủ; `RemoteAgent`; từng service đăng ký subagent (manifest + `run_task`) khi các nhánh được ghép, bắt đầu bằng subagent moving chỉ đọc trên staging (dữ liệu mock trước, Q13); commit endpoint cho `transaction`; giữ `FakeAgent` cho test | mỗi subagent qua bộ test tuân thủ; e2e với ít nhất một `RemoteAgent` |
+| M2 — Human-in-the-loop | `confirm` + checkpointer, approval với `InMemoryApprovalStore` (kiểm tra lấy từ nhánh `khoa`), `pii_refs` với `InMemoryPiiStore`, transaction + `await_payment` với `FakeTransaction`, API `/chat` + `/decision` + `/payment/*` | test interrupt/resume, approval, idempotency, `test_payment_flow` |
+| M3 — Subagent thật | bộ test tuân thủ; `RemoteAgent`; từng service đăng ký subagent (manifest + `run_task`) khi các nhánh được ghép, bắt đầu bằng subagent moving chỉ đọc trên staging (bọc registry 13 tool và planner mức tool của nhánh `khoa`; dữ liệu mock trước, Q13); adapter `commit.py` gọi tool ghi theo bảng §6.9; giữ `FakeAgent` cho test | mỗi subagent qua bộ test tuân thủ; e2e với ít nhất một `RemoteAgent` |
 | M4 — Intake + Orchestrator | thiết kế + implement `Intake` và `Planner` (kèm `TemplatePlanner`), model theo `llm_models` | bộ câu tiếng Việt có expected intent; golden scenarios (`tests/golden_scenarios/`); báo cáo token/call theo kịch bản từ `UsageMeter` |
 
 ---
@@ -1686,9 +2004,9 @@ kế dùng `interrupt`, `Command`, `input_schema` (bản đã cài trong `.venv`
 |---|---|---|
 | Q1 | Orchestrator dùng LLM planner (structured output) hay rule-based, hay kết hợp? | Chỉ ảnh hưởng implementation `Planner`. |
 | Q2 | ~~Domain agent là tool-caller deterministic hay ReAct LLM?~~ **Đã chốt 2026-09-28:** mỗi service có subagent riêng do chủ service viết, bên trong tuỳ chủ service (có thể dùng LLM); graph nối qua contract §6.3 (D13). | §6.3. |
-| Q3 | Checkpointer thật: Postgres hay SQLite? Dùng chung DB với Property DB không? | ADR-001. |
+| Q3 | Checkpointer thật: Postgres hay SQLite? Dùng chung DB với Property DB không? | ADR mới (Q23). |
 | Q4 | Giá trị `stale_ttl` cho từng loại dữ liệu (đặc biệt giá vé, báo giá chuyển đồ). | Validator V3, hạn approval. |
-| Q5 | Có cần "giữ chỗ tạm" (hold) trước khi user xác nhận không? Nếu có thì ai release khi CHANGE? | `change_impact`, `TransactionPort`. |
+| Q5 | ~~Có cần "giữ chỗ tạm" (hold) trước khi user xác nhận không?~~ **Đã chốt 2026-09-29 cho flight:** giữ chỗ chỉ làm sau approval, bên trong `transaction` (§6.9). Service khác chưa có giữ chỗ. | `transaction`. |
 | Q6 | `max_task_attempts`, `max_replans`, timeout từng agent. | `GraphSettings`. |
 | Q7 | Chọn option mặc định trong `cost_summary`: lấy theo thứ hạng của agent hay theo tiêu chí tổng chi phí thấp nhất? | `cost_summary`. |
 | Q8 | Long-term memory: DB riêng hay LangGraph `Store`? | `SessionPort`. |
@@ -1697,7 +2015,55 @@ kế dùng `interrupt`, `Command`, `input_schema` (bản đã cài trong `.venv`
 | Q11 | Intake và Planner dùng chung một model/prompt hay tách? Có gộp thành một LLM call khi yêu cầu đơn giản không? | Chi phí, độ trễ; không ảnh hưởng graph. |
 | Q12 | Approval Store đặt ở đâu, ai sở hữu, TTL bao lâu? | `ApprovalPort`, API `/decision`. |
 | Q13 | Đơn giá / hạn mức của từng provider (AhaMove, flight, maps) và giá trị trần chi phí; `cost_tier` của từng agent. **Hoãn** đến khi có API thật: giai đoạn đầu test độ ổn định bằng API mock. Khi test mock vẫn giữ `cost_tier` theo bản chất provider thật (không đặt tất cả `cheap`), để hành vi tự điền và trần chi phí giống lúc chạy thật. | §7.4, §7.5. |
-| Q14 | ~~Dữ liệu session nào được tự điền, và bao lâu thì hết hiệu lực?~~ **Đã chốt phần logic 2026-09-28:** ba mức dữ liệu, hạn theo field và theo sự kiện, quy tắc đi kèm, chỉ lưu điều người dùng nói (§6.0, §6.1, §7.4). **Hoãn** đến khi có người dùng thật: xin đồng ý lưu, màn hình xem/xoá, `SessionPort.forget` (thống nhất với ADR-007 trên nhánh `Doan/api`); chỉnh `prefill_ttl` theo tỉ lệ `prefill_corrected`. | `SessionPort`, `memory.py`, `resolve_missing`. |
+| Q14 | ~~Dữ liệu session nào được tự điền, và bao lâu thì hết hiệu lực?~~ **Đã chốt phần logic 2026-09-28:** ba mức dữ liệu, hạn theo field và theo sự kiện, quy tắc đi kèm, chỉ lưu điều người dùng nói (§6.0, §6.1, §7.4). **Hoãn** đến khi có người dùng thật: xin đồng ý lưu, màn hình xem/xoá, `SessionPort.forget` (thống nhất với ADR-015, hiện là ADR-007 trên nhánh `Doan/api`); chỉnh `prefill_ttl` theo tỉ lệ `prefill_corrected`. | `SessionPort`, `memory.py`, `resolve_missing`. |
 | Q15 | Kênh truyền tới subagent: MCP tool `run_task` (đề xuất, vì các service đều đã là MCP server) hay HTTP `POST /agent/run_task`? Có cần stream tiến độ từ subagent không? | `RemoteAgent`, registry, §6.3.5. |
 | Q16 | Danh sách tiện ích dùng chung subagent được phép gọi theo R5 (ví dụ geocode, tính khoảng cách): ai cung cấp, đặt ở service nào? | R5, registry. |
-| Q17 | Commit endpoint cụ thể của từng service (đặt cọc, đặt xe, đặt vé, thanh toán): service nào hỗ trợ `lookup` / `compensate`? | §6.9, `commit.py`. |
+| Q17 | Commit endpoint cụ thể của từng service (đặt xe, đặt vé, thanh toán): service nào hỗ trợ `lookup` / `compensate`? | §6.9, `commit.py`. |
+| Q18 | Luồng huỷ thứ đã đặt khi người dùng đổi ý (§6.8 bước 7): có hỗ trợ huỷ không, phí huỷ trình bày thế nào, huỷ và đặt lại có gộp trong một lần xác nhận không? | `change_impact`, `confirm`, `TransactionPort.compensate`. |
+| Q19 | Khi đặt (S2) mà kết quả tìm có nhiều lựa chọn tương đương: `cost_summary` tự chọn phương án xếp hạng đầu để người dùng xác nhận, hay bắt buộc người dùng chọn trước (thêm một lượt)? | `cost_summary`, S4, Q7. |
+| Q20 | ~~Nhà cung cấp và model LLM?~~ **Đã chốt 2026-09-29:** tạm thời mọi agent (node của graph và subagent của service) dùng **OpenAI**; chọn model theo độ nặng của việc (bảng tầng model ở §7.5). | `StructuredLLM`, `llm_models`. |
+| Q21 | ~~Đặt xe AhaMove thanh toán thế nào?~~ **Đã chốt 2026-09-29:** `payment_method = CASH`, người gửi trả tiền mặt cho tài xế; `moving_booking` không qua Payment MCP (`requires_payment = False`). `confirm` ghi rõ "giá ước tính X, trả tiền mặt cho tài xế". `BALANCE` / thu tiền qua ZaloPay để sau MVP. | Bảng thực thi §6.9. |
+| Q22 | ~~Cầu nối approval sang backend Moving?~~ **Đã chốt 2026-09-29:** sau khi `check_approval` qua, `transaction` gọi endpoint nội bộ của Moving (credential ghi) để ghi bản ghi approval cho đúng action (`approval_id`, `approved_by`, payload theo cách Moving tính hash, hạn), rồi mới gọi `create_move_order`. Việc cần làm phía Moving: thêm endpoint ghi approval (chủ service: Khoa). | `commit.py`, §6.9. |
+| Q23 | ~~Trùng số ADR giữa các nhánh~~ **Đã chốt 2026-09-29:** bảng đánh số lại ở §12.1; nhánh `khoa` giữ ADR-001…006, nhánh `QuangDung` và `Doan/api` đánh số tiếp. | `docs/adr/`. |
+| Q24 | Flight và Payment MCP (nhánh `Doan/api`) hiện nhận mọi request, không kiểm header `Authorization: Bearer <token>` như Location / Moving. Ai gọi được tới cổng `8765` / `8766` đều gọi được `confirm_booking`, `create_payment`. Chủ service bổ sung kiểm token trước khi đăng ký vào registry, tốt nhất tách hai token: chỉ-đọc (subagent) và ghi (`transaction`). | Registry, §6.3.5. |
+| Q25 | ~~Đặt cọc phòng làm thế nào?~~ **Đã chốt 2026-09-29:** MVP **không có** đặt cọc. Phòng chỉ dừng ở tìm kiếm / xem chi tiết; không có commit action `deposit`, không gợi ý đặt cọc. | §6.9, S9. |
+
+### 12.1. Đánh số lại ADR (Q23)
+
+Ba nhánh đang dùng trùng số ADR. Quy tắc: nhánh `khoa` giữ nguyên số (các ADR đã
+*Accepted*, được SPEC và tài liệu này tham chiếu); nhánh `QuangDung` rồi `Doan/api`
+đánh số tiếp theo thứ tự ADR trong nhánh; ADR mới của graph đánh số sau cùng.
+
+| Số mới | Nguồn hiện tại | Tiêu đề | Ghi chú |
+|---|---|---|---|
+| ADR-001 | `khoa` ADR-001 | Polyglot LifeFlow workspace | Giữ |
+| ADR-002 | `khoa` ADR-002 | Service adapter boundary | Giữ |
+| ADR-003 | `khoa` ADR-003 | Approval, idempotency and recovery | Giữ |
+| ADR-004 | `khoa` ADR-004 | One MCP server per domain | Giữ |
+| ADR-005 | `khoa` ADR-005 | Moving container HTTP boundary | Giữ |
+| ADR-006 | `khoa` ADR-006 | Standalone Intake and Routing | Đổi trạng thái thành *Superseded by ADR-016* (D15) |
+| ADR-007 | `QuangDung` ADR-001 | Giữ hai workspace ứng dụng độc lập | Trùng chủ đề với ADR-001; đề nghị chủ nhánh gộp vào ADR-001 hoặc đánh dấu *Superseded by ADR-001* |
+| ADR-008 | `QuangDung` ADR-002 | Một nguồn schema chuẩn cho mỗi runtime | |
+| ADR-009 | `QuangDung` ADR-003 | PostGIS là nguồn dữ liệu POI | |
+| ADR-010 | `QuangDung` ADR-004 | OSRM cho routing | |
+| ADR-011 | `QuangDung` ADR-005 | Không suy đoán giá hay vùng phục vụ của đối tác | Viết trước khi có adapter AhaMove thật (ADR-005); chủ nhánh rà lại cho khớp |
+| ADR-012 | `Doan/api` ADR-004 | Nguồn dữ liệu chuyến bay | |
+| ADR-013 | `Doan/api` ADR-005 | Bố cục Flight MCP server | |
+| ADR-014 | `Doan/api` ADR-006 | Đóng gói MCP server bằng Docker | |
+| ADR-015 | `Doan/api` ADR-007 | ZaloPay sandbox và bảo vệ dữ liệu cá nhân | |
+| ADR-016 | mới | Một LangGraph graph với subagent theo lĩnh vực | Đã viết, trạng thái Proposed (D13, D15) |
+| ADR-017 | mới (dự kiến) | Checkpointer cho workflow | Theo Q3 |
+
+**Tình trạng áp dụng (2026-09-29):**
+
+- `Doan/api`: đã đổi tên 4 file và sửa mọi tham chiếu, **chưa commit**.
+- `QuangDung`: đã chuẩn bị trên nhánh cục bộ `adr-renumber-quangdung` (tách từ
+  `origin/QuangDung`), **chưa commit, chưa push**; cần Dũng đồng ý.
+- `khoa`: không đổi số. ADR-006 chỉ đổi trạng thái khi ADR-016 được Accepted.
+- ADR-016 đã viết trên nhánh `docs/agent-graph-design` (trạng thái Proposed):
+  [ADR-016](../adr/ADR-016-agent-graph-with-domain-subagents.md).
+
+Khi áp dụng, chủ mỗi nhánh: đổi tên file, sửa tiêu đề `# ADR-0xx`, sửa mọi link và
+chú thích tham chiếu số cũ (nhánh `Doan/api` có tham chiếu trong `docs/api/examples/`,
+`src/mcp_servers/*/README.md`, `settings.py`, `storage.py`, `privacy.py`, `Dockerfile`,
+`src/ui/`), và cập nhật `docs/adr/README.md`.
