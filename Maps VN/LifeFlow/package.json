@@ -6,12 +6,22 @@
   "workspaces": [
     "packages/contracts",
     "packages/housing-query",
+    "packages/mcp-core",
+    "packages/moving-service",
     "platform-api",
-    "mcp-server"
+    "mcp-server",
+    "moving-api",
+    "moving-mcp-server"
   ],
   "scripts": {
-    "build": "npm run build --workspace @lifeflow/contracts && npm run build --workspace @lifeflow/housing-query && npm run build --workspace @lifeflow/platform-api && npm run build --workspace @lifeflow/mcp-server",
-    "test": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/housing-query && npm run test --workspace @lifeflow/platform-api && npm run test --workspace @lifeflow/mcp-server",
+    "build:moving": "npm run build --workspace @lifeflow/contracts && npm run build --workspace @lifeflow/mcp-core && npm run build --workspace @lifeflow/moving-service && npm run build --workspace @lifeflow/moving-api && npm run build --workspace @lifeflow/moving-mcp-server",
+    "moving:up": "npm run build:moving && node scripts/moving-stack.mjs up",
+    "moving:down": "node scripts/moving-stack.mjs down",
+    "moving:status": "node scripts/moving-stack.mjs status",
+    "moving:verify": "node scripts/moving-stack.mjs verify",
+    "build": "npm run build --workspace @lifeflow/contracts && npm run build --workspace @lifeflow/housing-query && npm run build --workspace @lifeflow/mcp-core && npm run build --workspace @lifeflow/moving-service && npm run build --workspace @lifeflow/platform-api && npm run build --workspace @lifeflow/mcp-server && npm run build --workspace @lifeflow/moving-api && npm run build --workspace @lifeflow/moving-mcp-server",
+    "test": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/housing-query && npm run test --workspace @lifeflow/mcp-core && npm run test --workspace @lifeflow/moving-service && npm run test --workspace @lifeflow/platform-api && npm run test --workspace @lifeflow/mcp-server && npm run test --workspace @lifeflow/moving-api && npm run test --workspace @lifeflow/moving-mcp-server",
+    "test:ci": "npm run test --workspace @lifeflow/contracts && npm run test --workspace @lifeflow/mcp-core && npm run test --workspace @lifeflow/moving-service && npm run test --workspace @lifeflow/moving-api && npm run test --workspace @lifeflow/moving-mcp-server",
     "db:up": "docker compose --env-file .env -f infra/compose.yaml up -d postgis",
     "db:stop": "docker compose --env-file .env -f infra/compose.yaml stop postgis",
     "db:migrate": "npm run db:migrate --workspace @lifeflow/platform-api",
@@ -25,6 +35,14 @@
     "dev:api": "npm run dev --workspace @lifeflow/platform-api",
     "dev:mcp": "npm run dev --workspace @lifeflow/mcp-server",
     "dev:mcp:http": "npm run dev:http --workspace @lifeflow/mcp-server",
+    "dev:moving-api": "npm run dev --workspace @lifeflow/moving-api",
+    "dev:moving-mcp": "npm run dev --workspace @lifeflow/moving-mcp-server",
+    "dev:moving-mcp:http": "npm run dev:http --workspace @lifeflow/moving-mcp-server",
+    "db:migrate:moving": "node packages/moving-service/dist/migrate.js",
+    "test:moving:http": "npm run test:http --workspace @lifeflow/moving-mcp-server",
+    "test:moving:native": "node scripts/test-moving-native.mjs",
+    "test:moving:deployment": "node scripts/verify-moving-deployment.mjs",
+    "test:moving:live": "npm run test:live --workspace @lifeflow/moving-service && npm run test:live --workspace @lifeflow/moving-mcp-server",
     "dev:map": "npm run dev:lifeflow --prefix map-app"
   },
   "engines": {

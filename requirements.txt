@@ -31,3 +31,6 @@ langchain-mcp-adapters>=0.3.2
 # Giao diện demo (src/ui/flight_demo.py, src/ui/payment_demo.py)
 streamlit>=1.46
 segno>=1.6  # vẽ QR thanh toán ngay trên máy (src/ui/payment_demo.py)
+
+# JSON Schema validation (agent contract, moving tool registry)
+jsonschema==4.26.0

@@ -1,0 +1,10 @@
+# Overlay for an isolated CI job: ephemeral random published ports, project-scoped volume.
+services:
+  moving-mcp:
+    ports: !override ['127.0.0.1::4400']
+    restart: 'no'
+  moving-api:
+    ports: !override ['127.0.0.1::4200']
+    restart: 'no'
+  moving-db:
+    restart: 'no'

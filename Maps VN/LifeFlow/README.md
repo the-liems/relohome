@@ -51,7 +51,8 @@ liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 - Mô hình dữ liệu tách riêng bất động sản, căn/phòng, tin đăng và báo giá.
 - Dịch vụ Housing Query có kiểu dữ liệu rõ ràng và lọc cứng bằng PostGIS.
 - Platform API chạy tại `127.0.0.1:4100`.
-- Tám MCP tool chỉ đọc, giao tiếp qua `stdio` hoặc Streamable HTTP.
+- Tám MCP tool chỉ đọc cho Housing/Map, giao tiếp qua `stdio` hoặc Streamable
+  HTTP, và một Moving MCP server độc lập cho AhaMove.
 - Ứng dụng MapLibre chạy tại `127.0.0.1:5173`.
 - Chín dịch vụ OSRM: ba thành phố nhân với ba chế độ ô tô, xe máy và đi bộ.
 - GeoJSON gốc vẫn được giữ làm phương án dự phòng cho frontend.
@@ -157,13 +158,17 @@ Frontend MapLibre
   `-- định tuyến tương tác --> OSRM của từng thành phố
 
 LifeFlow Agent / MCP client
-  `-- MCP server qua stdio hoặc Streamable HTTP
+  |-- Housing/Map MCP server qua stdio hoặc Streamable HTTP
         |-- search_housing / get_housing --> Housing Query --> PostGIS
         |-- search_places / get_place ----> Place Query ---> PostGIS
         |-- search_areas -----------------> Area Query ----> PostGIS
         |-- resolve_location -------------> Location Query > PostGIS
         |-- find_nearby_places -----------> PostGIS
         `-- calculate_route -------------> OSRM
+  `-- Moving MCP container qua HTTP (local vẫn hỗ trợ stdio)
+        |-- discovery / estimate --------> AhaMove API v3
+        |-- get / tracking / events -----> AhaMove API v3
+        `-- approved create/update/cancel > AhaMove API v3
 ```
 
 Phần Housing Query chỉ trả dữ liệu thực tế. Nó không xếp hạng, chấm điểm hoặc
@@ -238,6 +243,30 @@ calculate_route
 ```
 
 Hệ thống cố ý không cung cấp tool `recommend_housing`.
+
+Moving/AhaMove chạy bằng một MCP server riêng, nhưng dùng chung contracts và
+chuẩn handler/audit:
+
+```powershell
+npm run dev:moving-mcp
+npm run dev:moving-api
+```
+
+Để chạy Moving độc lập bằng Docker, bao gồm database và migration tự động:
+
+```powershell
+npm run moving:up
+npm run moving:verify
+```
+
+AI Service kết nối `http://moving-mcp:4400/mcp` trên cùng Docker network,
+qua bearer token nội bộ. Xem [hướng dẫn container](../../docs/runbooks/moving-containers.md)
+và [bàn giao infra](../../deploy/coolify/staging/moving.md).
+
+Moving API nhận webhook tại
+`POST /v1/integrations/ahamove/webhooks/order-status`. Staging, write tools,
+rating và production có các kill switch độc lập. Xem
+[`docs/runbooks/ahamove-staging.md`](../../docs/runbooks/ahamove-staging.md).
 
 ## Nhập dữ liệu POI mới
 

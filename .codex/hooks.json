@@ -1,5 +1,5 @@
 {
-  "description": "Ghi prompt Codex vào AI usage log của project.",
+  "description": "Log Codex prompts and turn completion events for the course AI usage record.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,8 +7,7 @@
           {
             "type": "command",
             "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
-            "commandWindows": "py -3 scripts/log_hook.py --tool=codex",
-            "statusMessage": "Đang ghi AI usage log",
+            "commandWindows": "scripts\\_pyrun.cmd scripts\\log_hook.py --tool=codex",
             "timeout": 10
           }
         ]
@@ -20,8 +19,7 @@
           {
             "type": "command",
             "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
-            "commandWindows": "py -3 scripts/log_hook.py --tool=codex",
-            "statusMessage": "Đang hoàn tất AI usage log",
+            "commandWindows": "scripts\\_pyrun.cmd scripts\\log_hook.py --tool=codex",
             "timeout": 10
           }
         ]

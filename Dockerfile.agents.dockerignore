@@ -1,0 +1,12 @@
+**
+!requirements-agents.txt
+!src/
+!src/__init__.py
+!src/agent_services/
+!src/agent_services/**
+!config/
+!config/agent-services/
+!config/agent-services/registry.json
+!Dockerfile.agents
+**/__pycache__/
+**/*.pyc

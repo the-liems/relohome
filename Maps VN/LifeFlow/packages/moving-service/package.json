@@ -1,0 +1,30 @@
+{
+  "name": "@lifeflow/moving-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run tests",
+    "test:live": "vitest run tests/live.staging.test.ts"
+  },
+  "dependencies": {
+    "@lifeflow/contracts": "0.1.0",
+    "dotenv": "^17.2.3",
+    "pg": "^8.23.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.6",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.18"
+  }
+}

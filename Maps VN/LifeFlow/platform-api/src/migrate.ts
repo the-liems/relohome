@@ -79,15 +79,17 @@ async function applyRoleGrants() {
   const ingest = roleIdentifier(config.postgresIngestUser)
 
   await pool.query(`GRANT CONNECT ON DATABASE ${roleIdentifier(process.env.POSTGRES_DB || 'lifeflow')} TO ${app}, ${ingest}`)
-  await pool.query(`GRANT USAGE ON SCHEMA geo, catalog, housing, audit TO ${app}`)
+  await pool.query(`GRANT USAGE ON SCHEMA geo, catalog, housing, audit, moving TO ${app}`)
   await pool.query(`GRANT SELECT ON ALL TABLES IN SCHEMA geo, catalog, housing TO ${app}`)
   await pool.query(`GRANT INSERT ON audit.tool_calls TO ${app}`)
+  await pool.query(`GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA moving TO ${app}`)
   await pool.query(`GRANT USAGE ON SCHEMA geo, catalog, housing, integration TO ${ingest}`)
   await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA geo, catalog, housing, integration TO ${ingest}`)
   await pool.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA geo, catalog, housing, integration TO ${ingest}`)
 
   await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA geo, catalog, housing GRANT SELECT ON TABLES TO ${app}`)
   await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT INSERT ON TABLES TO ${app}`)
+  await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA moving GRANT SELECT, INSERT, UPDATE ON TABLES TO ${app}`)
   await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA geo, catalog, housing, integration GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${ingest}`)
   await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA geo, catalog, housing, integration GRANT USAGE, SELECT ON SEQUENCES TO ${ingest}`)
 }

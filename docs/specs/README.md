@@ -1,9 +1,24 @@
-# Mục lục SPEC Maps
+# Mục lục SPEC
+
+SPEC nói **hệ thống phải làm gì**; ADR nói **vì sao chọn cách làm**. Trạng thái
+dùng `Draft`, `Accepted` hoặc `Superseded`. Mã tiêu chí (`SPEC-NNN/AC-NN`) giữ ổn
+định; tiến độ theo dõi ở GitHub Issues, không ở mục lục này.
+
+## Agent
+
+| Cần tìm hiểu | SPEC | Trạng thái | Phụ trách |
+|---|---|---|---|
+| Intake / hiểu yêu cầu | [001 - Goal understanding](SPEC-001-goal-understanding.md) | Draft | Khoa |
+| Routing Orchestrator | [003 - Planning and execution](SPEC-003-planning-and-execution.md) | Draft | Khoa |
+| Dịch vụ chuyển nhà AhaMove | [004 - AhaMove moving service](SPEC-004-ahamove-moving-service.md) | Draft | Chủ service Moving |
+
+Thiết kế graph hợp nhất (intake, Routing Orchestrator, subagent theo lĩnh vực):
+[agent-graph.md](../architecture/agent-graph.md), ADR-016.
+
+## Maps
 
 Bắt đầu từ [SPEC-007](SPEC-007-location-platform.md) để hiểu toàn cảnh, rồi
-đọc đúng phần cần làm. SPEC nói **hệ thống phải làm gì**; ADR nói **vì sao
-chọn cách làm**. Tất cả đang ở trạng thái `Draft`: đây là bản để nhóm đọc và
-duyệt, không phải tuyên bố mọi tiêu chí đã hoàn thành.
+đọc đúng phần cần làm.
 
 | Cần tìm hiểu | SPEC | API hoặc nơi sử dụng |
 |---|---|---|
@@ -13,19 +28,8 @@ duyệt, không phải tuyên bố mọi tiêu chí đã hoàn thành.
 | Tin nhà và commute | [010 - Tìm nhà](SPEC-010-tim-nha-o.md) | `/v1/housing/*` |
 | Tuyến A đến B | [011 - Định tuyến](SPEC-011-dinh-tuyen.md) | `/v1/routes` |
 | Vùng dịch vụ và giá | [012 - Mobility](SPEC-012-vung-dich-vu-va-gia.md) | `/v1/mobility/*` |
-| Công cụ cho agent khác gọi | [013 - MCP](SPEC-013-mcp-vi-tri.md) | MCP `stdio` |
+| Công cụ cho agent khác gọi | [013 - MCP](SPEC-013-mcp-vi-tri.md) | MCP `stdio` / Streamable HTTP |
 
-**Cách dùng:** khi làm một tính năng, dẫn mã tiêu chí như `SPEC-011/AC-03`
-trong Issue/PR/test. Giữ nguyên mã đã có khi bổ sung tiêu chí. Field/giới hạn
-chính xác lấy từ Zod tại
+Field/giới hạn chính xác lấy từ Zod tại
 [`packages/contracts/src/`](../../Maps%20VN/LifeFlow/packages/contracts/src/),
-không chép lại schema vào SPEC. Mẫu cho tính năng mới:
-[`_template.md`](_template.md).
-
-Ví dụ "tìm nhà cách BKHN tối đa 2 km đường đi": đọc SPEC-009 để xác định
-đúng vị trí, SPEC-010 để lọc nhà, SPEC-011 để hiểu quãng đường OSRM. Không
-dùng bán kính PostGIS làm kết luận cuối cùng về quãng đường di chuyển.
-
-SPEC-001 đến SPEC-006 trong
-[`project-organization.md`](../project-organization.md) là ví dụ cho phần
-agent tương lai; chưa tạo file hay coi là chức năng Maps đã triển khai.
+không chép lại schema vào SPEC. Mẫu cho tính năng mới: [`_template.md`](_template.md).

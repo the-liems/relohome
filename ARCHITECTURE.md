@@ -1,8 +1,42 @@
-# Architecture Document
+# LifeFlow Architecture
 
-## System Overview
+## Current implementation
 
-[Tóm tắt 2-3 câu về kiến trúc hệ thống]
+The repository contains a Python FastAPI/LangGraph application and a bounded
+TypeScript LifeFlow workspace for spatial, housing and moving integrations. The
+TypeScript layout exception and service boundaries are recorded in
+[`docs/adr/`](docs/adr/README.md).
+
+Detailed current designs:
+
+- [MCP service standard](docs/architecture/mcp-service-standard.md)
+- [Moving/AhaMove service](docs/architecture/moving-service.md)
+- [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
+
+Independent [Intake and Routing Orchestrator services](docs/architecture/standalone-agent-services.md)
+implement direction B from the [original analysis](docs/architecture/intake-and-routing-orchestrator.md).
+They have separate HTTP entrypoints and images. Intake understands requests;
+Routing owns planning, scheduling, internal tool-call control and persisted workflow
+state. There is no separate Executor agent. Their integration into the chat graph,
+domain MCP connections and trusted approval backend remains future work.
+See the [standalone runbook](docs/runbooks/agent-services.md).
+
+Moving is an independently startable MCP server. It shares canonical contracts
+and MCP behavior packages with other services but owns its provider adapter,
+configuration, persistence and tool registry.
+
+Moving now exposes authenticated HTTP MCP in its own `moving-mcp` image, separate
+from the AI application. A `moving-api` image receives AhaMove webhooks, and a
+one-shot `moving-migrate` image prepares its PostgreSQL schema and runtime role.
+Stdio remains available for local clients. See the
+[container runbook](docs/runbooks/moving-containers.md) and
+[deployment handoff](deploy/coolify/staging/moving.md). AI graph wiring and actual
+Coolify deployment remain integration work, not automatically enabled features.
+
+## Template/future system overview
+
+The remainder of this document originated as the course template and describes
+future system areas that are not all implemented yet.
 
 ## Architecture Diagram
 
