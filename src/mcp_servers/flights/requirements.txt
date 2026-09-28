@@ -1,0 +1,6 @@
+# Dependency tối thiểu của image flight MCP server (Dockerfile cùng thư mục).
+# Không kéo LangChain/FastAPI như requirements.txt gốc để image nhỏ và build nhanh.
+mcp[cli]>=1.26,<2
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+httpx>=0.28.0

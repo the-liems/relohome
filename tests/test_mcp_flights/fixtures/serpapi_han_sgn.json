@@ -1,0 +1,76 @@
+{
+  "search_metadata": {"status": "Success"},
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Sân bay Quốc tế Nội Bài", "id": "HAN", "time": "2026-10-10 06:00"},
+          "arrival_airport": {"name": "Sân bay Quốc tế Tân Sơn Nhất", "id": "SGN", "time": "2026-10-10 08:10"},
+          "duration": 130,
+          "airplane": "Airbus A321",
+          "airline": "VietJet Air",
+          "travel_class": "Economy",
+          "flight_number": "VJ 121"
+        }
+      ],
+      "total_duration": 130,
+      "price": 1589000,
+      "type": "One way",
+      "booking_token": "token-1"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Sân bay Quốc tế Nội Bài", "id": "HAN", "time": "2026-10-10 07:00"},
+          "arrival_airport": {"name": "Sân bay Quốc tế Tân Sơn Nhất", "id": "SGN", "time": "2026-10-10 09:15"},
+          "duration": 135,
+          "airplane": "Boeing 787",
+          "airline": "Vietnam Airlines",
+          "travel_class": "Economy",
+          "flight_number": "VN 207"
+        }
+      ],
+      "total_duration": 135,
+      "price": 2150000,
+      "type": "One way",
+      "booking_token": "token-2"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Sân bay Quốc tế Nội Bài", "id": "HAN", "time": "2026-10-10 09:00"},
+          "arrival_airport": {"name": "Sân bay Quốc tế Đà Nẵng", "id": "DAD", "time": "2026-10-10 10:20"},
+          "duration": 80,
+          "airline": "Bamboo Airways",
+          "flight_number": "QH 101"
+        },
+        {
+          "departure_airport": {"name": "Sân bay Quốc tế Đà Nẵng", "id": "DAD", "time": "2026-10-10 12:00"},
+          "arrival_airport": {"name": "Sân bay Quốc tế Tân Sơn Nhất", "id": "SGN", "time": "2026-10-10 13:25"},
+          "duration": 85,
+          "airline": "Bamboo Airways",
+          "flight_number": "QH 152"
+        }
+      ],
+      "layovers": [{"duration": 100, "name": "Sân bay Quốc tế Đà Nẵng", "id": "DAD"}],
+      "total_duration": 265,
+      "price": 1890000,
+      "type": "One way"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Sân bay Quốc tế Nội Bài", "id": "HAN", "time": "2026-10-10 20:00"},
+          "arrival_airport": {"name": "Sân bay Quốc tế Tân Sơn Nhất", "id": "SGN", "time": "2026-10-10 22:10"},
+          "duration": 130,
+          "airline": "Vietravel Airlines",
+          "flight_number": "VU 761"
+        }
+      ],
+      "total_duration": 130,
+      "type": "One way"
+    }
+  ]
+}

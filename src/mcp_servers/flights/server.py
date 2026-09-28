@@ -1,0 +1,70 @@
+from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
+
+SERVER_NAME = "vn-flight-booking"
+INSTRUCTIONS = """\
+Server tìm và đặt vé máy bay NỘI ĐỊA Việt Nam. Dữ liệu tìm chuyến lấy từ mock hoặc
+Google Flights (SerpApi); phần giữ chỗ/xuất vé/hủy là GIẢ LẬP, không phát sinh vé thật.
+
+Quy trình chuẩn:
+1. search_airports nếu người dùng nói tên thành phố thay vì mã IATA.
+2. search_flights (một chiều; khứ hồi thì tìm 2 lần).
+3. get_offer để xem hành lý và điều kiện hoàn/hủy của lựa chọn.
+4. hold_booking -> trình bày tóm tắt và tổng tiền, CHỜ người dùng đồng ý.
+5. confirm_booking chỉ sau khi người dùng xác nhận.
+Hủy: cancel_booking(confirm=false) để báo phí trước, confirm=true khi người dùng đồng ý.
+"""
+
+READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+SEARCH = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+HOLD = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+
+
+def create_server(services: FlightServices | None = None, host: str = "127.0.0.1", port: int = 8765) -> FastMCP:
+    """Tạo MCP server; truyền `services` để test với provider/DB riêng.
+
+    `host` phải truyền ngay lúc khởi tạo: FastMCP chỉ bật chống DNS rebinding (chỉ nhận
+    Host localhost) khi host là loopback. Trong container dùng `0.0.0.0` để service khác
+    trong mạng Docker gọi được qua tên service.
+    """
+    services = services or build_services()
+    tools = FlightTools(services)
+    mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port)
+
+    mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
+    mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)
+    mcp.add_tool(tools.get_offer, title="Chi tiết offer", annotations=READ_ONLY)
+    mcp.add_tool(tools.hold_booking, title="Giữ chỗ", annotations=HOLD)
+    mcp.add_tool(tools.confirm_booking, title="Xuất vé", annotations=COMMIT)
+    mcp.add_tool(tools.get_booking, title="Tra cứu booking", annotations=READ_ONLY)
+    mcp.add_tool(tools.cancel_booking, title="Hủy booking", annotations=COMMIT)
+
+    mcp.resource("flights://airports", mime_type="application/json")(tools.airports_resource)
+    mcp.resource("flights://airlines", mime_type="application/json")(tools.airlines_resource)
+    mcp.resource("flights://bookings/{booking_ref}", mime_type="application/json")(tools.booking_resource)
+    mcp.prompt(name="plan_domestic_trip")(plan_domestic_trip)
+
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health(_: Request) -> JSONResponse:
+        """Healthcheck cho Docker/compose (chỉ có khi chạy streamable-http)."""
+        return JSONResponse({"status": "ok", "server": SERVER_NAME, "provider": services.provider.name})
+
+    return mcp
+
+
+def plan_domestic_trip(origin: str, destination: str, departure_date: str) -> str:
+    """Kịch bản hướng dẫn LLM đặt một chuyến bay nội địa từ đầu đến cuối."""
+    return (
+        f"Hãy giúp tôi đặt vé máy bay từ {origin} đến {destination} ngày {departure_date}.\n"
+        "- Nếu đó là tên thành phố, dùng search_airports để lấy mã IATA.\n"
+        "- Hỏi tôi số người lớn/trẻ em/em bé và hạng ghế nếu chưa rõ.\n"
+        "- Gọi search_flights, trình bày tối đa 5 lựa chọn (hãng, giờ đi/đến, giá tổng).\n"
+        "- Khi tôi chọn, gọi get_offer để nói rõ hành lý và điều kiện hoàn/hủy.\n"
+        "- Hỏi thông tin hành khách và liên hệ, gọi hold_booking.\n"
+        "- Đọc lại tóm tắt booking và CHỈ gọi confirm_booking khi tôi đồng ý rõ ràng."
+    )
