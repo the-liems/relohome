@@ -1,7 +1,7 @@
 """Bảo vệ dữ liệu cá nhân: mã tham chiếu vô danh, định danh giả danh, lọc bí mật khỏi nhật ký.
 
 Merchant sandbox của ZaloPay dùng chung cho mọi nhóm nên mọi thứ gửi đi coi như công khai.
-Quy tắc: dữ liệu cá nhân không bao giờ rời máy nhóm (xem ADR-007).
+Quy tắc: dữ liệu cá nhân không bao giờ rời máy nhóm (xem ADR-015).
 """
 
 import hashlib

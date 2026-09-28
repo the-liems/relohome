@@ -4,8 +4,8 @@ MCP server cho phép agent **tạo yêu cầu thanh toán, kiểm tra trạng th
 Cùng khuôn mẫu với [flight MCP server](../flights/README.md).
 
 Tài liệu liên quan:
-[ADR-007 — ZaloPay và bảo vệ dữ liệu cá nhân](../../../docs/adr/ADR-007-zalopay-payment-and-data-privacy.md) ·
-[ADR-006 — MCP server đóng gói Docker](../../../docs/adr/ADR-006-containerized-mcp-servers.md) ·
+[ADR-015 — ZaloPay và bảo vệ dữ liệu cá nhân](../../../docs/adr/ADR-015-zalopay-payment-and-data-privacy.md) ·
+[ADR-014 — MCP server đóng gói Docker](../../../docs/adr/ADR-014-containerized-mcp-servers.md) ·
 [Ví dụ request/response](../../../docs/api/examples/payments/README.md)
 
 > ⚠️ **Chỉ có môi trường thử nghiệm, không có tiền thật.** ZaloPay sandbox dùng một merchant **chung cho mọi

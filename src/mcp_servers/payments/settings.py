@@ -16,7 +16,7 @@ def now_vn() -> datetime:
 class PaymentSettings(BaseSettings):
     """Cấu hình riêng của payment MCP server, biến môi trường có tiền tố `PAYMENT_`.
 
-    Tách khỏi `src/config.py` (xem ADR-005). `key1`/`key2` chỉ đọc từ môi trường/.env, không có giá trị mặc định.
+    Tách khỏi `src/config.py` (xem ADR-013). `key1`/`key2` chỉ đọc từ môi trường/.env, không có giá trị mặc định.
     """
 
     model_config = SettingsConfigDict(env_prefix="PAYMENT_", env_file=".env", env_file_encoding="utf-8", extra="ignore")

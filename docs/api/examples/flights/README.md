@@ -2,8 +2,8 @@
 
 Ví dụ thật từ server [`src/mcp_servers/flights`](../../../../src/mcp_servers/flights/README.md),
 chạy với `FLIGHT_SEARCH_PROVIDER=mock` và đồng hồ cố định ở `2026-10-01 09:00 +07:00`.
-Lý do chọn thiết kế: [ADR-004](../../../adr/ADR-004-flight-data-source.md),
-[ADR-005](../../../adr/ADR-005-flight-mcp-server-layout.md).
+Lý do chọn thiết kế: [ADR-012](../../../adr/ADR-012-flight-data-source.md),
+[ADR-013](../../../adr/ADR-013-flight-mcp-server-layout.md).
 
 > **Nguồn chuẩn của schema** là các model Pydantic trong
 > [`schemas.py`](../../../../src/mcp_servers/flights/schemas.py). Client lấy schema đầy đủ

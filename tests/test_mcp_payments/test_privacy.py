@@ -1,4 +1,4 @@
-"""Dữ liệu cá nhân không bao giờ rời máy nhóm (ADR-007)."""
+"""Dữ liệu cá nhân không bao giờ rời máy nhóm (ADR-015)."""
 
 import json
 import re

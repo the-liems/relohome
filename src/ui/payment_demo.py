@@ -2,7 +2,7 @@
 
 Mọi thao tác đi qua payment MCP server (stdio) như agent thật; công tắc ở sidebar đổi
 giữa cổng mock (offline) và ZaloPay sandbox. Giao diện không có ô nhập dữ liệu cá nhân:
-mã đơn và mã khách tự sinh, key ZaloPay chỉ nằm trong .env (xem ADR-007).
+mã đơn và mã khách tự sinh, key ZaloPay chỉ nằm trong .env (xem ADR-015).
 """
 
 import io

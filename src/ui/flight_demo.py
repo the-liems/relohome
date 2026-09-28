@@ -229,7 +229,7 @@ with tab_conn:
     )
     st.caption(
         "Tìm chuyến lấy từ nguồn đang bật (đường nét liền). Giữ chỗ / xuất vé / hủy là giả lập "
-        "vì các hãng Việt Nam không mở API đặt vé công khai (xem ADR-004)."
+        "vì các hãng Việt Nam không mở API đặt vé công khai (xem ADR-012)."
     )
 
     if info is None:

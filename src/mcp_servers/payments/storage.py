@@ -3,8 +3,8 @@ import sqlite3
 from pathlib import Path
 
 # Chỉ lưu dữ liệu vận hành tối thiểu: mã, số tiền, trạng thái, thời gian. Không có cột nào chứa
-# thông tin khách hàng (xem ADR-007). Trạng thái nằm trong SQLite vì client MCP có thể mở
-# process server mới cho mỗi lần gọi tool (giống flights, ADR-005).
+# thông tin khách hàng (xem ADR-015). Trạng thái nằm trong SQLite vì client MCP có thể mở
+# process server mới cho mỗi lần gọi tool (giống flights, ADR-013).
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS payments (
     payment_id TEXT PRIMARY KEY,

@@ -1,4 +1,4 @@
-"""Quy ước (ADR-006): mỗi service cung cấp một MCP server đóng gói bằng Dockerfile riêng."""
+"""Quy ước (ADR-014): mỗi service cung cấp một MCP server đóng gói bằng Dockerfile riêng."""
 
 from pathlib import Path
 

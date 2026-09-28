@@ -24,7 +24,7 @@ COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHin
 
 
 def create_server(services: PaymentServices | None = None, host: str = "127.0.0.1", port: int = 8766) -> FastMCP:
-    """Tạo MCP server; truyền `services` để test với cổng/DB riêng. `host` truyền lúc khởi tạo (xem ADR-006)."""
+    """Tạo MCP server; truyền `services` để test với cổng/DB riêng. `host` truyền lúc khởi tạo (xem ADR-014)."""
     services = services or build_services()
     tools = PaymentTools(services)
     mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port)

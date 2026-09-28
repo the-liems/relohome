@@ -1,6 +1,6 @@
 """Client cho giao diện demo thanh toán: payment MCP server qua stdio.
 
-Key ZaloPay KHÔNG đi qua giao diện: server tự đọc từ .env (xem ADR-007).
+Key ZaloPay KHÔNG đi qua giao diện: server tự đọc từ .env (xem ADR-015).
 """
 
 from typing import Any, Literal

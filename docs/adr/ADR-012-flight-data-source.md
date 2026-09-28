@@ -1,8 +1,8 @@
-# ADR-004: Nguồn dữ liệu chuyến bay nội địa — SerpApi để tìm chuyến, đặt vé giả lập
+# ADR-012: Nguồn dữ liệu chuyến bay nội địa — SerpApi để tìm chuyến, đặt vé giả lập
 
 **Ngày:** 2026-09-25
 **Trạng thái:** Proposed (chờ nhóm review trong PR; chuyển thành Accepted khi merge)
-**Liên quan:** [ADR-005](ADR-005-flight-mcp-server-layout.md) ·
+**Liên quan:** [ADR-013](ADR-013-flight-mcp-server-layout.md) ·
 [README flight MCP server](../../src/mcp_servers/flights/README.md) ·
 [Ví dụ request/response](../api/examples/flights/README.md)
 
@@ -48,7 +48,7 @@ Kết hợp **Lựa chọn 4 và 5**, chọn qua biến `FLIGHT_SEARCH_PROVIDER`
 1. Lựa chọn 1–3 đều không dùng được với nhóm tại thời điểm này, vì bị chặn theo quốc gia, đã đóng cửa, hoặc cần hợp đồng.
 2. SerpApi là nguồn miễn phí duy nhất đã kiểm tra có giá thật của các chặng nội địa VN.
 3. Mock làm mặc định nên CI và test không tốn lượt SerpApi và không cần secret. Kết quả deterministic nên test không bị flaky.
-4. Đặt vé giả lập khớp yêu cầu "keep service execution mocked" của dự án, mà vẫn đủ để demo luồng duyệt trước khi đặt (xem ADR-005).
+4. Đặt vé giả lập khớp yêu cầu "keep service execution mocked" của dự án, mà vẫn đủ để demo luồng duyệt trước khi đặt (xem ADR-013).
 5. Provider nằm sau interface `FlightSearchProvider`, nên sau này có API đại lý thì chỉ cần thêm một class, không phải sửa tool.
 
 ## Hệ quả (Consequences)

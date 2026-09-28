@@ -6,8 +6,8 @@ Server dùng được với agent LangGraph của dự án, Claude Code/Desktop,
 và các client MCP khác.
 
 Tài liệu liên quan:
-[ADR-004 — nguồn dữ liệu](../../../docs/adr/ADR-004-flight-data-source.md) ·
-[ADR-005 — bố cục MCP server](../../../docs/adr/ADR-005-flight-mcp-server-layout.md) ·
+[ADR-012 — nguồn dữ liệu](../../../docs/adr/ADR-012-flight-data-source.md) ·
+[ADR-013 — bố cục MCP server](../../../docs/adr/ADR-013-flight-mcp-server-layout.md) ·
 [Ví dụ request/response của từng tool](../../../docs/api/examples/flights/README.md)
 
 > ⚠️ Phần **giữ chỗ / xuất vé / hủy là GIẢ LẬP**. Server không trừ tiền và không tạo vé thật.
@@ -137,7 +137,7 @@ python -m src.mcp_servers.flights --transport streamable-http
 ### Chạy bằng Docker
 
 Server có `Dockerfile` riêng trong thư mục này (quy ước ở
-[ADR-006](../../../docs/adr/ADR-006-containerized-mcp-servers.md)). Image chỉ chứa code của
+[ADR-014](../../../docs/adr/ADR-014-containerized-mcp-servers.md)). Image chỉ chứa code của
 server và `requirements.txt` cùng thư mục, chạy Streamable HTTP tại `:8765/mcp`, healthcheck ở `/health`.
 
 ```bash
@@ -292,7 +292,7 @@ Với LangGraph, khai báo kết nối kiểu `{"transport": "streamable_http", 
 trong `MultiServerMCPClient`.
 
 ⚠️ Server chưa có xác thực và mặc định chỉ nghe ở `127.0.0.1`. Không đặt
-`FLIGHT_MCP_HOST=0.0.0.0` trên máy public (xem ADR-005).
+`FLIGHT_MCP_HOST=0.0.0.0` trên máy public (xem ADR-013).
 
 ## Tool, resource, prompt
 

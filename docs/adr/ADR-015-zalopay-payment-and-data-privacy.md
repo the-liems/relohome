@@ -1,9 +1,9 @@
-# ADR-007: Payment MCP server dùng ZaloPay sandbox, dữ liệu cá nhân không rời máy nhóm
+# ADR-015: Payment MCP server dùng ZaloPay sandbox, dữ liệu cá nhân không rời máy nhóm
 
 **Ngày:** 2026-09-26
 **Trạng thái:** Proposed (chờ nhóm review trong PR; chuyển thành Accepted khi merge)
-**Liên quan:** [ADR-005](ADR-005-flight-mcp-server-layout.md) ·
-[ADR-006](ADR-006-containerized-mcp-servers.md) ·
+**Liên quan:** [ADR-013](ADR-013-flight-mcp-server-layout.md) ·
+[ADR-014](ADR-014-containerized-mcp-servers.md) ·
 [README payment MCP server](../../src/mcp_servers/payments/README.md) ·
 [Ví dụ request/response](../api/examples/payments/README.md)
 

@@ -4,7 +4,7 @@
 #   docker build -f src/mcp_servers/payments/Dockerfile -t payments-mcp .
 #   docker run --rm -p 8766:8766 payments-mcp                     # mock, không cần key
 #   docker run --rm -p 8766:8766 --env-file .env payments-mcp     # ZaloPay: key chỉ truyền lúc chạy
-# Image KHÔNG chứa key hay .env (xem ADR-007).
+# Image KHÔNG chứa key hay .env (xem ADR-015).
 
 # ---- Stage 1: cài dependency vào virtualenv riêng ----
 FROM python:3.11-slim AS builder

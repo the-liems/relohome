@@ -1,8 +1,8 @@
-# ADR-006: Mỗi service cung cấp một MCP server đóng gói bằng Dockerfile riêng
+# ADR-014: Mỗi service cung cấp một MCP server đóng gói bằng Dockerfile riêng
 
 **Ngày:** 2026-09-26
 **Trạng thái:** Proposed (chờ nhóm review trong PR; chuyển thành Accepted khi merge)
-**Liên quan:** [ADR-005](ADR-005-flight-mcp-server-layout.md) ·
+**Liên quan:** [ADR-013](ADR-013-flight-mcp-server-layout.md) ·
 [README flight MCP server](../../src/mcp_servers/flights/README.md)
 
 ## Bối cảnh (Context)
