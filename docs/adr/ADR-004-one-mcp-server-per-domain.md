@@ -16,6 +16,13 @@ share versioned contracts and `@lifeflow/mcp-core` behavior for result envelopes
 error classification, redacted audit and annotations. They do not import one
 another's provider clients.
 
+## Update 2026-09-29
+
+`@lifeflow/mcp-core` applies to the TypeScript servers in `Maps VN/LifeFlow`. The Python servers
+(Flight, Payment; ADR-013, ADR-014) use FastMCP and do not share it. The agent graph normalises both
+result and error formats in its MCP client (`src/services/adapters/mcp.py`) and keeps separate read and
+write tool allowlists per server.
+
 ## Consequences
 
 Failure and credential scope are isolated. The orchestrator connects to several

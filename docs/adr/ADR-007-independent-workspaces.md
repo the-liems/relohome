@@ -1,8 +1,13 @@
 # ADR-007: Giữ hai workspace ứng dụng độc lập
 
 Ngày: 2026-09-25  
-Trạng thái: Proposed (chờ nhóm duyệt)  
+Trạng thái: Superseded by [ADR-001](ADR-001-polyglot-lifeflow-workspace.md) (2026-09-29)  
 Người đề xuất: @DungMQ | Review: chủ sở hữu phần agent và repo
+
+> **Đã được thay thế.** Cùng quyết định với ADR-001 (giữ workspace TypeScript `Maps VN/LifeFlow`,
+> app Python trong `src/`). Câu "chưa có kết nối runtime giữa hai ứng dụng" không còn đúng: agent graph
+> (ADR-016) gọi MCP server của Location qua Streamable HTTP + Bearer. Ranh giới tích hợp là contract
+> subagent và MCP tool, không phải import code giữa hai workspace.
 
 ## Bối cảnh
 

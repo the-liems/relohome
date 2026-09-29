@@ -6,7 +6,7 @@ subagent của từng service (phòng, bản đồ, vé máy bay, chuyển đồ
 
 - Thiết kế đầy đủ: [docs/architecture/agent-graph.md](../../docs/architecture/agent-graph.md)
   (hiện trạng và chỗ code khác đặc tả: §13).
-- Quyết định kiến trúc: [ADR-016](../../docs/adr/ADR-016-agent-graph-with-domain-subagents.md) (Proposed).
+- Quyết định kiến trúc: [ADR-016](../../docs/adr/ADR-016-agent-graph-with-domain-subagents.md) (Accepted trên nhánh tích hợp; thay ADR-006).
 
 ## Luồng
 

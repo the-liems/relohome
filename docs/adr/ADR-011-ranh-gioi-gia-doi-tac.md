@@ -36,4 +36,11 @@ UI/client phải xử lý `available`, `unavailable`, `not_configured` và
 `amount_vnd=null`. Tích hợp thật cần spec/ADR riêng về quyền API, xác thực,
 service code, dữ liệu vùng động, nguồn giá, thời hạn cache và lỗi đối tác.
 
+## Cập nhật 2026-09-29 (theo code hiện tại)
+
+Quyết định này áp dụng cho **service Location** (`/v1/mobility/*`): Location không định giá và không
+suy đoán vùng phục vụ của đối tác. Báo giá AhaMove **đã có** nhưng thuộc service Moving
+(ADR-002 đến ADR-005, SPEC-004): giá lấy từ API AhaMove, không từ công thức nội bộ. Agent graph (ADR-016)
+dùng service Moving cho chuyển đồ, không dùng `/v1/mobility/estimate`.
+
 Liên quan: [SPEC-012](../specs/SPEC-012-vung-dich-vu-va-gia.md).

@@ -11,8 +11,8 @@ Bảng đánh số thống nhất giữa các nhánh: `docs/architecture/agent-g
 | Approval, idempotency, khôi phục khi ghi? | [003 - Approval, idempotency and recovery](ADR-003-approval-idempotency-and-recovery.md) | Accepted |
 | Mỗi lĩnh vực một MCP server? | [004 - One MCP server per domain](ADR-004-one-mcp-server-per-domain.md) | Accepted |
 | Moving chạy container qua HTTP MCP? | [005 - Moving container HTTP boundary](ADR-005-moving-container-http-boundary.md) | Accepted |
-| Intake / Routing thành service riêng? | [006 - Standalone Intake and Routing](ADR-006-standalone-intake-routing.md) | Accepted; sẽ *Superseded by ADR-016* khi 016 được Accepted |
-| Vì sao Maps không chuyển vào `src/`? | [007 - Hai workspace](ADR-007-independent-workspaces.md) | Proposed |
+| Intake / Routing thành service riêng? | [006 - Standalone Intake and Routing](ADR-006-standalone-intake-routing.md) | Superseded by ADR-016 |
+| Vì sao Maps không chuyển vào `src/`? | [007 - Hai workspace](ADR-007-independent-workspaces.md) | Superseded by ADR-001 |
 | Schema nào là nguồn chuẩn? | [008 - Sở hữu contract](ADR-008-contract-ownership.md) | Proposed |
 | Vì sao POI lưu trong PostGIS, MapLibre chỉ vẽ? | [009 - Dữ liệu vị trí](ADR-009-postgis-poi-nguon-du-lieu.md) | Proposed |
 | Vì sao PostGIS lọc trước, OSRM tính đường đi sau? | [010 - Routing](ADR-010-osrm-routing.md) | Proposed |
@@ -21,7 +21,10 @@ Bảng đánh số thống nhất giữa các nhánh: `docs/architecture/agent-g
 | Vì sao vé máy bay là MCP server riêng? | [013 - Bố cục Flight MCP](ADR-013-flight-mcp-server-layout.md) | Proposed |
 | Vì sao mỗi service có Dockerfile riêng? | [014 - Đóng gói MCP server](ADR-014-containerized-mcp-servers.md) | Proposed |
 | Vì sao dùng ZaloPay sandbox, dữ liệu cá nhân xử lý thế nào? | [015 - Thanh toán và dữ liệu cá nhân](ADR-015-zalopay-payment-and-data-privacy.md) | Proposed |
-| Vì sao một LangGraph graph với subagent theo lĩnh vực? | [016 - Agent graph](ADR-016-agent-graph-with-domain-subagents.md) | Proposed |
+| Vì sao một LangGraph graph với subagent theo lĩnh vực? | [016 - Agent graph](ADR-016-agent-graph-with-domain-subagents.md) | Accepted trên nhánh tích hợp (review lại khi merge `main`) |
+
+ADR-003, 004, 008, 011 có mục cập nhật 2026-09-29 cho khớp với agent graph (ADR-016); quyết định
+gốc giữ nguyên.
 
 Mỗi ADR dẫn tới SPEC liên quan. Tạo quyết định mới bằng
 [`_template.md`](_template.md); không viết ADR cho một thay đổi nhỏ không

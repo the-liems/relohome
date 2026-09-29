@@ -34,5 +34,17 @@ Khi đổi contract, phải kiểm tra client/UI, test và tài liệu liên qua
 Nếu tích hợp Python ↔ Maps, nhóm cần chọn/version một hợp đồng mới; ADR
 này không giả định hai hệ type hiện tại đã tương thích.
 
+## Cập nhật 2026-09-29 (theo code agent graph)
+
+Nguyên tắc "một nguồn schema cho mỗi runtime" giữ nguyên. Ranh giới Python ↔ Maps nay có hai contract,
+mỗi cái có đúng một nguồn:
+
+| Contract | Nguồn | Bên kia dùng |
+|---|---|---|
+| MCP tool của Location / Moving | Zod trong `packages/contracts/src/` | Python gọi qua MCP, không chép schema; `config/agent-services/registry.json` sinh từ Zod, không sửa tay |
+| Contract subagent (ADR-016) | Pydantic trong [`src/agents/contracts/`](../../src/agents/contracts/) | Service TypeScript dùng JSON Schema xuất ra [`docs/api/agent-contract/`](../api/agent-contract/) |
+
+Schema của Chat API là Pydantic trong `src/models/schemas.py` và `src/agents/models.py`.
+
 Liên quan: [SPEC-009](../specs/SPEC-009-tim-kiem-va-tien-ich-gan.md),
 [SPEC-013](../specs/SPEC-013-mcp-vi-tri.md).

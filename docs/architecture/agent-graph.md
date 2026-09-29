@@ -1,6 +1,6 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
-Status: proposed (ADR-016). **Đã implement khung** trên nhánh `integration/langgraph-services`
+Status: ADR-016 Accepted trên nhánh tích hợp. **Đã implement khung** trên nhánh `integration/langgraph-services`
 (M0–M2, nối service ở mức subagent nền của M3); Intake và Planner dùng LLM chưa làm (M4). Hiện trạng
 và các điểm code khác bản đặc tả: §13.
 Date: 2026-09-27. Cập nhật 2026-09-28: thêm tầng `intake` và ranh giới "Routing
@@ -83,7 +83,7 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 | D13 | **Mỗi service có subagent riêng do chủ service viết**; graph chỉ nối vào qua contract chung (manifest + `run_task`, §6.3). DAG của Planner ở mức **giữa các lĩnh vực**; việc bên trong lĩnh vực là của subagent. Subagent chỉ đọc, không hỏi người dùng trực tiếp, không gọi chéo lĩnh vực; thao tác ghi đi qua commit endpoint tất định. | Các đội làm song song, đổi bên trong subagent không phải sửa graph; giữ được kiểm soát chi phí, phụ thuộc và an toàn ghi ở graph. |
 | D14 | **Một graph cho mọi phạm vi yêu cầu**: vừa một mục đích (chỉ tìm phòng, chỉ đặt vé, chỉ đặt xe) vừa chuỗi liên hoàn (tìm phòng → vé → chuyển đồ → thanh toán). Mặc định chỉ tìm / báo giá; chỉ đặt và thanh toán thứ người dùng yêu cầu rõ; sau mỗi bước có thể gợi ý bước tiếp theo nhưng không tự làm. Quy tắc S1–S10. | Không phải làm luồng riêng cho từng dịch vụ; không đặt hay trả tiền cho thứ người dùng chưa yêu cầu. §6.2, §10.2 |
 | D15 | **Hợp nhất với code Intake / Routing trên nhánh `khoa` theo hướng giữ tài liệu này** (chốt 2026-09-29): giữ kiến trúc một graph + subagent theo lĩnh vực; tái dùng các phần an toàn đã có của nhánh `khoa` (kiểm evidence, `validate_plan`, approval binding, lease / reconciliation, LLM wrapper); registry 13 tool Moving trở thành phần bên trong subagent moving. ADR-006 của nhánh `khoa` (hai service HTTP riêng) được thay bằng ADR-016 khi merge (§12.1). | Giữ quyết định subagent do chủ service viết (D13) mà không bỏ công sức đã làm. §3.3 |
-| D16 | **Dữ liệu cá nhân để đặt chỗ (hành khách, liên hệ) không đi qua LLM.** UI thu bằng form, backend giữ và chỉ đưa vào `transaction` qua tham chiếu (`pii_ref`). **Thanh toán là bất đồng bộ**: `transaction` tạo yêu cầu thanh toán rồi chờ kết quả qua `interrupt`. | Bảo vệ dữ liệu cá nhân (thống nhất ADR-015, hiện là ADR-007 trên nhánh `Doan/api`, §12.1); khớp cách ZaloPay hoạt động thật. §6.9 |
+| D16 | **Dữ liệu cá nhân để đặt chỗ (hành khách, liên hệ) không đi qua LLM.** UI thu bằng form, backend giữ và chỉ đưa vào `transaction` qua tham chiếu (`pii_ref`). **Thanh toán là bất đồng bộ**: `transaction` tạo yêu cầu thanh toán rồi chờ kết quả qua `interrupt`. | Bảo vệ dữ liệu cá nhân (thống nhất ADR-015); khớp cách ZaloPay hoạt động thật. §6.9 |
 
 ---
 
@@ -1203,7 +1203,7 @@ tool dưới đây. Tool **đọc** do subagent gọi; tool **ghi** chỉ do `tr
 | Location: housing + place + route (`QuangDung`); Streamable HTTP + Bearer | `search_housing`, `get_housing`, `search_places`, `get_place`, `find_nearby_places`, `search_areas`, `resolve_location`, `calculate_route` | — (chưa có đặt cọc) | Một subagent phục vụ cả `property` và `map`. `search_housing` chỉ lọc, **không xếp hạng** → subagent xếp hạng. Tìm gần địa danh: `resolve_location` rồi mới `search_housing` với `commute.destination`. `search_housing` trả rỗng khi chưa có dữ liệu thật (không bịa) |
 | Moving / AhaMove (`khoa`); HTTP `/mcp` + Bearer | `list_service_areas`, `list_moving_services`, `get_moving_service`, `estimate_move`, `get_move_order`, `get_move_orders`, `find_move_orders_by_tracking_number`, `get_move_tracking_link`, `get_move_order_events` | `create_move_order`, `update_move_order`, `cancel_move_order`, `rate_move_driver` | Registry 13 tool và planner mức tool của nhánh `khoa` nằm trong subagent (§3.3). Tool ghi cần `approval_id` **khớp bản ghi approval trong backend Moving** (ADR-003 nhánh `khoa`) → cần cầu nối approval (Q22). Tạo đơn không rõ kết quả thì đối soát bằng tracking number |
 | Flight (`Doan/api`); FastMCP, **chưa có Bearer** | `search_airports`, `search_flights`, `get_offer`, `get_booking` | `hold_booking`, `confirm_booking`, `cancel_booking` (gọi `confirm=false` trước để lấy phí huỷ) | Đặt vé 2 bước giữ chỗ → xuất vé; phần đặt là **giả lập** (`source_kind = demo`). `hold_booking` cần thông tin hành khách + liên hệ (D16). Cần thêm Bearer trước khi đăng ký registry |
-| Payment / ZaloPay sandbox (`Doan/api`); FastMCP, **chưa có Bearer** | `get_payment` (polling trạng thái) | `create_payment` (trả link / QR), `cancel_payment`, `refund_payment` | Không phải lĩnh vực của Planner; chỉ `transaction` dùng (S6). Không nhận tên / email / SĐT (ADR-015, hiện là ADR-007 trên nhánh `Doan/api`); `order_ref` = commit action id |
+| Payment / ZaloPay sandbox (`Doan/api`); FastMCP, **chưa có Bearer** | `get_payment` (polling trạng thái) | `create_payment` (trả link / QR), `cancel_payment`, `refund_payment` | Không phải lĩnh vực của Planner; chỉ `transaction` dùng (S6). Không nhận tên / email / SĐT (ADR-015); `order_ref` = commit action id |
 
 #### 6.3.8. Input/output tối thiểu theo lĩnh vực
 
@@ -2022,7 +2022,7 @@ Layout thực tế sau khi implement (thêm `wiring.py`, `llm.py`, `subagents/se
 | Q11 | Intake và Planner dùng chung một model/prompt hay tách? Có gộp thành một LLM call khi yêu cầu đơn giản không? | Chi phí, độ trễ; không ảnh hưởng graph. |
 | Q12 | Approval Store đặt ở đâu, ai sở hữu, TTL bao lâu? | `ApprovalPort`, API `/decision`. |
 | Q13 | Đơn giá / hạn mức của từng provider (AhaMove, flight, maps) và giá trị trần chi phí; `cost_tier` của từng agent. **Hoãn** đến khi có API thật: giai đoạn đầu test độ ổn định bằng API mock. Khi test mock vẫn giữ `cost_tier` theo bản chất provider thật (không đặt tất cả `cheap`), để hành vi tự điền và trần chi phí giống lúc chạy thật. | §7.4, §7.5. |
-| Q14 | ~~Dữ liệu session nào được tự điền, và bao lâu thì hết hiệu lực?~~ **Đã chốt phần logic 2026-09-28:** ba mức dữ liệu, hạn theo field và theo sự kiện, quy tắc đi kèm, chỉ lưu điều người dùng nói (§6.0, §6.1, §7.4). **Hoãn** đến khi có người dùng thật: xin đồng ý lưu, màn hình xem/xoá, `SessionPort.forget` (thống nhất với ADR-015, hiện là ADR-007 trên nhánh `Doan/api`); chỉnh `prefill_ttl` theo tỉ lệ `prefill_corrected`. | `SessionPort`, `memory.py`, `resolve_missing`. |
+| Q14 | ~~Dữ liệu session nào được tự điền, và bao lâu thì hết hiệu lực?~~ **Đã chốt phần logic 2026-09-28:** ba mức dữ liệu, hạn theo field và theo sự kiện, quy tắc đi kèm, chỉ lưu điều người dùng nói (§6.0, §6.1, §7.4). **Hoãn** đến khi có người dùng thật: xin đồng ý lưu, màn hình xem/xoá, `SessionPort.forget` (thống nhất với ADR-015); chỉnh `prefill_ttl` theo tỉ lệ `prefill_corrected`. | `SessionPort`, `memory.py`, `resolve_missing`. |
 | Q15 | Kênh truyền tới subagent: MCP tool `run_task` (đề xuất, vì các service đều đã là MCP server) hay HTTP `POST /agent/run_task`? Có cần stream tiến độ từ subagent không? | `RemoteAgent`, registry, §6.3.5. |
 | Q16 | Danh sách tiện ích dùng chung subagent được phép gọi theo R5 (ví dụ geocode, tính khoảng cách): ai cung cấp, đặt ở service nào? | R5, registry. |
 | Q17 | Commit endpoint cụ thể của từng service (đặt xe, đặt vé, thanh toán): service nào hỗ trợ `lookup` / `compensate`? | §6.9, `commit.py`. |
@@ -2048,17 +2048,17 @@ Ba nhánh đang dùng trùng số ADR. Quy tắc: nhánh `khoa` giữ nguyên s�
 | ADR-003 | `khoa` ADR-003 | Approval, idempotency and recovery | Giữ |
 | ADR-004 | `khoa` ADR-004 | One MCP server per domain | Giữ |
 | ADR-005 | `khoa` ADR-005 | Moving container HTTP boundary | Giữ |
-| ADR-006 | `khoa` ADR-006 | Standalone Intake and Routing | Đổi trạng thái thành *Superseded by ADR-016* (D15) |
-| ADR-007 | `QuangDung` ADR-001 | Giữ hai workspace ứng dụng độc lập | Trùng chủ đề với ADR-001; đề nghị chủ nhánh gộp vào ADR-001 hoặc đánh dấu *Superseded by ADR-001* |
+| ADR-006 | `khoa` ADR-006 | Standalone Intake and Routing | *Superseded by ADR-016* (D15), đã đổi 2026-09-29 |
+| ADR-007 | `QuangDung` ADR-001 | Giữ hai workspace ứng dụng độc lập | Trùng chủ đề với ADR-001; đã đánh dấu *Superseded by ADR-001* (2026-09-29) |
 | ADR-008 | `QuangDung` ADR-002 | Một nguồn schema chuẩn cho mỗi runtime | |
 | ADR-009 | `QuangDung` ADR-003 | PostGIS là nguồn dữ liệu POI | |
 | ADR-010 | `QuangDung` ADR-004 | OSRM cho routing | |
-| ADR-011 | `QuangDung` ADR-005 | Không suy đoán giá hay vùng phục vụ của đối tác | Viết trước khi có adapter AhaMove thật (ADR-005); chủ nhánh rà lại cho khớp |
+| ADR-011 | `QuangDung` ADR-005 | Không suy đoán giá hay vùng phục vụ của đối tác | Đã thêm mục cập nhật: áp dụng cho Location; báo giá AhaMove thuộc service Moving |
 | ADR-012 | `Doan/api` ADR-004 | Nguồn dữ liệu chuyến bay | |
 | ADR-013 | `Doan/api` ADR-005 | Bố cục Flight MCP server | |
 | ADR-014 | `Doan/api` ADR-006 | Đóng gói MCP server bằng Docker | |
 | ADR-015 | `Doan/api` ADR-007 | ZaloPay sandbox và bảo vệ dữ liệu cá nhân | |
-| ADR-016 | mới | Một LangGraph graph với subagent theo lĩnh vực | Đã viết, trạng thái Proposed (D13, D15) |
+| ADR-016 | mới | Một LangGraph graph với subagent theo lĩnh vực | Accepted trên nhánh tích hợp theo code (D13, D15) |
 | ADR-017 | mới (dự kiến) | Checkpointer cho workflow | Theo Q3 |
 
 **Tình trạng áp dụng (2026-09-29):**
@@ -2066,8 +2066,8 @@ Ba nhánh đang dùng trùng số ADR. Quy tắc: nhánh `khoa` giữ nguyên s�
 - `Doan/api`: đã đổi tên 4 file và sửa mọi tham chiếu, đã push.
 - `QuangDung`: nhánh gốc giữ nguyên; việc đổi số 001–005 → 007–011 làm trong nhánh tích hợp
   `integration/langgraph-services`.
-- `khoa`: không đổi số. ADR-006 chỉ đổi trạng thái khi ADR-016 được Accepted.
-- ADR-016 (trạng thái Proposed): [ADR-016](../adr/ADR-016-agent-graph-with-domain-subagents.md).
+- `khoa`: không đổi số. ADR-006 đã chuyển *Superseded by ADR-016*; ADR-003, ADR-004 có mục cập nhật.
+- ADR-016 Accepted trên nhánh tích hợp: [ADR-016](../adr/ADR-016-agent-graph-with-domain-subagents.md).
   Mục lục thống nhất 001–016: [docs/adr/README.md](../adr/README.md).
 
 Khi áp dụng, chủ mỗi nhánh: đổi tên file, sửa tiêu đề `# ADR-0xx`, sửa mọi link và
@@ -2124,7 +2124,8 @@ nối service ngay. Chủ service thay bằng subagent riêng (manifest + `run_t
 
 ### 13.3. Chưa làm / chờ người khác
 
-- **Intake và Planner dùng LLM** (issue Intake, issue Routing Orchestrator): implement `Intake` và
+- **Intake và Planner dùng LLM** (issue Intake, issue Routing Orchestrator; thiết kế Intake:
+  [intake-llm.md](intake-llm.md)): implement `Intake` và
   `Planner` với `StructuredLLM`; đặt `uses_llm = True` và `last_usage` để node kiểm trần, ghi token.
   Node, `resolve_missing`, `validate_plan`, executor, `change_impact` đã có; hai issue chỉ còn phần LLM.
 - **Moving (Khoa):** endpoint ghi approval (Q22, contract ở bảng §12); cho phép ghi trên staging khi test.

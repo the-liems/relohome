@@ -1,9 +1,13 @@
 # ADR-006 — Standalone Intake and Routing Orchestrator
 
 - Date: 2026-09-28
-- Status: Accepted
+- Status: Superseded by [ADR-016](ADR-016-agent-graph-with-domain-subagents.md) (2026-09-29)
 - Scope: implementation of direction B authorized by Khoa; team integration remains separate.
 - Related: SPEC-001, SPEC-003, ADR-003, ADR-004
+
+> **Đã được thay thế.** Chatbot dùng một LangGraph graph (ADR-016). Bảng "Đối chiếu từng quyết định
+> của ADR-006" trong ADR-016 ghi phần nào được giữ, phần nào thay. Code `src/agent_services/` vẫn còn
+> làm tham khảo nhưng không nằm trên đường chạy của chatbot.
 
 ## Context
 

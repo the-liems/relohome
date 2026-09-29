@@ -14,7 +14,7 @@ Detailed current designs:
 - [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
 
 The chat agent is one LangGraph graph (`src/agents/`, [agent graph design](docs/architecture/agent-graph.md),
-ADR-016 Proposed): intake → Routing Orchestrator → domain subagents → validator → confirm → transaction.
+ADR-016): intake → Routing Orchestrator → domain subagents → validator → confirm → transaction.
 It connects to the Location (housing, place, route), Moving/AhaMove, Flight and Payment MCP services
 through `src/services/adapters/` (`AGENT_SUBAGENTS=live`), or runs fully offline with fake subagents.
 The LLM Intake and LLM Planner are not implemented yet (the graph uses stubs / the rule-based
@@ -88,7 +88,7 @@ graph TB
 
 ### 3. AI Agent (LangGraph)
 
-Đã implement khung (M0–M2) và nối service bằng subagent nền (M3); Intake / Planner dùng LLM chưa làm (M4).
+Đã implement khung (M0–M2) và nối service bằng subagent nền (M3); Intake / Planner dùng LLM chưa làm (M4). Quyết định: ADR-016.
 Chi tiết và hiện trạng: [agent graph design](docs/architecture/agent-graph.md) §13.
 
 - **Agent Type:** Intake + Plan-and-Execute + Result Validator + human-in-the-loop (sơ đồ v4, kết hợp góp ý mentor).

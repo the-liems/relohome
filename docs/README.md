@@ -7,6 +7,7 @@
 - Architecture decisions: [`adr/`](adr/README.md)
 - Architecture details: [`architecture/`](architecture/)
 - [Agent graph design and implementation status](architecture/agent-graph.md)
+- [Intake dùng LLM: thiết kế để implement](architecture/intake-llm.md)
 - Subagent contract JSON Schema: [`api/agent-contract/`](api/agent-contract/)
 - [Intake and Routing Orchestrator proposal](architecture/intake-and-routing-orchestrator.md)
 - [Standalone Intake and Routing implementation](architecture/standalone-agent-services.md)
