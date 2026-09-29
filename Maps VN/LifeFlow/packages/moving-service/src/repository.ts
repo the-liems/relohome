@@ -1,5 +1,6 @@
 import type { MoveQuote } from '@lifeflow/contracts'
 import type { QueryExecutor } from './database.js'
+import { MovingServiceError } from './errors.js'
 
 export interface StoredQuote {
   quote: MoveQuote
@@ -41,12 +42,26 @@ export class MovingRepository {
     approvedBy: string
     expiresAt: Date
   }) {
-    await this.db.query(
+    const inserted = await this.db.query(
       `INSERT INTO moving.approvals (id, action_type, payload_hash, approved_by, expires_at)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (id) DO NOTHING RETURNING id`,
       [input.approvalId, input.actionType, input.payloadHash, input.approvedBy, input.expiresAt],
     )
+    if (inserted.rowCount) return true
+    // Separate statement sees a concurrent INSERT once its unique-key lock releases.
+    const existing = await this.db.query(
+      'SELECT action_type, payload_hash, approved_by, expires_at FROM moving.approvals WHERE id=$1',
+      [input.approvalId],
+    )
+    const row = existing.rows[0]
+    if (!row || row.action_type !== input.actionType || row.payload_hash !== input.payloadHash
+      || row.approved_by !== input.approvedBy
+      || new Date(row.expires_at).getTime() !== input.expiresAt.getTime()) {
+      throw new MovingServiceError('APPROVAL_CONFLICT', 'Approval id is already bound to different approval data.')
+    }
+    // Never extend the expiry or clear consumed_at on replay.
+    return false
   }
 
   async getApproval(approvalId: string): Promise<ApprovalRecord | null> {
@@ -88,7 +103,7 @@ export class MovingRepository {
     const result = await this.db.query(
       `INSERT INTO moving.order_actions (idempotency_key, workflow_id, action_id, request_hash, status)
        VALUES ($1, $2, $3, $4, 'pending')
-       ON CONFLICT (idempotency_key) DO NOTHING`,
+       ON CONFLICT DO NOTHING`,
       [idempotencyKey, workflowId, actionId, requestHash],
     )
     return Boolean(result.rowCount)

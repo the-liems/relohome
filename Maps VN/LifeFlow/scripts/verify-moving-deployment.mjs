@@ -26,9 +26,9 @@ try {
     requestInit: { headers: { authorization: `Bearer ${token}` } },
   }))
   const tools = await client.listTools()
-  assert.equal(tools.tools.length, 13)
+  assert.equal(tools.tools.length, 9)
   const result = await client.callTool({ name: 'list_service_areas', arguments: { country_id: 'VN' } })
   assert.notEqual(result.isError, true)
   assert.ok(result.structuredContent.cities.length > 0)
-  console.log('PASS: both containers ready, expected release, authentication, 13 tools, real AhaMove read.')
+  console.log('PASS: both containers ready, expected release, authentication, 9 read-only tools, real AhaMove read.')
 } finally { await client.close() }

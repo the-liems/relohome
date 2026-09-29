@@ -1,0 +1,12 @@
+# Explicit staging-only opt-in. Never use this overlay for unattended verification.
+# docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml up -d --build
+services:
+  moving-mcp:
+    environment:
+      AHAMOVE_ENV: staging
+      AHAMOVE_WRITE_ENABLED: "true"
+      AHAMOVE_PRODUCTION_ENABLED: "false"
+      MOVING_MCP_WRITE_TOKEN: ${MOVING_MCP_WRITE_TOKEN:?Set a separate write token}
+  moving-api:
+    environment:
+      MOVING_APPROVAL_TOKEN: ${MOVING_APPROVAL_TOKEN:?Set a separate internal approval token}

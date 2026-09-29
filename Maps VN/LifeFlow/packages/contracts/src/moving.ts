@@ -152,6 +152,35 @@ export const RateMoveDriverRequestSchema = z.object({
   approval_id: z.uuid(),
 })
 
+// Canonical approval payloads are shared by the internal API and the write tools.
+export const MovingApprovalPayloadSchema = z.union([
+  CreateMoveOrderRequestSchema.omit({ approval_id: true }).extend({
+    action: z.literal('create'),
+    quote_fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+    total_price: z.number().nonnegative(),
+  }).strict(),
+  UpdateMoveOrderRequestSchema.omit({ approval_id: true }).extend({ action: z.literal('update') }).strict(),
+  z.object({
+    action: z.literal('cancel'),
+    order_id: z.string().trim().min(1).max(100).optional(),
+    tracking_number: z.string().trim().min(1).max(100).optional(),
+    comment: z.string().trim().min(1).max(500),
+  }).strict().refine((value) => Boolean(value.order_id) !== Boolean(value.tracking_number), {
+    message: 'Provide exactly one order reference.',
+  }),
+  RateMoveDriverRequestSchema.omit({ approval_id: true }).extend({ action: z.literal('rate') }).strict(),
+])
+
+export const RegisterMovingApprovalRequestSchema = z.object({
+  approval_id: z.uuid(),
+  action_type: z.enum(['create', 'update', 'cancel', 'rate']),
+  payload: MovingApprovalPayloadSchema,
+  approved_by: z.string().trim().min(1).max(200),
+  expires_at: z.iso.datetime({ offset: true }),
+}).strict().refine((value) => value.action_type === value.payload.action, {
+  message: 'Approval action_type must match payload.action.',
+})
+
 export const MovingOrderSchema = z.object({
   contract_version: MovingContractVersionSchema,
   provider: z.literal('ahamove'),

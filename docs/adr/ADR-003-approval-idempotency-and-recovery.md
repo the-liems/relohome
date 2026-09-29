@@ -26,5 +26,14 @@ through an internal endpoint (Q22, issue #16), then calls the write tool with th
 
 ## Consequences
 
+### Moving integration clarification (2026-09-29)
+
+The trusted backend registers approvals through the authenticated internal API,
+not an agent-accessible auto-approval tool. Reusing an approval ID may not change
+its payload, owner or expiry, or clear consumption. HTTP MCP read and write
+credentials have server-enforced scopes; registration uses a third credential.
+Unclear multi-match tracking lookup remains unresolved rather than selecting
+the first order. See [approval contract](../api/moving-internal-approvals.md).
+
 The orchestrator must persist approval before calling a write tool. Write tools
 cannot operate as stateless HTTP proxies.

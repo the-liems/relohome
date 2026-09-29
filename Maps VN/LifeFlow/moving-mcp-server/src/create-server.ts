@@ -19,6 +19,7 @@ interface Dependencies {
   db: QueryExecutor
   movingService: MovingService
   environment: 'staging' | 'production'
+  access?: 'read' | 'write'
 }
 
 const metadata = (environment: 'staging' | 'production') => ({
@@ -148,6 +149,10 @@ export function createMovingMcpServer(dependencies: Dependencies) {
     meta: metadata(dependencies.environment),
     callback: await dependencies.movingService.getCallbackLogs(tracking_number),
   })))
+
+  // The read credential gets an actual read-only server, including tools/list.
+  // A client allowlist alone is not authorization.
+  if (dependencies.access !== 'write') return server
 
   server.registerTool('create_move_order', {
     title: 'Create an approved move order',

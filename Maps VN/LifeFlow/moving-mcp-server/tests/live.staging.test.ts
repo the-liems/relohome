@@ -32,8 +32,6 @@ describe.runIf(live)('Moving MCP against AhaMove staging without mocks', () => {
     const result = await client!.listTools()
     const names = result.tools.map((tool) => tool.name).sort()
     expect(names).toEqual([
-      'cancel_move_order',
-      'create_move_order',
       'estimate_move',
       'find_move_orders_by_tracking_number',
       'get_move_order',
@@ -43,11 +41,8 @@ describe.runIf(live)('Moving MCP against AhaMove staging without mocks', () => {
       'get_moving_service',
       'list_moving_services',
       'list_service_areas',
-      'rate_move_driver',
-      'update_move_order',
     ])
-    expect(result.tools.find((tool) => tool.name === 'cancel_move_order')?.annotations?.destructiveHint).toBe(true)
-    expect(result.tools.find((tool) => tool.name === 'create_move_order')?.annotations?.readOnlyHint).toBe(false)
+    expect(result.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
   })
 
   it('reads real service areas through MCP', async () => {
