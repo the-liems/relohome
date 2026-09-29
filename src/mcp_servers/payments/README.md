@@ -85,7 +85,7 @@ src/mcp_servers/payments/
 | `get_payment(payment_ref)` | Trạng thái | Đơn PENDING được hỏi lại cổng; quá hạn thành EXPIRED |
 | `cancel_payment(payment_ref)` | Hủy đơn PENDING | ZaloPay không có API hủy: báo giờ đơn tự hết hạn |
 | `refund_payment(payment_ref, confirm=false)` | Báo rồi mới hoàn | Mock đầy đủ; ZaloPay chưa hỗ trợ trong MVP |
-| `simulate_payment_result(payment_ref, outcome)` | Giả lập PAID/FAILED | **Chỉ có khi `PAYMENT_PROVIDER=mock`** |
+| `simulate_payment_result(payment_ref, outcome)` | Giả lập `PAID` / `FAILED` / `EXPIRED` cho giao dịch đang PENDING | **Chỉ có khi `PAYMENT_PROVIDER=mock`**; `/health` trả `"simulation": true` |
 
 ## Chạy server
 
@@ -95,7 +95,7 @@ python -m src.mcp_servers.payments --transport streamable-http   # http://127.0.
 
 # Docker (image không chứa key; key truyền lúc chạy)
 make mcp-up                                   # cả flights-mcp và payments-mcp
-curl localhost:8766/health                    # {"status":"ok","server":"vn-payment","provider":"mock"}
+curl localhost:8766/health                    # {"status":"ok","server":"vn-payment","provider":"mock","simulation":true}
 docker run --rm -p 8766:8766 --env-file .env payments-mcp
 ```
 

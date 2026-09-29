@@ -67,5 +67,6 @@ class PaymentTools:
         return await self._engine.refund(payment_ref, confirm)
 
     async def simulate_payment_result(self, payment_ref: PaymentRef, outcome: SimulatedOutcome) -> Payment:
-        """CHỈ CÓ Ở CHẾ ĐỘ MOCK: giả lập khách đã trả (PAID) hoặc thất bại (FAILED) để demo."""
+        """CHỈ CÓ Ở CHẾ ĐỘ MOCK: giả lập khách đã trả (PAID), thất bại (FAILED) hoặc để link hết hạn (EXPIRED)
+        để demo. Chỉ áp dụng cho giao dịch đang PENDING."""
         return await self._engine.simulate(payment_ref, outcome)

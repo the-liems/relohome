@@ -57,7 +57,7 @@ def test_health_and_container_host(engine: PaymentEngine) -> None:
     server = create_server(PaymentServices(engine=engine), host="0.0.0.0", port=8766)
     assert server.settings.transport_security is None
     response = TestClient(server.streamable_http_app()).get("/health")
-    assert response.json() == {"status": "ok", "server": SERVER_NAME, "provider": "mock"}
+    assert response.json() == {"status": "ok", "server": SERVER_NAME, "provider": "mock", "simulation": True}
 
 
 def test_agent_connection_selection(monkeypatch) -> None:

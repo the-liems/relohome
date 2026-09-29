@@ -40,6 +40,14 @@ def create_server(services: PaymentServices | None = None, host: str = "127.0.0.
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> JSONResponse:
         """Healthcheck cho Docker/compose (chỉ có khi chạy streamable-http)."""
-        return JSONResponse({"status": "ok", "server": SERVER_NAME, "provider": services.engine.provider})
+        return JSONResponse(
+            {
+                "status": "ok",
+                "server": SERVER_NAME,
+                "provider": services.engine.provider,
+                # Client (graph / UI demo) biết có dùng được `simulate_payment_result` hay không
+                "simulation": services.engine.provider == "mock",
+            }
+        )
 
     return mcp

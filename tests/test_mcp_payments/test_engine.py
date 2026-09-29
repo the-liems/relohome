@@ -42,6 +42,14 @@ async def test_new_payment_allowed_after_failure(engine: PaymentEngine) -> None:
 
 
 @pytest.mark.asyncio
+async def test_simulate_expired_link(engine: PaymentEngine) -> None:
+    payment = await engine.create("bk_1", 100_000)
+    expired = await engine.simulate(payment.payment_id, "EXPIRED")
+    assert expired.status == "EXPIRED"
+    assert (await engine.create("bk_1", 100_000)).payment_id != payment.payment_id  # tạo lại được đơn mới
+
+
+@pytest.mark.asyncio
 async def test_pending_expires(engine: PaymentEngine, clock: FakeClock) -> None:
     payment = await engine.create("bk_1", 100_000)
     clock.advance(16)
