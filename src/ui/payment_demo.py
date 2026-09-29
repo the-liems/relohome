@@ -274,8 +274,12 @@ with tab_create:
                     )
                 elif p["status"] == "PENDING":
                     st.markdown("**Giả lập kết quả (chỉ có ở mock):**")
-                    b1, b2 = st.columns(2)
-                    for column, outcome, label in ((b1, "PAID", "✅ Khách đã trả"), (b2, "FAILED", "❌ Thất bại")):
+                    b1, b2, b3 = st.columns(3)
+                    for column, outcome, label in (
+                        (b1, "PAID", "✅ Khách đã trả"),
+                        (b2, "FAILED", "❌ Thất bại"),
+                        (b3, "EXPIRED", "⌛ Hết hạn"),
+                    ):
                         if column.button(label, width="stretch"):
                             run_tool("simulate_payment_result", {"payment_ref": p["payment_id"], "outcome": outcome})
                             st.rerun()

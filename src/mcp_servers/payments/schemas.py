@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 PaymentStatus = Literal["PENDING", "PAID", "FAILED", "CANCELLED", "EXPIRED", "REFUNDED"]
-SimulatedOutcome = Literal["PAID", "FAILED"]
+SimulatedOutcome = Literal["PAID", "FAILED", "EXPIRED"]
 
 # Giới hạn của MVP (VND). Không phải hạn mức chính thức của ZaloPay.
 MIN_AMOUNT = 1_000
