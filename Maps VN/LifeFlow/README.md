@@ -51,17 +51,24 @@ liệu OSM, OSRM và dữ liệu lưu trú sẵn có. Hệ thống gồm:
 - Mô hình dữ liệu tách riêng bất động sản, căn/phòng, tin đăng và báo giá.
 - Dịch vụ Housing Query có kiểu dữ liệu rõ ràng và lọc cứng bằng PostGIS.
 - Platform API chạy tại `127.0.0.1:4100`.
-- Tám MCP tool chỉ đọc cho Housing/Map, giao tiếp qua `stdio` hoặc Streamable
+- Chín MCP tool chỉ đọc cho Housing/Map, giao tiếp qua `stdio` hoặc Streamable
   HTTP, và một Moving MCP server độc lập cho AhaMove.
 - Ứng dụng MapLibre chạy tại `127.0.0.1:5173`.
 - Chín dịch vụ OSRM: ba thành phố nhân với ba chế độ ô tô, xe máy và đi bộ.
-- GeoJSON gốc vẫn được giữ làm phương án dự phòng cho frontend.
+- GeoJSON gốc được giữ làm dữ liệu nguồn; API map không fallback sang bộ lưu trú cũ.
 
-Nguồn hiện tại có 13.120 POI. Sau khi chuẩn hóa, hệ thống lưu 13.118 địa điểm
-chuẩn và ghi nhận hai mã nguồn bị trùng. Hiện chưa có nguồn tin đăng nhà ở thật,
-vì vậy truy vấn nhà ở trả về danh sách rỗng thay vì tự tạo dữ liệu giả.
-PostGIS còn lưu 8.732 ranh giới hành chính OSM có ID truy nguồn, bên cạnh ba
-boundary thành phố cục bộ.
+Dữ liệu đã có pipeline nhập POI v2 và tin nhà thật. Số bản ghi phụ thuộc
+snapshot được restore/import trên từng máy; bản ghi active không xác nhận căn
+vẫn còn trống. Xem [trạng thái tích hợp Location](../../docs/integration/location-service-implementation-status.md)
+để biết contract mới, kết quả kiểm thử và hướng dẫn cho phía graph.
+
+[Status dữ liệu và backup](../../docs/integration/location-data-status.md) phân biệt
+thống kê nguồn, POI, housing anchor và listing trên DB đích.
+
+Tool mới `calculate_route_between_entities` nhận housing listing ID, POI ID
+hoặc tọa độ. `search_housing`/`get_housing` bổ sung `location_accuracy`,
+`location_method`, `deposit`. Cần build lại MCP image sau khi lấy code mới;
+backup database không chứa code của tool.
 
 ## Cấu trúc dữ liệu routing
 

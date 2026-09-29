@@ -13,6 +13,10 @@ gọi thời gian OSRM là thời gian giao hàng được đối tác cam kết
 
 - API: `POST /v1/routes`; schema [`route.ts`](../../Maps%20VN/LifeFlow/packages/contracts/src/route.ts).
 - Service: [`route-service.ts`](../../Maps%20VN/LifeFlow/packages/housing-query/src/route-service.ts).
+- MCP `calculate_route_between_entities` tra hai endpoint housing/place/coordinate
+  rồi dùng chung RouteService; city bắt buộc, profile mặc định motorcycle,
+  snap mặc định 100 m. Trả metadata và warning cho vị trí approximate/unknown.
+  Contract/ví dụ: [handoff](../integration/location-service-implementation-status.md).
 - Kết quả có distance mét, duration giây và GeoJSON LineString.
   `snap_radius_m` là giới hạn bắt đường tùy chọn; khi dùng, service kiểm tra
   bằng chứng snap của cả hai đầu.
@@ -25,7 +29,9 @@ gọi thời gian OSRM là thời gian giao hàng được đối tác cam kết
 ## Lỗi, giới hạn và ngoài phạm vi
 
 OSRM offline trả lỗi, không có tuyến/segment trả `NO_ROUTE`, phản hồi
-thiếu hoặc sai cấu trúc trả `INVALID_RESPONSE`. Timeout backend là 10 giây.
+thiếu hoặc sai cấu trúc trả `INVALID_RESPONSE`. Timeout mỗi OSRM request là
+10 giây; deadline tổng mỗi MCP tool là 15 giây. Hai endpoint phải nằm trong
+bounds của city đã chọn; ngoài bounds trả `OUTSIDE_ROUTING_AREA`.
 Chưa hỗ trợ nhiều điểm dừng, bike hoặc GPS map matching.
 Graph cũ Hà Nội thiếu đường quanh Ocean Park; PBF thành phố có thể đã được cắt
 theo địa giới trong khi UI/backend chấp nhận bounding box lớn hơn. Không coi một route ở
@@ -46,8 +52,8 @@ trung tâm là bằng chứng graph phủ đủ cả thành phố.
   cả ba profile có snap không quá 100 m hoặc báo không có tuyến đúng thực tế.
   Kiểm tra từng graph mới trước khi chuyển container production.
 
-Kiểm chứng: [test route](../../Maps%20VN/LifeFlow/packages/housing-query/tests/route-service.test.ts),
-[test route trực tiếp](../../Maps%20VN/LifeFlow/map-app/tests/osrm-live.spec.ts).
-Kiểm tra runtime: [`Test-Routing-Samples.ps1`](../../Maps%20VN/LifeFlow/Test-Routing-Samples.ps1)
-(chỉ là smoke test, không chứng minh toàn bộ độ phủ).
+Kiểm chứng: [test route](../../Maps%20VN/LifeFlow/packages/housing-query/tests/route-service.test.ts).
+Kết quả runtime ba thành phố × ba profile và các điểm biên được ghi trong
+[handoff](../integration/location-service-implementation-status.md)
+(smoke test không chứng minh toàn bộ độ phủ).
 Quyết định liên quan: [ADR-010](../adr/ADR-010-osrm-routing.md).

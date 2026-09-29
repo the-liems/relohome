@@ -1,11 +1,11 @@
 # Bản đồ LifeFlow
 
 Ứng dụng MapLibre cho TP.HCM, Hà Nội và Đà Nẵng. POI được tải từ LifeFlow
-Platform API và PostGIS; ba dịch vụ OSRM cục bộ đảm nhiệm định tuyến. File
-GeoJSON hiện có vẫn được giữ làm phương án dự phòng khi API tạm ngừng.
+Platform API và PostGIS; chín dịch vụ OSRM (ba thành phố × ba profile) đảm nhiệm định tuyến.
 Thanh nhóm địa điểm cho chọn Lưu trú, Y tế, Mua sắm, Giáo dục, Ăn uống,
-Giao thông, Tiện ích hoặc Giải trí. Mỗi lần chọn chỉ tải category của nhóm đó
-từ API; fallback GeoJSON chỉ áp dụng cho Lưu trú.
+Giao thông, Tiện ích hoặc Giải trí. API map tải POI theo bbox; không thay lỗi API
+bằng bộ GeoJSON lưu trú cũ. Số tiện ích phụ thuộc bbox và bộ lọc, không phải tổng DB.
+Xem [status dữ liệu](../../../docs/integration/location-data-status.md).
 
 ## Chạy cục bộ
 
@@ -13,7 +13,7 @@ từ API; fallback GeoJSON chỉ áp dụng cho Lưu trú.
 2. Mở PowerShell và chạy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "D:\Demo AI thực chiến\Maps VN\LifeFlow\Start-LifeFlow.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow\Start-LifeFlow.ps1"
 ```
 
 3. Mở `http://127.0.0.1:5173`.

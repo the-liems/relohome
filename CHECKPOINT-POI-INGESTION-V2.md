@@ -1,10 +1,16 @@
 # CHECKPOINT - POI ingestion v2 cho LifeFlow Map
 
+> **Checkpoint lịch sử ngày 24/09/2026.** Cập nhật chỉ dẫn 29/09:
+> [status dữ liệu](docs/integration/location-data-status.md) phân biệt POI,
+> housing anchor, listing và bbox; [status tích hợp](docs/integration/location-service-implementation-status.md)
+> ghi 9 tool và test mới. 34.322 là POI trong bbox HCM của báo cáo cũ.
+> 9 test POI pass bên dưới thuộc lần chạy 24/09; lần 29/09 bỏ qua 9 test này.
+
 Cập nhật sau thực hiện: 24/09/2026. POI v2 đã được extract, migrate, import,
 kiểm tra idempotency và hiển thị theo nhóm trên bản đồ. Phần bên dưới mục
 "Ghi chép trước khi thực hiện" là checkpoint cũ, được giữ để đối chiếu.
 
-## Trạng thái hiện tại
+## Kết quả tại mốc 24/09/2026
 
 - Migration 006 và 007 đã áp dụng. Migration 007 lưu Osmium feature ID của area.
 - PBF gốc giữ nguyên: 329120265 bytes, SHA256
@@ -18,7 +24,7 @@ kiểm tra idempotency và hiển thị theo nhóm trên bản đồ. Phần bê
 - 31178 area polygon được accepted; Osmium ID `a...` được ánh xạ về way/relation
   gốc, đồng thời giữ feature ID gốc trong payload. Source URL trỏ đúng OSM object.
 - Lần import đầu publish 109762 POI; lần sửa area publish thêm 29164. Canonical
-  total hiện tại: 152044. Lần import kiểm tra idempotency publish 0 POI mới
+  total tại mốc POI v2: 152044. Lần import kiểm tra idempotency publish 0 POI mới
   (run `9f26ec18-5549-4e35-ae57-74279197aeb4`).
 - Coverage theo bounding box bản đồ: HCM 34322, Hà Nội 32022, Đà Nẵng 8414.
   Chi tiết 128 hàng city/category và độ đầy đủ name/address/phone/website/
@@ -62,7 +68,7 @@ Không làm Recommendation, custom basemap hoặc rebuild OSRM trong công việ
 Worktree có nhiều thay đổi chưa commit từ routing và POI. Không revert hoặc checkout
 đè các thay đổi đó.
 
-## Trạng thái đã xác nhận
+## Baseline trước POI v2 (lịch sử)
 
 - Distro Ubuntu-24.04; Osmium 1.16.0 tại /usr/bin/osmium.
 - PostGIS container: lifeflow-postgis.

@@ -6,20 +6,20 @@ Trạng thái: Draft | Phụ trách: @DungMQ | Review/issue cha: nhóm xác nh�
 
 Người dùng tìm POI, tên khu vực hoặc địa chỉ; chọn một kết quả rồi tra tiện
 ích gần vị trí đó. Autocomplete dùng kết quả vị trí có nguồn, không coi một
-chuỗi trùng tên là địa chỉ duy nhất. Reverse geocoding phải cho biết độ chính
-xác của kết quả.
+chuỗi trùng tên là địa chỉ duy nhất. Reverse geocoding chưa triển khai trong
+API/MCP Location hiện tại.
 
 ## Giao diện và hành vi
 
 - API: `/v1/places/search`, `/v1/areas/search`,
-  `/v1/locations/resolve`, `/v1/locations/reverse`,
+  `/v1/locations/resolve`,
   `/v1/places/nearby` (đều là POST).
 - Schema chuẩn: [location](../../Maps%20VN/LifeFlow/packages/contracts/src/location.ts)
   và [place](../../Maps%20VN/LifeFlow/packages/contracts/src/place.ts).
 - Tìm POI có thể lọc category, nguồn, vùng hành chính, bounding box hoặc
   tâm/bán kính. Không gửi đồng thời bounding box và tâm/bán kính.
-- Resolve trả nhiều ứng viên có ID, nguồn và mức khớp; reverse trả mức
-  `poi_address`, `nearest_poi`, `administrative_area` hoặc `unknown`.
+- Resolve trả nhiều ứng viên có ID, nguồn và mức khớp. Không có endpoint
+  `/v1/locations/reverse` hoặc tool `reverse_location`.
 - Nearby dùng khoảng cách không gian theo mét từ PostGIS, không suy ra
   travel distance từ bán kính đường chim bay.
 - `find_nearby_places` hiện chọn một POI gần nhất cho mỗi category; muốn trả
@@ -29,14 +29,14 @@ xác của kết quả.
 ## Lỗi, giới hạn và ngoài phạm vi
 
 Input trống/sai hoặc bán kính vượt giới hạn schema trả lỗi validation.
-Không có kết quả thì trả danh sách rỗng hoặc `unknown`, không dựng địa chỉ.
+Không có kết quả thì trả danh sách rỗng, không dựng địa chỉ.
 Tìm kiếm không phải dịch vụ geocoding toàn quốc với độ phủ Google Maps.
 
 ## Tiêu chí nghiệm thu
 
 - **SPEC-009/AC-01:** Tìm chữ cho gợi ý POI/khu vực trong giới hạn và giữ ID
   chuẩn, nguồn, mức khớp để người dùng phân biệt kết quả cùng tên.
-- **SPEC-009/AC-02:** Reverse cho biết mức chính xác; thiếu địa chỉ thực thì
+- **SPEC-009/AC-02 (chưa triển khai, ngoài phạm vi đợt này):** Reverse cho biết mức chính xác; thiếu địa chỉ thực thì
   không hiển thị một địa chỉ suy đoán là chính xác.
 - **SPEC-009/AC-03:** Nearby lọc theo category và ngưỡng mét; các ngưỡng
   invalid bị từ chối, không biến thành truy vấn không giới hạn.

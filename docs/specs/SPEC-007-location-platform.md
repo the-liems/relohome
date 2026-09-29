@@ -14,18 +14,18 @@ và xem tuyến đường. Kết quả phải phản ánh dữ liệu thực t�
 Phạm vi của spec là ứng dụng trong `Maps VN/LifeFlow/`. Agent Python ở thư mục
 `src/` hiện chạy độc lập.
 
-Trạng thái hiện tại là thử nghiệm local, chưa phải dịch vụ product: graph OSRM
-chưa phủ hết vùng UI cho chọn; chỉ một profile được bật trên máy kiểm tra;
-chưa có tin nhà thật hoặc tích hợp MCP với agent Python. Các yêu cầu chi tiết
-và kết quả kiểm tra nằm ở [README Maps](../../Maps%20VN/LifeFlow/README.md).
+Status kiểm thử 29/09/2026: có housing thật, 9 tool MCP, HTTP bearer auth và
+đã thử cả 9 graph OSRM. Chưa chứng nhận độ phủ kín vùng/production SLA hoặc
+bài hội thoại của graph. Xem [status hiện hành](../integration/README.md).
+Draft nói về review tài liệu, không có nghĩa chưa có code.
 
 ## Luồng sử dụng
 
 1. Chọn thành phố và xem các nhóm POI trên bản đồ MapLibre.
-2. Tìm địa điểm/khu vực bằng văn bản hoặc tra ngược vị trí từ tọa độ.
+2. Tìm ứng viên địa điểm/khu vực bằng văn bản; reverse chưa triển khai.
 3. Xem tiện ích quanh một điểm hoặc tìm nhà theo điều kiện không gian.
 4. Chọn A và B để xem tuyến, khoảng cách, thời gian và hình học từ OSRM.
-5. Kiểm tra phạm vi dịch vụ/ước tính khi đã có cấu hình phù hợp.
+5. Chuyển nhu cầu vùng phục vụ/báo giá sang Moving; Location chưa có API mobility.
 
 ## Đọc chi tiết theo việc cần làm
 
@@ -52,7 +52,7 @@ tự động với agent Python. Những phần đó cần yêu cầu và hợp 
 
 - Schema Zod chuẩn nằm tại [`packages/contracts/src/`](../../Maps%20VN/LifeFlow/packages/contracts/src/).
 - HTTP endpoint được đăng ký tại [`platform-api/src/app.ts`](../../Maps%20VN/LifeFlow/platform-api/src/app.ts).
-- MCP dùng lại package contracts; [tài liệu API](../api/README.md) chỉ dẫn tới
+- MCP dùng lại package contracts; [tài liệu tích hợp](../integration/location-service-implementation-status.md) chỉ dẫn tới
   nguồn chuẩn, không định nghĩa lại field.
 - Dữ liệu không gian nằm trong PostGIS; OSRM cung cấp bằng chứng tuyến đường.
 
@@ -60,8 +60,8 @@ tự động với agent Python. Những phần đó cần yêu cầu và hợp 
 
 Input sai phải được báo lỗi validation. Không tìm thấy bản ghi thì trả kết quả
 rỗng hoặc 404 theo endpoint; OSRM offline/không tìm được tuyến không được biến
-thành tuyến dài 0 m. Khi đối tác chưa tích hợp, kết quả phải thể hiện
-`not_configured`, không hiển thị giá giả. API hiện phục vụ môi trường local;
+thành tuyến dài 0 m. Location không cung cấp báo giá/vùng phục vụ đối tác,
+không dựng phản hồi mobility khi chưa có API. API hiện phục vụ môi trường local;
 không coi CORS localhost là cơ chế bảo mật production. API key chỉ ở file môi
 trường bị Git bỏ qua, không đưa vào phản hồi hoặc tài liệu.
 
@@ -76,7 +76,7 @@ trường bị Git bỏ qua, không đưa vào phản hồi hoặc tài liệu.
 - **SPEC-007/AC-04:** Tuyến A→B thuộc profile được hỗ trợ trả khoảng cách,
   thời gian và geometry từ OSRM. Offline, phản hồi sai hoặc không có tuyến
   phải được báo lỗi.
-- **SPEC-007/AC-05:** Service area và estimate phân biệt đã cấu hình,
+- **SPEC-007/AC-05 (thiết kế cũ, ngoài phạm vi Location hiện tại):** Service area và estimate phân biệt đã cấu hình,
   ngoài vùng và chưa cấu hình; không tạo giá đối tác khi chưa có tích hợp.
 - **SPEC-007/AC-06:** Maps API và MCP kiểm tra input theo cùng Zod contracts
   và chạy độc lập với agent Python.

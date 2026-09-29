@@ -7,6 +7,7 @@ import {
 } from '@lifeflow/contracts'
 import type { RuntimeConfig } from './config.js'
 import { RouteServiceError } from './errors.js'
+import { abortError, checkOperation, operationContext } from './execution.js'
 
 const CITY_BOUNDS = {
   hcm: { west: 106.34, south: 10.34, east: 107.05, north: 11.2 },
@@ -32,7 +33,15 @@ export class RouteService {
   }
 
   async calculate(input: RouteRequest, signal?: AbortSignal): Promise<RouteResult> {
+    checkOperation()
     const request = RouteRequestSchema.parse(input)
+    const bounds = CITY_BOUNDS[request.city]
+    for (const side of ['origin', 'destination'] as const) {
+      const point = request[side]
+      if (point.lng < bounds.west || point.lng > bounds.east || point.lat < bounds.south || point.lat > bounds.north) {
+        throw new RouteServiceError('OUTSIDE_ROUTING_AREA', `${side} is outside the ${request.city} routing bounds.`)
+      }
+    }
     const baseUrl = this.osrmUrls[request.city][request.profile]
     const path = `${request.origin.lng},${request.origin.lat};${request.destination.lng},${request.destination.lat}`
     const url = new URL(`/route/v1/${request.profile}/${path}`, baseUrl)
@@ -44,12 +53,14 @@ export class RouteService {
     }
 
     const timeout = AbortSignal.timeout(10_000)
-    const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout
+    const signals = [timeout, signal, operationContext()?.signal].filter((item): item is AbortSignal => Boolean(item))
+    const combinedSignal = AbortSignal.any(signals)
 
     let response: Response
     try {
       response = await fetch(url, { signal: combinedSignal })
     } catch (error) {
+      if (combinedSignal.aborted) throw abortError(combinedSignal)
       throw new RouteServiceError(
         'OSRM_OFFLINE',
         error instanceof Error ? `OSRM request failed: ${error.message}` : 'OSRM request failed.',
@@ -61,12 +72,17 @@ export class RouteService {
     }
 
     const payload = (await response.json().catch(() => {
+      if (combinedSignal.aborted) throw abortError(combinedSignal)
       throw new RouteServiceError('INVALID_RESPONSE', 'OSRM returned invalid JSON.')
     })) as {
       code?: string
       message?: string
       routes?: Array<{ distance?: number; duration?: number; geometry?: unknown }>
       waypoints?: Array<{ distance?: number }>
+    }
+    if (combinedSignal.aborted) throw abortError(combinedSignal)
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new RouteServiceError('INVALID_RESPONSE', 'OSRM returned an invalid response object.')
     }
     if (payload.code === 'NoRoute' || payload.code === 'NoSegment') {
       throw new RouteServiceError('NO_ROUTE', payload.message || 'No route was found.')
@@ -76,7 +92,7 @@ export class RouteService {
       throw new RouteServiceError('INVALID_RESPONSE', payload.message || 'OSRM returned an invalid response.')
     }
 
-    const snapDistances = payload.waypoints?.map((waypoint) => waypoint.distance)
+    const snapDistances = Array.isArray(payload.waypoints) ? payload.waypoints.map((waypoint) => waypoint?.distance) : undefined
     if (request.snap_radius_m !== undefined &&
         (snapDistances?.length !== 2 || snapDistances.some((distance) =>
           typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0 || distance > request.snap_radius_m!))) {

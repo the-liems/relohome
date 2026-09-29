@@ -12,6 +12,8 @@ import {
 } from '@lifeflow/contracts'
 import {
   HousingQueryService,
+  boundedQueries,
+  OperationError,
   LocationService,
   NotFoundError,
   PlaceService,
@@ -34,9 +36,10 @@ const NearbyRequestSchema = z.object({
 export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
   const app = Fastify({ logger: true })
   const routeService = new RouteService(config.osrmUrls)
-  const housingService = new HousingQueryService(pool, routeService, config)
-  const locationService = new LocationService(pool)
-  const placeService = new PlaceService(pool)
+  const queries = boundedQueries(pool)
+  const housingService = new HousingQueryService(queries, routeService, config)
+  const locationService = new LocationService(queries)
+  const placeService = new PlaceService(queries)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
@@ -94,6 +97,10 @@ export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
   })
 
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof OperationError) {
+      return reply.status(error.code === 'TIMEOUT' ? 504 : error.code === 'CANCELLED' ? 408 : 503)
+        .send({ code: error.code, message: error.message, retryable: error.code !== 'CANCELLED' })
+    }
     if (error instanceof ZodError || error instanceof QueryValidationError) {
       return reply.status(400).send({
         code: 'VALIDATION_ERROR',

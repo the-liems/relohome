@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-09-29 — Location/Map
+
+- Triển khai contract housing accuracy/method/deposit và tool định tuyến theo thực thể,
+  registry MCP 9 tool, timeout/cancellation và kiểm tra vùng hai đầu.
+- Bằng chứng lượt triển khai: build/Docker pass, 93 test pass/9 skip, thử 9 graph OSRM.
+- Đồng bộ README, spec, checkpoint và ADR liên quan; giữ các bản khảo sát cũ dưới nhãn lịch sử.
+- [Status chung](docs/integration/README.md), [data/backup](docs/integration/location-data-status.md),
+  [bàn giao Graph](docs/integration/location-service-implementation-status.md).
+- Chưa nghiệm thu VM/cloud hoặc end-to-end Graph. Lượt sửa tài liệu không import/restore data
+  và không chạy lại test backend; dùng bằng chứng kiểm thử đã ghi ngày.
+
 ## [YYYY-MM-DD]
 
 | Member | Task | Status | Output | Time |

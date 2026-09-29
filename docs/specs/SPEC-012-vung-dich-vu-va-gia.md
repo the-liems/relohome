@@ -1,6 +1,12 @@
 # SPEC-012: Vùng dịch vụ và ước tính giá
 
-Trạng thái: Draft | Phụ trách: @DungMQ | Review/issue cha: nhóm xác nhận sau
+Trạng thái: Đề xuất lịch sử, chưa triển khai trong Location hiện tại.
+
+**Cập nhật 2026-09-29:** các API/tool/module mobility mô tả bên dưới không
+có trong registry Location hiện tại. Vùng phục vụ và báo giá đối tác thuộc
+phần Moving. Các liên kết module/test bên dưới là đường dẫn dự kiến của
+thiết kế cũ, không phải file đã tồn tại. Xem
+[trạng thái triển khai Location](../integration/location-service-implementation-status.md).
 
 ## Mục đích và phạm vi
 

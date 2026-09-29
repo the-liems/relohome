@@ -1,5 +1,10 @@
 # Housing/Map Sub-agent Lab: MCP + Map
 
+> Demo local này không phải trạng thái triển khai của LangGraph product.
+> Contract Location hiện tại có 9 tool; xem [status tích hợp](../../docs/integration/README.md)
+> và [dữ liệu/backup](../../docs/integration/location-data-status.md).
+> Lượt nghiệm thu 29/09 kiểm thử backend/MCP, không chạy lại demo Streamlit.
+
 Đây là sandbox nhỏ để kiểm tra Housing/Map sub-agent, không phải agent chính
 của toàn bộ product. Product Orchestrator chỉ cần chuyển yêu cầu phù hợp sang
 sub-agent; sub-agent dùng OpenAI để chọn workflow và gọi MCP server TypeScript

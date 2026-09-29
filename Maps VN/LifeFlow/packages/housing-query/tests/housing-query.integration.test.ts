@@ -5,6 +5,7 @@ import {
   LocationService,
   PlaceService,
   RouteService,
+  RouteEndpointService,
   type QueryExecutor,
 } from '../src/index.js'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -64,6 +65,42 @@ afterAll(async () => {
 })
 
 describe('HousingQueryService hard constraints', () => {
+  it('exposes deposit and accuracy consistently in search and detail', async () => {
+    await client.query("UPDATE housing.listings SET attributes = '{\"location_accuracy\":\"approximate\",\"location_method\":\"source_pin\"}'::jsonb WHERE id = $1", [ids.validListing])
+    await client.query('UPDATE housing.offers SET deposit_amount = 28000000 WHERE listing_id = $1', [ids.validListing])
+    try {
+      const expected = { location_accuracy: 'approximate', location_method: 'source_pin', deposit: { amount: 28000000, currency: 'VND' } }
+      expect(await service.get(ids.validListing)).toMatchObject(expected)
+      expect((await service.search({ text: 'Valid listing' })).results.find((row) => row.listing_id === ids.validListing)).toMatchObject(expected)
+      expect(await service.get(ids.unknownListing)).toMatchObject({ location_accuracy: 'unknown', location_method: null, deposit: null })
+    } finally {
+      await client.query("UPDATE housing.listings SET attributes = '{}'::jsonb WHERE id = $1", [ids.validListing])
+      await client.query('UPDATE housing.offers SET deposit_amount = NULL WHERE listing_id = $1', [ids.validListing])
+    }
+  })
+
+  it('resolves housing/place/coordinate endpoints with source metadata and preserves direction', async () => {
+    const fetchMock = vi.fn(async () => routeResponse(1800))
+    vi.stubGlobal('fetch', fetchMock)
+    const endpoints = new RouteEndpointService(client as unknown as QueryExecutor, new RouteService(getRuntimeConfig().osrmUrls))
+    const housing = { type: 'housing', listing_id: ids.validListing }
+    const place = { type: 'place', place_id: ids.hospitalPlace }
+    const coordinate = { type: 'coordinate', location: { lng: 106.701, lat: 10.771 } }
+    for (const [origin, destination] of [[housing, place], [place, housing], [housing, housing], [housing, coordinate]]) {
+      const output = await endpoints.calculate({ city: 'hcm', origin, destination, profile: 'walking' })
+      expect(output.origin.type).toBe(origin!.type)
+      expect(output.destination.type).toBe(destination!.type)
+      expect(output.origin.source?.type).toBe('import')
+      expect(output.warnings).toHaveLength(2)
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(`${output.origin.location.lng},${output.origin.location.lat};${output.destination.location.lng},${output.destination.location.lat}`)
+    }
+    await expect(endpoints.calculate({ city: 'hcm', origin: housing, destination: { type: 'place', place_id: ids.validListing } })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    await client.query("UPDATE housing.listings SET status = 'stale' WHERE id = $1", [ids.validListing])
+    try {
+      await expect(endpoints.calculate({ city: 'hcm', origin: housing, destination: place })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    } finally { await client.query("UPDATE housing.listings SET status = 'active' WHERE id = $1", [ids.validListing]) }
+  })
+
   it('coarse-filters in PostGIS then checks the 1-2 km road-distance interval', async () => {
     const fetchMock = vi.fn(async (input: URL | RequestInfo) => {
       const url = String(input)

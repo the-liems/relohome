@@ -50,7 +50,7 @@ describe('LifeFlow MCP Streamable HTTP server', () => {
     expect(response.headers.get('www-authenticate')).toBe('Bearer')
   })
 
-  it('publishes all eight tools to an authenticated remote client', async () => {
+  it('publishes all nine tools to an authenticated remote client', async () => {
     const client = new Client({ name: 'lifeflow-http-integration-test', version: '0.1.0' })
     const transport = new StreamableHTTPClientTransport(endpoint, {
       requestInit: { headers: { Authorization: `Bearer ${authToken}` } },
@@ -61,6 +61,7 @@ describe('LifeFlow MCP Streamable HTTP server', () => {
       const { tools } = await client.listTools()
       expect(tools.map((tool) => tool.name).sort()).toEqual([
         'calculate_route',
+        'calculate_route_between_entities',
         'find_nearby_places',
         'get_housing',
         'get_place',

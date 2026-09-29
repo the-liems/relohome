@@ -23,6 +23,9 @@ describe('bounded OSRM snapping', () => {
   })
 
   it.each([
+    null,
+    { ...valid, waypoints: {} },
+    { ...valid, waypoints: [null, null] },
     { ...valid, waypoints: undefined },
     { ...valid, waypoints: [{ distance: 101 }, { distance: 20 }] },
     { ...valid, waypoints: [{ distance: -1 }, { distance: 20 }] },
@@ -40,5 +43,20 @@ describe('bounded OSRM snapping', () => {
   it('does not convert malformed JSON into an empty search', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('not JSON')))
     await expect(service.calculate(request)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+})
+
+describe('routing coverage and cancellation', () => {
+  it.each(['origin', 'destination'] as const)('rejects an out-of-city %s before fetching', async (side) => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(service.calculate({ ...request, [side]: { lng: 105.85, lat: 21.03 } })).rejects.toMatchObject({ code: 'OUTSIDE_ROUTING_AREA' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('distinguishes cancellation from OSRM being offline', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url, options) => {
+      options.signal.throwIfAborted()
+    }))
+    await expect(service.calculate(request, AbortSignal.abort())).rejects.toMatchObject({ code: 'CANCELLED' })
   })
 })

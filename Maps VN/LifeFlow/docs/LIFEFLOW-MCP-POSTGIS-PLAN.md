@@ -1,5 +1,9 @@
 # Kế hoạch LifeFlow MCP, PostGIS và bản đồ tùy chỉnh
 
+> **Tài liệu khảo sát/thiết kế lịch sử — không dùng làm status hiện hành.**
+>
+> **Cập nhật chỉ dẫn 2026-09-29:** xem [status triển khai](../../../docs/integration/location-service-implementation-status.md) và [dữ liệu/backup hiện hành](../../../docs/integration/location-data-status.md). Location hiện có 9 tool, housing thật và MCP HTTP có bearer token. Các số liệu, test và kế hoạch trong ghi chép cũ bên dưới thuộc thời điểm viết, không phải thống kê DB của máy mới. ZIP cũ đã xóa; giữ dữ liệu backup riêng với source trong Git.
+
 ## Trạng thái tài liệu
 
 - Trạng thái: nền tảng factual đã được duyệt và triển khai

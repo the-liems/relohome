@@ -28,6 +28,9 @@ export const MoneySchema = z.object({
   period: PricePeriodSchema,
 })
 
+export const LocationAccuracySchema = z.enum(['rooftop', 'approximate', 'unknown'])
+export const DepositSchema = z.object({ amount: z.number().nonnegative(), currency: CurrencySchema })
+
 const StringOrListSchema = <T extends z.ZodType>(item: T) =>
   z.union([item, z.array(item).min(1).max(50)])
 
@@ -170,6 +173,9 @@ export const HousingSearchResultSchema = z.object({
   property_type: PropertyTypeSchema,
   listing_type: ListingTypeSchema,
   location: CoordinateSchema,
+  location_accuracy: LocationAccuracySchema,
+  location_method: z.string().nullable(),
+  deposit: DepositSchema.nullable(),
   address: z.record(z.string(), z.unknown()),
   price: MoneySchema,
   bedrooms: z.number().nonnegative().nullable(),

@@ -6,10 +6,8 @@ Trạng thái: Draft | Phụ trách: @DungMQ | Review/issue cha: nhóm xác nh�
 
 Tìm tin nhà ở thực tế theo giá, loại nhà, khu vực, tiện ích gần và giới hạn
 đi lại. Kết quả dùng để hiển thị marker/card; Housing Query không tự xếp hạng
-hay đưa ra lời khuyên nên thuê căn nào. Kho hiện chưa có tin đăng thật, vì
-vậy trạng thái rỗng là kết quả đúng.
-Do chưa có nguồn tin nhà thật, chưa thể xác nhận chất lượng tìm nhà/trọ/chung
-cư hoặc độ phủ POI quanh từng căn trong vận hành thực tế.
+hay đưa ra lời khuyên nên thuê căn nào. Kho đã có pipeline nhập tin thật.
+Độ phủ và độ mới phải được đánh giá theo snapshot trên DB triển khai.
 
 ## Giao diện và hành vi
 
@@ -23,13 +21,17 @@ cư hoặc độ phủ POI quanh từng căn trong vận hành thực tế.
   không thể xác minh điều kiện gần/commute, không coi nó là đã khớp.
 - Kết quả có cursor. Trang rỗng vẫn có thể có cursor tiếp theo nếu còn
   ứng viên chưa kiểm tra hết trong giới hạn quét.
+- Search/detail trả `location_accuracy` (`rooftop`, `approximate`, `unknown`),
+  `location_method` nullable và `deposit: {amount, currency} | null`.
+  Thiếu tiền cọc là `null`, không phải miễn cọc. Xem
+  [handoff](../integration/location-service-implementation-status.md).
 
 ## Lỗi, giới hạn và ngoài phạm vi
 
 Ngưỡng min/max sai, hai hệ tiền/chu kỳ giá không khớp hoặc yêu cầu commute
 thiếu max distance/duration phải bị từ chối. OSRM không khả dụng không được
-biến một điều kiện commute thành khớp giả. Chưa có nhập tin nhà, định giá
-bất động sản hay recommendation trong phạm vi này.
+biến một điều kiện commute thành khớp giả. Nhập tin qua pipeline riêng;
+định giá bất động sản và recommendation không thuộc các tool truy vấn.
 
 ## Tiêu chí nghiệm thu
 

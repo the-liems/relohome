@@ -1,5 +1,9 @@
 # ADR-007: Giữ hai workspace ứng dụng độc lập
 
+> Cập nhật 29/09/2026: bối cảnh bên dưới thuộc ngày đề xuất. Location đã có MCP
+> stdio/HTTP và tài liệu tích hợp; chưa kiểm chứng end-to-end nhánh Graph của nhóm.
+> Không dùng ADR này để kết luận nhóm chưa viết Graph. Xem [status](../integration/README.md).
+
 Ngày: 2026-09-25  
 Trạng thái: Superseded by [ADR-001](ADR-001-polyglot-lifeflow-workspace.md) (2026-09-29)  
 Người đề xuất: @DungMQ | Review: chủ sở hữu phần agent và repo
