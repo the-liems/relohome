@@ -6,6 +6,10 @@ Toàn bộ dữ liệu, routing, PostGIS, Platform API, MCP server và giao di�
 của LifeFlow được gom trong [`Maps VN`](Maps%20VN). Hướng dẫn chạy chi tiết nằm
 tại [`Maps VN/LifeFlow/README.md`](Maps%20VN/LifeFlow/README.md).
 
+**Đồng bộ Location, 29/09/2026:** bắt đầu từ [mục lục status](docs/integration/README.md)
+để lấy contract 9 tool, kết quả kiểm thử và số liệu/backup theo từng snapshot.
+Các checkpoint cũ là lịch sử, không đại diện cho DB trên máy mới.
+
 Template chính thức cho học viên VinUni AI20K Build Phase: cấu trúc dự án, code
 mẫu và hướng dẫn kỹ thuật để xây dựng một AI Agent hoàn chỉnh — từ kiến trúc,
 code, test cho đến deploy và nộp bài Demo Day.

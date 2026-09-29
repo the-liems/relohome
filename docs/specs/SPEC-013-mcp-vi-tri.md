@@ -5,8 +5,8 @@ Trạng thái: Draft | Phụ trách: @DungMQ | Review/issue cha: nhóm xác nh�
 ## Mục đích và phạm vi
 
 MCP server cho một client/agent bên ngoài đọc dữ liệu vị trí đã có, không tự
-quyết định thuê nhà hay đặt dịch vụ. Đây là một server `stdio` riêng trong
-Maps workspace; root Python agent hiện chưa nối vào server này.
+quyết định thuê nhà hay đặt dịch vụ. Server hỗ trợ `stdio` và Streamable HTTP
+trong Maps workspace. Phía graph quản lý lựa chọn tool và hội thoại.
 
 ## Giao diện và hành vi
 
@@ -14,9 +14,8 @@ Maps workspace; root Python agent hiện chưa nối vào server này.
   schema chia sẻ từ [contracts](../../Maps%20VN/LifeFlow/packages/contracts/src/).
 - Nhóm nhà: `search_housing`, `get_housing`.
 - Nhóm vị trí: `search_places`, `get_place`, `search_areas`,
-  `resolve_location`, `reverse_location`, `find_nearby_places`.
-- Nhóm tuyến/dịch vụ: `calculate_route`, `check_service_area`,
-  `estimate_delivery`.
+  `resolve_location`, `find_nearby_places`.
+- Nhóm tuyến: `calculate_route`, `calculate_route_between_entities`.
 - Tool đọc dùng cùng service PostGIS/OSRM với API. Dữ liệu trả về không
   phải quyết định cuối cùng của agent.
 - `calculate_route` trả distance/duration theo graph OSRM. `search_housing`
@@ -30,13 +29,14 @@ Input không hợp lệ phải bị từ chối theo schema; nguồn PostGIS/OSR
 được đổi thành câu trả lời bịa. MCP không có quyền ghi POI/tin nhà hoặc đặt
 đơn. Không có tool `recommend_housing`. Việc gắn MCP vào agent, phân quyền
 production và quản lý credentials cần quyết định riêng.
-MCP `stdio` hiện chạy local; không có xác thực hoặc endpoint nhiều client cho
-product. Kho chưa có tin nhà thật nên không thể nghiệm thu câu hỏi gợi ý nhà
-trên dữ liệu production chỉ bằng các test schema/tool.
+MCP HTTP dùng bearer token theo cấu hình triển khai. Kho đã có tin nhà thật;
+độ chính xác vị trí và độ mới của nguồn phải được giữ khi trả lời. Không mở
+rộng alias/viết tắt. Handoff và giới hạn timeout/cancellation được ghi tại
+[trạng thái triển khai](../integration/location-service-implementation-status.md).
 
 ## Tiêu chí nghiệm thu
 
-- **SPEC-013/AC-01:** Server công bố đúng 11 tool đọc nêu trên và không
+- **SPEC-013/AC-01:** Server công bố đúng 9 tool đọc nêu trên và không
   công bố tool đề xuất nhà hoặc ghi dữ liệu.
 - **SPEC-013/AC-02:** Input/output của tool được kiểm tra bằng cùng Zod
   contracts mà Maps API sử dụng.

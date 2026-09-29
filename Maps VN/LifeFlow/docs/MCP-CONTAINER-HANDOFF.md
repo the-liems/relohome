@@ -1,16 +1,21 @@
 # LifeFlow Location MCP - tài liệu bàn giao
 
+Cập nhật 29/09/2026: [contract và kiểm thử](../../../docs/integration/location-service-implementation-status.md),
+[dữ liệu và backup](../../../docs/integration/location-data-status.md).
+Rebuild image để có tool thứ 9. Token xác thực client; DB/OSRM URL và mạng phải
+được cấu hình riêng, token không tự kết nối database trên máy cá nhân.
+
 ## Phạm vi bàn giao
 
 Đây là một MCP server duy nhất cho toàn bộ chức năng vị trí và bản đồ của LifeFlow.
-Server được đóng gói thành container `lifeflow-location-mcp` và công khai 8 tool chỉ đọc:
+Server được đóng gói thành container `lifeflow-location-mcp` và công khai 9 tool chỉ đọc:
 
 | Nhóm | Tool | Nguồn dữ liệu |
 |---|---|---|
 | Housing | `search_housing`, `get_housing` | PostGIS |
 | Place | `search_places`, `get_place`, `find_nearby_places` | PostGIS |
 | Location | `search_areas`, `resolve_location` | PostGIS |
-| Routing | `calculate_route` | OSRM |
+| Routing | `calculate_route`, `calculate_route_between_entities` | PostGIS + OSRM |
 
 Phần crawl/thu thập dữ liệu housing **không nằm trong container này**. MCP chỉ truy vấn dữ
 liệu đã được chuẩn hóa và nhập vào PostGIS. Khi chưa có dữ liệu housing thật,
@@ -161,4 +166,4 @@ docker build -f mcp-server/Dockerfile -t lifeflow-location-mcp:0.1.0 .
 ```
 
 Kết quả đạt khi `/healthz` trả `200`, `/readyz` trả `200`, request không có token bị từ chối
-và MCP client có token nhìn thấy đúng 8 tool.
+và MCP client có token nhìn thấy đúng 9 tool.

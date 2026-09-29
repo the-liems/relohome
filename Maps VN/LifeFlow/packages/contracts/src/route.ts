@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CoordinateSchema } from './common.js'
+import { CoordinateSchema, SourceSchema } from './common.js'
 
 export const RouteProfileSchema = z.enum(['driving', 'motorcycle', 'walking'])
 
@@ -27,3 +27,42 @@ export const RouteResultSchema = z.object({
 
 export type RouteRequest = z.infer<typeof RouteRequestSchema>
 export type RouteResult = z.infer<typeof RouteResultSchema>
+
+export const RouteEndpointSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('housing'), listing_id: z.uuid() }).strict(),
+  z.object({ type: z.literal('place'), place_id: z.uuid() }).strict(),
+  z.object({ type: z.literal('coordinate'), location: CoordinateSchema }).strict(),
+])
+
+export const EntityRouteRequestSchema = z.object({
+  city: z.enum(['hcm', 'hanoi', 'danang']),
+  origin: RouteEndpointSchema,
+  destination: RouteEndpointSchema,
+  profile: RouteProfileSchema.default('motorcycle'),
+  snap_radius_m: z.number().positive().max(1_000).default(100),
+}).strict()
+
+export const RouteEndpointResultSchema = z.object({
+  type: z.enum(['housing', 'place', 'coordinate']),
+  canonical_id: z.uuid().nullable(),
+  location: CoordinateSchema,
+  address: z.record(z.string(), z.unknown()).nullable(),
+  location_accuracy: z.enum(['rooftop', 'approximate', 'unknown']),
+  location_method: z.string().nullable(),
+  source: SourceSchema.nullable(),
+})
+
+export const EntityRouteResponseSchema = z.object({
+  city: z.enum(['hcm', 'hanoi', 'danang']),
+  profile: RouteProfileSchema,
+  origin: RouteEndpointResultSchema,
+  destination: RouteEndpointResultSchema,
+  route: RouteResultSchema,
+  warnings: z.array(z.object({
+    code: z.enum(['APPROXIMATE_LOCATION', 'UNKNOWN_LOCATION_ACCURACY']),
+    endpoint: z.enum(['origin', 'destination']),
+  })),
+})
+
+export type RouteEndpoint = z.infer<typeof RouteEndpointSchema>
+export type RouteEndpointResult = z.infer<typeof RouteEndpointResultSchema>

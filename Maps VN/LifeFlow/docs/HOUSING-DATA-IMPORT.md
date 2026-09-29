@@ -1,5 +1,7 @@
 # Nhập dữ liệu housing vào LifeFlow
 
+> **Cập nhật chỉ dẫn 2026-09-29:** xem [status triển khai](../../../docs/integration/location-service-implementation-status.md) và [dữ liệu/backup hiện hành](../../../docs/integration/location-data-status.md). Location hiện có 9 tool, housing thật và MCP HTTP có bearer token. Các số liệu, test và kế hoạch trong ghi chép cũ bên dưới thuộc thời điểm viết, không phải thống kê DB của máy mới. ZIP cũ đã xóa; giữ dữ liệu backup riêng với source trong Git.
+
 Tài liệu này mô tả luồng nhập file `housing_clean_2026-09-26.jsonl` vào PostGIS mà không xóa
 file nguồn hoặc dữ liệu lịch sử.
 

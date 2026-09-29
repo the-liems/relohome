@@ -1,5 +1,6 @@
 import {
   createDatabasePool,
+  boundedQueries,
   getApplicationRuntimeConfig,
   HousingQueryService,
   LocationService,
@@ -12,13 +13,14 @@ export function createLifeFlowMcpRuntime() {
   const config = getApplicationRuntimeConfig()
   const pool = createDatabasePool(config.databaseUrl)
   const routeService = new RouteService(config.osrmUrls)
+  const queries = boundedQueries(pool)
 
   const dependencies: LifeFlowMcpDependencies = {
-    pool,
+    pool: queries,
     routeService,
-    housingService: new HousingQueryService(pool, routeService, config),
-    locationService: new LocationService(pool),
-    placeService: new PlaceService(pool),
+    housingService: new HousingQueryService(queries, routeService, config),
+    locationService: new LocationService(queries),
+    placeService: new PlaceService(queries),
   }
 
   return { config, pool, dependencies }

@@ -1,5 +1,10 @@
 # ADR-005: Không suy đoán giá hay vùng phục vụ của đối tác
 
+> Cập nhật 29/09/2026: đây là đề xuất lịch sử cho Location, không mô tả trạng thái
+> adapter AhaMove/Grab ở nhánh Moving của nhóm. Location chưa có API/tool
+> service-area/estimate; Moving sở hữu vùng phục vụ và báo giá. Output mobility
+> bên dưới là thiết kế, chưa phải contract có thể gọi. Xem [status](../integration/README.md).
+
 Ngày: 2026-09-25  
 Trạng thái: Proposed (chờ nhóm duyệt)  
 Người đề xuất: @DungMQ | Review: người phụ trách sản phẩm/tích hợp đối tác

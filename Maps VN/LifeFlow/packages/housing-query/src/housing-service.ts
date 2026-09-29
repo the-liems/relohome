@@ -18,6 +18,7 @@ import type { QueryExecutor } from './database.js'
 import { NotFoundError, QueryValidationError, RouteServiceError } from './errors.js'
 import { PlaceService } from './place-service.js'
 import { RouteService } from './route-service.js'
+import { checkOperation, withinOperation } from './execution.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
@@ -65,6 +66,10 @@ export class HousingQueryService {
   }
 
   async search(input: unknown): Promise<HousingSearchResponse> {
+    return withinOperation(() => this.searchWithinBudget(input))
+  }
+
+  private async searchWithinBudget(input: unknown): Promise<HousingSearchResponse> {
     const request = HousingSearchRequestSchema.parse(input)
     validateSort(request)
     const offset = decodeCursor(request.pagination.cursor)
@@ -76,6 +81,7 @@ export class HousingQueryService {
     const scanLimit = request.commute ? this.config.commuteCandidateLimit : request.pagination.limit
     const candidates = rows.slice(0, scanLimit)
     for (let start = 0; start < candidates.length && results.length < request.pagination.limit; start += ROUTE_CONCURRENCY) {
+      checkOperation()
       const batch = candidates.slice(start, start + ROUTE_CONCURRENCY)
       const mapped = await Promise.all(batch.map((row) => this.mapCandidate(row, request)))
       if (request.commute) commuteEvaluatedCount += batch.length
@@ -365,6 +371,7 @@ export class HousingQueryService {
          ST_Y(cp.geom) AS lat,
          cp.address,
          o.price_amount,
+         o.deposit_amount,
          o.currency,
          o.price_period,
          u.bedrooms,
@@ -432,6 +439,14 @@ export class HousingQueryService {
       property_type: row.property_type as HousingSearchResult['property_type'],
       listing_type: row.listing_type as HousingSearchResult['listing_type'],
       location,
+      location_accuracy: ['rooftop', 'approximate'].includes(String((row.listing_attributes as Record<string, unknown> | null)?.location_accuracy))
+        ? (row.listing_attributes as Record<string, unknown>).location_accuracy as 'rooftop' | 'approximate'
+        : 'unknown',
+      location_method: typeof (row.listing_attributes as Record<string, unknown> | null)?.location_method === 'string'
+        ? String((row.listing_attributes as Record<string, unknown>).location_method) : null,
+      deposit: row.deposit_amount == null ? null : {
+        amount: Number(row.deposit_amount), currency: row.currency as HousingSearchResult['price']['currency'],
+      },
       address: (row.address || {}) as Record<string, unknown>,
       price: {
         amount: Number(row.price_amount),

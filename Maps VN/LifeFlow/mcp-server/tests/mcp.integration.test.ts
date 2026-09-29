@@ -32,12 +32,13 @@ afterAll(async () => {
 })
 
 describe('LifeFlow MCP stdio server', () => {
-  it('publishes the eight factual read tools', async () => {
+  it('publishes the nine factual read tools', async () => {
     const { tools } = await client.listTools()
     const names = tools.map((tool) => tool.name).sort()
 
     expect(names).toEqual([
       'calculate_route',
+      'calculate_route_between_entities',
       'find_nearby_places',
       'get_housing',
       'get_place',
