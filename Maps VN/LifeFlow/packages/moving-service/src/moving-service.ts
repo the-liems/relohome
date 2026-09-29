@@ -5,6 +5,7 @@ import {
   EstimateMoveRequestSchema,
   MoveQuoteSchema,
   RateMoveDriverRequestSchema,
+  RegisterMovingApprovalRequestSchema,
   UpdateMoveOrderRequestSchema,
   type CancelMoveOrderRequest,
   type CreateMoveOrderRequest,
@@ -119,11 +120,22 @@ export class MovingService {
     expiresAt: Date
   }) {
     const approvalId = input.approvalId || randomUUID()
+    const parsed = RegisterMovingApprovalRequestSchema.safeParse({
+      approval_id: approvalId, action_type: input.actionType, payload: input.payload,
+      approved_by: input.approvedBy,
+      expires_at: Number.isFinite(input.expiresAt.getTime()) ? input.expiresAt.toISOString() : '',
+    })
+    if (!parsed.success) throw new MovingServiceError('VALIDATION_ERROR', 'Invalid approval registration.')
+    const remaining = input.expiresAt.getTime() - Date.now()
+    if (remaining <= 0) throw new MovingServiceError('APPROVAL_EXPIRED', 'Approval expiry must be in the future.')
+    if (remaining > 30 * 60 * 1000) {
+      throw new MovingServiceError('VALIDATION_ERROR', 'Approval lifetime must not exceed 30 minutes.')
+    }
     await this.repository.saveApproval({
       approvalId,
       actionType: input.actionType,
-      payloadHash: payloadHash(input.payload),
-      approvedBy: input.approvedBy,
+      payloadHash: payloadHash(parsed.data.payload),
+      approvedBy: parsed.data.approved_by,
       expiresAt: input.expiresAt,
     })
     return approvalId
@@ -194,7 +206,8 @@ export class MovingService {
         const tracking = estimateRequest.draft.destinations.find((point) => point.tracking_number)?.tracking_number
         if (tracking) {
           const matches = asRecordArray(await this.client.findOrdersByTrackingNumber(tracking).catch(() => []))
-          const providerOrder = matches[0]
+          // Multiple orders sharing a reference are ambiguous; never select one arbitrarily.
+          const providerOrder = matches.length === 1 ? matches[0] : undefined
           if (providerOrder) {
             const order = normalizeOrder(providerOrder, this.config.environment)
             await this.repository.completeAction(idempotencyKey, order.order_id, providerOrder)

@@ -1,7 +1,7 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { AhaMoveClient, createMovingDatabasePool, getMovingRuntimeConfig, loadMovingEnvironment,
   MovingRepository, MovingService } from '@lifeflow/moving-service'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { request } from 'node:http'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildMovingHttpServer } from '../src/http-app.js'
@@ -10,6 +10,8 @@ import { buildMovingApp } from '../../moving-api/src/app.js'
 loadMovingEnvironment()
 const live = process.env.RUN_AHAMOVE_STAGING_INTEGRATION === '1'
 const token = randomBytes(32).toString('hex')
+const writeToken = randomBytes(32).toString('hex')
+const approvalToken = randomBytes(32).toString('hex')
 let baseUrl: string
 let closeServer: (() => Promise<void>) | undefined
 let api: ReturnType<typeof buildMovingApp> | undefined
@@ -23,7 +25,7 @@ describe.runIf(live)('Moving HTTP with real AhaMove and real database connection
     const db = createMovingDatabasePool(config.databaseUrl)
     const movingService = new MovingService(AhaMoveClient.fromConfig(config), new MovingRepository(db), config)
     const app = buildMovingHttpServer({ db, movingService, environment: config.environment }, {
-      token, allowedHosts: ['127.0.0.1'], allowedOrigins: [], release: 'live-verification',
+      token, writeToken, allowedHosts: ['127.0.0.1'], allowedOrigins: [], release: 'live-verification',
     })
     await new Promise<void>((resolve) => app.server.listen(0, '127.0.0.1', resolve))
     const address = app.server.address()
@@ -31,7 +33,7 @@ describe.runIf(live)('Moving HTTP with real AhaMove and real database connection
     baseUrl = `http://127.0.0.1:${address.port}`
     closeServer = app.close
     const apiDb = createMovingDatabasePool(config.databaseUrl)
-    api = buildMovingApp(apiDb, new MovingService(AhaMoveClient.fromConfig(config), new MovingRepository(apiDb), config), config)
+    api = buildMovingApp(apiDb, new MovingService(AhaMoveClient.fromConfig(config), new MovingRepository(apiDb), config), config, { approvalToken })
     await api.listen({ host: '127.0.0.1', port: 0 })
   })
   afterAll(async () => {
@@ -61,7 +63,7 @@ describe.runIf(live)('Moving HTTP with real AhaMove and real database connection
     await client.connect(new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
       requestInit: { headers: { authorization: `Bearer ${token}` } },
     }))
-    expect((await client.listTools()).tools).toHaveLength(13)
+    expect((await client.listTools()).tools).toHaveLength(9)
     const cities = await client.callTool({ name: 'list_service_areas', arguments: { country_id: 'VN' } })
     expect(cities.isError).not.toBe(true)
     const city = (cities.structuredContent as { cities: Array<{ city_id: string }> }).cities[0]!
@@ -72,6 +74,84 @@ describe.runIf(live)('Moving HTTP with real AhaMove and real database connection
     const detail = await client.callTool({ name: 'get_moving_service', arguments: { service_id: first.service_id } })
     expect(detail.isError).not.toBe(true)
   }, 60_000)
+  it('enforces read/write scope on the server using real MCP connections', async () => {
+    const reader = new Client({ name: 'scope-read', version: '1.0.0' })
+    const writer = new Client({ name: 'scope-write', version: '1.0.0' })
+    try {
+      for (const [connection, credential] of [[reader, token], [writer, writeToken]] as const) {
+        await connection.connect(new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+          requestInit: { headers: { authorization: `Bearer ${credential}` } },
+        }))
+      }
+      expect((await reader.listTools()).tools).toHaveLength(9)
+      const tools = (await writer.listTools()).tools
+      expect(tools).toHaveLength(13)
+      expect(tools.find((tool) => tool.name === 'cancel_move_order')?.annotations?.destructiveHint).toBe(true)
+      // Unknown tools may be a JSON-RPC error or an MCP error result depending on SDK version.
+      const denied = await reader.callTool({ name: 'create_move_order', arguments: {} })
+        .then((result) => result.isError === true, () => true)
+      expect(denied).toBe(true)
+      const blockedWrite = await writer.callTool({ name: 'create_move_order', arguments: {
+        quote_id: randomUUID(), service_id: 'security-validation-only', approval_id: randomUUID(),
+        workflow_id: `security:${randomUUID()}`, action_id: randomUUID(),
+      } })
+      expect(blockedWrite.isError).toBe(true)
+      expect(JSON.stringify(blockedWrite.content)).toContain('WRITE_DISABLED')
+    } finally { await reader.close(); await writer.close() }
+  })
+  it('validates internal approvals and persists immutable consent in real PostgreSQL', async () => {
+    // Generated security-test input, not a fabricated provider response. No order is created.
+    const payload = {
+      approval_id: randomUUID(), action_type: 'create',
+      payload: { action: 'create', quote_id: randomUUID(), quote_fingerprint: randomBytes(32).toString('hex'),
+        service_id: 'security-validation-only', total_price: 1,
+        workflow_id: `security:${randomUUID()}`, action_id: randomBytes(32).toString('hex') },
+      approved_by: 'integration-security-check', expires_at: new Date(Date.now() + 600_000).toISOString(),
+    }
+    const send = (body: unknown, credential = approvalToken) => api!.inject({
+      method: 'POST', url: '/v1/internal/moving/approvals',
+      headers: { authorization: `Bearer ${credential}` }, payload: body as object,
+    })
+    expect((await send(payload, token)).statusCode).toBe(401)
+    expect((await send(payload, writeToken)).statusCode).toBe(401)
+    expect((await send({ ...payload, action_type: 'cancel' })).statusCode).toBe(400)
+    expect((await send({ ...payload, expires_at: new Date(Date.now() - 1000).toISOString() })).statusCode).toBe(422)
+    expect((await send({ ...payload, expires_at: new Date(Date.now() + 31 * 60_000).toISOString() })).statusCode).toBe(400)
+    const registered = await send(payload)
+    expect(registered.statusCode).toBe(200)
+    expect(registered.json()).toEqual({ approval_id: payload.approval_id })
+    expect((await send(payload)).statusCode).toBe(200)
+    for (const change of [
+      { payload: { ...payload.payload, total_price: 2 } },
+      { approved_by: 'different-user' },
+      { expires_at: new Date(Date.now() + 900_000).toISOString() },
+    ]) expect((await send({ ...payload, ...change })).statusCode).toBe(409)
+    const pool = createMovingDatabasePool(getMovingRuntimeConfig().databaseUrl)
+    try {
+      const repository = new MovingRepository(pool)
+      expect(await repository.consumeApproval(payload.approval_id)).toBe(true)
+      expect((await send(payload)).statusCode).toBe(200)
+      expect(await repository.consumeApproval(payload.approval_id)).toBe(false)
+      const competingId = randomUUID()
+      const results = await Promise.all([
+        send({ ...payload, approval_id: competingId }),
+        send({ ...payload, approval_id: competingId, approved_by: 'competing-user' }),
+      ])
+      expect(results.map((result) => result.statusCode).sort()).toEqual([200, 409])
+      const workflow = `security:${randomUUID()}`
+      const action = randomUUID()
+      expect(await repository.claimAction(randomBytes(32).toString('hex'), workflow, action, payload.payload.quote_fingerprint)).toBe(true)
+      expect(await repository.claimAction(randomBytes(32).toString('hex'), workflow, action, payload.payload.quote_fingerprint)).toBe(false)
+    } finally { await pool.end() }
+  })
+  it('keeps approval registration disabled when no internal token is configured', async () => {
+    const config = getMovingRuntimeConfig()
+    const pool = createMovingDatabasePool(config.databaseUrl)
+    const disabled = buildMovingApp(pool, new MovingService(AhaMoveClient.fromConfig(config), new MovingRepository(pool), config), config, {})
+    try {
+      expect((await disabled.inject({ method: 'POST', url: '/v1/internal/moving/approvals', payload: {} })).statusCode).toBe(503)
+    } finally { await disabled.close() }
+  })
   it('rejects unauthenticated webhook callbacks', async () => {
     const response = await api!.inject({ method: 'POST', url: '/v1/integrations/ahamove/webhooks/order-status', payload: {} })
     expect(response.statusCode).toBe(401)

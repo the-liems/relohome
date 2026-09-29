@@ -43,6 +43,14 @@ và INSERT vào audit. Không chạy đồng thời migrator LifeFlow cũ và Mo
 Giữ `AHAMOVE_WRITE_ENABLED=false`, `AHAMOVE_RATING_ENABLED=false`,
 `AHAMOVE_PRODUCTION_ENABLED=false` cho giai đoạn discovery/read-only staging.
 
+Khi tích hợp transaction: cấp riêng `MOVING_MCP_WRITE_TOKEN` cho MCP/backend
+(13 tool), giữ `MOVING_MCP_AUTH_TOKEN` chỉ đọc (9 tool). Cấp
+`MOVING_APPROVAL_TOKEN` riêng cho API/backend, tối thiểu 32 ký tự mỗi token.
+Backend gọi `http://moving-api:4200/v1/internal/moving/approvals` trên mạng riêng.
+Public ingress chỉ mở đường webhook, không mở đường approval. Không cấp các
+token ghi/approval cho subagent hay frontend. Bật ghi staging là thao tác
+operator có chủ đích sau UAT approval, không tự bật cùng release.
+
 ## Deploy sequence
 
 1. Chuẩn bị PostgreSQL thật, secret storage và network riêng. Có thể dùng Postgres

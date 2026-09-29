@@ -26,7 +26,10 @@ flowchart LR
 - `packages/mcp-core`: shared MCP handler and redacted audit behavior.
 - `packages/moving-service`: provider-independent policy, persistence boundary,
   AhaMove client and mapping.
-- `moving-mcp-server`: independent stdio and authenticated HTTP MCP entrypoints, sharing the same 13 tools.
+- `moving-mcp-server`: independent stdio and authenticated HTTP MCP entrypoints.
+  Stdio and the HTTP read credential expose 9 read tools; the separate HTTP write
+  credential exposes all 13 tools. Writes still require stored approval and the
+  environment write flag.
 - `moving-api`: separate HTTP process for webhook ingestion and health.
 - `database/migrations/008_moving_service.sql`: quotes, approvals, idempotency,
   orders and webhook events.

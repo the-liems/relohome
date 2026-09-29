@@ -78,9 +78,12 @@ jobs:
           export MOVING_DB_ADMIN_PASSWORD=$(openssl rand -hex 32)
           export MOVING_DB_APP_PASSWORD=$(openssl rand -hex 32)
           export MOVING_MCP_AUTH_TOKEN=$(openssl rand -hex 32)
+          export MOVING_MCP_WRITE_TOKEN=$(openssl rand -hex 32)
+          export MOVING_APPROVAL_TOKEN=$(openssl rand -hex 32)
           export AHAMOVE_WEBHOOK_SECRET=$(openssl rand -hex 32)
           docker compose -f compose.moving.yaml config --quiet
           docker compose -f compose.moving.yaml -f compose.moving.ci.yaml config --quiet
+          docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
 
   images:
     needs: [changes, validate]

@@ -40,7 +40,7 @@ không publish port lên host; volume và tên container được Compose quản
 | `/v1/integrations/ahamove/webhooks/order-status` | Callback POST của AhaMove |
 
 `moving:verify` kiểm tra readiness, release nếu được chỉ định, xác thực HTTP,
-13 tools và gọi danh sách thành phố thật. Không tạo đơn hàng.
+9 tool đọc và gọi danh sách thành phố thật. Không tạo đơn hàng.
 
 ```powershell
 npm run moving:status
@@ -77,6 +77,35 @@ Nếu cho phép browser, khai báo chính xác `MOVING_MCP_ALLOWED_ORIGINS` và 
 auth phía người dùng trước. Đây chưa phải OAuth MCP công khai.
 
 ## Build từng image
+
+### Quyền ghi và approval nội bộ
+
+- `MOVING_MCP_AUTH_TOKEN`: subagent chỉ đọc, thấy 9 tool.
+- `MOVING_MCP_WRITE_TOKEN`: backend transaction, thấy 13 tool; vẫn phải qua
+  `AHAMOVE_WRITE_ENABLED`, approval và kiểm tra trạng thái nghiệp vụ.
+- `MOVING_APPROVAL_TOKEN`: chỉ cấp cho Moving API và backend tin cậy để đăng ký
+  approval; không cấp cho LLM/subagent/browser. Sinh độc lập, tối thiểu 32 ký tự.
+- Không đặt token ghi: server không mở đường truy cập tool ghi. Không đặt token
+  approval: endpoint đăng ký trả 503. Stdio mặc định cũng chỉ có 9 tool đọc;
+  transaction dùng HTTP với token ghi riêng.
+- `MOVING_APPROVAL_URL=http://moving-api:4200/v1/internal/moving/approvals`
+  khi graph cùng mạng Docker. Không expose endpoint nội bộ qua public webhook
+  ingress; proxy chỉ route đúng `/v1/integrations/ahamove/webhooks/order-status`.
+- `MOVING_MCP_ALLOWED_HOSTS` chứa hostname **đích** trong HTTP Host, không phải
+  tên container gọi. Kết nối khác Compose cần infra nối chung network.
+
+Chỉ sau khi approval backend và graph đã được kiểm tra, operator bật ghi staging
+bằng overlay `compose.moving.staging-write.yaml`. Cấp hai token mới qua secret
+storage/env, cùng cấu hình DB/provider như stack hiện có:
+
+```powershell
+docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
+docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml up -d --build
+```
+
+Overlay không được áp dụng trong bài test tự động. `moving:up` vẫn dùng Compose
+cơ sở read-only. Không chạy `config` thiếu `--quiet` vì có thể in secrets.
+Xem [contract approval](../api/moving-internal-approvals.md).
 
 Build context luôn là `Maps VN/LifeFlow`, không phải riêng thư mục MCP.
 

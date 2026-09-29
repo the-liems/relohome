@@ -14,6 +14,8 @@
 - Operational runbooks: [`runbooks/`](runbooks/)
 - [Moving containers and HTTP MCP](runbooks/moving-containers.md)
 - [Moving Coolify handoff](../deploy/coolify/staging/moving.md)
+- [Moving internal approval API](api/moving-internal-approvals.md)
+- [Moving integration response and graph checklist](integration/moving-service-response.md)
 
 The course material remains under `docs/guide/`. Project requirements and
 architecture decisions must not be maintained inside the course guide.

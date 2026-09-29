@@ -114,8 +114,9 @@ provider-independent models in `@lifeflow/contracts`.
 - `SPEC-004/AC-13`: Production and all write operations are disabled by default.
 - `SPEC-004/AC-14`: Every tool publishes accurate read-only, idempotent,
   destructive and open-world annotations.
-- `SPEC-004/AC-15`: A network MCP client can list the same 13 tools and perform
-  staging reads through `/mcp`; missing/incorrect bearer tokens and disallowed
+- `SPEC-004/AC-15`: A network MCP read client lists 9 read tools; a separately
+  authenticated write client lists all 13 tools through `/mcp`. Read credentials
+  cannot invoke write tools. Missing/incorrect bearer tokens and disallowed
   Host/Origin headers are rejected before tool execution.
 - `SPEC-004/AC-16`: Separate MCP/API images run non-root with runtime-only secrets;
   `/health` works without database connectivity, while `/ready` reports HTTP 503
@@ -128,7 +129,23 @@ provider-independent models in `@lifeflow/contracts`.
 
 ## Open questions
 
-- Which orchestrator component will create approval records and what user
-  identity will be stored as `approved_by`?
+- The trusted backend registers user approval through the internal approval API;
+  the integrating graph must authenticate the user before supplying `approved_by`.
 - Which webhook authentication mode will AhaMove configure for the partner?
 - Which staging pickup/destination set will be used for the team's UAT evidence?
+
+## Integration requirements (2026-09-29)
+
+- `SPEC-004/AC-19`: `POST /v1/internal/moving/approvals` requires a dedicated
+  backend credential, validates the canonical Zod request and binds action,
+  payload, owner and expiry (future, at most 30 minutes). Identical registration
+  is idempotent; conflicting reuse returns 409 and cannot reset consumption.
+- `SPEC-004/AC-20`: No same-city restriction is inferred from administrative
+  boundaries. Availability comes from the provider's service discovery and route
+  estimate. This does not promise all intercity routes are supported.
+- `SPEC-004/AC-21`: No implicit 5%/20,000 VND price-increase permission is added.
+  The backend must obtain confirmation for changed prices. Unknown cancellation
+  fees remain unknown; compensation is not assumed free.
+
+See [internal approval API](../api/moving-internal-approvals.md) and
+[integration response](../integration/moving-service-response.md).

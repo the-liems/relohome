@@ -1,12 +1,18 @@
 import type { MovingDatabasePool, MovingRuntimeConfig } from '@lifeflow/moving-service'
 import { checkMovingReadiness, MovingService, MovingServiceError } from '@lifeflow/moving-service'
 import Fastify from 'fastify'
+import { timingSafeEqual } from 'node:crypto'
+import { RegisterMovingApprovalRequestSchema } from '@lifeflow/contracts'
 
 export function buildMovingApp(
   db: MovingDatabasePool,
   service: MovingService,
   config: MovingRuntimeConfig,
+  options: { approvalToken?: string } = { approvalToken: process.env.MOVING_APPROVAL_TOKEN?.trim() },
 ) {
+  if (options.approvalToken && options.approvalToken.length < 32) {
+    throw new Error('MOVING_APPROVAL_TOKEN must contain at least 32 characters.')
+  }
   const app = Fastify({
     logger: {
       redact: ['req.headers.authorization', 'req.headers.apikey', 'req.body.mobile', 'req.body.api_key'],
@@ -45,9 +51,30 @@ export function buildMovingApp(
     return service.ingestWebhook(payload as Record<string, unknown>)
   })
 
+  app.post('/v1/internal/moving/approvals', {
+    onRequest: async (request, reply) => {
+      if (!options.approvalToken) return reply.status(503).send({ code: 'APPROVAL_NOT_CONFIGURED' })
+      const actual = Buffer.from(request.headers.authorization || '')
+      const expected = Buffer.from(`Bearer ${options.approvalToken}`)
+      if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+        return reply.status(401).send({ code: 'NOT_AUTHORIZED' })
+      }
+    },
+  }, async (request, reply) => {
+    const parsed = RegisterMovingApprovalRequestSchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send({ code: 'VALIDATION_ERROR', message: 'Invalid approval registration.' })
+    const input = parsed.data
+    const approvalId = await service.registerApproval({
+      approvalId: input.approval_id, actionType: input.action_type, payload: input.payload,
+      approvedBy: input.approved_by, expiresAt: new Date(input.expires_at),
+    })
+    return { approval_id: approvalId }
+  })
+
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof MovingServiceError) {
       const status = error.code === 'VALIDATION_ERROR' ? 400
+        : error.code === 'APPROVAL_CONFLICT' ? 409
         : error.code === 'AUTHENTICATION_ERROR' ? 401
           : error.code === 'PROVIDER_NOT_FOUND' ? 404
             : error.retryable ? 503 : 422
