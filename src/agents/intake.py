@@ -129,6 +129,18 @@ _LONG_DIGITS = re.compile(r"\d{9,}")
 AFFIRMATIVES = frozenset({"có", "ừ", "ừa", "ok", "oke", "okay", "yes", "được", "đồng ý", "uh", "ừm"})
 
 
+_PHONE = re.compile(r"(?<![\d.])(?:\+84|0)(?:[\s.-]?\d){8,10}(?![\d.])")
+_ID_NUMBER = re.compile(r"(?<!\d)\d{12}(?!\d)")  # CCCD
+
+
+def redact_pii(text: str) -> str:
+    """Che email, SĐT, số CCCD trước khi gửi tin nhắn cho LLM (D16). Không nhận diện được họ tên: người
+    dùng được hướng nhập thông tin cá nhân qua form, không qua chat."""
+    text = _EMAIL.sub("[email]", text)
+    text = _ID_NUMBER.sub("[số giấy tờ]", text)
+    return _PHONE.sub("[số điện thoại]", text)
+
+
 def looks_like_pii(value: Any) -> bool:
     text = str(value)
     return bool(_EMAIL.search(text) or _LONG_DIGITS.search(text.replace(" ", "").replace(".", "")))
@@ -199,6 +211,7 @@ REQUIRED_INPUTS: dict[AgentName, tuple[Requirement, ...]] = {
         Requirement(("from_address",)),
         Requirement(("to_address",), derived_from=AgentName.PROPERTY, needs_selection=True),
         Requirement(("move_date",)),
+        Requirement(("move_time",)),  # không tự chọn giờ (phản hồi của service Moving)
     ),
     AgentName.FLIGHT: (
         Requirement(("origin",)),

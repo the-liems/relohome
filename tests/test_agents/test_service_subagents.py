@@ -173,7 +173,13 @@ async def test_moving_quote_to_selected_room():
     }
     req = sample_request(
         AgentName.RELOCATION,
-        {"mode": "quote", "from_address": "12 Láng Hạ", "move_date": "2026-11-14", "selected_listing_id": "lst_2"},
+        {
+            "mode": "quote",
+            "from_address": "12 Láng Hạ",
+            "move_date": "2026-11-14",
+            "move_time": "09:00",
+            "selected_listing_id": "lst_2",
+        },
         upstream,
     )
     result = await agent.run(req)
@@ -189,7 +195,8 @@ async def test_moving_quote_to_selected_room():
 async def test_moving_without_quote_contact_fails_clearly():
     agent = MovingSubagent(moving_client(), None, None)
     req = sample_request(
-        AgentName.RELOCATION, {"mode": "quote", "from_address": "a", "to_address": "b", "move_date": "2026-11-14"}
+        AgentName.RELOCATION,
+        {"mode": "quote", "from_address": "a", "to_address": "b", "move_date": "2026-11-14", "move_time": "09:00"},
     )
     result = await agent.run(req)
     assert result.status == "failed" and result.error.code == "invalid_input"

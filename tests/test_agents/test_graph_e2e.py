@@ -55,6 +55,7 @@ def turn2():
         values={
             "flight_date": "2026-11-15",
             "move_date": "2026-11-14",
+            "move_time": "09:00",
             "from_address": "12 Láng Hạ",
             "destination": "SGN",
             "origin": "HAN",
@@ -80,6 +81,7 @@ async def test_two_turns_confirm_and_pay():
         "flight.flight_date",
         "relocation.from_address",
         "relocation.move_date",
+        "relocation.move_time",
         "relocation.selected:property",
     }
     assert "Studio 28m² Quận 10" in response.text

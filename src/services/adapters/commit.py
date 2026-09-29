@@ -1,11 +1,13 @@
 """`TransactionPort` thật: chuỗi gọi tool ghi tất định theo `CommitActionKind` (agent-graph.md §6.9).
 
-Không qua LLM (R3). Mỗi bước kiểm lại giá với số tiền đã được approve; khác thì dừng, không tự đổi giá.
+Không qua LLM (R3). Giá thực tế phải nằm trong khoảng người dùng đã đồng ý ở bước xác nhận (vé: đúng giá;
+chuyển đồ: ±5% theo `GraphSettings.price_tolerance`); ngoài khoảng thì dừng, xin xác nhận lại. Thao tác
+lỗi không kéo theo việc tự huỷ thao tác khác đã đặt.
 
 | Kind | Bước |
 |---|---|
 | flight_booking | get_offer → hold_booking (PII qua pii_ref) → create_payment → [chờ PAID] → confirm_booking |
-| moving_booking | estimate_move lại với liên hệ thật → ghi approval sang Moving (Q22) → create_move_order (CASH, Q21) |
+| moving_booking | tìm đơn theo mã đối soát (đã tạo thì dùng lại) → estimate_move lại với liên hệ thật + mã đối soát → ghi approval sang Moving (Q22) → create_move_order (CASH, Q21) |
 | cancel_order   | flight: cancel_booking(confirm=true); moving: ghi approval → cancel_move_order |
 """
 
@@ -13,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from src.agents.common import fingerprint, utcnow
@@ -62,7 +64,6 @@ class McpTransaction:
         # (Payment theo order_ref + amount, Moving theo workflow_id + action_id).
         self._receipts: dict[str, Receipt] = {}
         self._holds: dict[str, PendingPayment] = {}
-        self._approval_of: dict[str, Approval] = {}  # receipt_id -> approval đã dùng (để compensate)
 
     # --- tiện ích ---
 
@@ -71,7 +72,7 @@ class McpTransaction:
         client: McpToolClient | None, service: str, tool: str, args: dict[str, Any], *, write: bool = False
     ) -> Any:
         if client is None:
-            raise CommitError(f"service {service} chưa được cấu hình")
+            raise CommitError(f"chưa cấu hình giao dịch cho service {service} (thiếu URL hoặc token ghi)")
         try:
             return await client.call(tool, args)
         except ToolCallError as exc:
@@ -105,7 +106,6 @@ class McpTransaction:
             created_at=self.clock(),
         )
         self._receipts[req.idempotency_key] = receipt
-        self._approval_of[receipt_id] = req.approval
         return receipt
 
     async def lookup(self, idempotency_key: str) -> Receipt | None:
@@ -237,8 +237,7 @@ class McpTransaction:
         self, approval: Approval, action_id: str, step: str, action_type: str, payload: dict
     ) -> str:
         approval_id = moving_approval_id(approval.approval_id, action_id, step)
-        # Compensate có thể chạy sau khi chờ thanh toán; hạn ngắn tính từ lúc ghi.
-        expires_at = approval.expires_at if step != "compensate" else self.clock() + timedelta(minutes=5)
+        expires_at = approval.expires_at
         try:
             return await self.moving_approvals.register(
                 approval_id=approval_id,
@@ -266,28 +265,43 @@ class McpTransaction:
                 "mobile": contact["mobile"],
             }
 
+        # Mã đối soát vô danh, ổn định theo thao tác: đặt vào điểm giao TRƯỚC lần báo giá dùng để tạo đơn,
+        # để Moving / graph tìm lại đơn khi kết quả tạo đơn không rõ (ADR-003).
+        tracking = opaque_ref("mv", req.idempotency_key)
+        found = await self._call(
+            self.moving, "moving", "find_move_orders_by_tracking_number", {"tracking_number": tracking}
+        )
+        orders = found.get("orders", []) if isinstance(found, dict) else (found or [])
+        if len(orders) > 1:
+            raise CommitError(f"có {len(orders)} đơn cùng mã đối soát; cần kiểm tra thủ công", uncertain=True)
+        if len(orders) == 1:  # đã tạo ở lần chạy trước (ví dụ sau khi restart): dùng lại, không tạo lần hai
+            return self._moving_receipt(req, orders[0], int(req.amount_vnd))
+
         draft: dict[str, Any] = {
             "pickup": point(pickup, contacts[0]),
-            "destinations": [point(destination, contacts[1])],
+            "destinations": [{**point(destination, contacts[1]), "tracking_number": tracking}],
             "payment_method": "CASH",
         }
         if route.get("order_time"):
             draft["order_time"] = route["order_time"]
-        # 1. Báo giá lại với liên hệ thật (đọc) và kiểm giá đã approve.
+        # 1. Báo giá lại với liên hệ thật (đọc); giá phải nằm trong khoảng người dùng đã đồng ý.
         estimate = await self._call(
             self.moving, "moving", "estimate_move", {"draft": draft, "services": [{"service_id": service_id}]}
         )
         quote = estimate["quote"]
         option = next((o for o in quote.get("options", []) if o.get("service_id") == service_id), None)
         total = (option or {}).get("fee", {}).get("total_price")
-        if total is None or int(total) != req.amount_vnd:
-            raise CommitError(f"giá chuyển đồ đã đổi ({total} ≠ {req.amount_vnd}); cần xác nhận lại")
+        if total is None or not req.price_accepted(int(total)):
+            raise CommitError(
+                f"giá chuyển đồ thực tế {total} nằm ngoài khoảng đã đồng ý "
+                f"({req.min_amount_vnd or req.amount_vnd}–{req.max_amount_vnd or req.amount_vnd}); cần xác nhận lại"
+            )
         workflow_id, action_id = f"lifeflow:{req.approval.thread_id}", req.idempotency_key
-        # 2. Ghi approval sang Moving (Q22). 3. Tạo đơn, trả tiền mặt cho tài xế (Q21).
+        # 2. Ghi approval sang Moving (Q22), mã approval gắn với quote cụ thể. 3. Tạo đơn, trả tiền mặt (Q21).
         approval_id = await self._moving_approval(
             req.approval,
             req.action.id,
-            "create",
+            f"create:{quote['quote_id']}",
             "create",
             {
                 "action": "create",
@@ -312,18 +326,21 @@ class McpTransaction:
             },
             write=True,
         )
-        order = created["order"]
+        return self._moving_receipt(req, created["order"], int(total))
+
+    def _moving_receipt(self, req: CommitRequest, order: dict, actual_vnd: int) -> Receipt:
         return self._receipt(
             req,
             order["order_id"],
             "ahamove",
-            req.amount_vnd,
+            actual_vnd,
             self.moving_source_kind,
-            order["status"],
+            order.get("status", "UNKNOWN"),
             {
                 "order_id": order["order_id"],
                 "shared_link": order.get("shared_link"),
                 "payment_method": "CASH",
+                "estimated_vnd": req.amount_vnd,
                 "to_address": req.task_data.get("to_address"),
             },
         )
@@ -334,17 +351,27 @@ class McpTransaction:
             result = await self._call(
                 self.flight, "flight", "cancel_booking", {"booking_ref": target, "confirm": True}, write=True
             )
+            fee = result.get("cancel_fee")
             return self._receipt(
                 req,
                 target,
                 "lifeflow-flights",
-                int(result.get("cancel_fee") or 0),
+                int(fee or 0),
                 "demo",
                 result.get("status", "CANCELLED"),
-                {"refund_amount": result.get("refund_amount")},
+                {"cancel_fee_known": fee is not None, "refund_amount": result.get("refund_amount")},
             )
         order = await self._cancel_move_order(req.approval, req.action.id, "cancel", target)
-        return self._receipt(req, target, "ahamove", 0, self.moving_source_kind, order.get("status", "CANCELLED"), {})
+        # AhaMove chưa có cách báo phí huỷ: không ghi 0 như thể miễn phí.
+        return self._receipt(
+            req,
+            target,
+            "ahamove",
+            0,
+            self.moving_source_kind,
+            order.get("status", "CANCELLED"),
+            {"cancel_fee_known": False},
+        )
 
     async def _cancel_move_order(self, approval: Approval, action_id: str, step: str, order_id: str) -> dict:
         comment = "Khách huỷ qua LifeFlow"
@@ -361,12 +388,6 @@ class McpTransaction:
         return result.get("order", result) if isinstance(result, dict) else {}
 
     async def compensate(self, receipt: Receipt) -> None:
-        if receipt.kind == CommitActionKind.FLIGHT_BOOKING:
-            await self._safe_cancel_booking(receipt.receipt_id)
-            return
-        approval = self._approval_of.get(receipt.receipt_id)
-        if receipt.kind == CommitActionKind.MOVING_BOOKING and approval is not None:
-            # Người dùng đã xác nhận cả nhóm thao tác (S7): phần sau lỗi thì huỷ phần đã đặt trong cùng lần xác nhận.
-            await self._cancel_move_order(approval, receipt.action_id, "compensate", receipt.receipt_id)
-            return
-        raise CommitError(f"không compensate được {receipt.kind.value}")
+        """Không tự huỷ đơn đã đặt bằng sự đồng ý cũ: huỷ là thao tác mới, đi qua `confirm` + approval
+        (`cancel_order`). Graph báo người dùng phần đã đặt / lỗi rồi hỏi có muốn huỷ không."""
+        raise CommitError("huỷ đơn đã đặt cần người dùng xác nhận riêng (cancel_order)")

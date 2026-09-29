@@ -56,6 +56,9 @@ def unwrap(result: CallToolResult) -> Any:
     texts = [c.text for c in result.content if isinstance(c, TextContent)]
     if result.isError:
         message = " ".join(texts).strip() or "tool returned an error"
+        shape = _error_shape(message)
+        if shape is not None:  # @lifeflow/mcp-core: {code, message, retryable}
+            raise ToolCallError(shape["code"], str(shape.get("message", ""))[:500], retryable=shape["retryable"])
         raise ToolCallError(_error_code(message), message[:500], retryable=_retryable(message))
     data = result.structuredContent
     if data is None and texts:
@@ -67,6 +70,18 @@ def unwrap(result: CallToolResult) -> Any:
     if isinstance(data, dict) and set(data) == {"result"}:
         data = data["result"]
     return data
+
+
+def _error_shape(message: str) -> dict | None:
+    """Lỗi có cấu trúc `{code, message, retryable}`: dùng đúng `retryable` của server, không đoán."""
+    try:
+        payload = json.loads(message)
+    except ValueError:
+        return None
+    err = payload.get("error", payload) if isinstance(payload, dict) else None
+    if isinstance(err, dict) and isinstance(err.get("code"), str) and isinstance(err.get("retryable"), bool):
+        return err
+    return None
 
 
 def _error_code(message: str) -> str:
@@ -84,6 +99,7 @@ def _error_code(message: str) -> str:
 
 
 def _retryable(message: str) -> bool:
+    """Chỉ dùng khi server trả lỗi dạng chữ (FastMCP của Flight / Payment)."""
     text = message.lower()
     return any(k in text for k in ("timeout", "timed out", "unavailable", "rate limit", "temporar", "503", "502"))
 

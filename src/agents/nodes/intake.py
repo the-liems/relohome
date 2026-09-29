@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage
 
 from src.agents.cost import llm_calls_left
 from src.agents.deps import GraphDeps
-from src.agents.intake import IntakeInput, commit_fact_key, ground_facts, resolve_missing
+from src.agents.intake import IntakeInput, commit_fact_key, ground_facts, redact_pii, resolve_missing
 from src.agents.models import (
     CommitActionKind,
     IntakeResult,
@@ -62,7 +62,11 @@ def make_intake(deps: GraphDeps):
                 }
         previous: IntakeResult | None = state.get("intake")
         last_response = state.get("response")
-        messages = state.get("messages") or []
+        # Tin nhắn gửi cho Intake (LLM) đã che dữ liệu cá nhân; state giữ nguyên để hiển thị lịch sử.
+        messages = [
+            HumanMessage(redact_pii(str(m.content))) if isinstance(m, HumanMessage) else m
+            for m in (state.get("messages") or [])
+        ]
         try:
             raw = await deps.intake.understand(
                 IntakeInput(

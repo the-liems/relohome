@@ -31,14 +31,19 @@ class QuoteContact:
     mobile: str
 
 
-def order_time(move_date: str) -> int | None:
-    """08:00 giờ Việt Nam của ngày chuyển, epoch giây; ngày đã qua thì để AhaMove tính giờ hiện tại."""
+MIN_LEAD = timedelta(minutes=30)  # thời điểm chuyển phải cách hiện tại ít nhất chừng này
+
+
+def order_time(move_date: str, move_time: str | None, now: datetime) -> int | None:
+    """Epoch giây của ngày + giờ chuyển theo giờ Việt Nam. Không tự chọn giờ; đã qua (hoặc quá sát) thì None,
+    để hỏi lại người dùng thay vì biến thành đơn gọi xe ngay."""
     try:
         day = datetime.fromisoformat(move_date).date()
-    except ValueError:
+        hour, minute = (int(x) for x in (move_time or "").split(":"))
+        moment = datetime.combine(day, time(hour, minute), tzinfo=VN_TZ)
+    except (ValueError, TypeError):
         return None
-    moment = datetime.combine(day, time(8, 0), tzinfo=VN_TZ)
-    return int(moment.timestamp()) if moment > datetime.now(VN_TZ) else None
+    return int(moment.timestamp()) if moment >= now.astimezone(VN_TZ) + MIN_LEAD else None
 
 
 def summarize_order(order: dict) -> dict:
@@ -105,10 +110,19 @@ class MovingSubagent:
         return self._result(req, tools, status="done", data={"order": summary}, source_refs=[str(summary["order_id"])])
 
     async def _point(self, geo: CountingClient | None, address: str) -> dict | None:
+        """Toạ độ của địa chỉ. Không lấy kết quả đầu một cách mặc định: bỏ khi chỉ khớp tới khu hành chính
+        (phường / quận) hoặc khi hai kết quả đầu ngang nhau (mơ hồ) → hỏi lại người dùng."""
         if geo is None:
             return None
-        found = first(((await geo.call("resolve_location", {"text": address, "limit": 1})) or {}).get("results"))
-        return {"address": address, **found["location"]} if found else None
+        resolved = (await geo.call("resolve_location", {"text": address, "limit": 3})) or {}
+        results = resolved.get("results") or []
+        top = first(results)
+        if top is None or top.get("entity_type") == "administrative_area":
+            return None
+        if resolved.get("ambiguous") and len(results) > 1:
+            if abs((top.get("match_score") or 0) - (results[1].get("match_score") or 0)) < 0.1:
+                return None
+        return {"address": address, **top["location"]}
 
     async def _quote(self, req: AgentTaskRequest, tools: CountingClient, geo: CountingClient | None) -> AgentTaskResult:
         inp = req.inputs
@@ -133,6 +147,14 @@ class MovingSubagent:
                         to_address = c.get("address")
                         destination = {"address": to_address, "lat": c["lat"], "lng": c["lng"]}
         questions = []
+        when = order_time(inp["move_date"], inp.get("move_time"), self.clock())
+        if when is None:
+            questions.append(
+                Question(
+                    field="move_time",
+                    text="Thời điểm chuyển đồ chưa rõ hoặc đã qua. Bạn muốn xe đến ngày nào, lúc mấy giờ?",
+                )
+            )
         if pickup is None:
             questions.append(
                 Question(field="from_address", text="Mình chưa xác định được địa chỉ lấy đồ, bạn ghi rõ hơn nhé?")
@@ -164,9 +186,7 @@ class MovingSubagent:
             "destinations": [point(destination)],
             "payment_method": "CASH",
         }
-        when = order_time(inp["move_date"])
-        if when:
-            draft["order_time"] = when
+        draft["order_time"] = when
         estimate = await tools.call(
             "estimate_move", {"draft": draft, "services": [{"service_id": s} for s in services]}
         )

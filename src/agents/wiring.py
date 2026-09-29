@@ -23,7 +23,7 @@ from src.agents.deps import AgentRegistry, GraphDeps, GraphSettings, default_dep
 from src.agents.graph import build_graph, default_checkpointer
 from src.agents.intake import Intake, PassThroughIntake
 from src.agents.models import AgentName
-from src.agents.planning import NotImplementedPlanner, Planner
+from src.agents.planning import Planner, TemplatePlanner
 from src.agents.subagents.base import DomainAgent
 from src.agents.subagents.services.flight import FlightSubagent
 from src.agents.subagents.services.location import LocationSubagent
@@ -105,7 +105,7 @@ class AgentService:
     ) -> AgentService:
         services = services or ServiceSettings()
         intake = intake or PassThroughIntake()
-        planner = planner or NotImplementedPlanner()
+        planner = planner or TemplatePlanner()  # tất định; LLM Planner (#13) cắm vào làm fallback
         if services.agent_subagents == "live":
             deps, approvals, pii = live_deps(intake, planner, services)
         else:

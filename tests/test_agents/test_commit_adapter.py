@@ -43,11 +43,13 @@ class RecordingBridge:
         return kw["approval_id"]
 
 
-def request(amount=250_000) -> CommitRequest:
+def request(amount=250_000, band=0.05) -> CommitRequest:
     return CommitRequest(
         action=ACTION,
         option_id="q_old:SGN-TRUCK-500",
         amount_vnd=amount,
+        min_amount_vnd=int(amount * (1 - band)),
+        max_amount_vnd=int(amount * (1 + band)),
         idempotency_key="k" * 64,
         approval=APPROVAL,
         option={"service_id": "SGN-TRUCK-500"},
@@ -60,39 +62,70 @@ def tx(client, bridge=None) -> McpTransaction:
     return McpTransaction(flight=None, payment=None, moving=client, moving_approvals=bridge)
 
 
-@pytest.mark.asyncio
-async def test_moving_booking_registers_approval_then_creates_cash_order():
-    client = moving_client()
+def booking_client(total=250_000, existing=()):
+    client = moving_client(total=total)
+    client.handlers["find_move_orders_by_tracking_number"] = {"meta": {}, "orders": list(existing)}
     client.handlers["create_move_order"] = {
         "order": {"order_id": "O1", "status": "ASSIGNING", "shared_link": "https://t"}
     }
+    return client
+
+
+@pytest.mark.asyncio
+async def test_moving_booking_registers_approval_then_creates_cash_order():
+    client = booking_client()
     bridge = RecordingBridge()
     receipt = await tx(client, bridge).commit(request())
     tools = [c[0] for c in client.calls]
-    assert tools == ["estimate_move", "create_move_order"]
-    estimate = client.calls[0][1]["draft"]
+    assert tools == ["find_move_orders_by_tracking_number", "estimate_move", "create_move_order"]
+    tracking = client.calls[0][1]["tracking_number"]
+    estimate = client.calls[1][1]["draft"]
     assert estimate["pickup"]["mobile"] == "0901234567" and estimate["payment_method"] == "CASH"
+    assert estimate["destinations"][0]["tracking_number"] == tracking and len(tracking) <= 30
     registered = bridge.calls[0]
     assert registered["action_type"] == "create"
     assert registered["payload"]["quote_id"] == "q1" and registered["payload"]["total_price"] == 250_000
-    create = client.calls[1][1]
-    assert create["approval_id"] == moving_approval_id(APPROVAL.approval_id, ACTION.id, "create")
+    create = client.calls[2][1]
+    assert create["approval_id"] == moving_approval_id(APPROVAL.approval_id, ACTION.id, "create:q1")
     assert receipt.receipt_id == "O1" and receipt.details["payment_method"] == "CASH"
     assert "0901234567" not in str(receipt.model_dump())
 
 
 @pytest.mark.asyncio
-async def test_price_change_stops_before_writing():
-    client = moving_client(total=300_000)
+async def test_price_within_consented_band_is_booked_at_actual_price():
+    client = booking_client(total=260_000)  # +4%
+    receipt = await tx(client, RecordingBridge()).commit(request(amount=250_000))
+    assert receipt.amount_vnd == 260_000 and receipt.details["estimated_vnd"] == 250_000
+
+
+@pytest.mark.asyncio
+async def test_price_outside_band_stops_before_writing():
+    client = booking_client(total=270_000)  # +8%
     bridge = RecordingBridge()
-    with pytest.raises(CommitError, match="giá chuyển đồ đã đổi"):
+    with pytest.raises(CommitError, match="ngoài khoảng đã đồng ý"):
         await tx(client, bridge).commit(request(amount=250_000))
-    assert bridge.calls == [] and [c[0] for c in client.calls] == ["estimate_move"]
+    assert bridge.calls == [] and "create_move_order" not in [c[0] for c in client.calls]
+
+
+@pytest.mark.asyncio
+async def test_existing_order_with_same_tracking_is_reused_not_recreated():
+    client = booking_client(existing=[{"order_id": "O0", "status": "ACCEPTED"}])
+    receipt = await tx(client, RecordingBridge()).commit(request())
+    assert receipt.receipt_id == "O0"
+    assert [c[0] for c in client.calls] == ["find_move_orders_by_tracking_number"]
+
+
+@pytest.mark.asyncio
+async def test_several_orders_with_same_tracking_is_uncertain():
+    client = booking_client(existing=[{"order_id": "O0"}, {"order_id": "O9"}])
+    with pytest.raises(CommitError) as err:
+        await tx(client, RecordingBridge()).commit(request())
+    assert err.value.uncertain
 
 
 @pytest.mark.asyncio
 async def test_missing_approval_endpoint_refuses_clearly():
-    client = moving_client()
+    client = booking_client()
     with pytest.raises(CommitError, match="MOVING_APPROVAL_URL"):
         await tx(client).commit(request())
     assert "create_move_order" not in [c[0] for c in client.calls]

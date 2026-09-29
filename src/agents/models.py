@@ -244,6 +244,10 @@ class CostLine(BaseModel):
     amount_vnd: int
     recurrence: Literal["one_time", "monthly"]
     committed: bool = False  # đã đặt ở lượt trước: hiển thị "đã đặt", không tính vào tổng (S8)
+    # Khoảng giá người dùng đồng ý trước khi đặt (giá thực tế provider có thể lệch nhẹ so với báo giá).
+    # None = phải đúng `amount_vnd`. Nằm trong payload_hash nên approval gắn với cả khoảng này.
+    min_amount_vnd: int | None = None
+    max_amount_vnd: int | None = None
 
 
 class CostSummary(BaseModel):
@@ -252,6 +256,7 @@ class CostSummary(BaseModel):
     lines: list[CostLine]
     total_one_time_vnd: int
     total_monthly_vnd: int
+    total_one_time_max_vnd: int = 0  # tổng một lần tối đa nếu giá thực tế lệch trong khoảng đã đồng ý
     commit_actions: list[CommitAction]
     payload_hash: str
     quotes_expire_at: datetime
@@ -305,8 +310,10 @@ class PendingPayment(BaseModel):
 
 
 class TransactionResult(BaseModel):
-    status: Literal["committed", "failed", "compensated", "pending_verification", "payment_not_completed"]
-    receipts: list[Receipt] = []
+    status: Literal["committed", "partial", "failed", "pending_verification", "payment_not_completed"]
+    receipts: list[Receipt] = []  # thao tác đã đặt được trong lần xác nhận này
+    failed_action_ids: list[str] = []
+    skipped_action_ids: list[str] = []  # chưa thực hiện vì dừng ở thao tác lỗi trước đó
     error: str | None = None
 
 
@@ -343,6 +350,7 @@ class OutcomeCode(StrEnum):
     COMMITTED = "committed"
     TX_FAILED = "tx_failed"
     PAYMENT_NOT_COMPLETED = "payment_not_completed"
+    PARTIAL_COMMIT = "partial_commit"  # một phần đã đặt, phần khác lỗi: hỏi người dùng có muốn huỷ phần đã đặt
     PENDING_VERIFICATION = "pending_verification"
     ERROR = "error"
 

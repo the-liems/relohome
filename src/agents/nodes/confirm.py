@@ -11,8 +11,33 @@ from pydantic import ValidationError
 
 from src.agents.approval import approval_problems
 from src.agents.deps import GraphDeps
-from src.agents.models import Outcome, OutcomeCode, UserDecision, error_record
+from src.agents.models import CommitActionKind, Outcome, OutcomeCode, UserDecision, error_record
 from src.agents.state import WorkflowState
+
+
+def _vnd(amount: int) -> str:
+    return f"{amount:,}".replace(",", ".") + "đ"
+
+
+def confirmation_notes(summary) -> dict[str, str]:
+    """Điều người dùng đồng ý cùng lúc xác nhận: khoảng giá, cách trả tiền, phí huỷ chưa biết."""
+    notes: dict[str, str] = {}
+    lines = {line.task_id: line for line in summary.lines}
+    for action in summary.commit_actions:
+        line = lines.get(action.source_task_id)
+        parts = []
+        if line is not None and line.max_amount_vnd is not None:
+            parts.append(
+                f"Giá ước tính {_vnd(line.amount_vnd)}; giá thực tế khi đặt có thể từ {_vnd(line.min_amount_vnd)} "
+                f"đến tối đa {_vnd(line.max_amount_vnd)}. Ngoài khoảng này mình sẽ hỏi lại."
+            )
+        if action.kind == CommitActionKind.MOVING_BOOKING:
+            parts.append("Trả tiền mặt cho tài xế.")
+        if action.kind == CommitActionKind.CANCEL_ORDER:
+            parts.append("Phí huỷ (nếu có) theo chính sách của nhà cung cấp; hệ thống chưa biết trước số tiền.")
+        if parts:
+            notes[action.id] = " ".join(parts)
+    return notes
 
 
 def confirmation_payload(state: WorkflowState) -> dict:
@@ -25,6 +50,7 @@ def confirmation_payload(state: WorkflowState) -> dict:
         "payload_hash": summary.payload_hash,
         "expires_at": summary.quotes_expire_at.isoformat(),
         "pii_required": {a.id: a.pii_required for a in summary.commit_actions if a.pii_required},
+        "notes": confirmation_notes(summary),
         "last_error": errors[-1] if errors else None,
     }
 

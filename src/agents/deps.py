@@ -51,6 +51,9 @@ class GraphSettings(BaseModel):
     approval_ttl: timedelta = timedelta(minutes=10)
     approval_max_lifetime: timedelta = timedelta(minutes=30)
     max_suggestions: int = 2
+    # Giá thực tế được lệch bao nhiêu so với báo giá mà không hỏi lại (người dùng đồng ý khoảng này ở bước
+    # xác nhận). Chỉ cho thao tác mà provider báo giá lại lúc đặt; loại không có ở đây phải đúng giá.
+    price_tolerance: dict[CommitActionKind, float] = {CommitActionKind.MOVING_BOOKING: 0.05}
 
     # --- Kiểm soát chi phí (§7.5) ---
     llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-4o-mini", "heavy": "gpt-4o-mini"}

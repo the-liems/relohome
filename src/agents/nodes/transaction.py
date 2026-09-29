@@ -35,8 +35,7 @@ def _option(data: dict, option_id: str) -> dict:
 
 
 def commit_order(actions: list[CommitAction]) -> list[CommitAction]:
-    """Thao tác không cần thanh toán trước, cần thanh toán sau cùng: thanh toán lỗi thì còn huỷ được phần
-    đã đặt; ngược lại vé đã xuất thì chưa hoàn tiền được trong MVP."""
+    """Thao tác không cần thanh toán trước, cần thanh toán sau cùng."""
     return sorted(actions, key=lambda a: a.requires_payment)
 
 
@@ -44,7 +43,8 @@ def make_transaction(deps: GraphDeps):
     tx = deps.transaction
 
     async def transaction(state: WorkflowState) -> dict:
-        """Commit tuần tự, idempotent; lỗi thì compensate theo thứ tự ngược lại."""
+        """Commit tuần tự, idempotent. Một thao tác lỗi thì dừng, **không tự huỷ** thao tác đã đặt:
+        báo người dùng phần nào đã đặt, phần nào lỗi, rồi hỏi có muốn huỷ phần đã đặt không."""
         now = deps.clock()
         plan = state["plan"]
         summary = state["cost_summary"]
@@ -54,15 +54,27 @@ def make_transaction(deps: GraphDeps):
         pending: PendingPayment | None = state.get("pending_payment")
         committed: dict[str, Receipt] = dict(state.get("committed") or {})
         new: dict[str, Receipt] = {}
+        ordered = commit_order(summary.commit_actions)
 
-        def finish(code: OutcomeCode, status: str, error: str | None = None, **extra) -> dict:
+        def finish(code: OutcomeCode, status: str, error: str | None = None, failed: str | None = None) -> dict:
             receipts = [r for a in summary.commit_actions if (r := {**committed, **new}.get(a.id))]
+            skipped = []
+            if failed is not None:
+                after = [a.id for a in ordered][[a.id for a in ordered].index(failed) + 1 :]
+                skipped = [a for a in after if a not in committed and a not in new]
+            if failed is not None and receipts and code in (OutcomeCode.TX_FAILED, OutcomeCode.PAYMENT_NOT_COMPLETED):
+                code, status = OutcomeCode.PARTIAL_COMMIT, "partial"
             update = {
                 "committed": new,
-                "transaction": TransactionResult(status=status, receipts=receipts, error=error),
+                "transaction": TransactionResult(
+                    status=status,
+                    receipts=receipts,
+                    failed_action_ids=[failed] if failed else [],
+                    skipped_action_ids=skipped,
+                    error=error,
+                ),
                 "outcome": Outcome(node="transaction", code=code, detail=error or ""),
                 "pending_payment": None,
-                **extra,
             }
             if error:
                 update["errors"] = [error_record("transaction", error, now)]
@@ -87,26 +99,7 @@ def make_transaction(deps: GraphDeps):
                 return finish(OutcomeCode.TX_FAILED, "failed", "approval đã được dùng cho thao tác khác")
         pii_refs = {**(approval.pii_refs if approval else {}), **decision.pii_refs}
 
-        async def compensate_all(reason: str, code: OutcomeCode, status: str) -> dict:
-            done = [
-                r
-                for a in reversed(commit_order(summary.commit_actions))
-                if (r := {**committed, **new}.get(a.id)) is not None
-            ]
-            for receipt in done:
-                try:
-                    await tx.compensate(receipt)
-                    new[receipt.action_id] = receipt.model_copy(update={"status": "compensated"})
-                except Exception as exc:  # không huỷ được: phải báo người dùng, không tự thử lại
-                    logger.error("compensate failed action=%s: %s", receipt.action_id, type(exc).__name__)
-                    return finish(
-                        OutcomeCode.PENDING_VERIFICATION,
-                        "pending_verification",
-                        f"{reason}; không huỷ được {receipt.action_id}, cần kiểm tra thủ công",
-                    )
-            return finish(code, "compensated" if done else status, reason)
-
-        for action in commit_order(summary.commit_actions):
+        for action in ordered:
             if action.id in committed:
                 continue
             option_id = summary.selected.get(action.source_task_id) or action.target_receipt_id or ""
@@ -125,16 +118,16 @@ def make_transaction(deps: GraphDeps):
                     pii = {}
                 missing = [f for f in action.pii_required if f not in pii]
                 if missing:
-                    return await compensate_all(
-                        f"thiếu thông tin cá nhân ({', '.join(missing)}) cho {action.id}",
-                        OutcomeCode.TX_FAILED,
-                        "failed",
-                    )
+                    reason = f"thiếu thông tin cá nhân ({', '.join(missing)}) cho {action.id}"
+                    return finish(OutcomeCode.TX_FAILED, "failed", reason, failed=action.id)
             source = results.get(action.source_task_id)
+            amount = line.amount_vnd if line else 0
             req = CommitRequest(
                 action=action,
                 option_id=option_id,
-                amount_vnd=line.amount_vnd if line else 0,
+                amount_vnd=amount,
+                min_amount_vnd=line.min_amount_vnd if line and line.min_amount_vnd is not None else amount,
+                max_amount_vnd=line.max_amount_vnd if line and line.max_amount_vnd is not None else amount,
                 idempotency_key=key,
                 approval=approval,
                 option=_option(source.data, option_id) if source else {},
@@ -152,11 +145,10 @@ def make_transaction(deps: GraphDeps):
                     if pending.status == "PENDING":
                         return {"committed": new, "pending_payment": pending}
                     if pending.status != "PAID":
-                        await tx.abort_after_payment(req, pending)
-                        return await compensate_all(
-                            f"thanh toán không thành công ({pending.status})",
-                            OutcomeCode.PAYMENT_NOT_COMPLETED,
-                            "payment_not_completed",
+                        await tx.abort_after_payment(req, pending)  # huỷ giữ chỗ của chính thao tác này
+                        reason = f"thanh toán không thành công ({pending.status})"
+                        return finish(
+                            OutcomeCode.PAYMENT_NOT_COMPLETED, "payment_not_completed", reason, failed=action.id
                         )
                     receipt = await tx.complete_after_payment(req, pending)
                     pending = None
@@ -164,19 +156,13 @@ def make_transaction(deps: GraphDeps):
                     receipt = await tx.commit(req)
             except CommitError as exc:
                 if exc.uncertain:
-                    return finish(
-                        OutcomeCode.PENDING_VERIFICATION,
-                        "pending_verification",
-                        f"{action.id}: chưa rõ kết quả, cần đối soát ({exc.message})",
-                    )
-                return await compensate_all(f"{action.id}: {exc.message}", OutcomeCode.TX_FAILED, "failed")
+                    reason = f"{action.id}: chưa rõ kết quả, cần đối soát ({exc.message})"
+                    return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
+                return finish(OutcomeCode.TX_FAILED, "failed", f"{action.id}: {exc.message}", failed=action.id)
             except Exception as exc:
                 logger.exception("commit crashed action=%s", action.id)
-                return finish(
-                    OutcomeCode.PENDING_VERIFICATION,
-                    "pending_verification",
-                    f"{action.id}: lỗi không rõ khi ghi ({type(exc).__name__}), cần đối soát",
-                )
+                reason = f"{action.id}: lỗi không rõ khi ghi ({type(exc).__name__}), cần đối soát"
+                return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
             new[action.id] = receipt
         return finish(OutcomeCode.COMMITTED, "committed")
 

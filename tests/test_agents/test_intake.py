@@ -40,6 +40,7 @@ def test_runnable_task_defers_missing_of_others():
     assert set(out.constraints.missing) == {
         "relocation.from_address",
         "relocation.move_date",
+        "relocation.move_time",
         "relocation.selected:property",
     }
 
@@ -47,7 +48,12 @@ def test_runnable_task_defers_missing_of_others():
 def test_relocation_alone_must_ask_to_address():
     # S3: không có tìm phòng thì to_address phải do người dùng nói.
     out = resolve(intake_result(domains=[AgentName.RELOCATION]))
-    assert set(out.blocking_missing) == {"relocation.from_address", "relocation.to_address", "relocation.move_date"}
+    assert set(out.blocking_missing) == {
+        "relocation.from_address",
+        "relocation.to_address",
+        "relocation.move_date",
+        "relocation.move_time",
+    }
 
 
 def test_derivation_from_existing_plan():

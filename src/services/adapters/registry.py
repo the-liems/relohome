@@ -69,7 +69,7 @@ class ServiceSettings(BaseSettings):
     # Moving / AhaMove (nhánh khoa), HTTP /mcp + Bearer
     moving_mcp_url: str = ""
     moving_mcp_auth_token: SecretStr = SecretStr("")
-    moving_mcp_write_token: SecretStr = SecretStr("")  # để trống = dùng chung token đọc
+    moving_mcp_write_token: SecretStr = SecretStr("")  # để trống = không đặt / huỷ đơn được (không dùng token đọc thay)
     moving_environment: Literal["staging", "production"] = "staging"
     # Cầu nối approval sang backend Moving (Q22); endpoint do chủ service Moving cung cấp
     moving_approval_url: str = ""
@@ -125,11 +125,13 @@ class ServiceRegistry:
         )
         moving_token = _secret(s.moving_mcp_auth_token)
         moving_read = McpEndpoint("moving", MOVING_READ_TOOLS, url=s.moving_mcp_url or None, token=moving_token)
+        # Token ghi riêng, server Moving kiểm quyền theo token; thiếu thì không có endpoint ghi.
+        moving_write_token = _secret(s.moving_mcp_write_token)
         moving_write = McpEndpoint(
             "moving",
             MOVING_WRITE_TOOLS,
-            url=s.moving_mcp_url or None,
-            token=_secret(s.moving_mcp_write_token) or moving_token,
+            url=(s.moving_mcp_url or None) if moving_write_token else None,
+            token=moving_write_token,
         )
         flight_stdio = "src.mcp_servers.flights" if s.flight_mcp_stdio and not s.flight_mcp_url else None
         flight_read = McpEndpoint(

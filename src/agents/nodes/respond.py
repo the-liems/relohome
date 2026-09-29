@@ -32,6 +32,7 @@ QUESTION_TEXT = {
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
     "relocation.move_date": "Bạn muốn chuyển đồ ngày nào?",
+    "relocation.move_time": "Bạn muốn xe đến lúc mấy giờ?",
     "relocation.selected:property": "Bạn chọn phòng nào để mình báo giá chuyển đồ tới đó?",
     "flight.origin": "Bạn bay từ thành phố nào?",
     "flight.destination": "Bạn bay tới đâu?",
@@ -102,6 +103,18 @@ def describe_result(agent: AgentName, data: dict) -> list[str]:
     return lines
 
 
+def receipt_line(receipt) -> str:
+    details = receipt.details or {}
+    if receipt.kind.value == "cancel_order":
+        fee = vnd(receipt.amount_vnd) if details.get("cancel_fee_known") else "chưa rõ"
+        return f"- Đã huỷ {receipt.receipt_id} ({receipt.status}); phí huỷ: {fee}"
+    price = vnd(receipt.amount_vnd)
+    estimated = details.get("estimated_vnd")
+    if isinstance(estimated, int) and estimated != receipt.amount_vnd:
+        price += f" (ước tính trước đó {vnd(estimated)}, trong khoảng bạn đã đồng ý)"
+    return f"- {receipt.kind.value}: mã {receipt.receipt_id}, {price} ({receipt.status})"
+
+
 def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[str]]:
     plan = state.get("plan")
     statuses = state.get("task_status") or {}
@@ -161,7 +174,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     if code in (OutcomeCode.UNSUPPORTED, OutcomeCode.PLAN_EMPTY):
         kind = "UNSUPPORTED"
         head = (
-            "Chức năng lập kế hoạch cho yêu cầu này chưa sẵn sàng."
+            (
+                "Mình chưa hiểu được yêu cầu này (bộ phận hiểu yêu cầu chưa sẵn sàng)."
+                if not intake or not intake.domains
+                else "Chức năng lập kế hoạch cho yêu cầu này chưa sẵn sàng."
+            )
             if code == OutcomeCode.PLAN_EMPTY
             else "Yêu cầu này nằm ngoài phạm vi mình hỗ trợ (tìm phòng, bản đồ, chuyển đồ, vé máy bay)."
         )
@@ -216,22 +233,35 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     elif code == OutcomeCode.CANCELLED:
         kind = "CANCELLED"
         head = "Đã huỷ, mình không đặt gì cả."
-    elif code == OutcomeCode.COMMITTED:
-        kind = "COMMITTED"
+    elif code in (OutcomeCode.COMMITTED, OutcomeCode.PARTIAL_COMMIT):
         tx = state.get("transaction")
         receipts = tx.receipts if tx else []
         data["receipts"] = [r.model_dump(mode="json") for r in receipts]
-        head = "Đã đặt xong:"
-        lines = [f"- {r.kind.value}: mã {r.receipt_id}, {vnd(r.amount_vnd)} ({r.status})" for r in receipts]
+        lines = [receipt_line(r) for r in receipts]
         for kind_ in sorted({r.source_kind for r in receipts if r.source_kind != "live"}):
             notes.append(f"Lưu ý: giao dịch dùng {SOURCE_NOTE.get(kind_, kind_)}; không có tiền hay vé thật.")
         if any(r.kind.value == "moving_booking" for r in receipts):
             notes.append("Chuyển đồ trả tiền mặt cho tài xế.")
+        if code == OutcomeCode.COMMITTED:
+            kind, head = "COMMITTED", "Đã đặt xong:"
+        else:
+            # Không tự huỷ phần đã đặt: báo rõ từng phần rồi để người dùng quyết định (phản hồi Moving, M10).
+            kind, head = "PARTIAL", "Mình mới đặt được một phần:"
+            data["failed_action_ids"] = tx.failed_action_ids
+            data["skipped_action_ids"] = tx.skipped_action_ids
+            lines += [f"- Chưa đặt được {a}: {outcome.detail}" for a in tx.failed_action_ids]
+            lines += [f"- Chưa thực hiện {a} (dừng sau thao tác lỗi)" for a in tx.skipped_action_ids]
+            text = "Bạn có muốn huỷ phần đã đặt không? Phí huỷ (nếu có) theo chính sách nhà cung cấp."
+            questions = [Question(field="cancel_booked", text=text, options=["Có, huỷ", "Không, giữ lại"])]
     elif code == OutcomeCode.PAYMENT_NOT_COMPLETED:
         kind = "CANCELLED"
         head = f"Chưa đặt được vì {outcome.detail}. Mình đã huỷ phần giữ chỗ; bạn có thể đặt lại."
     elif code == OutcomeCode.PENDING_VERIFICATION:
         kind = "ERROR"
+        tx = state.get("transaction")
+        if tx and tx.receipts:
+            data["receipts"] = [r.model_dump(mode="json") for r in tx.receipts]
+            lines = [receipt_line(r) for r in tx.receipts]
         head = f"Chưa rõ kết quả đặt chỗ ({outcome.detail}). Mình sẽ không tự đặt lại; vui lòng kiểm tra lại sau."
     else:
         kind = "ERROR"

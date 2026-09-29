@@ -13,7 +13,7 @@ from src.services.adapters.fakes import InMemorySessionPort
 from tests.test_agents.helpers import Session, commit_fact, fact, intake_result
 
 FLIGHT_VALUES = {"origin": "HAN", "destination": "SGN", "flight_date": "2026-11-15"}
-MOVE_VALUES = {"from_address": "12 Láng Hạ", "move_date": "2026-11-14"}
+MOVE_VALUES = {"from_address": "12 Láng Hạ", "move_date": "2026-11-14", "move_time": "09:00"}
 
 
 @pytest.mark.asyncio

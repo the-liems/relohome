@@ -96,7 +96,12 @@ async def planned(intake, previous=None, committed=None):
 async def test_single_purpose_moving_booking():
     intake = intake_result(
         domains=[AgentName.RELOCATION],
-        values={"from_address": "12 Láng Hạ", "to_address": "45 Kim Mã", "move_date": "2026-10-05"},
+        values={
+            "from_address": "12 Láng Hạ",
+            "to_address": "45 Kim Mã",
+            "move_date": "2026-10-05",
+            "move_time": "09:00",
+        },
         facts=dict([commit_fact(CommitActionKind.MOVING_BOOKING, "Đặt xe")]),
     ).model_copy(update={"commit_requested": [CommitActionKind.MOVING_BOOKING]})
     plan = await planned(intake)
@@ -155,7 +160,7 @@ async def test_order_lookup_and_cancel_s10():
 async def test_relocation_waits_for_room_choice_s4():
     intake = intake_result(
         domains=[AgentName.PROPERTY, AgentName.RELOCATION],
-        values={"city": "HCM", "from_address": "12 Láng Hạ", "move_date": "2026-11-14"},
+        values={"city": "HCM", "from_address": "12 Láng Hạ", "move_date": "2026-11-14", "move_time": "09:00"},
         facts={"selected:property": fact("lst_002", "Phòng số 2")},
     )
     plan = await planned(intake)

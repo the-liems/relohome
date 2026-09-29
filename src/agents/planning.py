@@ -203,7 +203,7 @@ class TemplatePlanner:
             any(d not in DOMAIN_ORDER for d in domains) or (intake.intent and intake.intent.name in self.llm_intents)
         ):
             return await self.fallback.plan(inp)
-        values = intake.constraints.values
+        values = self._with_cancel_target(dict(intake.constraints.values), intake, inp.committed)
         blocked = {m.split(".", 1)[0] for m in intake.constraints.missing}
         previous = inp.previous_plan if intake.kind != RequestKind.NEW_GOAL else None
         prev_by_agent = {t.agent: t for t in previous.tasks} if previous else {}
@@ -241,6 +241,24 @@ class TemplatePlanner:
         return PlannerOutput(plan=Plan(version=0, tasks=list(tasks.values()), commit_actions=actions))
 
     @staticmethod
+    def _with_cancel_target(values: dict[str, Any], intake: IntakeResult, committed: dict[str, Receipt]) -> dict:
+        """Huỷ đơn mà người dùng không nói mã ("có, huỷ đơn chuyển nhà đi"): lấy đơn đã đặt trong thread nếu
+        chỉ có đúng một đơn khớp lĩnh vực; nhiều đơn thì để Intake hỏi lại, không đoán."""
+        if CommitActionKind.CANCEL_ORDER not in intake.commit_requested:
+            return values
+        if any(values.get(k) for k in ("order_id", "tracking_number", "booking_ref")):
+            return values
+        for domain, kind, key in (
+            (AgentName.RELOCATION, CommitActionKind.MOVING_BOOKING, "order_id"),
+            (AgentName.FLIGHT, CommitActionKind.FLIGHT_BOOKING, "booking_ref"),
+        ):
+            receipts = [r for r in committed.values() if r.kind == kind]
+            if domain in intake.domains and len(receipts) == 1:
+                values[key] = receipts[0].receipt_id
+                break
+        return values
+
+    @staticmethod
     def _inputs(domain: AgentName, values: dict[str, Any], intake: IntakeResult) -> tuple[dict | None, bool]:
         inputs: dict[str, Any] = {}
         if domain == AgentName.PROPERTY:
@@ -273,7 +291,7 @@ class TemplatePlanner:
             if lookup:
                 return {"mode": "order_status", **{k: values[k] for k in lookup}}, False
             inputs["mode"] = "quote"
-            for key in ("from_address", "to_address", "move_date", "volume"):
+            for key in ("from_address", "to_address", "move_date", "move_time", "volume"):
                 _put(inputs, key, values.get(key))
             selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
             if "to_address" not in inputs and selected is not None:

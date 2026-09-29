@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 from src.agents.approval import confirmation_hash
@@ -9,6 +10,7 @@ from src.agents.deps import GraphDeps
 from src.agents.intake import selected_fact_key
 from src.agents.models import (
     CommitAction,
+    CommitActionKind,
     CostLine,
     CostSummary,
     IntakeResult,
@@ -39,6 +41,14 @@ def select_options(plan: Plan, results: dict[str, TaskResult], intake: IntakeRes
     return selected
 
 
+def _parse_dt(value) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value)) if value else None
+    except ValueError:
+        return None
+    return parsed if parsed is not None and parsed.tzinfo is not None else None
+
+
 def build_summary(
     plan: Plan,
     statuses: dict[str, TaskStatus],
@@ -48,34 +58,44 @@ def build_summary(
     stale_ttl: dict[str, timedelta],
     now: datetime,
     approval_ttl: timedelta,
+    price_tolerance: dict[CommitActionKind, float] | None = None,
 ) -> CostSummary:
     results = {k: v for k, v in results.items() if statuses.get(k) == TaskStatus.DONE}
     selected = select_options(plan, results, intake)
     committed_sources = {a.source_task_id for a in plan.commit_actions if a.id in committed}
+    pending: list[CommitAction] = [a for a in plan.commit_actions if a.id not in committed]
+    tolerance = {a.source_task_id: (price_tolerance or {}).get(a.kind, 0.0) for a in pending}
     lines = []
     for task_id, option_id in selected.items():
         quote = next(q for q in results[task_id].quotes if q.option_id == option_id)
+        amount = int(quote.amount_vnd)
+        band = tolerance.get(task_id, 0.0)
         lines.append(
             CostLine(
                 task_id=task_id,
                 option_id=option_id,
                 label=quote.label,
-                amount_vnd=int(quote.amount_vnd),
+                amount_vnd=amount,
                 recurrence=quote.recurrence,
                 committed=task_id in committed_sources,
+                min_amount_vnd=math.floor(amount * (1 - band)) if band else None,
+                max_amount_vnd=math.ceil(amount * (1 + band)) if band else None,
             )
         )
-    pending: list[CommitAction] = [a for a in plan.commit_actions if a.id not in committed]
     counted = [line for line in lines if not line.committed]
     sources = {a.source_task_id for a in pending}
     expiries = [results[t].fetched_at + stale_ttl[t] for t in sources if t in results and t in stale_ttl]
+    # Hạn báo giá thật của provider (ví dụ AhaMove mặc định 5 phút) nếu subagent trả về.
+    expiries += [d for t in sources if t in results and (d := _parse_dt(results[t].data.get("expires_at")))]
     quotes_expire_at = min(expiries) if expiries else now + approval_ttl
+    one_time = [line for line in counted if line.recurrence == "one_time"]
     return CostSummary(
         plan_version=plan.version,
         selected=selected,
         lines=lines,
-        total_one_time_vnd=sum(line.amount_vnd for line in counted if line.recurrence == "one_time"),
+        total_one_time_vnd=sum(line.amount_vnd for line in one_time),
         total_monthly_vnd=sum(line.amount_vnd for line in counted if line.recurrence == "monthly"),
+        total_one_time_max_vnd=sum(line.max_amount_vnd or line.amount_vnd for line in one_time),
         commit_actions=pending,
         payload_hash=confirmation_hash(plan.version, selected, lines, pending),
         quotes_expire_at=quotes_expire_at,
@@ -100,6 +120,7 @@ def make_cost_summary(deps: GraphDeps):
             ttl,
             deps.clock(),
             deps.settings.approval_ttl,
+            deps.settings.price_tolerance,
         )
         update: dict = {"cost_summary": summary}
         if not summary.commit_actions:  # chỉ tìm / báo giá (S2): không cần xác nhận

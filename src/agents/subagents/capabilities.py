@@ -169,6 +169,7 @@ RELOCATION = AgentCapability(
             "from_address": _STR,
             "to_address": _STR,
             "move_date": _DATE,
+            "move_time": {"type": "string", "pattern": r"^([01]\d|2[0-3]):[0-5]\d$"},
             "selected_listing_id": _STR,
             "volume": _STR,
             "order_id": _STR,
@@ -179,7 +180,7 @@ RELOCATION = AgentCapability(
             {
                 "if": {"properties": {"mode": {"const": "quote"}}},
                 "then": {
-                    "required": ["from_address", "move_date"],
+                    "required": ["from_address", "move_date", "move_time"],
                     "anyOf": [{"required": ["to_address"]}, {"required": ["selected_listing_id"]}],
                 },
             },
@@ -212,10 +213,10 @@ RELOCATION = AgentCapability(
         },
     },
     required_fields=["quotes|order", "quotes[].price_vnd"],
-    stale_ttl_s=24 * 3600,
+    stale_ttl_s=300,  # báo giá AhaMove mặc định hết hạn sau 5 phút (AHAMOVE_QUOTE_TTL_SECONDS)
     cost_tier="paid",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=8),
-    constraint_keys=["from_address", "to_address", "move_date", "volume"],
+    constraint_keys=["from_address", "to_address", "move_date", "move_time", "volume"],
     hint_keys=["preferred_mover"],
     commit_kinds=[CommitActionKind.MOVING_BOOKING, CommitActionKind.CANCEL_ORDER, CommitActionKind.UPDATE_ORDER],
 )

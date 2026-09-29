@@ -79,7 +79,7 @@ async def test_stale_plan_version_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_failure_compensates_earlier_booking():
+async def test_failed_payment_keeps_other_booking_and_asks_user():
     intake = intake_result(
         RequestKind.NEW_GOAL,
         [AgentName.FLIGHT, AgentName.RELOCATION],
@@ -90,6 +90,7 @@ async def test_failure_compensates_earlier_booking():
             "from_address": "12 Láng Hạ",
             "to_address": "45 Kim Mã",
             "move_date": "2026-11-14",
+            "move_time": "09:00",
         },
         facts=dict(
             [commit_fact(CommitActionKind.FLIGHT_BOOKING, "vé"), commit_fact(CommitActionKind.MOVING_BOOKING, "xe")]
@@ -107,9 +108,13 @@ async def test_failure_compensates_earlier_booking():
     }
     out = await s.confirm(out, pii)
     out = await s.resume({"action": "check"})
-    assert out["response"].kind == "CANCELLED"
-    assert tx.compensated == ["moving_booking:t2"]
-    assert out["committed"]["moving_booking:t2"].status == "compensated"
+    # Không tự huỷ đơn chuyển nhà đã đặt: báo phần đã đặt / lỗi rồi hỏi người dùng.
+    response = out["response"]
+    assert response.kind == "PARTIAL"
+    assert tx.compensated == [] and tx.aborted == ["flight_booking:t1"]
+    assert out["committed"]["moving_booking:t2"].status == "confirmed"
+    assert out["transaction"].failed_action_ids == ["flight_booking:t1"]
+    assert response.questions[0].field == "cancel_booked"
 
 
 @pytest.mark.asyncio
@@ -117,7 +122,12 @@ async def test_uncertain_commit_is_not_retried():
     intake = intake_result(
         RequestKind.NEW_GOAL,
         [AgentName.RELOCATION],
-        values={"from_address": "12 Láng Hạ", "to_address": "45 Kim Mã", "move_date": "2026-11-14"},
+        values={
+            "from_address": "12 Láng Hạ",
+            "to_address": "45 Kim Mã",
+            "move_date": "2026-11-14",
+            "move_time": "09:00",
+        },
         facts=dict([commit_fact(CommitActionKind.MOVING_BOOKING, "xe")]),
     )
     tx = FakeTransaction()

@@ -70,8 +70,12 @@ Chọn phương án 3. Đây là mô tả của code hiện có trên nhánh tí
 - `McpTransaction` gọi tool ghi theo chuỗi tất định, không qua LLM: vé = giữ chỗ → tạo thanh toán →
   chờ `PAID` → xuất vé; chuyển đồ = báo giá lại với liên hệ thật → ghi approval sang Moving (ADR-003,
   Q22) → tạo đơn trả tiền mặt.
-- Khoá chống trùng theo (thread, plan version, action, phương án); commit tuần tự, lỗi thì huỷ bù
-  theo thứ tự ngược; kết quả không rõ → `pending_verification`, không tự gọi lại.
+- Khoá chống trùng theo (thread, plan version, action, phương án); commit tuần tự. Một thao tác lỗi thì
+  dừng và **không tự huỷ** thao tác đã đặt: báo người dùng phần đã đặt / phần lỗi rồi hỏi có muốn huỷ
+  không (huỷ là thao tác mới qua `confirm` + approval). Kết quả không rõ → `pending_verification`,
+  không tự gọi lại. Chuyển đồ dùng mã đối soát (`tracking_number`) để tìm lại đơn đã tạo.
+- Giá thực tế được lệch trong khoảng người dùng đồng ý ở bước xác nhận (chuyển đồ ±5%, vé đúng giá);
+  khoảng giá nằm trong `payload_hash`, ngoài khoảng thì xin xác nhận lại.
 - Dữ liệu cá nhân chỉ đi qua form → `pii_ref` → `PiiPort`; không vào LLM, state hay log (ADR-015).
 
 **Kết nối service.** `McpToolClient` (Streamable HTTP + Bearer, hoặc stdio khi dev) với allowlist tool
@@ -107,7 +111,7 @@ trần LLM và task tốn tiền trước khi gọi.
   checkpoint; không có hai nguồn sự thật.
 - Giữ được các cơ chế an toàn đã viết và test ở ADR-006.
 - Đã kiểm chứng: 213 test không cần mạng, gồm luồng đặt vé + thanh toán chạy với Flight và Payment MCP
-  thật (provider mock), client HTTP + Bearer, luồng đổi ý, huỷ bù, trần chi phí.
+  thật (provider mock), client HTTP + Bearer, luồng đổi ý, đặt một phần, trần chi phí.
 
 ## Consequences
 

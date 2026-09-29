@@ -55,12 +55,20 @@ class CommitRequest:
 
     action: CommitAction
     option_id: str
-    amount_vnd: int
+    amount_vnd: int  # giá người dùng thấy lúc xác nhận
     idempotency_key: str
     approval: Approval
+    min_amount_vnd: int = 0  # khoảng giá thực tế người dùng đã đồng ý (mặc định = amount_vnd)
+    max_amount_vnd: int = 0
     option: dict[str, Any] = field(default_factory=dict)  # phần tử đã chọn trong data của task nguồn
     task_data: dict[str, Any] = field(default_factory=dict)
     pii: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    def price_accepted(self, price: int) -> bool:
+        """Giá thực tế nằm trong khoảng người dùng đã đồng ý ở bước xác nhận."""
+        low = self.min_amount_vnd or self.amount_vnd
+        high = self.max_amount_vnd or self.amount_vnd
+        return low <= price <= high
 
 
 class CommitError(Exception):
