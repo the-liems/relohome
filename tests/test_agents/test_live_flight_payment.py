@@ -12,7 +12,6 @@ from src.agents.intake import ScriptedIntake
 from src.agents.models import AgentName, CommitActionKind, RequestKind
 from src.agents.planning import TemplatePlanner
 from src.agents.wiring import live_deps
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 
@@ -25,7 +24,13 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
     monkeypatch.setenv("FLIGHT_DB_PATH", str(tmp_path / "flights.db"))
     monkeypatch.setenv("PAYMENT_PROVIDER", "mock")
     monkeypatch.setenv("PAYMENT_DB_PATH", str(tmp_path / "payments.db"))
-    services = ServiceSettings(_env_file=None, agent_subagents="live", flight_mcp_stdio=True, payment_mcp_stdio=True)
+    services = ServiceSettings(
+        _env_file=None,
+        agent_subagents="live",
+        flight_mcp_stdio=True,
+        payment_mcp_stdio=True,
+        payment_simulation_enabled=True,
+    )
     day = (date.today() + timedelta(days=30)).isoformat()
     intake = intake_result(
         RequestKind.NEW_GOAL,
@@ -62,10 +67,8 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
 
     state = await s.state()
     payment_ref = state["pending_payment"].payment_ref
-    simulator = McpToolClient(
-        McpEndpoint("payment", frozenset({"simulate_payment_result"}), stdio_module="src.mcp_servers.payments")
-    )
-    await simulator.call("simulate_payment_result", {"payment_ref": payment_ref, "outcome": "PAID"})
+    # Nút "giả lập đã thanh toán": transaction gọi simulate_payment_result của Payment mock
+    assert await deps.transaction.simulate_payment(payment_ref, "PAID") == "PAID"
 
     out = await s.resume({"action": "check"})
     assert out["response"].kind == "COMMITTED"

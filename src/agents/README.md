@@ -86,6 +86,7 @@ Planner dùng LLM. Để thử luồng, xem test `tests/test_agents/test_graph_e
 | `POST /api/v1/chat/{thread_id}/decision` | `CONFIRM` (kèm `payload_hash`, form `pii_forms`) / `CHANGE` / `REJECT` / `CANCEL` |
 | `POST /api/v1/chat/{thread_id}/payment/check` | Hỏi lại cổng thanh toán |
 | `POST /api/v1/chat/{thread_id}/payment/cancel` | Huỷ thanh toán đang chờ, huỷ giữ chỗ |
+| `POST /api/v1/chat/{thread_id}/payment/simulate` `{outcome: PAID \| FAILED \| EXPIRED}` | **Chỉ demo:** nút "giả lập đã thanh toán". Có khi `payment.simulation_available = true` (fake mode, hoặc `PAYMENT_SIMULATION_ENABLED=true` với Payment `PAYMENT_PROVIDER=mock`); ngược lại 404 |
 | `GET /api/v1/chat/{thread_id}/state` | Intake, plan, trạng thái task, tổng chi phí, đơn đã đặt |
 
 Người dùng xác định bằng header `X-User-Id` (do gateway xác thực). Kết quả trả `status` là `done`,

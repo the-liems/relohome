@@ -95,3 +95,50 @@ async def test_default_app_answers_unsupported(client):
     r = await client.post("/api/v1/chat", json={"message": "Tìm phòng giúp mình"}, headers=HEADERS)
     body = r.json()
     assert body["status"] == "done" and body["response"]["kind"] == "UNSUPPORTED"
+
+
+async def _pending_payment(client) -> str:
+    r = await client.post("/api/v1/chat", json={"message": "Đặt vé HN - SG ngày 15/11"}, headers=HEADERS)
+    body = r.json()
+    thread_id, confirmation = body["thread_id"], body["confirmation"]
+    r = await client.post(
+        f"/api/v1/chat/{thread_id}/decision",
+        headers=HEADERS,
+        json={
+            "kind": "CONFIRM",
+            "plan_version": confirmation["plan_version"],
+            "payload_hash": confirmation["payload_hash"],
+            "pii_forms": {"flight_booking:t1": {"passengers": [{"first_name": "A"}], "contact": {"phone": "1"}}},
+        },
+    )
+    payment = r.json()["payment"]
+    assert payment["simulation_available"] is True
+    return thread_id
+
+
+@pytest.mark.asyncio
+async def test_simulated_payment_completes_booking(api):
+    client, _ = api
+    thread_id = await _pending_payment(client)
+    r = await client.post(f"/api/v1/chat/{thread_id}/payment/simulate", json={"outcome": "PAID"}, headers=HEADERS)
+    body = r.json()
+    assert body["status"] == "done" and body["response"]["kind"] == "COMMITTED"
+    again = await client.post(f"/api/v1/chat/{thread_id}/payment/simulate", json={}, headers=HEADERS)
+    assert again.status_code == 409  # không còn thanh toán nào đang chờ
+
+
+@pytest.mark.asyncio
+async def test_simulated_expiry_releases_hold(api):
+    client, _ = api
+    thread_id = await _pending_payment(client)
+    r = await client.post(f"/api/v1/chat/{thread_id}/payment/simulate", json={"outcome": "EXPIRED"}, headers=HEADERS)
+    assert r.json()["response"]["kind"] == "CANCELLED"
+
+
+@pytest.mark.asyncio
+async def test_simulation_is_off_in_live_mode_by_default(api):
+    client, service = api
+    thread_id = await _pending_payment(client)
+    service.payment_simulation = False
+    r = await client.post(f"/api/v1/chat/{thread_id}/payment/simulate", json={"outcome": "PAID"}, headers=HEADERS)
+    assert r.status_code == 404

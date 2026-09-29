@@ -183,6 +183,12 @@ class McpTransaction:
         payment = await self._call(self.payment, "payment", "cancel_payment", {"payment_ref": payment_ref}, write=True)
         return payment["status"]
 
+    async def simulate_payment(self, payment_ref: str, outcome: str) -> str:
+        payment = await self._call(
+            self.payment, "payment", "simulate_payment_result", {"payment_ref": payment_ref, "outcome": outcome}
+        )
+        return payment["status"]
+
     async def complete_after_payment(self, req: CommitRequest, pending: PendingPayment) -> Receipt:
         booking_id = pending.pre_payment_receipt.receipt_id
         try:

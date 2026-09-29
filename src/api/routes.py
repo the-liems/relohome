@@ -18,7 +18,7 @@ from langgraph.types import Command
 from src.agents.common import utcnow
 from src.agents.graph import run_config
 from src.agents.wiring import AgentService
-from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest
+from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 
 router = APIRouter()
 
@@ -53,12 +53,21 @@ async def _pending(service: AgentService, thread_id: str) -> tuple[dict, dict | 
     return snapshot.values or {}, (interrupts[0] if interrupts else None)
 
 
-def _to_response(thread_id: str, result: dict) -> ChatResponse:
+def _payment_response(thread_id: str, payment: dict, service: AgentService) -> ChatResponse:
+    # UI hiện nút "giả lập đã thanh toán" khi `simulation_available` (chỉ demo với cổng mock).
+    return ChatResponse(
+        status="pending_payment",
+        thread_id=thread_id,
+        payment={**payment, "simulation_available": service.payment_simulation},
+    )
+
+
+def _to_response(thread_id: str, result: dict, service: AgentService) -> ChatResponse:
     interrupts = result.get("__interrupt__") or []
     if interrupts:
         value = interrupts[0].value
         if value.get("type") == "payment_required":
-            return ChatResponse(status="pending_payment", thread_id=thread_id, payment=value)
+            return _payment_response(thread_id, value, service)
         return ChatResponse(status="pending_confirmation", thread_id=thread_id, confirmation=value)
     response = result.get("response")
     return ChatResponse(
@@ -83,7 +92,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if values and values.get("user_id") != user_id:
             raise HTTPException(status_code=404, detail="Không tìm thấy hội thoại.")
         if pending and pending.get("type") == "payment_required":
-            return ChatResponse(status="pending_payment", thread_id=thread_id, payment=pending)
+            return _payment_response(thread_id, pending, service)
         if pending:
             result = await service.graph.ainvoke(
                 Command(
@@ -105,7 +114,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                 },
                 config,
             )
-        return _to_response(thread_id, result)
+        return _to_response(thread_id, result, service)
 
 
 @router.post("/chat/{thread_id}/decision", response_model=ChatResponse)
@@ -140,7 +149,7 @@ async def decision(
             )
             resume.update(approval_id=approval.approval_id, pii_refs=pii_refs)
         result = await service.graph.ainvoke(Command(resume=resume), run_config(thread_id, service.deps))
-        return _to_response(thread_id, result)
+        return _to_response(thread_id, result, service)
 
 
 async def _payment(thread_id: str, action: str, service: AgentService, user_id: str) -> ChatResponse:
@@ -149,7 +158,7 @@ async def _payment(thread_id: str, action: str, service: AgentService, user_id: 
         if not pending or pending.get("type") != "payment_required":
             raise HTTPException(status_code=409, detail="Không có thanh toán nào đang chờ.")
         result = await service.graph.ainvoke(Command(resume={"action": action}), run_config(thread_id, service.deps))
-        return _to_response(thread_id, result)
+        return _to_response(thread_id, result, service)
 
 
 @router.post("/chat/{thread_id}/payment/check", response_model=ChatResponse)
@@ -162,6 +171,27 @@ async def payment_check(thread_id: str, service: Service, user_id: UserId = "ano
 async def payment_cancel(thread_id: str, service: Service, user_id: UserId = "anonymous") -> ChatResponse:
     """Huỷ thanh toán đang chờ; `transaction` huỷ phần giữ chỗ."""
     return await _payment(thread_id, "cancel", service, user_id)
+
+
+@router.post("/chat/{thread_id}/payment/simulate", response_model=ChatResponse)
+async def payment_simulate(
+    thread_id: str, body: SimulatePaymentRequest, service: Service, user_id: UserId = "anonymous"
+) -> ChatResponse:
+    """CHỈ CHO DEMO với cổng thanh toán mock: giả lập khách đã trả / thất bại / link hết hạn, rồi hỏi lại
+    cổng như nút "Tôi đã thanh toán". Tắt ở môi trường thật (`PAYMENT_SIMULATION_ENABLED=false`)."""
+    if not service.payment_simulation:
+        raise HTTPException(status_code=404, detail="Giả lập thanh toán không được bật.")
+    async with _lock(service, thread_id):
+        values, pending = await _owned(service, thread_id, user_id)
+        payment = values.get("pending_payment")
+        if not pending or pending.get("type") != "payment_required" or payment is None:
+            raise HTTPException(status_code=409, detail="Không có thanh toán nào đang chờ.")
+        try:
+            await service.deps.transaction.simulate_payment(payment.payment_ref, body.outcome)
+        except Exception as exc:  # cổng không phải mock, giao dịch đã hết PENDING…
+            raise HTTPException(status_code=409, detail="Không giả lập được thanh toán này.") from exc
+        result = await service.graph.ainvoke(Command(resume={"action": "check"}), run_config(thread_id, service.deps))
+        return _to_response(thread_id, result, service)
 
 
 @router.get("/chat/{thread_id}/state")

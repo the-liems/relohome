@@ -98,6 +98,10 @@ class TransactionPort(Protocol):
 
     async def cancel_payment(self, payment_ref: str) -> str: ...
 
+    async def simulate_payment(self, payment_ref: str, outcome: str) -> str:
+        """Chỉ cho demo với cổng mock: ép kết quả PAID / FAILED / EXPIRED của giao dịch đang PENDING."""
+        ...
+
     async def complete_after_payment(self, req: CommitRequest, pending: PendingPayment) -> Receipt:
         """Bước sau khi đã PAID (ví dụ xuất vé)."""
         ...

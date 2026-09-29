@@ -55,6 +55,7 @@ MOVING_WRITE_TOOLS = frozenset(
 FLIGHT_READ_TOOLS = frozenset({"search_airports", "search_flights", "get_offer", "get_booking"})
 FLIGHT_WRITE_TOOLS = frozenset({"get_offer", "get_booking", "hold_booking", "confirm_booking", "cancel_booking"})
 PAYMENT_WRITE_TOOLS = frozenset({"create_payment", "get_payment", "cancel_payment", "refund_payment"})
+PAYMENT_SIMULATION_TOOLS = frozenset({"simulate_payment_result"})  # chỉ có ở Payment mock
 
 
 class ServiceSettings(BaseSettings):
@@ -90,6 +91,9 @@ class ServiceSettings(BaseSettings):
     payment_mcp_token: SecretStr = SecretStr("")
     payment_mcp_stdio: bool = False
     payment_source_kind: Literal["sandbox", "demo", "live"] = "sandbox"
+    # Nút "giả lập đã thanh toán" cho demo. Chỉ bật khi Payment MCP chạy PAYMENT_PROVIDER=mock
+    # (server chỉ có tool `simulate_payment_result` ở chế độ mock; `/health` trả "simulation": true).
+    payment_simulation_enabled: bool = False
 
 
 def _secret(value: SecretStr) -> str | None:
@@ -150,9 +154,12 @@ class ServiceRegistry:
             stdio_module=flight_stdio,
         )
         payment_stdio = "src.mcp_servers.payments" if s.payment_mcp_stdio and not s.payment_mcp_url else None
+        payment_tools = PAYMENT_WRITE_TOOLS | (
+            PAYMENT_SIMULATION_TOOLS if s.payment_simulation_enabled else frozenset()
+        )
         payment_write = McpEndpoint(
             "payment",
-            PAYMENT_WRITE_TOOLS,
+            payment_tools,
             url=s.payment_mcp_url or None,
             token=_secret(s.payment_mcp_token),
             stdio_module=payment_stdio,

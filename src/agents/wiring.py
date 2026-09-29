@@ -97,6 +97,7 @@ class AgentService:
     approval_store: InMemoryApprovalStore
     pii_store: InMemoryPiiStore
     mode: str
+    payment_simulation: bool = False  # có nút "giả lập đã thanh toán" (fake mode, hoặc Payment mock đã bật)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
 
     @classmethod
@@ -118,4 +119,5 @@ class AgentService:
             approval_store=approvals,
             pii_store=pii,
             mode=services.agent_subagents,
+            payment_simulation=services.agent_subagents == "fake" or services.payment_simulation_enabled,
         )

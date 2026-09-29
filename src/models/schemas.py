@@ -19,6 +19,12 @@ class DecisionRequest(BaseModel):
     pii_forms: dict[str, dict[str, Any]] = {}
 
 
+class SimulatePaymentRequest(BaseModel):
+    outcome: Literal["PAID", "FAILED", "EXPIRED"] = Field(
+        default="PAID", description="Kết quả giả lập; chỉ dùng khi demo với cổng thanh toán mock"
+    )
+
+
 class ChatResponse(BaseModel):
     status: Literal["done", "pending_confirmation", "pending_payment"]
     thread_id: str

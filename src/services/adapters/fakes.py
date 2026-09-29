@@ -220,6 +220,13 @@ class FakeTransaction:
         status = self.payment_script.pop(0) if len(self.payment_script) > 1 else self.payment_script[0]
         return status
 
+    async def simulate_payment(self, payment_ref: str, outcome: str) -> str:
+        self.calls.append(("simulate_payment", payment_ref))
+        if payment_ref not in self.payments:
+            raise CommitError("không tìm thấy giao dịch")
+        self.payment_script = [outcome]  # lần hỏi trạng thái kế tiếp trả kết quả đã giả lập
+        return outcome
+
     async def cancel_payment(self, payment_ref: str) -> str:
         self.calls.append(("cancel_payment", payment_ref))
         return "CANCELLED"
