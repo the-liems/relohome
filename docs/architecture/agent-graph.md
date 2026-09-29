@@ -16,7 +16,7 @@ service (§6.3.7); dữ liệu cá nhân qua form và thanh toán bất đồng 
 agent, model theo tầng), Q21 (AhaMove trả tiền mặt), Q22 (ghi approval sang Moving),
 Q23 (đánh số lại ADR, §12.1; thêm ADR-016), Q25 (MVP không có đặt cọc).
 
-**Người viết subagent cho service** đọc §6.3 (contract, quy tắc R1–R12), §6.3.8
+**Người viết subagent** (từ 2026-09-29 là nhóm AI, xem D13) đọc §6.3 (contract, quy tắc R1–R12), §6.3.8
 (input/output tối thiểu theo lĩnh vực) và §6.9 (commit endpoint, nếu service có thao
 tác ghi).
 
@@ -50,8 +50,8 @@ Bản chi tiết (baseline) dùng để đối chiếu thành phần:
 **Ngoài phạm vi (làm sau)**
 
 - Logic bên trong Intake và Planner — **để trống**, chỉ có contract và stub.
-- Bên trong subagent của từng service (housing/location, moving, flight, payment): do
-  chủ service viết theo §6.3, gồm cả adapter tới provider thật.
+- Bên trong subagent của từng lĩnh vực: nhóm AI viết theo §6.3 (D13, đổi 2026-09-29); chủ service
+  cung cấp MCP tool, dữ liệu và adapter tới provider thật.
 - Dịch vụ hợp đồng / pháp lý (Contract & Policy agent của sơ đồ v4): **đã bỏ khỏi phạm
   vi** (2026-09-28).
 - Prompt LLM, lựa chọn model, đánh giá chất lượng.
@@ -80,7 +80,7 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 | D10 | **Chỉ hỏi ngay khi không task nào trong yêu cầu chạy được** (hoặc có mâu thuẫn); còn lại chạy phần làm được rồi hỏi sau. Được **tự điền** thông tin thiếu từ dữ liệu người dùng đã cung cấp trước đó, nhưng **phải thông báo** để người dùng sửa. | Ít lượt hỏi, người dùng thấy kết quả sớm; không tự đoán vì dữ liệu tự điền đến từ chính người dùng. §6.1 |
 | D11 | **Chi phí có trần theo lượt và theo thread.** LLM của graph chỉ dùng ở `intake` và `orchestrator`; LLM bên trong subagent (D13) báo qua `usage` và vẫn tính vào trần; `respond` dùng template ở giai đoạn khung; các node còn lại là code. | Chi phí dự đoán được, đo được theo request. §7.5 |
 | D12 | **Bộ nhớ người dùng tách khỏi dữ liệu gốc** và chỉ chứa điều người dùng nói ra hoặc xác nhận, chia ba mức (tự điền / chỉ gợi ý / không dùng), có hạn theo thời gian và theo sự kiện. | Tự điền không thành tự đoán; không dùng lại dữ liệu phòng/giá đã hết hạn. §6.0, §6.1 |
-| D13 | **Mỗi service có subagent riêng do chủ service viết**; graph chỉ nối vào qua contract chung (manifest + `run_task`, §6.3). DAG của Planner ở mức **giữa các lĩnh vực**; việc bên trong lĩnh vực là của subagent. Subagent chỉ đọc, không hỏi người dùng trực tiếp, không gọi chéo lĩnh vực; thao tác ghi đi qua commit endpoint tất định. | Các đội làm song song, đổi bên trong subagent không phải sửa graph; giữ được kiểm soát chi phí, phụ thuộc và an toàn ghi ở graph. |
+| D13 | **Mỗi lĩnh vực có subagent riêng, nối vào graph qua contract chung** (manifest + `run_task` hoặc `LocalAgent`, §6.3). **Cập nhật 2026-09-29:** subagent của mọi service do **nhóm AI** phát triển (từ subagent nền) để thống nhất và thông minh nhất có thể; chủ service cung cấp MCP tool, dữ liệu, thao tác ghi tất định (Location và Moving đã xác nhận ranh giới này). DAG của Planner ở mức **giữa các lĩnh vực**; việc bên trong lĩnh vực là của subagent. Subagent chỉ đọc, không hỏi người dùng trực tiếp, không gọi chéo lĩnh vực; thao tác ghi đi qua commit endpoint tất định. | Các đội làm song song, đổi bên trong subagent không phải sửa graph; giữ được kiểm soát chi phí, phụ thuộc và an toàn ghi ở graph. |
 | D14 | **Một graph cho mọi phạm vi yêu cầu**: vừa một mục đích (chỉ tìm phòng, chỉ đặt vé, chỉ đặt xe) vừa chuỗi liên hoàn (tìm phòng → vé → chuyển đồ → thanh toán). Mặc định chỉ tìm / báo giá; chỉ đặt và thanh toán thứ người dùng yêu cầu rõ; sau mỗi bước có thể gợi ý bước tiếp theo nhưng không tự làm. Quy tắc S1–S10. | Không phải làm luồng riêng cho từng dịch vụ; không đặt hay trả tiền cho thứ người dùng chưa yêu cầu. §6.2, §10.2 |
 | D15 | **Hợp nhất với code Intake / Routing trên nhánh `khoa` theo hướng giữ tài liệu này** (chốt 2026-09-29): giữ kiến trúc một graph + subagent theo lĩnh vực; tái dùng các phần an toàn đã có của nhánh `khoa` (kiểm evidence, `validate_plan`, approval binding, lease / reconciliation, LLM wrapper); registry 13 tool Moving trở thành phần bên trong subagent moving. ADR-006 của nhánh `khoa` (hai service HTTP riêng) được thay bằng ADR-016 khi merge (§12.1). | Giữ quyết định subagent do chủ service viết (D13) mà không bỏ công sức đã làm. §3.3 |
 | D16 | **Dữ liệu cá nhân để đặt chỗ (hành khách, liên hệ) không đi qua LLM.** UI thu bằng form, backend giữ và chỉ đưa vào `transaction` qua tham chiếu (`pii_ref`). **Thanh toán là bất đồng bộ**: `transaction` tạo yêu cầu thanh toán rồi chờ kết quả qua `interrupt`. | Bảo vệ dữ liệu cá nhân (thống nhất ADR-015); khớp cách ZaloPay hoạt động thật. §6.9 |
@@ -97,7 +97,7 @@ dùng thẳng trong code. Các đoạn code trong tài liệu là **đặc tả*
 | Lead Orchestrator — phần decompose → task DAG | node `orchestrator` gọi `deps.planner` | **Stub.** §6.2 |
 | Intent + constraints / Task decomposition / Dependency DAG | `IntakeResult.intent`, `.constraints`; `Plan.tasks[].depends_on` | Dữ liệu, không phải node. |
 | Executor / Dynamic Router (READY tasks, dispatch) | node `executor` + conditional edge `route_from_executor` trả về `list[Send]` | Fan-out song song. §6.4 |
-| Domain agent (4 trên 5 của v4; Contract & Policy đã bỏ) | node `property_agent`, `relocation_agent`, `flight_agent`, `map_agent` | Mỗi node nối tới **subagent của service** (do chủ service viết) qua `DomainAgent`; chỉ đọc. §6.3 |
+| Domain agent (4 trên 5 của v4; Contract & Policy đã bỏ) | node `property_agent`, `relocation_agent`, `flight_agent`, `map_agent` | Mỗi node nối tới **subagent của lĩnh vực** (nhóm AI viết, D13) qua `DomainAgent`; chỉ đọc. §6.3 |
 | Collect Results | reducer `merge_dict` trên `task_results`, `task_status` | Fan-in: các agent chạy song song đều quay về `executor`, executor chạy **một lần** ở superstep kế tiếp. |
 | Result Validator (PASS / NEED MORE) | node `validator` + conditional edge `route_from_validator` | §6.5 |
 | Cost & Plan Summary | node `cost_summary` | §6.6 |
@@ -175,7 +175,7 @@ flowchart LR
 | `executor` | Tính task READY, dispatch song song/tuần tự, đếm lượt | Quyết định nghiệp vụ, sửa plan |
 | `validator` | Kiểm kết quả; chọn PASS / RETRY / REPLAN / ASK_USER / GIVE_UP | Tạo task mới |
 | `change_impact` | Đánh dấu STALE theo `depends_on`, xác định phần tái dùng | Hiểu câu đổi ý bằng lời |
-| Subagent của service (chủ service viết) | Thực hiện một task trong lĩnh vực của mình: gọi tool, lọc, xếp hạng, retry provider | Lập plan giữa các lĩnh vực, hỏi người dùng trực tiếp, gọi chéo lĩnh vực, ghi |
+| Subagent của lĩnh vực (nhóm AI viết; chủ service cung cấp tool) | Thực hiện một task trong lĩnh vực của mình: gọi tool, lọc, xếp hạng, retry provider | Lập plan giữa các lĩnh vực, hỏi người dùng trực tiếp, gọi chéo lĩnh vực, ghi |
 | `transaction` | Kiểm approval, commit idempotent qua commit endpoint tất định, compensate | Tự tạo approval, gọi subagent LLM để ghi |
 | Backend (ngoài graph) | Xác thực người dùng, lưu `Approval` gắn hash payload | Quyết định plan |
 
@@ -985,8 +985,9 @@ Các câu hỏi mở của Intake và Orchestrator được liệt kê ở §12.
 
 ### 6.3. Subagent của service — chuẩn contract
 
-Mỗi service (housing/location, moving, flight, …) có **subagent
-riêng do chủ service viết**, có thể dùng LLM bên trong. Graph không biết và không
+Mỗi lĩnh vực (property, map, relocation, flight) có **subagent riêng**, có thể dùng LLM bên trong.
+Từ 2026-09-29 subagent do **nhóm AI** viết (D13); chủ service chỉ cung cấp tool / dữ liệu. Contract
+dưới đây vẫn giữ để thay subagent không phải sửa graph, và để sau này có thể chạy subagent ở nơi khác. Graph không biết và không
 quản lý bên trong subagent; graph chỉ **nối vào** qua contract ở mục này. Người viết
 subagent làm theo mục này; subagent qua được bộ test tuân thủ (§11) thì đăng ký vào
 registry mà **không cần sửa graph** (D13).
@@ -2098,9 +2099,9 @@ service nào có cấu hình trong `.env` (`.env.example` có danh sách biến)
 `PassThroughIntake` + `NotImplementedPlanner` như §8, nên `/chat` trả `UNSUPPORTED` cho tới khi có Intake
 thật (issue Intake). Test dùng `ScriptedIntake` + `TemplatePlanner`.
 
-**Subagent nền** (`src/agents/subagents/services/`) là bản tất định, không LLM, do kiến trúc viết để
-nối service ngay. Chủ service thay bằng subagent riêng (manifest + `run_task`, đăng ký bằng
-`RemoteAgent` ở `wiring.py`) sau khi qua `check_conformance`; graph không đổi (D13).
+**Subagent nền** (`src/agents/subagents/services/`) là bản tất định, không LLM, để nối service ngay.
+Nhóm AI phát triển tiếp thành subagent thông minh hơn (D13, 2026-09-29), đăng ký trong `wiring.py`
+sau khi qua `check_conformance`; graph không đổi. Location và Moving không viết subagent, chỉ cung cấp tool.
 
 ### 13.2. Khác với đặc tả ở trên
 
@@ -2120,6 +2121,9 @@ nối service ngay. Chủ service thay bằng subagent riêng (manifest + `run_t
 | Đặt xe | báo giá lại → ghi approval → tạo đơn | tìm đơn theo mã đối soát trước (đã có thì dùng lại, nhiều đơn → `pending_verification`); mã đối soát đặt vào điểm giao trước lần báo giá dùng để tạo đơn; mã approval Moving gắn với `quote_id` | Chạy lại / restart không tạo đơn thứ hai; không bị 409 khi báo giá lại |
 | Hạn báo giá chuyển đồ | `stale_ttl` 24 h | 300 s, và `quotes_expire_at` lấy `expires_at` thật của báo giá | AhaMove mặc định 5 phút |
 | Token Moving | token ghi để trống thì dùng token đọc | không có token ghi thì không có endpoint ghi; lỗi JSON `{code, message, retryable}` đọc đúng `retryable` | Server Moving kiểm quyền theo token |
+| Tên viết tắt địa danh | — | node `intake` phát hiện viết tắt ("Q10", "BV", "HCM"…) trong field địa danh / địa chỉ, bỏ giá trị và hỏi lại tên đầy đủ; MVP không tự diễn giải | Location không có alias (phản hồi Location) |
+| Địa chỉ chuyển đồ tự do | geocode địa chỉ bất kỳ (`geocode_address`) | Không làm trong MVP. Toạ độ lấy từ tin nhà đã chọn hoặc địa danh / địa điểm Location tìm được; không xác định được thì hỏi lại | Location không có geocoder |
+| Contract Location | 8 tool; địa chỉ `house_number` / `province` | 9 tool (thêm `calculate_route_between_entities`); khoá địa chỉ `housenumber`, `street`, `ward`, `district`, `city`, `raw`; `deposit`, `location_accuracy`, `location_method`; tìm nhà luôn gửi `currency: VND`, `price_period: month`; `search_areas` / `resolve_location` lấy 5 ứng viên, mơ hồ thì hỏi lại; vị trí gần đúng được ghi chú khi trả lời | Phản hồi Location |
 | Tin nhắn gửi LLM | — | node `intake` che email, SĐT, số CCCD trước khi gọi Intake | D16; họ tên không nhận diện được, hướng người dùng nhập qua form |
 | Huỷ đơn không nói mã | — | `TemplatePlanner` lấy đơn đã đặt trong thread nếu chỉ có đúng một đơn của lĩnh vực đó | Trả lời "có, huỷ" sau `PARTIAL` |
 | Planner mặc định của app | `NotImplementedPlanner` | `TemplatePlanner` (`AgentService.create`) | |

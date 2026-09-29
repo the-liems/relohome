@@ -25,6 +25,7 @@ LOCATION_READ_TOOLS = frozenset(
         "search_areas",
         "resolve_location",
         "calculate_route",
+        "calculate_route_between_entities",
     }
 )
 MOVING_READ_TOOLS = frozenset(

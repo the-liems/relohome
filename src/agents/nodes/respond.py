@@ -70,7 +70,7 @@ def question_for(field: str, session: SessionContext | None) -> Question:
     return Question(field=field, text=text, blocking=True)
 
 
-def describe_result(agent: AgentName, data: dict) -> list[str]:
+def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None = None) -> list[str]:
     lines = []
     if agent == AgentName.PROPERTY:
         for i, c in enumerate(data.get("candidates", [])[:5], 1):
@@ -84,7 +84,7 @@ def describe_result(agent: AgentName, data: dict) -> list[str]:
             names = ", ".join(
                 f"{p.get('name') or p.get('category')} ({int(p.get('distance_m', 0))}m)" for p in pois[:3]
             )
-            lines.append(f"Quanh {key}: {names or 'chưa có dữ liệu'}")
+            lines.append(f"Quanh {(titles or {}).get(key, key)}: {names or 'chưa có dữ liệu'}")
     elif agent == AgentName.FLIGHT:
         for offer in data.get("offers", [])[:5]:
             lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {vnd(offer.get('fare_vnd'))}")
@@ -115,6 +115,19 @@ def receipt_line(receipt) -> str:
     return f"- {receipt.kind.value}: mã {receipt.receipt_id}, {price} ({receipt.status})"
 
 
+DATA_NOTES = {
+    "has_more": "Danh sách trên xếp trong các tin mình đã lấy; còn tin khác phù hợp, bạn muốn xem thêm thì cứ nói.",
+    "approximate_origins": "Vị trí một số phòng chỉ gần đúng, nên khoảng cách tới tiện ích là ước lượng.",
+    "destination_location_approximate": "Vị trí phòng chỉ gần đúng; giá chuyển đồ có thể thay đổi khi đặt.",
+}
+
+
+def data_notes(data: dict) -> list[str]:
+    notes = [DATA_NOTES[k] for k in ("has_more", "approximate_origins") if data.get(k)]
+    notes += [DATA_NOTES[w] for w in data.get("warnings") or [] if w in DATA_NOTES]
+    return notes
+
+
 def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[str]]:
     plan = state.get("plan")
     statuses = state.get("task_status") or {}
@@ -123,6 +136,13 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
     view: dict = {}
     kinds: set[str] = set()
     relaxed: list[str] = []
+    notes: list[str] = []
+    titles = {
+        c.get("id"): c.get("title")
+        for r in results.values()
+        if r.agent == AgentName.PROPERTY
+        for c in r.data.get("candidates", [])
+    }
     for task in plan.tasks if plan else []:
         result = results.get(task.id)
         if statuses.get(task.id) != TaskStatus.DONE or result is None:
@@ -135,11 +155,12 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "missing_fields": result.missing_fields,
             "summary": result.summary,
         }
-        lines.extend(describe_result(task.agent, result.data))
+        lines.extend(describe_result(task.agent, result.data, titles))
+        notes.extend(data_notes(result.data))
         if result.source_kind != "live":
             kinds.add(result.source_kind)
         relaxed.extend(result.data.get("relaxed_filters") or [])
-    return lines, view, kinds, relaxed
+    return [*lines, *dict.fromkeys(notes)], view, kinds, relaxed
 
 
 def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:

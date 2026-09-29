@@ -91,17 +91,18 @@ Planner dùng LLM. Để thử luồng, xem test `tests/test_agents/test_graph_e
 Người dùng xác định bằng header `X-User-Id` (do gateway xác thực). Kết quả trả `status` là `done`,
 `pending_confirmation` hoặc `pending_payment`.
 
-## Cho người viết subagent của service
+## Phát triển subagent (nhóm AI)
+
+Từ 2026-09-29 subagent của mọi lĩnh vực do nhóm AI viết (D13); chủ service cung cấp MCP tool và dữ liệu.
 
 1. Đọc contract ở agent-graph.md §6.3 (quy tắc R1–R12) và §6.3.8 (input / output tối thiểu). JSON
    Schema: [docs/api/agent-contract/](../../docs/api/agent-contract/)
    (tạo lại bằng `python -m src.agents.contracts.export_schema`).
-2. Expose MCP tool `get_manifest` và `run_task` (tham số `{"request": AgentTaskRequest}`), hoặc viết
-   subagent Python implement `DomainAgent`.
+2. Viết subagent Python implement `DomainAgent` (bắt đầu từ `subagents/services/`), hoặc chạy ở nơi khác
+   và expose MCP tool `get_manifest` + `run_task` (tham số `{"request": AgentTaskRequest}`).
 3. Kiểm bằng `check_conformance` (`subagents/conformance.py`), ví dụ trong
    `tests/test_agents/test_service_subagents.py`.
-4. Đăng ký trong `wiring.py::live_agents` (thay subagent nền bằng `RemoteAgent.from_service(...)`).
-   Graph không phải sửa.
+4. Đăng ký trong `wiring.py::live_agents`. Graph không phải sửa.
 
 ## Cho người làm Intake / Planner dùng LLM
 

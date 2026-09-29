@@ -17,9 +17,9 @@ lập plan ở mức từng MCP tool, gọi tool qua `ToolGateway`, giữ state 
 
 Sau đó nhóm chốt thêm các yêu cầu mà hai service riêng khó đáp ứng:
 
-- Mỗi service (Location, Moving, Flight) có **subagent riêng do chủ service viết** (D13). Planner không
-  nên biết từng tool của từng service: số tool tăng theo số service, và chủ service không đổi được cách
-  dùng tool mà không kéo theo Planner.
+- Mỗi lĩnh vực có **subagent riêng** (D13). Planner không nên biết từng tool của từng service: số tool
+  tăng theo số service, và thay cách dùng tool không được kéo theo sửa Planner. (Ban đầu định để chủ
+  service viết subagent; từ 2026-09-29 nhóm AI viết, chủ service cung cấp tool và dữ liệu.)
 - Chat cần **xác nhận của người dùng giữa luồng** (tổng chi phí, approval, form dữ liệu cá nhân) và
   **thanh toán bất đồng bộ** (ZaloPay trả link / QR, chờ kết quả). Cả hai cần dừng và tiếp tục cùng một
   lượt xử lý.
@@ -61,8 +61,8 @@ Chọn phương án 3. Đây là mô tả của code hiện có trên nhánh tí
 - Subagent **chỉ đọc**; gọi qua `run_with_policy` (timeout, ngân sách, retry một lần cho lỗi đường
   truyền, lỗi thành dữ liệu cho validator).
 - Kênh: `LocalAgent` (Python trong process), `RemoteAgent` (MCP tool `run_task`), `FakeAgent`,
-  `FallbackAgent`. Trong lúc chủ service chưa có subagent, graph dùng **subagent nền** tất định bọc MCP
-  tool đọc (`subagents/services/`).
+  `FallbackAgent`. Subagent do nhóm AI phát triển từ **subagent nền** tất định bọc MCP tool đọc
+  (`subagents/services/`); chủ service cung cấp tool, dữ liệu và thao tác ghi.
 
 **Ghi.**
 - Chỉ node `transaction` ghi, sau khi `confirm` kiểm approval do backend tạo (khớp người dùng, thread,
@@ -106,7 +106,7 @@ trần LLM và task tốn tiền trước khi gọi.
 
 ## Rationale
 
-- Chủ service đổi bên trong subagent mà không phải sửa graph; graph không phải biết từng tool.
+- Đổi bên trong subagent không phải sửa graph; graph không phải biết từng tool.
 - Xác nhận, thanh toán bất đồng bộ, kiểm kết quả, chi phí, bộ nhớ và gợi ý dùng chung một state và một
   checkpoint; không có hai nguồn sự thật.
 - Giữ được các cơ chế an toàn đã viết và test ở ADR-006.
@@ -118,9 +118,8 @@ trần LLM và task tốn tiền trước khi gọi.
 - ADR-006 chuyển `Superseded by ADR-016`. SPEC-001 (Intake) và SPEC-003 (Routing) cần cập nhật theo graph.
 - `src/agent_services/`, `Dockerfile.agents`, `compose.agents.yaml`, CI `agent-services.yml` vẫn còn trên
   nhánh nhưng chatbot không dùng. Giữ làm tham khảo cho tới khi chủ code (Khoa) quyết định xoá.
-- Mỗi service bọc MCP tool của mình thành subagent theo contract và qua `check_conformance` trước khi thay
-  subagent nền (issue #18). Service có thao tác ghi cung cấp tool ghi tất định và, với Moving, endpoint ghi
-  approval (#16).
+- Nhóm AI phát triển subagent cho từng lĩnh vực theo contract và `check_conformance` (issue #18). Service
+  có thao tác ghi cung cấp tool ghi tất định và, với Moving, endpoint ghi approval (#16).
 - Checkpointer, Approval Store, kho dữ liệu cá nhân, bộ nhớ người dùng bền vững là việc hạ tầng / backend
   (#19); chọn checkpointer ở ADR-017.
 - Intake và Planner dùng LLM chưa có (#12, #13); app mặc định trả `UNSUPPORTED` cho tới khi có Intake.

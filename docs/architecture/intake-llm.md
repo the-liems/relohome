@@ -116,14 +116,14 @@ Khoá phải đúng tên dưới đây; Planner và subagent đọc theo tên n�
 
 | Lĩnh vực | Khoá | Định dạng | Ví dụ |
 |---|---|---|---|
-| property | `city` | tên tỉnh / thành như người dùng nói | "TP.HCM", "Hà Nội" |
-| | `near` | địa danh / khu vực | "BV Chợ Rẫy", "Quận 10", "ĐH Bách Khoa" |
+| property | `city` | tên tỉnh / thành **đầy đủ** như người dùng nói | "Thành phố Hồ Chí Minh", "Hà Nội" |
+| | `near` | địa danh / khu vực, tên đầy đủ | "Bệnh viện Chợ Rẫy", "Quận 10", "Đại học Bách Khoa" |
 | | `max_price_vnd` | int, VND/tháng | "dưới 6 triệu" → `6000000` |
 | | `room_type` | `phòng`, `studio`, `căn hộ`, `nhà`, `homestay` | |
-| | `must_have` | list slug: `wifi`, `may_lanh`, `cho_de_xe`, `may_giat`, `thang_may`, `ban_cong` | "có Wi-Fi" → `["wifi"]` |
+| | `must_have` | list slug amenities **có trong dữ liệu Location**: `air_conditioning`, `internet`, `refrigerator`, `washing_machine`, `hot_water`, `kitchen`, `allow_cooking`, `bed`, `wardrobe`, `desk`, `elevator`, `security`, `parking`, `balcony`, `natural_light`, `private_bathroom`, `shared_bathroom`, `pet_friendly`, `gym`, `swimming_pool` | "có máy lạnh" → `["air_conditioning"]`; "có Wi-Fi" → `["internet"]` (nguồn chỉ có `internet`, không phân biệt Wi-Fi riêng); tiện ích không có trong danh sách thì không đưa vào bộ lọc |
 | | `household_size`, `has_pet`, `has_motorbike` | int / bool | |
 | | `budget_vnd` | int, tổng ngân sách một lần | "tổng tất cả dưới 10 triệu" |
-| map | `nearby_categories` | list slug: `hospital`, `school`, `university`, `marketplace`, `supermarket`, `pharmacy`, `gym`, `park`, `bus_station` | "gần bệnh viện" → `["hospital"]` |
+| map | `nearby_categories` | list slug (tối đa 10): `hospital`, `clinic`, `pharmacy`, `school`, `university`, `marketplace`, `supermarket`, `convenience_store`, `gym`, `park`, `bus_stop`, `bus_station` | "gần bệnh viện" → `["hospital"]` |
 | | `nearby_radius_m` | int | "trong 1 km" → `1000` |
 | flight | `origin`, `destination` | tên thành phố hoặc mã IATA | "Hà Nội", "SGN" |
 | | `flight_date` | `YYYY-MM-DD` | |
@@ -141,6 +141,14 @@ Khoá phải đúng tên dưới đây; Planner và subagent đọc theo tên n�
 - Giờ ("9h sáng", "2 giờ chiều") → `HH:MM`; không có giờ thì **không** ghi `move_time` (node sẽ hỏi).
 - Chỉ có tháng hoặc mơ hồ ("tháng 11", "cuối tháng") → **không** ghi `flight_date` / `move_date`
   (node sẽ tự hỏi sau). Có thể ghi `move_month: "2026-11"` để tham khảo.
+
+**Tên viết tắt (MVP):** không tự diễn giải "Q10", "P.5", "BV", "ĐH", "HCM", "SG", "HN", "KTX"… Giữ
+nguyên chuỗi người dùng nói; node `intake` phát hiện viết tắt trong field địa danh / địa chỉ, bỏ giá trị
+đó và hỏi lại tên đầy đủ (service Location không có bảng alias). Mã sân bay IATA (`HAN`, `SGN`) hợp lệ.
+
+**Địa chỉ chuyển đồ:** hệ thống không tìm toạ độ cho địa chỉ bất kỳ (Location không có geocoder). Ghi
+nguyên địa chỉ người dùng nói; subagent tìm theo tên địa danh / địa điểm đã biết và hỏi lại nếu không
+xác định được. Điểm giao là phòng đã chọn thì dùng toạ độ của tin nhà.
 
 **Không suy diễn**: không tự đặt toạ độ, giá, mã sân bay khi người dùng không nói, không lấy giá trị
 từ `session` hay từ câu trả lời của assistant.
@@ -207,7 +215,7 @@ code chuyển sang `IntakeResult` (giống `Understanding` → `IntakeResult` c�
 ```python
 class DraftValue(BaseModel):
     key: str            # khoá ở §4.2
-    value_json: str     # giá trị dạng JSON: "6000000", "\"TP.HCM\"", "[\"wifi\"]"
+    value_json: str     # giá trị dạng JSON: "6000000", "\"Quận 10\"", "[\"air_conditioning\"]"
 
 class DraftFact(BaseModel):
     key: str            # khoá §4.2 hoặc commit:<kind> / selected:<agent>
@@ -313,6 +321,6 @@ Bộ câu tối thiểu (lấy từ §10.1, §10.2):
 
 | # | Câu hỏi |
 |---|---|
-| I1 | Danh sách slug `must_have` và `nearby_categories` chốt với service Location (Dũng) theo category thật trong PostGIS. |
+| I1 | ~~Danh sách slug `must_have`, `nearby_categories`~~ Đã chốt theo phản hồi Location (2026-09-29): bảng §4.2. Location có thể thêm slug khi nhập dữ liệu mới; cập nhật bảng này khi đó. |
 | I2 | Gộp Intake và Planner thành một lần gọi LLM cho yêu cầu đơn giản (Q11)? Mặc định: tách. |
 | I3 | Ngưỡng chất lượng tối thiểu của bộ câu tiếng Việt trước khi bật `LlmIntake` mặc định trong app. |

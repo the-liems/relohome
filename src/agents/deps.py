@@ -45,7 +45,13 @@ class GraphSettings(BaseModel):
     max_parallel_tasks: int = 4
     recursion_limit: int = 100
     default_agent_timeout_s: float = 20.0
-    agent_timeout_s: dict[AgentName, float] = {}
+    # Subagent gọi 2–5 tool nối tiếp; mỗi tool Location có deadline 15 s, OSRM 10 s (phản hồi Location).
+    agent_timeout_s: dict[AgentName, float] = {
+        AgentName.PROPERTY: 40.0,
+        AgentName.MAP: 40.0,
+        AgentName.RELOCATION: 45.0,
+        AgentName.FLIGHT: 30.0,
+    }
     agent_transport_retries: int = 1
     stale_ttl_override: dict[AgentName, timedelta] = {}
     approval_ttl: timedelta = timedelta(minutes=10)

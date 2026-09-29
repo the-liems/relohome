@@ -11,7 +11,15 @@ from langchain_core.messages import HumanMessage
 
 from src.agents.cost import llm_calls_left
 from src.agents.deps import GraphDeps
-from src.agents.intake import IntakeInput, commit_fact_key, ground_facts, redact_pii, resolve_missing
+from src.agents.intake import (
+    LOCATION_KEYS,
+    IntakeInput,
+    abbreviation_questions,
+    commit_fact_key,
+    ground_facts,
+    redact_pii,
+    resolve_missing,
+)
 from src.agents.models import (
     CommitActionKind,
     IntakeResult,
@@ -130,7 +138,16 @@ def make_intake(deps: GraphDeps):
                 if fact is not None and fact.value != previous.prefilled[key].value:
                     logger.info("prefill_corrected field=%s thread_id=%s request_id=%s", key, thread_id, request_id)
         commit_requested = [k for k in CommitActionKind if commit_fact_key(k) in grounded.facts]
-        values = dict(result.constraints.values)
+        # Tên viết tắt ("Q10", "BV", "HCM"): không dùng, hỏi lại tên đầy đủ. Bỏ giá trị viết tắt khỏi dữ kiện
+        # để câu trả lời lượt sau không bị coi là mâu thuẫn với nó.
+        stated_now = {
+            **{k: f.value for k, f in result.user_confirmed_facts.items() if k in grounded.facts},
+            **result.constraints.values,
+        }
+        abbreviated = {k for k in LOCATION_KEYS if abbreviation_questions({k: stated_now.get(k)})}
+        abbreviation_asks = abbreviation_questions(stated_now)
+        facts = {k: f for k, f in grounded.facts.items() if k not in abbreviated}
+        values = {k: v for k, v in result.constraints.values.items() if k not in abbreviated}
         if previous is not None and result.kind != RequestKind.NEW_GOAL:
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
@@ -138,9 +155,9 @@ def make_intake(deps: GraphDeps):
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
-                "user_confirmed_facts": grounded.facts,
+                "user_confirmed_facts": facts,
                 "commit_requested": commit_requested,
-                "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts])),
+                "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts, *abbreviation_asks])),
                 "declined_suggestions": [k for k in result.declined_suggestions if k in suggestion_keys],
             }
         )

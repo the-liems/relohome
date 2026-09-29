@@ -9,7 +9,7 @@ from src.agents.planning import TemplatePlanner
 from tests.test_agents.helpers import ALL_DOMAINS, Session, commit_fact, fact, intake_result
 
 MSG1 = (
-    "Tháng 11 mình chuyển từ Hà Nội vào TP.HCM, cần phòng dưới 6 triệu gần bệnh viện Chợ Rẫy, "
+    "Tháng 11 mình chuyển từ Hà Nội vào Thành phố Hồ Chí Minh, cần phòng dưới 6 triệu gần bệnh viện Chợ Rẫy, "
     "có Wi-Fi; đặt giúp chuyển đồ và vé máy bay."
 )
 MSG2 = "Phòng số 2. Bay 15/11, chuyển đồ 14/11 từ 12 Láng Hạ."
@@ -31,8 +31,8 @@ def turn1():
         RequestKind.NEW_GOAL,
         ALL_DOMAINS,
         values={
-            "city": "TP.HCM",
-            "near": "BV Chợ Rẫy",
+            "city": "Thành phố Hồ Chí Minh",
+            "near": "Bệnh viện Chợ Rẫy",
             "max_price_vnd": 6_000_000,
             "must_have": ["wifi"],
             "origin": "Hà Nội",
@@ -42,7 +42,7 @@ def turn1():
                 commit_fact(CommitActionKind.MOVING_BOOKING, "đặt giúp chuyển đồ"),
                 commit_fact(CommitActionKind.FLIGHT_BOOKING, "vé máy bay"),
                 ("max_price_vnd", fact(6_000_000, "dưới 6 triệu")),
-                ("city", fact("TP.HCM", "TP.HCM")),
+                ("city", fact("Thành phố Hồ Chí Minh", "Thành phố Hồ Chí Minh")),
             ]
         ),
     )

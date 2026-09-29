@@ -137,6 +137,7 @@ class MovingSubagent:
             )
         pickup = await self._point(geo, inp["from_address"])
         destination = None
+        warnings: list[str] = []
         to_address = inp.get("to_address")
         if to_address:
             destination = await self._point(geo, to_address)
@@ -146,6 +147,8 @@ class MovingSubagent:
                     if c.get("id") == inp["selected_listing_id"] and c.get("lat") is not None:
                         to_address = c.get("address")
                         destination = {"address": to_address, "lat": c["lat"], "lng": c["lng"]}
+                        if c.get("location_accuracy") != "rooftop":
+                            warnings.append("destination_location_approximate")
         questions = []
         when = order_time(inp["move_date"], inp.get("move_time"), self.clock())
         if when is None:
@@ -225,6 +228,8 @@ class MovingSubagent:
             "to_address": to_address,
             # Toạ độ và giờ đặt (không có dữ liệu cá nhân) để transaction báo giá lại với liên hệ thật.
             "route": {"pickup": pickup, "destination": destination, "order_time": when},
+            # Vị trí phòng chỉ gần đúng: giá có thể lệch khi tài xế đến đúng địa chỉ.
+            "warnings": warnings,
         }
         return self._result(
             req,

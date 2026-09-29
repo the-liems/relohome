@@ -22,7 +22,7 @@ async def test_change_during_confirm_replans_only_affected_tasks():
     first = intake_result(
         RequestKind.NEW_GOAL,
         domains,
-        values={"city": "TP.HCM", **FLIGHT_VALUES, **MOVE_VALUES},
+        values={"city": "Thành phố Hồ Chí Minh", **FLIGHT_VALUES, **MOVE_VALUES},
         facts=dict(
             [
                 commit_fact(CommitActionKind.FLIGHT_BOOKING, "đặt vé"),
@@ -40,7 +40,7 @@ async def test_change_during_confirm_replans_only_affected_tasks():
     )
     deps = test_deps(ScriptedIntake([first, change]), TemplatePlanner())
     s = Session(deps)
-    out = await s.say("Tìm phòng ở TP.HCM, đặt vé và chuyển đồ, lấy phòng 2")
+    out = await s.say("Tìm phòng ở Thành phố Hồ Chí Minh, đặt vé và chuyển đồ, lấy phòng 2")
     assert out["__interrupt__"][0].value["plan_version"] == 1
     flight_calls = len(deps.agents.get(AgentName.FLIGHT).requests)
 

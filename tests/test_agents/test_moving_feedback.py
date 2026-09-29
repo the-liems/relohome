@@ -140,3 +140,21 @@ async def test_cancel_uses_the_single_booked_order_of_the_thread():
     ).plan
     assert plan.tasks[0].inputs == {"mode": "order_status", "order_id": "ORD7"}
     assert plan.commit_actions[0].target_receipt_id == "ORD7"
+
+
+def test_abbreviation_questions_only_for_location_fields():
+    from src.agents.intake import abbreviation_questions
+
+    asks = abbreviation_questions({"near": "gần BV Chợ Rẫy, Q10", "city": "HCM", "origin": "HAN", "room_type": "BV"})
+    assert len(asks) == 3 and any('"Q10"' in a for a in asks)
+    assert abbreviation_questions({"city": "Thành phố Hồ Chí Minh", "near": "Quận 10", "origin": "SGN"}) == []
+
+
+@pytest.mark.asyncio
+async def test_abbreviated_place_is_asked_back_not_searched():
+    intake = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"near": "Q10"})
+    deps = test_deps(ScriptedIntake([intake]), TemplatePlanner())
+    out = await Session(deps).say("Tìm phòng ở Q10")
+    assert out["response"].kind == "CLARIFY" and '"Q10"' in out["response"].text
+    assert "near" not in out["intake"].constraints.values
+    assert deps.agents.get(AgentName.PROPERTY).requests == []

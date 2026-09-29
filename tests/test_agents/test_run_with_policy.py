@@ -18,12 +18,12 @@ from tests.test_agents.helpers import Session, intake_result
 
 def agent_input(**constraints):
     return {
-        "task": Task(id="t1", agent=AgentName.PROPERTY, inputs={"city": "HCM"}),
+        "task": Task(id="t1", agent=AgentName.PROPERTY, inputs={"city": "Hồ Chí Minh"}),
         "plan_version": 3,
         "attempt": 1,
         "request_id": "r",
         "thread_id": "th",
-        "constraints": Constraints(values={"city": "HCM", "secret_note": "x", **constraints}),
+        "constraints": Constraints(values={"city": "Hồ Chí Minh", "secret_note": "x", **constraints}),
         "hints": {"origin": "Hà Nội"},
         "upstream": {},
     }
@@ -38,7 +38,7 @@ async def test_filters_constraints_and_hints_by_manifest():
     agent = FakeAgent(AgentName.PROPERTY)
     out = await run(agent)
     req = agent.requests[0]
-    assert req.constraints == {"city": "HCM"}  # chỉ key có trong constraint_keys
+    assert req.constraints == {"city": "Hồ Chí Minh"}  # chỉ key có trong constraint_keys
     assert req.hints == {}
     assert req.budget.deadline_at is not None
     assert out["task_status"] == {"t1": TaskStatus.DONE}
@@ -132,7 +132,7 @@ async def test_paid_cap_gives_partial_answer():
     intake = intake_result(
         RequestKind.NEW_GOAL,
         [AgentName.PROPERTY, AgentName.FLIGHT],
-        values={"city": "HCM", "origin": "HAN", "flight_date": "2026-11-15"},
+        values={"city": "Hồ Chí Minh", "origin": "HAN", "flight_date": "2026-11-15"},
     )
     deps = test_deps(ScriptedIntake([intake]), TemplatePlanner(), settings=GraphSettings(max_paid_calls_per_turn=0))
     out = await Session(deps).say("Tìm phòng và vé")
@@ -144,20 +144,23 @@ async def test_paid_cap_gives_partial_answer():
 
 @pytest.mark.asyncio
 async def test_suggestions_skip_declined_and_unsupported():
-    search = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "HCM"})
+    search = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "Hồ Chí Minh"})
     decline = intake_result(
-        RequestKind.REFINE, [AgentName.PROPERTY], values={"city": "HCM"}, declined_suggestions=["quote:relocation"]
+        RequestKind.REFINE,
+        [AgentName.PROPERTY],
+        values={"city": "Hồ Chí Minh"},
+        declined_suggestions=["quote:relocation"],
     )
     deps = test_deps(ScriptedIntake([search, decline]), TemplatePlanner())
     s = Session(deps)
-    out = await s.say("Tìm phòng ở HCM")
+    out = await s.say("Tìm phòng ở Hồ Chí Minh")
     assert [x.key for x in out["response"].suggestions] == ["quote:relocation"]
     out = await s.say("không cần chuyển đồ, mình tự chở")
     assert out["response"].suggestions == []
     # Không có service moving thì không gợi ý báo giá chuyển đồ.
     registry = AgentRegistry({n: a for n, a in fake_registry()._agents.items() if n != AgentName.RELOCATION})
     deps = test_deps(ScriptedIntake([search]), TemplatePlanner(), agents=registry)
-    out = await Session(deps).say("Tìm phòng ở HCM")
+    out = await Session(deps).say("Tìm phòng ở Hồ Chí Minh")
     assert out["response"].suggestions == []
 
 
@@ -166,8 +169,8 @@ async def test_llm_cap_stops_before_calling_intake():
     class LlmIntake(ScriptedIntake):
         uses_llm = True
 
-    intake = LlmIntake([intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "HCM"})])
+    intake = LlmIntake([intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "Hồ Chí Minh"})])
     deps = test_deps(intake, TemplatePlanner(), settings=GraphSettings(max_llm_calls_per_turn=0))
-    out = await Session(deps).say("Tìm phòng ở HCM")
+    out = await Session(deps).say("Tìm phòng ở Hồ Chí Minh")
     assert out["response"].kind == "ERROR" and "giới hạn chi phí" in out["response"].text
     assert intake.inputs == []

@@ -141,6 +141,28 @@ def redact_pii(text: str) -> str:
     return _PHONE.sub("[số điện thoại]", text)
 
 
+# Tên viết tắt địa danh: MVP không tự hiểu (Location không có alias), phải hỏi lại tên đầy đủ.
+LOCATION_KEYS = ("city", "near", "from_address", "to_address", "origin", "destination")
+_ABBREVIATION = re.compile(
+    r"(?<![\wÀ-ỹ])(?:[QqPp]\.?\s?\d{1,2}|[QqPp]\.|TP\.?\s?HCM|TPHCM|HCM|SG|HN|ĐN|DN|BV|ĐHQG|ĐH|DH|KTX|CĐ|TTTM|KCN|KĐT)"
+    r"(?![\wÀ-ỹ])"
+)
+
+
+def abbreviation_questions(values: dict[str, Any]) -> list[str]:
+    """Câu hỏi lại cho mỗi tên viết tắt trong field địa danh / địa chỉ (không tự diễn giải)."""
+    found: list[str] = []
+    for key in LOCATION_KEYS:
+        text = values.get(key)
+        if isinstance(text, str):
+            found += [m.group(0).strip() for m in _ABBREVIATION.finditer(text)]
+    return [
+        f'"{token}" là viết tắt; bạn ghi đầy đủ giúp mình nhé (ví dụ "Quận 10", "Thành phố Hồ Chí Minh", '
+        f'"Bệnh viện Chợ Rẫy").'
+        for token in dict.fromkeys(found)
+    ]
+
+
 def looks_like_pii(value: Any) -> bool:
     text = str(value)
     return bool(_EMAIL.search(text) or _LONG_DIGITS.search(text.replace(" ", "").replace(".", "")))
