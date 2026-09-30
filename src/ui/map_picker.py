@@ -5,6 +5,45 @@ import streamlit as st
 from src.ui.mvp_components import api
 
 
+def selected_house_pin(headers):
+    """Offer the observed listing coordinate for an explicit user confirmation."""
+    thread = st.session_state.get("thread_id")
+    if not thread:
+        return
+    state = api(headers, "GET", f"/chat/{thread}/state") or {}
+    selected = (((state.get("intake") or {}).get("user_confirmed_facts") or {}).get("selected:property") or {}).get(
+        "value"
+    )
+    if not selected:
+        return
+    house = next(
+        (
+            candidate
+            for role, payload in reversed(st.session_state.get("history", []))
+            if role == "assistant" and isinstance(payload, dict)
+            for result in ((payload.get("response") or {}).get("data") or {}).get("results", {}).values()
+            for candidate in result.get("data", {}).get("candidates", [])
+            if candidate.get("id") == selected
+        ),
+        None,
+    )
+    if not house or not house.get("address") or house.get("lat") is None or house.get("lng") is None:
+        return
+    with st.sidebar.expander("Dùng căn đã chọn làm điểm Moving"):
+        st.write(house["address"])
+        st.caption(
+            "Tọa độ tin nhà có thể chỉ là vị trí xấp xỉ. Hãy kiểm tra đúng cổng xe đến trên bản đồ "
+            "và chỉnh tọa độ trong form trước khi xác nhận."
+        )
+        for endpoint, label in (("pickup", "điểm lấy"), ("destination", "điểm giao")):
+            if st.button("Điền căn đã chọn vào " + label, key=f"house_{endpoint}_{selected}"):
+                st.session_state[endpoint + "_address"] = house["address"]
+                st.session_state[endpoint + "_lat"] = house["lat"]
+                st.session_state[endpoint + "_lng"] = house["lng"]
+                st.session_state[endpoint + "_confirmed"] = False
+                st.rerun()
+
+
 def shared_map_picker(headers):
     with st.expander("Bản đồ dùng chung — tìm nhà / điểm lấy, giao", expanded=False):
         with st.form("map_search"):

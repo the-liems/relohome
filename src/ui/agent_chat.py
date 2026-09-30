@@ -6,7 +6,7 @@ import uuid
 import httpx
 import streamlit as st
 
-from src.ui.map_picker import shared_map_picker
+from src.ui.map_picker import selected_house_pin, shared_map_picker
 from src.ui.mvp_components import BASE, api, confirmation_controls, payment_demo, remember
 
 st.set_page_config(page_title="LifeFlow — local integration", page_icon="🏠")
@@ -49,6 +49,7 @@ if st.sidebar.button("Hội thoại mới"):
     st.rerun()
 st.sidebar.caption("Không nhập API key, thông tin thanh toán hay số điện thoại trong chat.")
 pins = {}
+selected_house_pin(headers)
 shared_map_picker(headers)
 
 
