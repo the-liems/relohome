@@ -82,6 +82,7 @@ class AgentInput(TypedDict):
     """Payload thu gọn gửi cho node `*_agent` qua `Send` (§5.4)."""
 
     task: Task
+    user_id: str  # trusted API identity; never forwarded into model arguments
     plan_version: int
     attempt: int
     request_id: str

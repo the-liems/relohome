@@ -283,6 +283,14 @@ async def agent_status(service: Service):
         "agent": "LifeFlow agent graph",
         "mode": service.mode,
         "domains": [d.value for d in service.deps.agents.names()],
+        "domain_agents": {
+            d.value: {
+                "implementation": type(service.deps.agents.get(d)).__name__,
+                "uses_llm": service.deps.agents.capability(d).uses_llm,
+                "read_only": True,
+            }
+            for d in service.deps.agents.names()
+        },
         "writes_enabled": service.writes_enabled,
         "sandbox_payments_enabled": service.sandbox_payment_client is not None,
         "moving_payment_method": "CASH",

@@ -115,7 +115,8 @@
         "property",
         "relocation",
         "flight",
-        "map"
+        "map",
+        "payment"
       ],
       "title": "AgentName",
       "type": "string"

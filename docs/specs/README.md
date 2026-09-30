@@ -1,5 +1,7 @@
 # Mục lục SPEC
 
+Domain agents tích hợp: [SPEC-014 — LLM subagents](SPEC-014-domain-llm-agents.md) (Draft, local MVP).
+
 SPEC nói **hệ thống phải làm gì**; ADR nói **vì sao chọn cách làm**. Trạng thái
 dùng `Draft`, `Accepted` hoặc `Superseded`. Mã tiêu chí (`SPEC-NNN/AC-NN`) giữ ổn
 định; tiến độ theo dõi ở GitHub Issues, không ở mục lục này.

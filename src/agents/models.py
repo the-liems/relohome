@@ -18,6 +18,7 @@ class AgentName(StrEnum):
     RELOCATION = "relocation"  # Room Relocation (moving)
     FLIGHT = "flight"  # Flight / Travel
     MAP = "map"  # Map & Nearby Utility
+    PAYMENT = "payment"  # Owned status reads only; writes remain controlled
     # Contract & Policy của sơ đồ v4 đã bỏ khỏi phạm vi (2026-09-28)
 
 

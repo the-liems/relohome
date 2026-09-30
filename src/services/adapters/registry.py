@@ -68,6 +68,10 @@ class ServiceSettings(BaseSettings):
     agent_intake_model: str = "gpt-4.1-mini"
     agent_planner_model: str = "gpt-4.1-mini"
     agent_moving_model: str = "gpt-4.1-mini"
+    agent_housing_model: str = "gpt-4.1-mini"
+    agent_map_model: str = "gpt-4.1-mini"
+    agent_flight_model: str = "gpt-4.1-mini"
+    agent_payment_model: str = "gpt-4.1-mini"
     openai_api_key: SecretStr = SecretStr("")
     agent_writes_enabled: bool = False
     agent_sandbox_payments_enabled: bool = False
@@ -180,6 +184,17 @@ class ServiceRegistry:
             ),
             # Tìm chuyến có thể là dữ liệu thật (SerpApi) hoặc mock; phần đặt vé luôn là giả lập (ADR-012).
             flight=ServiceEntry("flight", flight_read, flight_write, "demo"),
-            payment=ServiceEntry("payment", None, payment_write, s.payment_source_kind),
+            payment=ServiceEntry(
+                "payment",
+                McpEndpoint(
+                    "payment",
+                    frozenset({"get_payment"}),
+                    url=s.payment_mcp_url or None,
+                    token=_secret(s.payment_mcp_token),
+                    stdio_module=payment_stdio,
+                ),
+                payment_write,
+                s.payment_source_kind,
+            ),
             settings=s,
         )

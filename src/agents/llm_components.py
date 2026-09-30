@@ -1,8 +1,8 @@
-"""Explicit component factory for module tests and the later graph integration step."""
+"""LLM component factory and lifecycle for the integrated graph runtime."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.agents.intake_llm import LlmIntake
 from src.agents.llm import LLMError, StructuredLLM
@@ -10,6 +10,7 @@ from src.agents.planner_llm import LlmPlanner
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from src.agents.subagents.services.moving import QuoteContact
 from src.agents.subagents.services.moving_llm import MovingLlmAgent
+from src.agents.subagents.services.read_llm import ReadLlmAgent
 from src.services.adapters.registry import ServiceRegistry, ServiceSettings
 
 
@@ -18,12 +19,15 @@ class LlmComponents:
     intake: LlmIntake
     planner: LlmPlanner
     moving: MovingLlmAgent | None
+    domain_agents: list[ReadLlmAgent] = field(default_factory=list)
 
     async def close(self):
         await self.intake.llm.close()
         await self.planner.llm.close()
         if self.moving:
             await self.moving.close()
+        for agent in self.domain_agents:
+            await agent.close()
 
 
 def build_llm_components(settings: ServiceSettings | None = None) -> LlmComponents:

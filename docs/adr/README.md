@@ -1,5 +1,7 @@
 # Mục lục ADR
 
+Cập nhật domain agents: [ADR-020 — LLM domain agents trong graph tích hợp](ADR-020-llm-domain-agents.md).
+
 ADR ghi **lý do và đánh đổi của một quyết định kỹ thuật**, không ghi tiến độ.
 Khi thay đổi quyết định, tạo ADR mới và đánh dấu ADR cũ `Superseded by ADR-XXX`.
 Bảng đánh số thống nhất giữa các nhánh: `docs/architecture/agent-graph.md` §12.1.

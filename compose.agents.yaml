@@ -1,3 +1,5 @@
+# Legacy ADR-006 standalone component harness, NOT the integrated MVP graph.
+# Current runtime: scripts/local-integration.py api (ADR-016/019/020).
 name: lifeflow-agents
 services:
   intake:

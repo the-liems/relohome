@@ -1,5 +1,10 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
+> Cập nhật runtime `mvp` 30/09/2026: Intake/Planner/Moving đã được nối bằng LLM;
+> Housing/Map/Flight và Payment tra cứu được bổ sung domain tool loop theo
+> [ADR-020](../adr/ADR-020-llm-domain-agents.md) và [SPEC-014](../specs/SPEC-014-domain-llm-agents.md).
+> Nội dung mốc 27–29/09 bên dưới là thiết kế/lịch sử, không phải trạng thái kiểm thử mới nhất.
+
 Status: ADR-016 Accepted trên nhánh tích hợp. **Đã implement khung** trên nhánh `integration/langgraph-services`
 (M0–M2, nối service ở mức subagent nền của M3); Intake và Planner dùng LLM chưa làm (M4). Hiện trạng
 và các điểm code khác bản đặc tả: §13.

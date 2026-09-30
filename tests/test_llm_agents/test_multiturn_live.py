@@ -132,6 +132,26 @@ def test_flight_followup_only_changes_date(client):
     assert not state.get("committed")
 
 
+def test_selected_home_routes_with_real_listing_id(client):
+    first, _ = turn(client, "Tìm nhà có 2 phòng ngủ ở Quận 1, Thành phố Hồ Chí Minh dưới 10 triệu")
+    candidates = next(
+        r["data"]["candidates"] for r in first["response"]["data"]["results"].values() if r["agent"] == "property"
+    )
+    assert candidates
+    _, state = turn(client, "Chọn căn số 1", first["thread_id"])
+    selected = state["intake"]["user_confirmed_facts"]["selected:property"]["value"]
+    assert selected == candidates[0]["id"]
+    reply, state = turn(
+        client, "Tính đường đi bộ từ căn đã chọn đến Takashimaya tại Thành phố Hồ Chí Minh", first["thread_id"]
+    )
+    assert reply["response"]["kind"] in {"ANSWER", "PARTIAL"}, reply
+    task = next(t for t in state["plan"]["tasks"] if t["agent"] == "map")
+    assert task["inputs"]["selected_listing_id"] == selected
+    assert task["inputs"]["route_from"] == "selected:property"
+    routing = next(r["data"]["routing"] for r in reply["response"]["data"]["results"].values() if r["agent"] == "map")
+    assert routing["profile"] == "walking" and routing["route"]["distance_meters"] > 0
+
+
 def test_select_second_housing_option_uses_previous_results(client):
     first, _ = turn(client, "Tìm nhà có 2 phòng ngủ ở Quận 1, Thành phố Hồ Chí Minh dưới 10 triệu")
     candidates = next(

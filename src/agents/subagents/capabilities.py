@@ -84,7 +84,10 @@ PROPERTY = AgentCapability(
             "diagnostics": {"type": "object"},
             "map_context": {
                 "type": "object",
-                "properties": {"scope": {"const": "returned_candidates"}, "listing_ids": {"type": "array", "items": _STR}},
+                "properties": {
+                    "scope": {"const": "returned_candidates"},
+                    "listing_ids": {"type": "array", "items": _STR},
+                },
                 "required": ["scope", "listing_ids"],
             },
         },
@@ -119,7 +122,10 @@ MAP = AgentCapability(
             "listing_ids": {"type": "array", "items": _STR, "minItems": 1, "maxItems": 3, "uniqueItems": True},
         },
         "anyOf": [
-            {"required": ["categories"], "not": {"required": ["map_mode"], "properties": {"map_mode": {"const": "route"}}}},
+            {
+                "required": ["categories"],
+                "not": {"required": ["map_mode"], "properties": {"map_mode": {"const": "route"}}},
+            },
             {
                 "required": ["map_mode", "route_from", "route_to", "city"],
                 "properties": {"map_mode": {"const": "route"}},
@@ -142,7 +148,9 @@ MAP = AgentCapability(
                     "items": {
                         "type": "object",
                         "properties": {
-                            "name": _OPT_STR, "category": _STR, "distance_m": {"type": "number"},
+                            "name": _OPT_STR,
+                            "category": _STR,
+                            "distance_m": {"type": "number"},
                             "location": {"type": ["object", "null"]},
                             "distance_kind": {"const": "straight_line"},
                             "source": {"type": ["object", "null"]},
@@ -276,9 +284,42 @@ RELOCATION = AgentCapability(
     commit_kinds=[CommitActionKind.MOVING_BOOKING, CommitActionKind.CANCEL_ORDER, CommitActionKind.UPDATE_ORDER],
 )
 
+PAYMENT = AgentCapability(
+    agent=AgentName.PAYMENT,
+    input_schema={
+        "type": "object",
+        "properties": {"payment_id": _STR},
+        "required": ["payment_id"],
+        "additionalProperties": False,
+    },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "payment": {
+                "type": "object",
+                "properties": {
+                    "payment_id": _STR,
+                    "status": {"enum": ["PENDING", "PAID", "FAILED", "CANCELLED", "EXPIRED", "REFUNDED"]},
+                    "provider": {"const": "zalopay"},
+                    "amount": _INT,
+                    "currency": {"const": "VND"},
+                },
+                "required": ["payment_id", "status", "provider", "amount", "currency"],
+            }
+        },
+        "required": ["payment"],
+    },
+    required_fields=["payment"],
+    stale_ttl_s=60,
+    cost_tier="cheap",
+    default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=1),
+    constraint_keys=["payment_id"],
+)
+
 BASELINE_CAPABILITIES: dict[AgentName, AgentCapability] = {
     AgentName.PROPERTY: PROPERTY,
     AgentName.MAP: MAP,
     AgentName.FLIGHT: FLIGHT,
     AgentName.RELOCATION: RELOCATION,
+    AgentName.PAYMENT: PAYMENT,
 }

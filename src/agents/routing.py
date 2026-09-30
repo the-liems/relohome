@@ -47,6 +47,7 @@ def route_from_executor(state: WorkflowState) -> list[Send] | str:
     for task_id in dispatch:
         task = plan.task(task_id)
         payload = AgentInput(
+            user_id=state.get("user_id", "anonymous"),
             task=task,
             plan_version=plan.version,
             attempt=attempts.get(task_id, 1),

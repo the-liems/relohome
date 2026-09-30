@@ -192,7 +192,7 @@ def ground_facts(
         evidence = nfc(fact.evidence).strip().lower()
         # A typed amount/count is not a phone number merely because it has 9+ digits.
         numeric_constraint = (
-                name in {"min_price_vnd", "max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
+            name in {"min_price_vnd", "max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
             and type(fact.value) is int
         )
         if name in PII_FACT_KEYS or (not numeric_constraint and looks_like_pii(fact.value)):
@@ -233,6 +233,7 @@ class Requirement:
 
 
 REQUIRED_INPUTS: dict[AgentName, tuple[Requirement, ...]] = {
+    AgentName.PAYMENT: (Requirement(("payment_id",)),),
     AgentName.PROPERTY: (Requirement(("city", "near")),),
     AgentName.RELOCATION: (
         Requirement(("from_address",)),
@@ -250,11 +251,13 @@ REQUIRED_INPUTS: dict[AgentName, tuple[Requirement, ...]] = {
 
 # Tra cứu đơn đã đặt (S10) không cần input tìm kiếm.
 LOOKUP_KEYS: dict[AgentName, tuple[str, ...]] = {
+    AgentName.PAYMENT: ("payment_id",),
     AgentName.RELOCATION: ("order_id", "tracking_number"),
     AgentName.FLIGHT: ("booking_ref",),
 }
 
 DEFAULT_COST_TIERS = {
+    AgentName.PAYMENT: "cheap",
     AgentName.PROPERTY: "cheap",
     AgentName.MAP: "cheap",
     AgentName.RELOCATION: "paid",
@@ -274,7 +277,10 @@ def missing_for(
         return []
     if domain == AgentName.MAP and values.get("map_mode") == "route":
         missing = [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
-        if any(values.get(k) == "selected:property" for k in ("route_from", "route_to")) and "selected:property" not in facts:
+        if (
+            any(values.get(k) == "selected:property" for k in ("route_from", "route_to"))
+            and "selected:property" not in facts
+        ):
             missing.append("map.selected:property")
         return missing
     if domain == AgentName.MAP and "selected:property" in facts and not _has(values, "near"):

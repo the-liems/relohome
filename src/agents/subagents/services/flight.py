@@ -42,17 +42,22 @@ class FlightSubagent:
         self.client, self.clock = client, clock
 
     async def run(self, req: AgentTaskRequest) -> AgentTaskResult:
-        if (rejected := reject_unsupported(req, SOURCE, "demo")) is not None:
+        if (rejected := reject_unsupported(req, SOURCE, "live")) is not None:
             return rejected
         tools = CountingClient(self.client, req.budget.max_provider_calls)
         try:
             if req.inputs.get("booking_ref"):
                 return failed_result(
-                    req, "provider_unavailable", "Real flight booking lookup is not connected.", retryable=False
+                    req,
+                    "provider_unavailable",
+                    "Real flight booking lookup is not connected.",
+                    retryable=False,
+                    source=SOURCE,
+                    source_kind="live",
                 )
             return await self._search(req, tools)
         except (ToolCallError, BudgetExceededError) as exc:
-            return tool_failure(req, exc, SOURCE, "demo", tools.calls)
+            return tool_failure(req, exc, SOURCE, "live", tools.calls)
 
     def _result(self, req: AgentTaskRequest, tools: CountingClient, source_kind: SourceKind, **kw) -> AgentTaskResult:
         return AgentTaskResult(
@@ -68,10 +73,11 @@ class FlightSubagent:
     async def _airport(self, tools: CountingClient, text: str | None) -> str | None:
         if not text:
             return None
-        if IATA.match(text.strip()):
+        found = await tools.call("search_airports", {"query": text, "limit": 5})
+        codes = {r.get("code") for r in found or [] if isinstance(r, dict) and r.get("code")}
+        if IATA.match(text.strip()) and text.strip() in codes:
             return text.strip()
-        found = first(await tools.call("search_airports", {"query": text, "limit": 1}))
-        return found.get("code") if isinstance(found, dict) else None
+        return next(iter(codes)) if len(codes) == 1 else None
 
     async def _search(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
@@ -91,7 +97,7 @@ class FlightSubagent:
         if destination is None:
             questions.append(Question(field="destination", text="Bạn bay tới thành phố nào?"))
         if questions:
-            return self._result(req, tools, "demo", status="needs_input", questions=questions)
+            return self._result(req, tools, "live", status="needs_input", questions=questions)
         passengers = inp.get("passengers") or {"adults": 1}
         found = await tools.call(
             "search_flights",
@@ -109,7 +115,12 @@ class FlightSubagent:
         found = found or {}
         if found.get("source") != "serpapi":
             return failed_result(
-                req, "provider_unavailable", "Flight returned an unsupported or simulated source.", retryable=False
+                req,
+                "provider_unavailable",
+                "Flight returned an unsupported or simulated source.",
+                retryable=False,
+                source=SOURCE,
+                source_kind="live",
             )
         offers, quotes = [], []
         for offer in found.get("offers", []):

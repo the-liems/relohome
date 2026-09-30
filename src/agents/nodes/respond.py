@@ -28,6 +28,7 @@ from src.agents.suggestions import next_step_suggestions
 logger = logging.getLogger(__name__)
 
 QUESTION_TEXT = {
+    "payment.payment_id": "Bạn muốn tra trạng thái mã thanh toán ZaloPay nào? Không gửi số tài khoản hay thông tin thẻ.",
     "map.route_from": "Bạn muốn đi từ địa điểm nào?",
     "map.route_to": "Bạn muốn đi tới địa điểm nào?",
     "map.city": "Bạn muốn tra đường tại thành phố nào?",
@@ -76,6 +77,11 @@ def question_for(field: str, session: SessionContext | None) -> Question:
 
 def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None = None) -> list[str]:
     lines = []
+    if agent == AgentName.PAYMENT:
+        payment = data.get("payment") or {}
+        lines.append(
+            f"Thanh toán sandbox {payment.get('payment_id')}: {payment.get('status')} — {vnd(payment.get('amount'))}. Trạng thái do ZaloPay trả về, không đồng nghĩa dịch vụ đã được đặt."
+        )
     if agent == AgentName.PROPERTY:
         for i, c in enumerate(data.get("candidates", [])[:5], 1):
             lines.append(
@@ -167,6 +173,7 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "fetched_at": result.fetched_at.isoformat(),
             "missing_fields": result.missing_fields,
             "summary": result.summary,
+            "usage": result.usage.model_dump(mode="json"),
         }
         display_data = result.data
         intake = state.get("intake")
@@ -238,7 +245,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 else "Chức năng lập kế hoạch cho yêu cầu này chưa sẵn sàng."
             )
             if code == OutcomeCode.PLAN_EMPTY
-            else "Yêu cầu này nằm ngoài phạm vi mình hỗ trợ (tìm phòng, bản đồ, chuyển đồ, vé máy bay)."
+            else "Mình hỗ trợ tìm phòng, bản đồ, chuyển đồ, tìm chuyến bay và tra thanh toán đã có. Tạo thanh toán sandbox cần dùng form có xác nhận; chưa hỗ trợ xuất vé hay hoàn tiền qua chat."
         )
     elif code == OutcomeCode.CLARIFY:
         kind = "CLARIFY"

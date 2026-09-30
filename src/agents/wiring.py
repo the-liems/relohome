@@ -158,6 +158,32 @@ class AgentService:
             components.planner.registry = CapabilityRegistry({n: a.capability for n, a in agents.items()})
             db = RuntimeDatabase(services.agent_state_dir)
             stack.callback(db.close)
+            from src.agents.subagents.services.payment import PaymentSubagent
+            from src.agents.subagents.services.read_llm import ReadLlmAgent
+
+            payment_read = registry.payment.read_client()
+            if payment_read and services.payment_source_kind == "sandbox":
+                from src.mcp_servers.payments.settings import PaymentSettings
+
+                payment_settings = PaymentSettings()
+                if (
+                    services.payment_mcp_stdio
+                    and not services.payment_mcp_url
+                    and payment_settings.provider == "zalopay"
+                    and payment_settings.zalopay_endpoint.rstrip("/") == "https://sb-openapi.zalopay.vn/v2"
+                ):
+                    agents[AgentName.PAYMENT] = PaymentSubagent(payment_read, db)
+            for name, model in {
+                AgentName.PROPERTY: services.agent_housing_model,
+                AgentName.MAP: services.agent_map_model,
+                AgentName.FLIGHT: services.agent_flight_model,
+                AgentName.PAYMENT: services.agent_payment_model,
+            }.items():
+                if name in agents:
+                    agent = ReadLlmAgent(services.openai_api_key.get_secret_value(), model, agents[name])
+                    agents[name] = agent
+                    components.domain_agents.append(agent)
+            components.planner.registry = CapabilityRegistry({n: a.capability for n, a in agents.items()})
             approvals, pii = SqliteApprovalStore(db), SqlitePiiStore(db)
             bridge = (
                 HttpMovingApprovalBridge(

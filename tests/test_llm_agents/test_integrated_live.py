@@ -40,6 +40,16 @@ def data_by_agent(payload):
     return data
 
 
+def assert_domain_loop(payload, domain, tool):
+    results = data_by_agent(payload).get("results", {})
+    result = next(r for r in results.values() if r["agent"] == domain)
+    trace = result["data"]["agent_trace"]
+    assert trace["implementation"] == "llm-tool-loop"
+    assert tool in trace["tools"] and "finish" in trace["tools"]
+    assert result["usage"]["llm_calls"] >= 2
+    return result
+
+
 def test_auth_and_cross_user_thread(client):
     assert httpx.get(BASE_URL + "/status").status_code == 401
     result = ask(client, "Xin chào")
@@ -58,6 +68,7 @@ def test_housing_real_graph(client):
     data = data_by_agent(result)
     assert "candidates" in str(data), response
     assert "fake" not in str(data) and "demo" not in str(data)
+    assert_domain_loop(result, "property", "search_housing")
 
 
 def test_housing_district_and_bedrooms_real_graph(client):
@@ -87,6 +98,7 @@ def test_flight_real_graph(client):
     data = data_by_agent(result)
     assert "offers" in str(data), response
     assert "demo" not in str(data)
+    assert_domain_loop(result, "flight", "search_flights")
 
 
 def test_map_route_real_graph(client):
@@ -98,6 +110,7 @@ def test_map_route_real_graph(client):
     assert routing["profile"] == "walking"
     assert routing["route"]["distance_meters"] > 0
     assert routing["origin"]["canonical_id"] and routing["destination"]["canonical_id"]
+    assert_domain_loop(result, "map", "calculate_route_between_entities")
 
 
 def test_clarification_multiturn(client):

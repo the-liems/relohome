@@ -47,10 +47,11 @@ class GraphSettings(BaseModel):
     default_agent_timeout_s: float = 20.0
     # Subagent gọi 2–5 tool nối tiếp; mỗi tool Location có deadline 15 s, OSRM 10 s (phản hồi Location).
     agent_timeout_s: dict[AgentName, float] = {
-        AgentName.PROPERTY: 40.0,
-        AgentName.MAP: 40.0,
+        AgentName.PROPERTY: 100.0,
+        AgentName.MAP: 100.0,
         AgentName.RELOCATION: 120.0,
-        AgentName.FLIGHT: 30.0,
+        AgentName.FLIGHT: 100.0,
+        AgentName.PAYMENT: 100.0,
     }
     agent_transport_retries: int = 1
     stale_ttl_override: dict[AgentName, timedelta] = {}

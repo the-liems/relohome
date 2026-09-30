@@ -42,6 +42,7 @@ from src.agents.routing import (
 )
 from src.agents.state import AgentInput, WorkflowState
 from src.agents.subagents.base import AgentPolicy, run_with_policy
+from src.agents.subagents.services.payment import ACTOR_ID
 
 
 def checkpoint_serde() -> JsonPlusSerializer:
@@ -78,7 +79,11 @@ def make_agent_node(deps: GraphDeps, name: AgentName, llm_lock: asyncio.Lock | N
                 thread_id, request_id, name, capability.cost_tier, result.usage, elapsed_ms
             )
 
-        return await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
+        actor = ACTOR_ID.set(inp.get("user_id"))
+        try:
+            return await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
+        finally:
+            ACTOR_ID.reset(actor)
 
     async def agent_node(inp: AgentInput) -> dict:
         # Only LLM-consuming domain tasks serialize budget check + usage accounting.

@@ -1,5 +1,7 @@
 # Location — đọc trạng thái hiện hành
 
+Runtime graph tổng thể: [bàn giao domain agents 30/09](domain-agents-2026-09-30.md).
+
 Cập nhật: **29/09/2026**. Phạm vi là Location/Map trong checkout này;
 không xác nhận trạng thái code hay deployment của nhánh Graph/Moving khác.
 
