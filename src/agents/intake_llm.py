@@ -97,6 +97,10 @@ Trả lời câu hỏi đang chờ không bao giờ tự khởi tạo mục tiê
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
 Keys: city, district, near, min_price_vnd, max_price_vnd (VND/tháng), room_type, must_have, household_size, has_pet,
+Khi có nhiều dịch vụ: origin/destination CHỈ là sân bay/thành phố của Flight;
+Moving CHỈ dùng from_address/to_address; Map route CHỈ dùng route_from/route_to.
+Không ghi nhiều fact cùng key cho các dịch vụ khác nhau. Không bỏ bộ lọc nhà
+(nhất là min_bedrooms/max_bedrooms) vì câu hỏi còn yêu cầu Flight/Map.
 Tra đường/khoảng cách đi lại: domain map, map_mode='route', route_from, route_to,
 city là thành phố đã nói, route_profile='walking'/'motorcycle'/'driving' khi user nói đi bộ/xe máy/ô tô.
 Không nhầm hỏi đường với đặt xe Moving. Thiếu điểm hoặc thành phố thì graph hỏi lại.
@@ -189,6 +193,21 @@ def explicit_date_evidence(value: str, evidence: str, text: str) -> str:
     return evidence
 
 
+def exact_bedroom_count(text: str) -> int | None:
+    """Audit an explicit 'có N phòng ngủ'; never infer ranges or negations."""
+    text = nfc(text).casefold()
+    matches = list(re.finditer(r"\bcó\s+(\d+)\s+phòng\s+ngủ\b", text))
+    if len(matches) != 1:
+        return None
+    match = matches[0]
+    prefix, suffix = text[max(0, match.start() - 30) : match.start()], text[match.end() : match.end() + 25]
+    if re.search(r"không|đừng|tránh|chẳng|ít nhất|tối thiểu|tối đa", prefix):
+        return None
+    if re.match(r"\s*(trở lên|trở xuống|hoặc|hay|đến)", suffix):
+        return None
+    return int(match.group(1))
+
+
 class LlmIntake(UsageOwner):
     def __init__(self, llm: StructuredLLM, clock: Callable[[], datetime] = utcnow, *, max_calls: int = 2):
         super().__init__()
@@ -242,6 +261,21 @@ class LlmIntake(UsageOwner):
         for attempt in range(run.max_calls):
             draft = await run.parse(self.llm, PROMPT, data, IntakeDraft)
             result, rejected = self._convert(draft, inp, latest_user)
+            bedrooms = exact_bedroom_count(latest_user)
+            if AgentName.PROPERTY in result.domains and bedrooms is not None:
+                # Canonical equality is [N, N], not merely >= N. Fill the absent
+                # bound only from an already-grounded bound AND explicit equality
+                # wording. Never overwrite a conflicting bound or guess a count.
+                for target, source in (("max_bedrooms", "min_bedrooms"), ("min_bedrooms", "max_bedrooms")):
+                    fact = result.user_confirmed_facts.get(source)
+                    if target not in result.constraints.values and fact and fact.value == bedrooms:
+                        result.user_confirmed_facts[target] = fact.model_copy(deep=True)
+                        result.constraints.values[target] = bedrooms
+                for key in ("min_bedrooms", "max_bedrooms"):
+                    if result.constraints.values.get(key) != bedrooms:
+                        rejected.append(
+                            f"{key}: explicit exact bedroom count requires {key}={bedrooms}; do not interpret as a minimum only"
+                        )
             if rejected:
                 logger.warning("Intake rejected fields (attempt %s): %s", attempt + 1, rejected)
             values = {
@@ -285,6 +319,8 @@ class LlmIntake(UsageOwner):
         for f in candidates:
             try:
                 value = f.value
+                if f.key in facts and facts[f.key].value == value:
+                    continue  # Identical duplicate is harmless; keep the first grounded evidence.
                 if f.key in {"flight_date", "move_date"} and valid_value(f.key, value):
                     f = f.model_copy(update={"evidence": explicit_date_evidence(value, f.evidence, user_text)})
                 # Models sometimes echo already-confirmed fields from history.

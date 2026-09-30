@@ -1,5 +1,6 @@
 import json
 import math
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -53,7 +54,11 @@ def get_airline(code: str) -> Airline | None:
 
 def find_airports(query: str, limit: int = 5) -> list[Airport]:
     """Tìm sân bay theo mã IATA, tên sân bay, thành phố, tỉnh hoặc tên gọi khác (không phân biệt dấu)."""
-    needle = normalize_text(query)
+
+    def city_key(text: str) -> str:
+        return re.sub(r"^(?:thanh pho|tp|tinh)\s+", "", normalize_text(text))
+
+    needle = city_key(query)
     if not needle:
         return []
     airports = load_airports()
@@ -61,7 +66,7 @@ def find_airports(query: str, limit: int = 5) -> list[Airport]:
     matches = [exact] if exact else []
     for airport in airports.values():
         haystack = [airport.name, airport.city, airport.province, *airport.aliases]
-        if airport not in matches and any(needle in normalize_text(text) for text in haystack):
+        if airport not in matches and any(needle in city_key(text) for text in haystack):
             matches.append(airport)
     return matches[:limit]
 

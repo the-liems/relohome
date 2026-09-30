@@ -6,6 +6,7 @@ fallback giả, lỗi có mã rõ ràng. Model chọn theo tầng `light` / `hea
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextvars import ContextVar
 from typing import Literal, TypeVar
@@ -14,6 +15,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpe
 from pydantic import BaseModel, ValidationError
 
 from src.agents.common import canonical
+from src.agents.llm_provider import client_options, provider_model
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -54,20 +56,34 @@ class StructuredLLM:
         if not self.ready():
             raise LLMError("LLM_NOT_CONFIGURED", "Cần cấu hình OPENAI_API_KEY.")
         if self.client is None:
-            self.client = AsyncOpenAI(api_key=self.api_key, timeout=self.timeout_s, max_retries=0)
-        try:
-            result = await self.client.responses.parse(
-                model=self.model,
-                instructions=instructions,
-                input=canonical(data),
-                text_format=schema,
-                max_output_tokens=self.max_output_tokens,
-                store=False,
-                **({"temperature": 0} if self.model.startswith(("gpt-4.1", "gpt-4o")) else {}),
+            self.client = AsyncOpenAI(
+                api_key=self.api_key, timeout=self.timeout_s, max_retries=0, **client_options(self.api_key)
             )
+        try:
+            for attempt in range(2):
+                try:
+                    result = await self.client.responses.parse(
+                        model=provider_model(self.api_key, self.model),
+                        instructions=instructions,
+                        input=canonical(data),
+                        text_format=schema,
+                        max_output_tokens=self.max_output_tokens,
+                        store=False,
+                        **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
+                        **({"temperature": 0} if self.model.startswith(("gpt-4.1", "gpt-4o")) else {}),
+                    )
+                    break
+                except APIConnectionError as exc:
+                    # Windows DNS intermittently returns getaddrinfo errors. A
+                    # failed name lookup cannot have reached the provider.
+                    if attempt or "getaddrinfo" not in str(exc.__cause__):
+                        raise
+                    await asyncio.sleep(0.5)
         except APITimeoutError as exc:
             raise LLMError(
-                "LLM_TIMEOUT", "OpenAI phản hồi quá thời gian chờ. Kiểm tra trạng thái hiện tại trước khi thử lại.", True
+                "LLM_TIMEOUT",
+                "OpenAI phản hồi quá thời gian chờ. Kiểm tra trạng thái hiện tại trước khi thử lại.",
+                True,
             ) from exc
         except APIConnectionError as exc:
             cause = exc.__cause__

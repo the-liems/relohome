@@ -63,7 +63,7 @@ class GraphSettings(BaseModel):
     price_tolerance: dict[CommitActionKind, float] = {}
 
     # --- Kiểm soát chi phí (§7.5) ---
-    llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-4.1-mini", "heavy": "gpt-4.1-mini"}
+    llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-6-luna", "heavy": "gpt-6-luna"}
     max_llm_calls_per_turn: int = 8
     max_subagent_llm_calls_per_turn: int = 20
     max_paid_calls_per_turn: int = 6

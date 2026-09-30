@@ -5,7 +5,7 @@ Code thuần: tính task READY, chọn task gửi đi song song, đếm lượt.
 
 from __future__ import annotations
 
-from src.agents.cost import paid_slots_left
+from src.agents.cost import paid_slots_left, subagent_llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.models import AgentUsage, Plan, TaskResult, TaskStatus
 from src.agents.state import WorkflowState
@@ -65,6 +65,8 @@ def make_executor(deps: GraphDeps):
         changed = {**lost, **changed}
         thread_id, request_id = state.get("thread_id", ""), state.get("request_id", "")
         slots = None
+        llm_left = subagent_llm_calls_left(await deps.usage.counts(thread_id, request_id), deps.settings)
+        budgets: dict[str, int] = {}
         dispatch: list[str] = []
         failures: dict[str, TaskResult] = {}
         for task_id in ready:
@@ -72,6 +74,11 @@ def make_executor(deps: GraphDeps):
                 break  # task READY còn lại chờ vòng sau
             task = plan.task(task_id)
             capability = deps.agents.capability(task.agent)
+            wanted = capability.default_budget.max_llm_calls if capability else 0
+            # Reserve a whole invocation before fan-out. If another task can free
+            # unused budget at fan-in, defer this task instead of starving it.
+            if wanted > llm_left and dispatch:
+                continue
             if capability is not None and capability.cost_tier == "paid":
                 if slots is None:
                     turn = await deps.usage.counts(thread_id, request_id)
@@ -94,11 +101,14 @@ def make_executor(deps: GraphDeps):
                     continue
                 slots -= 1
             dispatch.append(task_id)
+            budgets[task_id] = min(wanted, llm_left)
+            llm_left -= budgets[task_id]
             changed[task_id] = S.RUNNING
             attempts[task_id] = attempts.get(task_id, 0) + 1
         update: dict = {
             "task_status": changed,
             "dispatch": dispatch,
+            "dispatch_llm_budgets": budgets,
             "task_attempts": {tid: attempts[tid] for tid in dispatch},
         }
         if failures:

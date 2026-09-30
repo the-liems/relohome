@@ -6,8 +6,8 @@ Topology cố định; kế hoạch (Dependency DAG) là dữ liệu trong state
 
 from __future__ import annotations
 
-import asyncio
 import inspect
+import time
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
@@ -60,7 +60,7 @@ def default_checkpointer() -> BaseCheckpointSaver:
     return InMemorySaver(serde=checkpoint_serde())
 
 
-def make_agent_node(deps: GraphDeps, name: AgentName, llm_lock: asyncio.Lock | None = None):
+def make_agent_node(deps: GraphDeps, name: AgentName):
     agent = deps.agents.get(name)
     capability = agent.capability
 
@@ -71,7 +71,10 @@ def make_agent_node(deps: GraphDeps, name: AgentName, llm_lock: asyncio.Lock | N
         policy = AgentPolicy(
             timeout_s=deps.settings.timeout_for(name),
             transport_retries=deps.settings.agent_transport_retries,
-            max_subagent_llm_calls_left=subagent_llm_calls_left(counts, deps.settings),
+            max_subagent_llm_calls_left=min(
+                inp.get("allocated_llm_calls", capability.default_budget.max_llm_calls),
+                subagent_llm_calls_left(counts, deps.settings),
+            ),
         )
 
         async def record(req, result, elapsed_ms: int) -> None:
@@ -80,17 +83,24 @@ def make_agent_node(deps: GraphDeps, name: AgentName, llm_lock: asyncio.Lock | N
             )
 
         actor = ACTOR_ID.set(inp.get("user_id"))
+        started_at, started = deps.clock(), time.monotonic()
         try:
-            return await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
+            update = await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
+            for result in update.get("task_results", {}).values():
+                result.data["execution"] = {
+                    "request_id": request_id,
+                    "started_at": started_at.isoformat(),
+                    "finished_at": deps.clock().isoformat(),
+                    "elapsed_ms": round((time.monotonic() - started) * 1000),
+                    "allocated_llm_calls": policy.max_subagent_llm_calls_left,
+                    "depends_on": list(inp["task"].depends_on),
+                }
+            return update
         finally:
             ACTOR_ID.reset(actor)
 
     async def agent_node(inp: AgentInput) -> dict:
-        # Only LLM-consuming domain tasks serialize budget check + usage accounting.
-        # Deterministic independent MCP reads may still run in parallel.
-        if llm_lock is not None and capability.default_budget.max_llm_calls > 0:
-            async with llm_lock:
-                return await invoke(inp)
+        # Executor allocated disjoint budgets for this wave before LangGraph Send.
         return await invoke(inp)
 
     agent_node.__name__ = agent_node_name(name.value)
@@ -111,10 +121,9 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
     graph.add_node("await_payment", make_await_payment(deps))
     graph.add_node("respond", make_respond(deps))
     agent_nodes = []
-    llm_lock = asyncio.Lock()
     for name in deps.agents.names():
         node = agent_node_name(name.value)
-        graph.add_node(node, make_agent_node(deps, name, llm_lock), input_schema=AgentInput)
+        graph.add_node(node, make_agent_node(deps, name), input_schema=AgentInput)
         graph.add_edge(node, "executor")
         agent_nodes.append(node)
 

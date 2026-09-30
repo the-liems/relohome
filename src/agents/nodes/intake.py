@@ -6,6 +6,7 @@ Node không chọn agent/tool, không tạo DAG, không tạo approval.
 from __future__ import annotations
 
 import logging
+import re
 
 from langchain_core.messages import HumanMessage
 
@@ -35,6 +36,13 @@ from src.agents.models import (
 from src.agents.state import WorkflowState
 
 logger = logging.getLogger(__name__)
+
+
+def explicitly_changed_fact(key: str, text: str) -> bool:
+    """A user correction can coexist with a newly requested domain."""
+    if key == "move_time":
+        return bool(re.search(r"\b(?:đổi|sửa|chuyển)\s+giờ\b", text, re.IGNORECASE))
+    return False
 
 
 def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
@@ -133,11 +141,12 @@ def make_intake(deps: GraphDeps):
         # A precise reply to an outstanding field replaces that field's coarse
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
+        latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
         if (
             previous
             and result.kind == RequestKind.REFINE
             and any(
-                key in pending_fields
+                (key in pending_fields or explicitly_changed_fact(key, latest_text))
                 and key in previous.user_confirmed_facts
                 and previous.user_confirmed_facts[key].value != fact.value
                 for key, fact in result.user_confirmed_facts.items()

@@ -49,6 +49,7 @@ def route_from_executor(state: WorkflowState) -> list[Send] | str:
         payload = AgentInput(
             user_id=state.get("user_id", "anonymous"),
             task=task,
+            allocated_llm_calls=(state.get("dispatch_llm_budgets") or {}).get(task_id, 0),
             plan_version=plan.version,
             attempt=attempts.get(task_id, 1),
             request_id=state.get("request_id", ""),

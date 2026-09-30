@@ -80,6 +80,9 @@ ready_requested_domains là các domain backend đã xác nhận đủ input tr�
 BẮT BUỘC có task cho từng domain này trong cùng plan; không chờ user gửi lại hay chờ kết quả
 property rồi mới tạo task Map. depends_on tự làm task Map chờ property thực thi xong.
 KHÔNG thêm map.near=city, near=tên task, near='các phòng đó' hoặc listing_ids=[];
+Nếu map_origin_binding.kind='upstream_property', TUYỆT ĐỐI không có selected_listing_id,
+không dùng ID task property làm ID căn nhà. Đó là nhiều căn chưa được người dùng chọn;
+chỉ đặt depends_on tới task property, categories và radius_m. map_mode có thể bỏ hoặc nearby.
 để trống near thì subagent tự lấy vị trí thật của các phòng trong upstream.
 pickup_coordinate/destination_coordinate chỉ sao chép nguyên vẹn từ constraints đã xác nhận qua form;
 không suy tọa độ từ địa chỉ. Giữ chúng trong task relocation nếu có.
@@ -122,6 +125,15 @@ class LlmPlanner(UsageOwner):
             and not any(field.startswith(domain.value + ".") for field in blocked)
         ]
         data["available_capabilities"] = {n.value: cap.model_dump(mode="json") for n, cap in available.items()}
+        selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
+        if AgentName.MAP in inp.intake.domains and inp.intake.constraints.values.get("map_mode") != "route":
+            data["map_origin_binding"] = {
+                "kind": "selected_property"
+                if selected
+                else ("explicit_near" if inp.intake.constraints.values.get("near") else "upstream_property"),
+                "selected_listing_id": selected.value if selected else None,
+                "near": inp.intake.constraints.values.get("near"),
+            }
         data["previous_results"] = {
             k: {
                 "status": r.status,
@@ -181,6 +193,7 @@ class LlmPlanner(UsageOwner):
         )
         aliases = {"date": "flight_date", "categories": "nearby_categories", "radius_m": "nearby_radius_m"}
         defaults: dict[str, Any] = {
+            "map_mode": "nearby",
             "categories": ["hospital", "marketplace", "pharmacy"],
             "radius_m": 1500,
             "passengers": {"adults": 1},

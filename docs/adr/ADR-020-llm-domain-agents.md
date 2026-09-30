@@ -29,6 +29,11 @@ graph/service giữ state riêng và không phát triển giao diện/deploy tro
 
 ## Alternatives and consequences
 
+Update 30/09: executor cấp ngân sách LLM riêng cho từng task trước fan-out;
+không giữ khóa trong thời gian agent gọi provider. Các task độc lập chạy đồng
+thời trong một đợt LangGraph, task phụ thuộc chạy ở đợt sau fan-in. Cấp ngân sách
+và trạng thái dependency là code xác định, không do model tự xin thêm quyền.
+
 Giữ adapter tất định tiết kiệm call nhưng chưa đáp ứng yêu cầu agent theo domain.
 Cho LLM toàn quyền tự viết SQL/tool args làm mất các kiểm tra và dữ kiện đã chốt.
 Chọn tool nghiệp vụ giới hạn, tái sử dụng adapter và contract của teammate.

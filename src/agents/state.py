@@ -58,6 +58,7 @@ class WorkflowState(TypedDict, total=False):
     task_attempts: Annotated[dict[str, int], merge_dict]
     task_results: Annotated[dict[str, TaskResult], merge_dict]
     dispatch: list[str]
+    dispatch_llm_budgets: dict[str, int]
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None
@@ -82,6 +83,7 @@ class AgentInput(TypedDict):
     """Payload thu gọn gửi cho node `*_agent` qua `Send` (§5.4)."""
 
     task: Task
+    allocated_llm_calls: int
     user_id: str  # trusted API identity; never forwarded into model arguments
     plan_version: int
     attempt: int

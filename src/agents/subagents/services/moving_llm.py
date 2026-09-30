@@ -19,6 +19,7 @@ from openai import APIError, AsyncOpenAI
 from src.agents.common import utcnow
 from src.agents.contracts import AgentManifest, AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.llm import LLMError
+from src.agents.llm_provider import client_options, provider_model
 from src.agents.llm_runtime import Invocation, json_object, public_data
 from src.agents.models import AgentBudget, AgentName, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import RELOCATION
@@ -172,7 +173,9 @@ class MovingLlmAgent:
             if not self.api_key or self.api_key.startswith(("your-", "sk-your", "test-")):
                 return execution.failed("provider_unavailable", "Chưa cấu hình LLM.")
             if self.client is None:
-                self.client = AsyncOpenAI(api_key=self.api_key, max_retries=0, timeout=45)
+                self.client = AsyncOpenAI(
+                    api_key=self.api_key, max_retries=0, timeout=45, **client_options(self.api_key)
+                )
             mode = req.inputs["mode"]
             allowed = {"ask_user", "finish"}
             if mode == "catalog":
@@ -224,7 +227,7 @@ class MovingLlmAgent:
                 run.reserve()
                 async with asyncio.timeout(run.remaining()):
                     response = await self.client.responses.create(
-                        model=self.model,
+                        model=provider_model(self.api_key, self.model),
                         instructions=PROMPT,
                         input=history,
                         tools=[t for t in TOOLS if t["name"] in available],
@@ -232,6 +235,7 @@ class MovingLlmAgent:
                         parallel_tool_calls=False,
                         max_output_tokens=1500,
                         store=False,
+                        **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
                     )
                 if response.usage:
                     run.usage.tokens_in += response.usage.input_tokens
