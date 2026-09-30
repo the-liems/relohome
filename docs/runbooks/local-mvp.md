@@ -80,8 +80,11 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
 ## Thử demo
 
 - Housing: hỏi tìm nhà theo thành phố, ngân sách, tiêu chí; kết quả rỗng là hợp lệ.
+  Ví dụ đã kiểm thử: “tìm phòng có 2 phòng ngủ ở quận 1 thành phố Hồ Chí Minh”.
+  Bộ lọc số phòng ngủ/quận được truyền xuống truy vấn, không chỉ hiển thị trong câu trả lời.
 - Map: hỏi địa điểm/đường đi; dữ liệu routing local có HCM, Hà Nội, Đà Nẵng,
   không đồng nghĩa AhaMove bị giới hạn chỉ trong một thành phố.
+  Ví dụ đã kiểm thử: “Tính đường đi bộ từ Dinh Độc Lập Cafe đến Takashimaya tại Thành phố Hồ Chí Minh”.
 - Flight: hỏi tuyến bay và ngày tương lai; chỉ tìm chuyến thật, chưa xuất vé.
 - Moving: nhập địa chỉ; khi chưa đủ rõ, xác nhận tọa độ trên sidebar rồi hỏi báo giá.
   Chỉ tick xác nhận khi đã kiểm tra điểm trên bản đồ. Xem phí/điều kiện trước khi đặt.

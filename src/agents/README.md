@@ -1,10 +1,10 @@
 # Agent graph (LangGraph)
 
-> 2026-09-29: đã có **component** `LlmIntake`, `LlmPlanner` (LLM-first) và
-> `MovingLlmAgent`, chưa thay `wiring.py` hay graph nodes. Dùng explicit factory
-> `build_llm_components()` hoặc `python -m src.agents.llm_cli` để thử độc lập.
-> [Bàn giao và checklist ghép](../../docs/integration/llm-agents-handoff.md),
-> [kết quả API thật](../../eval/llm-agents-2026-09-29.md).
+> 2026-09-30: `AgentService.open()` đã ghép `LlmIntake`, `LlmPlanner` và
+> `MovingLlmAgent` vào graph, cùng Housing/Map/Flight MCP adapters và SQLite runtime.
+> FastAPI lifespan dùng đường này. Payment sandbox là demo riêng; chưa xuất vé thật.
+> [Bàn giao hiện tại](../../docs/integration/mvp-completion-2026-09-30.md),
+> [hướng dẫn chạy](../../docs/runbooks/local-mvp.md).
 
 Chat agent của LifeFlow: **một** graph LangGraph nhận tin nhắn, hiểu yêu cầu, lập kế hoạch, gọi
 subagent của từng service (phòng, bản đồ, vé máy bay, chuyển đồ), kiểm kết quả, xin xác nhận rồi mới

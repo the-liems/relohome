@@ -61,9 +61,24 @@ class StructuredLLM:
                 text_format=schema,
                 max_output_tokens=self.max_output_tokens,
                 store=False,
+                **({"temperature": 0} if self.model.startswith(("gpt-4.1", "gpt-4o")) else {}),
             )
-        except (APITimeoutError, APIConnectionError, RateLimitError) as exc:
-            raise LLMError("LLM_UNAVAILABLE", "LLM không phản hồi hoặc quá hạn.", True) from exc
+        except APITimeoutError as exc:
+            raise LLMError(
+                "LLM_TIMEOUT", "OpenAI phản hồi quá thời gian chờ. Kiểm tra trạng thái hiện tại trước khi thử lại.", True
+            ) from exc
+        except APIConnectionError as exc:
+            raise LLMError(
+                "LLM_CONNECTION_ERROR",
+                "Không kết nối được OpenAI. Kiểm tra mạng/DNS/proxy của máy chạy API; không phải do câu hỏi của bạn.",
+                True,
+            ) from exc
+        except RateLimitError as exc:
+            raise LLMError(
+                "LLM_RATE_LIMIT",
+                "OpenAI đang giới hạn lượt gọi hoặc tài khoản hết hạn mức; kiểm tra tài khoản API.",
+                True,
+            ) from exc
         except APIStatusError as exc:
             raise LLMError("LLM_PROVIDER_ERROR", "LLM từ chối request; kiểm tra model và tài khoản.") from exc
         except (ValidationError, ValueError) as exc:

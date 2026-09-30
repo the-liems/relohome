@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel
 
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS
 from src.agents.intake import LOOKUP_KEYS, selected_fact_key
 from src.agents.memory import SOFT_FILTER_KEYS
 from src.agents.models import (
@@ -264,7 +265,7 @@ class TemplatePlanner:
         inputs: dict[str, Any] = {}
         if domain == AgentName.PROPERTY:
             soft = {}
-            for key in ("city", "near", "max_price_vnd", "room_type", "must_have"):
+            for key in HOUSING_INPUT_KEYS:
                 if key in intake.prefilled and key in SOFT_FILTER_KEYS:
                     _put(soft, key, values.get(key))
                 else:
@@ -272,6 +273,10 @@ class TemplatePlanner:
             _put(inputs, "soft_filters", soft)
             return inputs, False
         if domain == AgentName.MAP:
+            if values.get("map_mode") == "route":
+                return {
+                    k: values[k] for k in ("map_mode", "route_from", "route_to", "city", "route_profile") if k in values
+                }, False
             _put(inputs, "categories", values.get("nearby_categories") or DEFAULT_MAP_CATEGORIES)
             inputs["radius_m"] = int(values.get("nearby_radius_m") or 1500)
             standalone = values.get("near") and AgentName.PROPERTY not in intake.domains

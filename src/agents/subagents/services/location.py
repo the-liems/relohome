@@ -13,6 +13,7 @@ from typing import Any
 
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskRequest, AgentTaskResult, reject_unsupported
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
 from src.agents.models import AgentName, AgentUsage, Question, Quote
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from src.agents.subagents.services.common import BudgetExceededError, CountingClient, tool_failure
@@ -110,6 +111,8 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         if deposit.get("currency") == "VND" and deposit.get("amount") is not None
         else None,
         "area_m2": (r.get("area") or {}).get("value"),
+        "bedrooms": r.get("bedrooms"),
+        "bathrooms": r.get("bathrooms"),
         "address": format_address(r.get("address")),
         "city": city_of(r.get("address")),
         "lat": location.get("lat"),
@@ -196,6 +199,13 @@ class LocationSubagent:
             }
             if filters.get("max_price_vnd"):
                 body["max_price"] = {"amount": filters["max_price_vnd"], "currency": "VND", "period": "month"}
+            if filters.get("min_price_vnd") is not None:
+                body["min_price"] = {"amount": filters["min_price_vnd"], "currency": "VND", "period": "month"}
+            for key in HOUSING_NUMERIC_FILTERS:
+                if filters.get(key) is not None:
+                    body[key] = filters[key]
+            if filters.get("district"):
+                body["district"] = filters["district"]
             room = ROOM_TYPES.get(str(filters.get("room_type", "")).lower())
             if room:
                 body["property_type"] = room
@@ -203,7 +213,7 @@ class LocationSubagent:
                 body["amenities"] = list(filters["must_have"])
             return body
 
-        hard = {k: inp[k] for k in ("max_price_vnd", "room_type", "must_have") if inp.get(k)}
+        hard = {k: inp[k] for k in HOUSING_INPUT_KEYS if inp.get(k) is not None}
         response = await tools.call("search_housing", request({**soft, **hard}))
         results = (response or {}).get("results") or []
         relaxed: list[str] = []
@@ -264,6 +274,8 @@ class LocationSubagent:
 
     async def _map(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
+        if inp.get("map_mode") == "route":
+            return await self._route(req, tools)
         radius = int(inp.get("radius_m") or 1500)
         constraints = [{"category": c, "max_distance_m": radius} for c in inp["categories"]]
         origins: dict[str, dict] = {}
@@ -305,3 +317,52 @@ class LocationSubagent:
         if approximate:  # vị trí phòng chỉ gần đúng: khoảng cách tới tiện ích cũng chỉ gần đúng
             data["approximate_origins"] = approximate
         return self._result(req, tools, status="done", data=data, missing_fields=missing, source_refs=refs)
+
+    async def _route(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
+        inp = req.inputs
+        cities = {"hồ chí minh": "hcm", "hà nội": "hanoi", "đà nẵng": "danang"}
+        city = next((v for k, v in cities.items() if k in inp["city"].lower()), None)
+        if not city:
+            return self._result(
+                req,
+                tools,
+                status="needs_input",
+                questions=[
+                    Question(
+                        field="city", text="Routing local hiện có Hồ Chí Minh, Hà Nội và Đà Nẵng. Bạn muốn tra ở đâu?"
+                    )
+                ],
+            )
+        areas = (await tools.call("search_areas", {"text": inp["city"], "limit": 5})).get("results") or []
+        area = pick_clear(areas)
+        if not area or not area.get("bounding_box"):
+            return self._choose(req, tools, "city", inp["city"], areas)
+        endpoints = {}
+        refs = []
+        for field in ("route_from", "route_to"):
+            options = (
+                await tools.call(
+                    "resolve_location",
+                    {
+                        "text": inp[field],
+                        "entity_types": ["place"],
+                        "bounding_box": area["bounding_box"],
+                        "limit": 10,
+                    },
+                )
+            ).get("results") or []
+            place = pick_clear(options)
+            if place is None or place.get("entity_type") != "place" or not place.get("canonical_id"):
+                return self._choose(req, tools, field, inp[field], options)
+            endpoints[field] = {"type": "place", "place_id": place["canonical_id"]}
+            refs.append(place["canonical_id"])
+        result = await tools.call(
+            "calculate_route_between_entities",
+            {
+                "city": city,
+                "origin": endpoints["route_from"],
+                "destination": endpoints["route_to"],
+                "profile": inp.get("route_profile", "motorcycle"),
+            },
+        )
+        return self._result(req, tools, status="done", data={"nearby": {}, "routing": result}, source_refs=refs)

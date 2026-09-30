@@ -1,5 +1,9 @@
 # Bàn giao Intake LLM, Routing Planner LLM và Moving LLM
 
+> Cập nhật 30/09: các component đã nối graph ở nhánh `mvp`.
+> Tài liệu dưới đây giữ mốc bàn giao độc lập ngày 29/09; trạng thái hiện tại xem
+> [MVP integration](mvp-completion-2026-09-30.md) và [runbook](../runbooks/local-mvp.md).
+
 Ngày: 2026-09-29. Owner: Khoa. Base đã đồng bộ từ
 `integration/langgraph-services@d5c438e`. Không sửa hai tài liệu teammate gửi ở `docs/`.
 

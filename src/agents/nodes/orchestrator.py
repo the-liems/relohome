@@ -10,6 +10,7 @@ import logging
 
 from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
+from src.agents.llm import LLMError
 from src.agents.models import (
     Outcome,
     OutcomeCode,
@@ -123,8 +124,10 @@ def make_orchestrator(deps: GraphDeps):
                 "orchestrator",
             )
         except Exception as exc:
-            logger.warning("planner failed: %s", type(exc).__name__)
-            return stop(OutcomeCode.ERROR, "không lập được kế hoạch", [f"planner error: {type(exc).__name__}"])
+            code = exc.code if isinstance(exc, LLMError) else "PLANNER_INTERNAL_ERROR"
+            detail = exc.message if isinstance(exc, LLMError) else "Bộ lập kế hoạch gặp lỗi nội bộ."
+            logger.warning("planner failed: %s", code)
+            return stop(OutcomeCode.ERROR, f"[{code}] {detail}", [code])
         plan = out.plan
         if not plan.tasks:
             return stop(OutcomeCode.PLAN_EMPTY, "không có task nào")

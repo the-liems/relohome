@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from src.agents.contracts import AgentCapability
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS
 from src.agents.intake import missing_for, selected_fact_key
 from src.agents.llm import LLMError, StructuredLLM
 from src.agents.llm_runtime import Invocation, UsageOwner, json_object
@@ -61,6 +62,8 @@ Không tạo task với placeholder. Chỉ làm các domain được yêu cầu 
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
 Map key: flight_date -> flight.date; nearby_categories -> map.categories; nearby_radius_m -> map.radius_m.
+Khi map_mode='route': tạo map task với map_mode, route_from, route_to, city, route_profile nếu có.
+Route giữa hai địa danh độc lập không cần property; không đổi route thành nearby.
 Moving quote dùng mode='quote', from_address, to_address hoặc selected_listing_id, move_date, move_time.
 Tra Moving dùng mode='order_status' + order_id/tracking_number. Không tự chọn nhà/xe cho user.
 Phòng được chọn phải lấy từ fact selected:property, không lấy ứng viên đầu của kết quả trước.
@@ -177,14 +180,22 @@ class LlmPlanner(UsageOwner):
             if task.agent not in inp.intake.domains and task != old.get(task.id):
                 errors.append(f"{task.id}: domain not requested")
             mappings = {
-                AgentName.PROPERTY: {k: k for k in ("city", "near", "max_price_vnd", "room_type", "must_have")},
+                AgentName.PROPERTY: {k: k for k in HOUSING_INPUT_KEYS},
                 AgentName.FLIGHT: {
                     "origin": "origin",
                     "destination": "destination",
                     "flight_date": "date",
                     "passengers": "passengers",
                 },
-                AgentName.MAP: {"nearby_categories": "categories", "nearby_radius_m": "radius_m"},
+                AgentName.MAP: {
+                    "nearby_categories": "categories",
+                    "nearby_radius_m": "radius_m",
+                    **(
+                        {k: k for k in ("map_mode", "route_from", "route_to", "city", "route_profile")}
+                        if values.get("map_mode") == "route"
+                        else {}
+                    ),
+                },
                 AgentName.RELOCATION: {
                     k: k
                     for k in (
@@ -230,7 +241,11 @@ class LlmPlanner(UsageOwner):
                     errors.append(f"{task.id}.{key}: not grounded in user constraints")
             if task.agent in {AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION}:
                 derived = (
-                    (task.agent == AgentName.MAP and not task.inputs.get("near"))
+                    (
+                        task.agent == AgentName.MAP
+                        and not task.inputs.get("near")
+                        and task.inputs.get("map_mode") != "route"
+                    )
                     or (
                         task.agent == AgentName.FLIGHT
                         and not task.inputs.get("destination")

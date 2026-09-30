@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents.common import nfc, utcnow
-from src.agents.intake import IntakeInput, ground_facts
+from src.agents.intake import REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
 from src.agents.llm import StructuredLLM
 from src.agents.llm_runtime import Invocation, UsageOwner, public_data
 from src.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
@@ -23,12 +23,19 @@ CATEGORIES = frozenset(
     "hospital clinic pharmacy school university marketplace supermarket convenience_store gym park bus_stop bus_station".split()
 )
 TEXT_KEYS = frozenset(
-    "city near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month".split()
+    "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month map_mode route_from route_to route_profile".split()
 )
-INT_KEYS = frozenset("max_price_vnd household_size budget_vnd nearby_radius_m passengers".split())
+INT_KEYS = frozenset(
+    "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m passengers".split()
+)
+NUMBER_KEYS = frozenset({"min_bathrooms", "min_area_m2", "max_area_m2"})
 BOOL_KEYS = frozenset({"has_pet", "has_motorbike"})
 VALUE_KEYS = (
-    TEXT_KEYS | INT_KEYS | BOOL_KEYS | {"must_have", "nearby_categories", "flight_date", "move_date", "move_time"}
+    TEXT_KEYS
+    | INT_KEYS
+    | NUMBER_KEYS
+    | BOOL_KEYS
+    | {"must_have", "nearby_categories", "flight_date", "move_date", "move_time"}
 )
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
@@ -38,7 +45,7 @@ COMMIT_KEYS = frozenset(
 class DraftFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
-    value: str | int | bool | list[str]
+    value: str | int | float | bool | list[str]
     evidence: str = Field(
         description="Exact contiguous substring copied from latest user message, no added punctuation or JSON delimiters."
     )
@@ -69,7 +76,15 @@ change khi sửa ràng buộc/lựa chọn đã có; unsupported khi ngoài ph�
 domains của refine/change giữ các lĩnh vực trước còn cần, thêm lĩnh vực vừa yêu cầu.
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
-Keys: city, near, max_price_vnd (VND/tháng), room_type, must_have, household_size, has_pet,
+Keys: city, district, near, min_price_vnd, max_price_vnd (VND/tháng), room_type, must_have, household_size, has_pet,
+Tra đường/khoảng cách đi lại: domain map, map_mode='route', route_from, route_to,
+city là thành phố đã nói, route_profile='walking'/'motorcycle'/'driving' khi user nói đi bộ/xe máy/ô tô.
+Không nhầm hỏi đường với đặt xe Moving. Thiếu điểm hoặc thành phố thì graph hỏi lại.
+min_bedrooms, max_bedrooms (số nguyên), min_bathrooms, min_area_m2, max_area_m2 (số).
+"2 phòng ngủ" = min_bedrooms=2 và max_bedrooms=2; "ít nhất 2 phòng ngủ" chỉ min_bedrooms=2.
+Số phòng ngủ KHÔNG phải room_type hoặc household_size. Không tự chọn loại bất động sản
+khi người dùng chỉ nói chung "tìm phòng có 2 phòng ngủ".
+Nếu có cả quận và thành phố: district là tên quận, city là thành phố; không dùng near cho quận.
 has_motorbike, budget_vnd (một lần), nearby_categories, nearby_radius_m, origin, destination,
 flight_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
 volume, order_id, tracking_number, move_month. value đúng kiểu: số tiền/số người/bán kính là integer,
@@ -91,8 +106,11 @@ selected:property/flight/relocation/map chỉ khi user chọn; value phải đú
 Đồng ý 'có/ok' với một gợi ý: dùng suggestion_key và evidence là lời đồng ý; nhiều gợi ý thì hỏi lại.
 Từ chối gợi ý ghi key vào declined_suggestions. Mâu thuẫn/mơ hồ thật ghi conflicts tối đa 3 câu.
 Không dùng conflicts để hỏi tất cả field thiếu: graph tự tính phần thiếu.
+Tên thành phố đầy đủ là ĐỦ để tìm housing toàn thành phố. Quận/phường/ngân sách là tùy chọn;
+không ghi conflict "thiếu khu vực cụ thể" nếu city đã có. Câu trả lời cho câu hỏi lượt trước
+là bổ sung refine, không phải mâu thuẫn với việc trước đó chưa biết khu vực.
 Ví dụ: 'Tìm phòng dưới 5 triệu ở Quận 10' => property, max_price_vnd=5000000 evidence='dưới 5 triệu',
-near='Quận 10' evidence='Quận 10', không commit.
+city='Quận 10' evidence='Quận 10', không commit.
 'Đặt xe ngày mai lúc 9 giờ' => relocation, ngày theo today, move_time='09:00', commit:moving_booking=true.
 'Phòng số 2' => refine, selected:property lấy id phương án thứ 2, evidence='Phòng số 2'.
 'Không, ngân sách 4 triệu thôi' => change, max_price_vnd=4000000.
@@ -103,6 +121,12 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key == "map_mode":
+        return value in {"route", "nearby"}
+    if key == "route_profile":
+        return value in {"walking", "motorcycle", "driving"}
+    if key in NUMBER_KEYS:
+        return type(value) in (int, float) and 0 <= value <= 1_000_000
     if key in TEXT_KEYS:
         return isinstance(value, str) and 0 < len(value) <= 500
     if key in INT_KEYS:
@@ -156,22 +180,45 @@ class LlmIntake(UsageOwner):
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
             "amenities": sorted(AMENITIES),
             "categories": sorted(CATEGORIES),
+            "required_fields": {
+                d.value: [list(r.fields) for r in requirements] for d, requirements in REQUIRED_INPUTS.items()
+            },
+            "allowed_fact_keys": sorted(
+                VALUE_KEYS
+                | COMMIT_KEYS
+                | {"selected:property", "selected:map", "selected:flight", "selected:relocation"}
+            ),
         }
         for attempt in range(run.max_calls):
             draft = await run.parse(self.llm, PROMPT, data, IntakeDraft)
             result, rejected = self._convert(draft, inp, latest_user)
+            values = {
+                **(previous.constraints.values if previous and result.kind != RequestKind.NEW_GOAL else {}),
+                **result.constraints.values,
+            }
+            runnable = bool(result.domains) and all(
+                not missing_for(d, values, set(result.domains), result.user_confirmed_facts) for d in result.domains
+            )
+            # Ask the model to re-evaluate a proposed clarification against the
+            # actual service contract; do not blindly delete real conflicts.
+            review_conflicts = bool(result.conflicts) and runnable
             if rejected and attempt + 1 == run.max_calls:
                 result.conflicts.append("Có dữ kiện chưa xác minh được từ lời bạn; vui lòng diễn đạt lại yêu cầu.")
-            if not rejected or attempt + 1 == run.max_calls:
+            if (not rejected and not review_conflicts) or attempt + 1 == run.max_calls:
                 return result
             data["repair"] = "Trích lại: có fact sai kiểu, ID hoặc evidence không nguyên văn. Chỉ giữ fact hợp lệ."
             data["rejected_draft"] = draft.model_dump(mode="json")
             data["repair"] += " Evidence chỉ chứa chữ nguyên văn trong user message; không thêm },{ hoặc dấu ngoặc."
+            data["rejected_fields"] = rejected
+            data["repair"] += (
+                " Nếu đủ required_fields, KHÔNG hỏi thêm field tùy chọn trong conflicts. Chỉ giữ mâu thuẫn thật trong lời user, không hỏi quận khi đã có thành phố."
+            )
+            data["merged_valid_constraints"] = values
         raise ValueError("Intake needs at least one LLM call")
 
-    def _convert(self, draft: IntakeDraft, inp: IntakeInput, user_text: str) -> tuple[IntakeResult, bool]:
+    def _convert(self, draft: IntakeDraft, inp: IntakeInput, user_text: str) -> tuple[IntakeResult, list[str]]:
         facts: dict[str, ConfirmedFact] = {}
-        rejected = False
+        rejected: list[str] = []
         allowed_options = {
             f"selected:{p.agent.value}": {str(o.get("option_id")) for o in p.options} for p in inp.plan_outline or []
         }
@@ -196,19 +243,19 @@ class LlmIntake(UsageOwner):
                     or not f.evidence.strip()
                     or nfc(f.evidence).lower() not in nfc(user_text).lower()
                 ):
-                    rejected = True
+                    rejected.append(f"{f.key}: invalid type/value, duplicate, or evidence not copied exactly")
                     continue
                 if f.suggestion_key is not None and f.suggestion_key not in suggestions:
-                    rejected = True
+                    rejected.append(f"{f.key}: unknown suggestion key")
                     continue
                 facts[f.key] = ConfirmedFact(
                     value=value, evidence=f.evidence, stated_at=self.clock(), suggestion_key=f.suggestion_key
                 )
             except (ValueError, TypeError):
-                rejected = True
+                rejected.append(f"{f.key}: invalid fact")
         grounded = ground_facts(facts, {}, RequestKind.NEW_GOAL, [user_text], list(suggestions))
         facts = grounded.facts
-        rejected |= bool(grounded.dropped)
+        rejected.extend(f"{k}: evidence/PII validation rejected" for k in grounded.dropped)
         domains = (
             list(dict.fromkeys(d for d in draft.domains if d in inp.supported_domains))
             if draft.kind != "unsupported"

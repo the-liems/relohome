@@ -7,6 +7,7 @@ Manifest của subagent thật phải bao được các schema dưới đây (đ
 from __future__ import annotations
 
 from src.agents.contracts import AgentCapability
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
 from src.agents.models import AgentBudget, AgentName, CommitActionKind
 
 _STR = {"type": "string", "minLength": 1}
@@ -21,7 +22,10 @@ PROPERTY = AgentCapability(
         "type": "object",
         "properties": {
             "city": _STR,
+            "district": _STR,
             "near": _STR,
+            "min_price_vnd": _INT,
+            **{k: {"type": "integer" if "bedrooms" in k else "number", "minimum": 0} for k in HOUSING_NUMERIC_FILTERS},
             "max_price_vnd": _INT,
             "room_type": _STR,
             "must_have": {"type": "array", "items": _STR},
@@ -67,11 +71,7 @@ PROPERTY = AgentCapability(
     cost_tier="cheap",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=6),
     constraint_keys=[
-        "city",
-        "near",
-        "max_price_vnd",
-        "room_type",
-        "must_have",
+        *HOUSING_INPUT_KEYS,
         "household_size",
         "has_pet",
         "has_motorbike",
@@ -83,12 +83,23 @@ MAP = AgentCapability(
     input_schema={
         "type": "object",
         "properties": {
+            "map_mode": {"enum": ["route", "nearby"]},
+            "route_from": _STR,
+            "route_to": _STR,
+            "city": _STR,
+            "route_profile": {"enum": ["walking", "motorcycle", "driving"]},
             "categories": {"type": "array", "items": _STR, "minItems": 1, "maxItems": 10},
             "radius_m": {"type": "integer", "minimum": 50, "maximum": 20000},
             "near": _STR,
             "listing_ids": {"type": "array", "items": _STR},
         },
-        "required": ["categories"],
+        "anyOf": [
+            {"required": ["categories"]},
+            {
+                "required": ["map_mode", "route_from", "route_to", "city"],
+                "properties": {"map_mode": {"const": "route"}},
+            },
+        ],
         "additionalProperties": False,
     },
     output_schema={
@@ -112,7 +123,7 @@ MAP = AgentCapability(
     stale_ttl_s=7 * 24 * 3600,
     cost_tier="cheap",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=12),
-    constraint_keys=["near"],
+    constraint_keys=["near", "map_mode", "route_from", "route_to", "city", "route_profile"],
 )
 
 FLIGHT = AgentCapability(

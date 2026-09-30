@@ -272,8 +272,15 @@ export class HousingQueryService {
     if (listingTypes) conditions.push(`l.listing_type = ANY(${sql.parameter(listingTypes)}::text[])`)
 
     if (request.district) {
+      const district = sql.parameter(request.district)
       conditions.push(
-        `EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${sql.parameter(request.district)}) AND ST_Covers(a.geom, cp.geom))`,
+        // Some snapshots retain legacy district names in normalized listing
+        // addresses, but only current administrative polygons. Do not silently
+        // turn a valid legacy district into zero results. Prefer polygons when
+        // available; otherwise require an exact normalized-address match.
+        `(EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}) AND ST_Covers(a.geom, cp.geom))
+          OR (NOT EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}))
+            AND lower(trim(cp.address->>'district')) = lower(trim(${district}))))`,
       )
     }
     if (request.administrative_area_ids) {

@@ -1,5 +1,7 @@
 # Project documentation
 
+- [Bàn giao tích hợp MVP và sửa lỗi chat](integration/mvp-completion-2026-09-30.md)
+
 - [MVP local: cài đặt, cấu trúc, demo và phục hồi](runbooks/local-mvp.md)
 - [MVP local: bằng chứng kiểm thử và giới hạn](../eval/mvp-local-2026-09-30.md)
 

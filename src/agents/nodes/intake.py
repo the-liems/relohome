@@ -20,6 +20,7 @@ from src.agents.intake import (
     redact_pii,
     resolve_missing,
 )
+from src.agents.llm import LLMError
 from src.agents.models import (
     AgentName,
     CommitActionKind,
@@ -96,10 +97,16 @@ def make_intake(deps: GraphDeps):
             )
             result = IntakeResult.model_validate(raw.model_dump() if isinstance(raw, IntakeResult) else raw)
         except Exception as exc:
-            logger.warning("intake failed: %s", type(exc).__name__)
+            code = exc.code if isinstance(exc, LLMError) else "INTAKE_INTERNAL_ERROR"
+            detail = (
+                exc.message
+                if isinstance(exc, LLMError)
+                else "Bộ xử lý yêu cầu gặp lỗi nội bộ; không phải do câu hỏi của bạn."
+            )
+            logger.warning("intake failed: %s", code)
             return {
-                "outcome": Outcome(node="intake", code=OutcomeCode.ERROR, detail="không hiểu được yêu cầu"),
-                "errors": [error_record("intake", f"intake error: {type(exc).__name__}", now)],
+                "outcome": Outcome(node="intake", code=OutcomeCode.ERROR, detail=f"[{code}] {detail}"),
+                "errors": [error_record("intake", code, now)],
             }
 
         decision = state.get("user_decision")

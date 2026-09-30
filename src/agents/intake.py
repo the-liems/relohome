@@ -192,7 +192,7 @@ def ground_facts(
         evidence = nfc(fact.evidence).strip().lower()
         # A typed amount/count is not a phone number merely because it has 9+ digits.
         numeric_constraint = (
-            name in {"max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
+                name in {"min_price_vnd", "max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
             and type(fact.value) is int
         )
         if name in PII_FACT_KEYS or (not numeric_constraint and looks_like_pii(fact.value)):
@@ -272,6 +272,8 @@ def missing_for(
     """Input bắt buộc còn thiếu của task thuộc `domain`, dạng "domain.field"."""
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
+    if domain == AgentName.MAP and values.get("map_mode") == "route":
+        return [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
     out = []
     for req in REQUIRED_INPUTS.get(domain, ()):
         if any(_has(values, f) for f in req.fields):

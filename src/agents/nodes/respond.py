@@ -28,6 +28,9 @@ from src.agents.suggestions import next_step_suggestions
 logger = logging.getLogger(__name__)
 
 QUESTION_TEXT = {
+    "map.route_from": "Bạn muốn đi từ địa điểm nào?",
+    "map.route_to": "Bạn muốn đi tới địa điểm nào?",
+    "map.city": "Bạn muốn tra đường tại thành phố nào?",
     "property.city|near": "Bạn muốn tìm phòng ở khu vực nào (ví dụ: gần ĐH Bách Khoa, Quận 10 TP.HCM)?",
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
@@ -76,10 +79,16 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
         for i, c in enumerate(data.get("candidates", [])[:5], 1):
             lines.append(
                 f"{i}. {c.get('title')} — {vnd(c.get('price_vnd'))}/tháng — {c.get('address') or 'chưa có địa chỉ'}"
+                + (f" — {c['bedrooms']} phòng ngủ" if c.get("bedrooms") is not None else "")
             )
         if not lines:
             lines.append("Chưa tìm thấy phòng phù hợp.")
     elif agent == AgentName.MAP:
+        routing = data.get("routing") or {}
+        if route := routing.get("route"):
+            lines.append(
+                f"Đường đi ({routing.get('profile')}): {route['distance_meters'] / 1000:.2f} km, khoảng {route['duration_seconds'] / 60:.0f} phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp."
+            )
         for key, pois in (data.get("nearby") or {}).items():
             names = ", ".join(
                 f"{p.get('name') or p.get('category')} ({int(p.get('distance_m', 0))}m)" for p in pois[:3]

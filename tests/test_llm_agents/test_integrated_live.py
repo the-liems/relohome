@@ -59,6 +59,26 @@ def test_housing_real_graph(client):
     assert "fake" not in str(data) and "demo" not in str(data)
 
 
+def test_housing_district_and_bedrooms_real_graph(client):
+    result = ask(client, "tìm phòng có 2 phòng ngủ ở quận 1 thành phố Hồ Chí Minh")
+    response = result.get("response") or {}
+    assert response.get("kind") in {"ANSWER", "PARTIAL"}, response
+    state_response = client.get(f"/chat/{result['thread_id']}/state")
+    assert state_response.status_code == 200
+    state = state_response.json()
+    # Verify the executed plan, not merely a plausible model sentence.
+    task = next(t for t in state["plan"]["tasks"] if t["agent"] == "property")
+    assert task["inputs"]["min_bedrooms"] == task["inputs"]["max_bedrooms"] == 2
+    assert task["inputs"]["district"].casefold() == "quận 1"
+    results = (response.get("data") or {}).get("results") or {}
+    candidates = [c for r in results.values() for c in (r.get("data", r).get("candidates") or [])]
+    # The verified teammate snapshot contains these listings; catches missing legacy polygons.
+    assert candidates, "Known snapshot listings were lost by the district filter"
+    for candidate in candidates:
+        assert candidate["bedrooms"] == 2
+        assert "quận 1" in candidate["address"].casefold()
+
+
 def test_flight_real_graph(client):
     result = ask(client, "Chỉ tìm chuyến bay từ Hà Nội đến Đà Nẵng ngày 15/11/2026 cho 1 người lớn, không đặt vé")
     response = result.get("response") or {}
@@ -66,6 +86,17 @@ def test_flight_real_graph(client):
     data = data_by_agent(result)
     assert "offers" in str(data), response
     assert "demo" not in str(data)
+
+
+def test_map_route_real_graph(client):
+    result = ask(client, "Tính đường đi bộ từ Dinh Độc Lập Cafe đến Takashimaya tại Thành phố Hồ Chí Minh")
+    response = result.get("response") or {}
+    assert response.get("kind") in {"ANSWER", "PARTIAL"}, response
+    results = response["data"]["results"]
+    routing = next(r["data"]["routing"] for r in results.values() if r["agent"] == "map")
+    assert routing["profile"] == "walking"
+    assert routing["route"]["distance_meters"] > 0
+    assert routing["origin"]["canonical_id"] and routing["destination"]["canonical_id"]
 
 
 def test_clarification_multiturn(client):
