@@ -62,7 +62,16 @@ class ServiceSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # fake: FakeAgent + FakeTransaction; live: nối các service đã cấu hình bên dưới
-    agent_subagents: Literal["fake", "live"] = "fake"
+    agent_subagents: Literal["fake", "live"] = "live"
+    agent_state_dir: str = "data/agent-runtime"
+    agent_api_token: SecretStr = SecretStr("")
+    agent_intake_model: str = "gpt-4.1-mini"
+    agent_planner_model: str = "gpt-4.1-mini"
+    agent_moving_model: str = "gpt-4.1-mini"
+    openai_api_key: SecretStr = SecretStr("")
+    agent_writes_enabled: bool = False
+    agent_sandbox_payments_enabled: bool = False
+    agent_allow_simulated_transactions: bool = False
 
     # Location: housing + place + route (nhánh QuangDung), Streamable HTTP + Bearer
     location_mcp_url: str = ""

@@ -119,11 +119,18 @@ class McpToolClient:
                         await session.initialize()
                         yield session
         elif ep.stdio_module:
+            # Do not give a Flight/Payment child the AI key, DB admin password,
+            # or credentials for other providers through the inherited environment.
+            inherited = os.environ
+            if ep.service in {"flight", "payment"}:
+                prefixes = ("FLIGHT_",) if ep.service == "flight" else ("PAYMENT_",)
+                system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "COMSPEC", "PATHEXT", "PYTHONPATH", "PYTHONIOENCODING"}
+                inherited = {k: v for k, v in os.environ.items() if k.upper() in system_keys or k.startswith(prefixes)}
             params = StdioServerParameters(
                 command=sys.executable,
                 args=["-m", ep.stdio_module],
                 cwd=str(PROJECT_ROOT),
-                env={**os.environ, **ep.stdio_env},
+                env={**inherited, **ep.stdio_env},
             )
             async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
                 await session.initialize()

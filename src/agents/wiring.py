@@ -17,12 +17,15 @@ Service chưa cấu hình thì lĩnh vực đó không được đăng ký. Khi 
 from __future__ import annotations
 
 import asyncio
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 from src.agents.deps import AgentRegistry, GraphDeps, GraphSettings, default_deps
-from src.agents.graph import build_graph, default_checkpointer
+from src.agents.graph import build_graph, checkpoint_serde, default_checkpointer
 from src.agents.intake import Intake, PassThroughIntake
-from src.agents.models import AgentName
+from src.agents.models import AgentName, PendingPayment, Receipt
 from src.agents.planning import Planner, TemplatePlanner
 from src.agents.subagents.base import DomainAgent
 from src.agents.subagents.services.flight import FlightSubagent
@@ -99,6 +102,115 @@ class AgentService:
     mode: str
     payment_simulation: bool = False  # có nút "giả lập đã thanh toán" (fake mode, hoặc Payment mock đã bật)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
+    resources: Any = None
+    settings: ServiceSettings | None = None
+    # LLM domain fanout shares this local lock so budgets cannot be oversubscribed.
+    writes_enabled: bool = False
+    sandbox_payment_client: Any = None
+
+    @classmethod
+    async def open(cls, services: ServiceSettings | None = None):
+        """Application entrypoint: real LLMs + configured services + durable local stores."""
+        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+        from src.agents.llm_components import build_llm_components
+        from src.agents.planner_llm import CapabilityRegistry
+        from src.services.adapters.sqlite_runtime import (
+            DurableModels,
+            RuntimeDatabase,
+            SqliteApprovalStore,
+            SqlitePiiStore,
+            SqliteSessionPort,
+            SqliteUsageMeter,
+        )
+
+        services = services or ServiceSettings()
+        if services.agent_subagents != "live":
+            raise ValueError("Application runtime requires AGENT_SUBAGENTS=live; no simulated services")
+        if services.payment_simulation_enabled or services.agent_allow_simulated_transactions:
+            raise ValueError("Simulated transactions are disabled for this integration")
+        if services.agent_writes_enabled and services.moving_environment != "staging":
+            raise ValueError("MVP transactions are restricted to AhaMove staging")
+        if services.agent_sandbox_payments_enabled:
+            from src.mcp_servers.payments.settings import PaymentSettings
+
+            payment_settings = PaymentSettings()
+            if (
+                not services.payment_mcp_stdio
+                or services.payment_mcp_url
+                or payment_settings.provider != "zalopay"
+                or payment_settings.zalopay_endpoint.rstrip("/") != "https://sb-openapi.zalopay.vn/v2"
+            ):
+                raise ValueError("Sandbox payment demo requires local ZaloPay MCP with official sandbox endpoint")
+        stack = AsyncExitStack()
+        await stack.__aenter__()
+        try:
+            components = build_llm_components(services)
+            stack.push_async_callback(components.close)
+            registry = ServiceRegistry.from_settings(services)
+            agents = live_agents(registry)
+            if components.moving:
+                agents[AgentName.RELOCATION] = components.moving
+            # Flight teammate only supplies simulated booking; never advertise it as real.
+            if AgentName.FLIGHT in agents:
+                agents[AgentName.FLIGHT].capability = agents[AgentName.FLIGHT].capability.model_copy(deep=True)
+                agents[AgentName.FLIGHT].capability.commit_kinds = []
+            components.planner.registry = CapabilityRegistry({n: a.capability for n, a in agents.items()})
+            db = RuntimeDatabase(services.agent_state_dir)
+            stack.callback(db.close)
+            approvals, pii = SqliteApprovalStore(db), SqlitePiiStore(db)
+            bridge = (
+                HttpMovingApprovalBridge(
+                    services.moving_approval_url, services.moving_approval_token.get_secret_value()
+                )
+                if services.moving_approval_url
+                else None
+            )
+            tx = McpTransaction(
+                flight=None,
+                payment=None,
+                moving=registry.moving.write_client() if services.agent_writes_enabled else None,
+                moving_approvals=bridge,
+                moving_source_kind=registry.moving.source_kind,
+            )
+            tx._receipts = DurableModels(db, "receipts", Receipt)
+            tx._holds = DurableModels(db, "holds", PendingPayment)
+            tx.intent_store = db
+            deps = GraphDeps(
+                intake=components.intake,
+                planner=components.planner,
+                agents=AgentRegistry(agents),
+                session=SqliteSessionPort(db),
+                transaction=tx,
+                approvals=approvals,
+                pii=pii,
+                settings=GraphSettings(),
+                usage=SqliteUsageMeter(db),
+            )
+            path = str(Path(services.agent_state_dir).resolve() / "checkpoints.sqlite3")
+            saver = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(path))
+            saver.serde = checkpoint_serde()
+            await saver.setup()
+            return cls(
+                deps,
+                build_graph(deps, saver),
+                approvals,
+                pii,
+                "live",
+                resources=stack,
+                settings=services,
+                writes_enabled=services.agent_writes_enabled,
+                sandbox_payment_client=registry.payment.write_client()
+                if services.agent_sandbox_payments_enabled
+                else None,
+            )
+        except BaseException:
+            await stack.aclose()
+            raise
+
+    async def close(self):
+        if self.resources:
+            await self.resources.aclose()
 
     @classmethod
     def create(

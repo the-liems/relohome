@@ -35,6 +35,8 @@ def confirmation_notes(summary) -> dict[str, str]:
             parts.append("Trả tiền mặt cho tài xế.")
         if action.kind == CommitActionKind.CANCEL_ORDER:
             parts.append("Phí huỷ (nếu có) theo chính sách của nhà cung cấp; hệ thống chưa biết trước số tiền.")
+        if action.kind == CommitActionKind.UPDATE_ORDER:
+            parts.append("Chỉ cập nhật liên hệ/ghi chú theo form bạn xác nhận; không đổi tuyến, giá hay tiền thu hộ.")
         if parts:
             notes[action.id] = " ".join(parts)
     return notes

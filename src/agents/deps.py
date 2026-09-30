@@ -49,7 +49,7 @@ class GraphSettings(BaseModel):
     agent_timeout_s: dict[AgentName, float] = {
         AgentName.PROPERTY: 40.0,
         AgentName.MAP: 40.0,
-        AgentName.RELOCATION: 45.0,
+        AgentName.RELOCATION: 120.0,
         AgentName.FLIGHT: 30.0,
     }
     agent_transport_retries: int = 1
@@ -59,11 +59,11 @@ class GraphSettings(BaseModel):
     max_suggestions: int = 2
     # Giá thực tế được lệch bao nhiêu so với báo giá mà không hỏi lại (người dùng đồng ý khoảng này ở bước
     # xác nhận). Chỉ cho thao tác mà provider báo giá lại lúc đặt; loại không có ở đây phải đúng giá.
-    price_tolerance: dict[CommitActionKind, float] = {CommitActionKind.MOVING_BOOKING: 0.05}
+    price_tolerance: dict[CommitActionKind, float] = {}
 
     # --- Kiểm soát chi phí (§7.5) ---
-    llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-4o-mini", "heavy": "gpt-4o-mini"}
-    max_llm_calls_per_turn: int = 4
+    llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-4.1-mini", "heavy": "gpt-4.1-mini"}
+    max_llm_calls_per_turn: int = 8
     max_subagent_llm_calls_per_turn: int = 20
     max_paid_calls_per_turn: int = 6
     max_paid_calls_per_thread: int = 30

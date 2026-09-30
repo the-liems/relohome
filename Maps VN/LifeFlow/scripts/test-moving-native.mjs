@@ -44,6 +44,11 @@ try {
   run(process.execPath, ['packages/moving-service/dist/migrate.js'])
   run(process.execPath, ['packages/moving-service/dist/migrate.js'])
   run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'moving-mcp-server/tests/http.live.test.ts'])
+  if (process.env.MOVING_TEST_AGENT_PYTHON) {
+    run(process.env.MOVING_TEST_AGENT_PYTHON, ['-m', 'pytest', 'tests/test_llm_agents/test_moving_live.py', '-q', '--tb=short'], {
+      cwd: resolve(root, '../..'), env: { ...env, RUN_LIVE_MOVING_AGENT: '1' },
+    })
+  }
 } finally {
   if (started) run(join(bin, `pg_ctl${suffix}`), ['-D', data, '-m', 'fast', '-w', 'stop'])
   await unlink(pwfile)

@@ -7,6 +7,7 @@ Approval và dữ liệu cá nhân do backend tạo; client không bao giờ t�
 from __future__ import annotations
 
 import asyncio
+import secrets
 import uuid
 from datetime import timedelta
 from typing import Annotated
@@ -17,17 +18,32 @@ from langgraph.types import Command
 
 from src.agents.common import utcnow
 from src.agents.graph import run_config
+from src.agents.intake import redact_pii
 from src.agents.wiring import AgentService
 from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 
-router = APIRouter()
+
+async def authenticate(
+    request: Request, authorization: str | None = Header(default=None), x_user_id: str | None = Header(default=None)
+):
+    service = getattr(request.app.state, "agent_service", None)
+    if service and service.mode == "live":
+        expected = service.settings.agent_api_token.get_secret_value() if service.settings else ""
+        if not expected:
+            raise HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
+        if not authorization or not secrets.compare_digest(authorization, "Bearer " + expected):
+            raise HTTPException(401, "Authentication required")
+        if not x_user_id or x_user_id == "anonymous":
+            raise HTTPException(401, "A gateway-verified X-User-Id is required")
+
+
+router = APIRouter(dependencies=[Depends(authenticate)])
 
 
 def get_service(request: Request) -> AgentService:
     service = getattr(request.app.state, "agent_service", None)
     if service is None:
-        service = AgentService.create()
-        request.app.state.agent_service = service
+        raise HTTPException(503, "Agent runtime has not started")
     return service
 
 
@@ -94,12 +110,14 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending and pending.get("type") == "payment_required":
             return _payment_response(thread_id, pending, service)
         if pending:
+            if request.moving_locations:
+                raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
             result = await service.graph.ainvoke(
                 Command(
                     resume={
                         "kind": "CHANGE",
                         "plan_version": pending["plan_version"],
-                        "change_request": request.message,
+                        "change_request": redact_pii(request.message),
                     }
                 ),
                 config,
@@ -107,10 +125,13 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         else:
             result = await service.graph.ainvoke(
                 {
-                    "messages": [HumanMessage(request.message)],
+                    "messages": [HumanMessage(redact_pii(request.message))],
                     "user_id": user_id,
                     "thread_id": thread_id,
                     "request_id": uuid.uuid4().hex,
+                    "moving_locations": request.moving_locations.model_dump(mode="json", exclude_none=True)
+                    if request.moving_locations
+                    else None,
                 },
                 config,
             )
@@ -127,10 +148,31 @@ async def decision(
         if not pending or pending.get("type") != "confirmation_required":
             raise HTTPException(status_code=409, detail="Không có phương án nào đang chờ xác nhận.")
         resume: dict = body.model_dump(exclude={"pii_forms", "payload_hash"})
+        if resume.get("change_request"):
+            resume["change_request"] = redact_pii(resume["change_request"])
         if body.kind == "CONFIRM":
+            if service.mode == "live" and not service.writes_enabled:
+                raise HTTPException(403, "Booking/cancellation writes are disabled; quote and search remain available.")
             if body.payload_hash != pending["payload_hash"] or body.plan_version != pending["plan_version"]:
                 raise HTTPException(status_code=409, detail="Phương án đã thay đổi; hãy xem lại trước khi xác nhận.")
             pii_refs = {}
+            from pydantic import ValidationError
+
+            from src.models.schemas import MovingContact, MovingOrderUpdate
+
+            for action_id, required in pending.get("pii_required", {}).items():
+                form = body.pii_forms.get(action_id, {})
+                try:
+                    for key in required:
+                        if key not in form:
+                            raise ValueError("Missing required form")
+                        if key in {"pickup_contact", "destination_contact"}:
+                            MovingContact.model_validate(form[key])
+                        elif key == "order_update":
+                            MovingOrderUpdate.model_validate(form[key])
+                except (ValueError, ValidationError):
+                    # Never echo Pydantic's input value (contacts) in an HTTP error.
+                    raise HTTPException(422, "Thiếu hoặc sai thông tin liên hệ/cập nhật trong form.") from None
             for action_id, form in body.pii_forms.items():
                 if action_id in pending.get("pii_required", {}):
                     pii_refs[action_id] = await service.pii_store.put(form)
@@ -217,4 +259,9 @@ async def agent_status(service: Service):
         "agent": "LifeFlow agent graph",
         "mode": service.mode,
         "domains": [d.value for d in service.deps.agents.names()],
+        "writes_enabled": service.writes_enabled,
+        "sandbox_payments_enabled": service.sandbox_payment_client is not None,
+        "moving_payment_method": "CASH",
+        "flight_booking_enabled": False,
+        "simulated_transactions": False,
     }

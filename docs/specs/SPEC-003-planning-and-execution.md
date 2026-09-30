@@ -1,5 +1,24 @@
 # SPEC-003 — Routing Orchestrator
 
+> Cập nhật 2026-09-29 — [ADR-018](../adr/ADR-018-llm-first-agent-components.md):
+> [`LlmPlanner`](../../src/agents/planner_llm.py) implement `Planner.plan` của graph,
+> dùng LLM làm bộ phận suy luận chính; không chạy TemplatePlanner trước.
+> Tasks là mục tiêu domain. Scheduler, validator, retry, consent và transaction vẫn
+> do runtime graph quản lý. Không tạo agent Executor thứ ba. Chưa thay wiring.
+> Xem [bàn giao](../integration/llm-agents-handoff.md). HTTP/SQLite/tool-plan bên dưới
+> thuộc bản ADR-006 cũ, không phải lời tuyên bố graph hiện có đã persist đầy đủ.
+
+## Acceptance bổ sung cho graph-compatible component
+
+- `SPEC-003/AC-11`: LLM nhận mục tiêu, constraints, capabilities, kết quả và validation
+  trước để lập/replan; giữ identity task hợp lệ, không nới/bỏ ràng buộc cứng.
+- `SPEC-003/AC-12`: Code kiểm input grounding, capability, DAG, dependencies và intent
+  ghi. Không đưa credentials/PII/approval vào model, không coi plan hợp lệ là đã được đặt đơn.
+- `SPEC-003/AC-13`: Plan lỗi được repair tối đa một lần rồi báo lỗi; không fallback giả.
+  Global scheduling/budget/persistence được kiểm ở đợt ghép graph, không thuộc live test component.
+
+## Bản standalone trước ADR-016 (lưu để đối chiếu)
+
 - Owner: Khoa (`drpie143`)
 - Reviewers: AI/DS, service owners, Backend/Security
 - Status: Draft

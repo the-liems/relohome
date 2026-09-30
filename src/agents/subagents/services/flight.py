@@ -11,7 +11,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult, reject_unsupported
+from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.models import AgentName, AgentUsage, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import FLIGHT
 from src.agents.subagents.services.common import BudgetExceededError, CountingClient, first, tool_failure
@@ -47,10 +47,8 @@ class FlightSubagent:
         tools = CountingClient(self.client, req.budget.max_provider_calls)
         try:
             if req.inputs.get("booking_ref"):
-                got = await tools.call("get_booking", {"booking_ref": req.inputs["booking_ref"]})
-                view = booking_view(got or {})
-                return self._result(
-                    req, tools, "demo", status="done", data={"booking": view}, source_refs=[str(view["booking_id"])]
+                return failed_result(
+                    req, "provider_unavailable", "Real flight booking lookup is not connected.", retryable=False
                 )
             return await self._search(req, tools)
         except (ToolCallError, BudgetExceededError) as exc:
@@ -109,6 +107,10 @@ class FlightSubagent:
             },
         )
         found = found or {}
+        if found.get("source") != "serpapi":
+            return failed_result(
+                req, "provider_unavailable", "Flight returned an unsupported or simulated source.", retryable=False
+            )
         offers, quotes = [], []
         for offer in found.get("offers", []):
             segments = offer.get("segments") or [{}]

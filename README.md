@@ -1,5 +1,13 @@
 # AI20K Agent Template
 
+## MVP local tích hợp
+
+Xem [hướng dẫn chạy demo](docs/runbooks/local-mvp.md),
+[quyết định runtime](docs/adr/ADR-019-local-integrated-mvp.md) và
+[kết quả kiểm thử, giới hạn còn lại](eval/mvp-local-2026-09-30.md).
+Intake/Planner/Moving LLM đã nối LangGraph; demo Streamlit tại cổng 8503.
+Không deploy; giao dịch sandbox tắt mặc định.
+
 ## Module bản đồ LifeFlow
 
 Toàn bộ dữ liệu, routing, PostGIS, Platform API, MCP server và giao diện bản đồ

@@ -196,27 +196,41 @@ export class MovingService {
       })),
     }
     try {
-      const providerOrder = await this.client.createOrder(providerPayload)
+        const created = await this.client.createOrder(providerPayload)
+        // Create may return an acknowledgement (order_id/shared_link), not a full order.
+      // Read back the real order; never fabricate a status or repeat POST to fill fields.
+      const createdId = typeof created._id === 'string' ? created._id : created.order_id
+      const providerOrder = typeof createdId === 'string'
+        ? await this.client.getOrder(createdId)
+        : created
       const order = normalizeOrder(providerOrder, this.config.environment)
       await this.repository.completeAction(idempotencyKey, order.order_id, providerOrder)
       await this.repository.upsertOrder(order.order_id, order.status, providerOrder)
       return order
     } catch (error) {
-      if (error instanceof MovingServiceError && error.retryable) {
+      if (!(error instanceof MovingServiceError) || error.retryable || error.code === 'PROVIDER_INVALID_RESPONSE') {
         const tracking = estimateRequest.draft.destinations.find((point) => point.tracking_number)?.tracking_number
         if (tracking) {
           const matches = asRecordArray(await this.client.findOrdersByTrackingNumber(tracking).catch(() => []))
           // Multiple orders sharing a reference are ambiguous; never select one arbitrarily.
           const providerOrder = matches.length === 1 ? matches[0] : undefined
           if (providerOrder) {
-            const order = normalizeOrder(providerOrder, this.config.environment)
-            await this.repository.completeAction(idempotencyKey, order.order_id, providerOrder)
-            await this.repository.upsertOrder(order.order_id, order.status, providerOrder)
-            return order
+            try {
+              const fullOrder = await this.client.getOrder(String(providerOrder._id))
+              const order = normalizeOrder(fullOrder, this.config.environment)
+              await this.repository.completeAction(idempotencyKey, order.order_id, fullOrder)
+              await this.repository.upsertOrder(order.order_id, order.status, fullOrder)
+              return order
+            } catch {
+              // Keep the pending action fence if read-back or persistence is unavailable.
+            }
           }
         }
       } else if (error instanceof MovingServiceError) {
         await this.repository.failAction(idempotencyKey, error.code)
+      }
+      if (!(error instanceof MovingServiceError) || error.retryable || error.code === 'PROVIDER_INVALID_RESPONSE') {
+        throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'Order may have been created; reconcile by tracking number before any retry.', true)
       }
       throw error
     }
@@ -285,6 +299,9 @@ export class MovingService {
     let orderId = request.order_id
     if (!orderId && request.tracking_number) {
       const matches = await this.findOrdersByTrackingNumber(request.tracking_number)
+      if (matches.length > 1) {
+        throw new MovingServiceError('VALIDATION_ERROR', 'Tracking number matches multiple orders; provide an exact order ID.')
+      }
       orderId = matches[0]?.order_id
     }
     if (!orderId) throw new MovingServiceError('PROVIDER_NOT_FOUND', 'No AhaMove order matched the request.')

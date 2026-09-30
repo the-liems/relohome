@@ -1,5 +1,8 @@
 # Project documentation
 
+- [MVP local: cài đặt, cấu trúc, demo và phục hồi](runbooks/local-mvp.md)
+- [MVP local: bằng chứng kiểm thử và giới hạn](../eval/mvp-local-2026-09-30.md)
+
 ## Product and delivery
 
 - [Project organization](project-organization.md)

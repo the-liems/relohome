@@ -104,13 +104,22 @@ export function normalizeQuoteOptions(payload: unknown) {
     ? payload
     : Array.isArray(record(payload).data) ? record(payload).data as unknown[] : [payload]
   return values.map((value) => {
-    const item = record(value)
+    const envelope = record(value)
+    // Partner v3 estimates: [{service_id, data: {total_price, distance, ...}, error: null}].
+    // Retain compatibility with the flat response; never treat an error/missing fee as free.
+    if (envelope.error != null) {
+      throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove rejected an estimate option; no complete quote was stored.')
+    }
+    const nested = record(envelope.data)
+    const item = Object.keys(nested).length ? { ...nested, service_id: envelope.service_id ?? nested.service_id } : envelope
     const totalPrice = numberOrNull(item.total_price, item.total_fee, item.total_pay)
     if (totalPrice === null) {
       throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove estimate did not include a total price.')
     }
+    const serviceId = stringOrNull(item.service_id, item._id)
+    if (!serviceId) throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove estimate did not include a service ID.')
     return {
-      service_id: stringOrNull(item.service_id, item._id) || 'unknown',
+      service_id: serviceId,
       service_name: stringOrNull(item.service_name, item.name_vi_vn, item.name),
       fee: {
         currency: stringOrNull(item.currency) || 'VND',

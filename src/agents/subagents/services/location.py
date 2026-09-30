@@ -61,6 +61,19 @@ def label_of(item: dict) -> str:
 def pick_clear(results: list[dict]) -> dict | None:
     """Chọn ứng viên khi rõ ràng: chỉ một kết quả, đúng một kết quả khớp chính xác, hoặc điểm đầu vượt
     hẳn điểm thứ hai. Không thì trả None để hỏi lại (Location không tự chọn thay graph)."""
+    # Snapshot may contain both an OSM administrative relation and a local copy
+    # of the same boundary. Collapse only when name AND exact bbox agree.
+    unique: list[dict] = []
+    seen = set()
+    for item in results:
+        bbox = item.get("bounding_box")
+        if bbox and item.get("area_id"):
+            key = (item.get("name"), tuple(sorted(bbox.items())))
+            if key in seen:
+                continue
+            seen.add(key)
+        unique.append(item)
+    results = unique
     if not results:
         return None
     if len(results) == 1:

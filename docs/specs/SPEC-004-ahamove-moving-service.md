@@ -1,5 +1,21 @@
 # SPEC-004 — AhaMove moving-service integration
 
+## LLM subagent extension (2026-09-29)
+
+`src/agents/subagents/services/moving_llm.py` adds a graph-contract-compatible,
+read-only LLM tool loop. It is distinct from the TypeScript MCP/API and is not yet
+registered in graph wiring. See [ADR-018](../adr/ADR-018-llm-first-agent-components.md)
+and [handoff](../integration/llm-agents-handoff.md).
+
+- `SPEC-004/AC-22`: LLM chooses observed read tools within per-task call/deadline
+  limits; unknown service IDs, generated code and provider writes are unavailable.
+- `SPEC-004/AC-23`: Quote amounts, distance, duration and fee breakdown come from
+  actual MCP results; missing capacity/loading information stays unknown.
+- `SPEC-004/AC-24`: Parse actual nested Partner estimate envelopes as well as flat
+  responses; reject errored options/missing price/ID rather than fabricate values.
+- `SPEC-004/AC-25`: Test the real LLM -> MCP -> AhaMove staging -> PostgreSQL path
+  using an operator-approved route/contact, without creating an order or mocking data.
+
 - Owner: Moving/Relocation service owner
 - Reviewers: Agent planning, contracts, backend/security, Map service
 - Status: Draft

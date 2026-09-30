@@ -1,0 +1,21 @@
+name: lifeflow-integration
+services:
+  postgis:
+    image: postgis/postgis:16-3.5
+    environment:
+      # Application DB is created explicitly from template0 by restore-local-snapshot.py.
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5544}:5432"
+    volumes:
+      - integration-db:/var/lib/postgresql/data
+      - ../data/teammate-snapshot/database:/snapshot:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+volumes:
+  integration-db:

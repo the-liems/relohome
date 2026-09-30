@@ -1,5 +1,11 @@
 # Intake dùng LLM — thiết kế để implement
 
+> Cập nhật triển khai 2026-09-29: đã có `src/agents/intake_llm.py`, cùng LLM Planner
+> và Moving subagent; chưa inject vào graph. [Bàn giao](../integration/llm-agents-handoff.md).
+> Intermediate schema chỉ trích facts có evidence, không cho model độc lập tạo một
+> bộ constraints không có căn cứ. Node hiện có tiếp tục merge/resolve_missing.
+> Đợt này chỉ thêm kiểm thử API thật, không tạo mock theo yêu cầu chủ task.
+
 Status: proposed. Người làm: Khoa. Issue: #12. Nhánh làm việc: `integration/langgraph-services`
 (không đụng `main`).
 

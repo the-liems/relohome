@@ -6,6 +6,7 @@ Topology cố định; kế hoạch (Dependency DAG) là dữ liệu trong state
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -58,11 +59,11 @@ def default_checkpointer() -> BaseCheckpointSaver:
     return InMemorySaver(serde=checkpoint_serde())
 
 
-def make_agent_node(deps: GraphDeps, name: AgentName):
+def make_agent_node(deps: GraphDeps, name: AgentName, llm_lock: asyncio.Lock | None = None):
     agent = deps.agents.get(name)
     capability = agent.capability
 
-    async def agent_node(inp: AgentInput) -> dict:
+    async def invoke(inp: AgentInput) -> dict:
         """Gọi subagent của lĩnh vực qua `run_with_policy`; lỗi là dữ liệu, không raise."""
         thread_id, request_id = inp["thread_id"], inp["request_id"]
         counts = await deps.usage.counts(thread_id, request_id)
@@ -78,6 +79,14 @@ def make_agent_node(deps: GraphDeps, name: AgentName):
             )
 
         return await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
+
+    async def agent_node(inp: AgentInput) -> dict:
+        # Only LLM-consuming domain tasks serialize budget check + usage accounting.
+        # Deterministic independent MCP reads may still run in parallel.
+        if llm_lock is not None and capability.default_budget.max_llm_calls > 0:
+            async with llm_lock:
+                return await invoke(inp)
+        return await invoke(inp)
 
     agent_node.__name__ = agent_node_name(name.value)
     return agent_node
@@ -97,9 +106,10 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
     graph.add_node("await_payment", make_await_payment(deps))
     graph.add_node("respond", make_respond(deps))
     agent_nodes = []
+    llm_lock = asyncio.Lock()
     for name in deps.agents.names():
         node = agent_node_name(name.value)
-        graph.add_node(node, make_agent_node(deps, name), input_schema=AgentInput)
+        graph.add_node(node, make_agent_node(deps, name, llm_lock), input_schema=AgentInput)
         graph.add_edge(node, "executor")
         agent_nodes.append(node)
 

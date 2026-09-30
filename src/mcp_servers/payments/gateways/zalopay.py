@@ -48,6 +48,7 @@ class ZaloPayGateway:
             "app_trans_id": gateway_ref,
             "app_user": app_user,
             "app_time": app_time,
+            "expire_duration_seconds": expire_seconds,
             "amount": amount,
             "item": EMPTY_ITEMS,
             "embed_data": embed_data,

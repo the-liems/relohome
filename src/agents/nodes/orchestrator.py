@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from src.agents.cost import llm_calls_left
+from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.models import (
     Outcome,
@@ -105,7 +105,9 @@ def make_orchestrator(deps: GraphDeps):
         committed = active_commits(state.get("committed"))
         reuse = intake.kind != RequestKind.NEW_GOAL
         try:
-            out = await deps.planner.plan(
+            out = await call_graph_component(
+                deps.planner,
+                "plan",
                 PlannerInput(
                     intake=intake,
                     session=state.get("session"),
@@ -115,17 +117,14 @@ def make_orchestrator(deps: GraphDeps):
                     change_context=change,
                     available_agents=deps.agents.names(),
                     committed=committed,
-                )
+                ),
+                deps,
+                state,
+                "orchestrator",
             )
         except Exception as exc:
-            logger.exception("planner failed")
+            logger.warning("planner failed: %s", type(exc).__name__)
             return stop(OutcomeCode.ERROR, "không lập được kế hoạch", [f"planner error: {type(exc).__name__}"])
-        if uses_llm:
-            model = deps.settings.llm_models["heavy" if len(intake.domains) > 1 else "light"]
-            tokens_in, tokens_out = getattr(deps.planner, "last_usage", (0, 0))
-            await deps.usage.record_llm(
-                state.get("thread_id", ""), state.get("request_id", ""), "orchestrator", model, tokens_in, tokens_out
-            )
         plan = out.plan
         if not plan.tasks:
             return stop(OutcomeCode.PLAN_EMPTY, "không có task nào")

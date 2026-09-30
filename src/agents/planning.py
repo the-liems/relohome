@@ -172,6 +172,7 @@ DEFAULT_MAP_CATEGORIES = ["hospital", "marketplace", "pharmacy"]
 PII_REQUIRED: dict[CommitActionKind, list[str]] = {
     CommitActionKind.FLIGHT_BOOKING: ["passengers", "contact"],
     CommitActionKind.MOVING_BOOKING: ["pickup_contact", "destination_contact"],
+    CommitActionKind.UPDATE_ORDER: ["order_update"],
 }
 
 

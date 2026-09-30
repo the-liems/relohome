@@ -190,7 +190,12 @@ def ground_facts(
     conflicts: list[str] = []
     for name, fact in new.items():
         evidence = nfc(fact.evidence).strip().lower()
-        if name in PII_FACT_KEYS or looks_like_pii(fact.value):
+        # A typed amount/count is not a phone number merely because it has 9+ digits.
+        numeric_constraint = (
+            name in {"max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
+            and type(fact.value) is int
+        )
+        if name in PII_FACT_KEYS or (not numeric_constraint and looks_like_pii(fact.value)):
             dropped.append(name)
             continue
         if not evidence or evidence not in corpus:

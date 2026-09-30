@@ -64,6 +64,34 @@ class McpTransaction:
         # (Payment theo order_ref + amount, Moving theo workflow_id + action_id).
         self._receipts: dict[str, Receipt] = {}
         self._holds: dict[str, PendingPayment] = {}
+        self.intent_store = None
+
+    async def guarded_commit(self, req):
+        """Crash-safe fence: never blindly replay an uncertain write after restart."""
+        if self.intent_store is None:
+            return await self.commit(req)
+        existing = await self.lookup(req.idempotency_key)
+        if existing:
+            return existing
+        if self.intent_store.get("write_intents", req.idempotency_key):
+            raise CommitError(
+                "A previous write needs provider reconciliation before retry.",
+                uncertain=True,
+                code="pending_verification",
+            )
+        self.intent_store.put(
+            "write_intents",
+            req.idempotency_key,
+            {"state": "started", "action": req.action.kind.value, "at": self.clock().isoformat()},
+        )
+        try:
+            receipt = await self.commit(req)
+        except CommitError as exc:
+            if not exc.uncertain:
+                self.intent_store.delete("write_intents", req.idempotency_key)
+            raise
+        self.intent_store.put("write_intents", req.idempotency_key, {"state": "done", "receipt_id": receipt.receipt_id})
+        return receipt
 
     # --- tiện ích ---
 
@@ -77,7 +105,11 @@ class McpTransaction:
             return await client.call(tool, args)
         except ToolCallError as exc:
             # Lỗi sau khi đã gửi thao tác ghi: không rõ provider đã ghi chưa.
-            uncertain = write and not exc.transport and exc.retryable
+            uncertain = (
+                write
+                and not exc.transport
+                and (exc.retryable or exc.code in {"PROVIDER_INVALID_RESPONSE", "IDEMPOTENCY_CONFLICT", "TOOL_ERROR"})
+            )
             raise CommitError(
                 f"{service}.{tool}: {exc.message}",
                 uncertain=uncertain or (write and exc.code == "timeout"),
@@ -237,6 +269,32 @@ class McpTransaction:
             return await self._moving_booking(req)
         if kind == CommitActionKind.CANCEL_ORDER:
             return await self._cancel(req)
+        if kind == CommitActionKind.UPDATE_ORDER:
+            from src.models.schemas import MovingOrderUpdate
+
+            update = MovingOrderUpdate.model_validate(req.pii.get("order_update", {})).model_dump(exclude_none=True)
+            target = req.action.target_receipt_id
+            if not target:
+                raise CommitError("Cần mã đơn chính xác để cập nhật.")
+            payload = {"action": "update", "order_id": target, **update}
+            approval_id = await self._moving_approval(req.approval, req.action.id, "update", "update", payload)
+            result = await self._call(
+                self.moving,
+                "moving",
+                "update_move_order",
+                {"order_id": target, **update, "approval_id": approval_id},
+                write=True,
+            )
+            order = result.get("order", result)
+            return self._receipt(
+                req,
+                target,
+                "ahamove",
+                0,
+                self.moving_source_kind,
+                order.get("status", "UNKNOWN"),
+                {"updated": True, "fee_known": False},
+            )
         raise CommitError(f"{kind.value} chưa được hỗ trợ")
 
     async def _moving_approval(

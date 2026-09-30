@@ -43,6 +43,7 @@ class WorkflowState(TypedDict, total=False):
     user_id: str
     thread_id: str
     request_id: str  # mỗi lượt API tạo mới
+    moving_locations: dict | None  # validated explicit user pins; never authored by LLM
     session: SessionContext
 
     # --- Phase 1: Understand & Plan ---

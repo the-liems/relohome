@@ -40,13 +40,18 @@ async function applyMigrations() {
 
   for (const file of files) {
     const sql = await readFile(resolve(migrationDirectory, file), 'utf8')
-    const checksum = createHash('sha256').update(sql).digest('hex')
+    // Git on Windows may check out CRLF while the Linux snapshot stored LF.
+    // Compare only newline encodings, never ignore substantive SQL changes.
+    const canonicalSql = sql.replace(/\r\n/g, '\n')
+    const checksum = createHash('sha256').update(canonicalSql).digest('hex')
+    const newlineChecksums = [checksum,
+      createHash('sha256').update(canonicalSql.replace(/\n/g, '\r\n')).digest('hex')]
     const existing = await pool.query(
       'SELECT checksum FROM public.lifeflow_schema_migrations WHERE name = $1',
       [file],
     )
     if (existing.rowCount) {
-      if (existing.rows[0].checksum !== checksum) {
+      if (!newlineChecksums.includes(existing.rows[0].checksum)) {
         throw new Error(`Migration checksum changed after apply: ${file}`)
       }
       process.stderr.write(`Migration already applied: ${file}\n`)

@@ -2,6 +2,12 @@
 
 ## Current implementation
 
+Local MVP now wires LLM Intake, Planner and Moving into the shared LangGraph
+runtime. Housing/Map/Flight use domain adapters; not every domain adds an LLM.
+SQLite persistence and sandbox boundaries are described in
+[ADR-019](docs/adr/ADR-019-local-integrated-mvp.md) and the
+[local runbook](docs/runbooks/local-mvp.md). This is not a deployment architecture.
+
 The repository contains a Python FastAPI/LangGraph application and a bounded
 TypeScript LifeFlow workspace for spatial, housing and moving integrations. The
 TypeScript layout exception and service boundaries are recorded in

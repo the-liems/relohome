@@ -143,7 +143,7 @@ async def run_with_policy(
             raw = failed_result(req, "timeout", "subagent exceeded its deadline", retryable=True)
             break
         except Exception as exc:  # subagent lỗi không mong đợi: thành dữ liệu cho validator
-            logger.exception("subagent %s crashed task_id=%s", req.agent, req.task_id)
+            logger.warning("subagent %s failed (%s) task_id=%s", req.agent, type(exc).__name__, req.task_id)
             raw = failed_result(req, "internal", f"subagent error: {type(exc).__name__}", retryable=False)
             break
     result = check_result(raw, req)

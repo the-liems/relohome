@@ -25,3 +25,26 @@ def llm_calls_left(turn: UsageCounts, settings: GraphSettings) -> int:
 
 def subagent_llm_calls_left(turn: UsageCounts, settings: GraphSettings) -> int:
     return max(0, settings.max_subagent_llm_calls_per_turn - turn.subagent_llm_calls)
+
+
+async def call_graph_component(component, method, inp, deps, state, node):
+    """Account actual calls, including repair/refusal/failure; keep budget invocation-local."""
+    from src.agents.llm_runtime import CALL_LIMIT
+
+    thread, request = state.get("thread_id", ""), state.get("request_id", "")
+    if not getattr(component, "uses_llm", False):
+        return await getattr(component, method)(inp)
+    left = llm_calls_left(await deps.usage.counts(thread, request), deps.settings)
+    token = CALL_LIMIT.set(left)
+    try:
+        return await getattr(component, method)(inp)
+    finally:
+        CALL_LIMIT.reset(token)
+        usage = getattr(component, "usage", None)
+        calls = usage.llm_calls if usage else 1
+        tokens = getattr(component, "last_usage", (0, 0))
+        model = getattr(getattr(component, "llm", None), "model", "unknown")
+        for index in range(calls):
+            await deps.usage.record_llm(
+                thread, request, node, model, tokens[0] if index == 0 else 0, tokens[1] if index == 0 else 0
+            )

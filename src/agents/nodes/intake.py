@@ -9,7 +9,7 @@ import logging
 
 from langchain_core.messages import HumanMessage
 
-from src.agents.cost import llm_calls_left
+from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.intake import (
     LOCATION_KEYS,
@@ -21,6 +21,7 @@ from src.agents.intake import (
     resolve_missing,
 )
 from src.agents.models import (
+    AgentName,
     CommitActionKind,
     IntakeResult,
     Outcome,
@@ -76,7 +77,9 @@ def make_intake(deps: GraphDeps):
             for m in (state.get("messages") or [])
         ]
         try:
-            raw = await deps.intake.understand(
+            raw = await call_graph_component(
+                deps.intake,
+                "understand",
                 IntakeInput(
                     messages=messages,
                     session=state.get("session"),
@@ -86,20 +89,18 @@ def make_intake(deps: GraphDeps):
                     pending_questions=last_response.questions if last_response else [],
                     last_suggestions=last_response.suggestions if last_response else [],
                     supported_domains=deps.agents.names(),
-                )
+                ),
+                deps,
+                state,
+                "intake",
             )
             result = IntakeResult.model_validate(raw.model_dump() if isinstance(raw, IntakeResult) else raw)
         except Exception as exc:
-            logger.exception("intake failed")
+            logger.warning("intake failed: %s", type(exc).__name__)
             return {
                 "outcome": Outcome(node="intake", code=OutcomeCode.ERROR, detail="không hiểu được yêu cầu"),
                 "errors": [error_record("intake", f"intake error: {type(exc).__name__}", now)],
             }
-        if uses_llm:
-            tokens_in, tokens_out = getattr(deps.intake, "last_usage", (0, 0))
-            await deps.usage.record_llm(
-                thread_id, request_id, "intake", deps.settings.llm_models["light"], tokens_in, tokens_out
-            )
 
         decision = state.get("user_decision")
         plan = state.get("plan")
@@ -138,6 +139,12 @@ def make_intake(deps: GraphDeps):
                 if fact is not None and fact.value != previous.prefilled[key].value:
                     logger.info("prefill_corrected field=%s thread_id=%s request_id=%s", key, thread_id, request_id)
         commit_requested = [k for k in CommitActionKind if commit_fact_key(k) in grounded.facts]
+        supported_actions = {kind for name in deps.agents.names() for kind in deps.agents.commit_kinds(name)}
+        unsupported = [kind for kind in commit_requested if kind not in supported_actions]
+        if unsupported:
+            result.conflicts.append(
+                "Hiện chưa kết nối giao dịch thật cho yêu cầu này. Bạn muốn chỉ tìm thông tin/báo giá không?"
+            )
         # Tên viết tắt ("Q10", "BV", "HCM"): không dùng, hỏi lại tên đầy đủ. Bỏ giá trị viết tắt khỏi dữ kiện
         # để câu trả lời lượt sau không bị coi là mâu thuẫn với nó.
         stated_now = {
@@ -152,6 +159,20 @@ def make_intake(deps: GraphDeps):
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        # A point confirmed for an old address cannot silently survive an address edit.
+        for key, address_key in (("pickup_coordinate", "from_address"), ("destination_coordinate", "to_address")):
+            if previous and previous.constraints.values.get(address_key) != values.get(address_key):
+                values.pop(key, None)
+        if AgentName.RELOCATION in result.domains:
+            for endpoint, address_key, coord_key in (
+                ("pickup", "from_address", "pickup_coordinate"),
+                ("destination", "to_address", "destination_coordinate"),
+            ):
+                pin = (state.get("moving_locations") or {}).get(endpoint)
+                if pin and pin.get("confirmed") is True:
+                    # Only the validated API input can supply this point, never a model draft.
+                    values[address_key] = pin["address"]
+                    values[coord_key] = {"lat": pin["lat"], "lng": pin["lng"]}
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),

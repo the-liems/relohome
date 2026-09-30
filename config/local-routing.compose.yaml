@@ -1,0 +1,65 @@
+name: lifeflow-routing-local
+services:
+  hcm-driving:
+    image: ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hcm.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hcm/driving:/data:ro
+    ports:
+      - "127.0.0.1:5000:5000"
+  hcm-walking:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hcm.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hcm/walking:/data:ro
+    ports:
+      - "127.0.0.1:5010:5000"
+  hcm-motorcycle:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hcm.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hcm/motorcycle:/data:ro
+    ports:
+      - "127.0.0.1:5020:5000"
+  hanoi-driving:
+    image: ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hanoi.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hanoi/driving:/data:ro
+    ports:
+      - "127.0.0.1:5001:5000"
+  hanoi-walking:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hanoi.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hanoi/walking:/data:ro
+    ports:
+      - "127.0.0.1:5011:5000"
+  hanoi-motorcycle:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/hanoi.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/hanoi/motorcycle:/data:ro
+    ports:
+      - "127.0.0.1:5021:5000"
+  danang-driving:
+    image: ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b
+    command: ["osrm-routed", "--algorithm", "mld", "/data/danang.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/danang/driving:/data:ro
+    ports:
+      - "127.0.0.1:5002:5000"
+  danang-walking:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/danang.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/danang/walking:/data:ro
+    ports:
+      - "127.0.0.1:5012:5000"
+  danang-motorcycle:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/danang.osrm"]
+    volumes:
+      - ../data/teammate-snapshot/Routing/danang/motorcycle:/data:ro
+    ports:
+      - "127.0.0.1:5022:5000"

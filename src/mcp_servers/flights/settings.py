@@ -28,7 +28,8 @@ class FlightSettings(BaseSettings):
         extra="ignore",
     )
 
-    search_provider: Literal["mock", "serpapi"] = "mock"
+    search_provider: Literal["mock", "serpapi"] = "serpapi"
+    simulation_enabled: bool = False
     serpapi_api_key: str = ""
     db_path: str = "./data/flights.db"
     search_cache_ttl: int = Field(default=3600, ge=0, description="Số giây cache kết quả SerpApi")

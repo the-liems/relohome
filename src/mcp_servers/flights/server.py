@@ -3,6 +3,7 @@ from mcp.types import ToolAnnotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from src.mcp_servers.flights.settings import get_flight_settings
 from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
 
 SERVER_NAME = "vn-flight-booking"
@@ -34,20 +35,28 @@ def create_server(services: FlightServices | None = None, host: str = "127.0.0.1
     """
     services = services or build_services()
     tools = FlightTools(services)
-    mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port)
+    simulation = get_flight_settings().simulation_enabled
+    instructions = (
+        INSTRUCTIONS
+        if simulation
+        else "Search real flights and inspect offers only. Booking, ticketing, cancellation and payment are unavailable."
+    )
+    mcp = FastMCP(SERVER_NAME, instructions=instructions, host=host, port=port)
 
     mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)
     mcp.add_tool(tools.get_offer, title="Chi tiết offer", annotations=READ_ONLY)
-    mcp.add_tool(tools.hold_booking, title="Giữ chỗ", annotations=HOLD)
-    mcp.add_tool(tools.confirm_booking, title="Xuất vé", annotations=COMMIT)
-    mcp.add_tool(tools.get_booking, title="Tra cứu booking", annotations=READ_ONLY)
-    mcp.add_tool(tools.cancel_booking, title="Hủy booking", annotations=COMMIT)
+    if simulation:
+        mcp.add_tool(tools.hold_booking, title="Giữ chỗ", annotations=HOLD)
+        mcp.add_tool(tools.confirm_booking, title="Xuất vé", annotations=COMMIT)
+        mcp.add_tool(tools.get_booking, title="Tra cứu booking", annotations=READ_ONLY)
+        mcp.add_tool(tools.cancel_booking, title="Hủy booking", annotations=COMMIT)
 
     mcp.resource("flights://airports", mime_type="application/json")(tools.airports_resource)
     mcp.resource("flights://airlines", mime_type="application/json")(tools.airlines_resource)
-    mcp.resource("flights://bookings/{booking_ref}", mime_type="application/json")(tools.booking_resource)
-    mcp.prompt(name="plan_domestic_trip")(plan_domestic_trip)
+    if simulation:
+        mcp.resource("flights://bookings/{booking_ref}", mime_type="application/json")(tools.booking_resource)
+        mcp.prompt(name="plan_domestic_trip")(plan_domestic_trip)
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> JSONResponse:

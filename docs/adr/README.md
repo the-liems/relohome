@@ -22,6 +22,10 @@ Bảng đánh số thống nhất giữa các nhánh: `docs/architecture/agent-g
 | Vì sao mỗi service có Dockerfile riêng? | [014 - Đóng gói MCP server](ADR-014-containerized-mcp-servers.md) | Proposed |
 | Vì sao dùng ZaloPay sandbox, dữ liệu cá nhân xử lý thế nào? | [015 - Thanh toán và dữ liệu cá nhân](ADR-015-zalopay-payment-and-data-privacy.md) | Proposed |
 | Vì sao một LangGraph graph với subagent theo lĩnh vực? | [016 - Agent graph](ADR-016-agent-graph-with-domain-subagents.md) | Accepted trên nhánh tích hợp (review lại khi merge `main`) |
+| Vì sao Intake/Planner/Moving dùng LLM-first nhưng quyền thực thi vẫn kiểm bằng code? | [018 - LLM-first components](ADR-018-llm-first-agent-components.md) | Accepted trên `khoa`; chưa ghép graph |
+
+Runtime local mới: [ADR-019 — integrated MVP](ADR-019-local-integrated-mvp.md).
+ADR-018 đã được nối vào graph trong nhánh `mvp`; dòng trạng thái `khoa` ở trên là mốc trước tích hợp.
 
 ADR-003, 004, 008, 011 có mục cập nhật 2026-09-29 cho khớp với agent graph (ADR-016); quyết định
 gốc giữ nguyên.

@@ -1,5 +1,23 @@
 # SPEC-001 — Intake / Goal Understanding
 
+> Cập nhật 2026-09-29 — hướng ADR-016/018: implementation mới là
+> [`LlmIntake`](../../src/agents/intake_llm.py), nhận `IntakeInput`, trả `IntakeResult`
+> của `src/agents/`. Node graph kiểm/gộp facts rồi tính thiếu/hỏi lại. Chưa thay wiring.
+> Xem [bàn giao](../integration/llm-agents-handoff.md) và
+> [live tests](../../tests/test_llm_agents/test_live_components.py).
+> Phần HTTP/container/`src/agent_services` dưới đây mô tả bản ADR-006 cũ,
+> không phải contract phải dùng khi ghép LangGraph.
+
+## Acceptance bổ sung cho graph-compatible component
+
+- `SPEC-001/AC-08`: LLM thật hiểu nhiều domain, đổi ý, phân biệt báo giá với yêu cầu đặt;
+  ý định đặt không cấp approval. Facts/selection có evidence và đúng option IDs được cấp.
+- `SPEC-001/AC-09`: Tối đa hai LLM calls; output không xác minh được sau repair tạo conflict,
+  không tự nới điều kiện. Usage riêng từng invocation kể cả gọi đồng thời.
+- `SPEC-001/AC-10`: Component không tự tải session, truy DB/MCP hay thay graph wiring.
+
+## Bản standalone trước ADR-016 (lưu để đối chiếu)
+
 - Owner: Khoa (`drpie143`)
 - Reviewers: AI/DS, Backend/Security, Routing owner
 - Status: Draft

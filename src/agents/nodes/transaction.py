@@ -153,14 +153,14 @@ def make_transaction(deps: GraphDeps):
                     receipt = await tx.complete_after_payment(req, pending)
                     pending = None
                 else:
-                    receipt = await tx.commit(req)
+                    receipt = await (tx.guarded_commit(req) if hasattr(tx, "guarded_commit") else tx.commit(req))
             except CommitError as exc:
                 if exc.uncertain:
                     reason = f"{action.id}: chưa rõ kết quả, cần đối soát ({exc.message})"
                     return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
                 return finish(OutcomeCode.TX_FAILED, "failed", f"{action.id}: {exc.message}", failed=action.id)
             except Exception as exc:
-                logger.exception("commit crashed action=%s", action.id)
+                logger.warning("commit failed action=%s error_type=%s", action.id, type(exc).__name__)
                 reason = f"{action.id}: lỗi không rõ khi ghi ({type(exc).__name__}), cần đối soát"
                 return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
             new[action.id] = receipt
