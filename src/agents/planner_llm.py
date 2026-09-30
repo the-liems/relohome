@@ -75,6 +75,8 @@ KHÔNG thêm map.near=city, near=tên task, near='các phòng đó' hoặc listi
 để trống near thì subagent tự lấy vị trí thật của các phòng trong upstream.
 pickup_coordinate/destination_coordinate chỉ sao chép nguyên vẹn từ constraints đã xác nhận qua form;
 không suy tọa độ từ địa chỉ. Giữ chúng trong task relocation nếu có.
+Tương tự, Housing có near_coordinate đã xác nhận trên Map thì sao chép nguyên vẹn cùng near
+vào task property; không bỏ điểm đã chọn hoặc tạo task Map phụ chỉ để tìm lại tọa độ đó.
 Giữ task id khi sửa cùng task hoặc tái dùng task trước. Không đặt lại action đã committed.
 Chỉ tạo actions cho commit_requested đã được xác nhận bởi Intake; search/quote không tạo actions.
 Deposit ngoài phạm vi. Target huỷ/sửa phải là order_id/booking_ref do người dùng cung cấp hoặc

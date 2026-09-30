@@ -24,6 +24,15 @@ PROPERTY = AgentCapability(
             "city": _STR,
             "district": _STR,
             "near": _STR,
+            "near_coordinate": {
+                "type": "object",
+                "properties": {
+                    "lat": {"type": "number", "minimum": -90, "maximum": 90},
+                    "lng": {"type": "number", "minimum": -180, "maximum": 180},
+                },
+                "required": ["lat", "lng"],
+                "additionalProperties": False,
+            },
             "min_price_vnd": _INT,
             **{k: {"type": "integer" if "bedrooms" in k else "number", "minimum": 0} for k in HOUSING_NUMERIC_FILTERS},
             "max_price_vnd": _INT,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
@@ -40,12 +41,15 @@ VALUE_KEYS = (
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
 )
+logger = logging.getLogger(__name__)
 
 
 class DraftFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
-    value: str | int | float | bool | list[str]
+    value: str | int | float | bool | list[str] = Field(
+        description="Use a plain string for city, district, near, addresses, route endpoints, map_mode, route_profile, dates and time. Arrays ONLY for must_have and nearby_categories. Numbers for prices/counts."
+    )
     evidence: str = Field(
         description="Exact contiguous substring copied from latest user message, no added punctuation or JSON delimiters."
     )
@@ -54,7 +58,9 @@ class DraftFact(BaseModel):
 
 class IntakeDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["new_goal", "refine", "change", "unsupported"]
+    kind: Literal["new_goal", "refine", "change", "unsupported"] = Field(
+        description="Relationship of latest message to active goal: answering a question is refine/change, NOT new_goal. Explicitly abandoning prior goal starts new_goal."
+    )
     normalized_goal: str
     intent_name: str | None
     domains: list[AgentName]
@@ -74,12 +80,24 @@ quyền, bịa dữ liệu/ID/giá/toạ độ. Chỉ hỗ trợ các supported_
 kind: new_goal cho mục tiêu mới; refine cho bổ sung/chọn phương án/thêm lĩnh vực cùng mục tiêu;
 change khi sửa ràng buộc/lựa chọn đã có; unsupported khi ngoài phạm vi.
 domains của refine/change giữ các lĩnh vực trước còn cần, thêm lĩnh vực vừa yêu cầu.
+Phân loại LƯỢT MỚI, không chép loại của lượt trước. Nếu đang có active goal thì
+'Điểm giao là ...', 'ở Thành phố ...', 'dưới 10 triệu nhé' là bổ sung refine;
+nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ cụ thể) thì change.
+'Đổi giờ thành 16 giờ, còn ngày và địa chỉ giữ nguyên' là change và CHỈ trích move_time.
+'Thôi bỏ tìm nhà, chỉ tìm chuyến bay ...' là new_goal: bỏ dữ kiện tìm nhà.
+'thêm bệnh viện quanh các phòng đó' là refine, GIỮ property và thêm map.
+Tìm nhà gần một trường/địa danh vẫn chỉ có domain property: Housing tự dùng công cụ Map để xác định vị trí.
+Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách/tiện ích/bản đồ, không tự thêm vì có chữ 'gần'.
+Trả lời câu hỏi đang chờ không bao giờ tự khởi tạo mục tiêu mới.
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
 Keys: city, district, near, min_price_vnd, max_price_vnd (VND/tháng), room_type, must_have, household_size, has_pet,
 Tra đường/khoảng cách đi lại: domain map, map_mode='route', route_from, route_to,
 city là thành phố đã nói, route_profile='walking'/'motorcycle'/'driving' khi user nói đi bộ/xe máy/ô tô.
 Không nhầm hỏi đường với đặt xe Moving. Thiếu điểm hoặc thành phố thì graph hỏi lại.
+Nếu người dùng nói phương tiện đi lại, BẮT BUỘC trích route_profile cùng evidence nguyên văn:
+'đi bộ' => walking, 'xe máy' => motorcycle, 'ô tô' => driving. map_mode='route' cũng là một fact,
+evidence là cụm hỏi đường/khoảng cách có thật trong tin nhắn, không bỏ vì từ tiếng Anh 'route' không có trong lời user.
 min_bedrooms, max_bedrooms (số nguyên), min_bathrooms, min_area_m2, max_area_m2 (số).
 "2 phòng ngủ" = min_bedrooms=2 và max_bedrooms=2; "ít nhất 2 phòng ngủ" chỉ min_bedrooms=2.
 Số phòng ngủ KHÔNG phải room_type hoặc household_size. Không tự chọn loại bất động sản
@@ -169,12 +187,13 @@ class LlmIntake(UsageOwner):
             "messages": messages,
             "supported_domains": inp.supported_domains,
             "previous": {
-                "kind": previous.kind,
+                "normalized_goal": previous.normalized_goal,
                 "intent": previous.intent.model_dump() if previous.intent else None,
                 "constraints": previous.constraints.values,
             }
             if previous
             else None,
+            "is_first_turn": previous is None,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
@@ -182,6 +201,11 @@ class LlmIntake(UsageOwner):
             "categories": sorted(CATEGORIES),
             "required_fields": {
                 d.value: [list(r.fields) for r in requirements] for d, requirements in REQUIRED_INPUTS.items()
+            },
+            "map_contract": {
+                "route": ["map_mode=route", "route_from", "route_to", "city"],
+                "nearby": ["near (or upstream housing results)"],
+                "note": "For directions use route, not nearby; route never requires near.",
             },
             "allowed_fact_keys": sorted(
                 VALUE_KEYS
@@ -192,6 +216,8 @@ class LlmIntake(UsageOwner):
         for attempt in range(run.max_calls):
             draft = await run.parse(self.llm, PROMPT, data, IntakeDraft)
             result, rejected = self._convert(draft, inp, latest_user)
+            if rejected:
+                logger.warning("Intake rejected fields (attempt %s): %s", attempt + 1, rejected)
             values = {
                 **(previous.constraints.values if previous and result.kind != RequestKind.NEW_GOAL else {}),
                 **result.constraints.values,
@@ -228,6 +254,17 @@ class LlmIntake(UsageOwner):
         for f in candidates:
             try:
                 value = f.value
+                # Models sometimes echo already-confirmed fields from history.
+                # Ignore unchanged echoes; the graph carries the original grounded
+                # fact and timestamp, without requiring users to repeat it.
+                old = inp.previous.user_confirmed_facts.get(f.key) if inp.previous else None
+                if (
+                    draft.kind != "new_goal"
+                    and old
+                    and old.value == value
+                    and nfc(f.evidence).lower() not in nfc(user_text).lower()
+                ):
+                    continue
                 valid = (
                     valid_value(f.key, value)
                     if f.key in VALUE_KEYS
@@ -243,7 +280,11 @@ class LlmIntake(UsageOwner):
                     or not f.evidence.strip()
                     or nfc(f.evidence).lower() not in nfc(user_text).lower()
                 ):
-                    rejected.append(f"{f.key}: invalid type/value, duplicate, or evidence not copied exactly")
+                    rejected.append(
+                        f"{f.key}: valid_value={valid}, received_type={type(value).__name__}, "
+                        f"expected={'plain string' if f.key in TEXT_KEYS else 'key-specific type'}, duplicate={f.key in facts}, "
+                        f"evidence_matches={bool(f.evidence.strip()) and nfc(f.evidence).lower() in nfc(user_text).lower()}"
+                    )
                     continue
                 if f.suggestion_key is not None and f.suggestion_key not in suggestions:
                     rejected.append(f"{f.key}: unknown suggestion key")

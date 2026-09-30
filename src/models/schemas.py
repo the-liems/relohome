@@ -40,6 +40,7 @@ class MovingLocations(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    housing_location: ConfirmedLocation | None = None
     moving_locations: MovingLocations | None = None
     message: str = Field(..., min_length=1, max_length=5000, description="Tin nhắn từ user")
     thread_id: str | None = Field(default=None, max_length=128, description="Bỏ trống để mở hội thoại mới")

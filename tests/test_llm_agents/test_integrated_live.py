@@ -14,13 +14,14 @@ from dotenv import dotenv_values
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
+BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
 
 
 @pytest.fixture
 def client():
     env = dotenv_values(ROOT / "data/integration.env")
     with httpx.Client(
-        base_url="http://127.0.0.1:8000/api/v1",
+        base_url=BASE_URL,
         timeout=240,
         headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "acceptance_" + uuid.uuid4().hex},
     ) as session:
@@ -40,7 +41,7 @@ def data_by_agent(payload):
 
 
 def test_auth_and_cross_user_thread(client):
-    assert httpx.get("http://127.0.0.1:8000/api/v1/status").status_code == 401
+    assert httpx.get(BASE_URL + "/status").status_code == 401
     result = ask(client, "Xin chào")
     r = client.post(
         "/chat",

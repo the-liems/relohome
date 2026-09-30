@@ -175,7 +175,10 @@ class LocationSubagent:
         soft = inp.get("soft_filters") or {}
         area: dict[str, Any] = {}
         area_name = None
-        if inp.get("near"):
+        if inp.get("near") and inp.get("near_coordinate"):
+            area = {"center": inp["near_coordinate"], "radius_m": DEFAULT_RADIUS_M}
+            area_name = inp["near"]
+        elif inp.get("near"):
             place, options = await self._resolve(tools, inp["near"])
             if place is None:
                 return self._choose(req, tools, "near", inp["near"], options)

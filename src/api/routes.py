@@ -12,7 +12,7 @@ import uuid
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
@@ -49,6 +49,24 @@ def get_service(request: Request) -> AgentService:
 
 UserId = Annotated[str, Header(alias="X-User-Id", min_length=1, max_length=128)]
 Service = Annotated[AgentService, Depends(get_service)]
+
+
+@router.get("/map/search")
+async def search_map(service: Service, text: str = Query(min_length=2, max_length=200)):
+    """Shared read-only place picker; never guesses or approves a Moving pin."""
+    from src.agents.models import AgentName
+    from src.services.adapters.mcp import ToolCallError
+
+    if len(text.strip()) < 2:
+        raise HTTPException(422, "Nhập ít nhất hai ký tự tên địa điểm.")
+    agent = service.deps.agents.get(AgentName.MAP)
+    client = getattr(agent, "client", None)
+    if client is None:
+        raise HTTPException(503, "Location service chưa được kết nối.")
+    try:
+        return await client.call("resolve_location", {"text": text.strip(), "limit": 8})
+    except ToolCallError:
+        raise HTTPException(502, "Không truy vấn được bản đồ; vui lòng thử lại sau.") from None
 
 
 class ThreadBusy(HTTPException):
@@ -110,15 +128,16 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending and pending.get("type") == "payment_required":
             return _payment_response(thread_id, pending, service)
         if pending:
-            if request.moving_locations:
+            if request.moving_locations or request.housing_location:
                 raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
             result = await service.graph.ainvoke(
                 Command(
+                    update={"request_id": uuid.uuid4().hex},
                     resume={
                         "kind": "CHANGE",
                         "plan_version": pending["plan_version"],
                         "change_request": redact_pii(request.message),
-                    }
+                    },
                 ),
                 config,
             )
@@ -129,6 +148,9 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     "user_id": user_id,
                     "thread_id": thread_id,
                     "request_id": uuid.uuid4().hex,
+                    "housing_location": request.housing_location.model_dump(mode="json")
+                    if request.housing_location
+                    else None,
                     "moving_locations": request.moving_locations.model_dump(mode="json", exclude_none=True)
                     if request.moving_locations
                     else None,
@@ -190,7 +212,9 @@ async def decision(
                 pii_refs=pii_refs,
             )
             resume.update(approval_id=approval.approval_id, pii_refs=pii_refs)
-        result = await service.graph.ainvoke(Command(resume=resume), run_config(thread_id, service.deps))
+        result = await service.graph.ainvoke(
+            Command(update={"request_id": uuid.uuid4().hex}, resume=resume), run_config(thread_id, service.deps)
+        )
         return _to_response(thread_id, result, service)
 
 

@@ -6,7 +6,8 @@ import uuid
 import httpx
 import streamlit as st
 
-from src.ui.mvp_components import api, confirmation_controls, payment_demo, remember
+from src.ui.map_picker import shared_map_picker
+from src.ui.mvp_components import BASE, api, confirmation_controls, payment_demo, remember
 
 st.set_page_config(page_title="LifeFlow — local integration", page_icon="🏠")
 st.title("LifeFlow")
@@ -15,7 +16,7 @@ token = os.environ.get("AGENT_API_TOKEN", "")
 if not token:
     st.error("Khởi chạy bằng scripts/local-integration.py ui để nạp cấu hình riêng.")
     st.stop()
-base = "http://127.0.0.1:8000/api/v1"
+base = BASE
 st.session_state.setdefault("user_id", "local_" + uuid.uuid4().hex)
 st.session_state.setdefault("history", [])
 st.session_state.setdefault("thread_id", None)
@@ -41,9 +42,14 @@ if st.sidebar.button("Hội thoại mới"):
     st.session_state.history = []
     st.session_state.thread_id = None
     st.session_state.pending = None
+    st.session_state.pickup_confirmed = False
+    st.session_state.destination_confirmed = False
+    st.session_state.housing_pin = None
+    st.session_state.queued_prompt = None
     st.rerun()
 st.sidebar.caption("Không nhập API key, thông tin thanh toán hay số điện thoại trong chat.")
 pins = {}
+shared_map_picker(headers)
 
 
 def clear_pin_confirmation(endpoint):
@@ -90,7 +96,10 @@ def display(payload):
     if text:
         st.markdown(text)
     for question in response.get("questions", []):
-        st.info(question.get("text", "Cần thêm thông tin"))
+        if question.get("text") not in (text or ""):
+            st.info(question.get("text", "Cần thêm thông tin"))
+        if question.get("options"):
+            st.caption("Lựa chọn: " + " · ".join(question["options"]))
     if payload.get("status") == "pending_confirmation":
         st.warning("Phương án đang chờ xác nhận ở form bên dưới. Chưa có thao tác đặt/hủy nào được thực hiện.")
     with st.expander("Chi tiết kết quả và nguồn"):
@@ -104,7 +113,8 @@ for role, value in st.session_state.history:
         else:
             display(value)
 
-if prompt := st.chat_input("Ví dụ: Tìm phòng tại Quận 10, Thành phố Hồ Chí Minh dưới 5 triệu"):
+typed_prompt = st.chat_input("Ví dụ: Tìm phòng tại Quận 10, Thành phố Hồ Chí Minh dưới 5 triệu")
+if prompt := typed_prompt or st.session_state.pop("queued_prompt", None):
     st.session_state.history.append(("user", prompt))
     with st.chat_message("user"):
         st.write(prompt)
@@ -113,7 +123,12 @@ if prompt := st.chat_input("Ví dụ: Tìm phòng tại Quận 10, Thành phố 
             reply = httpx.post(
                 base + "/chat",
                 headers=headers,
-                json={"message": prompt, "thread_id": st.session_state.thread_id, "moving_locations": pins or None},
+                json={
+                    "message": prompt,
+                    "thread_id": st.session_state.thread_id,
+                    "moving_locations": pins or None,
+                    "housing_location": st.session_state.pop("housing_pin", None),
+                },
                 timeout=240,
             )
             reply.raise_for_status()

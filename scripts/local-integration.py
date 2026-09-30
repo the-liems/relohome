@@ -71,10 +71,13 @@ def environment(component, sandbox_writes=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("component", choices=["location", "moving", "moving-api", "api", "migrate", "ui"])
+    parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
     )
     args = parser.parse_args()
+    if args.port is not None and (args.component not in {"api", "ui"} or not 1 <= args.port <= 65535):
+        parser.error("--port is valid only for api/ui and must be between 1 and 65535")
     commands = {
         "location": ["node", "mcp-server/dist/http-server.js"],
         "moving": ["node", "moving-mcp-server/dist/http-server.js"],
@@ -88,7 +91,7 @@ def main():
             "--host",
             "127.0.0.1",
             "--port",
-            "8000",
+            str(args.port or 8000),
             "--workers",
             "1",
         ],
@@ -101,7 +104,7 @@ def main():
             "--server.address",
             "127.0.0.1",
             "--server.port",
-            "8503",
+            str(args.port or 8503),
         ],
     }
     sys.exit(

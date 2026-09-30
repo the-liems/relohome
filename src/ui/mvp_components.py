@@ -1,6 +1,7 @@
 """Small Streamlit controls. Credentials stay in the server-side API client."""
 
 import io
+import os
 import uuid
 from urllib.parse import urlparse
 
@@ -8,7 +9,7 @@ import httpx
 import segno
 import streamlit as st
 
-BASE = "http://127.0.0.1:8000/api/v1"
+BASE = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
 
 
 def api(headers, method, path, body=None):

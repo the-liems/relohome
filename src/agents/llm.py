@@ -6,6 +6,7 @@ fallback giả, lỗi có mã rõ ràng. Model chọn theo tầng `light` / `hea
 
 from __future__ import annotations
 
+import logging
 from contextvars import ContextVar
 from typing import Literal, TypeVar
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 from src.agents.common import canonical
 
 T = TypeVar("T", bound=BaseModel)
+logger = logging.getLogger(__name__)
 
 
 class LLMError(Exception):
@@ -68,6 +70,8 @@ class StructuredLLM:
                 "LLM_TIMEOUT", "OpenAI phản hồi quá thời gian chờ. Kiểm tra trạng thái hiện tại trước khi thử lại.", True
             ) from exc
         except APIConnectionError as exc:
+            cause = exc.__cause__
+            logger.warning("LLM connection failure cause=%s detail=%s", type(cause).__name__, str(cause)[:200])
             raise LLMError(
                 "LLM_CONNECTION_ERROR",
                 "Không kết nối được OpenAI. Kiểm tra mạng/DNS/proxy của máy chạy API; không phải do câu hỏi của bạn.",

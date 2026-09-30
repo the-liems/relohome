@@ -125,7 +125,7 @@ def receipt_line(receipt) -> str:
 
 
 DATA_NOTES = {
-    "has_more": "Danh sách trên xếp trong các tin mình đã lấy; còn tin khác phù hợp, bạn muốn xem thêm thì cứ nói.",
+    "has_more": "Đây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
     "approximate_origins": "Vị trí một số phòng chỉ gần đúng, nên khoảng cách tới tiện ích là ước lượng.",
     "destination_location_approximate": "Vị trí phòng chỉ gần đúng; giá chuyển đồ có thể thay đổi khi đặt.",
 }
@@ -164,7 +164,18 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "missing_fields": result.missing_fields,
             "summary": result.summary,
         }
-        lines.extend(describe_result(task.agent, result.data, titles))
+        display_data = result.data
+        intake = state.get("intake")
+        selected = intake.user_confirmed_facts.get(f"selected:{task.agent.value}") if intake else None
+        if selected and task.agent == AgentName.PROPERTY:
+            chosen = [c for c in result.data.get("candidates", []) if c.get("id") == selected.value]
+            if chosen:
+                display_data = {**result.data, "candidates": chosen}
+                lines.append("Căn bạn đã chọn:")
+                # Keep the full result for workflow dependencies, but expose which
+                # options actually appeared to support the next ordinal reference.
+                view[task.id]["displayed_option_ids"] = [c["id"] for c in chosen]
+        lines.extend(describe_result(task.agent, display_data, titles))
         notes.extend(data_notes(result.data))
         if result.source_kind != "live":
             kinds.add(result.source_kind)
@@ -180,6 +191,19 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     lines, view, kinds, relaxed = results_view(state)
     has_results = bool(view)
     data: dict[str, Any] = {"results": view}
+    known_summary = ""
+    if intake and AgentName.RELOCATION in intake.domains and code in {OutcomeCode.CLARIFY, OutcomeCode.ASK_USER}:
+        values = intake.constraints.values
+        known = {k: values[k] for k in ("move_date", "move_time", "from_address", "to_address") if values.get(k)}
+        data["known_request"] = known
+        if known:
+            labels = {"move_date": "ngày", "move_time": "giờ", "from_address": "lấy tại", "to_address": "giao tới"}
+            known_summary = (
+                "Mình đã ghi nhận: "
+                + "; ".join(f"{labels[k]} {v}" for k, v in known.items())
+                + ". Bạn không cần nhập lại các thông tin này."
+            )
+            lines.insert(0, known_summary)
     plan = state.get("plan")
     if plan:
         data["plan_version"] = plan.version
@@ -297,7 +321,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         kind = "ERROR"
         head = f"Có lỗi khi xử lý yêu cầu{': ' + outcome.detail if outcome and outcome.detail else ''}."
     if kind == "CLARIFY" and code == OutcomeCode.CLARIFY:
-        lines = []  # intake chặn: chưa có kết quả
+        lines = [known_summary] if known_summary else []
     body = [head, *lines, *(q.text for q in questions), *notes]
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)
 

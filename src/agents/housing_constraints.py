@@ -11,6 +11,7 @@ HOUSING_INPUT_KEYS = (
     "city",
     "district",
     "near",
+    "near_coordinate",
     "min_price_vnd",
     "max_price_vnd",
     "room_type",

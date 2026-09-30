@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -206,13 +207,27 @@ class MovingLlmAgent:
                 }
             ]
             while True:
+                # Only offer tools whose prerequisites are met. A completed
+                # quote must not start another catalog/quote loop.
+                available = set(allowed)
+                if mode == "quote":
+                    if execution.quote is not None:
+                        available = {"finish", "ask_user"}
+                    elif execution.route is None:
+                        available = {"resolve_move_route", "ask_user"}
+                    elif not execution.catalog_loaded:
+                        available = {"list_moving_services", "ask_user"}
+                    else:
+                        available = {"estimate_move", "ask_user"}
+                        if execution.detail_reads < 2:
+                            available.add("get_moving_service")
                 run.reserve()
                 async with asyncio.timeout(run.remaining()):
                     response = await self.client.responses.create(
                         model=self.model,
                         instructions=PROMPT,
                         input=history,
-                        tools=[t for t in TOOLS if t["name"] in allowed],
+                        tools=[t for t in TOOLS if t["name"] in available],
                         tool_choice="required",
                         parallel_tool_calls=False,
                         max_output_tokens=1500,
@@ -230,7 +245,7 @@ class MovingLlmAgent:
                 call = calls[0]
                 try:
                     args = json_object(call.arguments)
-                    if call.name not in allowed or not Draft202012Validator(TOOL_SCHEMAS[call.name]).is_valid(args):
+                    if call.name not in available or not Draft202012Validator(TOOL_SCHEMAS[call.name]).is_valid(args):
                         raise ValueError("Tool arguments invalid")
                     async with asyncio.timeout(run.remaining()):
                         output = await execution.call(call.name, args)
@@ -276,6 +291,7 @@ class MovingExecution:
         self.order: dict | None = None
         self.quote: dict | None = None
         self.cache: dict[str, Any] = {}
+        self.detail_reads = 0
 
     def result(self, status: str, **kwargs):
         return AgentTaskResult(
@@ -316,12 +332,26 @@ class MovingExecution:
         if coordinate:
             return {"address": address, **coordinate}
         resolved = await self.tool(self.agent.location, "resolve_location", {"text": address, "limit": 3})
-        if not resolved or resolved.get("ambiguous"):
+        if not resolved:
             return None
         rows = resolved.get("results", [])
-        if len(rows) != 1 or rows[0].get("entity_type") == "administrative_area":
+        exact = [r for r in rows if r.get("entity_type") == "place" and r.get("match_type") == "exact"]
+        if len(exact) == 1:
+            return {"address": address, **exact[0]["location"]}
+        if resolved.get("ambiguous") or len(rows) != 1 or rows[0].get("entity_type") == "administrative_area":
             return None
         return {"address": address, **rows[0]["location"]}
+
+    def location_question(self, field: str, address: str) -> Question:
+        label = "lấy" if field == "from_address" else "giao"
+        broad = re.fullmatch(r"\s*(quận|huyện|phường|thành phố|tỉnh)\s+[^,]+\s*", address, flags=re.IGNORECASE)
+        if broad:
+            text = f"Bạn muốn {label} đồ ở địa chỉ nào trong ‘{address}’? Mình cần số nhà/tên tòa nhà và đường; tên quận/khu vực chưa xác định được điểm xe đến."
+        elif any(word in address.casefold() for word in ("ký túc xá", "kí túc xá", "khu b", "khu a")):
+            text = f"‘{address}’ là ký túc xá của trường nào, ở thành phố nào và lấy/giao tại cổng nào? Mình chưa xác định được đúng điểm {label}."
+        else:
+            text = f"Mình đã ghi địa chỉ {label} ‘{address}’, nhưng dữ liệu bản đồ hiện chưa xác định được tọa độ chính xác. Bạn xác nhận riêng điểm {label} trong mục ‘Xác nhận điểm lấy/giao cho Moving’ nhé; không cần nhập lại ngày giờ."
+        return Question(field=field, text=text)
 
     async def call(self, name: str, args: dict):
         inp, mode = self.req.inputs, self.req.inputs["mode"]
@@ -361,9 +391,19 @@ class MovingExecution:
                     if c.get("lat") is not None and c.get("lng") is not None and c.get("address"):
                         destination = {k: c[k] for k in ("lat", "lng", "address")}
             if pickup is None or destination is None:
-                return self.ask(
-                    "from_address" if pickup is None else "to_address",
-                    "Cần xác nhận điểm lấy/giao chính xác hoặc chọn một địa điểm có tọa độ rõ ràng.",
+                questions = []
+                if pickup is None:
+                    questions.append(self.location_question("from_address", inp["from_address"]))
+                if destination is None:
+                    questions.append(self.location_question("to_address", inp.get("to_address", "phòng đã chọn")))
+                return self.result(
+                    "needs_input",
+                    questions=questions,
+                    data={
+                        "known_request": {
+                            k: inp[k] for k in ("from_address", "to_address", "move_date", "move_time") if k in inp
+                        }
+                    },
                 )
             self.route = {"pickup": pickup, "destination": destination, "order_time": when}
             return {"route_ready": True, "from_address": pickup["address"], "to_address": destination["address"]}
@@ -403,6 +443,7 @@ class MovingExecution:
             if args["service_id"] not in self.catalog:
                 raise ValueError("Unknown service")
             got = await self.tool(self.agent.moving, name, {"service_id": args["service_id"]})
+            self.detail_reads += 1
             return public_data(got)
         if name == "estimate_move":
             ids = args["service_ids"]

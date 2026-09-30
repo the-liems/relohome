@@ -47,6 +47,10 @@ def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
     for task in plan.tasks:
         result = results.get(task.id)
         options = [{"option_id": q.option_id, "label": q.label} for q in (result.quotes if result else [])][:10]
+        response = state.get("response")
+        displayed = response.data.get("results", {}).get(task.id, {}).get("displayed_option_ids") if response else None
+        if displayed:
+            options = [o for o in options if o["option_id"] in displayed]
         outline.append(
             TaskOutline(
                 id=task.id,
@@ -126,6 +130,20 @@ def make_intake(deps: GraphDeps):
             result = result.model_copy(update={"target_task_ids": decision.target_task_ids})
 
         # Dữ kiện: evidence phải là lời người dùng; không nhận dữ liệu cá nhân; gộp qua các lượt.
+        # A precise reply to an outstanding field replaces that field's coarse
+        # value; it is not a contradiction or a new workflow.
+        pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
+        if (
+            previous
+            and result.kind == RequestKind.REFINE
+            and any(
+                key in pending_fields
+                and key in previous.user_confirmed_facts
+                and previous.user_confirmed_facts[key].value != fact.value
+                for key, fact in result.user_confirmed_facts.items()
+            )
+        ):
+            result = result.model_copy(update={"kind": RequestKind.CHANGE})
         user_texts = [str(m.content) for m in messages if isinstance(m, HumanMessage)]
         suggestion_keys = [s.key for s in last_response.suggestions] if last_response else []
         previous_facts = dict(previous.user_confirmed_facts) if previous else {}
@@ -167,6 +185,25 @@ def make_intake(deps: GraphDeps):
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
         # A point confirmed for an old address cannot silently survive an address edit.
+        if (
+            previous
+            and previous.constraints.values.get("city")
+            and values.get("city") != previous.constraints.values.get("city")
+        ):
+            for key in ("district", "near", "near_coordinate"):
+                if key not in result.user_confirmed_facts:
+                    values.pop(key, None)
+                    facts.pop(key, None)
+        if previous and previous.constraints.values.get("near") != values.get("near"):
+            values.pop("near_coordinate", None)
+        housing_pin = state.get("housing_location")
+        if housing_pin and previous and (new_near := result.user_confirmed_facts.get("near")):
+            old_near = previous.constraints.values.get("near")
+            if new_near.value != old_near and housing_pin["address"] == old_near:
+                housing_pin = None
+        if AgentName.PROPERTY in result.domains and housing_pin and housing_pin.get("confirmed") is True:
+            values["near"] = housing_pin["address"]
+            values["near_coordinate"] = {"lat": housing_pin["lat"], "lng": housing_pin["lng"]}
         for key, address_key in (("pickup_coordinate", "from_address"), ("destination_coordinate", "to_address")):
             if previous and previous.constraints.values.get(address_key) != values.get(address_key):
                 values.pop(key, None)
@@ -177,6 +214,17 @@ def make_intake(deps: GraphDeps):
             ):
                 pin = (state.get("moving_locations") or {}).get(endpoint)
                 if pin and pin.get("confirmed") is True:
+                    current_fact = result.user_confirmed_facts.get(address_key)
+                    old_address = previous.constraints.values.get(address_key) if previous else None
+                    if (
+                        current_fact
+                        and old_address
+                        and current_fact.value != old_address
+                        and pin["address"] == old_address
+                    ):
+                        # Sidebar may still submit the previous confirmed pin.
+                        # An explicit new address invalidates it, not vice versa.
+                        continue
                     # Only the validated API input can supply this point, never a model draft.
                     values[address_key] = pin["address"]
                     values[coord_key] = {"lat": pin["lat"], "lng": pin["lng"]}
@@ -198,6 +246,9 @@ def make_intake(deps: GraphDeps):
             now=now,
         )
         update: dict = {"intake": result, "declined_suggestions": result.declined_suggestions}
+        if result.kind == RequestKind.NEW_GOAL:
+            # Do not display a previous goal's results when a new goal needs input.
+            update.update(plan=None, cost_summary=None)
         if errors:
             update["errors"] = errors
         if result.kind == RequestKind.UNSUPPORTED:
