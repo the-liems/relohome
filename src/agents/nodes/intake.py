@@ -42,7 +42,43 @@ def explicitly_changed_fact(key: str, text: str) -> bool:
     """A user correction can coexist with a newly requested domain."""
     if key == "move_time":
         return bool(re.search(r"\b(?:đổi|sửa|chuyển)\s+giờ\b", text, re.IGNORECASE))
+    if key in {"from_address", "to_address"}:
+        return bool(re.search(r"\b(?:đổi chiều|đảo chiều|ngược lại)\b", text, re.IGNORECASE))
     return False
+
+
+def resolve_moving_references(result: IntakeResult, previous: IntakeResult | None) -> dict:
+    """Resolve endpoint references against confirmed state, including its coordinates."""
+    if AgentName.RELOCATION not in result.domains:
+        return {}
+    old = previous.constraints.values if previous else {}
+    endpoints = {
+        "previous:pickup": ("from_address", "pickup_coordinate"),
+        "previous:destination": ("to_address", "destination_coordinate"),
+    }
+    carried_coordinates = {}
+    for address_key, coordinate_key in endpoints.values():
+        fact = result.user_confirmed_facts.get(address_key)
+        if fact is None:
+            continue
+        source = endpoints.get(fact.value) if isinstance(fact.value, str) else None
+        if source:
+            address = old.get(source[0])
+            if not address:
+                result.conflicts.append("Chưa có điểm lấy/giao trước đó để dùng lại; bạn cho biết địa chỉ nhé.")
+                result.user_confirmed_facts.pop(address_key, None)
+                result.constraints.values.pop(address_key, None)
+                continue
+            fact = fact.model_copy(update={"value": address})
+            result.user_confirmed_facts[address_key] = fact
+            result.constraints.values[address_key] = address
+        # Matching a previously confirmed point reuses its actual coordinates.
+        # A new address never inherits coordinates merely because it is nearby.
+        for old_address, old_coordinate in [source] if source else endpoints.values():
+            if fact.value == old.get(old_address) and old.get(old_coordinate):
+                carried_coordinates[coordinate_key] = dict(old[old_coordinate])
+                break
+    return carried_coordinates
 
 
 def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
@@ -121,6 +157,7 @@ def make_intake(deps: GraphDeps):
                 "errors": [error_record("intake", code, now)],
             }
 
+        contextual_coordinates = resolve_moving_references(result, previous)
         decision = state.get("user_decision")
         plan = state.get("plan")
         if decision is not None and decision.kind == "REJECT" and result.kind != RequestKind.CHANGE and plan:
@@ -216,6 +253,7 @@ def make_intake(deps: GraphDeps):
         for key, address_key in (("pickup_coordinate", "from_address"), ("destination_coordinate", "to_address")):
             if previous and previous.constraints.values.get(address_key) != values.get(address_key):
                 values.pop(key, None)
+        values.update(contextual_coordinates)
         if AgentName.RELOCATION in result.domains:
             for endpoint, address_key, coord_key in (
                 ("pickup", "from_address", "pickup_coordinate"),

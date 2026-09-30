@@ -275,6 +275,24 @@ def missing_for(
     """Input bắt buộc còn thiếu của task thuộc `domain`, dạng "domain.field"."""
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
+    if domain == AgentName.RELOCATION:
+        selected_endpoint = any(values.get(k) == "selected:property" for k in ("from_address", "to_address"))
+        missing = []
+        if selected_endpoint and "selected:property" not in facts:
+            missing.append("relocation.selected:property")
+        for key in ("from_address", "to_address", "move_date", "move_time"):
+            if _has(values, key):
+                continue
+            if (
+                key == "to_address"
+                and AgentName.PROPERTY in sources
+                and values.get("from_address") != "selected:property"
+            ):
+                if "selected:property" not in facts:
+                    missing.append("relocation.selected:property")
+                continue
+            missing.append(f"relocation.{key}")
+        return missing
     if domain == AgentName.MAP and values.get("map_mode") == "route":
         missing = [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
         if (
@@ -298,6 +316,10 @@ def missing_for(
 
 
 def depends_on_other(domain: AgentName, domains: list[AgentName], values: dict[str, Any]) -> bool:
+    if domain == AgentName.RELOCATION and any(
+        values.get(k) == "selected:property" for k in ("from_address", "to_address")
+    ):
+        return False  # A confirmed listing ID can be fetched directly by Moving.
     return any(
         req.derived_from in domains and not any(_has(values, f) for f in req.fields)
         for req in REQUIRED_INPUTS.get(domain, ())

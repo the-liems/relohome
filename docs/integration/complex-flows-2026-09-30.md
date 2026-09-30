@@ -100,3 +100,43 @@ request_id, depends_on và allocated_llm_calls. Trace không chứa API key/liê
 - Một lần chạy lại độc lập bị `PROVIDER_UNAVAILABLE` từ AhaMove staging ở
   bước quote đầu, nên không tính ca độc lập ấy là pass. Đây là giới hạn
   upstream cần theo dõi; bài test live vẫn giữ assert nghiêm ngặt.
+
+## Đợt tiếp theo: tham chiếu địa điểm và hội thoại dài
+
+Đã kiểm thử thêm ba hội thoại bằng GPT-6 Luna qua OpenRouter, Housing/Map thật
+và AhaMove staging. Không tạo đơn xe hoặc thanh toán. Test nằm tại
+`tests/test_llm_agents/test_contextual_moving_live.py`.
+
+| Hội thoại | Kết quả quan sát |
+|---|---|
+| 4 lượt: tìm nhà → chọn căn thứ hai → “chuyển từ chỗ đó… tầm chiều” → “15 giờ nhé” | Giữ đúng ID căn đã chọn, hỏi giờ cụ thể, tra đúng địa chỉ căn. Vì tọa độ căn chỉ xấp xỉ, yêu cầu xác nhận điểm lấy thay vì tự báo giá. |
+| 5 lượt: ngày 31/11 → sửa 3/10 → đảo điểm lấy/giao → giờ 25:00 → sửa 15 giờ | Bắt ngày/giờ không hợp lệ; dùng lại đúng địa chỉ và tọa độ theo chiều mới; báo giá thật sau sửa, thời điểm trong draft cuối đúng 15:00 ngày 3/10/2026. |
+| 3 lượt: “điểm đó về nhà tôi” khi chưa có ngữ cảnh → giao trong Quận 1 → “cứ lấy giữa quận” | Hỏi bổ sung; không tạo tọa độ giao giả, không trả báo giá từ tâm quận. |
+
+Bằng chứng checkpoint local (không chứa key):
+
+- `th_39871e81460a4505adb2bc8629951155`: ANSWER → ANSWER → CLARIFY → CLARIFY.
+- `th_4509ba85d9c843f799f0d66e7e9ceb61`: CLARIFY → ANSWER → ANSWER → CLARIFY → ANSWER.
+- `th_3cf9b926a41542fa839379fc07108bdf`: CLARIFY → CLARIFY → CLARIFY.
+
+Các ca đã chạy thành công được đối chiếu lại từ checkpoint thật, không gọi LLM
+lại. Đây là các lượt kiểm thử riêng sau sửa, không phải một lượt chạy toàn bộ
+regression suite trên cùng một phiên bản.
+
+Các lỗi đã sửa:
+
+1. Moving trước đây geocode chuỗi nội bộ `selected:property` như địa chỉ.
+   Nay dùng ID nhà đã chọn để tra `get_housing`, hỗ trợ cả điểm lấy và điểm giao;
+   không bắt chạy lại tìm nhà. Validator đối chiếu ID với lựa chọn của user.
+2. Khi đảo chiều, tái sử dụng tọa độ theo địa chỉ đã xác nhận. Backend gắn tọa độ
+   vào task sau khi đối chiếu địa chỉ; Planner không thể chép nhầm tọa độ chiều cũ.
+3. Câu hỏi sửa ngày/giờ không hợp lệ có đúng field để câu trả lời ngắn như
+   “15 giờ nhé” thay thế giờ cũ, không bị coi là mâu thuẫn.
+4. Moving kiểm tra tuyến và catalog trước khi hỏi thêm; tránh LLM hỏi chung chung
+   dù task đã có đủ dữ liệu. LLM vẫn chọn dịch vụ và gọi tool báo giá.
+5. Không hiển thị `selected:property` trong lời trả lời. Nếu task thất bại,
+   response không còn tuyên bố ANSWER thành công với danh sách kết quả rỗng.
+
+Giới hạn: hiểu đúng “chỗ đó” không làm tọa độ housing chính xác hơn dữ liệu nguồn.
+Nếu vị trí chưa đủ chính xác, vẫn cần user xác nhận pin. Các câu hỏi mơ hồ có thể
+cần nhiều lượt bổ sung; ba hội thoại này không chứng minh mọi cách diễn đạt đều đúng.

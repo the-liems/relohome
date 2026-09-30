@@ -23,6 +23,7 @@ from src.agents.llm_provider import client_options, provider_model
 from src.agents.llm_runtime import Invocation, json_object, public_data
 from src.agents.models import AgentBudget, AgentName, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import RELOCATION
+from src.agents.subagents.services.location import to_candidate
 from src.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
@@ -215,13 +216,13 @@ class MovingLlmAgent:
                 available = set(allowed)
                 if mode == "quote":
                     if execution.quote is not None:
-                        available = {"finish", "ask_user"}
+                        available = {"finish"}
                     elif execution.route is None:
-                        available = {"resolve_move_route", "ask_user"}
+                        available = {"resolve_move_route"}
                     elif not execution.catalog_loaded:
-                        available = {"list_moving_services", "ask_user"}
+                        available = {"list_moving_services"}
                     else:
-                        available = {"estimate_move", "ask_user"}
+                        available = {"estimate_move"}
                         if execution.detail_reads < 2:
                             available.add("get_moving_service")
                 run.reserve()
@@ -296,6 +297,7 @@ class MovingExecution:
         self.quote: dict | None = None
         self.cache: dict[str, Any] = {}
         self.detail_reads = 0
+        self.selected_listing: dict | None = None
 
     def result(self, status: str, **kwargs):
         return AgentTaskResult(
@@ -347,6 +349,9 @@ class MovingExecution:
         return {"address": address, **rows[0]["location"]}
 
     def location_question(self, field: str, address: str) -> Question:
+        if address == "selected:property":
+            selected = self.selected_house()
+            address = (selected or {}).get("address") or "căn nhà bạn đã chọn"
         label = "lấy" if field == "from_address" else "giao"
         broad = re.fullmatch(r"\s*(quận|huyện|phường|thành phố|tỉnh)\s+[^,]+\s*", address, flags=re.IGNORECASE)
         if broad:
@@ -356,6 +361,33 @@ class MovingExecution:
         else:
             text = f"Mình đã ghi địa chỉ {label} ‘{address}’, nhưng dữ liệu bản đồ hiện chưa xác định được tọa độ chính xác. Bạn xác nhận riêng điểm {label} trong mục ‘Xác nhận điểm lấy/giao cho Moving’ nhé; không cần nhập lại ngày giờ."
         return Question(field=field, text=text)
+
+    def selected_house(self) -> dict | None:
+        if self.selected_listing:
+            return self.selected_listing
+        matches = {
+            c["id"]: c
+            for r in self.req.upstream.values()
+            for c in r.data.get("candidates", [])
+            if c.get("id") == self.req.inputs.get("selected_listing_id")
+        }
+        return next(iter(matches.values()), None)
+
+    async def endpoint(self, address: str | None, coordinate: dict | None = None):
+        if address and address != "selected:property":
+            return await self.point(address, coordinate)
+        house = self.selected_house()
+        if house is None and self.req.inputs.get("selected_listing_id"):
+            item = await self.tool(
+                self.agent.location, "get_housing", {"listing_id": self.req.inputs["selected_listing_id"]}
+            )
+            if item and item.get("listing_id") == self.req.inputs["selected_listing_id"]:
+                self.selected_listing, _ = to_candidate(item, [])
+                house = self.selected_listing
+        if house and house.get("location_accuracy") == "rooftop":
+            if all(house.get(k) is not None for k in ("lat", "lng", "address")):
+                return {k: house[k] for k in ("lat", "lng", "address")}
+        return None
 
     async def call(self, name: str, args: dict):
         inp, mode = self.req.inputs, self.req.inputs["mode"]
@@ -379,21 +411,8 @@ class MovingExecution:
             when = order_time(inp["move_date"], inp.get("move_time"), self.agent.clock())
             if when is None:
                 return self.ask("move_time", "Bạn muốn chuyển ngày nào, lúc mấy giờ trong tương lai?")
-            pickup = await self.point(inp["from_address"], inp.get("pickup_coordinate"))
-            destination = None
-            if inp.get("to_address"):
-                destination = await self.point(inp["to_address"], inp.get("destination_coordinate"))
-            else:
-                matches = [
-                    c
-                    for r in self.req.upstream.values()
-                    for c in r.data.get("candidates", [])
-                    if c.get("id") == inp.get("selected_listing_id")
-                ]
-                if len(matches) == 1 and matches[0].get("location_accuracy") == "rooftop":
-                    c = matches[0]
-                    if c.get("lat") is not None and c.get("lng") is not None and c.get("address"):
-                        destination = {k: c[k] for k in ("lat", "lng", "address")}
+            pickup = await self.endpoint(inp["from_address"], inp.get("pickup_coordinate"))
+            destination = await self.endpoint(inp.get("to_address"), inp.get("destination_coordinate"))
             if pickup is None or destination is None:
                 questions = []
                 if pickup is None:
@@ -432,6 +451,11 @@ class MovingExecution:
             got = await self.tool(self.agent.moving, name, arguments)
             self.catalog = {s["service_id"]: s for s in got.get("services", [])}
             self.catalog_loaded = True
+            if mode == "quote" and not self.catalog:
+                return self.ask(
+                    "service_id",
+                    "AhaMove hiện không trả dịch vụ chuyển đồ tại điểm lấy này. Bạn muốn kiểm tra điểm lấy khác không?",
+                )
             return {
                 "services": [
                     {

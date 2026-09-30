@@ -123,12 +123,15 @@ def validate_plan(
         if len(deps) != len(task.depends_on) or not deps <= id_set or task.id in deps:
             errors.append(f"{task.id}: depends_on trùng, trỏ tới task không có hoặc trỏ tới chính nó")
         capability = registry.capability(task.agent)
-        if task.agent == AgentName.MAP:
+        if task.agent in {AgentName.MAP, AgentName.RELOCATION}:
             selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
             selected_id = task.inputs.get("selected_listing_id")
             if selected_id is not None and (selected is None or selected_id != selected.value):
                 errors.append(f"{task.id}: selected_listing_id must match the confirmed housing selection")
-            if any(task.inputs.get(k) == "selected:property" for k in ("route_from", "route_to")) and not selected_id:
+            endpoint_keys = (
+                ("route_from", "route_to") if task.agent == AgentName.MAP else ("from_address", "to_address")
+            )
+            if any(task.inputs.get(k) == "selected:property" for k in endpoint_keys) and not selected_id:
                 errors.append(f"{task.id}: selected housing route requires selected_listing_id")
         if capability is None:
             errors.append(f"{task.id}: lĩnh vực {task.agent.value} không có trong registry")
@@ -315,9 +318,12 @@ class TemplatePlanner:
             for key in ("from_address", "to_address", "move_date", "move_time", "volume"):
                 _put(inputs, key, values.get(key))
             selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
-            if "to_address" not in inputs and selected is not None:
+            if selected is not None and (
+                "to_address" not in inputs
+                or any(inputs.get(k) == "selected:property" for k in ("from_address", "to_address"))
+            ):
                 inputs["selected_listing_id"] = str(selected.value)
-                return inputs, True
+                return inputs, False
             return inputs, False
         return None, False
 

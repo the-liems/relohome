@@ -135,20 +135,40 @@ class MovingSubagent:
                 SOURCE,
                 self.source_kind,
             )
-        pickup = await self._point(geo, inp["from_address"])
+        selected = None
+        if inp.get("selected_listing_id"):
+            from src.agents.subagents.services.location import to_candidate
+
+            if geo:
+                detail = await geo.call("get_housing", {"listing_id": inp["selected_listing_id"]})
+                if detail and detail.get("listing_id") == inp["selected_listing_id"]:
+                    selected, _ = to_candidate(detail, [])
+            if selected is None:
+                selected = next(
+                    (
+                        c
+                        for r in req.upstream.values()
+                        for c in r.data.get("candidates", [])
+                        if c.get("id") == inp["selected_listing_id"]
+                    ),
+                    None,
+                )
+
+        async def endpoint(address):
+            if address and address != "selected:property":
+                return await self._point(geo, address)
+            if selected and selected.get("location_accuracy") == "rooftop":
+                if all(selected.get(k) is not None for k in ("lat", "lng", "address")):
+                    return {k: selected[k] for k in ("lat", "lng", "address")}
+            return None
+
+        pickup = await endpoint(inp["from_address"])
         destination = None
         warnings: list[str] = []
         to_address = inp.get("to_address")
-        if to_address:
-            destination = await self._point(geo, to_address)
-        elif inp.get("selected_listing_id"):
-            for upstream in req.upstream.values():
-                for c in upstream.data.get("candidates", []):
-                    if c.get("id") == inp["selected_listing_id"] and c.get("lat") is not None:
-                        to_address = c.get("address")
-                        destination = {"address": to_address, "lat": c["lat"], "lng": c["lng"]}
-                        if c.get("location_accuracy") != "rooftop":
-                            warnings.append("destination_location_approximate")
+        destination = await endpoint(to_address)
+        if destination:
+            to_address = destination["address"]
         questions = []
         when = order_time(inp["move_date"], inp.get("move_time"), self.clock())
         if when is None:
@@ -224,7 +244,7 @@ class MovingSubagent:
             "quote_id": quote.get("quote_id"),
             "expires_at": quote.get("expires_at"),
             "payment_method": "CASH",
-            "from_address": inp["from_address"],
+            "from_address": pickup["address"],
             "to_address": to_address,
             # Toạ độ và giờ đặt (không có dữ liệu cá nhân) để transaction báo giá lại với liên hệ thật.
             "route": {"pickup": pickup, "destination": destination, "order_time": when},

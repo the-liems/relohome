@@ -7,6 +7,7 @@ validator phải kèm kết quả đã có; `summary` của subagent chỉ là t
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage
@@ -26,6 +27,19 @@ from src.agents.state import WorkflowState
 from src.agents.suggestions import next_step_suggestions
 
 logger = logging.getLogger(__name__)
+
+
+def conflict_question(text: str, domains: list[AgentName]) -> Question:
+    # The next short user answer must be tied to the field we actually asked
+    # about, including invalid dates/times that could not become typed facts.
+    field = "conflict"
+    if AgentName.RELOCATION in domains:
+        if re.search(r"\bgiờ\b|move_time", text, re.IGNORECASE):
+            field = "move_time"
+        elif re.search(r"\bngày\b|move_date", text, re.IGNORECASE):
+            field = "move_date"
+    return Question(field=field, text=text)
+
 
 QUESTION_TEXT = {
     "payment.payment_id": "Bạn muốn tra trạng thái mã thanh toán ZaloPay nào? Không gửi số tài khoản hay thông tin thẻ.",
@@ -211,7 +225,9 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             labels = {"move_date": "ngày", "move_time": "giờ", "from_address": "lấy tại", "to_address": "giao tới"}
             known_summary = (
                 "Mình đã ghi nhận: "
-                + "; ".join(f"{labels[k]} {v}" for k, v in known.items())
+                + "; ".join(
+                    f"{labels[k]} {'căn nhà bạn đã chọn' if v == 'selected:property' else v}" for k, v in known.items()
+                )
                 + ". Bạn không cần nhập lại các thông tin này."
             )
             lines.insert(0, known_summary)
@@ -250,7 +266,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     elif code == OutcomeCode.CLARIFY:
         kind = "CLARIFY"
         questions = [question_for(f, session) for f in intake.blocking_missing]
-        questions += [Question(field="conflict", text=c) for c in intake.conflicts]
+        questions += [conflict_question(c, intake.domains) for c in intake.conflicts]
         head = "Mình cần thêm một chút thông tin:"
         if any(f.startswith("property.") for f in intake.blocking_missing):
             notes.append(
@@ -281,6 +297,19 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     elif code == OutcomeCode.ANSWER:
         kind = "ANSWER"
         head = "Đây là kết quả mình tìm được:"
+        failed = [
+            {"agent": t.agent.value, "task_id": t.id}
+            for t in (plan.tasks if plan else [])
+            if (state.get("task_status") or {}).get(t.id) in {TaskStatus.FAILED, TaskStatus.SKIPPED}
+        ]
+        if failed:
+            kind = "PARTIAL" if has_results else "ERROR"
+            head = (
+                "Mình mới hoàn thành được một phần yêu cầu."
+                if has_results
+                else "Mình chưa lấy được kết quả từ dịch vụ. Bạn thử lại sau nhé."
+            )
+            data["failed_tasks"] = failed
         summary = state.get("cost_summary")
         if summary:
             data["cost_summary"] = summary.model_dump(mode="json")

@@ -70,10 +70,13 @@ Map nearby không có near nhưng có selected:property: dùng selected_listing_
 không tra tiện ích cho mọi căn trong trang cũ. Nếu chưa chọn căn thì dùng phụ thuộc property như trước.
 Route giữa hai địa danh độc lập không cần property; không đổi route thành nearby.
 Moving quote dùng mode='quote', from_address, to_address hoặc selected_listing_id, move_date, move_time.
+Nếu from_address hoặc to_address là 'selected:property', giữ nguyên marker đó và thêm
+selected_listing_id đúng căn user đã chọn. Moving tự tra chi tiết ID đó, không cần depends_on property. Căn đã chọn
+có thể là điểm LẤY hoặc điểm GIAO; không tự đổi vai hai đầu tuyến.
 Tra Moving dùng mode='order_status' + order_id/tracking_number. Không tự chọn nhà/xe cho user.
 Phòng được chọn phải lấy từ fact selected:property, không lấy ứng viên đầu của kết quả trước.
-Map/flight thiếu vị trí và cần kết quả property thì depends_on task property; Moving lấy vị trí nhà
-đã chọn cũng depends_on property. Các task độc lập không cần phụ thuộc. Không có chu trình.
+Map/flight thiếu vị trí và cần kết quả property thì depends_on task property.
+Các task có ID nhà đã chọn tự tra chi tiết, không phụ thuộc vào task tìm nhà cũ. Không có chu trình.
 Ví dụ property+map với city và nearby_categories: property.inputs={city:...,max_price_vnd:...};
 map.inputs={categories:[...],radius_m:1500}, map.depends_on=[id task property].
 ready_requested_domains là các domain backend đã xác nhận đủ input trực tiếp HOẶC qua dependency.
@@ -84,8 +87,8 @@ Nếu map_origin_binding.kind='upstream_property', TUYỆT ĐỐI không có sel
 không dùng ID task property làm ID căn nhà. Đó là nhiều căn chưa được người dùng chọn;
 chỉ đặt depends_on tới task property, categories và radius_m. map_mode có thể bỏ hoặc nearby.
 để trống near thì subagent tự lấy vị trí thật của các phòng trong upstream.
-pickup_coordinate/destination_coordinate chỉ sao chép nguyên vẹn từ constraints đã xác nhận qua form;
-không suy tọa độ từ địa chỉ. Giữ chúng trong task relocation nếu có.
+pickup_coordinate/destination_coordinate do backend gắn từ điểm đã xác nhận khi địa chỉ khớp;
+có thể bỏ hai field này. Không suy tọa độ từ địa chỉ hay sao chép tọa độ tuyến cũ khi đảo chiều.
 Tương tự, Housing có near_coordinate đã xác nhận trên Map thì sao chép nguyên vẹn cùng near
 vào task property; không bỏ điểm đã chọn hoặc tạo task Map phụ chỉ để tìm lại tọa độ đó.
 Giữ task id khi sửa cùng task hoặc tái dùng task trước. Không đặt lại action đã committed.
@@ -169,6 +172,21 @@ class LlmPlanner(UsageOwner):
             )
             for t in draft.tasks
         ]
+        values = inp.intake.constraints.values
+        selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
+        for task in tasks:
+            if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
+                continue
+            # Coordinates belong to trusted state. A model cannot override them
+            # or accidentally retain the old direction's coordinates.
+            for address_key, coordinate_key in (
+                ("from_address", "pickup_coordinate"),
+                ("to_address", "destination_coordinate"),
+            ):
+                if values.get(coordinate_key) and task.inputs.get(address_key) == values.get(address_key):
+                    task.inputs[coordinate_key] = dict(values[coordinate_key])
+            if selected and any(task.inputs.get(k) == "selected:property" for k in ("from_address", "to_address")):
+                task.inputs.setdefault("selected_listing_id", selected.value)
         actions = [
             CommitAction(
                 id=f"{a.kind.value}:{a.source_task_id}",
@@ -283,18 +301,14 @@ class LlmPlanner(UsageOwner):
                     errors.append(f"{task.id}.{key}: not grounded in user constraints")
             if task.agent in {AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION}:
                 derived = (
-                    (
-                        task.agent == AgentName.MAP
-                        and not task.inputs.get("near")
-                        and not task.inputs.get("selected_listing_id")
-                        and task.inputs.get("map_mode") != "route"
-                    )
-                    or (
-                        task.agent == AgentName.FLIGHT
-                        and not task.inputs.get("destination")
-                        and not task.inputs.get("booking_ref")
-                    )
-                    or (task.agent == AgentName.RELOCATION and bool(task.inputs.get("selected_listing_id")))
+                    task.agent == AgentName.MAP
+                    and not task.inputs.get("near")
+                    and not task.inputs.get("selected_listing_id")
+                    and task.inputs.get("map_mode") != "route"
+                ) or (
+                    task.agent == AgentName.FLIGHT
+                    and not task.inputs.get("destination")
+                    and not task.inputs.get("booking_ref")
                 )
                 if derived and not any(
                     plan.task(d) and plan.task(d).agent == AgentName.PROPERTY for d in task.depends_on

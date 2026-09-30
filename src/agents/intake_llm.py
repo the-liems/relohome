@@ -107,6 +107,13 @@ Không nhầm hỏi đường với đặt xe Moving. Thiếu điểm hoặc th�
 Nếu user nói 'căn đã chọn', 'căn này' trong ngữ cảnh căn đã chọn, route_from hoặc route_to
 ở đầu tương ứng dùng giá trị 'selected:property'; evidence vẫn là cụm người dùng nói.
 Không tự thay bằng tên/địa chỉ hay ID đoán được. Chưa chọn căn thì graph hỏi chọn căn.
+Moving cũng dùng from_address/to_address='selected:property' ở đúng đầu lấy/giao khi nói
+'từ căn đó', 'từ chỗ đó' trong ngữ cảnh vừa chọn nhà, hoặc 'đến căn đã chọn'.
+'Tầm chiều', 'sáng sớm' chưa có giờ chính xác: KHÔNG tạo move_time, để hỏi thêm giờ.
+Nếu Moving nói 'điểm lấy cũ'/'điểm giao vừa rồi', dùng marker previous:pickup/previous:destination
+cho from_address hoặc to_address tương ứng. Backend lấy địa chỉ và tọa độ đã xác nhận từ state.
+'Đổi chiều: lấy ở điểm giao, giao về điểm lấy cũ' là change, from_address='previous:destination',
+to_address='previous:pickup'. Giữ ngày giờ cũ. Nếu 'điểm đó' có nhiều ứng viên ngang nhau thì hỏi rõ.
 Nếu người dùng nói phương tiện đi lại, BẮT BUỘC trích route_profile cùng evidence nguyên văn:
 'đi bộ' => walking, 'xe máy' => motorcycle, 'ô tô' => driving. map_mode='route' cũng là một fact,
 evidence là cụm hỏi đường/khoảng cách có thật trong tin nhắn, không bỏ vì từ tiếng Anh 'route' không có trong lời user.
@@ -235,6 +242,11 @@ class LlmIntake(UsageOwner):
                 "normalized_goal": previous.normalized_goal,
                 "intent": previous.intent.model_dump() if previous.intent else None,
                 "constraints": previous.constraints.values,
+                "selected_property": (
+                    previous.user_confirmed_facts["selected:property"].value
+                    if "selected:property" in previous.user_confirmed_facts
+                    else None
+                ),
             }
             if previous
             else None,
