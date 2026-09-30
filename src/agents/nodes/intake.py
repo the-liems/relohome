@@ -25,6 +25,7 @@ from src.agents.llm import LLMError
 from src.agents.models import (
     AgentName,
     CommitActionKind,
+    ConfirmedFact,
     IntakeResult,
     Outcome,
     OutcomeCode,
@@ -44,6 +45,8 @@ def explicitly_changed_fact(key: str, text: str) -> bool:
         return bool(re.search(r"\b(?:đổi|sửa|chuyển)\s+giờ\b", text, re.IGNORECASE))
     if key in {"from_address", "to_address"}:
         return bool(re.search(r"\b(?:đổi chiều|đảo chiều|ngược lại)\b", text, re.IGNORECASE))
+    if key in {"nearby_categories", "nearby_radius_m", "map_mode"}:
+        return bool(re.search(r"\b(?:không cần .+ nữa|chỉ tìm|đổi|thay)\b", text, re.IGNORECASE))
     return False
 
 
@@ -179,6 +182,18 @@ def make_intake(deps: GraphDeps):
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
         latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
+        stopped_route = re.search(r"không cần (?:tính )?đường nữa", latest_text, re.IGNORECASE)
+        if (
+            stopped_route
+            and previous
+            and previous.constraints.values.get("map_mode") == "route"
+            and AgentName.MAP in result.domains
+            and "nearby_categories" in result.user_confirmed_facts
+        ):
+            result.user_confirmed_facts["map_mode"] = ConfirmedFact(
+                value="nearby", evidence=stopped_route.group(0), stated_at=now
+            )
+            result.constraints.values["map_mode"] = "nearby"
         if (
             previous
             and result.kind == RequestKind.REFINE
@@ -200,6 +215,16 @@ def make_intake(deps: GraphDeps):
             if fact is not None and receipt.created_at >= fact.stated_at:
                 previous_facts.pop(key)
         grounded = ground_facts(result.user_confirmed_facts, previous_facts, result.kind, user_texts, suggestion_keys)
+        if (
+            AgentName.MAP in result.domains
+            and result.constraints.values.get("near") == "selected:property"
+            and "selected:property" in grounded.facts
+        ):
+            # A selected listing is an entity reference, not a place name for
+            # Housing/Map geocoding. Map binds the selected listing ID itself.
+            grounded.facts.pop("near", None)
+            result.user_confirmed_facts.pop("near", None)
+            result.constraints.values.pop("near", None)
         errors = [
             error_record("intake", f"bỏ dữ kiện không có căn cứ hoặc là dữ liệu cá nhân: {name}", now)
             for name in grounded.dropped

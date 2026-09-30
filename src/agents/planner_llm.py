@@ -13,7 +13,7 @@ from src.agents.intake import missing_for, selected_fact_key
 from src.agents.llm import LLMError, StructuredLLM
 from src.agents.llm_runtime import Invocation, UsageOwner, json_object
 from src.agents.models import AgentName, CommitAction, CommitActionKind, Plan, RequestKind, Task
-from src.agents.planning import COMMIT_DOMAIN, PII_REQUIRED, PlannerInput, PlannerOutput, validate_plan
+from src.agents.planning import COMMIT_DOMAIN, PII_REQUIRED, PlannerInput, PlannerOutput, TemplatePlanner, validate_plan
 
 
 class TaskDraft(BaseModel):
@@ -64,6 +64,9 @@ Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ ph�
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
 Map key: flight_date -> flight.date; nearby_categories -> map.categories; nearby_radius_m -> map.radius_m.
 Khi map_mode='route': tạo map task với map_mode, route_from, route_to, city, route_profile nếu có.
+Khi trước đó Map đã tìm tiện ích và lượt mới yêu cầu đường đi, tạo task Map route mới.
+Task Map nearby cũ có thể giữ nguyên để giữ kết quả, nhưng không được thay cho task route;
+chỉ task route mới nhận route_from/route_to. Đổi chiều ngược lại cũng tương tự.
 Nếu route_from hoặc route_to='selected:property', giữ giá trị đó và thêm selected_listing_id
 từ fact selected:property. Không cần phụ thuộc task property để tra ID đã chọn; Location tự xác minh tin còn tồn tại.
 Map nearby không có near nhưng có selected:property: dùng selected_listing_id từ fact đó,
@@ -174,6 +177,21 @@ class LlmPlanner(UsageOwner):
         ]
         values = inp.intake.constraints.values
         selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
+        if (
+            selected
+            and AgentName.PROPERTY in inp.intake.domains
+            and inp.previous_plan
+            and inp.intake.kind != RequestKind.NEW_GOAL
+            and not any(t.agent == AgentName.PROPERTY for t in tasks)
+        ):
+            # A selected listing may be reused by a new Map task without
+            # repeating the Housing query. Retain the actual completed task
+            # only while every Housing input still matches the current goal.
+            expected, _ = TemplatePlanner._inputs(AgentName.PROPERTY, values, inp.intake)
+            old_property = next((t for t in inp.previous_plan.tasks if t.agent == AgentName.PROPERTY), None)
+            old_result = inp.previous_results.get(old_property.id) if old_property else None
+            if old_property and old_property.inputs == expected and old_result and old_result.status == "done":
+                tasks.insert(0, old_property.model_copy(deep=True))
         for task in tasks:
             if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
                 continue
@@ -218,6 +236,11 @@ class LlmPlanner(UsageOwner):
         }
         blocked = set(inp.intake.blocking_missing + inp.intake.constraints.missing)
         planned = {t.agent for t in plan.tasks}
+        requested_map_mode = values.get("map_mode", "nearby")
+        if AgentName.MAP in inp.intake.domains and not any(
+            t.agent == AgentName.MAP and t.inputs.get("map_mode", "nearby") == requested_map_mode for t in plan.tasks
+        ):
+            errors.append(f"Missing requested Map task mode: {requested_map_mode}")
         for domain in inp.intake.domains:
             if (
                 domain in inp.available_agents
@@ -228,6 +251,11 @@ class LlmPlanner(UsageOwner):
                 errors.append(f"Missing runnable requested domain: {domain.value}")
         for task in plan.tasks:
             carried_unrequested = task.agent not in inp.intake.domains and task == old.get(task.id)
+            carried_other_map_mode = (
+                task.agent == AgentName.MAP
+                and task == old.get(task.id)
+                and task.inputs.get("map_mode", "nearby") != requested_map_mode
+            )
             if task.agent not in inp.intake.domains and task != old.get(task.id):
                 errors.append(f"{task.id}: domain not requested")
             mappings = {
@@ -239,15 +267,11 @@ class LlmPlanner(UsageOwner):
                     "flight_date": "date",
                     "passengers": "passengers",
                 },
-                AgentName.MAP: {
-                    "nearby_categories": "categories",
-                    "nearby_radius_m": "radius_m",
-                    **(
-                        {k: k for k in ("map_mode", "route_from", "route_to", "city", "route_profile")}
-                        if values.get("map_mode") == "route"
-                        else {}
-                    ),
-                },
+                AgentName.MAP: (
+                    {k: k for k in ("map_mode", "route_from", "route_to", "city", "route_profile")}
+                    if task.inputs.get("map_mode") == "route"
+                    else {"nearby_categories": "categories", "nearby_radius_m": "radius_m"}
+                ),
                 AgentName.RELOCATION: {
                     k: k
                     for k in (
@@ -263,7 +287,7 @@ class LlmPlanner(UsageOwner):
                     )
                 },
             }
-            if not carried_unrequested:
+            if not carried_unrequested and not carried_other_map_mode:
                 if task.agent == AgentName.MAP:
                     selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
                     selected_route = any(values.get(k) == "selected:property" for k in ("route_from", "route_to"))
@@ -297,7 +321,7 @@ class LlmPlanner(UsageOwner):
                     )
                 elif expected is None and key in defaults:
                     expected = defaults[key]
-                if value != expected and not carried_unrequested:
+                if value != expected and not carried_unrequested and not carried_other_map_mode:
                     errors.append(f"{task.id}.{key}: not grounded in user constraints")
             if task.agent in {AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION}:
                 derived = (

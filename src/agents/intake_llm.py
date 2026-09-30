@@ -93,6 +93,8 @@ nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ c�
 'thêm bệnh viện quanh các phòng đó' là refine, GIỮ property và thêm map.
 Tìm nhà gần một trường/địa danh vẫn chỉ có domain property: Housing tự dùng công cụ Map để xác định vị trí.
 Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách/tiện ích/bản đồ, không tự thêm vì có chữ 'gần'.
+Nếu nói "không cần tính đường nữa, chỉ tìm [tiện ích]", đó là change:
+map_mode='nearby', nearby_categories là danh mục mới và bán kính mới nếu nêu.
 Trả lời câu hỏi đang chờ không bao giờ tự khởi tạo mục tiêu mới.
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
@@ -132,6 +134,7 @@ Chỉ nói tháng: move_month YYYY-MM, không bịa ngày. Giờ rõ đổi HH:M
 Giữ nguyên tên địa danh/viết tắt người dùng, không tự geocode, tự đổi mã sân bay.
 Tìm nhà 'tại/trong/ở' một thành phố, quận hoặc phường: dùng city (phạm vi hành chính).
 near chỉ dùng khi người dùng muốn gần một địa chỉ/địa danh cụ thể; không đổi cả thành phố thành điểm gần.
+"quanh căn đã chọn" dùng fact selected:property đã xác nhận; KHÔNG tạo near='selected:property'.
 Không trích tên cá nhân/SĐT/email/CCCD/liên hệ; chúng thuộc form riêng.
 Tìm/xem giá KHÔNG sinh commit. Chỉ khi user yêu cầu đặt/huỷ/sửa mới sinh fact tương ứng
 commit:flight_booking, commit:moving_booking, commit:cancel_order, commit:update_order với value true

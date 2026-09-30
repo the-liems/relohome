@@ -140,3 +140,34 @@ Các lỗi đã sửa:
 Giới hạn: hiểu đúng “chỗ đó” không làm tọa độ housing chính xác hơn dữ liệu nguồn.
 Nếu vị trí chưa đủ chính xác, vẫn cần user xác nhận pin. Các câu hỏi mơ hồ có thể
 cần nhiều lượt bổ sung; ba hội thoại này không chứng minh mọi cách diễn đạt đều đúng.
+
+## Đợt kiểm tra Map liên kết Housing
+
+Thử trực tiếp API với dữ liệu nhà và Map thật, không tạo đơn hoặc thanh toán:
+
+| Lượt | Yêu cầu | Kết quả |
+|---|---|---|
+| 1 | Tìm nhà đúng 2 phòng ngủ ở Quận 1 dưới 10 triệu | Có danh sách nhà thật. |
+| 2 | Chọn căn thứ hai | Lưu đúng ID căn đã chọn. |
+| 3 | Tìm bệnh viện và nhà thuốc quanh căn, bán kính 1000 m | Trả các điểm gần căn đã chọn trong bán kính. |
+| 4 | Đi bộ từ Takashimaya tới căn đó | Tạo task Map route riêng; trả khoảng cách tuyến đi bộ thật. |
+| 5 | Không cần đường nữa; tìm siêu thị quanh căn trong 500 m | Chuyển về Map nearby, vẫn giữ đúng căn và bán kính mới. |
+
+Thread kiểm chứng: `th_19e3ecbc4dca45e6b7d883aed04ae187`. Một ca khác
+(`tests/test_llm_agents/test_map_cross_service_live.py`) xác nhận địa danh
+“Bưu điện Trung tâm Sài Gòn” có nhiều kết quả thì hệ thống hỏi xác nhận,
+không tự chọn tọa độ để vẽ tuyến. Sau các sửa lỗi, những lượt đã đạt được đối
+chiếu trên cùng thread; **không chạy lại toàn bộ năm lượt** chỉ để tiết kiệm
+LLM credit. Test live trong file trên có thể chạy lại khi cần kiểm định hồi quy.
+
+Lỗi đã sửa: Planner bỏ mất task Housing đã hoàn tất dù lựa chọn căn còn hiệu
+lực; Intake đưa `selected:property` vào trường địa chỉ `near`; Planner áp bộ
+lọc nearby lên task route cũ (và ngược lại); Intake coi yêu cầu đổi chế độ Map
+và bán kính là mâu thuẫn. Các thay đổi không gắn cứng tên căn hay tọa độ của
+ca thử vào logic sản phẩm.
+
+Phạm vi Map hiện có: Housing dùng Map tìm vị trí/tiện ích và tính đường;
+Moving dùng pin/toạ độ được xác nhận cho báo giá; Flight dùng sân bay riêng;
+Payment không cần Map. Vị trí nhà chỉ xấp xỉ theo nguồn, không được tự biến
+thành điểm lấy/giao chính xác để đặt xe. Giao diện chọn pin còn giới hạn và
+không thuộc đợt sửa này.
