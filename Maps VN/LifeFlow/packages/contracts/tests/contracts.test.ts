@@ -76,6 +76,28 @@ describe('HousingSearchRequestSchema', () => {
 })
 
 describe('HousingMapRequestSchema', () => {
+  it('preserves supported search filters and validates their ranges', () => {
+    const viewport = { bounding_box: { west: 106.6, south: 10.7, east: 106.8, north: 10.9 }, zoom: 12 }
+    const filters = {
+      district: 'Quận 7', administrative_area_ids: ['city:hcm'],
+      min_price: { amount: 1, currency: 'VND', period: 'month' },
+      max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
+      currency: 'VND', price_period: 'month', min_bedrooms: 2, max_bedrooms: 3,
+      min_bathrooms: 1, min_area_m2: 60, max_area_m2: 90, amenities: ['parking'],
+      nearby: [{ category: 'hospital', max_distance_m: 1000 }],
+    }
+    expect(HousingMapRequestSchema.parse({ ...viewport, ...filters })).toMatchObject(filters)
+    for (const invalid of [
+      { min_bedrooms: 3, max_bedrooms: 2 },
+      { min_area_m2: 90, max_area_m2: 60 },
+      { ...filters, currency: 'USD' },
+      { ...filters, price_period: 'night' },
+      { ...filters, min_price: { amount: 20_000_000, currency: 'VND', period: 'month' } },
+      { commute: { destination: { lat: 10.8, lng: 106.7 }, max_duration_seconds: 900 } },
+      { listing_ids: [] },
+    ]) expect(HousingMapRequestSchema.safeParse({ ...viewport, ...invalid }).success).toBe(false)
+  })
+
   it('accepts viewport-driven map requests', () => {
     expect(HousingMapRequestSchema.parse({
       bounding_box: { west: 106.6, south: 10.7, east: 106.8, north: 10.9 },

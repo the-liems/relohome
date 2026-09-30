@@ -67,6 +67,8 @@ export const NearbyPlaceMatchSchema = z.object({
   name: z.string().min(1).nullable(),
   category: z.string().min(1),
   distance_meters: z.number().nonnegative(),
+  location: CoordinateSchema.nullable().default(null),
+  distance_kind: z.literal('straight_line').default('straight_line'),
   verification: VerificationSchema,
   source: SourceSchema,
 })

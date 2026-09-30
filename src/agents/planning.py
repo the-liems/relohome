@@ -123,6 +123,13 @@ def validate_plan(
         if len(deps) != len(task.depends_on) or not deps <= id_set or task.id in deps:
             errors.append(f"{task.id}: depends_on trùng, trỏ tới task không có hoặc trỏ tới chính nó")
         capability = registry.capability(task.agent)
+        if task.agent == AgentName.MAP:
+            selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
+            selected_id = task.inputs.get("selected_listing_id")
+            if selected_id is not None and (selected is None or selected_id != selected.value):
+                errors.append(f"{task.id}: selected_listing_id must match the confirmed housing selection")
+            if any(task.inputs.get(k) == "selected:property" for k in ("route_from", "route_to")) and not selected_id:
+                errors.append(f"{task.id}: selected housing route requires selected_listing_id")
         if capability is None:
             errors.append(f"{task.id}: lĩnh vực {task.agent.value} không có trong registry")
         else:
@@ -273,16 +280,22 @@ class TemplatePlanner:
             _put(inputs, "soft_filters", soft)
             return inputs, False
         if domain == AgentName.MAP:
+            selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
             if values.get("map_mode") == "route":
-                return {
+                inputs = {
                     k: values[k] for k in ("map_mode", "route_from", "route_to", "city", "route_profile") if k in values
-                }, False
+                }
+                if selected and any(inputs.get(k) == "selected:property" for k in ("route_from", "route_to")):
+                    inputs["selected_listing_id"] = str(selected.value)
+                return inputs, False
             _put(inputs, "categories", values.get("nearby_categories") or DEFAULT_MAP_CATEGORIES)
             inputs["radius_m"] = int(values.get("nearby_radius_m") or 1500)
             standalone = values.get("near") and AgentName.PROPERTY not in intake.domains
             if standalone:
                 inputs["near"] = values["near"]
-            return inputs, not standalone
+            elif selected:
+                inputs["selected_listing_id"] = str(selected.value)
+            return inputs, not standalone and selected is None
         if domain == AgentName.FLIGHT:
             if values.get("booking_ref"):
                 return {"booking_ref": values["booking_ref"]}, False

@@ -31,6 +31,7 @@ QUESTION_TEXT = {
     "map.route_from": "Bạn muốn đi từ địa điểm nào?",
     "map.route_to": "Bạn muốn đi tới địa điểm nào?",
     "map.city": "Bạn muốn tra đường tại thành phố nào?",
+    "map.selected:property": "Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.",
     "property.city|near": "Bạn muốn tìm phòng ở khu vực nào (ví dụ: gần ĐH Bách Khoa, Quận 10 TP.HCM)?",
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
@@ -89,9 +90,11 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
             lines.append(
                 f"Đường đi ({routing.get('profile')}): {route['distance_meters'] / 1000:.2f} km, khoảng {route['duration_seconds'] / 60:.0f} phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp."
             )
+            if routing.get("warnings"):
+                lines.append("Vị trí đầu hoặc cuối tuyến chỉ gần đúng/chưa rõ độ chính xác; tuyến đường là ước tính.")
         for key, pois in (data.get("nearby") or {}).items():
             names = ", ".join(
-                f"{p.get('name') or p.get('category')} ({int(p.get('distance_m', 0))}m)" for p in pois[:3]
+                f"{p.get('name') or p.get('category')} ({int(p.get('distance_m', 0))}m đường thẳng)" for p in pois[:3]
             )
             lines.append(f"Quanh {(titles or {}).get(key, key)}: {names or 'chưa có dữ liệu'}")
     elif agent == AgentName.FLIGHT:
@@ -161,6 +164,7 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "data": result.data,
             "source": result.source,
             "source_kind": result.source_kind,
+            "fetched_at": result.fetched_at.isoformat(),
             "missing_fields": result.missing_fields,
             "summary": result.summary,
         }

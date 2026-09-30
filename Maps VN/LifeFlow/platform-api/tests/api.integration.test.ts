@@ -29,6 +29,9 @@ describe('LifeFlow Platform API', () => {
     expect([...new Set(body.features.map((feature: { properties: { group: string } }) => feature.properties.group))].sort())
       .toEqual(['accommodation', 'education', 'food', 'healthcare', 'lifestyle', 'shopping', 'transport', 'utility'])
     expect(new Set(body.features.map((feature: { id: string }) => feature.id)).size).toBe(body.features.length)
+    expect(body.features.every((feature: { geometry: { coordinates: number[] } }) =>
+      feature.geometry.coordinates.length === 2 && feature.geometry.coordinates.every(Number.isFinite),
+    )).toBe(true)
   })
 
   it('rejects unbounded map requests', async () => {

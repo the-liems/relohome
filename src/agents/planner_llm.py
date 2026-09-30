@@ -63,6 +63,10 @@ Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ ph�
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
 Map key: flight_date -> flight.date; nearby_categories -> map.categories; nearby_radius_m -> map.radius_m.
 Khi map_mode='route': tạo map task với map_mode, route_from, route_to, city, route_profile nếu có.
+Nếu route_from hoặc route_to='selected:property', giữ giá trị đó và thêm selected_listing_id
+từ fact selected:property. Không cần phụ thuộc task property để tra ID đã chọn; Location tự xác minh tin còn tồn tại.
+Map nearby không có near nhưng có selected:property: dùng selected_listing_id từ fact đó,
+không tra tiện ích cho mọi căn trong trang cũ. Nếu chưa chọn căn thì dùng phụ thuộc property như trước.
 Route giữa hai địa danh độc lập không cần property; không đổi route thành nearby.
 Moving quote dùng mode='quote', from_address, to_address hoặc selected_listing_id, move_date, move_time.
 Tra Moving dùng mode='order_status' + order_id/tracking_number. Không tự chọn nhà/xe cho user.
@@ -214,6 +218,12 @@ class LlmPlanner(UsageOwner):
                 },
             }
             if not carried_unrequested:
+                if task.agent == AgentName.MAP:
+                    selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
+                    selected_route = any(values.get(k) == "selected:property" for k in ("route_from", "route_to"))
+                    if selected and (selected_route if values.get("map_mode") == "route" else not task.inputs.get("near")):
+                        if task.inputs.get("selected_listing_id") != selected.value:
+                            errors.append(f"{task.id}: preserve the selected housing ID")
                 for source_key, target_key in mappings[task.agent].items():
                     if (
                         source_key in values
@@ -246,6 +256,7 @@ class LlmPlanner(UsageOwner):
                     (
                         task.agent == AgentName.MAP
                         and not task.inputs.get("near")
+                        and not task.inputs.get("selected_listing_id")
                         and task.inputs.get("map_mode") != "route"
                     )
                     or (
@@ -253,7 +264,7 @@ class LlmPlanner(UsageOwner):
                         and not task.inputs.get("destination")
                         and not task.inputs.get("booking_ref")
                     )
-                    or bool(task.inputs.get("selected_listing_id"))
+                    or (task.agent == AgentName.RELOCATION and bool(task.inputs.get("selected_listing_id")))
                 )
                 if derived and not any(
                     plan.task(d) and plan.task(d).agent == AgentName.PROPERTY for d in task.depends_on

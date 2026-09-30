@@ -203,6 +203,7 @@ export class PlaceService {
            p.id AS place_id,
            p.name,
            c.slug AS category,
+           ST_X(p.geom) AS lng, ST_Y(p.geom) AS lat,
            ST_Distance(
              p.geog,
              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
@@ -268,6 +269,8 @@ function rowToNearbyMatch(row: Record<string, unknown>): NearbyPlaceMatch {
     name: row.name === null ? null : String(row.name),
     category: String(row.category),
     distance_meters: Number(row.distance_meters),
+    location: { lng: Number(row.lng), lat: Number(row.lat) },
+    distance_kind: 'straight_line',
     verification: {
       status: row.verification_status as NearbyPlaceMatch['verification']['status'],
       verified_at: row.verified_at ? new Date(String(row.verified_at)).toISOString() : null,

@@ -95,6 +95,9 @@ Keys: city, district, near, min_price_vnd, max_price_vnd (VND/tháng), room_type
 Tra đường/khoảng cách đi lại: domain map, map_mode='route', route_from, route_to,
 city là thành phố đã nói, route_profile='walking'/'motorcycle'/'driving' khi user nói đi bộ/xe máy/ô tô.
 Không nhầm hỏi đường với đặt xe Moving. Thiếu điểm hoặc thành phố thì graph hỏi lại.
+Nếu user nói 'căn đã chọn', 'căn này' trong ngữ cảnh căn đã chọn, route_from hoặc route_to
+ở đầu tương ứng dùng giá trị 'selected:property'; evidence vẫn là cụm người dùng nói.
+Không tự thay bằng tên/địa chỉ hay ID đoán được. Chưa chọn căn thì graph hỏi chọn căn.
 Nếu người dùng nói phương tiện đi lại, BẮT BUỘC trích route_profile cùng evidence nguyên văn:
 'đi bộ' => walking, 'xe máy' => motorcycle, 'ô tô' => driving. map_mode='route' cũng là một fact,
 evidence là cụm hỏi đường/khoảng cách có thật trong tin nhắn, không bỏ vì từ tiếng Anh 'route' không có trong lời user.

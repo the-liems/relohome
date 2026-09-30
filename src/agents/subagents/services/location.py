@@ -11,8 +11,10 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult, reject_unsupported
+from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
 from src.agents.models import AgentName, AgentUsage, Question, Quote
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
@@ -120,6 +122,11 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "location_accuracy": r.get("location_accuracy") or "unknown",
         "location_method": r.get("location_method"),
         "amenities": amenities,
+        "price": price,
+        "thumbnail_url": r.get("thumbnail_url"),
+        "source": r.get("source"),
+        "verification": r.get("verification"),
+        "unknown_fields": r.get("unknown_fields") or [],
     }
     missing = [k for k in ("price_vnd", "deposit_vnd", "area_m2", "address") if candidate[k] is None]
     missing += [m for m in must_have if m not in amenities]
@@ -131,11 +138,14 @@ class LocationSubagent:
         if agent not in (AgentName.PROPERTY, AgentName.MAP):
             raise ValueError("LocationSubagent serves property and map only")
         self.capability = BASELINE_CAPABILITIES[agent]
+        self.input_validator = Draft202012Validator(self.capability.input_schema)
         self.client, self.clock = client, clock
 
     async def run(self, req: AgentTaskRequest) -> AgentTaskResult:
         if (rejected := reject_unsupported(req, SOURCE, "live")) is not None:
             return rejected
+        if not self.input_validator.is_valid(req.inputs):
+            return failed_result(req, "invalid_input", "Location task inputs do not match the capability schema.", False, SOURCE, "live")
         tools = CountingClient(self.client, req.budget.max_provider_calls)
         try:
             if req.agent == AgentName.PROPERTY:
@@ -155,9 +165,12 @@ class LocationSubagent:
             **kw,
         )
 
-    async def _resolve(self, tools: CountingClient, text: str) -> tuple[dict | None, list[dict]]:
+    async def _resolve(self, tools: CountingClient, text: str, bounding_box: dict | None = None) -> tuple[dict | None, list[dict]]:
         """(ứng viên rõ ràng hoặc None, danh sách ứng viên để hỏi lại)."""
-        results = ((await tools.call("resolve_location", {"text": text, "limit": 5})) or {}).get("results") or []
+        arguments = {"text": text, "limit": 5}
+        if bounding_box is not None:
+            arguments["bounding_box"] = bounding_box
+        results = ((await tools.call("resolve_location", arguments)) or {}).get("results") or []
         return pick_clear(results), results
 
     def _choose(
@@ -175,11 +188,17 @@ class LocationSubagent:
         soft = inp.get("soft_filters") or {}
         area: dict[str, Any] = {}
         area_name = None
+        city_scope = None
+        if inp.get("city") and inp.get("near"):
+            areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
+            city_scope = pick_clear(areas)
+            if city_scope is None:
+                return self._choose(req, tools, "city", inp["city"], areas)
         if inp.get("near") and inp.get("near_coordinate"):
             area = {"center": inp["near_coordinate"], "radius_m": DEFAULT_RADIUS_M}
             area_name = inp["near"]
         elif inp.get("near"):
-            place, options = await self._resolve(tools, inp["near"])
+            place, options = await self._resolve(tools, inp["near"], (city_scope or {}).get("bounding_box"))
             if place is None:
                 return self._choose(req, tools, "near", inp["near"], options)
             area = {"center": place["location"], "radius_m": DEFAULT_RADIUS_M}
@@ -191,16 +210,18 @@ class LocationSubagent:
                 return self._choose(req, tools, "city", inp["city"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
+        if city_scope:
+            area["administrative_area_ids"] = [city_scope["area_id"]]
 
         def request(filters: dict[str, Any]) -> dict[str, Any]:
             body: dict[str, Any] = {
                 "listing_type": "rent",
                 "currency": "VND",
                 "price_period": "month",
-                "pagination": {"limit": min(25, limit * 3)},
+                "pagination": {"limit": limit, "cursor": inp.get("cursor")},
                 **area,
             }
-            if filters.get("max_price_vnd"):
+            if filters.get("max_price_vnd") is not None:
                 body["max_price"] = {"amount": filters["max_price_vnd"], "currency": "VND", "period": "month"}
             if filters.get("min_price_vnd") is not None:
                 body["min_price"] = {"amount": filters["min_price_vnd"], "currency": "VND", "period": "month"}
@@ -217,15 +238,17 @@ class LocationSubagent:
             return body
 
         hard = {k: inp[k] for k in HOUSING_INPUT_KEYS if inp.get(k) is not None}
-        response = await tools.call("search_housing", request({**soft, **hard}))
+        search_request = request({**soft, **hard})
+        response = await tools.call("search_housing", search_request)
         results = (response or {}).get("results") or []
         relaxed: list[str] = []
-        if not results and soft:
+        if not results and soft and not inp.get("cursor") and not ((response or {}).get("page") or {}).get("next_cursor"):
             # Bộ lọc tự điền cho 0 kết quả: tìm lại không có chúng; bộ lọc người dùng tự nói thì giữ.
-            response = await tools.call("search_housing", request(hard))
+            search_request = request(hard)
+            response = await tools.call("search_housing", search_request)
             results = (response or {}).get("results") or []
             relaxed = sorted(soft)
-        must_have = list(inp.get("must_have") or soft.get("must_have") or [])
+        must_have = list(search_request.get("amenities") or [])
         candidates, missing, quotes = [], [], []
         excluded = 0
         for r in rank_listings(results):
@@ -251,6 +274,11 @@ class LocationSubagent:
             "excluded_without_price_or_address": excluded,
             # Xếp hạng chỉ trong trang đã lấy; còn trang sau thì không nói là tốt nhất toàn bộ dữ liệu.
             "has_more": bool(((response or {}).get("page") or {}).get("next_cursor")),
+            "next_cursor": ((response or {}).get("page") or {}).get("next_cursor"),
+            "query_id": (response or {}).get("query_id"),
+            "search_request": search_request,
+            "diagnostics": (response or {}).get("diagnostics") or {},
+            "map_context": {"scope": "returned_candidates", "listing_ids": [c["id"] for c in candidates]},
         }
         if relaxed:
             data["relaxed_filters"] = relaxed
@@ -289,15 +317,33 @@ class LocationSubagent:
                 return self._choose(req, tools, "near", inp["near"], options)
             origins[place.get("name") or inp["near"]] = place["location"]
         else:
-            wanted = set(inp.get("listing_ids") or [])
+            requested_ids = [inp["selected_listing_id"]] if inp.get("selected_listing_id") else inp.get("listing_ids") or []
+            wanted = set(requested_ids)
             for upstream in req.upstream.values():
+                if upstream.agent != AgentName.PROPERTY:
+                    continue
                 for c in upstream.data.get("candidates", []):
                     if (not wanted or c.get("id") in wanted) and c.get("lat") is not None and c.get("lng") is not None:
                         origins[c["id"]] = {"lat": c["lat"], "lng": c["lng"]}
-                        if c.get("location_accuracy") not in (None, "rooftop"):
+                        if c.get("location_accuracy") != "rooftop":
                             approximate.append(c["id"])
+            # Explicit IDs remain usable after a selection or without a property
+            # search dependency. Missing IDs never fall back to an unrelated home.
+            for listing_id in requested_ids:
+                if listing_id in origins:
+                    continue
+                item = await tools.call("get_housing", {"listing_id": listing_id})
+                location = (item or {}).get("location") or {}
+                if location.get("lat") is not None and location.get("lng") is not None:
+                    origins[listing_id] = location
+                    if item.get("location_accuracy") != "rooftop":
+                        approximate.append(listing_id)
             origins = dict(list(origins.items())[:3])
             approximate = [a for a in approximate if a in origins]
+        if not origins:
+            return self._result(req, tools, status="needs_input", questions=[
+                Question(field="near", text="Bạn muốn xem tiện ích quanh căn nhà hoặc địa điểm nào?")
+            ])
         nearby: dict[str, list[dict]] = {}
         refs: list[str] = []
         missing: list[str] = []
@@ -310,13 +356,17 @@ class LocationSubagent:
                     "name": p.get("name"),
                     "category": p.get("category"),
                     "distance_m": p.get("distance_meters"),
+                    "distance_kind": "straight_line",
+                    "location": p.get("location"),
+                    "source": p.get("source"),
+                    "verification": p.get("verification"),
                 }
                 for p in items
             ]
             refs += [p["place_id"] for p in items if p.get("place_id")]
             if not items:
                 missing.append(f"nearby.{key}")
-        data: dict[str, Any] = {"nearby": nearby}
+        data: dict[str, Any] = {"nearby": nearby, "origins": origins, "coverage": "nearest_per_category"}
         if approximate:  # vị trí phòng chỉ gần đúng: khoảng cách tới tiện ích cũng chỉ gần đúng
             data["approximate_origins"] = approximate
         return self._result(req, tools, status="done", data=data, missing_fields=missing, source_refs=refs)
@@ -343,6 +393,15 @@ class LocationSubagent:
         endpoints = {}
         refs = []
         for field in ("route_from", "route_to"):
+            if inp[field] == "selected:property":
+                listing_id = inp.get("selected_listing_id")
+                if not listing_id:
+                    return self._result(req, tools, status="needs_input", questions=[
+                        Question(field="selected:property", text="Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.")
+                    ])
+                endpoints[field] = {"type": "housing", "listing_id": listing_id}
+                refs.append(listing_id)
+                continue
             options = (
                 await tools.call(
                     "resolve_location",

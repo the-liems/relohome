@@ -65,6 +65,62 @@ afterAll(async () => {
 })
 
 describe('HousingQueryService hard constraints', () => {
+  it('applies identical hard filters to search, map listings and map clusters', async () => {
+    const filters = {
+      bounding_box: { west: 106.69, south: 10.76, east: 106.74, north: 10.80 },
+      listing_type: ['rent'], property_type: ['apartment'], source_filters: ['import'],
+      min_price: { amount: 13_000_000, currency: 'VND', period: 'month' },
+      max_price: { amount: 15_000_000, currency: 'VND', period: 'month' },
+      min_bedrooms: 2, max_bedrooms: 2, min_bathrooms: 2,
+      min_area_m2: 75, max_area_m2: 80, amenities: ['parking'],
+      nearby: [{ category: 'hospital', max_distance_m: 1000 }],
+    }
+    const found = await service.search(filters)
+    expect(found.results.map((r) => r.listing_id)).toEqual([ids.validListing])
+    const markers = await service.map({ ...filters, zoom: 15 })
+    expect(markers.features.map((r) => r.kind === 'listing' && r.listing_id)).toEqual([ids.validListing])
+    const clusters = await service.map({ ...filters, zoom: 10 })
+    expect(clusters.features).toEqual([expect.objectContaining({ kind: 'cluster', count: 1, min_price_amount: 14_000_000, price_period: 'month' })])
+    expect(clusters.meta.truncated).toBe(false)
+    const empty = await service.map({ ...filters, amenities: ['not_in_fixture'], zoom: 10 })
+    expect(empty.features).toEqual([])
+  })
+
+  it('can restrict both map modes to the exact IDs returned to the caller', async () => {
+    for (const zoom of [10, 15]) {
+      const result = await service.map({
+        bounding_box: { west: 106.69, south: 10.76, east: 106.74, north: 10.80 },
+        listing_ids: [ids.validListing], zoom,
+      })
+      expect(result.features).toHaveLength(1)
+      expect(result.features[0]).toMatchObject(zoom < 13 ? { kind: 'cluster', count: 1 } : { listing_id: ids.validListing })
+    }
+  })
+
+  it('keeps nightly and monthly prices in separate clusters in the same cell', async () => {
+    await client.query('SAVEPOINT map_period_test')
+    try {
+      await client.query('UPDATE catalog.places SET geom = (SELECT geom FROM catalog.places WHERE id = $1) WHERE id = $2', [ids.validPlace, ids.expensivePlace])
+      await client.query("UPDATE housing.offers SET price_period = 'night' WHERE listing_id = $1", [ids.expensiveListing])
+      const result = await service.map({
+        bounding_box: { west: 106.69, south: 10.76, east: 106.74, north: 10.80 },
+        listing_ids: [ids.validListing, ids.expensiveListing], zoom: 10,
+      })
+      expect(result.features).toHaveLength(2)
+      expect(result.features).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: 'cluster', count: 1, price_period: 'month', min_price_amount: 14_000_000 }),
+        expect.objectContaining({ kind: 'cluster', count: 1, price_period: 'night', min_price_amount: 20_000_000 }),
+      ]))
+    } finally { await client.query('ROLLBACK TO SAVEPOINT map_period_test') }
+  })
+
+  it('returns nearby coordinates and distance semantics without a second get_place call', async () => {
+    const matches = await placeService.findNearby({ lng: 106.7, lat: 10.77 }, [{ category: 'hospital', max_distance_m: 1000 }])
+    expect(matches).toEqual([expect.objectContaining({
+      place_id: ids.hospitalPlace, location: { lng: 106.701, lat: 10.771 }, distance_kind: 'straight_line',
+    })])
+  })
+
   it('exposes deposit and accuracy consistently in search and detail', async () => {
     await client.query("UPDATE housing.listings SET attributes = '{\"location_accuracy\":\"approximate\",\"location_method\":\"source_pin\"}'::jsonb WHERE id = $1", [ids.validListing])
     await client.query('UPDATE housing.offers SET deposit_amount = 28000000 WHERE listing_id = $1', [ids.validListing])

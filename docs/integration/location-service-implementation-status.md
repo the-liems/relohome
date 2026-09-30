@@ -2,6 +2,8 @@
 
 Ngày: **2026-09-29**. Phạm vi: code trong `Maps VN/LifeFlow`.
 
+**Bổ sung 30/09/2026:** xem [backend Map/Graph mới](map-backend-update-2026-09-30.md) về filter viewport/cluster, HTTP entity route, POI coordinates và luồng route căn đã chọn. Các kết quả kiểm thử ngày 29/09 bên dưới giữ nguyên phạm vi lịch sử; dùng bản bổ sung cho những phần vừa thay đổi.
+
 Đọc cùng [status dữ liệu/backup](location-data-status.md) để phân biệt số liệu nguồn,
 POI, housing anchor và listing. [Mục lục tích hợp](README.md) chỉ rõ tài liệu hiện hành/lịch sử.
 

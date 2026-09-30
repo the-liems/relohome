@@ -95,6 +95,13 @@ export const HousingSearchRequestSchema = z
     soft_preferences: z.array(z.string().trim().min(1).max(300)).max(20).optional(),
   })
   .superRefine((request, context) => {
+    for (const key of ['min_price', 'max_price'] as const) {
+      const price = request[key]
+      if (price && ((request.currency && price.currency !== request.currency) ||
+          (request.price_period && price.period !== request.price_period))) {
+        context.addIssue({ code: 'custom', message: 'Price bounds must match currency and price_period.', path: [key] })
+      }
+    }
     if ((request.center && !request.radius_m) || (!request.center && request.radius_m)) {
       context.addIssue({
         code: 'custom',
@@ -189,6 +196,7 @@ export const HousingSearchResultSchema = z.object({
   amenities: z.array(z.string()),
   verification: VerificationSchema,
   source: SourceSchema,
+  thumbnail_url: z.url().nullable().default(null),
   matched_constraints: z.array(z.string()),
   unknown_fields: z.array(z.string()),
   nearby: z.array(NearbyPlaceMatchSchema),
@@ -222,9 +230,35 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
 export const HousingMapRequestSchema = z.object({
   bounding_box: BoundingBoxSchema,
   zoom: z.number().finite().min(0).max(24),
+  listing_ids: z.array(z.uuid()).min(1).max(2_000).optional(),
   property_type: z.array(PropertyTypeSchema).min(1).max(20).optional(),
   listing_type: z.array(ListingTypeSchema).min(1).max(10).optional(),
+  text: HousingSearchRequestSchema.shape.text,
+  district: HousingSearchRequestSchema.shape.district,
+  administrative_area_ids: HousingSearchRequestSchema.shape.administrative_area_ids,
+  min_price: HousingSearchRequestSchema.shape.min_price,
+  max_price: HousingSearchRequestSchema.shape.max_price,
+  currency: HousingSearchRequestSchema.shape.currency,
+  price_period: HousingSearchRequestSchema.shape.price_period,
+  min_bedrooms: HousingSearchRequestSchema.shape.min_bedrooms,
+  max_bedrooms: HousingSearchRequestSchema.shape.max_bedrooms,
+  min_bathrooms: HousingSearchRequestSchema.shape.min_bathrooms,
+  min_area_m2: HousingSearchRequestSchema.shape.min_area_m2,
+  max_area_m2: HousingSearchRequestSchema.shape.max_area_m2,
+  amenities: HousingSearchRequestSchema.shape.amenities,
+  availability_from: HousingSearchRequestSchema.shape.availability_from,
+  availability_to: HousingSearchRequestSchema.shape.availability_to,
+  verification_requirement: HousingSearchRequestSchema.shape.verification_requirement,
+  source_filters: HousingSearchRequestSchema.shape.source_filters,
+  nearby: HousingSearchRequestSchema.shape.nearby,
   limit: z.number().int().min(1).max(2_000).default(500),
+}).strict().superRefine((request, context) => {
+  // Reuse cross-field validation. Unsupported filters (e.g. commute) must not
+  // silently disappear and turn an exploratory map into misleading matches.
+  const result = HousingSearchRequestSchema.safeParse(request)
+  if (!result.success) for (const issue of result.error.issues) {
+    context.addIssue({ code: 'custom', message: issue.message, path: issue.path })
+  }
 })
 
 export const HousingMapMarkerSchema = z.object({
@@ -252,6 +286,7 @@ export const HousingMapClusterSchema = z.object({
   count: z.number().int().positive(),
   min_price_amount: z.number().nonnegative(),
   currency: CurrencySchema,
+  price_period: PricePeriodSchema,
 })
 
 export const HousingMapResponseSchema = z.object({

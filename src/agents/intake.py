@@ -273,7 +273,12 @@ def missing_for(
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
     if domain == AgentName.MAP and values.get("map_mode") == "route":
-        return [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
+        missing = [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
+        if any(values.get(k) == "selected:property" for k in ("route_from", "route_to")) and "selected:property" not in facts:
+            missing.append("map.selected:property")
+        return missing
+    if domain == AgentName.MAP and "selected:property" in facts and not _has(values, "near"):
+        return []
     out = []
     for req in REQUIRED_INPUTS.get(domain, ()):
         if any(_has(values, f) for f in req.fields):

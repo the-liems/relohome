@@ -3,6 +3,8 @@
 Cập nhật: **29/09/2026**. Phạm vi là Location/Map trong checkout này;
 không xác nhận trạng thái code hay deployment của nhánh Graph/Moving khác.
 
+**Cập nhật bổ sung 30/09/2026:** [Backend Map liên kết với Graph](map-backend-update-2026-09-30.md) ghi các thay đổi mới ở Location/Platform API và graph trong checkout local, API mẫu và giới hạn kiểm chứng.
+
 | Bạn cần biết | Tài liệu chuẩn |
 |---|---|
 | Code đã làm gì, 9 tool, schema, lỗi, timeout, test | [Trạng thái triển khai](location-service-implementation-status.md) |
