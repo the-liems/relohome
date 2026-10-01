@@ -15,6 +15,9 @@
 - `SPEC-001/AC-09`: Tối đa hai LLM calls; output không xác minh được sau repair tạo conflict,
   không tự nới điều kiện. Usage riêng từng invocation kể cả gọi đồng thời.
 - `SPEC-001/AC-10`: Component không tự tải session, truy DB/MCP hay thay graph wiring.
+- `SPEC-001/AC-11` (01/10): Đổi thao tác của một lĩnh vực (khoá chọn thao tác đọc từ
+  `input_schema` manifest, ví dụ Map `nearby` → `route`) không bị coi là mâu thuẫn ở lượt
+  `REFINE`. Mâu thuẫn thật hỏi lại bằng nhãn tiếng Việt, không lộ tên khoá nội bộ.
 
 ## Bản standalone trước ADR-016 (lưu để đối chiếu)
 

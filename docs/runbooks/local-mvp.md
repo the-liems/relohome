@@ -78,7 +78,11 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
 5. Trong `Maps VN/LifeFlow`, chạy `npm ci`, `npm run build`.
 6. Khởi động PostGIS bằng lệnh Compose ở trên, rồi
    `python scripts/restore-local-snapshot.py`. DB đích phải chưa tồn tại.
-   Script kiểm checksum, chờ restore xong rồi mới migrate. Không drop DB cũ.
+   Script kiểm checksum, chờ restore xong, chạy `ANALYZE` rồi mới migrate. Không drop DB cũ.
+   `pg_restore` không mang theo thống kê của planner PostgreSQL; thiếu bước này thì tìm
+   nhà quanh một điểm (center + bán kính) chạm statement timeout 8 s và graph báo
+   `Database query timed out`. DB đã restore bằng bản script cũ: chạy một lần
+   `docker compose --env-file data/integration.env -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
 7. Khởi động OSRM và các process như phần trên.
 
 Nếu restore thất bại, không chạy migrations chồng lên restore chưa xong.
@@ -94,8 +98,10 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
   không đồng nghĩa AhaMove bị giới hạn chỉ trong một thành phố.
   Ví dụ đã kiểm thử: “Tính đường đi bộ từ Dinh Độc Lập Cafe đến Takashimaya tại Thành phố Hồ Chí Minh”.
 - Flight: hỏi tuyến bay và ngày tương lai; chỉ tìm chuyến thật, chưa xuất vé.
-- Moving: nhập địa chỉ; khi chưa đủ rõ, xác nhận tọa độ trong form Chuyển đồ rồi hỏi báo giá.
-  Chỉ tick xác nhận khi đã kiểm tra điểm trên bản đồ. Xem phí/điều kiện trước khi đặt.
+- Moving: nhắn yêu cầu hoặc bấm "Chuyển đồ tới đây"; form Thông tin chuyển đồ mở cạnh bản đồ, điền sẵn
+  căn đã chọn. Ghim điểm (chọn gợi ý/chạm bản đồ) khi địa chỉ chưa đủ rõ, rồi "Xác nhận và lấy báo giá".
+  AhaMove staging từ chối thời gian đặt quá 7 ngày; agent hỏi lại kèm lý do. Xem phí/điều kiện trước khi đặt.
+- Xóa hội thoại: thùng rác ở header/Lịch sử; "Xóa tất cả và làm mới SIU" xóa mọi hội thoại và bộ nhớ sở thích từ chat.
 - Đặt/hủy/cập nhật liên hệ Moving phải qua phương án và form xác nhận;
   đổi địa chỉ hoặc COD không thuộc form sửa liên hệ, phải đánh giá lại giá/đơn.
 - ZaloPay sandbox độc lập vẫn có API backend và trang Streamlit cũ; frontend React chưa có form demo riêng. UI mới đọc yêu cầu thanh toán từ workflow và kiểm tra kết quả từ provider.

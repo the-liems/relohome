@@ -162,6 +162,13 @@ provider-independent models in `@lifeflow/contracts`.
 - `SPEC-004/AC-21`: No implicit 5%/20,000 VND price-increase permission is added.
   The backend must obtain confirmation for changed prices. Unknown cancellation
   fees remain unknown; compensation is not assumed free.
+- `SPEC-004/AC-22` (2026-10-01): When AhaMove prices no requested service, the
+  estimate fails with `PROVIDER_REJECTED` carrying the provider's reason and code
+  (for example `INVALID_FUTURE_ORDER_TIME`); per-service rejections next to at
+  least one priced option become warnings. The Moving agent turns such
+  request-level rejections into a question on the relevant field or a retry with
+  an untried catalog service, never into a fabricated quote. See
+  [map workspace §9](../integration/map-workspace-2026-10-01.md).
 
 See [internal approval API](../api/moving-internal-approvals.md) and
 [integration response](../integration/moving-service-response.md).

@@ -706,7 +706,8 @@ dependency qua closure do `build_graph(deps)` tạo, không import adapter trự
 class SessionPort(Protocol):
     async def load(self, user_id: str) -> SessionContext: ...
     async def save(self, user_id: str, thread_id: str, updates: list[MemoryUpdate]) -> None: ...  # upsert
-    async def forget(self, user_id: str) -> None: ...           # người dùng yêu cầu xoá (làm sau)
+    async def forget(self, user_id: str) -> None: ...           # "Xóa tất cả và làm mới SIU" (DELETE /memory)
+    async def forget_thread(self, user_id: str, thread_id: str) -> None: ...  # xoá hội thoại: bỏ giá trị có source_thread này
 ```
 
 **Ba loại dữ liệu, không được trộn:**
@@ -770,7 +771,12 @@ class Intake(Protocol):
 
 1. Gọi `deps.intake.understand(...)`. Output phải qua Pydantic validate.
 2. Gộp `user_confirmed_facts` của lần trước. Dữ kiện người dùng đã xác nhận chỉ
-   bị ghi đè khi có `CHANGE` rõ ràng. Fact mới phải có `evidence` là chuỗi con của
+   bị ghi đè khi có `CHANGE` rõ ràng. Ngoại lệ là **khoá chọn thao tác** của một lĩnh vực
+   (ví dụ `map_mode`: `route` hay `nearby`): `operation_selector_keys` đọc từ `input_schema`
+   của các manifest (khoá được ghim `const` trong nhánh `anyOf`/`oneOf` hoặc mệnh đề `if`).
+   Đổi thao tác là một task mới của lĩnh vực đó, không phải mâu thuẫn, nên giá trị mới thay
+   giá trị cũ cả khi `REFINE`. Mâu thuẫn thật được hỏi lại bằng nhãn tiếng Việt
+   (`FACT_LABELS`), không lộ tên khoá nội bộ. Fact mới phải có `evidence` là chuỗi con của
    một tin nhắn người dùng (so sánh sau chuẩn hoá Unicode NFC, chỉ lấy tin nhắn của
    người dùng, không lấy tin nhắn của assistant); không có thì cho LLM trích lại **một
    lần**, vẫn sai thì bỏ fact đó (đó là điều model tự suy ra). Dùng lại `normalize()` /
@@ -871,7 +877,8 @@ Mở rộng sau khi chạy ổn.
 | Người dùng sửa giá trị tự điền | Ghi đè ngay, `last_confirmed_at = now` |
 | Người dùng nói hoàn cảnh mới ("mình chuyển việc sang Thủ Đức") | Bỏ khu vực cũ |
 | Đặt xe chuyển nhà thành công (MVP không có đặt cọc, Q25) | Khu vực tìm phòng `stop_prefill = True`; lưu `hints.current_address` = điểm đến của đơn chuyển nhà, làm gợi ý cho lần chuyển đồ sau |
-| Người dùng yêu cầu "quên thông tin của mình" | `SessionPort.forget` (làm sau, xem Q14) |
+| Người dùng yêu cầu "quên thông tin của mình" | `SessionPort.forget` (01/10: nút "Xóa tất cả và làm mới SIU"; màn hình xem từng giá trị vẫn hoãn, Q14) |
+| Người dùng xoá một hội thoại | `SessionPort.forget_thread`: bỏ giá trị có `source_thread` là hội thoại đó (kể cả khi đã được xác nhận lại ở hội thoại khác) |
 
 **Quy tắc đi kèm.** Một số giá trị chỉ đúng trong bối cảnh của giá trị khác. Bảng
 `PREFILL_ANCHORS` ghi các cặp này; field chỉ được tự điền khi mọi anchor của nó cũng
@@ -880,6 +887,10 @@ lấy từ bộ nhớ, không bị người dùng đổi trong lượt này:
 | Field | Anchor | Ví dụ |
 |---|---|---|
 | `max_price_vnd` | `city`, `near` | Ngân sách 5 triệu đặt cho Quận 10; người dùng nói "tìm ở Thủ Đức" thì không điền ngân sách cũ |
+| `near` (01/10) | `city`, `district` | Đã nhớ "gần Bách Khoa"; người dùng nói "tìm ở Cầu Giấy" thì không điền lại địa danh cũ |
+
+Cùng ngày, node `intake` áp dụng thêm: câu mới nêu `district` hoặc `near` thì phạm vi đó thay phạm vi
+cũ chưa được nhắc lại (kèm toạ độ, ID địa điểm, khung bản đồ phụ thuộc); thành phố giữ trừ khi đổi.
 
 Đặc điểm (`traits`) không có anchor nên vẫn được tự điền khi đổi khu vực. Khi
 anchor trong bộ nhớ đổi giá trị, `memory_updates` đặt `stop_prefill` cho các field
@@ -921,6 +932,7 @@ class PlannerInput(BaseModel):
 
 class PlannerOutput(BaseModel):
     plan: Plan                               # tasks có thể rỗng
+    questions: list[Question] = []           # domain được hoãn: field "<domain>.<key>" + câu hỏi
 
 class Planner(Protocol):
     async def plan(self, inp: PlannerInput) -> PlannerOutput: ...
@@ -951,9 +963,20 @@ class Planner(Protocol):
 6. Reset `validation`, `user_decision`, `cost_summary`, `change_context` về `None`;
    tăng `replan_count` nếu đây không phải lần plan đầu.
 
-Hỏi lại người dùng **không** còn là việc của Planner: thiếu thông tin chặn đã được
-`intake` xử lý. Planner vẫn có thể trả plan rỗng nếu không có cách đáp ứng yêu cầu;
-khi đó `respond` trả `UNSUPPORTED` hoặc `PARTIAL`.
+Thiếu thông tin chặn vẫn do `intake` xử lý. Nhưng `resolve_missing` chỉ biết field **có mặt**
+hay không; Planner có thể thấy một input có mặt mà chưa dùng được (ví dụ người dùng bảo lấy
+"giữa quận" làm điểm giao). Khi đó Planner LLM **không** được im lặng bỏ lĩnh vực đó mà trả
+`needs_input = {domain, field, question}`. Code (`LlmPlanner._deferrals`) chỉ nhận lĩnh vực
+có trong yêu cầu, `field` là key trong `input_schema` của manifest, và lĩnh vực đó không có
+task mới trong cùng plan; hợp lệ thì thành `PlannerOutput.questions`. Kiểm tra "lĩnh vực đủ
+input thì phải có task" bỏ qua lĩnh vực đã hoãn. Node `orchestrator`:
+
+- plan rỗng + có `questions` → `ASK_USER` (respond hỏi đúng các câu đó), không phải `PLAN_INVALID`;
+- plan có task + có `questions` → chạy phần đã lập, `respond` trả kết quả kèm câu hỏi;
+- plan rỗng, không câu hỏi → `PLAN_EMPTY` như trước.
+
+`state.planner_questions` được `intake` đặt lại mỗi lượt. Độ chính xác địa chỉ / địa điểm vẫn
+là việc của subagent (có tool resolve), không phải lý do để Planner hoãn.
 
 **Quy tắc phạm vi yêu cầu (D14).** Cùng một graph phục vụ cả yêu cầu **một mục đích**
 (chỉ tìm phòng, chỉ đặt vé, chỉ đặt xe chuyển nhà) lẫn **chuỗi liên hoàn** (tìm phòng
@@ -971,7 +994,7 @@ nhau chỉ ở số task và số commit action trong plan. Ví dụ ở §10.2.
 | S7 | **Một lần xác nhận cho các thao tác được yêu cầu.** `confirm` gom mọi commit action của plan hiện tại vào một `payload_hash`. Muốn đặt từng thứ ở những thời điểm khác nhau thì mỗi lần plan chỉ có commit action của thứ được yêu cầu lúc đó (theo S2). |
 | S8 | **Không đặt lại cái đã đặt.** Commit action đã có trong `committed` không được đưa lại vào plan. Đổi ý với thứ đã đặt không tự huỷ (§6.8). |
 | S10 | **Quản lý đơn đã đặt.** Tra cứu trạng thái đơn (đơn trong `committed` hoặc mã đơn người dùng đưa) là task **đọc** của lĩnh vực tương ứng. Huỷ / sửa đơn là thao tác **ghi**: `intake` ghi `commit_requested` (`cancel_order` / `update_order`, có evidence), Planner tạo commit action trỏ tới receipt, đi qua `confirm` + approval + `transaction` như mọi thao tác ghi. Mã đơn người dùng đưa phải được backend xác nhận thuộc về người dùng trước khi dùng. Luôn báo phí huỷ / hoàn tiền (nếu service cho biết) trước khi xác nhận. |
-| S9 | **Gợi ý bước tiếp theo, không tự làm.** Sau khi trả kết quả, `respond` có thể gợi ý bước kế tiếp trong chuỗi (ví dụ tìm phòng xong gợi ý báo giá chuyển đồ, tìm vé). Gợi ý **không** gọi subagent nào; chỉ khi người dùng đồng ý thì mới thành yêu cầu, đi qua `intake` như `REFINE` (S5). Chi tiết ở §6.10. |
+| S9 | **Gợi ý bước tiếp theo, không tự làm.** Sau khi trả kết quả, `respond` có thể gợi ý bước kế tiếp trong chuỗi. Bước phụ thuộc căn nhà (báo giá chuyển đồ, tìm vé tới thành phố của căn) chỉ gợi ý **sau khi người dùng đã chọn căn** (01/10), không gợi ý khi mới có danh sách tìm kiếm. Gợi ý **không** gọi subagent nào; chỉ khi người dùng đồng ý thì mới thành yêu cầu, đi qua `intake` như `REFINE` (S5). Chi tiết ở §6.10. |
 
 `TemplatePlanner` xử lý tốt các yêu cầu một lĩnh vực (S1–S3 đơn giản); LLM Planner
 dùng cho chuỗi nhiều lĩnh vực. Cả hai đều phải qua `validate_plan`, nên S1, S2, S8 được
@@ -1735,7 +1758,9 @@ Endpoint hiện tại ([routes.py](../../src/api/routes.py)) gọi
 | | Nếu interrupt mới là `payment_required` thì trả `{status: "pending_payment", thread_id, payment: {pay_url, amount_vnd, expires_at}}`. |
 | `POST /chat/{thread_id}/payment/check` | Resume `await_payment` để hỏi lại cổng thanh toán (người dùng bấm "Tôi đã thanh toán" hoặc UI hỏi định kỳ). |
 | `POST /chat/{thread_id}/payment/cancel` | Resume `await_payment` với yêu cầu huỷ: gọi `cancel_payment`, rồi `transaction` huỷ giữ chỗ. |
-| `GET /chat/{thread_id}/state` | `graph.aget_state(config)`: intake, plan, task_status, cost_summary, đang chờ gì (`next`, `interrupts`). |
+| `GET /chat/{thread_id}/state` | `graph.aget_state(config)`: intake, plan, task_status, cost_summary, đang chờ gì (`next`, `interrupts`), `selections` (bản ghi provider của lựa chọn `selected:<domain>`, đọc từ `task_results`). |
+| `DELETE /chat/{thread_id}` | Xoá checkpoint (`checkpointer.adelete_thread`) và bộ nhớ có nguồn từ thread (`forget_thread`). Đúng chủ sở hữu, giữ khoá thread; đang chờ thanh toán → 409 (huỷ/hoàn tất trước). Không huỷ đơn đã đặt; biên nhận, approval vẫn ở kho bền vững. Thread chưa có checkpoint → `deleted: false`. |
+| `DELETE /memory` | `SessionPort.forget(user_id)`: quên toàn bộ preferences/traits/hints. |
 | (sau) `GET /chat/{thread_id}/stream` | `graph.astream(..., stream_mode="updates")` để hiển thị tiến độ từng task. |
 
 **Một lượt chạy cho mỗi thread.** API giữ khoá theo `thread_id`: đang có lượt chạy
@@ -2128,7 +2153,8 @@ sau khi qua `check_conformance`; graph không đổi. Location và Moving không
 | Token Moving | token ghi để trống thì dùng token đọc | không có token ghi thì không có endpoint ghi; lỗi JSON `{code, message, retryable}` đọc đúng `retryable` | Server Moving kiểm quyền theo token |
 | Tên viết tắt địa danh | — | node `intake` phát hiện viết tắt ("Q10", "BV", "HCM"…) trong field địa danh / địa chỉ, bỏ giá trị và hỏi lại tên đầy đủ; MVP không tự diễn giải | Location không có alias (phản hồi Location) |
 | Địa chỉ chuyển đồ tự do | geocode địa chỉ bất kỳ (`geocode_address`) | Không làm trong MVP. Toạ độ lấy từ tin nhà đã chọn hoặc địa danh / địa điểm Location tìm được; không xác định được thì hỏi lại | Location không có geocoder |
-| Contract Location | 8 tool; địa chỉ `house_number` / `province` | 9 tool (thêm `calculate_route_between_entities`); khoá địa chỉ `housenumber`, `street`, `ward`, `district`, `city`, `raw`; `deposit`, `location_accuracy`, `location_method`; tìm nhà luôn gửi `currency: VND`, `price_period: month`; `search_areas` / `resolve_location` lấy 5 ứng viên, mơ hồ thì hỏi lại; vị trí gần đúng được ghi chú khi trả lời | Phản hồi Location |
+| Contract Location | 8 tool; địa chỉ `house_number` / `province` | 9 tool (thêm `calculate_route_between_entities`); khoá địa chỉ `housenumber`, `street`, `ward`, `district`, `city`, `raw`; `deposit`, `location_accuracy`, `location_method`; tìm nhà luôn gửi `currency: VND`, `price_period: month`; `search_areas` / `resolve_location` lấy 5 ứng viên, mơ hồ thì hỏi lại; riêng field `city` dùng `pick_city_area`: trong các vùng khớp tên (không fuzzy) ở cấp cao nhất (`parent` rỗng), vùng duy nhất có ranh giới bao các vùng còn lại là vùng người dùng gọi tên ("Hà Nội" bao "Trung tâm Hà Nội"); vị trí gần đúng được ghi chú khi trả lời | Phản hồi Location; sửa 01/10 vì "Hà Nội", "Đà Nẵng" luôn bị hỏi lại |
+| Chế độ bản đồ (01/10) | — | `ChatRequest.map_view` / `place_choice` do API kiểm; "khu này" → `near='current:map_view'` → `bounding_box`; `Question.choices` cho ứng viên địa điểm; Housing trả `map_context.viewport`; POI khớp chính xác trong 150 m gom làm một điểm đến (không cho Moving). Chi tiết [map workspace](../integration/map-workspace-2026-10-01.md) | Người dùng tìm nhà trên bản đồ, chat điều khiển bản đồ |
 | Tin nhắn gửi LLM | — | node `intake` che email, SĐT, số CCCD trước khi gọi Intake | D16; họ tên không nhận diện được, hướng người dùng nhập qua form |
 | Huỷ đơn không nói mã | — | `TemplatePlanner` lấy đơn đã đặt trong thread nếu chỉ có đúng một đơn của lĩnh vực đó | Trả lời "có, huỷ" sau `PARTIAL` |
 | Nút giả lập thanh toán (demo) | — | `POST /chat/{thread_id}/payment/simulate` gọi `simulate_payment_result` của Payment mock (PAID / FAILED / EXPIRED) rồi hỏi lại cổng như `/payment/check`; response thanh toán có `simulation_available`; tắt ở môi trường thật | Thanh toán lúc demo dùng mock kèm nút giả lập (chốt 2026-09-29) |

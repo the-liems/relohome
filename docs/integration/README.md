@@ -4,6 +4,12 @@ Runtime graph tổng thể: [bàn giao domain agents 30/09](domain-agents-2026-0
 
 Kiểm chứng song song/phụ thuộc: [hai luồng phức tạp 30/09](complex-flows-2026-09-30.md).
 
+Sửa luật nhiều lượt, phạm vi thành phố, Planner hoãn domain và ANALYZE sau restore:
+[kiểm thử và sửa lỗi 01/10](turn-rules-fixes-2026-10-01.md).
+
+Chế độ bản đồ cho tìm nhà (danh sách theo vùng, chat điều khiển bản đồ, chọn địa điểm):
+[map workspace 01/10](map-workspace-2026-10-01.md).
+
 Cập nhật: **29/09/2026**. Phạm vi là Location/Map trong checkout này;
 không xác nhận trạng thái code hay deployment của nhánh Graph/Moving khác.
 

@@ -15,6 +15,10 @@
 - `SPEC-003/AC-12`: Code kiểm input grounding, capability, DAG, dependencies và intent
   ghi. Không đưa credentials/PII/approval vào model, không coi plan hợp lệ là đã được đặt đơn.
 - `SPEC-003/AC-13`: Plan lỗi được repair tối đa một lần rồi báo lỗi; không fallback giả.
+- `SPEC-003/AC-14` (01/10): Lĩnh vực được yêu cầu mà input có mặt nhưng chưa dùng được thì
+  Planner trả `needs_input {domain, field, question}` thay vì bỏ im lặng. Code chỉ nhận lĩnh vực
+  được yêu cầu, field có trong `input_schema`, không kèm task mới cùng lĩnh vực; người dùng
+  nhận câu hỏi (`ASK_USER`), không nhận `PLAN_INVALID`. Kiểm địa chỉ vẫn thuộc subagent.
   Global scheduling/budget/persistence được kiểm ở đợt ghép graph, không thuộc live test component.
 
 ## Bản standalone trước ADR-016 (lưu để đối chiếu)

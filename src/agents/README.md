@@ -93,7 +93,9 @@ Planner dùng LLM. Để thử luồng, xem test `tests/test_agents/test_graph_e
 | `POST /api/v1/chat/{thread_id}/payment/check` | Hỏi lại cổng thanh toán |
 | `POST /api/v1/chat/{thread_id}/payment/cancel` | Huỷ thanh toán đang chờ, huỷ giữ chỗ |
 | `POST /api/v1/chat/{thread_id}/payment/simulate` `{outcome: PAID \| FAILED \| EXPIRED}` | **Chỉ demo:** nút "giả lập đã thanh toán". Có khi `payment.simulation_available = true` (fake mode, hoặc `PAYMENT_SIMULATION_ENABLED=true` với Payment `PAYMENT_PROVIDER=mock`); ngược lại 404 |
-| `GET /api/v1/chat/{thread_id}/state` | Intake, plan, trạng thái task, tổng chi phí, đơn đã đặt |
+| `GET /api/v1/chat/{thread_id}/state` | Intake, plan, trạng thái task, tổng chi phí, đơn đã đặt, `selections` (bản ghi provider của lựa chọn hiện tại) |
+| `DELETE /api/v1/chat/{thread_id}` | Xoá hội thoại: checkpoint và bộ nhớ ghi nhận từ hội thoại đó. Đang chờ thanh toán → 409. Không huỷ đơn đã đặt |
+| `DELETE /api/v1/memory` | Quên toàn bộ sở thích/thói quen đã ghi nhớ của người dùng |
 
 Người dùng xác định bằng header `X-User-Id` (do gateway xác thực). Kết quả trả `status` là `done`,
 `pending_confirmation` hoặc `pending_payment`.
@@ -117,3 +119,11 @@ Implement `Intake.understand(IntakeInput) -> IntakeResult` và `Planner.plan(Pla
 bằng `StructuredLLM`; đặt `uses_llm = True` và `last_usage` để node kiểm trần và ghi token. Node đã tự
 kiểm evidence, lọc dữ liệu cá nhân, tính phần thiếu và `validate_plan`, nên LLM chỉ cần hiểu và đề xuất.
 Truyền vào `AgentService.create(intake=..., planner=...)`; có thể dùng `TemplatePlanner(fallback=llm_planner)`.
+
+Hai luật dùng chung cho mọi lĩnh vực (01/10, agent-graph.md §6.1–6.2):
+
+- Khoá chọn thao tác (`operation_selector_keys`, đọc từ `input_schema` của manifest, ví dụ `map_mode`)
+  được thay ở lượt `REFINE`, không thành mâu thuẫn. Thêm thao tác mới cho một lĩnh vực thì khai báo nhánh
+  `anyOf` có `const` trong manifest; không thêm regex vào node `intake`.
+- Planner không bỏ im lặng lĩnh vực được yêu cầu: hoặc có task, hoặc `PlannerOutput.questions`
+  (`needs_input` của `LlmPlanner`, được code kiểm field theo manifest). Node `orchestrator` hỏi lại.

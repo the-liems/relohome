@@ -14,7 +14,11 @@
 | Tính tiền | Tách tháng/một lần, không cộng trùng khoản đã đặt; có kiểm tra expiry và biên độ khi được cấu hình |
 | Thanh toán | Có trạng thái/link/QR workflow và kiểm tra provider; chưa có form ZaloPay demo độc lập/refund |
 | Flight | Có tìm/chọn/xem offer; thiếu key SerpApi; không bật xuất vé giả lập |
-| Kiểm thử | Build đạt; 16 test UI desktop/mobile và 36 test backend liên quan. Bộ Python rộng còn 17 lỗi fixture/hợp đồng cũ đã liệt kê trong audit |
+| Workspace dịch vụ (01/10 chiều) | Chọn mọi căn từ danh sách bản đồ (AI ghi nhận lựa chọn), về chat sau khi chọn; giao diện bản đồ theo map-app (pill giá, lớp tiện ích); chat ẩn/hiện; workspace riêng cho chuyến bay và chuyển đồ. Xem [map workspace §7](../docs/integration/map-workspace-2026-10-01.md) |
+| Chế độ bản đồ (01/10) | Kết quả tìm nhà mở bản đồ + danh sách theo vùng (10 căn/trang, ngưỡng theo số căn trong vùng), sort chọn được, chat điều khiển bản đồ, chọn địa điểm bằng pin. Xem [map workspace](../docs/integration/map-workspace-2026-10-01.md) |
+| Chuyển đồ (01/10) | AhaMove từ chối báo giá thì chat hỏi lại kèm lý do của provider. Form **Thông tin chuyển đồ** (thay modal cũ): điểm lấy/giao (gõ, chọn ứng viên Location, tìm, chạm bản đồ), ngày, giờ; mở khi agent hỏi thông tin chuyển đồ, khi bấm "Chuyển đồ tới đây" hoặc thẻ Chuyển đồ; điền sẵn căn đã chọn (kể cả căn chọn trên bản đồ, qua `state.selections`). Xem [map workspace §9–§10](../docs/integration/map-workspace-2026-10-01.md) |
+| Xóa / làm mới trò chuyện (01/10) | Nút thùng rác ở đầu khung chat và từng mục trong **Lịch sử**; **Xóa tất cả và làm mới SIU** trong Lịch sử và Tài khoản. Gateway `DELETE /web/api/threads/{id}` gọi agent xoá checkpoint + bộ nhớ của hội thoại rồi mới xoá lịch sử local; `DELETE /web/api/threads` xoá mọi hội thoại xoá được, giữ hội thoại đang chờ thanh toán (báo lý do) và gọi `DELETE /memory`. Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ (nhà đã lưu mở chi tiết ngay trong Tài khoản khi hội thoại gốc đã xoá); đơn đã đặt không bị hủy |
+| Kiểm thử | Build đạt; 28 test UI desktop/mobile (14 kịch bản × 2; thêm ca bản đồ, workspace dịch vụ, form chuyển đồ, xóa/làm mới trò chuyện) và các test backend liên quan. Bộ Python rộng còn 22 lỗi fixture/hợp đồng cũ (17 trong audit + 5 test Flight MCP server khi tắt simulation) |
 
 **Chưa phải tất cả tính năng đều chỉ chờ LLM:** AhaMove, SerpApi, ZaloPay cần cấu hình riêng. Các tool nhiều đơn, callback timeline, rating và refund chưa có flow UI đầy đủ. Không có dữ liệu demo thay thế provider trong app.
 
@@ -39,6 +43,7 @@ Mở **http://127.0.0.1:8503**, tạo tài khoản rồi đăng nhập. API agen
 - Ba mục điều hướng: Hệ thống AI, Kế hoạch, Tài khoản; desktop và mobile.
 - Chat nhiều hội thoại, lịch sử và lựa chọn lưu trên máy chủ; trạng thái xử lý/lỗi và khôi phục sau tải lại.
 - Form tìm nhà/chuyến bay/chuyển đồ/bản đồ; nhà dạng card, so sánh tối đa ba căn, chi tiết, lưu yêu thích.
+- Chế độ bản đồ ([`MapWorkspace.tsx`](src/components/MapWorkspace.tsx), ngưỡng trong [`mapWorkspace.ts`](src/mapWorkspace.ts)): danh sách bên trái đổi theo vùng đang xem, zoom quá rộng (< 13 hoặc > 500 căn) thì mời phóng to; căn trùng toạ độ gộp marker "n căn" nhưng danh sách vẫn liệt kê từng căn với địa chỉ và link chỉ đường; khung chat gửi `map_view` để AI hiểu "khu này".
 - MapLibre: nhà, cụm, điểm tiện ích, tuyến đường, mở rộng; khám phá khu vực giữ bộ lọc được API hỗ trợ. Bộ lọc commute hoặc bán kính chỉ dùng map của kết quả, không âm thầm bỏ điều kiện.
 - Chọn phương án gửi action có kiểm tra quyền sở hữu, phiên bản và nguồn kết quả; kế hoạch đọc trạng thái graph, chi phí tháng/một lần tách riêng.
 - Form phê duyệt và thông tin liên hệ gửi riêng, khóa theo capability/expiry; kiểm tra thanh toán theo trạng thái workflow.
@@ -63,7 +68,8 @@ Gateway dùng `AGENT_API_TOKEN` từ môi trường máy chủ; không có biế
 ## Kiểm tra
 
 ```powershell
-# Từ Frontend/ — Playwright dùng Chrome đã cài trên máy
+# Từ Frontend/ — Playwright dùng Chrome đã cài trên máy. WSL/Linux không có Chrome: dùng Chromium
+# của Playwright (`npx playwright install chromium`) và bỏ `channel: "chrome"` trong một config cục bộ
 npm run build
 npm run test:e2e
 

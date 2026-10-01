@@ -131,7 +131,7 @@ Bấm tác vụ đưa ví dụ vào composer hoặc mở form bổ sung ngắn t
 
 ### AI-02 — Hội thoại đang sử dụng
 
-Header có tên hội thoại và nút mở lịch sử. Lịch sử là drawer trong Hệ thống AI, có tìm theo tiêu đề, ngày cập nhật và tạo mới; cần API thread list. Chưa cần chức năng chia sẻ/xóa hội thoại nếu chưa có contract và chính sách tương ứng.
+Header có tên hội thoại và nút mở lịch sử. Lịch sử là drawer trong Hệ thống AI, có tìm theo tiêu đề, ngày cập nhật và tạo mới; cần API thread list. (01/10) Có xóa từng hội thoại (thùng rác ở header và từng mục lịch sử) và **Xóa tất cả và làm mới SIU** (cả bộ nhớ sở thích từ chat), luôn qua hộp xác nhận; hội thoại đang chờ thanh toán không xóa được; đơn đã đặt không bị hủy. Chưa có chia sẻ hội thoại.
 
 | Trạng thái | Thiết kế hiển thị | Người dùng có thể làm gì? |
 | --- | --- | --- |
@@ -262,7 +262,9 @@ Form có hai khối **Lấy đồ tại** và **Giao đến**; mỗi khối có 
 
 Chọn ngày và giờ lấy đồ trong khả năng provider; thông tin hàng/xe/dịch vụ bổ sung chỉ hiện theo yêu cầu service thật. Không tự hứa đóng gói, tháo lắp hoặc nhân công từ tên “chuyển nhà”. Đổi địa chỉ/pin làm mất xác nhận cũ và yêu cầu kiểm tra lại.
 
-Nút **Lấy báo giá** chỉ gửi sau khi đủ trường bắt buộc. Chưa cần yêu cầu người dùng điền form liên hệ giao dịch ở bước chỉ xem giá nếu backend đang có cơ chế liên hệ lấy báo giá riêng.
+(01/10) Hiện thực là workspace **Thông tin chuyển đồ** cạnh bản đồ (không còn modal nhập vĩ độ/kinh độ): mở khi agent hỏi bất kỳ thông tin chuyển đồ nào, khi bấm "Chuyển đồ tới đây" hoặc thẻ Chuyển đồ; điền sẵn từ điều người dùng đã nói và căn đã chọn; câu hỏi của agent hiện tại ô liên quan; ghim điểm là tùy chọn (chọn ứng viên Location, tìm, chạm bản đồ). Xem [map workspace §10](map-workspace-2026-10-01.md).
+
+Nút **Xác nhận và lấy báo giá** chỉ gửi sau khi đủ trường bắt buộc. Chưa cần yêu cầu người dùng điền form liên hệ giao dịch ở bước chỉ xem giá nếu backend đang có cơ chế liên hệ lấy báo giá riêng.
 
 ### MV-02 — Chọn dịch vụ và báo giá
 

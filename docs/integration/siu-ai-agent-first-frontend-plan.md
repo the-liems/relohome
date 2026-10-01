@@ -1,5 +1,7 @@
 # Kế hoạch phát triển frontend SIU AI theo hướng AI Agent-first
 
+> **Cập nhật 01/10:** chế độ bản đồ cho tìm nhà (danh sách theo vùng, chat điều khiển bản đồ, chọn địa điểm bằng pin) đã có; xem [map workspace](map-workspace-2026-10-01.md). Khác bản kế hoạch: ngưỡng hiển thị theo số lượng căn trong vùng chứ không theo zoom cố định; action chọn địa điểm là `ChatRequest.place_choice` thay cho endpoint `/actions` chung.
+>
 > **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.
 
 Ngày lập: **30/09/2026**. Đối chiếu code local `QuangDung@e407d45`, đã đồng bộ `origin/mvp` ở lượt cập nhật trước.
@@ -149,6 +151,7 @@ Các route agent có prefix `/api/v1` từ `src/main.py`.
 | --- | --- | --- |
 | `POST /api/v1/chat` | Tin nhắn mới, tiếp tục hội thoại; có thể gửi `housing_location` hoặc `moving_locations` | JSON cuối lượt; `message` bắt buộc. Vị trí xác nhận có address, lat, lng, `confirmed: true`. |
 | `GET /api/v1/chat/{thread_id}/state` | Phục hồi plan, task status, cost summary, committed, pending | Chưa trả toàn bộ message/component history. |
+| `DELETE /api/v1/chat/{thread_id}`, `DELETE /api/v1/memory` | Nút xoá hội thoại / "Xóa tất cả và làm mới SIU" (01/10) | Gateway gọi trước khi xoá lịch sử của mình; agent từ chối (409) khi đang chờ thanh toán. |
 | `POST /api/v1/chat/{thread_id}/decision` | `CONFIRM`, `CHANGE`, `REJECT`, `CANCEL` | Giữ cơ chế `plan_version`, `payload_hash`, expiry và form PII hiện có. |
 | `GET /api/v1/map/search?text=...` | Tìm ứng viên địa điểm bằng `resolve_location` | Không tự xác nhận điểm Moving thay người dùng. |
 | `GET /api/v1/status` | Domain, mode, writes, sandbox payment, khả năng booking | Dùng làm đầu vào cho capability UI; cần bổ sung khi muốn mô tả quyền chi tiết hơn. |

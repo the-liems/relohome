@@ -8,7 +8,7 @@ Ngày kiểm tra: **01/10/2026**. Phạm vi: source code service, schema đầu 
 
 - Housing/Location: database có sẵn `lifeflow` tại 5433; đã xác minh 38.222 tin ở lượt trước. Đợt này gọi trực tiếp cả 9 tool đọc Location thành công.
 - Routing: đã khởi động lại container có sẵn. 9 endpoint OSRM của 3 thành phố × 3 phương tiện phản hồi `Ok`; đã thử hai tool tính đường qua MCP với tọa độ tại HCM. Kiểm tra `nearest` ở các thành phố còn lại không thay thế kiểm thử mọi tuyến đường.
-- AhaMove: form, card báo giá, lựa chọn, chi tiết phí, phê duyệt, biên nhận, giá/link theo dõi đã có. **Chưa kiểm chứng với provider thật**: máy chưa có credential AhaMove và liên hệ báo giá; Moving API/MCP chưa chạy.
+- AhaMove: form Thông tin chuyển đồ, card báo giá, lựa chọn, chi tiết phí, phê duyệt, biên nhận, giá/link theo dõi đã có. (01/10) **Đã báo giá thật trên AhaMove staging** qua Moving MCP (chỉ báo giá, không tạo đơn); lý do từ chối của provider (ví dụ đặt quá 7 ngày) được hỏi lại người dùng. Đặt/hủy đơn thật chưa kiểm chứng.
 - Flight: form và card/chọn offer đã có; cần `FLIGHT_SERPAPI_API_KEY` để tìm thật. Xuất vé không được bật vì backend hiện chỉ có booking giả lập.
 - Payment: có renderer trạng thái, link/QR workflow, kiểm tra thanh toán và biên nhận. Chưa có form tạo ZaloPay sandbox độc lập trong React; chưa có giao diện refund. Máy chưa có key ZaloPay.
 - LLM: giao diện gửi hội thoại/form tới graph hiện tại. **Form tìm kiếm chuyển thành yêu cầu chat, vẫn cần Intake/Planner/subagent LLM để xử lý đầy đủ.** Fixture chỉ nằm trong test; app không thay dịch vụ lỗi bằng dữ liệu giả.
@@ -42,11 +42,11 @@ Nguồn: `Maps VN/LifeFlow/mcp-server/src/tools/{location,housing,place,routing}
 | Tool | Hợp đồng cần giữ | Đường tới frontend / mức đáp ứng |
 | --- | --- | --- |
 | `search_areas` | Tìm địa giới, trả ID/parent/center/bbox; không phải POI | Qua adapter tìm nhà. Form có thành phố/quận; chưa có picker địa giới chuyên biệt. **Một phần** |
-| `resolve_location` | Có thể nhiều ứng viên; dùng ID/vị trí đã chọn, không tự lấy đầu | Picker địa điểm và graph. UI phân biệt khu hành chính, không cho dùng tâm quận như điểm dừng xe. **Có UI** |
-| `search_housing` | Bộ lọc cứng, cursor, nguồn, đơn vị tiền/chu kỳ; không tự xếp hạng | Card/list/map, phân trang, so sánh, empty/error; form các tiêu chí chính. Commute/nearby/availability/nhiều filter nâng cao chủ yếu qua chat. **Có UI cơ bản** |
-| `get_housing` | Chính xác `listing_id` từ nguồn | Dialog gọi gateway → MCP; lưu/chọn giữ nguồn task/version. **Có UI** |
+| `resolve_location` | Có thể nhiều ứng viên; dùng ID/vị trí đã chọn, không tự lấy đầu | Picker địa điểm và graph. UI phân biệt khu hành chính, không cho dùng tâm quận như điểm dừng xe. Ứng viên mơ hồ trả `choices` (ID + toạ độ) để chọn bằng pin/nút; POI trùng trong 150 m gom làm một điểm đến cho Map/Housing (01/10). **Có UI** |
+| `search_housing` | Bộ lọc cứng, cursor, nguồn, đơn vị tiền/chu kỳ; không tự xếp hạng | Card/list/map, phân trang, so sánh, empty/error; form các tiêu chí chính. Chế độ bản đồ gọi search theo `bounding_box` vùng đang xem, 10 căn/trang, sort chọn được (01/10). Commute/nearby/availability/nhiều filter nâng cao chủ yếu qua chat. **Có UI** |
+| `get_housing` | Chính xác `listing_id` từ nguồn | Dialog gọi gateway → MCP; lưu/chọn giữ nguồn task/version. Chọn căn từ bản đồ: backend đọc lại tin bằng tool này trước khi ghi lựa chọn (01/10). **Có UI** |
 | `search_places` | Text/category/spatial filter, cursor; không phải tìm nhà | Service chạy được nhưng UI chưa có trình duyệt POI độc lập/phân trang; picker hiện dùng resolve. **Chưa nối đầy đủ** |
-| `get_place` | Một `place_id` chuẩn | Chưa có màn hình chi tiết POI gọi riêng tool này. **Chưa nối** |
+| `get_place` | Một `place_id` chuẩn | API dùng để kiểm `place_choice` (ID người dùng chọn) và graph dùng cho `near_place_id`. Chưa có màn hình chi tiết POI riêng. **Một phần** |
 | `find_nearby_places` | Điểm đã resolve; gần nhất từng category, khoảng cách đường thẳng | Card POI, map, nút yêu cầu tính đường, nhãn gần đúng. **Có UI qua graph** |
 | `calculate_route` | Hai tọa độ; city/profile; trả GeoJSON + mét/giây | Renderer route dùng được; luồng người dùng ưu tiên tool entity bên dưới. **Qua adapter; không có nút gọi raw tool riêng** |
 | `calculate_route_between_entities` | Housing/place ID hoặc coordinate; nguồn/độ chính xác/cảnh báo có cấu trúc | Form đường đi/chat → graph; vẽ tuyến và điểm đầu/cuối, km/phút, cảnh báo. **Có UI** |
@@ -83,7 +83,7 @@ Nguồn: `src/mcp_servers/flights/tools.py`, `server.py`, schema, `src/agents/su
 | --- | --- | --- |
 | `search_airports` | Tên/IATA → sân bay nội địa | Graph chuẩn hóa đầu vào form. **Qua graph**, chưa autocomplete sân bay riêng |
 | `search_flights` | Một chiều nội địa, tổng giá cho toàn bộ hành khách, offer có hạn | Form tuyến/ngày/người lớn, card giá/giờ/điểm dừng. **Có UI cơ bản**; chưa có form cabin/trẻ em/khứ hồi đầy đủ |
-| `get_offer` | ID đã tìm; service còn kèm fare rules giả lập | Dialog lấy dữ liệu chuyến thật qua gateway; không trình bày fare rules giả lập như điều kiện đã xác minh. **Có UI** |
+| `get_offer` | ID đã tìm; service còn kèm fare rules giả lập | Dialog và workspace chuyến bay (01/10) lấy dữ liệu chuyến thật qua gateway; không trình bày fare rules giả lập như điều kiện đã xác minh. **Có UI** |
 | `hold_booking` | Giữ chỗ trước xác nhận, PII hành khách | Runtime MVP không quảng bá booking giả lập. **Không bật UI** |
 | `confirm_booking` | Xác nhận xuất vé sau đồng ý | Chỉ có engine giả lập, không phải vé thật. **Không bật UI** |
 | `get_booking` | Booking ID/PNR | Chưa có flow/UI quản lý vé thật. **Không bật UI** |
@@ -116,7 +116,7 @@ Nguồn: `src/mcp_servers/payments/tools.py`, `server.py`, engine/gateway và `s
 | Bộ kiểm tra | Kết quả / phạm vi |
 | --- | --- |
 | Build React/TypeScript | Thành công |
-| Playwright desktop 1440×960 + mobile 390×844 | 16 ca: auth/navigation, nhà/lưu/chọn/reload/plan, pin, map warning, phí/order AhaMove, approval/PII/receipt, expiry/payment pending, giữ form khi lỗi. Dùng fixture API, không phải giao dịch thật |
+| Playwright desktop 1440×960 + mobile 390×844 | 18 ca (01/10 thêm chế độ bản đồ: danh sách theo vùng, địa chỉ + chỉ đường, bộ lọc chat, sort, `map_view`); 16 ca gốc: auth/navigation, nhà/lưu/chọn/reload/plan, pin, map warning, phí/order AhaMove, approval/PII/receipt, expiry/payment pending, giữ form khi lỗi. Dùng fixture API, không phải giao dịch thật |
 | Gateway/graph + payment flow/approval/map/commit adapter | 36 passed; thêm test chi phí, quyền đọc QR và hủy thanh toán chưa chắc chắn |
 | Bộ Python rộng hơn `tests/test_agents tests/test_api tests/test_mcp_payments Frontend/tests` | Lượt rà rộng: **153 passed, 17 failed** trước khi thêm 2 test UI-contract. Chưa coi toàn bộ suite sạch; xem nhóm lỗi bên dưới |
 | Service local đọc thật | 9 tool Location thành công; platform/database và frontend HTTP 200; 9 OSRM nearest thành công. Không gọi LLM/provider giao dịch |

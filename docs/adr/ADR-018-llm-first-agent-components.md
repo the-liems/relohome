@@ -42,6 +42,11 @@ Không đặt ràng buộc cùng thành phố. Không suy diễn bốc xếp/s�
 phê duyệt biên giá ±5%. Graph integration phải áp dụng `price_tolerance={}` theo quyết định
 của chủ task; cấu hình cũ trong graph chưa được thay ở đợt component này.
 
+Cập nhật 01/10: Planner LLM được trả `needs_input {domain, field, question}` cho lĩnh vực
+được yêu cầu mà input có mặt nhưng chưa dùng được. Đây là quyền **hỏi lại**, không phải quyền
+bỏ yêu cầu: code kiểm lĩnh vực/field theo manifest, rồi graph hỏi người dùng thay vì báo
+`PLAN_INVALID`. Kiểm tra "lĩnh vực đủ input phải có task" vẫn giữ cho lĩnh vực không hoãn.
+
 Liên quan: [SPEC-001](../specs/SPEC-001-goal-understanding.md),
 [SPEC-003](../specs/SPEC-003-planning-and-execution.md),
 [SPEC-004](../specs/SPEC-004-ahamove-moving-service.md),

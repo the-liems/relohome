@@ -47,7 +47,7 @@ Số tool Location MCP vẫn là **9**, không đổi tên tool. Endpoint HTTP m
 
 Các field bổ sung được hỗ trợ: `text`, `district`, `administrative_area_ids`, `min_bathrooms`, `min_area_m2`, `max_area_m2`, `availability_from`, `availability_to`, `verification_requirement`, `source_filters`, `nearby` và `listing_ids`.
 
-City được ràng buộc bằng `administrative_area_ids` lấy từ `search_areas`; không tự thêm field `city` vào map request. `district` có semantics giống search: ưu tiên polygon, fallback địa chỉ khớp tên chính xác khi không có polygon tên đó.
+City được ràng buộc bằng `administrative_area_ids` lấy từ `search_areas`; không tự thêm field `city` vào map request. `district` có semantics giống search: ưu tiên polygon, fallback địa chỉ khớp tên chính xác khi không có polygon tên đó (cập nhật 01/10: so tên bỏ tiền tố loại đơn vị Quận/Huyện/Thị xã/Thành phố ở cả hai vế, xem [map workspace](map-workspace-2026-10-01.md) §3).
 
 `nearby` là điều kiện có POI thuộc category trong khoảng cách đường thẳng. `commute` chưa được tính cho mọi marker viewport và bị trả **400**, thay vì âm thầm bỏ điều kiện. Bbox bắt buộc; map request không nhận `center/radius_m`, `pagination`, `sort` hoặc khóa không hỗ trợ. Nếu cần kết quả commute đã đánh giá, dùng các ID từ housing search làm lớp map kết quả.
 
