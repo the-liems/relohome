@@ -60,6 +60,23 @@ async def test_user_cancels_payment():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("timeout", [False, True])
+async def test_unconfirmed_cancellation_keeps_payment_pending(timeout):
+    s, tx = session(["PENDING"])
+    await s.confirm(await s.say(MSG), PII)
+
+    async def cancel(_ref):
+        if timeout:
+            raise TimeoutError("provider unavailable")
+        return "PENDING"
+
+    tx.cancel_payment = cancel
+    out = await s.resume({"action": "cancel"})
+    assert out["__interrupt__"][0].value["type"] == "payment_required"
+    assert not tx.aborted
+
+
+@pytest.mark.asyncio
 async def test_missing_pii_form_is_rejected_at_confirm():
     s, tx = session(["PAID"])
     out = await s.confirm(await s.say(MSG), pii=None)

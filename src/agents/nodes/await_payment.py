@@ -42,8 +42,8 @@ def make_await_payment(deps: GraphDeps):
             ]
         if status == "REFUNDED":
             status = "CANCELLED"
-        if cancel and status not in TERMINAL:
-            status = "CANCELLED"
+        # A timeout or an unsupported cancellation is not a confirmed cancellation.
+        # Keep waiting until the provider returns an authoritative terminal state.
         if status == "PENDING" and deps.clock() > pending.expires_at:
             status = "EXPIRED"
         update["pending_payment"] = pending.model_copy(update={"status": status if status in TERMINAL else "PENDING"})

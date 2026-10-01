@@ -1,5 +1,7 @@
 # SIU AI — Kế hoạch trang, màn hình và tương tác frontend
 
+> **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.
+
 Ngày lập: **30/09/2026**. Trạng thái: **đề xuất thiết kế, chưa triển khai UI**. Căn cứ: 5 ảnh trong `Frontend/` và backend được đối chiếu tại `e407d45` trong [kế hoạch tích hợp](siu-ai-agent-first-frontend-plan.md).
 
 Mục đích: designer biết cần vẽ những màn hình nào; frontend biết mỗi màn hình có gì và bấm nút sẽ làm gì; backend biết dữ liệu/tương tác nào còn phải bổ sung. Các URL, tên component và hành động trong tài liệu này là thiết kế đề xuất, không phải cam kết đã có endpoint tương ứng.

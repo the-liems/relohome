@@ -67,6 +67,10 @@ Maps\ VN/LifeFlow/**/dist/
 Maps\ VN/LifeFlow/.env
 Maps\ VN/LifeFlow/**/*.local
 test-results/
+Frontend/dist/
+Frontend/playwright-report/
+Frontend/*.tsbuildinfo
+Frontend/public/maplibre/
 
 # Large OSM and OSRM datasets are kept outside Git
 *.osm.pbf

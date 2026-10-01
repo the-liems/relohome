@@ -3,6 +3,8 @@
 import secrets
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -35,6 +37,15 @@ def main():
         "AGENT_API_TOKEN",
     ):
         values[name] = secrets.token_urlsafe(32)
+    # Reuse the Location workspace database when it is already configured.
+    # Generating gateway credentials must not redirect an existing installation
+    # to an empty snapshot database or rotate its database passwords.
+    location = dotenv_values(ROOT / "Maps VN/LifeFlow/.env")
+    if location.get("POSTGRES_DB") and location.get("POSTGRES_APP_PASSWORD"):
+        for name in list(values):
+            if name.startswith("POSTGRES_") and location.get(name):
+                values[name] = location[name]
+        values["POSTGRES_PORT"] = location.get("POSTGRES_PORT") or "5433"
     values["LOCATION_MCP_AUTH_TOKEN"] = values["MCP_AUTH_TOKEN"]
     try:
         with target.open("x", encoding="utf-8") as output:

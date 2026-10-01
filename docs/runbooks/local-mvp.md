@@ -2,7 +2,7 @@
 
 ## Đã nối những gì?
 
-Streamlit → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
+React (Frontend/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
 Moving có vòng gọi tool bằng LLM; Housing/Map/Flight dùng adapter chuyên biệt,
 không bắt buộc mỗi service phải có thêm một LLM. Planner có thể sửa kế hoạch;
 code kiểm schema, quyền gọi tool, dependency, giới hạn gọi và xác nhận giao dịch.
@@ -18,7 +18,8 @@ Không dùng kết quả giả khi provider lỗi. API thiếu cấu hình thì 
 | `src/agents/` | Intake, Planner, graph, domain subagents |
 | `src/services/adapters/` | MCP clients, approval, giao dịch, lưu trạng thái |
 | `src/api/` | API hội thoại, xác nhận và demo thanh toán |
-| `src/ui/` | Giao diện Streamlit |
+| `Frontend/` | React/Vite, gateway và lưu tài khoản/hội thoại |
+| `src/ui/` | Giao diện Streamlit cũ, giữ để tham khảo |
 | `src/mcp_servers/` | Flight/Payment MCP Python |
 | `Maps VN/LifeFlow/` | Workspace TypeScript Housing/Map/Moving đã có; không di chuyển phá import |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
@@ -31,6 +32,10 @@ không tự ghi đè spec hoặc coi mọi đề xuất trong đó là quyết �
 
 ## Máy đang có dữ liệu
 
+Nếu đã có database Location từ `Maps VN/LifeFlow` (ví dụ container `lifeflow-postgis`, DB `lifeflow`, cổng 5433), dùng lại kết nối trong `Maps VN/LifeFlow/.env`. Script khởi tạo mới sẽ lấy cấu hình PostgreSQL này; không import/restore sang database khác. Kiểm tra `data/integration.env` trỏ đúng database đang dùng trước khi chạy các service. Container hiện có có thể khởi động bằng `docker start lifeflow-postgis`; không chạy thêm bộ Compose database ở cổng đó.
+
+Các lệnh Compose/restore bên dưới dành cho bộ snapshot local riêng khi chưa có database Location.
+
 Không chạy lại import/restore/init nếu đã có `data/integration.env` và DB.
 Chạy từ gốc repo, sau khi Docker Desktop sẵn sàng:
 
@@ -39,17 +44,20 @@ docker compose --env-file data/integration.env -f config/local-integration.compo
 docker compose -f config/local-routing.compose.yaml up -d
 ```
 
+Build UI một lần: `cd Frontend`, `npm ci`, `npm run build`, rồi trở về gốc repo.
+
 Mở từng terminal riêng (Ctrl+C dừng đúng process):
 
 ```powershell
 .venv/Scripts/python.exe scripts/local-integration.py location
+.venv/Scripts/python.exe scripts/local-integration.py platform
 .venv/Scripts/python.exe scripts/local-integration.py moving
 .venv/Scripts/python.exe scripts/local-integration.py moving-api
 .venv/Scripts/python.exe scripts/local-integration.py api
 .venv/Scripts/python.exe scripts/local-integration.py ui
 ```
 
-Mở <http://127.0.0.1:8503>. Mặc định chỉ đọc, tìm kiếm, báo giá.
+Mở <http://127.0.0.1:8503>, tạo tài khoản local để lưu hội thoại. Xem [hướng dẫn frontend](../../Frontend/README.md). Mặc định chỉ đọc, tìm kiếm, báo giá.
 Muốn demo giao dịch sandbox: dừng `moving`, `moving-api`, `api`, rồi chạy lại từng
 lệnh với `--sandbox-writes`. Cờ không tự đặt xe/thanh toán; vẫn phải xác nhận trên form.
 Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu local này.
@@ -86,19 +94,18 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
   không đồng nghĩa AhaMove bị giới hạn chỉ trong một thành phố.
   Ví dụ đã kiểm thử: “Tính đường đi bộ từ Dinh Độc Lập Cafe đến Takashimaya tại Thành phố Hồ Chí Minh”.
 - Flight: hỏi tuyến bay và ngày tương lai; chỉ tìm chuyến thật, chưa xuất vé.
-- Moving: nhập địa chỉ; khi chưa đủ rõ, xác nhận tọa độ trên sidebar rồi hỏi báo giá.
+- Moving: nhập địa chỉ; khi chưa đủ rõ, xác nhận tọa độ trong form Chuyển đồ rồi hỏi báo giá.
   Chỉ tick xác nhận khi đã kiểm tra điểm trên bản đồ. Xem phí/điều kiện trước khi đặt.
 - Đặt/hủy/cập nhật liên hệ Moving phải qua phương án và form xác nhận;
   đổi địa chỉ hoặc COD không thuộc form sửa liên hệ, phải đánh giá lại giá/đơn.
-- ZaloPay: trang riêng, nhập 1.000–100.000 VND, xác nhận tạo yêu cầu sandbox,
-  mở link/QR rồi kiểm tra trạng thái từ provider. Không có nút giả lập đã trả tiền.
+- ZaloPay sandbox độc lập vẫn có API backend và trang Streamlit cũ; frontend React chưa có form demo riêng. UI mới đọc yêu cầu thanh toán từ workflow và kiểm tra kết quả từ provider.
 
 Moving đang CASH. Thanh toán ZaloPay là demo riêng, **chưa phải thanh toán đơn
 AhaMove hay vé máy bay**. Không tự nối hai khoản để tránh thu tiền hai lần.
 
 ## An toàn và phục hồi
 
-- `AGENT_API_TOKEN` chỉ giữ ở backend Streamlit; `X-User-Id` do frontend tin cậy cấp.
+- `AGENT_API_TOKEN` chỉ giữ ở gateway; `X-User-Id` do gateway suy ra từ session HttpOnly.
   Đây chưa phải đăng nhập nhiều người dùng production; không expose các cổng ra Internet.
 - Form chứa PII được mã hóa tại chỗ, TTL 30 phút; không gửi token/provider payload vào LLM.
 - Checkpoint, ownership, approval và dấu giao dịch tồn tại sau restart.

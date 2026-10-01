@@ -5,7 +5,9 @@
 Xem [hướng dẫn chạy demo](docs/runbooks/local-mvp.md),
 [quyết định runtime](docs/adr/ADR-019-local-integrated-mvp.md) và
 [kết quả kiểm thử, giới hạn còn lại](eval/mvp-local-2026-09-30.md).
-Intake/Planner/Moving LLM đã nối LangGraph; demo Streamlit tại cổng 8503.
+Intake/Planner/Moving LLM đã nối LangGraph; frontend React trong [`Frontend/`](Frontend/README.md), chạy tại cổng 8503.
+
+**Tiến độ frontend 01/10/2026:** đã rà soát 34 tool Location/AhaMove/Flight/Payment; xem [README frontend](Frontend/README.md) và [bảng hỗ trợ từng tool, kiểm thử, phần còn thiếu](Frontend/SERVICE_AUDIT.md). Housing/Map đã kiểm tra trên dữ liệu local; AhaMove/Flight/Payment cần cấu hình provider riêng, không chỉ API LLM. Bộ test rộng còn lỗi fixture/hợp đồng cũ được ghi rõ trong audit.
 Không deploy; giao dịch sandbox tắt mặc định.
 
 ## Module bản đồ LifeFlow

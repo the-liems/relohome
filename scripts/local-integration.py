@@ -1,6 +1,6 @@
 """Run one local component with ignored integration configuration; no deployment.
 
-Usage: .venv/Scripts/python scripts/local-integration.py location|moving|moving-api|api|migrate
+Usage: .venv/Scripts/python scripts/local-integration.py location|platform|moving|moving-api|api|migrate|ui
 Keep each long-running component in its own terminal. Ctrl+C stops that component.
 """
 
@@ -47,7 +47,7 @@ def environment(component, sandbox_writes=False):
     # Children must not re-load the broad root .env after scoped credentials are removed.
     env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
     env["PYTHONPATH"] = str(ROOT)
-    if component in {"location", "moving", "moving-api"}:
+    if component in {"location", "platform", "moving", "moving-api"}:
         allowed = {
             "PATH",
             "SYSTEMROOT",
@@ -63,14 +63,18 @@ def environment(component, sandbox_writes=False):
             "POSTGRES_APP_USER",
             "POSTGRES_APP_PASSWORD",
         }
-        prefixes = ("MCP_", "OSRM_") if component == "location" else ("AHAMOVE_", "MOVING_")
+        prefixes = ("MCP_", "OSRM_", "PLATFORM_") if component in {"location", "platform"} else ("AHAMOVE_", "MOVING_")
+        if component == "platform":
+            allowed.update(
+                {"POSTGRES_ADMIN_USER", "POSTGRES_ADMIN_PASSWORD", "POSTGRES_INGEST_USER", "POSTGRES_INGEST_PASSWORD"}
+            )
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
     return env
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("component", choices=["location", "moving", "moving-api", "api", "migrate", "ui"])
+    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "api", "migrate", "ui"])
     parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
@@ -80,6 +84,7 @@ def main():
         parser.error("--port is valid only for api/ui and must be between 1 and 65535")
     commands = {
         "location": ["node", "mcp-server/dist/http-server.js"],
+        "platform": ["node", "platform-api/dist/server.js"],
         "moving": ["node", "moving-mcp-server/dist/http-server.js"],
         "moving-api": ["node", "moving-api/dist/server.js"],
         "migrate": ["node", "platform-api/dist/migrate.js"],
@@ -98,13 +103,14 @@ def main():
         "ui": [
             sys.executable,
             "-m",
-            "streamlit",
-            "run",
-            "src/ui/agent_chat.py",
-            "--server.address",
+            "uvicorn",
+            "Frontend.server:app",
+            "--host",
             "127.0.0.1",
-            "--server.port",
+            "--port",
             str(args.port or 8503),
+            "--workers",
+            "1",
         ],
     }
     sys.exit(

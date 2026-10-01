@@ -1,5 +1,7 @@
 # Kế hoạch phát triển frontend SIU AI theo hướng AI Agent-first
 
+> **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.
+
 Ngày lập: **30/09/2026**. Đối chiếu code local `QuangDung@e407d45`, đã đồng bộ `origin/mvp` ở lượt cập nhật trước.
 
 **Trạng thái: kế hoạch tổng thể để chia việc; frontend chưa triển khai, một phần backend Map đã được thực hiện theo bản cập nhật bên dưới.** Khảo sát ban đầu dựa trên source code và 5 ảnh demo; bằng chứng kiểm thử của phần backend mới nằm trong bản cập nhật.

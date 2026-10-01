@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from src.agents.wiring import AgentService
 from src.api.routes import router
 from src.api.sandbox_payments import router as sandbox_payment_router
+from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
 
 
@@ -42,6 +43,7 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(sandbox_payment_router, prefix="/api/v1")
+app.include_router(web_actions_router, prefix="/api/v1")
 
 
 @app.exception_handler(RequestValidationError)
