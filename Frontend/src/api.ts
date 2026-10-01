@@ -66,6 +66,16 @@ export const housePrice = (h: any) =>
     : h.price_vnd != null
       ? `${money(h.price_vnd)} / tháng`
       : "Chưa có giá";
+// Card price like map-app: "8,1 tr/tháng"; exact amount stays in the detail panel.
+export const compactPrice = (h: any) => {
+  const amount = h.price?.amount ?? h.price_vnd;
+  if (typeof amount !== "number") return "Chưa có giá";
+  const period = periods[h.price?.period] || h.price?.period || "tháng";
+  if (h.price?.currency && h.price.currency !== "VND") return housePrice(h);
+  return amount >= 1_000_000
+    ? `${(amount / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr/${period}`
+    : `${Math.round(amount / 1000).toLocaleString("vi-VN")}k/${period}`;
+};
 export const domainLabels: Record<string, string> = {
   property: "Tìm nhà",
   map: "Bản đồ & tiện ích",

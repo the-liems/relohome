@@ -31,7 +31,7 @@ const houses = [
     location_accuracy: "approximate",
   },
 ];
-async function fixture(page: Page, authenticated = true) {
+async function fixture(page: Page, authenticated = true, calls: any[] = []) {
   let logged = authenticated;
   const user = {
     id: "ui-test",
@@ -63,6 +63,7 @@ async function fixture(page: Page, authenticated = true) {
     },
   };
   let saved: any[] = [];
+  const turns: any[] = [];
   const component = {
     id: "housing:result-1",
     task_id: "housing",
@@ -78,9 +79,34 @@ async function fixture(page: Page, authenticated = true) {
         district: "Quận 1",
         max_price: { amount: 10000000, currency: "VND", period: "month" },
       },
+      map_context: {
+        scope: "returned_candidates",
+        listing_ids: houses.map((h) => h.id),
+        viewport: { west: 106.69, south: 10.765, east: 106.71, north: 10.78 },
+      },
       has_more: false,
     },
   };
+  // Platform shapes: search results and map markers carry structured addresses and coordinates.
+  const platformRow = (h: any) => ({
+    listing_id: h.id,
+    title: h.title,
+    price: h.price,
+    bedrooms: h.bedrooms,
+    bathrooms: h.bathrooms,
+    area: { value: h.area_m2, unit: "m2" },
+    address: {
+      housenumber: "12",
+      street: "Lê Lợi",
+      ward: "Bến Nghé",
+      district: "Quận 1",
+      city: "Hồ Chí Minh",
+    },
+    location: { lat: h.lat, lng: h.lng },
+    location_accuracy: h.location_accuracy,
+    amenities: h.amenities,
+    thumbnail_url: null,
+  });
   await page.route("**/web/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace(
         "/web/api",
@@ -104,9 +130,20 @@ async function fixture(page: Page, authenticated = true) {
       };
     else if (path === "/threads" && method === "GET")
       data = thread.messages.length ? [thread] : [];
-    else if (path === "/threads" && method === "POST") data = thread;
+    else if (
+      (path === "/threads/th_ui" || path === "/threads") &&
+      method === "DELETE"
+    ) {
+      calls.push({ path, method });
+      thread.messages = [];
+      data =
+        path === "/threads"
+          ? { deleted: 1, kept: [], memory_forgotten: true }
+          : { ok: true };
+    } else if (path === "/threads" && method === "POST") data = thread;
     else if (path === "/threads/th_ui" && method === "GET") data = thread;
     else if (path === "/threads/th_ui/chat") {
+      turns.push(body);
       thread.messages.push({
         id: "u" + thread.messages.length,
         role: "user",
@@ -129,9 +166,13 @@ async function fixture(page: Page, authenticated = true) {
       });
       data = thread;
     } else if (path === "/threads/th_ui/action") {
-      thread.state.intake.user_confirmed_facts["selected:property"] = {
-        value: body.entity_id,
-      };
+      calls.push({ path, body });
+      const owner = thread.messages
+        .flatMap((m: any) => m.content.ui?.components || [])
+        .find((c: any) => c.task_id === body.task_id);
+      thread.state.intake.user_confirmed_facts[
+        "selected:" + (owner?.type || "property")
+      ] = { value: body.entity_id };
       thread.state.cost_summary = {
         lines: [
           {
@@ -161,6 +202,22 @@ async function fixture(page: Page, authenticated = true) {
     } else if (path === "/logout") {
       logged = false;
       data = { ok: true };
+    } else if (path === "/platform/housing/map") {
+      calls.push({ path, body });
+      data = {
+        features: houses.map((h) => ({ kind: "listing", ...platformRow(h) })),
+        meta: {
+          mode: "listings",
+          returned_count: houses.length,
+          truncated: false,
+        },
+      };
+    } else if (path === "/platform/housing/search") {
+      calls.push({ path, body });
+      data = {
+        results: houses.map(platformRow),
+        page: { next_cursor: null, returned_count: houses.length },
+      };
     } else if (path === "/map/search")
       data = {
         results: [
@@ -200,7 +257,7 @@ async function fixture(page: Page, authenticated = true) {
       contentType: "application/x-protobuf",
     }),
   );
-  return { thread, component, user };
+  return { thread, component, user, turns };
 }
 
 function seed(thread: any, components: any[] = [], data: any = {}) {
@@ -519,6 +576,8 @@ test("chat, housing details, selection, saved, plan and reload", async ({
     .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
     .fill("Tìm nhà 2 phòng ngủ tại Quận 1 dưới 10 triệu/tháng");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+  // Housing answers open the map workspace; this test continues in the chat cards.
+  await page.getByRole("button", { name: "Về hội thoại" }).click();
   await expect(page.getByText("Đang hiển thị 2 căn")).toBeVisible();
   await expect(page.locator('[data-map-ready="true"]').first()).toBeAttached();
   await page.screenshot({
@@ -548,6 +607,7 @@ test("chat, housing details, selection, saved, plan and reload", async ({
     page.getByText("Đã chọn:", { exact: false }).first(),
   ).toBeVisible();
   await page.reload();
+  await page.getByRole("button", { name: "Về hội thoại" }).click();
   await expect(
     page.getByText("Đã chọn:", { exact: false }).first(),
   ).toBeVisible();
@@ -571,27 +631,387 @@ test("chat, housing details, selection, saved, plan and reload", async ({
   expect(errors).toEqual([]);
 });
 
-test("moving pin changes require confirmation again; empty price is not zero", async ({
+const tomorrow = () => {
+  const d = new Date(Date.now() + 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+test("chosen home prefills the moving form; nothing is sent until confirmed", async ({
   page,
 }) => {
-  await fixture(page);
+  const { thread, turns } = await fixture(page);
+  // Chosen on the map: only the agent state knows it, not any chat message.
+  thread.state.intake.user_confirmed_facts["selected:property"] = {
+    value: "map-only",
+  };
+  thread.state.selections = {
+    property: {
+      id: "map-only",
+      title: "Phòng trọ trên bản đồ",
+      address: "255 Cầu Giấy, Hà Nội",
+      lat: 21.031,
+      lng: 105.799,
+      location_accuracy: "approximate",
+    },
+  };
+  seed(thread);
+  await page.goto("/ai/th_ui");
+  await expect(page.getByText("Đã chọn:")).toContainText(
+    "Phòng trọ trên bản đồ",
+  );
+  await page.getByRole("button", { name: /Chuyển đồ tới đây/ }).click();
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form).toContainText("Phòng đã chọn: Phòng trọ trên bản đồ");
+  await expect(form).toContainText("255 Cầu Giấy, Hà Nội");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("điểm lấy");
+  await form.getByLabel("Địa chỉ lấy đồ").fill("Đại học Bách khoa Hà Nội");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("ngày chuyển");
+  expect(turns).toEqual([]);
+  await form.getByLabel("Ngày chuyển").fill(tomorrow());
+  await form.getByLabel("Giờ xe đến").fill("09:00");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].message).toBe(
+    `Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến phòng mình đã chọn ngày ${tomorrow()} lúc 09:00. Chưa đặt đơn.`,
+  );
+  expect(turns[0].moving_locations).toBeUndefined();
+});
+
+test("a moving question opens the moving form; a new address needs the pin again", async ({
+  page,
+}) => {
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "moving-question",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "CLARIFY",
+        text: "Mình cần thêm vài thông tin để báo giá chuyển đồ.",
+        questions: [
+          {
+            field: "relocation.move_date",
+            text: "Bạn muốn chuyển đồ ngày nào?",
+          },
+          {
+            field: "to_address",
+            text: "Bạn chọn đúng điểm giao trên bản đồ nhé.",
+            choices: [
+              {
+                id: "place-1",
+                label: "Ngõ 43 Trung Kính",
+                entity_type: "place",
+                lat: 21.0207,
+                lng: 105.7917,
+              },
+            ],
+          },
+        ],
+        data: {
+          known_request: {
+            from_address: "Đại học Bách khoa Hà Nội",
+            to_address: "Ngõ 43 Phố Trung Kính, Cầu Giấy",
+            move_time: "10:00",
+          },
+        },
+      },
+    },
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form).toContainText("Bạn muốn chuyển đồ ngày nào?");
+  await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue(
+    "Đại học Bách khoa Hà Nội",
+  );
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("10:00");
+  await form.getByRole("button", { name: /Ngõ 43 Trung Kính/ }).click();
+  await expect(form).toContainText("Đã ghim: Ngõ 43 Trung Kính");
+  await form.getByLabel("Địa chỉ giao đồ").fill("Ngõ 45 Phố Trung Kính");
+  await expect(form).not.toContainText("Đã ghim: Ngõ 43 Trung Kính");
+  await form
+    .getByLabel("Địa chỉ giao đồ")
+    .fill("Ngõ 43 Phố Trung Kính, Cầu Giấy");
+  await form.getByRole("button", { name: /Ngõ 43 Trung Kính/ }).click();
+  await form.getByLabel("Ngày chuyển").fill(tomorrow());
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_locations).toEqual({
+    destination: {
+      address: "Ngõ 43 Phố Trung Kính, Cầu Giấy",
+      lat: 21.0207,
+      lng: 105.7917,
+      confirmed: true,
+    },
+  });
+});
+
+test("housing answer opens the map workspace with viewport list, filters and chat dock", async ({
+  page,
+}, info) => {
+  const calls: any[] = [];
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await fixture(page, true, calls);
   await page.goto("/ai");
-  await page.getByRole("button", { name: /Chuyển đồ/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Sắp xếp chuyến chuyển đồ" });
-  await dialog
-    .getByLabel("Địa chỉ lấy đồ", { exact: true })
-    .fill("Điểm kiểm thử");
-  await dialog.getByLabel("Vĩ độ", { exact: true }).first().fill("10.77");
-  await dialog.getByLabel("Kinh độ", { exact: true }).first().fill("106.7");
-  const confirmed = dialog
-    .getByRole("checkbox", { name: "Tôi đã kiểm tra đúng điểm xe dừng" })
-    .first();
-  await confirmed.check();
-  await expect(confirmed).toBeChecked();
-  await dialog
-    .getByLabel("Địa chỉ lấy đồ", { exact: true })
-    .fill("Địa chỉ mới");
-  await expect(confirmed).not.toBeChecked();
-  await page.keyboard.press("Escape");
-  await expect(dialog).not.toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .fill("Tìm nhà dưới 10 triệu ở Quận 1");
+  await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+  const list = page.getByRole("complementary", {
+    name: "Nhà trong vùng bản đồ",
+  });
+  await expect(
+    page.getByRole("region", { name: "Bản đồ nhà ở" }),
+  ).toBeVisible();
+  // Every listing is shown individually with its own address and directions link.
+  await expect(list.getByText(houses[0].title)).toBeAttached();
+  await expect(
+    list.getByText("12, Lê Lợi, Bến Nghé, Quận 1, Hồ Chí Minh").first(),
+  ).toBeAttached();
+  await expect(
+    list.getByRole("link", { name: "Chỉ đường" }).first(),
+  ).toHaveAttribute(
+    "href",
+    /google\.com\/maps\/dir\/.*destination=10\.776,106\.697/,
+  );
+  // Chat filters are applied to the viewport list request, with the chosen sort and page size.
+  await expect
+    .poll(() => calls.filter((c) => c.path.endsWith("/search")).length)
+    .toBeGreaterThan(0);
+  let search = calls.filter((c) => c.path.endsWith("/search")).pop().body;
+  expect(search.district).toBe("Quận 1");
+  expect(search.max_price.amount).toBe(10000000);
+  expect(search.pagination.limit).toBe(10);
+  expect(search.bounding_box.west).toBeLessThan(search.bounding_box.east);
+  await page
+    .getByRole("combobox", { name: "Sắp xếp" })
+    .selectOption("price_asc");
+  await expect
+    .poll(
+      () => calls.filter((c) => c.path.endsWith("/search")).pop().body.sort[0],
+    )
+    .toEqual({ field: "price_amount", direction: "asc" });
+  // The chat dock sends the current map view so "khu này" refers to it.
+  let sent: any = null;
+  await page.route("**/web/api/threads/th_ui/chat", async (route) => {
+    sent = route.request().postDataJSON();
+    await route.fallback();
+  });
+  await page
+    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .fill("Căn rẻ hơn ở khu này");
+  await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+  await expect.poll(() => sent?.map_view?.bounding_box?.west).toBeDefined();
+  expect(sent.map_view.zoom).toBeGreaterThan(0);
+  await page.screenshot({
+    path: info.outputPath("map-workspace.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
+test("choosing a home from the map list returns to chat; chat dock can hide", async ({
+  page,
+}, info) => {
+  const calls: any[] = [];
+  await fixture(page, true, calls);
+  await page.goto("/ai");
+  await page
+    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .fill("Tìm nhà dưới 10 triệu ở Quận 1");
+  await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+  await expect(
+    page.getByRole("region", { name: "Bản đồ nhà ở" }),
+  ).toBeVisible();
+  // The dock hides to keep the map readable and comes back from the floating button.
+  await page.getByRole("button", { name: "Ẩn khung chat" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Hiện khung chat" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+  ).toBeVisible();
+  const list = page.getByRole("complementary", {
+    name: "Nhà trong vùng bản đồ",
+  });
+  if (info.project.name === "mobile") {
+    // Mobile keeps the list in a bottom sheet over the map.
+    await list.getByRole("button", { name: /căn trong vùng này/ }).click();
+    await page.screenshot({ path: info.outputPath("sheet.png") });
+  }
+  await list.getByRole("button", { name: "Chọn căn này" }).nth(1).click();
+  await expect
+    .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body.entity_id)
+    .toBe(houses[1].id);
+  // Back in the conversation with the chosen home, ready for moving or other services.
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Đã chọn:", { exact: false }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Mở bản đồ nhà ở" }),
+  ).toBeVisible();
+});
+
+test("flight results open a flight workspace with sorting and selection", async ({
+  page,
+}) => {
+  const calls: any[] = [];
+  const { thread } = await fixture(page, true, calls);
+  const later = new Date(Date.now() + 3600_000).toISOString();
+  seed(thread, [
+    {
+      id: "flight:1",
+      type: "flight",
+      task_id: "flight",
+      fetched_at: "2026-10-01T00:00:00+00:00",
+      data: {
+        origin: "Hà Nội",
+        destination: "Đà Nẵng",
+        offers: [
+          {
+            id: "f-exp",
+            carrier: "Vietjet",
+            fare_vnd: 1_500_000,
+            depart_at: "2026-11-20T09:00:00+07:00",
+            arrive_at: "2026-11-20T10:20:00+07:00",
+            stops: 0,
+            expires_at: later,
+          },
+          {
+            id: "f-cheap",
+            carrier: "Bamboo",
+            fare_vnd: 900_000,
+            depart_at: "2026-11-20T06:00:00+07:00",
+            arrive_at: "2026-11-20T07:25:00+07:00",
+            stops: 0,
+            expires_at: later,
+          },
+        ],
+      },
+    },
+  ]);
+  await page.goto("/ai/th_ui");
+  const flights = page.getByRole("region", { name: "Chuyến bay" });
+  await expect(flights).toBeVisible();
+  // Default sort is cheapest first.
+  await expect(flights.locator(".svc-carrier").first()).toHaveText("Bamboo");
+  await flights
+    .getByRole("combobox", { name: "Sắp xếp chuyến bay" })
+    .selectOption("depart");
+  await expect(flights.locator(".svc-carrier").first()).toHaveText("Bamboo");
+  await flights.getByRole("button", { name: "Vietjet" }).click();
+  await expect(flights.locator(".svc-card")).toHaveCount(1);
+  await flights.getByRole("button", { name: "Chọn chuyến này" }).click();
+  await expect
+    .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body)
+    .toMatchObject({ kind: "select", task_id: "flight", entity_id: "f-exp" });
+  await expect(flights).toHaveCount(0);
+});
+
+test("moving quotes open a moving workspace with A/B points and fee details", async ({
+  page,
+}) => {
+  const calls: any[] = [];
+  const { thread } = await fixture(page, true, calls);
+  seed(thread, [
+    {
+      id: "moving:1",
+      type: "relocation",
+      task_id: "moving",
+      fetched_at: "2026-10-01T00:00:00+00:00",
+      data: {
+        expires_at: new Date(Date.now() + 300000).toISOString(),
+        from_address: "Chợ Bến Thành",
+        to_address: "Bưu điện Trung tâm Sài Gòn",
+        route: {
+          pickup: { address: "Chợ Bến Thành", lat: 10.7725, lng: 106.698 },
+          destination: {
+            address: "Bưu điện Trung tâm Sài Gòn",
+            lat: 10.78,
+            lng: 106.7,
+          },
+        },
+        quotes: [
+          {
+            id: "q:truck",
+            vehicle: "Xe tải 500kg",
+            price_vnd: 250000,
+            distance_km: 1.4,
+            fee_breakdown: { distance_price: 200000, total_price: 250000 },
+          },
+        ],
+      },
+    },
+  ]);
+  await page.goto("/ai/th_ui");
+  const panel = page.getByRole("complementary", {
+    name: "Phương án chuyển đồ",
+  });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("Chợ Bến Thành")).toBeVisible();
+  await panel.getByRole("button", { name: "Xem chi phí" }).click();
+  await expect(panel.getByText("200.000 ₫")).toBeVisible();
+  await panel.getByRole("button", { name: "Chọn phương án" }).click();
+  await expect
+    .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body.entity_id)
+    .toBe("q:truck");
+  await expect(panel).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mở phương án chuyển đồ" }),
+  ).toBeVisible();
+});
+
+test("a conversation can be deleted, and all conversations reset", async ({
+  page,
+}) => {
+  const calls: any[] = [];
+  const { thread } = await fixture(page, true, calls);
+  seed(thread);
+  await page.goto("/ai/th_ui");
+  await expect(
+    page.getByText("Kết quả kiểm tra hợp đồng dịch vụ"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).click();
+  const confirm = page.getByRole("dialog", { name: "Xóa cuộc trò chuyện?" });
+  await expect(confirm).toContainText("Đơn đã đặt không bị hủy");
+  await confirm.getByRole("button", { name: "Hủy" }).click();
+  expect(calls).toEqual([]);
+  await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).click();
+  await confirm.getByRole("button", { name: "Xóa cuộc trò chuyện" }).click();
+  await expect(page).toHaveURL(/\/ai$/);
+  await expect(page.getByText("Đã xóa cuộc trò chuyện.")).toBeVisible();
+  expect(calls).toEqual([{ path: "/threads/th_ui", method: "DELETE" }]);
+
+  seed(thread);
+  await page.reload();
+  await page.getByRole("button", { name: "Lịch sử" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Xóa cuộc trò chuyện Tìm nhà tại Quận 1",
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Xóa tất cả và làm mới SIU" }).click();
+  await page
+    .getByRole("dialog", { name: "Xóa tất cả và làm mới SIU?" })
+    .getByRole("button", { name: "Xóa tất cả" })
+    .click();
+  await expect(
+    page.getByText(
+      "Đã xóa toàn bộ trò chuyện và làm mới những gì SIU ghi nhớ.",
+    ),
+  ).toBeVisible();
+  expect(calls.at(-1)).toEqual({ path: "/threads", method: "DELETE" });
 });

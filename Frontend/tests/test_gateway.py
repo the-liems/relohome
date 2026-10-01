@@ -130,3 +130,78 @@ async def test_unknown_result_is_not_retried_automatically(tmp_path, monkeypatch
         assert (await client.post(f"/web/api/threads/{tid}/chat", json=body)).status_code == 502
         assert (await client.post(f"/web/api/threads/{tid}/chat", json=body)).status_code == 409
         assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_and_reset_conversations(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "test-token")
+    calls, blocked = [], set()
+
+    def provider(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "DELETE" and request.url.path.endswith("/memory"):
+            return httpx.Response(200, json={"forgotten": True})
+        if request.method == "DELETE":
+            if request.url.path.rsplit("/", 1)[-1] in blocked:
+                return httpx.Response(409, json={"detail": "Hội thoại đang có thanh toán chờ xử lý."})
+            return httpx.Response(200, json={"deleted": True})
+        if request.url.path.endswith("/state"):
+            return httpx.Response(200, json={"plan": None, "intake": {}, "pending": None})
+        body = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "thread_id": body["thread_id"],
+                "status": "done",
+                "response": {
+                    "kind": "ANSWER",
+                    "text": "Đã có kết quả",
+                    "data": {"results": {"t1": {"agent": "property", "data": {"candidates": [HOUSE]}}}},
+                },
+            },
+        )
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as a,
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as b,
+    ):
+        for client, email in ((a, "a@example.test"), (b, "b@example.test")):
+            await client.post(
+                "/web/api/auth/register", json={"name": "Bạn", "email": email, "password": "a-long-password"}
+            )
+
+        async def chatted(n):
+            tid = (await a.post("/web/api/threads")).json()["id"]
+            turn = {"request_id": f"request-delete-{n:04d}", "message": "Tìm phòng"}
+            assert (await a.post(f"/web/api/threads/{tid}/chat", json=turn)).status_code == 200
+            return tid
+
+        first = await chatted(1)
+        await a.put("/web/api/saved/house-1", json={"thread_id": first})
+        assert (await b.delete(f"/web/api/threads/{first}")).status_code == 404
+        assert (await a.delete(f"/web/api/threads/{first}")).status_code == 200
+        assert ("DELETE", f"/api/v1/chat/{first}") in calls
+        assert (await a.get(f"/web/api/threads/{first}")).status_code == 404
+        saved = (await a.get("/web/api/saved")).json()
+        assert saved[0]["id"] == HOUSE["id"] and saved[0]["thread_id"] == ""
+
+        # A thread the agent never saw is removed locally without an upstream call.
+        empty = (await a.post("/web/api/threads")).json()["id"]
+        before = len(calls)
+        assert (await a.delete(f"/web/api/threads/{empty}")).status_code == 200
+        assert len(calls) == before
+
+        # The agent refuses (pending payment): the conversation stays, nothing local is dropped.
+        paying, other = await chatted(2), await chatted(3)
+        blocked.add(paying)
+        assert (await a.delete(f"/web/api/threads/{paying}")).status_code == 409
+        assert len((await a.get(f"/web/api/threads/{paying}")).json()["messages"]) == 2
+
+        reset = (await a.delete("/web/api/threads")).json()
+        assert reset["deleted"] == 1 and reset["memory_forgotten"] is True
+        assert [k["id"] for k in reset["kept"]] == [paying]
+        assert [t["id"] for t in (await a.get("/web/api/threads")).json()] == [paying]
+        assert (await a.get(f"/web/api/threads/{other}")).status_code == 404
+        assert ("DELETE", "/api/v1/memory") in calls

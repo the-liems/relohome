@@ -98,3 +98,75 @@ async def test_selection_is_grounded_owned_and_persisted_in_graph(monkeypatch):
             )
         ).status_code == 409
         assert not state.get("committed")
+
+
+@pytest.mark.asyncio
+async def test_listing_explored_on_map_is_selectable_only_via_provider_record(monkeypatch):
+    from src.agents.deps import AgentRegistry
+    from src.agents.subagents.fake import FakeAgent
+
+    class Location:
+        async def call(self, tool, args):
+            assert tool == "get_housing"
+            if args["listing_id"] != "map-1":
+                return None
+            return {
+                "listing_id": "map-1",
+                "title": "Căn trên bản đồ",
+                "price": {"amount": 6_000_000, "currency": "VND", "period": "month"},
+                "address": {"street": "Lê Lợi", "district": "Quận 1", "city": "Hồ Chí Minh"},
+                "location": {"lat": 10.77, "lng": 106.7},
+                "location_accuracy": "approximate",
+            }
+
+    housing = FakeAgent(AgentName.PROPERTY)
+    housing.client = Location()
+    monkeypatch.setattr("src.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: housing}))
+    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    app = FastAPI()
+    app.state.agent_service = service
+    app.include_router(router)
+    when = utcnow()
+    result = TaskResult(
+        task_id="t1",
+        agent=AgentName.PROPERTY,
+        plan_version=1,
+        status="done",
+        fetched_at=when,
+        data={"candidates": [{"id": "a", "title": "Căn A"}]},
+        quotes=[Quote(option_id="a", label="Căn A", amount_vnd=4000000, recurrence="monthly")],
+    )
+    config = run_config("thread-map", service.deps)
+    await service.graph.aupdate_state(
+        config,
+        {
+            "user_id": "alice",
+            "thread_id": "thread-map",
+            "intake": IntakeResult(
+                kind=RequestKind.NEW_GOAL,
+                intent=Intent(name="housing", domains=[AgentName.PROPERTY]),
+                constraints=Constraints(),
+            ),
+            "plan": Plan(version=1, tasks=[Task(id="t1", agent=AgentName.PROPERTY)]),
+            "task_results": {"t1": result},
+            "task_status": {"t1": TaskStatus.DONE},
+        },
+        as_node="respond",
+    )
+    body = {"kind": "select", "task_id": "t1", "plan_version": 1, "fetched_at": when.isoformat()}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        missing = await client.post(
+            "/ui/chat/thread-map/action", json={**body, "entity_id": "nope"}, headers={"X-User-Id": "alice"}
+        )
+        assert missing.status_code == 409
+        chosen = await client.post(
+            "/ui/chat/thread-map/action", json={**body, "entity_id": "map-1"}, headers={"X-User-Id": "alice"}
+        )
+        assert chosen.status_code == 200, chosen.text
+    state = (await service.graph.aget_state(config)).values
+    assert state["intake"].user_confirmed_facts["selected:property"].value == "map-1"
+    added = state["task_results"]["t1"]
+    assert [c["id"] for c in added.data["candidates"]] == ["a", "map-1"]
+    assert added.data["candidates"][1]["origin"] == "map_workspace"
+    assert any(q.option_id == "map-1" for q in added.quotes)
+    assert state["cost_summary"].total_monthly_vnd == 6000000

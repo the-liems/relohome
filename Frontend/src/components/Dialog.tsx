@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 export function Dialog({
@@ -47,5 +47,56 @@ export function Dialog({
       </div>
       <div className="dialog-body">{children}</div>
     </dialog>
+  );
+}
+
+// Destructive confirmation: keeps the dialog open with the server's reason when the action fails.
+export function ConfirmDialog({
+  title,
+  children,
+  action,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  children: ReactNode;
+  action: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  return (
+    <Dialog title={title} onClose={() => !busy && onClose()}>
+      <div className="confirm-body">{children}</div>
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="form-actions">
+        <button className="secondary" disabled={busy} onClick={onClose}>
+          Hủy
+        </button>
+        <button
+          className="primary danger"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              await onConfirm();
+              onClose();
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy && <span className="spinner small" />} {action}
+        </button>
+      </div>
+    </Dialog>
   );
 }

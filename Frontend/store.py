@@ -78,6 +78,14 @@ class Store:
             )
         ]
 
+    def delete_thread(self, owner, thread):
+        """Drop a conversation; saved homes stay as the user's favourites without the thread link."""
+        with self.db:
+            self.db.execute("DELETE FROM messages WHERE thread=?", (thread,))
+            self.db.execute("DELETE FROM runs WHERE thread=? AND owner=?", (thread, owner))
+            self.db.execute("UPDATE saved SET thread='' WHERE owner=? AND thread=?", (owner, thread))
+            self.db.execute("DELETE FROM threads WHERE id=? AND owner=?", (thread, owner))
+
     def create_session(self, owner):
         token = secrets.token_urlsafe(40)
         self.write("DELETE FROM sessions WHERE expires < ?", (time.time(),))

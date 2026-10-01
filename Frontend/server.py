@@ -47,6 +47,8 @@ class Turn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
     housing_location: dict | None = None
     moving_locations: dict | None = None
+    map_view: dict | None = None  # validated again by the Agent API
+    place_choice: dict | None = None
 
 
 def public_user(row):
@@ -262,6 +264,42 @@ def create_app(database=None, transport=None):
         await refresh(thread, owner)
         return snapshot(thread, owner)
 
+    async def remove_thread(thread, owner):
+        row = owned(thread, owner)
+        lock = app.state.locks.setdefault(thread, asyncio.Lock())
+        if lock.locked():
+            raise HTTPException(409, "Hội thoại đang xử lý một yêu cầu. Chờ xong rồi xóa.")
+        async with lock:
+            if row["revision"] or app.state.store.history(thread):
+                # The agent keeps its own checkpoint and memory for this thread; delete those first so a
+                # failure never leaves agent state behind a conversation the user no longer sees.
+                await upstream("DELETE", f"/chat/{thread}", owner)
+            app.state.store.delete_thread(owner, thread)
+        app.state.locks.pop(thread, None)
+
+    @app.delete("/web/api/threads/{thread}")
+    async def delete_thread(thread: str, request: Request):
+        await remove_thread(thread, user(request)["id"])
+        return {"ok": True}
+
+    @app.delete("/web/api/threads")
+    async def reset_threads(request: Request):
+        """Delete every conversation that can be deleted and make the agent forget learned preferences."""
+        owner = user(request)["id"]
+        deleted, kept = 0, []
+        for row in app.state.store.all("SELECT id,title FROM threads WHERE owner=?", (owner,)):
+            try:
+                await remove_thread(row["id"], owner)
+                deleted += 1
+            except HTTPException as exc:
+                kept.append({**row, "detail": exc.detail})
+        try:
+            await upstream("DELETE", "/memory", owner)
+            forgotten = True
+        except HTTPException:
+            forgotten = False
+        return {"deleted": deleted, "kept": kept, "memory_forgotten": forgotten}
+
     async def run(thread, owner, request_id, path, body, label):
         if not isinstance(request_id, str) or not 16 <= len(request_id) <= 80:
             raise HTTPException(422, "Thiếu mã yêu cầu.")
@@ -396,7 +434,7 @@ def create_app(database=None, transport=None):
 
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):
-        if resource not in {"housing/map", "routes/entities", "housing/search"}:
+        if resource not in {"housing/map", "routes/entities", "housing/search", "places/map"}:
             raise HTTPException(404)
         return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
 
@@ -423,7 +461,11 @@ def create_app(database=None, transport=None):
             if candidate:
                 break
         if not candidate:
-            raise HTTPException(404, "Không tìm thấy tin nhà trong hội thoại.")
+            # Listing explored on the map workspace: snapshot the provider record, never client data.
+            candidate = await upstream("GET", f"/ui/housing/{listing_id}", owner)
+            if not isinstance(candidate, dict) or candidate.get("id") != listing_id:
+                raise HTTPException(404, "Không tìm thấy tin nhà.")
+            candidate = {k: v for k, v in candidate.items() if k not in {"description", "images"}}
         app.state.store.write(
             "INSERT OR REPLACE INTO saved VALUES (?,?,?,?)", (owner, listing_id, thread, json.dumps(candidate))
         )

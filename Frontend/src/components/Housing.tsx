@@ -16,7 +16,7 @@ import { api, housePrice, money, safeUrl } from "../api";
 import type { House } from "../types";
 import { Dialog } from "./Dialog";
 
-const amenities: Record<string, string> = {
+export const amenities: Record<string, string> = {
   parking: "Chỗ để xe",
   air_conditioning: "Điều hòa",
   aircon: "Điều hòa",
@@ -27,6 +27,19 @@ const amenities: Record<string, string> = {
   kitchen: "Bếp",
   washing_machine: "Máy giặt",
   pet_friendly: "Cho nuôi thú cưng",
+  internet: "Internet",
+  refrigerator: "Tủ lạnh",
+  hot_water: "Nước nóng",
+  allow_cooking: "Được nấu ăn",
+  bed: "Giường",
+  wardrobe: "Tủ quần áo",
+  desk: "Bàn làm việc",
+  security: "An ninh",
+  natural_light: "Ánh sáng tự nhiên",
+  private_bathroom: "WC riêng",
+  shared_bathroom: "WC chung",
+  gym: "Phòng gym",
+  swimming_pool: "Hồ bơi",
 };
 export function HouseImage({ house }: { house: House }) {
   const [failed, setFailed] = useState(false);
@@ -157,9 +170,10 @@ export function HousingDetail({
   saved: boolean;
   selected: boolean;
   onClose: () => void;
-  onSelect: () => void;
+  // Absent when the conversation that found this home was deleted (saved home opened from Account).
+  onSelect?: () => void;
   onSave: () => void;
-  onAsk: (text: string) => void;
+  onAsk?: (text: string) => void;
   busy: boolean;
 }) {
   const [detail, setDetail] = useState(house),
@@ -257,29 +271,31 @@ export function HousingDetail({
           Mở nguồn tin <ExternalLink size={14} />
         </a>
       )}
-      <div className="detail-footer">
-        <button
-          className="secondary"
-          onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
-        >
-          <MessageCircle size={16} />
-          Hỏi AI
-        </button>
-        <button
-          className="primary"
-          disabled={busy || selected}
-          onClick={onSelect}
-        >
-          {selected ? (
-            <>
-              <Check size={16} />
-              Đã chọn
-            </>
-          ) : (
-            "Chọn căn này"
-          )}
-        </button>
-      </div>
+      {onAsk && onSelect && (
+        <div className="detail-footer">
+          <button
+            className="secondary"
+            onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
+          >
+            <MessageCircle size={16} />
+            Hỏi AI
+          </button>
+          <button
+            className="primary"
+            disabled={busy || selected}
+            onClick={onSelect}
+          >
+            {selected ? (
+              <>
+                <Check size={16} />
+                Đã chọn
+              </>
+            ) : (
+              "Chọn căn này"
+            )}
+          </button>
+        </div>
+      )}
     </Dialog>
   );
 }

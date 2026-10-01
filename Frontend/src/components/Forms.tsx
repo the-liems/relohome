@@ -1,168 +1,26 @@
 import { useEffect, useState } from "react";
-import { MapPin, Search, ShieldCheck, ArrowRight, Check } from "lucide-react";
-import { api, dateTime, money } from "../api";
-import type { Data, House } from "../types";
+import { ShieldCheck, ArrowRight } from "lucide-react";
+import { dateTime, money } from "../api";
+import type { Data } from "../types";
 import { Dialog } from "./Dialog";
-import { MapPanel } from "./MapPanel";
 
 const cities = ["Hà Nội", "Đà Nẵng", "Thành phố Hồ Chí Minh"];
-export function LocationPicker({
-  onUse,
-  onClose,
-}: {
-  onUse: (p: Data) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState(""),
-    [results, setResults] = useState<Data[]>([]),
-    [selected, setSelected] = useState<Data | null>(null),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    setSelected(null);
-    setResults([]);
-    try {
-      const r = await api<Data>(
-        "/map/search?text=" + encodeURIComponent(query),
-      );
-      setResults(r.candidates || r.results || []);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog title="Chọn địa điểm" onClose={onClose}>
-      <form className="search-row" onSubmit={search}>
-        <Search size={18} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tên đường, địa điểm, thành phố…"
-          minLength={2}
-          required
-          autoFocus
-        />
-        <button className="primary" disabled={busy}>
-          Tìm
-        </button>
-      </form>
-      {error && (
-        <p className="notice error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="place-list">
-        {results.map((r, i) => (
-          <button
-            className={selected === r ? "place active" : "place"}
-            key={r.id || r.entity_id || i}
-            onClick={() => setSelected(r)}
-          >
-            <MapPin size={18} />
-            <span>
-              <strong>{r.name || r.label || r.text || "Địa điểm"}</strong>
-              <small>
-                {typeof r.address === "string"
-                  ? r.address
-                  : [r.address?.district, r.address?.city]
-                      .filter(Boolean)
-                      .join(", ")}{" "}
-                {["area", "administrative_area"].includes(r.entity_type)
-                  ? "· Khu vực hành chính"
-                  : ""}
-              </small>
-            </span>
-            {selected === r && <Check size={16} />}
-          </button>
-        ))}
-      </div>
-      {results.length === 0 && !busy && (
-        <p className="muted">
-          Tìm địa điểm rồi kiểm tra vị trí trước khi sử dụng.
-        </p>
-      )}
-      {selected?.location && (
-        <MapPanel
-          points={[selected]}
-          onPick={(lat, lng) =>
-            setSelected({
-              ...selected,
-              entity_type: "coordinate",
-              location: { lat, lng },
-            })
-          }
-        />
-      )}
-      <p className="muted">
-        Chọn điểm trên bản đồ để chỉnh vị trí. Điểm lấy/giao đồ cần được bạn xác
-        nhận lại trong form.
-      </p>
-      <button
-        className="primary full"
-        disabled={
-          !selected?.location ||
-          ["area", "administrative_area"].includes(selected?.entity_type)
-        }
-        onClick={() =>
-          onUse({
-            ...selected,
-            address:
-              typeof selected?.address === "string"
-                ? selected.address
-                : selected?.name,
-          })
-        }
-      >
-        Dùng địa điểm này <ArrowRight size={16} />
-      </button>
-    </Dialog>
-  );
-}
-
 export function TaskForm({
   kind,
   onClose,
   onSubmit,
-  house,
 }: {
   kind: string;
   onClose: () => void;
   onSubmit: (text: string, extra?: Data) => Promise<void>;
-  house?: House;
 }) {
   const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [picker, setPicker] = useState<string | null>(null);
-  const [pins, setPins] = useState<Data>({
-    pickup: { address: "", lat: "", lng: "", confirmed: false },
-    destination: {
-      address: house?.address || "",
-      lat: house?.lat ?? "",
-      lng: house?.lng ?? "",
-      confirmed: false,
-    },
-  });
+    [busy, setBusy] = useState(false);
   const title: Record<string, string> = {
     property: "Bạn muốn tìm ngôi nhà như thế nào?",
     flight: "Tìm chuyến bay cho hành trình của bạn",
-    relocation: "Sắp xếp chuyến chuyển đồ",
     map: "Khám phá đường đi & tiện ích",
   };
-  function changePin(key: string, field: string, value: any) {
-    setPins((p) => ({
-      ...p,
-      [key]: {
-        ...p[key],
-        [field]: value,
-        confirmed: field === "confirmed" ? value : false,
-      },
-    }));
-  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.currentTarget)) as Record<
@@ -170,8 +28,7 @@ export function TaskForm({
       string
     >;
     setError("");
-    let text = "",
-      extra: Data = {};
+    let text = "";
     if (kind === "property") {
       if (f.min && f.max && Number(f.min) > Number(f.max)) {
         setError("Giá tối thiểu phải nhỏ hơn hoặc bằng giá tối đa.");
@@ -186,25 +43,6 @@ export function TaskForm({
       }
       text = `Tìm chuyến bay một chiều từ ${f.from} đến ${f.to} ngày ${f.date}, cho ${f.adults} người lớn. Chỉ tìm chuyến.`;
     }
-    if (kind === "relocation") {
-      if (new Date(f.date + "T" + f.time) < new Date()) {
-        setError("Hãy chọn thời gian chuyển đồ trong tương lai.");
-        return;
-      }
-      text = `Báo giá chuyển đồ từ ${pins.pickup.address} đến ${pins.destination.address} ngày ${f.date} lúc ${f.time}. Chưa đặt đơn.`;
-      const locations: Data = {};
-      for (const key of ["pickup", "destination"]) {
-        const p = pins[key];
-        if (p.confirmed && p.lat !== "" && p.lng !== "")
-          locations[key] = {
-            address: p.address,
-            lat: Number(p.lat),
-            lng: Number(p.lng),
-            confirmed: true,
-          };
-      }
-      extra = { moving_locations: locations };
-    }
     if (kind === "map") {
       text =
         f.mode === "nearby"
@@ -213,7 +51,7 @@ export function TaskForm({
     }
     setBusy(true);
     try {
-      await onSubmit(text, extra);
+      await onSubmit(text);
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -335,88 +173,6 @@ export function TaskForm({
             </div>
           </>
         )}
-        {kind === "relocation" && (
-          <>
-            <p className="muted">
-              Báo giá từ AhaMove staging · trả tiền mặt. Xác nhận đúng điểm xe
-              dừng nếu dùng pin.
-            </p>
-            {["pickup", "destination"].map((key, i) => (
-              <fieldset key={key} className="pin-form">
-                <legend>
-                  <span className="step-dot">{i + 1}</span>
-                  {i === 0 ? "Lấy đồ tại" : "Giao đến"}
-                </legend>
-                <div className="search-row">
-                  <input
-                    aria-label={i === 0 ? "Địa chỉ lấy đồ" : "Địa chỉ giao đồ"}
-                    value={pins[key].address}
-                    required
-                    onChange={(e) => changePin(key, "address", e.target.value)}
-                    placeholder="Số nhà, đường, thành phố"
-                  />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={
-                      "Chọn " +
-                      (i === 0 ? "điểm lấy" : "điểm giao") +
-                      " trên bản đồ"
-                    }
-                    onClick={() => setPicker(key)}
-                  >
-                    <MapPin size={18} />
-                  </button>
-                </div>
-                <div className="form-grid">
-                  <label>
-                    Vĩ độ
-                    <input
-                      type="number"
-                      min="-90"
-                      max="90"
-                      step="any"
-                      value={pins[key].lat}
-                      onChange={(e) => changePin(key, "lat", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Kinh độ
-                    <input
-                      type="number"
-                      min="-180"
-                      max="180"
-                      step="any"
-                      value={pins[key].lng}
-                      onChange={(e) => changePin(key, "lng", e.target.value)}
-                    />
-                  </label>
-                </div>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={pins[key].confirmed}
-                    disabled={pins[key].lat === "" || pins[key].lng === ""}
-                    onChange={(e) =>
-                      changePin(key, "confirmed", e.target.checked)
-                    }
-                  />
-                  Tôi đã kiểm tra đúng điểm xe dừng
-                </label>
-              </fieldset>
-            ))}
-            <div className="form-grid">
-              <label>
-                Ngày chuyển
-                <input type="date" name="date" required />
-              </label>
-              <label>
-                Giờ lấy đồ
-                <input type="time" name="time" required />
-              </label>
-            </div>
-          </>
-        )}
         {kind === "map" && <MapFields />}
         {error && (
           <p className="notice error" role="alert">
@@ -428,32 +184,11 @@ export function TaskForm({
             Hủy
           </button>
           <button className="primary" disabled={busy}>
-            {busy
-              ? "Đang gửi…"
-              : kind === "relocation"
-                ? "Lấy báo giá"
-                : "Áp dụng"}
+            {busy ? "Đang gửi…" : "Áp dụng"}
             <ArrowRight size={16} />
           </button>
         </div>
       </form>
-      {picker && (
-        <LocationPicker
-          onClose={() => setPicker(null)}
-          onUse={(p) => {
-            setPins((old) => ({
-              ...old,
-              [picker]: {
-                address: p.address,
-                lat: p.location.lat,
-                lng: p.location.lng,
-                confirmed: false,
-              },
-            }));
-            setPicker(null);
-          }}
-        />
-      )}
     </Dialog>
   );
 }

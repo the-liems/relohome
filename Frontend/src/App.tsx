@@ -45,6 +45,7 @@ import {
   RefreshCw,
   Clock,
   ArrowDown,
+  Trash2,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import type {
@@ -56,11 +57,20 @@ import type {
   User,
 } from "./types";
 import { Robot } from "./components/Robot";
-import { Dialog } from "./components/Dialog";
+import { ConfirmDialog, Dialog } from "./components/Dialog";
 import { HousingCard, HousingDetail } from "./components/Housing";
 import { Approval, CostLines, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
+import { MapWorkspace } from "./components/MapWorkspace";
+import {
+  FlightWorkspace,
+  MOVING_FIELDS,
+  MovingRequestWorkspace,
+  MovingWorkspace,
+  movingField,
+} from "./components/ServiceWorkspaces";
+import { filtersFromSearch } from "./mapWorkspace";
 
 interface AppContext {
   user: User;
@@ -71,6 +81,8 @@ interface AppContext {
   refresh: () => Promise<void>;
   save: (house: HouseData, thread: string) => Promise<void>;
   notify: (message: string) => void;
+  deleteThread: (id: string) => Promise<void>;
+  resetThreads: () => Promise<void>;
 }
 const Context = createContext<AppContext>(null!);
 const useApp = () => useContext(Context);
@@ -155,6 +167,40 @@ export default function App() {
       setToast((e as Error).message);
     }
   }
+  function forgetDraft(id: string) {
+    try {
+      sessionStorage.removeItem("siu-draft-" + user?.id + "-" + id);
+    } catch {
+      // Drafts are a convenience; storage may be unavailable.
+    }
+  }
+  async function deleteThread(id: string) {
+    await api("/threads/" + encodeURIComponent(id), "DELETE");
+    forgetDraft(id);
+    if (location.pathname === "/ai/" + id) navigate("/ai", { replace: true });
+    await refresh();
+    setToast("Đã xóa cuộc trò chuyện.");
+  }
+  async function resetThreads() {
+    const result = await api<Data>("/threads", "DELETE");
+    const kept: Data[] = result.kept || [];
+    threads
+      .filter((t) => !kept.some((k) => k.id === t.id))
+      .forEach((t) => forgetDraft(t.id));
+    if (
+      location.pathname.startsWith("/ai/") &&
+      !kept.some((k) => location.pathname === "/ai/" + k.id)
+    )
+      navigate("/ai", { replace: true });
+    await refresh();
+    setToast(
+      kept.length
+        ? `Đã xóa ${result.deleted} cuộc trò chuyện. Giữ lại ${kept.length}: ${kept[0].detail}`
+        : result.memory_forgotten
+          ? "Đã xóa toàn bộ trò chuyện và làm mới những gì SIU ghi nhớ."
+          : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của SIU, hãy thử lại sau.",
+    );
+  }
   if (loading)
     return (
       <div className="boot">
@@ -183,6 +229,8 @@ export default function App() {
         refresh,
         save,
         notify: setToast,
+        deleteThread,
+        resetThreads,
       }}
     >
       <Shell>
@@ -381,7 +429,8 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, status, threads } = useApp(),
     location = useLocation();
   const [menu, setMenu] = useState(false),
-    [history, setHistory] = useState(false);
+    [history, setHistory] = useState(false),
+    [removing, setRemoving] = useState<Thread | null>(null);
   useEffect(() => setMenu(false), [location.pathname]);
   const isChat = location.pathname.startsWith("/ai"),
     title = isChat
@@ -501,10 +550,24 @@ function Shell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="header-actions">
-              <button className="secondary" onClick={() => setHistory(true)}>
+              <button
+                className="secondary"
+                aria-label="Lịch sử"
+                onClick={() => setHistory(true)}
+              >
                 <History size={17} />
                 <span>Lịch sử</span>
               </button>
+              {active && (
+                <button
+                  className="icon-button outlined"
+                  aria-label="Xóa cuộc trò chuyện này"
+                  title="Xóa cuộc trò chuyện này"
+                  onClick={() => setRemoving(active)}
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
               <Link
                 className="icon-button outlined"
                 to="/ai"
@@ -520,13 +583,74 @@ function Shell({ children }: { children: ReactNode }) {
         </main>
       </div>
       {history && <HistoryDrawer onClose={() => setHistory(false)} />}
+      {removing && (
+        <DeleteThreadDialog
+          thread={removing}
+          onClose={() => setRemoving(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function DeleteThreadDialog({
+  thread,
+  onClose,
+}: {
+  thread: Thread;
+  onClose: () => void;
+}) {
+  const { deleteThread } = useApp();
+  return (
+    <ConfirmDialog
+      title="Xóa cuộc trò chuyện?"
+      action="Xóa cuộc trò chuyện"
+      onConfirm={() => deleteThread(thread.id)}
+      onClose={onClose}
+    >
+      <p>
+        <strong>{thread.title}</strong> và những gì SIU ghi nhớ từ cuộc trò
+        chuyện này sẽ bị xóa, không khôi phục được.
+      </p>
+      <p className="muted small">
+        Đơn đã đặt không bị hủy. Nhà đã lưu vẫn ở Tài khoản → Đã lưu.
+      </p>
+    </ConfirmDialog>
+  );
+}
+
+function ResetThreadsDialog({ onClose }: { onClose: () => void }) {
+  const { resetThreads } = useApp();
+  return (
+    <ConfirmDialog
+      title="Xóa tất cả và làm mới SIU?"
+      action="Xóa tất cả"
+      onConfirm={resetThreads}
+      onClose={onClose}
+    >
+      <p>
+        Mọi cuộc trò chuyện sẽ bị xóa và SIU quên các sở thích đã ghi nhớ từ trò
+        chuyện. Bạn bắt đầu lại từ đầu.
+      </p>
+      <p className="muted small">
+        Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ. Đơn đã đặt không bị hủy;
+        cuộc trò chuyện đang chờ thanh toán sẽ được giữ lại.
+      </p>
+    </ConfirmDialog>
   );
 }
 
 function HistoryDrawer({ onClose }: { onClose: () => void }) {
   const { threads } = useApp();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(""),
+    [removing, setRemoving] = useState<Thread | null>(null),
+    [resetting, setResetting] = useState(false);
+  if (removing)
+    return (
+      <DeleteThreadDialog thread={removing} onClose={() => setRemoving(null)} />
+    );
+  if (resetting)
+    return <ResetThreadsDialog onClose={() => setResetting(false)} />;
   return (
     <Dialog title="Cuộc trò chuyện của bạn" onClose={onClose}>
       <div className="search-row">
@@ -549,17 +673,34 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
               .includes(query.toLocaleLowerCase("vi")),
           )
           .map((t) => (
-            <Link key={t.id} to={"/ai/" + t.id} onClick={onClose}>
-              <MessageCircle size={19} />
-              <span>
-                <strong>{t.title}</strong>
-                <small>{dateTime(t.updated)}</small>
-              </span>
-              <ChevronRight size={16} />
-            </Link>
+            <div className="history-item" key={t.id}>
+              <Link to={"/ai/" + t.id} onClick={onClose}>
+                <MessageCircle size={19} />
+                <span>
+                  <strong>{t.title}</strong>
+                  <small>{dateTime(t.updated)}</small>
+                </span>
+                <ChevronRight size={16} />
+              </Link>
+              <button
+                className="icon-button"
+                aria-label={"Xóa cuộc trò chuyện " + t.title}
+                title="Xóa cuộc trò chuyện"
+                onClick={() => setRemoving(t)}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           ))}
       </div>
-      {!threads.length && (
+      {threads.length ? (
+        <button
+          className="text-button danger"
+          onClick={() => setResetting(true)}
+        >
+          <Trash2 size={14} /> Xóa tất cả và làm mới SIU
+        </button>
+      ) : (
         <p className="muted">
           Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.
         </p>
@@ -580,7 +721,8 @@ function Chat() {
     [draft, setDraft] = useState(""),
     [form, setForm] = useState<string | null>(null),
     [context, setContext] = useState<HouseData | null>(null),
-    [newMessage, setNewMessage] = useState(false);
+    [newMessage, setNewMessage] = useState(false),
+    [workspace, setWorkspace] = useState<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     nearBottom = useRef(true),
@@ -735,9 +877,24 @@ function Chat() {
       version: m.content.ui?.plan_version || 0,
     })),
   );
-  const selectedHouse = allComponents
-    .flatMap(({ c }) => c.data?.candidates || [])
-    .find((h) => h.id === facts["selected:property"]?.value);
+  const selectedId = facts["selected:property"]?.value;
+  // A home chosen on the map may not be in any chat message; the cost summary still names it.
+  const costLine = (thread?.state?.cost_summary?.lines || []).find(
+    (l: Data) =>
+      thread?.state?.cost_summary?.selected?.[l.task_id] === selectedId,
+  );
+  // The agent reads the chosen home from its own results (a home chosen on the map is not in any
+  // chat message), so its address and coordinate can prefill the moving destination.
+  const selectedHouse =
+    (thread?.state?.selections?.property?.id === selectedId
+      ? (thread?.state?.selections?.property as HouseData)
+      : undefined) ||
+    allComponents
+      .flatMap(({ c }) => c.data?.candidates || [])
+      .find((h) => h.id === selectedId) ||
+    (selectedId && costLine
+      ? ({ id: selectedId, title: costLine.label } as HouseData)
+      : undefined);
   const opened = [...allComponents]
     .reverse()
     .find(
@@ -753,391 +910,587 @@ function Chat() {
     (h: HouseData) => h.id === params.get("house"),
   ) as HouseData | undefined;
   const unavailable = (kind: string) => !status?.domains?.includes(kind);
+  // Each service result opens its own workspace (map for housing, flights, moving quotes).
+  // Choosing an option there returns to the chat so the user can continue with other services.
+  const latestOf = (type: string, field: string) =>
+    [...allComponents]
+      .reverse()
+      .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
+  const latestProperty = [...allComponents]
+    .reverse()
+    .find(({ c }) => c.type === "property");
+  const latestFlight = latestOf("flight", "offers"),
+    // Once an order exists the quotes are history; tracking stays in the chat card.
+    latestMoving = [latestOf("relocation", "quotes")].find(
+      (x) => x && !x.c.data?.order,
+    );
+  const latestService = [...allComponents]
+    .reverse()
+    .find(
+      (x) => x === latestProperty || x === latestFlight || x === latestMoving,
+    );
+  const lastAssistant = [...(thread?.messages || [])]
+    .reverse()
+    .find((m) => m.role === "assistant");
+  // A moving question (pickup, destination, date, time) opens the moving form instead of a
+  // plain chat question; what the user already said prefills it.
+  const movingQuestions = (
+    lastAssistant?.content.response?.questions || []
+  ).filter((q: Data) =>
+    (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
+  );
+  const movingKnown: Data = {
+    ...Object.fromEntries(
+      MOVING_FIELDS.filter((k) => facts[k]?.value).map((k) => [
+        k,
+        facts[k].value,
+      ]),
+    ),
+    ...(lastAssistant?.content.response?.data?.known_request || {}),
+  };
+  const lastHasService = (lastAssistant?.content.ui?.components || []).some(
+    (c: Component) => c.id === latestService?.c.id,
+  );
+  // The newest message decides: a confirmation request, a service result, or plain chat.
+  useEffect(() => {
+    setWorkspace(
+      movingQuestions.length
+        ? "relocation-form"
+        : lastHasService
+          ? (latestService?.c.type ?? null)
+          : null,
+    );
+  }, [lastAssistant?.id, threadId]);
+  const chatDock = {
+    text: lastAssistant?.content.response?.text,
+    fromResult: (lastAssistant?.content.ui?.components || []).some(
+      (c: Component) => c.id === latestService?.c.id,
+    ),
+    kind: lastAssistant?.content.response?.kind,
+    questions: lastAssistant?.content.response?.questions || [],
+    suggestions: lastAssistant?.content.response?.suggestions || [],
+    busy,
+    error,
+    online: !!status,
+    onSend: (text: string, extra?: Data) => send(text, extra),
+  };
+  async function selectIn(
+    target: { c: Component; version: number },
+    id: string,
+    message: string,
+  ) {
+    await mutate("action", {
+      kind: "select",
+      task_id: target.c.task_id,
+      plan_version: target.version,
+      fetched_at: target.c.fetched_at,
+      entity_id: id,
+    });
+    notify(message);
+    setWorkspace(null);
+  }
+  function choosePlace(choice: Data, field: string) {
+    const place =
+      choice.entity_type === "place" &&
+      ["near", "route_from", "route_to"].includes(field);
+    return send(
+      "Chọn " + choice.label,
+      place ? { place_choice: { field, place_id: choice.id } } : {},
+    );
+  }
   return (
-    <div className="chat-page">
-      <div
-        className="conversation-scroll"
-        ref={scroll}
-        onScroll={() => {
-          const el = scroll.current!;
-          nearBottom.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 130;
-          if (nearBottom.current) setNewMessage(false);
-        }}
-      >
-        {loading && (
-          <div className="loading-history">
-            <span className="spinner" />
-            <span>Đang tải hội thoại…</span>
-          </div>
-        )}
-        {!loading && !thread?.messages?.length && (
-          <section className="welcome">
-            <div className="welcome-heading">
-              <span className="welcome-icon">
-                <Sparkles size={22} />
-              </span>
-              <span className="eyebrow">
-                CHÀO {user.name.toLocaleUpperCase("vi")}
-              </span>
-            </div>
-            <h1>
-              Bạn đang ấp ủ<br />
-              <span>kế hoạch gì hôm nay?</span>
-            </h1>
-            <p>
-              Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.
-              <br className="desktop-only" /> Kể SIU nghe, mình sẽ cùng bạn bắt
-              đầu.
-            </p>
-            <div className="quick-grid">
-              {quick.map((q) => (
-                <button
-                  className="quick-card"
-                  key={q.kind}
-                  onClick={() => setForm(q.kind)}
-                  disabled={unavailable(q.kind)}
-                  title={
-                    unavailable(q.kind) ? "Dịch vụ chưa được kết nối" : q.title
-                  }
-                >
-                  <span className={"service-icon " + q.color}>
-                    <q.icon size={24} />
-                  </span>
-                  <strong>{q.title}</strong>
-                  <span>{q.subtitle}</span>
-                  <ArrowUpRight size={17} className="quick-arrow" />
-                </button>
-              ))}
-            </div>
-            <div className="starter">
-              <span className="muted small">THỬ BẮT ĐẦU VỚI</span>
-              <button
-                onClick={() => {
-                  setDraft("Tìm phòng ở Hà Nội dưới 5 triệu đồng mỗi tháng");
-                  input.current?.focus();
-                }}
-              >
-                “Tìm phòng ở Hà Nội dưới 5 triệu/tháng”
-                <ArrowRight size={16} />
-              </button>
-              <button
-                onClick={() => {
-                  setDraft("Tôi muốn tìm nhà và báo giá chuyển đồ tới đó");
-                  input.current?.focus();
-                }}
-              >
-                “Tôi muốn tìm nhà và chuyển đồ tới đó”
-                <ArrowRight size={16} />
-              </button>
-            </div>
-            <div className="welcome-note">
-              <ShieldCheck size={15} />
-              Bạn luôn là người xác nhận trước mỗi giao dịch.
-            </div>
-            {Object.values(user.preferences).some(Boolean) && (
-              <button
-                className="text-button"
-                onClick={() => {
-                  const p = user.preferences;
-                  setDraft(
-                    `Tìm ${p.room_type || "nhà cho thuê"}${p.city ? " tại " + p.city : ""}${p.budget ? ", ngân sách tối đa " + p.budget + " đồng/tháng" : ""}${p.amenities ? ", ưu tiên " + p.amenities : ""}${p.transport ? ", tôi đi " + p.transport : ""}.`,
-                  );
-                  input.current?.focus();
-                }}
-              >
-                Dùng sở thích đã lưu cho lần tìm này
-              </button>
-            )}
-          </section>
-        )}
-        {(thread?.messages || []).map((m) => (
-          <article
-            className={"message " + m.role}
-            key={m.id}
-            id={"message-" + m.id}
+    <div className={"chat-page" + (workspace ? " map-mode" : "")}>
+      {workspace === "relocation-form" ? (
+        <MovingRequestWorkspace
+          key={lastAssistant?.id || "new"}
+          questions={movingQuestions}
+          known={movingKnown}
+          house={selectedHouse}
+          // Next-step suggestions would only repeat this form; the dock keeps the question.
+          chat={{
+            ...chatDock,
+            fromResult: movingQuestions.length > 0,
+            suggestions: [],
+          }}
+          onConfirm={(text, extra) => send(text, extra)}
+          onExit={() => setWorkspace(null)}
+        />
+      ) : workspace === "flight" && latestFlight ? (
+        <FlightWorkspace
+          data={latestFlight.c.data}
+          selectedId={facts["selected:flight"]?.value}
+          chat={chatDock}
+          onSelect={(id) =>
+            selectIn(latestFlight, id, "Đã chọn chuyến bay vào kế hoạch.")
+          }
+          onExit={() => setWorkspace(null)}
+        />
+      ) : workspace === "relocation" && latestMoving ? (
+        <MovingWorkspace
+          data={latestMoving.c.data}
+          selectedId={facts["selected:relocation"]?.value}
+          chat={chatDock}
+          onSelect={(id) =>
+            selectIn(
+              latestMoving,
+              id,
+              "Đã chọn phương án chuyển đồ. Nhắn yêu cầu đặt khi bạn sẵn sàng.",
+            )
+          }
+          onExit={() => setWorkspace(null)}
+        />
+      ) : workspace === "property" && latestProperty ? (
+        <MapWorkspace
+          focus={{
+            key: latestProperty.c.id,
+            viewport: latestProperty.c.data?.map_context?.viewport,
+          }}
+          initialFilters={filtersFromSearch(
+            latestProperty.c.data?.search_request,
+          )}
+          areaName={latestProperty.c.data?.area_name}
+          saved={savedIds}
+          selectedId={facts["selected:property"]?.value}
+          chat={chatDock}
+          onSave={(h) => void save(h, thread!.id)}
+          onSelect={(h) =>
+            selectIn(
+              latestProperty,
+              h.id,
+              "Đã chọn căn nhà. Bạn có thể tiếp tục với chuyển đồ hoặc dịch vụ khác.",
+            )
+          }
+          onExit={() => setWorkspace(null)}
+        />
+      ) : (
+        <>
+          <div
+            className="conversation-scroll"
+            ref={scroll}
+            onScroll={() => {
+              const el = scroll.current!;
+              nearBottom.current =
+                el.scrollHeight - el.scrollTop - el.clientHeight < 130;
+              if (nearBottom.current) setNewMessage(false);
+            }}
           >
-            {m.role === "assistant" && (
-              <span className="message-avatar">
-                <Robot />
-              </span>
+            {loading && (
+              <div className="loading-history">
+                <span className="spinner" />
+                <span>Đang tải hội thoại…</span>
+              </div>
             )}
-            <div className="message-content">
-              {m.role === "user" ? (
-                <div className="user-bubble">{m.content.text}</div>
-              ) : (
-                <>
-                  {m.content.response?.text && (
-                    <div
-                      className={
-                        "assistant-bubble " +
-                        (m.content.response.kind === "ERROR"
-                          ? "error-bubble"
-                          : "")
+            {!loading && !thread?.messages?.length && (
+              <section className="welcome">
+                <div className="welcome-heading">
+                  <span className="welcome-icon">
+                    <Sparkles size={22} />
+                  </span>
+                  <span className="eyebrow">
+                    CHÀO {user.name.toLocaleUpperCase("vi")}
+                  </span>
+                </div>
+                <h1>
+                  Bạn đang ấp ủ<br />
+                  <span>kế hoạch gì hôm nay?</span>
+                </h1>
+                <p>
+                  Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.
+                  <br className="desktop-only" /> Kể SIU nghe, mình sẽ cùng bạn
+                  bắt đầu.
+                </p>
+                <div className="quick-grid">
+                  {quick.map((q) => (
+                    <button
+                      className="quick-card"
+                      key={q.kind}
+                      onClick={() =>
+                        q.kind === "relocation"
+                          ? setWorkspace("relocation-form")
+                          : setForm(q.kind)
+                      }
+                      disabled={unavailable(q.kind)}
+                      title={
+                        unavailable(q.kind)
+                          ? "Dịch vụ chưa được kết nối"
+                          : q.title
                       }
                     >
-                      <div className="assistant-label">
-                        SIU AI <Sparkles size={12} />
-                      </div>
-                      <p className="prose">{m.content.response.text}</p>
-                      {m.content.response.kind === "PARTIAL" && (
-                        <span className="tag amber">Kết quả một phần</span>
-                      )}
-                    </div>
-                  )}
-                  <Results
-                    payload={m.content}
-                    selected={facts}
-                    saved={savedIds}
-                    busy={busy}
-                    writes={!!status?.writes_enabled}
-                    onOpen={openHouse}
-                    onSave={(h) => void save(h, thread!.id)}
-                    onAction={(c, v, kind, id) =>
-                      mutate("action", {
-                        kind,
-                        task_id: c.task_id,
-                        plan_version: v,
-                        fetched_at: c.fetched_at,
-                        entity_id: id,
-                      })
-                    }
-                    onPrompt={(s) => {
-                      setDraft(s);
+                      <span className={"service-icon " + q.color}>
+                        <q.icon size={24} />
+                      </span>
+                      <strong>{q.title}</strong>
+                      <span>{q.subtitle}</span>
+                      <ArrowUpRight size={17} className="quick-arrow" />
+                    </button>
+                  ))}
+                </div>
+                <div className="starter">
+                  <span className="muted small">THỬ BẮT ĐẦU VỚI</span>
+                  <button
+                    onClick={() => {
+                      setDraft(
+                        "Tìm phòng ở Hà Nội dưới 5 triệu đồng mỗi tháng",
+                      );
                       input.current?.focus();
                     }}
-                    onFilter={() => setForm("property")}
-                  />
-                  {m.content.response?.data?.cost_summary && (
-                    <section className="result-group">
-                      <h3>Chi phí dự kiến tại thời điểm tìm kiếm</h3>
-                      <CostLines
-                        summary={m.content.response.data.cost_summary}
+                  >
+                    “Tìm phòng ở Hà Nội dưới 5 triệu/tháng”
+                    <ArrowRight size={16} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDraft("Tôi muốn tìm nhà và báo giá chuyển đồ tới đó");
+                      input.current?.focus();
+                    }}
+                  >
+                    “Tôi muốn tìm nhà và chuyển đồ tới đó”
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+                <div className="welcome-note">
+                  <ShieldCheck size={15} />
+                  Bạn luôn là người xác nhận trước mỗi giao dịch.
+                </div>
+                {Object.values(user.preferences).some(Boolean) && (
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      const p = user.preferences;
+                      setDraft(
+                        `Tìm ${p.room_type || "nhà cho thuê"}${p.city ? " tại " + p.city : ""}${p.budget ? ", ngân sách tối đa " + p.budget + " đồng/tháng" : ""}${p.amenities ? ", ưu tiên " + p.amenities : ""}${p.transport ? ", tôi đi " + p.transport : ""}.`,
+                      );
+                      input.current?.focus();
+                    }}
+                  >
+                    Dùng sở thích đã lưu cho lần tìm này
+                  </button>
+                )}
+              </section>
+            )}
+            {(thread?.messages || []).map((m) => (
+              <article
+                className={"message " + m.role}
+                key={m.id}
+                id={"message-" + m.id}
+              >
+                {m.role === "assistant" && (
+                  <span className="message-avatar">
+                    <Robot />
+                  </span>
+                )}
+                <div className="message-content">
+                  {m.role === "user" ? (
+                    <div className="user-bubble">{m.content.text}</div>
+                  ) : (
+                    <>
+                      {m.content.response?.text && (
+                        <div
+                          className={
+                            "assistant-bubble " +
+                            (m.content.response.kind === "ERROR"
+                              ? "error-bubble"
+                              : "")
+                          }
+                        >
+                          <div className="assistant-label">
+                            SIU AI <Sparkles size={12} />
+                          </div>
+                          <p className="prose">{m.content.response.text}</p>
+                          {m.content.response.kind === "PARTIAL" && (
+                            <span className="tag amber">Kết quả một phần</span>
+                          )}
+                        </div>
+                      )}
+                      <Results
+                        payload={m.content}
+                        selected={facts}
+                        saved={savedIds}
+                        busy={busy}
+                        writes={!!status?.writes_enabled}
+                        onOpen={openHouse}
+                        onSave={(h) => void save(h, thread!.id)}
+                        onAction={(c, v, kind, id) =>
+                          mutate("action", {
+                            kind,
+                            task_id: c.task_id,
+                            plan_version: v,
+                            fetched_at: c.fetched_at,
+                            entity_id: id,
+                          })
+                        }
+                        onPrompt={(s) => {
+                          setDraft(s);
+                          input.current?.focus();
+                        }}
+                        onFilter={() => setForm("property")}
                       />
-                      <p className="muted">
-                        Chưa phải khoản đã thanh toán. Xem Kế hoạch để biết tổng
-                        theo lựa chọn mới nhất.
-                      </p>
-                    </section>
-                  )}
-                  <Receipts
-                    receipts={m.content.response?.data?.receipts || []}
-                  />
-                  {(m.content.response?.questions || []).map(
-                    (q: Data, i: number) => (
-                      <div className="question" key={i}>
-                        {!m.content.response?.text.includes(q.text) && (
-                          <p>{q.text}</p>
-                        )}
-                        <div className="tags">
-                          {(q.options || []).map((o: string) => (
+                      {m.content.response?.data?.cost_summary && (
+                        <section className="result-group">
+                          <h3>Chi phí dự kiến tại thời điểm tìm kiếm</h3>
+                          <CostLines
+                            summary={m.content.response.data.cost_summary}
+                          />
+                          <p className="muted">
+                            Chưa phải khoản đã thanh toán. Xem Kế hoạch để biết
+                            tổng theo lựa chọn mới nhất.
+                          </p>
+                        </section>
+                      )}
+                      <Receipts
+                        receipts={m.content.response?.data?.receipts || []}
+                      />
+                      {(m.content.response?.questions || []).map(
+                        (q: Data, i: number) => (
+                          <div className="question" key={i}>
+                            {!m.content.response?.text.includes(q.text) && (
+                              <p>{q.text}</p>
+                            )}
+                            <div className="tags">
+                              {(q.choices || []).map((c: Data) => (
+                                <button
+                                  key={c.id}
+                                  className="suggestion"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    choosePlace(c, q.field).catch(() => {})
+                                  }
+                                >
+                                  <MapPin size={12} /> {c.label}
+                                </button>
+                              ))}
+                              {(q.choices?.length ? [] : q.options || []).map(
+                                (o: string) => (
+                                  <button
+                                    key={o}
+                                    className="suggestion"
+                                    disabled={busy}
+                                    onClick={() => send(o).catch(() => {})}
+                                  >
+                                    {o}
+                                  </button>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        ),
+                      )}
+                      {(m.content.response?.suggestions || []).length > 0 && (
+                        <div className="suggestions">
+                          {m.content.response!.suggestions!.map((s: Data) => (
                             <button
-                              key={o}
+                              key={s.key}
                               className="suggestion"
-                              disabled={busy}
-                              onClick={() => send(o).catch(() => {})}
+                              onClick={() => setDraft(s.message)}
                             >
-                              {o}
+                              {s.label}
+                              <ArrowUpRight size={13} />
                             </button>
                           ))}
                         </div>
-                      </div>
-                    ),
+                      )}
+                      {m.content.confirmation &&
+                        m.content.confirmation.payload_hash !==
+                          pending?.payload_hash && (
+                          <p className="notice">
+                            Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng
+                            thái hiện tại bên dưới.
+                          </p>
+                        )}
+                      {m.content.uncertain && (
+                        <p className="notice amber">
+                          Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi
+                          gửi lại.
+                        </p>
+                      )}
+                    </>
                   )}
-                  {(m.content.response?.suggestions || []).length > 0 && (
-                    <div className="suggestions">
-                      {m.content.response!.suggestions!.map((s: Data) => (
-                        <button
-                          key={s.key}
-                          className="suggestion"
-                          onClick={() => setDraft(s.message)}
-                        >
-                          {s.label}
-                          <ArrowUpRight size={13} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {m.content.confirmation &&
-                    m.content.confirmation.payload_hash !==
-                      pending?.payload_hash && (
-                      <p className="notice">
-                        Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng thái
-                        hiện tại bên dưới.
-                      </p>
-                    )}
-                  {m.content.uncertain && (
-                    <p className="notice amber">
-                      Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi gửi
-                      lại.
-                    </p>
-                  )}
-                </>
+                  <time>{dateTime(m.created)}</time>
+                </div>
+              </article>
+            ))}
+            {pending?.type === "confirmation_required" && (
+              <Approval
+                pending={pending}
+                enabled={!!status?.writes_enabled}
+                busy={busy}
+                onDecision={(body) => mutate("decision", body)}
+              />
+            )}
+            {pending?.type === "payment_required" && thread && (
+              <PendingPayment
+                pending={pending}
+                threadId={thread.id}
+                busy={busy}
+                onCheck={() => mutate("payment/check", {})}
+              />
+            )}
+            {busy && (
+              <div className="thinking" role="status">
+                <span className="message-avatar">
+                  <Robot />
+                </span>
+                <span>
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <small>SIU đang xử lý yêu cầu của bạn…</small>
+              </div>
+            )}
+            {error && (
+              <div className="notice error" role="alert">
+                {error}
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setError("");
+                    reload().catch((e) => setError(e.message));
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  Kiểm tra trạng thái
+                </button>
+              </div>
+            )}
+            {thread?.runs?.some(
+              (r) => r.status === "running" || r.status === "unknown",
+            ) &&
+              !busy && (
+                <div className="notice amber">
+                  Có yêu cầu đang xử lý hoặc chưa rõ kết quả.
+                  <button
+                    className="text-button"
+                    onClick={() => reload().catch((e) => setError(e.message))}
+                  >
+                    Kiểm tra trạng thái
+                  </button>
+                </div>
               )}
-              <time>{dateTime(m.created)}</time>
-            </div>
-          </article>
-        ))}
-        {pending?.type === "confirmation_required" && (
-          <Approval
-            pending={pending}
-            enabled={!!status?.writes_enabled}
-            busy={busy}
-            onDecision={(body) => mutate("decision", body)}
-          />
-        )}
-        {pending?.type === "payment_required" && thread && (
-          <PendingPayment
-            pending={pending}
-            threadId={thread.id}
-            busy={busy}
-            onCheck={() => mutate("payment/check", {})}
-          />
-        )}
-        {busy && (
-          <div className="thinking" role="status">
-            <span className="message-avatar">
-              <Robot />
-            </span>
-            <span>
-              <i />
-              <i />
-              <i />
-            </span>
-            <small>SIU đang xử lý yêu cầu của bạn…</small>
           </div>
-        )}
-        {error && (
-          <div className="notice error" role="alert">
-            {error}
-            <button
-              className="text-button"
-              onClick={() => {
-                setError("");
-                reload().catch((e) => setError(e.message));
-              }}
-            >
-              <RefreshCw size={14} />
-              Kiểm tra trạng thái
-            </button>
-          </div>
-        )}
-        {thread?.runs?.some(
-          (r) => r.status === "running" || r.status === "unknown",
-        ) &&
-          !busy && (
-            <div className="notice amber">
-              Có yêu cầu đang xử lý hoặc chưa rõ kết quả.
+          <div className="composer-wrap">
+            {newMessage && (
               <button
-                className="text-button"
-                onClick={() => reload().catch((e) => setError(e.message))}
+                className="new-message"
+                onClick={() => {
+                  scroll.current?.scrollTo({
+                    top: scroll.current.scrollHeight,
+                    behavior: "smooth",
+                  });
+                  setNewMessage(false);
+                }}
               >
-                Kiểm tra trạng thái
+                <ArrowDown size={14} />
+                Có phản hồi mới
               </button>
-            </div>
-          )}
-      </div>
-      <div className="composer-wrap">
-        {newMessage && (
-          <button
-            className="new-message"
-            onClick={() => {
-              scroll.current?.scrollTo({
-                top: scroll.current.scrollHeight,
-                behavior: "smooth",
-              });
-              setNewMessage(false);
-            }}
-          >
-            <ArrowDown size={14} />
-            Có phản hồi mới
-          </button>
-        )}
-        {selectedHouse && (
-          <div className="selection-strip">
-            <span>
-              <Check size={14} />
-              Đã chọn: <strong>{selectedHouse.title}</strong>
-            </span>
-            <button
-              className="text-button"
-              onClick={() => setForm("relocation")}
-            >
-              Chuyển đồ tới đây <ArrowRight size={13} />
-            </button>
-          </div>
-        )}
-        {context && (
-          <div className="context-chip">
-            Đang hỏi về: {context.title}
-            <button
-              className="icon-button"
-              aria-label="Bỏ ngữ cảnh"
-              onClick={() => setContext(null)}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-        <form
-          className="composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            send(draft).catch(() => {});
-          }}
-        >
-          <span className="composer-spark">
-            <Sparkles size={21} />
-          </span>
-          <textarea
-            ref={input}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={1}
-            placeholder="Nhắn cho SIU AI… cùng bắt đầu một điều mới"
-            aria-label="Tin nhắn cho SIU AI"
-            maxLength={5000}
-            onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !e.shiftKey &&
-                !e.nativeEvent.isComposing
-              ) {
+            )}
+            {movingQuestions.length > 0 && (
+              <button
+                className="secondary open-map"
+                onClick={() => setWorkspace("relocation-form")}
+              >
+                <Truck size={15} /> Nhập thông tin chuyển đồ
+              </button>
+            )}
+            {latestService && !movingQuestions.length && (
+              <button
+                className="secondary open-map"
+                onClick={() => setWorkspace(latestService.c.type)}
+              >
+                <MapPin size={15} />{" "}
+                {
+                  {
+                    property: "Mở bản đồ nhà ở",
+                    flight: "Mở danh sách chuyến bay",
+                    relocation: "Mở phương án chuyển đồ",
+                  }[latestService.c.type]
+                }
+              </button>
+            )}
+            {selectedHouse && (
+              <div className="selection-strip">
+                <span>
+                  <Check size={14} />
+                  Đã chọn: <strong>{selectedHouse.title}</strong>
+                </span>
+                <button
+                  className="text-button"
+                  onClick={() => setWorkspace("relocation-form")}
+                >
+                  Chuyển đồ tới đây <ArrowRight size={13} />
+                </button>
+              </div>
+            )}
+            {context && (
+              <div className="context-chip">
+                Đang hỏi về: {context.title}
+                <button
+                  className="icon-button"
+                  aria-label="Bỏ ngữ cảnh"
+                  onClick={() => setContext(null)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            <form
+              className="composer"
+              onSubmit={(e) => {
                 e.preventDefault();
                 send(draft).catch(() => {});
-              }
-            }}
-          />
-          <button
-            className="send-button"
-            disabled={busy || !draft.trim() || !status}
-            aria-label="Gửi tin nhắn"
-          >
-            <Send size={20} />
-          </button>
-        </form>
-        <div className="composer-caption">
-          <span>SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.</span>
-          <span className="desktop-only">
-            Enter để gửi <span>·</span> Shift + Enter xuống dòng
-          </span>
-        </div>
-        {!status && (
-          <div className="connection-alert">
-            Chưa kết nối được AI.{" "}
-            <button className="text-button" onClick={() => void refresh()}>
-              Thử kết nối lại
-            </button>
+              }}
+            >
+              <span className="composer-spark">
+                <Sparkles size={21} />
+              </span>
+              <textarea
+                ref={input}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={1}
+                placeholder="Nhắn cho SIU AI… cùng bắt đầu một điều mới"
+                aria-label="Tin nhắn cho SIU AI"
+                maxLength={5000}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault();
+                    send(draft).catch(() => {});
+                  }
+                }}
+              />
+              <button
+                className="send-button"
+                disabled={busy || !draft.trim() || !status}
+                aria-label="Gửi tin nhắn"
+              >
+                <Send size={20} />
+              </button>
+            </form>
+            <div className="composer-caption">
+              <span>
+                SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
+              </span>
+              <span className="desktop-only">
+                Enter để gửi <span>·</span> Shift + Enter xuống dòng
+              </span>
+            </div>
+            {!status && (
+              <div className="connection-alert">
+                Chưa kết nối được AI.{" "}
+                <button className="text-button" onClick={() => void refresh()}>
+                  Thử kết nối lại
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
       {form && (
-        <TaskForm
-          kind={form}
-          house={selectedHouse}
-          onClose={() => setForm(null)}
-          onSubmit={send}
-        />
+        <TaskForm kind={form} onClose={() => setForm(null)} onSubmit={send} />
       )}
       {params.get("panel") === "house" && openDetail && opened && (
         <HousingDetail
@@ -1408,6 +1761,8 @@ function PlanDetail() {
 
 function Account({ onLogout }: { onLogout: () => void }) {
   const { user, setUser, saved, threads, save, notify } = useApp();
+  const [resetting, setResetting] = useState(false),
+    [openSaved, setOpenSaved] = useState<Saved | null>(null);
   const [tab, setTab] = useState("profile"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -1634,6 +1989,14 @@ function Account({ onLogout }: { onLogout: () => void }) {
                 Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng SIU.
               </p>
             )}
+            {threads.length > 0 && (
+              <button
+                className="text-button danger"
+                onClick={() => setResetting(true)}
+              >
+                <Trash2 size={14} /> Xóa tất cả trò chuyện và làm mới SIU
+              </button>
+            )}
           </section>
         </div>
       ) : saved.length ? (
@@ -1645,12 +2008,14 @@ function Account({ onLogout }: { onLogout: () => void }) {
               saved
               onSave={() => void save(s.house, s.thread_id)}
               onOpen={() =>
-                window.location.assign(
-                  "/ai/" +
-                    s.thread_id +
-                    "?panel=house&house=" +
-                    encodeURIComponent(s.id),
-                )
+                s.thread_id
+                  ? window.location.assign(
+                      "/ai/" +
+                        s.thread_id +
+                        "?panel=house&house=" +
+                        encodeURIComponent(s.id),
+                    )
+                  : setOpenSaved(s)
               }
             />
           ))}
@@ -1665,6 +2030,19 @@ function Account({ onLogout }: { onLogout: () => void }) {
             Tìm nhà cùng SIU <ArrowRight size={15} />
           </Link>
         </Empty>
+      )}
+      {resetting && <ResetThreadsDialog onClose={() => setResetting(false)} />}
+      {openSaved && (
+        <HousingDetail
+          house={openSaved.house}
+          saved
+          selected={false}
+          busy={false}
+          onClose={() => setOpenSaved(null)}
+          onSave={() =>
+            void save(openSaved.house, "").then(() => setOpenSaved(null))
+          }
+        />
       )}
     </div>
   );
