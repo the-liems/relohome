@@ -2,6 +2,10 @@
 
 Status: proposed working convention.
 
+The file layout below is a proposal. The current documentation index is
+[docs/README.md](README.md); entries for specs, ADRs, contracts, and runbooks
+describe future files and do not imply those files already exist.
+
 This document describes the organization of project specifications, architecture
 decisions, contracts, work tracking, and delivery milestones. Requirements and
 decisions live in version-controlled files; implementation tasks and delivery
@@ -70,9 +74,8 @@ docs/
     SPEC-001-goal-understanding.md
     SPEC-002-knowledge-retrieval.md
     SPEC-003-planning-and-execution.md
-    SPEC-004-service-integration.md
-    SPEC-005-approvals-and-recovery.md
     SPEC-006-workflow-progress.md
+    SPEC-008-service-tools.md      # Shared service, approval, and recovery contracts
   adr/
     README.md                     # Decision index
     _template.md                  # Based on the Chapter 3 ADR template
@@ -82,7 +85,7 @@ docs/
   runbooks/
     local-development.md
     demo.md
-  references/                     # Original proposal and analysis PDF
+  references/                     # Supporting sources when committed
   guide/                          # Course guide
 
 tests/
@@ -103,6 +106,8 @@ Use `docs/product.md` for the product brief and overall requirements: problem,
 target users, use cases, MVP scope, and non-goals. Link its capabilities to their
 detailed specs.
 
+[SPEC-008](specs/SPEC-008-service-tools.md) owns service integration, approval binding, idempotency, and compensation semantics. It replaces the former SPEC-004/005 placeholders in this layout while preserving its existing acceptance IDs. Orchestration, persistence, and UI specs should reference these shared rules instead of redefining them.
+
 Write one spec per coherent capability, including behavior across module and team
 boundaries. For example, approvals and recovery involve planning, backend,
 persistence, and the user interface; those components need one shared behavioral
@@ -122,8 +127,8 @@ Use `Draft`, `Accepted`, and `Superseded` as spec statuses. Acceptance means the
 team agrees to the requirements; implementation progress belongs in Issues.
 Update an accepted spec through a reviewed PR when its requirements change.
 
-Give acceptance criteria stable references, such as `SPEC-005/AC-03`:
-"Rejecting an approval prevents the corresponding booking call." Issues and tests
+Give acceptance criteria stable references, such as `SPEC-008/AC-06`:
+"Missing, expired, mismatched, or unauthorized approval prevents a paid action." Issues and tests
 can then identify the exact requirement they implement or verify. Do not renumber
 existing criteria when inserting new ones.
 
@@ -176,7 +181,7 @@ implementation work. Each actionable issue should have one accountable assignee,
 a concrete result, acceptance criteria or spec references, dependencies, and a
 milestone when scheduled. Split work that is too large to review coherently.
 
-Use the four team roles to guide assignment:
+The four roles below are illustrative planning roles; the team has not assigned members to them:
 
 | Role | Primary responsibility |
 |---|---|
@@ -208,24 +213,13 @@ Use `.github/CODEOWNERS` to declare review ownership by path, consistent with te
 responsibilities and course review requirements. Describe the contribution and
 review process in `CONTRIBUTING.md`.
 
-## Recommended milestones
+## Course gates and delivery tracking
 
-Use milestones for integrated outcomes and sprints for time-boxed work. A milestone
-may span multiple sprints. Set dates once the team agrees on capacity and the demo
-deadline.
+The [delivery roadmap](roadmap.md) records the team's supplied Gate 1 and G2 announcements, deadlines, and required deliverables. Use those gates for submission planning. Link implementation issues and evidence to the relevant gate; assign task owners and intermediate dates when the team agrees on them.
 
-| Milestone | Exit condition |
-|---|---|
-| M1 — Foundation | Reproducible local setup, passing CI, agreed core contracts, and a mock-service skeleton. |
-| M2 — One complete workflow | A relocation request produces a validated plan and executes against mocks, with approval enforced before booking. |
-| M3 — Multi-service execution | Parallel branches, persisted progress, approval/resume, and visible workflow status work together. |
-| M4 — Failure recovery | Rejection, timeouts, retries, duplicate prevention, and compensation pass golden scenarios. |
-| M5 — Demo readiness | Evaluation evidence, deployed demo, runbook, and course deliverables are complete. |
+The former M1–M5 milestone sequence was a planning proposal and is replaced by the announced gates. Internal milestones may be added by team agreement without changing the gate requirements.
 
-Basic approval enforcement belongs in the first executable booking workflow.
-M4 extends recovery behavior and verifies failure scenarios.
-Keep service execution mocked until the controls required for real side effects
-are implemented and verified.
+Approval enforcement remains required before paid vendor actions. Mock and real actions must be identified in the demo and evaluation evidence, and real side effects require the appropriate execution controls.
 
 ## Documentation maintenance
 

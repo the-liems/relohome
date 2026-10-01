@@ -1,110 +1,48 @@
-# Architecture Document
+# Architecture
 
-## System Overview
+Status: current checkout baseline plus work-in-progress expansion, reviewed on 2026-09-30. The [GitHub issue and PR map](docs/work-in-progress.md) records branch work separately from this checkout.
 
-[Tóm tắt 2-3 câu về kiến trúc hệ thống]
+## Implemented system
 
-## Architecture Diagram
-
-```mermaid
-graph TB
-    subgraph Frontend
-        UI[React/Next.js UI]
-    end
-
-    subgraph Backend[FastAPI Backend]
-        API[API Routes]
-        Agent[LangGraph Agent]
-        LLM[LLM Service]
-        Tools[Agent Tools]
-    end
-
-    subgraph Data[Data Layer]
-        DB[(Database)]
-        Vector[Vector Store]
-    end
-
-    UI -->|HTTP/REST| API
-    API --> Agent
-    Agent --> LLM
-    Agent --> Tools
-    Agent --> Vector
-    Tools --> DB
-    API --> DB
-```
-
-## Components
-
-### 1. Frontend (React/Next.js)
-- **Purpose:** [mô tả]
-- **Key Features:** [danh sách]
-- **State Management:** [approach]
-
-### 2. Backend (FastAPI)
-- **Purpose:** [mô tả]
-- **API Design:** RESTful
-- **Authentication:** [JWT/None]
-
-### 3. AI Agent (LangGraph)
-- **Agent Type:** [ReAct / Plan-and-Execute / Custom]
-- **State:** [mô tả state schema]
-- **Nodes:** [danh sách nodes]
-- **Tools:** [danh sách tools]
-- **Flow:**
+The current application is a single FastAPI process. It exposes a health route and mounts `/api/v1` routes. The chat route validates input with Pydantic and invokes a compiled LangGraph graph. The graph runs `analyze` and `respond` in sequence; both nodes generate example text. A conditional edge ends processing if state contains an error, but the example nodes do not currently set one.
 
 ```mermaid
-graph LR
-    START --> A[Node A]
-    A --> B{Decision}
-    B -->|Yes| C[Node C]
-    B -->|No| D[Node D]
-    C --> E[END]
-    D --> E
+flowchart LR
+    Client --> API[FastAPI routes]
+    API --> Schema[Pydantic request/response]
+    API --> Graph[LangGraph agent]
+    Graph --> Analyze[analyze node]
+    Analyze --> Respond[respond node]
+    Respond --> API
 ```
 
-### 4. Database
-- **Type:** [PostgreSQL / SQLite]
-- **Tables:** [danh sách]
-- **Migrations:** Alembic
+| Component | Current source | Current responsibility |
+|---|---|---|
+| HTTP application | `src/main.py` | FastAPI setup, CORS, health route |
+| API | `src/api/routes.py` | Chat and agent status routes |
+| Data models | `src/models/schemas.py` | Chat request and response validation |
+| Agent state and graph | `src/agents/state.py`, `src/agents/graph.py` | State fields and node sequencing |
+| Example nodes | `src/agents/nodes/example_node.py` | Placeholder analysis and response |
+| Example tools | `src/agents/tools/example_tool.py` | Calculator and stub knowledge search; not wired into graph |
+| LLM factory | `src/services/llm.py` | Configures an OpenAI client; not called by graph |
+| Settings | `src/config.py` | Reads app, LLM, database, and vector-store settings |
 
-### 5. Vector Store
-- **Type:** [ChromaDB / FAISS / Pinecone]
-- **Embeddings:** [model]
-- **Purpose:** [RAG / similarity search]
+The only active data flow is `message → query → analysis → response`. There is no application frontend, database connection, vector store, authentication, workflow persistence, service adapter, approval flow, or saga implementation in the current `src/` tree. Database and vector-store settings are configuration slots, not working integrations. `docker-compose.yml` runs one backend service.
 
-## Data Flow
+## Proposed expansion
 
-1. User gửi request từ Frontend
-2. API route nhận và validate input
-3. Agent xử lý qua LangGraph pipeline
-4. LLM generate response
-5. Tools thực thi actions (nếu cần)
-6. Response trả về Frontend
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The target design uses an LLM and LangGraph state machine to decompose the move, checkpoint workflows, execute dependent steps sequentially and independent steps in parallel, and pass outputs such as a selected housing address to downstream steps. The AI system owns orchestration and calls domain MCP tools defined in the [tool catalogue](docs/specs/SPEC-008-service-tools.md). Each paid step requires human approval; service tokens are scoped to the user. Custom saga orchestration handles partial failure, while realtime progress makes long workflows visible. The [roadmap](docs/roadmap.md) lists the Gate 1 and G2 deadlines and required deliverables.
 
-## Deployment Architecture
+The canonical [proposed product flow diagram](docs/architecture_diagram.md#proposed-product-flow) shows the target design, including final results and recovery. Data-store choice, frontend, exact service contracts, authorization model, checkpoint storage, retry rules, and compensation semantics require explicit decisions before implementation. Record accepted decisions in `docs/adr/` when the team makes them.
 
-```mermaid
-graph LR
-    subgraph Docker
-        FE[Frontend Container]
-        BE[Backend Container]
-        DB_C[Database Container]
-    end
-    FE --> BE --> DB_C
-```
+For the customer, the [relocation dependency diagram](docs/architecture_diagram.md#relocation-task-dependencies-illustrative) shows why housing choice must feed the moving quote while a travel search may be independent. The [issue and PR map](docs/work-in-progress.md) identifies branch-level work for Location/Housing, Moving, Flight, Payment, and the agent graph. It does not change the implemented boundary of this checkout.
 
-## Security
+### Plan changes after finalization
 
-- API keys stored in `.env` (never commit)
-- Input validation via Pydantic
-- Rate limiting on API endpoints
-- CORS configured for frontend domain
+A finalized plan remains editable. A change should compute the downstream impact of changed inputs and mark affected pending tasks and quotes stale. Independent completed tasks may be reused only if their inputs and validity still hold. Approvals must be bound to the exact action, quote, and relevant inputs; changing those details requires fresh approval. Executed vendor actions remain recorded, and uncertain outcomes must be reconciled before retrying. A small revision identifier or action fingerprint may help distinguish old and new decisions without storing full plan snapshots. [Issue #13](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/13) proposes fuller plan versioning, but that is an implementation choice under review, not a product requirement. This behavior is not part of the implemented graph in this checkout.
 
-## Design Decisions
+## Current security boundary
 
-| Decision | Choice | Reason |
-|----------|--------|--------|
-| Framework | FastAPI | Async, auto-docs, type-safe |
-| Agent | LangGraph | Flexible state management |
-| Database | [choice] | [reason] |
-| Frontend | Next.js | [reason] |
+Settings load secrets from environment variables or `.env`; `.env` is ignored by Git. The API validates chat message length with Pydantic. CORS origins are configurable. The API does **not** currently authenticate users, enforce per-user service scopes, rate-limit requests, or gate paid actions. No real service booking should be treated as approved or protected by this baseline.
+
+See the [current diagram](docs/architecture_diagram.md) for the same system at a glance.

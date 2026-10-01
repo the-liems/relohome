@@ -1,54 +1,32 @@
-# Weekly Journal — Team [Tên Team]
+# Development journal — THE LIEMS (P-044)
 
-> Ghi lại mỗi tuần: học được gì, khó khăn gì, quyết định gì, kế hoạch tiếp.
+This journal records verified project learning and decisions. Individual reflections and team meeting notes can be added with their authors and dates. Git commit metadata alone does not establish a person's role or time spent.
 
----
+## 2026-09-29 — Documentation baseline
 
-## Week 1: [Ngày bắt đầu] - [Ngày kết thúc]
+### Observed
 
-### Mục tiêu tuần này
-- [ ] [Mục tiêu 1]
-- [ ] [Mục tiêu 2]
-- [ ] [Mục tiêu 3]
+- The repository still runs the AI20K example FastAPI and two-node LangGraph flow.
+- The proposed multi-service relocation workflow describes substantially more than the current code implements.
+- The team identified people relocating as the target users and housing, moving, and travel as the core vendor categories. The exact demonstration request, member roles, and deployment choices need confirmation. The team roster is recorded in [README.md](README.md#team).
 
-### Đã hoàn thành
-- [thành quả 1]
-- [thành quả 2]
+### Documentation decision
 
-### Khó khăn & Giải pháp
-| Khó khăn | Giải pháp | Kết quả |
-|----------|-----------|---------|
-| [mô tả] | [cách xử lý] | [output] |
+Describe current behavior and proposed behavior separately in [ARCHITECTURE.md](ARCHITECTURE.md), and leave unmeasured evaluation results unreported in the [evaluation report](eval/results/report.md).
 
-### Bài học
-- [bài học 1]
-- [bài học 2]
+### Next decisions
 
-### Kế hoạch tuần sau
-- [ ] [task 1]
-- [ ] [task 2]
+Choose a concrete relocation request, define the MVP service boundary, and agree on who owns its requirements. Record the decisions in [docs/product.md](docs/product.md) before presenting a proposed flow as implemented work.
 
----
+## Earlier activity visible in Git
 
-## Week 2: [Ngày bắt đầu] - [Ngày kết thúc]
+| Date | Evidence | What it establishes |
+|---|---|---|
+| 2026-09-24 | `e2c14ec` | Project organization convention was added. |
+| 2026-09-30 | `93a7eff` / [PR #14](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/14) | Team-44 self-hosted CI configuration merged into `main`; earlier September 28–29 commits were branch work. |
 
-### Mục tiêu tuần này
-- [ ] [Mục tiêu 1]
+These entries are a repository history summary, not a substitute for weekly team reflections.
 
-### Đã hoàn thành
--
+## 2026-09-30 — GitHub planning review
 
-### Khó khăn & Giải pháp
-| Khó khăn | Giải pháp | Kết quả |
-|----------|-----------|---------|
-| | | |
-
-### Bài học
--
-
-### Kế hoạch tuần sau
--
-
----
-
-<!-- Tiếp tục copy block trên cho Week 3, 4, 5, 6 -->
+Open issues and PRs identify four service domains: Location/Housing, Moving, Flight, and Payment. The current graph-demo issue targets a chat flow across them, with same-city moving and mock payment. Several issues report branch-level tests or staging checks, while approval, authentication, persistent state, real housing data, and end-to-end integration remain open. The [work-in-progress map](docs/work-in-progress.md) links the source issues and PRs. These reports do not change the implemented status of the current checkout. The team clarified that a name appearing in branch work was randomly generated and is not the product name.

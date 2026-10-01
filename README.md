@@ -1,200 +1,101 @@
-# AI20K Agent Template
+# THE LIEMS (P-044) — Multi-Service AI System
 
-Template chính thức cho học viên VinUni AI20K Build Phase: cấu trúc dự án, code
-mẫu và hướng dẫn kỹ thuật để xây dựng một AI Agent hoàn chỉnh — từ kiến trúc,
-code, test cho đến deploy và nộp bài Demo Day.
+THE LIEMS is developing an AI system for people planning a relocation. Finding a home, arranging transport for belongings, and booking travel require separate vendors, repeated details, and decisions that affect one another. The intended product turns the customer's goal into one plan they can review, change, and approve step by step.
 
-Technical Guidebook: <https://phoenix.note.transformerlabs.ai/technical-book>
+## Customer journey
 
-## Template có sẵn những gì
+1. Tell the AI system where and when you want to move, along with housing, travel, and budget constraints.
+2. Compare housing options and select a destination. The selected address can feed the moving quote while travel options are searched where possible.
+3. Review the combined plan, source and validity of quotes, estimated costs, dependencies, and missing decisions.
+4. Approve each paid action separately, then follow its progress and any recovery or manual follow-up.
 
-- **Cấu trúc thư mục tách lớp** — `agents/`, `api/`, `services/`, `models/` đã
-  chia sẵn, không phải bàn lại từ đầu.
-- **Code mẫu chạy được** — LangGraph agent (state, node, tool), FastAPI routes,
-  Pydantic settings, schema.
-- **Docker và CI** — Dockerfile multi-stage, `docker-compose.yml`, workflow
-  GitHub Actions chạy `ruff` + `pytest` khi push lên `main`/`develop` và khi mở
-  pull request vào `main`.
-- **Technical Guidebook 10 chương** trong `docs/guide/`, đồng thời đọc được
-  online.
-- **Checklist 10 deliverables** của Demo Day.
-- **AI usage logging** — hook cài sẵn cho 6 công cụ AI, log tự động gửi lên
-  grading server mỗi lần `git push`.
+This is the **intended** experience. It is not a description of the example chat endpoint in this checkout. The [product brief](docs/product.md) gives the detailed customer flow and open decisions.
 
-## Yêu cầu
+**Development status:** The API in this checkout provides a sample LangGraph chat flow. The relocation workflow and service integrations are in progress across the linked issues and PRs. See the [work-in-progress map](docs/work-in-progress.md) and [architecture](ARCHITECTURE.md) for the current implementation and planned components.
 
-- Python 3.11 (phiên bản CI đang dùng)
-- Git
-- Docker — tuỳ chọn, chỉ cần nếu chạy `docker compose`
+## Current application
 
-## Bắt đầu
+- `GET /health` returns the application health and environment.
+- `GET /api/v1/status` returns the example agent status.
+- `POST /api/v1/chat` accepts `{"message": "..."}` and returns an example `response` and `analysis`. The two graph nodes currently echo the input through placeholder analysis and response text; they do not call an LLM or service.
+- The example calculator tool is implemented, but it is not connected to the graph. Knowledge search is a stub.
 
-### 1. Clone repo của đội
+The code is under `src/`; the tests under `tests/` cover the example API and graph structure. Current endpoint schemas are defined in [`src/models/schemas.py`](src/models/schemas.py).
 
-Khi đội được chốt, hệ thống tự sinh repo cho đội từ template này, nằm trong org
-GitHub của khoá bạn đang học và đặt tên theo mã đội. Copy URL ở trang đội trên
-Phoenix rồi clone về:
+## Run locally
+
+Use a modern stable Python release (3.11 or newer). The Docker image currently uses Python 3.11. From the repository root:
 
 ```bash
-git clone https://github.com/<ORG-CỦA-KHOÁ>/<MÃ-ĐỘI>.git
-cd <MÃ-ĐỘI>
-```
-
-Không cần `rm -rf .git`, `git init` hay `git remote add`: repo sinh từ template
-đã bắt đầu bằng lịch sử riêng của đội và remote trỏ sẵn đúng chỗ. Chưa thấy repo
-của đội thì báo BTC — repo tự tạo nằm ngoài org sẽ không được chấm.
-
-### 2. Cài môi trường
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
+python3 --version
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 3. Cấu hình biến môi trường
-
-```bash
 cp .env.example .env
-```
-
-Mở `.env` và điền `OPENAI_API_KEY`. Riêng `AI_LOG_API_KEY`, mỗi thành viên tự
-tạo key riêng tại [dashboard Phoenix](https://phoenix.note.transformerlabs.ai/api-keys)
-rồi thay vào chỗ `<get-your-api-key-from-dashboard-phoenix>` — giá trị trong
-`.env.example` chỉ là placeholder, để nguyên thì log không vào được hệ thống chấm.
-
-### 4. Cài hook ghi log AI
-
-```bash
-bash scripts/setup_hooks.sh                                      # Linux / macOS / Git Bash
-powershell -ExecutionPolicy Bypass -File scripts\setup_hooks.ps1 # Windows PowerShell
-```
-
-Chạy một lần sau khi clone. Hook ghi lại prompt khi bạn dùng Claude Code, Cursor,
-Codex CLI, Gemini CLI, Antigravity hoặc GitHub Copilot, và cài pre-push hook để
-đẩy log lên server.
-
-### 5. Chạy server
-
-```bash
 uvicorn src.main:app --reload --port 8000
 ```
 
-Swagger UI ở <http://localhost:8000/docs>. Hoặc dùng `make run`, `make test`,
-`make lint` — xem `Makefile`.
+The example chat flow returns placeholder text and does not call the LLM factory, so it needs no OpenAI key. To use an LLM, wire the factory into the graph and set `OPENAI_API_KEY` in `.env`. Do not commit `.env` or API keys. Swagger UI is at <http://localhost:8000/docs>.
 
-## Cấu trúc thư mục
-
-```
-src/
-  agents/            LangGraph agent
-    graph.py         State graph (nodes + edges)
-    state.py         State schema (TypedDict)
-    nodes/           Node functions
-    tools/           Agent tools (@tool)
-  api/routes.py      FastAPI endpoints
-  models/schemas.py  Pydantic schemas
-  services/llm.py    LLM client
-  config.py          Pydantic Settings
-  main.py            App entry point
-tests/               pytest suite
-scripts/             Hook ghi log AI + installer
-docs/
-  guide/             Technical Guidebook (nguồn của bản online)
-  architecture_diagram.md
-eval/                Kết quả evaluation
-presentation/        Slide và video Demo Day
-.claude/ .codex/ .cursor/ .gemini/ .agents/ .github/hooks/
-                     Config hook cho từng công cụ
-.github/workflows/   CI
-Dockerfile           Multi-stage build
-docker-compose.yml   Chạy backend bằng Docker
-README_boilerplate.md  Khung README cho dự án của đội
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Hello"}'
 ```
 
-## Tổ chức dự án của đội
+The Makefile provides `make run`, `make test`, and `make lint` shortcuts. Run `pytest tests/ -v` and `ruff check src/ tests/` after installing dependencies. Docker users can run `docker compose up --build` after creating `.env`.
 
-Xem [đề xuất tổ chức spec, ADR, issue và milestone](docs/project-organization.md)
-để biết nơi lưu từng loại tài liệu, quy ước đặt tên, phân công ownership và quy
-trình theo dõi công việc theo milestone, dựa trên quy ước trong Technical Guidebook.
+## Proposed product behavior
 
-## Technical Guidebook
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The AI system will coordinate dependent steps, request approval for each paid action, show progress, and recover from partial failures. The [product brief](docs/product.md) owns the scope and open decisions; the [roadmap](docs/roadmap.md) lists the Gate 1 and G2 deadlines and required deliverables. This workflow is not yet available through the current API.
 
-| Chương | Nội dung | Thời gian |
-|---|---|---|
-| 1 | Lời mở đầu — mục tiêu, cách sử dụng | 15 phút |
-| 2 | Khởi tạo dự án — clone, setup, git workflow | 4 giờ |
-| 3 | Thiết kế kiến trúc — 3-tier, diagram, ADR | 6 giờ |
-| 4 | LangGraph Agent — state, node, edge, tool, RAG | 8 giờ |
-| 5 | FastAPI — routes, validation, error handling, streaming | 6 giờ |
-| 6 | Giao diện — Next.js và Streamlit | 6 giờ |
-| 7 | DevOps — Docker, CI/CD, deploy, logging | 6 giờ |
-| 8 | Kiểm thử — unit test, integration test, RAGAS | 4 giờ |
-| 9 | Demo Day — 10 deliverables, checklist | 2 giờ |
-| 10 | Tài nguyên — khoá học, tài liệu, BMAD method | tham khảo |
+## Documentation
 
-Đọc online tại <https://phoenix.note.transformerlabs.ai/technical-book>: đăng
-nhập bằng GitHub (đúng account đã được BTC mời vào org của khoá), chọn tab
-**Technical Book** ở sidebar trái. Bản offline nằm trong `docs/guide/`, mở được
-bằng bất kỳ markdown viewer nào.
+- [Documentation index](docs/README.md)
+- [Product brief and open decisions](docs/product.md)
+- [GitHub issue and PR work in progress](docs/work-in-progress.md)
+- [Current architecture and proposed expansion](ARCHITECTURE.md)
+- [Working conventions](docs/project-organization.md)
+- [Development journal](JOURNAL.md) and [worklog](WORKLOG.md)
+- [Evaluation report](eval/results/report.md)
+- [Demo materials status](presentation/README.md)
+- [AI20K technical guide](docs/guide/chapter-01.md)
 
-## 10 deliverables cho Demo Day
+## Team
 
-| # | Deliverable | Vị trí | Template lo tới đâu |
-|---|---|---|---|
-| 1 | Source code | `src/` | Khung sẵn |
-| 2 | README | copy `README_boilerplate.md` thành `README.md` | Khung sẵn |
-| 3 | Architecture diagram | `docs/architecture_diagram.md` | Khung sẵn |
-| 4 | AI logs | LangSmith (3 biến môi trường) + auto AI usage logging | Cấu hình sẵn |
-| 5 | Live URL | deploy lên Render/Vercel | CI/CD sẵn |
-| 6 | Video demo | `presentation/` | Đội tự làm |
-| 7 | Pitch deck | `presentation/` | Đội tự làm |
-| 8 | Development journal | `JOURNAL.md` | Khung sẵn |
-| 9 | Worklog | `WORKLOG.md` | Khung sẵn |
-| 10 | Evaluation evidence | `eval/` | Đội tự làm |
-
-## Tech stack
-
-| Lớp | Công nghệ |
+| Member | Student ID |
 |---|---|
-| Agent | LangGraph + LangChain 0.3 |
-| Backend | FastAPI 0.115 + Uvicorn |
-| LLM | OpenAI, mặc định `gpt-4o-mini` (đổi trong `src/config.py`) |
-| Giao diện | Next.js hoặc Streamlit (đội tự chọn, hướng dẫn ở chương 6) |
-| Lint / test | ruff + pytest 8 |
-| DevOps | Docker + GitHub Actions |
+| Đặng Đỉnh Đoàn | 2A202602927 |
+| Ngô Anh Khoa | 2A202602965 |
+| Mai Quang Dũng | 2A202602966 |
+| Nguyễn Dũng | 2A202602812 |
 
 ## AI usage logging
 
-Mọi prompt được ghi vào `.ai-log/session.jsonl` và tự động gửi lên grading server
-ở bước pre-push.
+The repository includes hooks for AI usage logging. Each contributor can copy `.env.example` to `.env`, set their own `AI_LOG_API_KEY` from the [Phoenix dashboard](https://phoenix.note.transformerlabs.ai/api-keys), and run `bash scripts/setup_hooks.sh` (or `scripts/setup_hooks.ps1` in PowerShell). See [SECURITY.md](SECURITY.md) for credential handling.
 
-| Công cụ | Cấu hình | Thời điểm ghi |
-|---|---|---|
-| Claude Code | `.claude/settings.json` | mỗi prompt (`UserPromptSubmit`) |
-| Cursor | `.cursor/hooks.json` | mỗi prompt và khi dừng |
-| OpenAI Codex CLI | `.codex/hooks.json` | mỗi prompt và khi dừng |
-| Gemini CLI | `.gemini/settings.json` | mỗi lượt agent chạy |
-| GitHub Copilot | `.github/hooks/hooks.json` | mỗi prompt và cuối session |
-| Antigravity IDE | `.agents/hooks.json` | mỗi prompt, kèm lần quét lại lúc `git push` |
+| AI tool | Hook configuration |
+|---|---|
+| Claude Code | `.claude/settings.json` |
+| Cursor | `.cursor/hooks.json` |
+| OpenAI Codex CLI | `.codex/hooks.json` |
+| Gemini CLI | `.gemini/settings.json` |
+| GitHub Copilot | `.github/hooks/hooks.json` |
+| Antigravity IDE | `.agents/hooks.json` |
 
-Dùng ChatGPT hay công cụ web khác thì log thủ công:
+For ChatGPT and other web tools, record usage manually:
 
 ```bash
 bash scripts/_pyrun.sh scripts/log_manual.py --tool chatgpt --prompt "What you asked"
 ```
 
-## Đóng góp
+Usage records are stored in `.ai-log/session.jsonl`; the pre-push hook submits them to the grading server.
 
-Repo này là open source. Đọc [CONTRIBUTING.md](CONTRIBUTING.md) trước khi mở PR.
+## Contributing
 
-Nội dung trong `docs/guide/` là nguồn của Technical Book và được đồng bộ lên bản
-online, nên mọi thay đổi ở đó cần review của
-[@AI20K-Build-Phase/book-maintainers](https://github.com/orgs/AI20K-Build-Phase/teams/book-maintainers)
-— xem [.github/CODEOWNERS](.github/CODEOWNERS).
-
-Báo lỗ hổng bảo mật theo [SECURITY.md](SECURITY.md), đừng mở public issue.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The current [.github/CODEOWNERS](.github/CODEOWNERS) assigns the default `*` rule and `/docs/` to `@AI20K-Build-Phase/book-maintainers`, including documentation PRs. Changes to `docs/guide/` also affect the published Technical Book and require its maintainers' review.
 
 ## License
 
-[MIT](LICENSE) — dùng tự do cho mục đích giáo dục.
+[MIT](LICENSE).

@@ -1,3 +1,9 @@
+# Reusable README template — not the P-044 project README
+
+Copy and adapt this file only when starting a separate project. For the current
+P-044 documentation, use [README.md](README.md). The brackets and checklist below
+are examples and do not report P-044 progress.
+
 # [Tên Dự Án]
 
 > Tóm tắt 1 câu: [Vấn đề] → [Giải pháp AI] cho [Target User]
@@ -5,6 +11,7 @@
 ## Vấn đề (Problem)
 
 Mô tả pain point cụ thể với data/số liệu:
+
 - Ai đang gặp vấn đề?
 - Vấn đề tốn bao nhiêu thời gian/tiền?
 - Tại sao các giải pháp hiện tại chưa đủ?
@@ -12,6 +19,7 @@ Mô tả pain point cụ thể với data/số liệu:
 ## Giải pháp (Solution)
 
 Sản phẩm giải quyết vấn đề như thế nào bằng AI:
+
 - Feature 1: [mô tả]
 - Feature 2: [mô tả]
 - Feature 3: [mô tả]
@@ -78,19 +86,19 @@ uvicorn src.main:app --reload
 |--------|------|-------------|
 | GET | /health | Health check |
 | POST | /api/v1/chat | Chat with agent |
-| POST | /api/v1/analyze | Analyze input |
+| GET | /api/v1/status | Example agent status |
 
 ## Deliverables Checklist
 
-- [x] Source Code (GitHub)
-- [x] README.md
-- [x] Architecture Diagram (`docs/architecture_diagram.md`)
-- [x] AI Logs (auto-collected)
+- [ ] Source Code (GitHub)
+- [ ] README.md
+- [ ] Architecture Diagram (`docs/architecture_diagram.md`)
+- [ ] AI Logs (auto-collected)
 - [ ] Live URL / Deploy
 - [ ] Video Demo
 - [ ] Pitch Deck (`presentation/`)
-- [x] Weekly Journal (`JOURNAL.md`)
-- [x] Worklog (`WORKLOG.md`)
+- [ ] Weekly Journal (`JOURNAL.md`)
+- [ ] Worklog (`WORKLOG.md`)
 - [ ] Evaluation Evidence (`eval/results/`)
 
 ## Team
