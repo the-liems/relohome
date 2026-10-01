@@ -128,7 +128,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending and pending.get("type") == "payment_required":
             return _payment_response(thread_id, pending, service)
         if pending:
-            if request.moving_locations or request.housing_location:
+            if request.moving_locations or request.housing_location or request.place_choice:
                 raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
             result = await service.graph.ainvoke(
                 Command(
@@ -154,10 +154,41 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     "moving_locations": request.moving_locations.model_dump(mode="json", exclude_none=True)
                     if request.moving_locations
                     else None,
+                    "map_view": request.map_view.model_dump(mode="json") if request.map_view else None,
+                    "place_choice": await _verified_place(service, request.place_choice)
+                    if request.place_choice
+                    else None,
                 },
                 config,
             )
         return _to_response(thread_id, result, service)
+
+
+async def _verified_place(service: AgentService, choice) -> dict:
+    """Re-read a chosen place from Location; the client only supplies its ID."""
+    from src.agents.models import AgentName
+    from src.services.adapters.mcp import ToolCallError
+
+    agent = service.deps.agents.get(AgentName.MAP) or service.deps.agents.get(AgentName.PROPERTY)
+    client = getattr(agent, "client", None)
+    if client is None:
+        raise HTTPException(503, "Location service chưa được kết nối.")
+    try:
+        place = await client.call("get_place", {"place_id": choice.place_id})
+    except ToolCallError as exc:
+        if exc.transport or exc.retryable:
+            raise HTTPException(502, "Không đọc được địa điểm đã chọn; vui lòng thử lại.") from None
+        raise HTTPException(422, "Địa điểm đã chọn không hợp lệ hoặc không còn khả dụng.") from None
+    location = (place or {}).get("location") or {}
+    if (place or {}).get("place_id") != choice.place_id or location.get("lat") is None:
+        raise HTTPException(422, "Địa điểm đã chọn không còn khả dụng.")
+    return {
+        "field": choice.field,
+        "place_id": choice.place_id,
+        "name": place.get("name") or choice.place_id,
+        "lat": location["lat"],
+        "lng": location["lng"],
+    }
 
 
 @router.post("/chat/{thread_id}/decision", response_model=ChatResponse)
@@ -272,7 +303,69 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "cost_summary": values["cost_summary"].model_dump(mode="json") if values.get("cost_summary") else None,
         "committed": {k: r.model_dump(mode="json") for k, r in (values.get("committed") or {}).items()},
         "pending": pending,
+        "selections": _selections(values),
     }
+
+
+def _selections(values: dict) -> dict:
+    """Option the user chose per domain, read from provider results in graph state (never from the client).
+
+    A home chosen on the map workspace is only in state, not in any chat message; the UI needs its
+    address and coordinate to prefill the moving destination."""
+    intake = values.get("intake")
+    facts = intake.user_confirmed_facts if intake else {}
+    out: dict[str, dict] = {}
+    for key, fact in facts.items():
+        if not key.startswith("selected:"):
+            continue
+        domain = key.split(":", 1)[1]
+        for result in (values.get("task_results") or {}).values():
+            if result.agent.value != domain:
+                continue
+            match = next(
+                (
+                    item
+                    for items in result.data.values()
+                    if isinstance(items, list)
+                    for item in items
+                    if isinstance(item, dict) and fact.value in (item.get("id"), item.get("option_id"))
+                ),
+                None,
+            )
+            if match is not None:
+                out[domain] = match
+                break
+    return out
+
+
+@router.delete("/chat/{thread_id}")
+async def delete_thread(thread_id: str, service: Service, user_id: UserId = "anonymous") -> dict:
+    """Xoá hội thoại: checkpoint của graph và bộ nhớ có nguồn từ hội thoại này.
+
+    Không huỷ đơn đã đặt; biên nhận và approval vẫn nằm trong kho bền vững của backend.
+    Thanh toán đang chờ phải được huỷ hoặc hoàn tất trước để không bỏ lại phần giữ chỗ."""
+    async with _lock(service, thread_id):
+        values, pending = await _pending(service, thread_id)
+        if not values:
+            return {"thread_id": thread_id, "deleted": False}
+        if values.get("user_id") != user_id:
+            raise HTTPException(status_code=404, detail="Không tìm thấy hội thoại.")
+        if pending and pending.get("type") == "payment_required":
+            raise HTTPException(
+                status_code=409,
+                detail="Hội thoại đang có thanh toán chờ xử lý. Hãy hủy hoặc hoàn tất thanh toán trước khi xóa.",
+            )
+        await service.graph.checkpointer.adelete_thread(thread_id)
+        await service.deps.session.forget_thread(user_id, thread_id)
+    service.locks.pop(thread_id, None)
+    return {"thread_id": thread_id, "deleted": True}
+
+
+@router.delete("/memory")
+async def forget_memory(service: Service, user_id: UserId = "anonymous") -> dict:
+    """Quên toàn bộ sở thích/thói quen agent đã ghi nhớ về người dùng (làm mới SIU)."""
+    await service.deps.session.forget(user_id)
+    return {"forgotten": True}
 
 
 @router.get("/status")

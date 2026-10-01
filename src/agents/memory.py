@@ -40,6 +40,8 @@ MEMORY_TIERS: dict[str, tuple[int, Group]] = {
 # Field chỉ được tự điền khi mọi anchor của nó cũng lấy từ bộ nhớ (không bị đổi trong lượt này).
 PREFILL_ANCHORS: dict[str, tuple[str, ...]] = {
     "max_price_vnd": ("city", "near"),
+    # A remembered place only narrows a search in the same city/district the user names now.
+    "near": ("city", "district"),
 }
 
 # Lĩnh vực nào dùng field mức 1 nào; chỉ lĩnh vực `cheap` mới được tự điền (§6.1 bước 2).
@@ -206,4 +208,14 @@ def apply_updates(
                 source_thread=thread_id,
                 stop_prefill=bool(update.stop_prefill),
             )
+    return data
+
+
+def forget_thread(session: SessionContext, thread_id: str) -> SessionContext:
+    """Bỏ mọi giá trị được nêu lần đầu trong `thread_id` (người dùng xoá hội thoại đó)."""
+    data = session.model_copy(deep=True)
+    for group in ("preferences", "traits", "hints"):
+        bucket: dict[str, MemoryValue] = getattr(data, group)
+        for key in [k for k, v in bucket.items() if v.source_thread == thread_id]:
+            del bucket[key]
     return data

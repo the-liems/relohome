@@ -1,7 +1,8 @@
 """Restore the verified teammate dump into a NEW database only; never clean/drop.
 
 Run after starting config/local-integration.compose.yaml. This command refuses an
-existing target, checks the dump's SHA256, awaits pg_restore, then runs migrations.
+existing target, checks the dump's SHA256, awaits pg_restore, refreshes planner statistics
+(ANALYZE), then runs migrations.
 """
 
 import hashlib
@@ -67,6 +68,9 @@ def main():
         cwd=ROOT,
         check=True,
     )
+    # pg_restore does not restore planner statistics. Without them spatial housing/POI
+    # queries pick bad plans and hit the 8 s statement timeout.
+    subprocess.run(prefix + ["psql", "-U", user, "-d", database, "-c", "ANALYZE"], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "scripts/local-integration.py", "migrate"], cwd=ROOT, check=True)
     print("Snapshot restored and migrations completed. No existing DB was deleted or overwritten.")
 

@@ -130,6 +130,13 @@ def make_orchestrator(deps: GraphDeps):
             return stop(OutcomeCode.ERROR, f"[{code}] {detail}", [code])
         plan = out.plan
         if not plan.tasks:
+            if out.questions:
+                # Planner hoãn mọi domain vì input chưa dùng được: hỏi lại, không phải lỗi kế hoạch.
+                return {
+                    **stop(OutcomeCode.ASK_USER, "planner needs input"),
+                    "planner_questions": out.questions,
+                    "validation": None,
+                }
             return stop(OutcomeCode.PLAN_EMPTY, "không có task nào")
         problems = validate_plan(plan, deps.agents, intake, committed, previous if reuse else None)
         if problems:
@@ -157,6 +164,7 @@ def make_orchestrator(deps: GraphDeps):
             "cost_summary": None,
             "change_context": None,
             "dispatch": [],
+            "planner_questions": out.questions,
         }
 
     return orchestrator

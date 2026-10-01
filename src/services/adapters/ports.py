@@ -29,6 +29,10 @@ class SessionPort(Protocol):
 
     async def forget(self, user_id: str) -> None: ...
 
+    async def forget_thread(self, user_id: str, thread_id: str) -> None:
+        """Xoá bộ nhớ có nguồn từ một hội thoại đã bị người dùng xoá."""
+        ...
+
 
 class ApprovalPort(Protocol):
     """Approval Store của backend. Graph chỉ đọc và đánh dấu đã dùng, không bao giờ tạo approval."""

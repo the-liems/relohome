@@ -39,9 +39,43 @@ class MovingLocations(BaseModel):
     destination: ConfirmedLocation | None = None
 
 
+class BoundingBox(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    west: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    south: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    east: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    north: float = Field(ge=-90, le=90, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def ordered(self):
+        if self.west >= self.east or self.south >= self.north:
+            raise ValueError("west < east and south < north are required")
+        if self.east - self.west > 3 or self.north - self.south > 3:
+            raise ValueError("Map view is wider than a city")
+        return self
+
+
+class MapView(BaseModel):
+    """Khung bản đồ client đang hiển thị; graph chỉ dùng khi người dùng nói tới "khu này"."""
+
+    model_config = ConfigDict(extra="forbid")
+    bounding_box: BoundingBox
+    zoom: float = Field(ge=0, le=24, allow_inf_nan=False)
+
+
+class PlaceChoice(BaseModel):
+    """Ứng viên địa điểm người dùng bấm chọn; API đối chiếu lại với Location trước khi dùng."""
+
+    model_config = ConfigDict(extra="forbid")
+    field: Literal["near", "route_from", "route_to"]
+    place_id: str = Field(min_length=1, max_length=128)
+
+
 class ChatRequest(BaseModel):
     housing_location: ConfirmedLocation | None = None
     moving_locations: MovingLocations | None = None
+    map_view: MapView | None = None
+    place_choice: PlaceChoice | None = None
     message: str = Field(..., min_length=1, max_length=5000, description="Tin nhắn từ user")
     thread_id: str | None = Field(default=None, max_length=128, description="Bỏ trống để mở hội thoại mới")
     suggestion_key: str | None = Field(default=None, max_length=100, description="Key gợi ý khi user bấm nút gợi ý")

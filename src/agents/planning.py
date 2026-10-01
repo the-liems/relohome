@@ -23,6 +23,7 @@ from src.agents.models import (
     CommitActionKind,
     IntakeResult,
     Plan,
+    Question,
     Receipt,
     RequestKind,
     SessionContext,
@@ -48,6 +49,9 @@ class PlannerInput(BaseModel):
 
 class PlannerOutput(BaseModel):
     plan: Plan
+    # Domain được yêu cầu nhưng Planner xác định input hiện có chưa dùng được (ví dụ địa chỉ chỉ tới
+    # cấp quận): câu hỏi gắn đúng field "<domain>.<key>", graph hỏi lại thay vì báo lỗi kế hoạch.
+    questions: list[Question] = []
 
 
 class Planner(Protocol):

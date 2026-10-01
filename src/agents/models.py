@@ -62,10 +62,22 @@ class Quote(BaseModel):
     recurrence: Literal["one_time", "monthly"]
 
 
+class LocationChoice(BaseModel):
+    """Một ứng viên địa điểm do Location trả về; client hiển thị thành pin để người dùng chọn."""
+
+    id: str  # canonical place_id hoặc area_id của Location
+    label: str
+    entity_type: str
+    category: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+
+
 class Question(BaseModel):
     field: str
     text: str
     options: list[str] = []
+    choices: list[LocationChoice] = []  # ứng viên địa điểm có ID và toạ độ thật (chọn trên bản đồ)
     blocking: bool = True
 
 

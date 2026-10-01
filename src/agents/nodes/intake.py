@@ -14,6 +14,10 @@ from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.intake import (
     LOCATION_KEYS,
+    MAP_VIEW_REF,
+    PLACE_CHOICE_FIELDS,
+    SCOPE_DEPENDENTS,
+    SEARCH_SCOPE_KEYS,
     IntakeInput,
     abbreviation_questions,
     commit_fact_key,
@@ -35,6 +39,7 @@ from src.agents.models import (
     error_record,
 )
 from src.agents.state import WorkflowState
+from src.agents.subagents.capabilities import operation_selector_keys
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +50,7 @@ def explicitly_changed_fact(key: str, text: str) -> bool:
         return bool(re.search(r"\b(?:đổi|sửa|chuyển)\s+giờ\b", text, re.IGNORECASE))
     if key in {"from_address", "to_address"}:
         return bool(re.search(r"\b(?:đổi chiều|đảo chiều|ngược lại)\b", text, re.IGNORECASE))
-    if key in {"nearby_categories", "nearby_radius_m", "map_mode"}:
+    if key in {"nearby_categories", "nearby_radius_m"}:
         return bool(re.search(r"\b(?:không cần .+ nữa|chỉ tìm|đổi|thay)\b", text, re.IGNORECASE))
     return False
 
@@ -141,6 +146,7 @@ def make_intake(deps: GraphDeps):
                     pending_questions=last_response.questions if last_response else [],
                     last_suggestions=last_response.suggestions if last_response else [],
                     supported_domains=deps.agents.names(),
+                    map_view_available=bool(state.get("map_view")),
                 ),
                 deps,
                 state,
@@ -214,7 +220,12 @@ def make_intake(deps: GraphDeps):
             fact = previous_facts.get(key)
             if fact is not None and receipt.created_at >= fact.stated_at:
                 previous_facts.pop(key)
-        grounded = ground_facts(result.user_confirmed_facts, previous_facts, result.kind, user_texts, suggestion_keys)
+        selectors = operation_selector_keys(
+            c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
+        )
+        grounded = ground_facts(
+            result.user_confirmed_facts, previous_facts, result.kind, user_texts, suggestion_keys, selectors
+        )
         if (
             AgentName.MAP in result.domains
             and result.constraints.values.get("near") == "selected:property"
@@ -265,6 +276,19 @@ def make_intake(deps: GraphDeps):
                 if key not in result.user_confirmed_facts:
                     values.pop(key, None)
                     facts.pop(key, None)
+        # The latest message defines where to search: naming a district or a place replaces the
+        # scope carried from earlier turns (e.g. an old "gần Bách Khoa" must not narrow a new
+        # "ở Cầu Giấy" request). Scopes stated together in this message are kept together.
+        if previous and any(
+            key in result.user_confirmed_facts and result.user_confirmed_facts[key].value != MAP_VIEW_REF
+            for key in SEARCH_SCOPE_KEYS
+        ):
+            for key in SEARCH_SCOPE_KEYS:
+                if key not in result.user_confirmed_facts:
+                    values.pop(key, None)
+                    facts.pop(key, None)
+                    for dependent in SCOPE_DEPENDENTS.get(key, ()):
+                        values.pop(dependent, None)
         if previous and previous.constraints.values.get("near") != values.get("near"):
             values.pop("near_coordinate", None)
         housing_pin = state.get("housing_location")
@@ -300,6 +324,33 @@ def make_intake(deps: GraphDeps):
                     # Only the validated API input can supply this point, never a model draft.
                     values[address_key] = pin["address"]
                     values[coord_key] = {"lat": pin["lat"], "lng": pin["lng"]}
+        # Bản đồ: "khu này" là khung đang xem mà API đã kiểm; nêu khu vực mới thì bỏ khung cũ.
+        map_bbox = (state.get("map_view") or {}).get("bounding_box")
+        named_area = any(
+            key in result.user_confirmed_facts and result.user_confirmed_facts[key].value != MAP_VIEW_REF
+            for key in ("city", "district", "near")
+        )
+        if values.get("near") == MAP_VIEW_REF:
+            for key in ("near", "district", "near_coordinate", "near_place_id"):
+                values.pop(key, None)
+            facts.pop("near", None)
+            if map_bbox:
+                values["bounding_box"] = dict(map_bbox)
+            else:
+                result.conflicts.append("Bạn muốn tìm ở khu vực nào? Mình chưa nhận được vùng bản đồ đang xem.")
+        elif named_area:
+            values.pop("bounding_box", None)
+        # Ứng viên địa điểm người dùng bấm chọn trên bản đồ: API đã đối chiếu với Location.
+        choice = state.get("place_choice")
+        for key in PLACE_CHOICE_FIELDS:
+            if key in result.user_confirmed_facts and not (choice and choice["field"] == key):
+                values.pop(key + "_place_id", None)
+        if choice:
+            values[choice["field"]] = choice["name"]
+            values[choice["field"] + "_place_id"] = choice["place_id"]
+            if choice["field"] == "near":
+                values.pop("near_coordinate", None)
+                values.pop("bounding_box", None)
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
@@ -317,7 +368,7 @@ def make_intake(deps: GraphDeps):
             prefill_ttl=deps.settings.prefill_ttl,
             now=now,
         )
-        update: dict = {"intake": result, "declined_suggestions": result.declined_suggestions}
+        update: dict = {"intake": result, "declined_suggestions": result.declined_suggestions, "planner_questions": []}
         if result.kind == RequestKind.NEW_GOAL:
             # Do not display a previous goal's results when a new goal needs input.
             update.update(plan=None, cost_summary=None)

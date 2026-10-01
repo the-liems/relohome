@@ -44,6 +44,17 @@ class IntakeInput(BaseModel):
     pending_questions: list[Question] = []
     last_suggestions: list[Suggestion] = []
     supported_domains: list[AgentName] = []
+    map_view_available: bool = False  # client đang hiển thị bản đồ và đã gửi khung xem (API kiểm)
+
+
+# Giá trị tham chiếu của `near` khi người dùng nói "khu này", "khu đang xem" trên bản đồ. Node thay bằng
+# `bounding_box` mà API đã kiểm; LLM không bao giờ tự sinh toạ độ.
+MAP_VIEW_REF = "current:map_view"
+# Field địa điểm mà người dùng có thể chọn ứng viên trên bản đồ (`ChatRequest.place_choice`).
+PLACE_CHOICE_FIELDS = ("near", "route_from", "route_to")
+# Phạm vi tìm nhà trong một thành phố; câu mới nêu phạm vi nào thì thay phạm vi cũ (node intake).
+SEARCH_SCOPE_KEYS = ("district", "near")
+SCOPE_DEPENDENTS = {"near": ("near_coordinate", "near_place_id", "bounding_box"), "district": ("bounding_box",)}
 
 
 class Intake(Protocol):
@@ -175,15 +186,51 @@ class GroundedFacts:
     conflicts: list[str]
 
 
+# Tên hiển thị của khóa dữ kiện trong câu hỏi lại; khóa không có ở đây hiện nguyên tên.
+FACT_LABELS = {
+    "city": "thành phố",
+    "district": "quận/huyện",
+    "near": "địa điểm gần",
+    "min_price_vnd": "giá tối thiểu",
+    "max_price_vnd": "ngân sách tối đa",
+    "room_type": "loại phòng",
+    "min_bedrooms": "số phòng ngủ tối thiểu",
+    "max_bedrooms": "số phòng ngủ tối đa",
+    "origin": "nơi đi",
+    "destination": "nơi đến",
+    "flight_date": "ngày bay",
+    "passengers": "số hành khách",
+    "from_address": "điểm lấy đồ",
+    "to_address": "điểm giao đồ",
+    "move_date": "ngày chuyển đồ",
+    "move_time": "giờ chuyển đồ",
+    "route_from": "điểm đi",
+    "route_to": "điểm đến",
+    "route_profile": "phương tiện",
+    "nearby_categories": "loại tiện ích",
+    "nearby_radius_m": "bán kính",
+}
+
+
+def _shown(value: Any) -> str:
+    if value == "selected:property":
+        return "căn nhà bạn đã chọn"
+    return ", ".join(map(str, value)) if isinstance(value, list) else str(value)
+
+
 def ground_facts(
     new: dict[str, ConfirmedFact],
     previous: dict[str, ConfirmedFact],
     kind: RequestKind,
     user_texts: list[str],
     suggestion_keys: list[str],
+    selector_keys: frozenset[str] = frozenset(),
 ) -> GroundedFacts:
     """Chỉ giữ fact có evidence là chuỗi con của tin nhắn **người dùng** (sau NFC), không phải dữ liệu
-    cá nhân, và gộp với dữ kiện cũ. Dữ kiện đã xác nhận chỉ bị ghi đè khi `CHANGE` (hoặc mục tiêu mới)."""
+    cá nhân, và gộp với dữ kiện cũ. Dữ kiện đã xác nhận chỉ bị ghi đè khi `CHANGE` (hoặc mục tiêu mới).
+
+    `selector_keys` (từ `operation_selector_keys` của các manifest) chọn thao tác của lĩnh vực trong lượt
+    này, ví dụ Map `route` thay vì `nearby`: giá trị mới thay giá trị cũ, không phải mâu thuẫn."""
     corpus = nfc("\n".join(user_texts)).lower()
     kept: dict[str, ConfirmedFact] = {}
     dropped: list[str] = []
@@ -215,10 +262,13 @@ def ground_facts(
         base = dict(previous)
     for name, fact in kept.items():
         old = base.get(name)
-        if old is None or old.value == fact.value or kind == RequestKind.CHANGE:
+        if old is None or old.value == fact.value or kind == RequestKind.CHANGE or name in selector_keys:
             base[name] = fact
         else:
-            conflicts.append(f"{name}: trước đó là {old.value!r}, giờ là {fact.value!r}")
+            conflicts.append(
+                f"Bạn muốn đổi {FACT_LABELS.get(name, name)} từ “{_shown(old.value)}” "
+                f"thành “{_shown(fact.value)}” phải không?"
+            )
     return GroundedFacts(base, dropped, conflicts)
 
 
@@ -293,6 +343,8 @@ def missing_for(
                 continue
             missing.append(f"relocation.{key}")
         return missing
+    if domain == AgentName.PROPERTY and _has(values, "bounding_box"):
+        return []  # khung bản đồ đang xem là phạm vi tìm kiếm đủ dùng
     if domain == AgentName.MAP and values.get("map_mode") == "route":
         missing = [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
         if (

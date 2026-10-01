@@ -15,6 +15,17 @@ _INT = {"type": "integer", "minimum": 0}
 _DATE = {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
 _OPT_NUM = {"type": ["number", "null"]}
 _OPT_STR = {"type": ["string", "null"]}
+_BBOX = {
+    "type": "object",
+    "properties": {
+        "west": {"type": "number", "minimum": -180, "maximum": 180},
+        "south": {"type": "number", "minimum": -90, "maximum": 90},
+        "east": {"type": "number", "minimum": -180, "maximum": 180},
+        "north": {"type": "number", "minimum": -90, "maximum": 90},
+    },
+    "required": ["west", "south", "east", "north"],
+    "additionalProperties": False,
+}
 
 PROPERTY = AgentCapability(
     agent=AgentName.PROPERTY,
@@ -24,6 +35,8 @@ PROPERTY = AgentCapability(
             "city": _STR,
             "district": _STR,
             "near": _STR,
+            "near_place_id": _STR,  # ứng viên người dùng đã chọn trên bản đồ (LocationChoice.id)
+            "bounding_box": _BBOX,  # khung bản đồ người dùng đang xem, do API kiểm, không do LLM sinh
             "near_coordinate": {
                 "type": "object",
                 "properties": {
@@ -42,7 +55,7 @@ PROPERTY = AgentCapability(
             "limit": {"type": "integer", "minimum": 1, "maximum": 20},
             "cursor": {"type": ["string", "null"], "maxLength": 1000},
         },
-        "anyOf": [{"required": ["city"]}, {"required": ["near"]}],
+        "anyOf": [{"required": ["city"]}, {"required": ["near"]}, {"required": ["bounding_box"]}],
         "additionalProperties": False,
     },
     output_schema={
@@ -87,6 +100,7 @@ PROPERTY = AgentCapability(
                 "properties": {
                     "scope": {"const": "returned_candidates"},
                     "listing_ids": {"type": "array", "items": _STR},
+                    "viewport": {"anyOf": [_BBOX, {"type": "null"}]},
                 },
                 "required": ["scope", "listing_ids"],
             },
@@ -113,6 +127,9 @@ MAP = AgentCapability(
             "map_mode": {"enum": ["route", "nearby"]},
             "route_from": _STR,
             "route_to": _STR,
+            "route_from_place_id": _STR,
+            "route_to_place_id": _STR,
+            "near_place_id": _STR,
             "selected_listing_id": _STR,
             "city": _STR,
             "route_profile": {"enum": ["walking", "motorcycle", "driving"]},
@@ -323,3 +340,24 @@ BASELINE_CAPABILITIES: dict[AgentName, AgentCapability] = {
     AgentName.RELOCATION: RELOCATION,
     AgentName.PAYMENT: PAYMENT,
 }
+
+
+def operation_selector_keys(capabilities) -> frozenset[str]:
+    """Input keys that choose WHICH operation of a domain runs, read from the manifests themselves.
+
+    A key is a selector when an `anyOf`/`oneOf` branch or an `allOf` `if` clause of a capability's
+    `input_schema` pins it with `const` (e.g. Map `map_mode`: route vs nearby). Choosing another
+    operation is a new task for that domain, not a contradiction of an earlier user constraint.
+    """
+
+    def consts(schema: dict) -> set[str]:
+        return {k for k, spec in (schema.get("properties") or {}).items() if isinstance(spec, dict) and "const" in spec}
+
+    keys: set[str] = set()
+    for capability in capabilities:
+        schema = capability.input_schema
+        for branch in [*schema.get("anyOf", []), *schema.get("oneOf", [])]:
+            keys |= consts(branch)
+        for clause in schema.get("allOf", []):
+            keys |= consts(clause.get("if") or {})
+    return frozenset(keys)

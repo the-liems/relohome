@@ -135,6 +135,10 @@ Giữ nguyên tên địa danh/viết tắt người dùng, không tự geocode,
 Tìm nhà 'tại/trong/ở' một thành phố, quận hoặc phường: dùng city (phạm vi hành chính).
 near chỉ dùng khi người dùng muốn gần một địa chỉ/địa danh cụ thể; không đổi cả thành phố thành điểm gần.
 "quanh căn đã chọn" dùng fact selected:property đã xác nhận; KHÔNG tạo near='selected:property'.
+Khi map_view_available=true và người dùng nói tới vùng đang xem trên bản đồ ('khu này', 'khu vực
+đang xem', 'quanh đây', 'trong vùng bản đồ'), dùng near='current:map_view', evidence là cụm đó.
+Không tự đặt toạ độ hay tên khu vực; backend thay bằng khung bản đồ đã xác thực. Nêu tên khu vực
+cụ thể thì dùng city/district/near như bình thường.
 Không trích tên cá nhân/SĐT/email/CCCD/liên hệ; chúng thuộc form riêng.
 Tìm/xem giá KHÔNG sinh commit. Chỉ khi user yêu cầu đặt/huỷ/sửa mới sinh fact tương ứng
 commit:flight_booking, commit:moving_booking, commit:cancel_order, commit:update_order với value true
@@ -254,6 +258,7 @@ class LlmIntake(UsageOwner):
             if previous
             else None,
             "is_first_turn": previous is None,
+            "map_view_available": inp.map_view_available,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],

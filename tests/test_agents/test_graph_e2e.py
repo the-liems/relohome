@@ -146,4 +146,5 @@ async def test_search_only_goes_straight_to_answer():
     assert "__interrupt__" not in out
     assert out["task_status"]["t1"] == TaskStatus.DONE
     assert "dữ liệu mẫu" in out["response"].text
-    assert [s.key for s in out["response"].suggestions] == ["quote:relocation"]
+    # Next services are suggested only after the user chooses a home (no choice yet here).
+    assert out["response"].suggestions == []

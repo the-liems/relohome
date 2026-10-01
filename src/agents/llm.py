@@ -102,6 +102,9 @@ class StructuredLLM:
         except APIStatusError as exc:
             raise LLMError("LLM_PROVIDER_ERROR", "LLM từ chối request; kiểm tra model và tài khoản.") from exc
         except (ValidationError, ValueError) as exc:
+            # Field paths only; never log model output values (may echo user text).
+            where = [e["loc"] for e in exc.errors()][:5] if isinstance(exc, ValidationError) else type(exc).__name__
+            logger.warning("LLM invalid output schema=%s at=%s", schema.__name__, where)
             raise LLMError("LLM_INVALID_OUTPUT", "Kết quả LLM không đúng schema.") from exc
         usage = getattr(result, "usage", None)
         self._usage.set((getattr(usage, "input_tokens", 0) or 0, getattr(usage, "output_tokens", 0) or 0))

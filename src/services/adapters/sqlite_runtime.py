@@ -17,7 +17,7 @@ from typing import Any
 from cryptography.fernet import Fernet
 
 from src.agents.common import utcnow
-from src.agents.memory import apply_updates
+from src.agents.memory import apply_updates, forget_thread
 from src.agents.models import Approval, SessionContext, UsageCounts
 
 
@@ -105,6 +105,11 @@ class SqliteSessionPort:
 
     async def forget(self, user_id):
         self.db.delete("session", user_id)
+
+    async def forget_thread(self, user_id, thread_id):
+        if self.db.get("session", user_id):
+            value = forget_thread(await self.load(user_id), thread_id)
+            self.db.put("session", user_id, value.model_dump(mode="json"))
 
 
 class SqliteApprovalStore:

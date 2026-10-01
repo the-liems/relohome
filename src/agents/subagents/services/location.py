@@ -7,8 +7,10 @@ subagent tự xếp hạng; tên khu vực / địa danh mơ hồ thì hỏi l�
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import datetime
+from itertools import combinations
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -16,13 +18,19 @@ from jsonschema import Draft202012Validator
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
-from src.agents.models import AgentName, AgentUsage, Question, Quote
+from src.agents.models import AgentName, AgentUsage, LocationChoice, Question, Quote
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from src.agents.subagents.services.common import BudgetExceededError, CountingClient, tool_failure
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 SOURCE = "lifeflow-location"
 DEFAULT_RADIUS_M = 3000
+# Bản ghi POI khớp chính xác cùng tên nằm trong bán kính này coi là một điểm đến (ví dụ way + area
+# của cùng một chợ, hai trạm xe buýt hai bên đường). Chỉ dùng cho điểm đến của Map/Housing,
+# không dùng cho điểm lấy/giao Moving.
+SAME_PLACE_RADIUS_M = 150
+# Độ đầy đủ hình học theo loại phần tử OSM của bản ghi nguồn: vùng > đường > điểm.
+_GEOMETRY_RANK = {"relation": 3, "area": 3, "way": 2, "node": 1}
 ROOM_TYPES = {
     "phòng": "room",
     "phòng trọ": "room",
@@ -61,9 +69,7 @@ def label_of(item: dict) -> str:
     return f"{item.get('name')} ({parent})" if parent else str(item.get("name"))
 
 
-def pick_clear(results: list[dict]) -> dict | None:
-    """Chọn ứng viên khi rõ ràng: chỉ một kết quả, đúng một kết quả khớp chính xác, hoặc điểm đầu vượt
-    hẳn điểm thứ hai. Không thì trả None để hỏi lại (Location không tự chọn thay graph)."""
+def _distinct(results: list[dict]) -> list[dict]:
     # Snapshot may contain both an OSM administrative relation and a local copy
     # of the same boundary. Collapse only when name AND exact bbox agree.
     unique: list[dict] = []
@@ -76,7 +82,42 @@ def pick_clear(results: list[dict]) -> dict | None:
                 continue
             seen.add(key)
         unique.append(item)
-    results = unique
+    return unique
+
+
+def _encloses(outer: dict, inner: dict) -> bool:
+    return (
+        outer["west"] <= inner["west"]
+        and outer["south"] <= inner["south"]
+        and outer["east"] >= inner["east"]
+        and outer["north"] >= inner["north"]
+    )
+
+
+def pick_city_area(results: list[dict]) -> dict | None:
+    """Vùng hành chính cho field `city` (phạm vi tỉnh/thành do người dùng nêu).
+
+    Ngoài các luật của `pick_clear`, dùng cấu trúc dữ liệu Location trả về, không dựa vào tên:
+    trong các vùng khớp tên (không fuzzy) ở cấp cao nhất (`parent` rỗng), nếu đúng một vùng có
+    ranh giới bao trọn các vùng còn lại thì đó là đơn vị người dùng gọi tên ("Hà Nội" bao
+    "Trung tâm Hà Nội"). Không có vùng như vậy thì vẫn hỏi lại."""
+    unique = _distinct(results)
+    exact = [r for r in unique if r.get("match_type") == "exact"]
+    if len(exact) == 1:
+        return exact[0]
+    named = [r for r in unique if not r.get("parent") and r.get("match_type") != "fuzzy" and r.get("bounding_box")]
+    if len(named) == 1:
+        return named[0]
+    enclosing = [r for r in named if all(_encloses(r["bounding_box"], o["bounding_box"]) for o in named)]
+    if len(enclosing) == 1:
+        return enclosing[0]
+    return pick_clear(unique)
+
+
+def pick_clear(results: list[dict]) -> dict | None:
+    """Chọn ứng viên khi rõ ràng: chỉ một kết quả, đúng một kết quả khớp chính xác, hoặc điểm đầu vượt
+    hẳn điểm thứ hai. Không thì trả None để hỏi lại (Location không tự chọn thay graph)."""
+    results = _distinct(results)
     if not results:
         return None
     if len(results) == 1:
@@ -86,6 +127,89 @@ def pick_clear(results: list[dict]) -> dict | None:
         return exact[0]
     first_score, second_score = (r.get("match_score") or 0 for r in results[:2])
     return results[0] if first_score - second_score >= CLEAR_MARGIN else None
+
+
+def _meters(a: dict, b: dict) -> float:
+    lat = math.radians((a["lat"] + b["lat"]) / 2)
+    dx = math.radians(b["lng"] - a["lng"]) * math.cos(lat)
+    dy = math.radians(b["lat"] - a["lat"])
+    return 6_371_000 * math.hypot(dx, dy)
+
+
+def _geometry_rank(item: dict) -> int:
+    source_id = str((item.get("source") or {}).get("source_id") or "")
+    return _GEOMETRY_RANK.get(source_id.split("/", 1)[0], 0)
+
+
+def pick_place(results: list[dict], radius_m: float = SAME_PLACE_RADIUS_M) -> dict | None:
+    """Điểm đến cho Map route / tiện ích / tìm nhà gần một địa danh.
+
+    Các ứng viên khớp chính xác tên mà mọi cặp cách nhau không quá `radius_m` là cùng một điểm đến
+    trong thực tế (bản ghi trùng của nguồn): chọn bản ghi có hình học đầy đủ nhất. Ứng viên xa nhau
+    vẫn là mơ hồ thật, dùng luật `pick_clear` và hỏi lại."""
+    unique = _distinct(results)
+    exact = [r for r in unique if r.get("match_type") == "exact" and (r.get("location") or {}).get("lat") is not None]
+    if len(exact) >= 2 and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2)):
+        return max(exact, key=_geometry_rank)
+    return pick_clear(unique)
+
+
+def location_choices(options: list[dict]) -> list[LocationChoice]:
+    """Ứng viên có ID và toạ độ thật để client hiện pin; chỉ lấy từ kết quả Location."""
+    choices: list[LocationChoice] = []
+    for item in _distinct(options)[:5]:
+        point = item.get("location") or item.get("center") or {}
+        identifier = item.get("canonical_id") or item.get("area_id")
+        if not identifier:
+            continue
+        choices.append(
+            LocationChoice(
+                id=str(identifier),
+                label=label_of(item),
+                entity_type=str(item.get("entity_type") or "area"),
+                category=item.get("category"),
+                lat=point.get("lat"),
+                lng=point.get("lng"),
+            )
+        )
+    return choices
+
+
+def bbox_around(center: dict, radius_m: float) -> dict:
+    dlat = radius_m / 111_320
+    dlng = radius_m / (111_320 * max(math.cos(math.radians(center["lat"])), 0.01))
+    return {
+        "west": center["lng"] - dlng,
+        "south": center["lat"] - dlat,
+        "east": center["lng"] + dlng,
+        "north": center["lat"] + dlat,
+    }
+
+
+def bbox_of_points(points: list[dict], min_span_m: float = 400) -> dict | None:
+    points = [p for p in points if p.get("lat") is not None and p.get("lng") is not None]
+    if not points:
+        return None
+    lats, lngs = [p["lat"] for p in points], [p["lng"] for p in points]
+    center = {"lat": (min(lats) + max(lats)) / 2, "lng": (min(lngs) + max(lngs)) / 2}
+    pad = bbox_around(center, min_span_m / 2)
+    return {
+        "west": min(min(lngs), pad["west"]),
+        "south": min(min(lats), pad["south"]),
+        "east": max(max(lngs), pad["east"]),
+        "north": max(max(lats), pad["north"]),
+    }
+
+
+def union_bbox(a: dict, b: dict | None) -> dict:
+    if not b:
+        return a
+    return {
+        "west": min(a["west"], b["west"]),
+        "south": min(a["south"], b["south"]),
+        "east": max(a["east"], b["east"]),
+        "north": max(a["north"], b["north"]),
+    }
 
 
 def rank_listings(results: list[dict]) -> list[dict]:
@@ -145,7 +269,9 @@ class LocationSubagent:
         if (rejected := reject_unsupported(req, SOURCE, "live")) is not None:
             return rejected
         if not self.input_validator.is_valid(req.inputs):
-            return failed_result(req, "invalid_input", "Location task inputs do not match the capability schema.", False, SOURCE, "live")
+            return failed_result(
+                req, "invalid_input", "Location task inputs do not match the capability schema.", False, SOURCE, "live"
+            )
         tools = CountingClient(self.client, req.budget.max_provider_calls)
         try:
             if req.agent == AgentName.PROPERTY:
@@ -165,13 +291,15 @@ class LocationSubagent:
             **kw,
         )
 
-    async def _resolve(self, tools: CountingClient, text: str, bounding_box: dict | None = None) -> tuple[dict | None, list[dict]]:
+    async def _resolve(
+        self, tools: CountingClient, text: str, bounding_box: dict | None = None
+    ) -> tuple[dict | None, list[dict]]:
         """(ứng viên rõ ràng hoặc None, danh sách ứng viên để hỏi lại)."""
         arguments = {"text": text, "limit": 5}
         if bounding_box is not None:
             arguments["bounding_box"] = bounding_box
         results = ((await tools.call("resolve_location", arguments)) or {}).get("results") or []
-        return pick_clear(results), results
+        return pick_place(results), results
 
     def _choose(
         self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str, options: list[dict]
@@ -179,7 +307,12 @@ class LocationSubagent:
         if not options:
             return self._not_found(req, tools, field, text)
         labels = list(dict.fromkeys(label_of(o) for o in options))[:5]
-        question = Question(field=field, text=f'"{text}" khớp nhiều nơi. Bạn muốn nói tới nơi nào?', options=labels)
+        question = Question(
+            field=field,
+            text=f'"{text}" khớp nhiều nơi. Bạn muốn nói tới nơi nào?',
+            options=labels,
+            choices=location_choices(options),
+        )
         return self._result(req, tools, status="needs_input", questions=[question])
 
     async def _property(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
@@ -189,14 +322,29 @@ class LocationSubagent:
         area: dict[str, Any] = {}
         area_name = None
         city_scope = None
-        if inp.get("city") and inp.get("near"):
+        scope_bbox: dict | None = None
+        if inp.get("bounding_box"):
+            # Khung bản đồ người dùng đang xem (API đã kiểm biên); thay cho thành phố / địa danh.
+            area = {"bounding_box": dict(inp["bounding_box"])}
+            area_name = "khu vực đang xem trên bản đồ"
+        if not area and inp.get("city") and inp.get("near"):
             areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
-            city_scope = pick_clear(areas)
+            city_scope = pick_city_area(areas)
             if city_scope is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
-        if inp.get("near") and inp.get("near_coordinate"):
+        if area:
+            pass
+        elif inp.get("near") and inp.get("near_coordinate"):
             area = {"center": inp["near_coordinate"], "radius_m": DEFAULT_RADIUS_M}
             area_name = inp["near"]
+        elif inp.get("near_place_id"):
+            # Người dùng đã chọn ứng viên trên bản đồ: dùng đúng ID đó, không resolve lại tên.
+            place = await tools.call("get_place", {"place_id": inp["near_place_id"]})
+            location = (place or {}).get("location") or {}
+            if location.get("lat") is None:
+                return self._not_found(req, tools, "near", inp.get("near") or "")
+            area = {"center": location, "radius_m": DEFAULT_RADIUS_M}
+            area_name = place.get("name") or inp.get("near")
         elif inp.get("near"):
             place, options = await self._resolve(tools, inp["near"], (city_scope or {}).get("bounding_box"))
             if place is None:
@@ -205,11 +353,12 @@ class LocationSubagent:
             area_name = (place.get("parent") or {}).get("name") or place.get("name")
         elif inp.get("city"):
             areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
-            found = pick_clear(areas)
+            found = pick_city_area(areas)
             if found is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
+            scope_bbox = found.get("bounding_box")
         if city_scope:
             area["administrative_area_ids"] = [city_scope["area_id"]]
 
@@ -242,7 +391,12 @@ class LocationSubagent:
         response = await tools.call("search_housing", search_request)
         results = (response or {}).get("results") or []
         relaxed: list[str] = []
-        if not results and soft and not inp.get("cursor") and not ((response or {}).get("page") or {}).get("next_cursor"):
+        if (
+            not results
+            and soft
+            and not inp.get("cursor")
+            and not ((response or {}).get("page") or {}).get("next_cursor")
+        ):
             # Bộ lọc tự điền cho 0 kết quả: tìm lại không có chúng; bộ lọc người dùng tự nói thì giữ.
             search_request = request(hard)
             response = await tools.call("search_housing", search_request)
@@ -278,7 +432,11 @@ class LocationSubagent:
             "query_id": (response or {}).get("query_id"),
             "search_request": search_request,
             "diagnostics": (response or {}).get("diagnostics") or {},
-            "map_context": {"scope": "returned_candidates", "listing_ids": [c["id"] for c in candidates]},
+            "map_context": {
+                "scope": "returned_candidates",
+                "listing_ids": [c["id"] for c in candidates],
+                "viewport": await self._viewport(tools, area, search_request, candidates, scope_bbox),
+            },
         }
         if relaxed:
             data["relaxed_filters"] = relaxed
@@ -292,6 +450,34 @@ class LocationSubagent:
             source_refs=[c["id"] for c in candidates],
             summary=f"{len(candidates)} tin phù hợp" if candidates else "Chưa có tin phù hợp",
         )
+
+    async def _viewport(
+        self, tools: CountingClient, area: dict, search_request: dict, candidates: list[dict], scope_bbox: dict | None
+    ) -> dict | None:
+        """Khung bản đồ cho client bay tới, lấy từ dữ liệu Location (không do LLM sinh).
+
+        Ưu tiên: tâm + bán kính đã tìm > khung bản đồ người dùng gửi > ranh giới quận người dùng nêu
+        > bao các căn trả về > ranh giới thành phố."""
+        if area.get("center"):
+            return bbox_around(area["center"], area.get("radius_m") or DEFAULT_RADIUS_M)
+        if area.get("bounding_box"):
+            return area["bounding_box"]
+        if search_request.get("district"):
+            arguments: dict[str, Any] = {"text": search_request["district"], "limit": 5}
+            if scope_bbox:
+                arguments["bounding_box"] = scope_bbox
+            try:
+                areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
+            except (ToolCallError, BudgetExceededError):
+                areas = []
+            # Only a real name match may move the map; a fuzzy neighbour (e.g. no polygon for a
+            # legacy district) falls back to the listings actually returned.
+            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            if found and found.get("bounding_box"):
+                # Listings may carry a legacy district larger than today's polygon of the same
+                # name; cover both the polygon and the listings actually returned.
+                return union_bbox(found["bounding_box"], bbox_of_points(candidates))
+        return bbox_of_points(candidates) or scope_bbox
 
     def _not_found(self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str) -> AgentTaskResult:
         return self._result(
@@ -311,13 +497,20 @@ class LocationSubagent:
         constraints = [{"category": c, "max_distance_m": radius} for c in inp["categories"]]
         origins: dict[str, dict] = {}
         approximate: list[str] = []
-        if inp.get("near"):
+        if inp.get("near_place_id"):
+            place = await tools.call("get_place", {"place_id": inp["near_place_id"]})
+            if not ((place or {}).get("location") or {}).get("lat"):
+                return self._not_found(req, tools, "near", inp.get("near") or "")
+            origins[place.get("name") or inp.get("near") or inp["near_place_id"]] = place["location"]
+        elif inp.get("near"):
             place, options = await self._resolve(tools, inp["near"])
             if place is None:
                 return self._choose(req, tools, "near", inp["near"], options)
             origins[place.get("name") or inp["near"]] = place["location"]
         else:
-            requested_ids = [inp["selected_listing_id"]] if inp.get("selected_listing_id") else inp.get("listing_ids") or []
+            requested_ids = (
+                [inp["selected_listing_id"]] if inp.get("selected_listing_id") else inp.get("listing_ids") or []
+            )
             wanted = set(requested_ids)
             for upstream in req.upstream.values():
                 if upstream.agent != AgentName.PROPERTY:
@@ -341,9 +534,12 @@ class LocationSubagent:
             origins = dict(list(origins.items())[:3])
             approximate = [a for a in approximate if a in origins]
         if not origins:
-            return self._result(req, tools, status="needs_input", questions=[
-                Question(field="near", text="Bạn muốn xem tiện ích quanh căn nhà hoặc địa điểm nào?")
-            ])
+            return self._result(
+                req,
+                tools,
+                status="needs_input",
+                questions=[Question(field="near", text="Bạn muốn xem tiện ích quanh căn nhà hoặc địa điểm nào?")],
+            )
         nearby: dict[str, list[dict]] = {}
         refs: list[str] = []
         missing: list[str] = []
@@ -387,7 +583,7 @@ class LocationSubagent:
                 ],
             )
         areas = (await tools.call("search_areas", {"text": inp["city"], "limit": 5})).get("results") or []
-        area = pick_clear(areas)
+        area = pick_city_area(areas)
         if not area or not area.get("bounding_box"):
             return self._choose(req, tools, "city", inp["city"], areas)
         endpoints = {}
@@ -396,11 +592,24 @@ class LocationSubagent:
             if inp[field] == "selected:property":
                 listing_id = inp.get("selected_listing_id")
                 if not listing_id:
-                    return self._result(req, tools, status="needs_input", questions=[
-                        Question(field="selected:property", text="Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.")
-                    ])
+                    return self._result(
+                        req,
+                        tools,
+                        status="needs_input",
+                        questions=[
+                            Question(
+                                field="selected:property",
+                                text="Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.",
+                            )
+                        ],
+                    )
                 endpoints[field] = {"type": "housing", "listing_id": listing_id}
                 refs.append(listing_id)
+                continue
+            if inp.get(field + "_place_id"):
+                # Ứng viên người dùng đã chọn trên bản đồ; Location vẫn kiểm place còn hoạt động.
+                endpoints[field] = {"type": "place", "place_id": inp[field + "_place_id"]}
+                refs.append(inp[field + "_place_id"])
                 continue
             options = (
                 await tools.call(
@@ -413,7 +622,7 @@ class LocationSubagent:
                     },
                 )
             ).get("results") or []
-            place = pick_clear(options)
+            place = pick_place(options)
             if place is None or place.get("entity_type") != "place" or not place.get("canonical_id"):
                 return self._choose(req, tools, field, inp[field], options)
             endpoints[field] = {"type": "place", "place_id": place["canonical_id"]}

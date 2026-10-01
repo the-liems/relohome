@@ -21,6 +21,7 @@ from src.agents.models import (
     Outcome,
     PendingPayment,
     Plan,
+    Question,
     Receipt,
     SessionContext,
     Task,
@@ -45,6 +46,8 @@ class WorkflowState(TypedDict, total=False):
     request_id: str  # mỗi lượt API tạo mới
     moving_locations: dict | None  # validated explicit user pins; never authored by LLM
     housing_location: dict | None  # shared map selection validated by API
+    map_view: dict | None  # client viewport {bounding_box, zoom}, validated by API
+    place_choice: dict | None  # {field, place_id, name, lat, lng} re-read from Location by API
     session: SessionContext
 
     # --- Phase 1: Understand & Plan ---
@@ -59,6 +62,7 @@ class WorkflowState(TypedDict, total=False):
     task_results: Annotated[dict[str, TaskResult], merge_dict]
     dispatch: list[str]
     dispatch_llm_budgets: dict[str, int]
+    planner_questions: list[Question]  # domain Planner hoãn vì input chưa dùng được (needs_input)
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None

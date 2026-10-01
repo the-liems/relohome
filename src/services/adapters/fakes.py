@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from src.agents.common import utcnow
-from src.agents.memory import apply_updates
+from src.agents.memory import apply_updates, forget_thread
 from src.agents.models import (
     AgentName,
     AgentUsage,
@@ -39,6 +39,10 @@ class InMemorySessionPort:
 
     async def forget(self, user_id: str) -> None:
         self.data.pop(user_id, None)
+
+    async def forget_thread(self, user_id: str, thread_id: str) -> None:
+        if user_id in self.data:
+            self.data[user_id] = forget_thread(self.data[user_id], thread_id)
 
 
 class InMemoryApprovalStore:

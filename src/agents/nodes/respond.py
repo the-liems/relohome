@@ -211,6 +211,9 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
 def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     outcome = state.get("outcome")
     code = outcome.code if outcome else OutcomeCode.ERROR
+    planner_questions = state.get("planner_questions") or []
+    if code == OutcomeCode.ANSWER and planner_questions:
+        code = OutcomeCode.ASK_USER  # có kết quả cho phần đã lập, còn domain cần người dùng bổ sung
     intake = state.get("intake")
     session = state.get("session")
     lines, view, kinds, relaxed = results_view(state)
@@ -289,6 +292,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             for i in (validation.issues if validation else [])
             if i.code == "V5"
         ]
+        questions += [q for q in planner_questions if q.field not in {x.field for x in questions}]
         head = (
             "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:"
             if has_results

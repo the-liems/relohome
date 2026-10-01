@@ -5,14 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents.contracts import AgentCapability
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS
 from src.agents.intake import missing_for, selected_fact_key
 from src.agents.llm import LLMError, StructuredLLM
-from src.agents.llm_runtime import Invocation, UsageOwner, json_object
-from src.agents.models import AgentName, CommitAction, CommitActionKind, Plan, RequestKind, Task
+from src.agents.llm_runtime import Invocation, UsageOwner, json_object, public_data
+from src.agents.models import AgentName, CommitAction, CommitActionKind, Plan, Question, RequestKind, Task
 from src.agents.planning import COMMIT_DOMAIN, PII_REQUIRED, PlannerInput, PlannerOutput, TemplatePlanner, validate_plan
 
 
@@ -32,10 +32,21 @@ class ActionDraft(BaseModel):
     target_receipt_id: str | None
 
 
+class NeedsInputDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    domain: AgentName
+    field: str = Field(description="Input key of that domain's capability, e.g. to_address or route_to.")
+    question: str = Field(description="One short Vietnamese question asking the user for a usable value.")
+
+
 class PlanDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tasks: list[TaskDraft]
     actions: list[ActionDraft]
+    needs_input: list[NeedsInputDraft] = Field(
+        default_factory=list,
+        description="Requested domains you deliberately do not plan because a present input is not usable yet.",
+    )
 
 
 class CapabilityRegistry:
@@ -102,6 +113,14 @@ Không tự huỷ bù các đơn khác. Khi replan, đọc validation/change_con
 thay hướng phù hợp, giữ phần còn dùng được. Không nới ngân sách hoặc các bộ lọc cứng của user.
 Defaults được phép khi thiếu: map.categories=['hospital','marketplace','pharmacy'], map.radius_m=1500,
 flight.passengers.adults=1. Các giá trị khác phải có trong constraints/facts/previous plan hợp lệ.
+bounding_box (vùng bản đồ đang xem) và *_place_id (địa điểm người dùng bấm chọn) do backend gắn
+từ dữ liệu đã xác thực; có thể bỏ, không tự tạo. Có bounding_box thì task property không cần city/near.
+Độ chính xác địa chỉ/địa điểm do subagent của domain tự kiểm bằng tool của nó (resolve, hỏi lại khi mơ hồ);
+đó không phải lý do bỏ task của một domain trong ready_requested_domains.
+Chỉ khi chính bạn thấy một input đang có KHÔNG dùng được (ví dụ người dùng yêu cầu dùng tâm quận làm điểm
+giao, hoặc tự mâu thuẫn), KHÔNG tạo task cho domain đó và ghi needs_input={domain, field, question}:
+field là key input của domain đó, question là một câu hỏi ngắn bằng tiếng Việt xin giá trị dùng được.
+Không im lặng bỏ domain được yêu cầu; hoặc có task, hoặc có needs_input. Domain khác vẫn lập task bình thường.
 """
 
 
@@ -155,12 +174,14 @@ class LlmPlanner(UsageOwner):
             draft = await run.parse(self.llm, PROMPT, data, PlanDraft)
             try:
                 plan = self._convert(draft, inp)
+                questions, deferral_errors = self._deferrals(draft, plan, inp, registry)
+                deferred = {AgentName(q.field.split(".", 1)[0]) for q in questions}
                 errors = validate_plan(plan, registry, inp.intake, inp.committed, inp.previous_plan)
-                errors += self._grounding_errors(plan, inp)
+                errors += deferral_errors + self._grounding_errors(plan, inp, deferred)
             except (ValueError, TypeError) as exc:
                 errors = [f"Plan conversion invalid ({type(exc).__name__})."]
             if not errors:
-                return PlannerOutput(plan=plan)
+                return PlannerOutput(plan=plan, questions=questions)
             if attempt + 1 < run.max_calls:
                 data["validation_feedback"] = errors[:10]
                 data["rejected_plan"] = draft.model_dump(mode="json")
@@ -193,6 +214,21 @@ class LlmPlanner(UsageOwner):
             if old_property and old_property.inputs == expected and old_result and old_result.status == "done":
                 tasks.insert(0, old_property.model_copy(deep=True))
         for task in tasks:
+            if task.agent in inp.intake.domains and task.agent in {AgentName.PROPERTY, AgentName.MAP}:
+                # Map view and chosen place IDs come from API-validated state only; a model can
+                # neither invent them nor carry one to an endpoint the user has since renamed.
+                if task.agent == AgentName.PROPERTY:
+                    if values.get("bounding_box"):
+                        task.inputs["bounding_box"] = dict(values["bounding_box"])
+                    else:
+                        task.inputs.pop("bounding_box", None)
+                fields = ("near",) if task.agent == AgentName.PROPERTY else ("near", "route_from", "route_to")
+                for field in fields:
+                    place_id = values.get(field + "_place_id")
+                    if place_id and task.inputs.get(field) == values.get(field):
+                        task.inputs[field + "_place_id"] = place_id
+                    else:
+                        task.inputs.pop(field + "_place_id", None)
             if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
                 continue
             # Coordinates belong to trusted state. A model cannot override them
@@ -201,7 +237,12 @@ class LlmPlanner(UsageOwner):
                 ("from_address", "pickup_coordinate"),
                 ("to_address", "destination_coordinate"),
             ):
-                if values.get(coordinate_key) and task.inputs.get(address_key) == values.get(address_key):
+                if not values.get(coordinate_key):
+                    continue
+                # A point the user confirmed on the map fixes this endpoint's address too, also
+                # when the model kept the "selected:property" marker (the gate of the chosen home).
+                if task.inputs.get(address_key) in (values.get(address_key), "selected:property"):
+                    task.inputs[address_key] = values[address_key]
                     task.inputs[coordinate_key] = dict(values[coordinate_key])
             if selected and any(task.inputs.get(k) == "selected:property" for k in ("from_address", "to_address")):
                 task.inputs.setdefault("selected_listing_id", selected.value)
@@ -219,7 +260,31 @@ class LlmPlanner(UsageOwner):
         return Plan(version=0, tasks=tasks, commit_actions=actions)
 
     @staticmethod
-    def _grounding_errors(plan: Plan, inp: PlannerInput) -> list[str]:
+    def _deferrals(
+        draft: PlanDraft, plan: Plan, inp: PlannerInput, registry: CapabilityRegistry
+    ) -> tuple[list[Question], list[str]]:
+        """Code-checked deferrals: only a requested domain, only a real input key of its manifest,
+        and never together with a new task of that domain."""
+        old = {t.id: t for t in inp.previous_plan.tasks} if inp.previous_plan else {}
+        questions, errors = [], []
+        for item in draft.needs_input[:5]:
+            capability = registry.capability(item.domain)
+            key = item.field.split(".", 1)[-1]
+            text = public_data(item.question.strip())[:300]
+            if item.domain not in inp.intake.domains or capability is None:
+                errors.append(f"needs_input {item.domain.value}: domain not requested or unavailable")
+            elif key not in (capability.input_schema.get("properties") or {}):
+                errors.append(f"needs_input {item.domain.value}.{key}: not an input of this domain")
+            elif not text:
+                errors.append(f"needs_input {item.domain.value}.{key}: empty question")
+            elif any(t.agent == item.domain and t != old.get(t.id) for t in plan.tasks):
+                errors.append(f"needs_input {item.domain.value}: domain also has a new task")
+            else:
+                questions.append(Question(field=f"{item.domain.value}.{key}", text=text))
+        return questions, errors
+
+    @staticmethod
+    def _grounding_errors(plan: Plan, inp: PlannerInput, deferred: set[AgentName] = frozenset()) -> list[str]:
         errors = []
         values = inp.intake.constraints.values
         old = (
@@ -237,8 +302,13 @@ class LlmPlanner(UsageOwner):
         blocked = set(inp.intake.blocking_missing + inp.intake.constraints.missing)
         planned = {t.agent for t in plan.tasks}
         requested_map_mode = values.get("map_mode", "nearby")
-        if AgentName.MAP in inp.intake.domains and not any(
-            t.agent == AgentName.MAP and t.inputs.get("map_mode", "nearby") == requested_map_mode for t in plan.tasks
+        if (
+            AgentName.MAP in inp.intake.domains
+            and AgentName.MAP not in deferred
+            and not any(
+                t.agent == AgentName.MAP and t.inputs.get("map_mode", "nearby") == requested_map_mode
+                for t in plan.tasks
+            )
         ):
             errors.append(f"Missing requested Map task mode: {requested_map_mode}")
         for domain in inp.intake.domains:
@@ -247,6 +317,7 @@ class LlmPlanner(UsageOwner):
                 and not missing_for(domain, values, set(inp.intake.domains), inp.intake.user_confirmed_facts)
                 and not any(m.startswith(domain.value + ".") for m in blocked)
                 and domain not in planned
+                and domain not in deferred
             ):
                 errors.append(f"Missing runnable requested domain: {domain.value}")
         for task in plan.tasks:

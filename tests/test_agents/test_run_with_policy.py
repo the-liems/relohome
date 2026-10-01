@@ -13,7 +13,7 @@ from src.agents.planning import TemplatePlanner
 from src.agents.subagents.base import AgentPolicy, AgentTransportError, run_with_policy
 from src.agents.subagents.fake import FakeAgent
 from src.agents.subagents.fallback import FallbackAgent
-from tests.test_agents.helpers import Session, intake_result
+from tests.test_agents.helpers import Session, fact, intake_result
 
 
 def agent_input(**constraints):
@@ -145,18 +145,23 @@ async def test_paid_cap_gives_partial_answer():
 @pytest.mark.asyncio
 async def test_suggestions_skip_declined_and_unsupported():
     search = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "Hồ Chí Minh"})
+    chosen = {"selected:property": fact("p1", "Phòng số 1")}
+    choose = intake_result(RequestKind.REFINE, [AgentName.PROPERTY], values={"city": "Hồ Chí Minh"}, facts=chosen)
     decline = intake_result(
         RequestKind.REFINE,
         [AgentName.PROPERTY],
         values={"city": "Hồ Chí Minh"},
+        facts=chosen,
         declined_suggestions=["quote:relocation"],
     )
-    deps = test_deps(ScriptedIntake([search, decline]), TemplatePlanner())
+    deps = test_deps(ScriptedIntake([search, choose, decline]), TemplatePlanner())
     s = Session(deps)
     out = await s.say("Tìm phòng ở Hồ Chí Minh")
-    assert [x.key for x in out["response"].suggestions] == ["quote:relocation"]
+    assert out["response"].suggestions == []  # nothing chosen yet
+    out = await s.say("Phòng số 1")
+    assert "quote:relocation" in [x.key for x in out["response"].suggestions]
     out = await s.say("không cần chuyển đồ, mình tự chở")
-    assert out["response"].suggestions == []
+    assert "quote:relocation" not in [x.key for x in out["response"].suggestions]
     # Không có service moving thì không gợi ý báo giá chuyển đồ.
     registry = AgentRegistry({n: a for n, a in fake_registry()._agents.items() if n != AgentName.RELOCATION})
     deps = test_deps(ScriptedIntake([search]), TemplatePlanner(), agents=registry)

@@ -13,10 +13,30 @@ from src.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, Ta
 from src.agents.nodes.change_impact import downstream_closure
 from src.agents.nodes.cost_summary import make_cost_summary
 from src.agents.subagents.services.location import to_candidate
+from src.agents.suggestions import next_step_suggestions
 from src.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
 from src.services.adapters.mcp import ToolCallError
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
+
+
+async def explored_listing(service, listing_id: str) -> dict | None:
+    """Trusted copy of a listing the user picked on the map; never built from client data."""
+    client = getattr(service.deps.agents.get(AgentName.PROPERTY), "client", None)
+    if client is None:
+        return None
+    try:
+        raw = await client.call("get_housing", {"listing_id": listing_id})
+    except ToolCallError as exc:
+        if exc.transport or exc.retryable:
+            raise HTTPException(502, "Chưa đọc được tin nhà. Hãy thử lại.") from None
+        return None
+    if not raw or raw.get("listing_id") != listing_id:
+        return None
+    candidate, _ = to_candidate(raw, [])
+    if candidate["price_vnd"] is None or candidate["address"] is None:
+        return None  # same comparability rule as housing search results
+    return {**candidate, "origin": "map_workspace"}
 
 
 class ResultAction(BaseModel):
@@ -92,6 +112,23 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             )
             rows = result.data.get(key, []) if key else []
             chosen = next((r for r in rows if (r.get("id") or r.get("option_id")) == body.entity_id), None)
+            if not chosen and result.agent == AgentName.PROPERTY:
+                # A listing explored on the map workspace: re-read it from Location and add it to
+                # this housing result, so selection, plan outline and later tasks see a real option.
+                chosen = await explored_listing(service, body.entity_id)
+                if chosen:
+                    result = result.model_copy(deep=True)
+                    result.data.setdefault("candidates", []).append(chosen)
+                    if chosen.get("price_vnd") is not None:
+                        result.quotes.append(
+                            Quote(
+                                option_id=chosen["id"],
+                                label=chosen["title"],
+                                amount_vnd=chosen["price_vnd"],
+                                recurrence="monthly",
+                            )
+                        )
+                    update["task_results"] = {body.task_id: result}
             if not chosen:
                 raise HTTPException(409, "Lựa chọn không thuộc nhóm kết quả hiện tại.")
             expiry = chosen.get("expires_at") or result.data.get("expires_at")
@@ -119,7 +156,23 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             )
             update.update(intake=intake, messages=[HumanMessage(text)])
             update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
-            response = AgentResponse(kind="ANSWER", text=f"Đã lưu lựa chọn: {label}. Chưa thực hiện đặt dịch vụ.")
+            # Same next-step rules as a chat answer (e.g. quote moving to the chosen home).
+            suggestions = next_step_suggestions(
+                {
+                    **state,
+                    **update,
+                    "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
+                },
+                service.deps.agents,
+                service.deps.settings.max_suggestions,
+                "ANSWER",
+            )
+            response = AgentResponse(
+                kind="ANSWER",
+                text=f"Đã lưu lựa chọn: {label}. Chưa thực hiện đặt dịch vụ."
+                + (" Bạn có thể làm tiếp:" if suggestions else ""),
+                suggestions=suggestions,
+            )
         else:
             cursor = result.data.get("next_cursor")
             if result.agent != AgentName.PROPERTY or not cursor or not result.data.get("search_request"):

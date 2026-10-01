@@ -48,8 +48,9 @@ NEXT_STEPS: tuple[NextStep, ...] = (
         "quote",
         "Báo giá chuyển đồ",
         lambda c: "Báo giá chuyển đồ tới phòng mình chọn giúp mình",
+        # Moving and flights follow a chosen home, not a list of search results.
         lambda c: (
-            AgentName.PROPERTY in c.done
+            c.selected_property
             and AgentName.RELOCATION not in c.in_plan
             and c.registry.get(AgentName.RELOCATION) is not None
         ),
@@ -61,7 +62,7 @@ NEXT_STEPS: tuple[NextStep, ...] = (
         "Tìm vé máy bay",
         lambda c: f"Tìm vé máy bay từ {c.origin_hint} tới {c.property_city or 'đó'}",
         lambda c: (
-            AgentName.PROPERTY in c.done
+            c.selected_property
             and AgentName.FLIGHT not in c.in_plan
             and bool(c.origin_hint)
             and (c.property_city is None or c.origin_hint.lower() not in c.property_city.lower())
