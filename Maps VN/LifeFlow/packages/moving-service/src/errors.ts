@@ -8,6 +8,8 @@ export type MovingErrorCode =
   | 'PROVIDER_RATE_LIMITED'
   | 'PROVIDER_UNAVAILABLE'
   | 'PROVIDER_INVALID_RESPONSE'
+  // The provider understood the request but refused it (e.g. booking time too far ahead).
+  | 'PROVIDER_REJECTED'
   | 'APPROVAL_REQUIRED'
   | 'APPROVAL_INVALID'
   | 'APPROVAL_EXPIRED'

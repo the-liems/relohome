@@ -99,16 +99,43 @@ export function normalizeService(value: unknown) {
   })
 }
 
+export interface RejectedQuoteOption {
+  service_id: string | null
+  code: string | null
+  message: string
+}
+
+// Provider text sometimes carries Go formatting residue ("%!(EXTRA string=7)").
+const providerText = (value: unknown) =>
+  typeof value === 'string' ? value.replace(/%!\([^)]*\)/g, '').trim() : ''
+
 export function normalizeQuoteOptions(payload: unknown) {
+  const { options, rejected } = splitQuoteOptions(payload)
+  if (rejected.length) {
+    throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove rejected an estimate option; no complete quote was stored.')
+  }
+  return options
+}
+
+// Priced options and the provider's per-service refusals, kept apart so a quote can show what was
+// priced and the user can learn why the rest was refused. Malformed priced options still throw.
+export function splitQuoteOptions(payload: unknown) {
   const values = Array.isArray(payload)
     ? payload
     : Array.isArray(record(payload).data) ? record(payload).data as unknown[] : [payload]
-  return values.map((value) => {
+  const rejected: RejectedQuoteOption[] = []
+  const options = values.flatMap((value) => {
     const envelope = record(value)
     // Partner v3 estimates: [{service_id, data: {total_price, distance, ...}, error: null}].
     // Retain compatibility with the flat response; never treat an error/missing fee as free.
     if (envelope.error != null) {
-      throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove rejected an estimate option; no complete quote was stored.')
+      const error = record(envelope.error)
+      rejected.push({
+        service_id: stringOrNull(envelope.service_id),
+        code: stringOrNull(error.code),
+        message: providerText(error.description) || providerText(error.title) || 'AhaMove từ chối báo giá.',
+      })
+      return []
     }
     const nested = record(envelope.data)
     const item = Object.keys(nested).length ? { ...nested, service_id: envelope.service_id ?? nested.service_id } : envelope
@@ -118,7 +145,7 @@ export function normalizeQuoteOptions(payload: unknown) {
     }
     const serviceId = stringOrNull(item.service_id, item._id)
     if (!serviceId) throw new MovingServiceError('PROVIDER_INVALID_RESPONSE', 'AhaMove estimate did not include a service ID.')
-    return {
+    return [{
       service_id: serviceId,
       service_name: stringOrNull(item.service_name, item.name_vi_vn, item.name),
       fee: {
@@ -136,8 +163,9 @@ export function normalizeQuoteOptions(payload: unknown) {
       },
       requests: arrayOfRecords(item.requests).map(redactCredentials),
       provider_data: redactCredentials(item),
-    }
+    }]
   })
+  return { options, rejected }
 }
 
 export function normalizeOrder(

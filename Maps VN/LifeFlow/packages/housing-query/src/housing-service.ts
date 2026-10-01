@@ -22,6 +22,10 @@ import { checkOperation, withinOperation } from './execution.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
+// District-level unit types used as name prefixes in Vietnamese addresses. Comparing names without
+// them lets "Hà Đông" match a listing stored as "Quận Hà Đông" (legacy district name).
+const DISTRICT_KEY = (expression: string) =>
+  `regexp_replace(lower(trim(${expression})), '^(quận|huyện|thị xã|thành phố|tp\\.?)\\s+', '')`
 
 interface SqlBuilder {
   values: unknown[]
@@ -80,9 +84,11 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
       // addresses, but only current administrative polygons. Do not silently
       // turn a valid legacy district into zero results. Prefer polygons when
       // available; otherwise require an exact normalized-address match.
+      // Address comparison ignores the administrative unit-type prefix on both sides
+      // ("Hà Đông" = "Quận Hà Đông"); the name itself must still match exactly.
       `(EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}) AND ST_Covers(a.geom, cp.geom))
         OR (NOT EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}))
-          AND lower(trim(cp.address->>'district')) = lower(trim(${district}))))`,
+          AND ${DISTRICT_KEY("cp.address->>'district'")} = ${DISTRICT_KEY(district)}))`,
     )
   }
   if (request.administrative_area_ids) {

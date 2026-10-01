@@ -20,7 +20,7 @@ import { payloadHash } from './hash.js'
 import {
   normalizeCity,
   normalizeOrder,
-  normalizeQuoteOptions,
+  splitQuoteOptions,
   normalizeService,
   redactCredentials,
   toAhaMoveOrderBase,
@@ -84,6 +84,12 @@ export class MovingService {
       })),
     }
     const providerResponse = await this.client.estimateOrder(providerPayload)
+    const { options, rejected } = splitQuoteOptions(providerResponse)
+    if (!options.length && rejected.length) {
+      // Nothing was priced: surface the provider's own reason so the caller can ask the user.
+      const reasons = [...new Set(rejected.map((r) => (r.code ? `${r.message} (${r.code})` : r.message)))]
+      throw new MovingServiceError('PROVIDER_REJECTED', `AhaMove từ chối báo giá: ${reasons.join('; ')}`, false, 406)
+    }
     const now = new Date()
     const quote = MoveQuoteSchema.parse({
       contract_version: '1.0.0',
@@ -93,8 +99,8 @@ export class MovingService {
       request_fingerprint: payloadHash(request),
       observed_at: now.toISOString(),
       expires_at: new Date(now.getTime() + this.config.quoteTtlSeconds * 1000).toISOString(),
-      options: normalizeQuoteOptions(providerResponse),
-      warnings: [],
+      options,
+      warnings: rejected.map((r) => `${r.service_id || 'Dịch vụ'}: ${r.message}`),
     })
     await this.repository.saveQuote(quote, request as unknown as Record<string, unknown>)
     return quote

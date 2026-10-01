@@ -256,6 +256,23 @@ describe('HousingQueryService hard constraints', () => {
     expect(response.results.every((item) => Number(item.area?.value) >= 60)).toBe(true)
   })
 
+  it('matches a district name with or without its unit-type prefix, but not a different name', async () => {
+    await client.query('SAVEPOINT district_prefix')
+    try {
+      await client.query(`UPDATE catalog.places SET address = '{"district": "Quận Kiểm Thử Đông"}'::jsonb WHERE id = $1`, [
+        ids.validPlace,
+      ])
+      for (const district of ['Kiểm Thử Đông', 'Quận Kiểm Thử Đông', 'quận kiểm thử đông']) {
+        const response = await service.search({ district, pagination: { limit: 20, cursor: null } })
+        expect(response.results.map((item) => item.listing_id)).toEqual([ids.validListing])
+      }
+      const other = await service.search({ district: 'Kiểm Thử', pagination: { limit: 20, cursor: null } })
+      expect(other.results).toEqual([])
+    } finally {
+      await client.query('ROLLBACK TO SAVEPOINT district_prefix')
+    }
+  })
+
   it('does not treat NULL bedrooms as satisfying min_bedrooms', async () => {
     const response = await service.search({ min_bedrooms: 2, pagination: { limit: 20, cursor: null } })
     expect(response.results.some((item) => item.listing_id === ids.unknownListing)).toBe(false)
