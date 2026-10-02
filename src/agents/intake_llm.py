@@ -24,7 +24,7 @@ CATEGORIES = frozenset(
     "hospital clinic pharmacy school university marketplace supermarket convenience_store gym park bus_stop bus_station".split()
 )
 TEXT_KEYS = frozenset(
-    "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month map_mode route_from route_to route_profile payment_id".split()
+    "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
 )
 INT_KEYS = frozenset(
     "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m passengers".split()
@@ -75,6 +75,19 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
+Map ĐỘC LẬP với Housing: dùng map_near cho điểm tìm tiện ích, map_city cho thành phố tra đường;
+không ghi điểm Map vào near/city của Housing. map_near/map_city cũng hợp lệ cho Map đơn.
+Ví dụ tìm nhà Hồ Chí Minh và bệnh viện quanh Bách khoa Hà Nội: city='Hồ Chí Minh',
+map_near='Bách khoa Hà Nội'; không khoanh Housing quanh Bách khoa.
+Map quanh các căn tìm được hoặc căn đã chọn: KHÔNG tạo map_near; graph gắn dependency/ID nhà.
+Riêng khi đổi từ Map quanh một địa danh sang căn ĐÃ chọn, dùng map_near='selected:property'
+với evidence cụm 'căn đã chọn' để backend bỏ anchor Map cũ. Không dùng marker này cho near Housing.
+Hỏi phạm vi/thành phố hỗ trợ, danh mục hoặc loại dịch vụ AhaMove: domain relocation,
+fact moving_mode='catalog' với evidence từ câu hỏi. Không đòi địa chỉ, ngày giờ cho catalog.
+Báo giá/chuyển đồ dùng moving_mode='quote'; tra đơn dùng moving_mode='order_status'.
+Không tự tạo city_id của nhà cung cấp. Chỉ có tên thành phố thì catalog trả phạm vi thật để đối chiếu.
+"gần các phòng đó" khi đang yêu cầu tìm nhà mới là Map phụ thuộc kết quả Housing,
+không phải fact near và không phải selected:property. near tuyệt đối không nhận marker selected:*.
 Tra trạng thái thanh toán ZaloPay dùng domain payment và fact payment_id khi user đưa mã.
 Thiếu mã thì hỏi lại. Chỉ hỗ trợ tra cứu, không tự trả tiền/hoàn tiền/tạo thanh toán qua chat.
 Yêu cầu tạo/thu/hoàn tiền thì unsupported và hướng dẫn dùng form có xác nhận; không đổi thành đặt xe.
@@ -92,6 +105,8 @@ nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ c�
 'Thôi bỏ tìm nhà, chỉ tìm chuyến bay ...' là new_goal: bỏ dữ kiện tìm nhà.
 'thêm bệnh viện quanh các phòng đó' là refine, GIỮ property và thêm map.
 Tìm nhà gần một trường/địa danh vẫn chỉ có domain property: Housing tự dùng công cụ Map để xác định vị trí.
+Thêm dịch vụ dựa vào căn/điểm đã chọn (ví dụ chuyển đồ tới căn đó) là refine/change,
+không phải new_goal: phải giữ lựa chọn đã xác nhận, không bắt chọn căn lại.
 Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách/tiện ích/bản đồ, không tự thêm vì có chữ 'gần'.
 Nếu nói "không cần tính đường nữa, chỉ tìm [tiện ích]", đó là change:
 map_mode='nearby', nearby_categories là danh mục mới và bán kính mới nếu nêu.
@@ -145,6 +160,9 @@ commit:flight_booking, commit:moving_booking, commit:cancel_order, commit:update
 trong requested_actions (tách riêng facts). 'Đặt xe chuyển đồ' BẮT BUỘC requested_actions có
 key='commit:moving_booking', value=true, evidence='Đặt xe chuyển đồ', suggestion_key=null.
 Đây là ý định, KHÔNG phải phê duyệt giao dịch; không bỏ ý định đặt xe vì chưa có giá.
+Tương tự 'đặt vé máy bay' BẮT BUỘC requested_actions có commit:flight_booking;
+không đổi ý định đặt thành chỉ tìm vé vì thiếu ngày hay chưa có provider đặt vé.
+Backend sẽ giải thích giới hạn giao dịch mà vẫn cho các tác vụ tra cứu khác chạy.
 Phủ định 'đừng đặt', 'chỉ xem giá' không sinh commit. Không có đặt cọc trong MVP.
 selected:property/flight/relocation/map chỉ khi user chọn; value phải đúng option_id trong plan_outline.
 Đồng ý 'có/ok' với một gợi ý: dùng suggestion_key và evidence là lời đồng ý; nhiều gợi ý thì hỏi lại.
@@ -165,6 +183,8 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key == "moving_mode":
+        return value in {"catalog", "quote", "order_status"}
     if key == "map_mode":
         return value in {"route", "nearby"}
     if key == "route_profile":
@@ -272,6 +292,11 @@ class LlmIntake(UsageOwner):
                 "nearby": ["near (or upstream housing results)"],
                 "note": "For directions use route, not nearby; route never requires near.",
             },
+            "moving_contract": {
+                "catalog": ["moving_mode=catalog"],
+                "quote": ["from_address", "to_address (or selected housing)", "move_date", "move_time"],
+                "order_status": ["order_id or tracking_number"],
+            },
             "allowed_fact_keys": sorted(
                 VALUE_KEYS
                 | COMMIT_KEYS
@@ -302,8 +327,12 @@ class LlmIntake(UsageOwner):
                 **(previous.constraints.values if previous and result.kind != RequestKind.NEW_GOAL else {}),
                 **result.constraints.values,
             }
+            confirmed = {
+                **(previous.user_confirmed_facts if previous and result.kind != RequestKind.NEW_GOAL else {}),
+                **result.user_confirmed_facts,
+            }
             runnable = bool(result.domains) and all(
-                not missing_for(d, values, set(result.domains), result.user_confirmed_facts) for d in result.domains
+                not missing_for(d, values, set(result.domains), confirmed) for d in result.domains
             )
             # Ask the model to re-evaluate a proposed clarification against the
             # actual service contract; do not blindly delete real conflicts.
@@ -325,6 +354,9 @@ class LlmIntake(UsageOwner):
                 " Nếu đủ required_fields, KHÔNG hỏi thêm field tùy chọn trong conflicts. Chỉ giữ mâu thuẫn thật trong lời user, không hỏi quận khi đã có thành phố."
             )
             data["merged_valid_constraints"] = values
+            data["confirmed_selections"] = {
+                key: fact.value for key, fact in confirmed.items() if key.startswith("selected:")
+            }
         raise ValueError("Intake needs at least one LLM call")
 
     def _convert(self, draft: IntakeDraft, inp: IntakeInput, user_text: str) -> tuple[IntakeResult, list[str]]:

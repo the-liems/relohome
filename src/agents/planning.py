@@ -292,14 +292,16 @@ class TemplatePlanner:
                 inputs = {
                     k: values[k] for k in ("map_mode", "route_from", "route_to", "city", "route_profile") if k in values
                 }
+                if values.get("map_city"):
+                    inputs["city"] = values["map_city"]
                 if selected and any(inputs.get(k) == "selected:property" for k in ("route_from", "route_to")):
                     inputs["selected_listing_id"] = str(selected.value)
                 return inputs, False
             _put(inputs, "categories", values.get("nearby_categories") or DEFAULT_MAP_CATEGORIES)
             inputs["radius_m"] = int(values.get("nearby_radius_m") or 1500)
-            standalone = values.get("near") and AgentName.PROPERTY not in intake.domains
+            standalone = values.get("map_near") or (values.get("near") and AgentName.PROPERTY not in intake.domains)
             if standalone:
-                inputs["near"] = values["near"]
+                inputs["near"] = values.get("map_near") or values["near"]
             elif selected:
                 inputs["selected_listing_id"] = str(selected.value)
             return inputs, not standalone and selected is None
@@ -315,6 +317,8 @@ class TemplatePlanner:
         if domain == AgentName.PAYMENT:
             return {"payment_id": values["payment_id"]}, False
         if domain == AgentName.RELOCATION:
+            if values.get("moving_mode") == "catalog":
+                return {"mode": "catalog"}, False
             lookup = [k for k in LOOKUP_KEYS[AgentName.RELOCATION] if values.get(k)]
             if lookup:
                 return {"mode": "order_status", **{k: values[k] for k in lookup}}, False

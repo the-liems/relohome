@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from src.agents.deps import GraphDeps
-from src.agents.models import ChangeContext, Plan, TaskStatus, active_commits
+from src.agents.models import AgentName, ChangeContext, Plan, TaskStatus, active_commits
 from src.agents.state import WorkflowState
 
 
@@ -18,6 +18,18 @@ def downstream_closure(plan: Plan, targets: set[str]) -> set[str]:
                 affected.add(task.id)
                 changed = True
     return affected
+
+
+def selection_impact(plan: Plan, source_task_id: str, domain: AgentName, previous_id: str | None) -> set[str]:
+    """Selection references are dependencies even when the task fetches an entity directly."""
+    targets = {source_task_id}
+    if domain == AgentName.PROPERTY and previous_id:
+        targets.update(
+            t.id
+            for t in plan.tasks
+            if t.inputs.get("selected_listing_id") == previous_id or previous_id in (t.inputs.get("listing_ids") or [])
+        )
+    return downstream_closure(plan, targets)
 
 
 def make_change_impact(deps: GraphDeps):

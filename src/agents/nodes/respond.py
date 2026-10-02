@@ -47,7 +47,8 @@ QUESTION_TEXT = {
     "map.route_to": "Bạn muốn đi tới địa điểm nào?",
     "map.city": "Bạn muốn tra đường tại thành phố nào?",
     "map.selected:property": "Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.",
-    "property.city|near": "Bạn muốn tìm phòng ở khu vực nào (ví dụ: gần ĐH Bách Khoa, Quận 10 TP.HCM)?",
+    "property.city|near": "Bạn muốn tìm phòng ở khu vực nào?",
+    "property.city|near|district": "Bạn muốn tìm phòng ở thành phố, quận/huyện hoặc gần địa điểm nào?",
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
     "relocation.move_date": "Bạn muốn chuyển đồ ngày nào?",
@@ -89,6 +90,19 @@ def question_for(field: str, session: SessionContext | None) -> Question:
     return Question(field=field, text=text, blocking=True)
 
 
+def unique_questions(questions: list[Question]) -> list[Question]:
+    """Planner and validators may use provider aliases for the same field."""
+    aliases = {"flight.date": "flight.flight_date"}
+    unique: dict[str, Question] = {}
+    for question in questions:
+        field = aliases.get(question.field, question.field)
+        normalized = question.model_copy(update={"field": field})
+        existing = unique.get(field)
+        if existing is None or (normalized.choices and not existing.choices):
+            unique[field] = normalized
+    return list(unique.values())
+
+
 def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None = None) -> list[str]:
     lines = []
     if agent == AgentName.PAYMENT:
@@ -101,6 +115,7 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
             lines.append(
                 f"{i}. {c.get('title')} — {vnd(c.get('price_vnd'))}/tháng — {c.get('address') or 'chưa có địa chỉ'}"
                 + (f" — {c['bedrooms']} phòng ngủ" if c.get("bedrooms") is not None else "")
+                + (" — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách" if c.get("price_unverified") else "")
             )
         if not lines:
             lines.append("Chưa tìm thấy phòng phù hợp.")
@@ -124,6 +139,13 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
             booking = data["booking"]
             lines.append(f"Đặt chỗ {booking.get('pnr') or booking.get('booking_id')}: {booking.get('status')}")
     elif agent == AgentName.RELOCATION:
+        if data.get("cities"):
+            names = [c.get("local_name") or c.get("city_name") or c["city_id"] for c in data["cities"]]
+            lines.append(
+                "Phạm vi AhaMove trả về: " + ", ".join(names) + ". Khả dụng cho tuyến cụ thể vẫn cần kiểm tra báo giá."
+            )
+        for service in data.get("services", []):
+            lines.append(service.get("service_name") or service.get("name") or service["service_id"])
         for quote in data.get("quotes", [])[:5]:
             lines.append(f"{quote.get('vehicle') or quote.get('provider')}: {vnd(quote.get('price_vnd'))}")
         if data.get("order"):
@@ -184,6 +206,7 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "data": result.data,
             "source": result.source,
             "source_kind": result.source_kind,
+            "source_refs": result.source_refs,
             "fetched_at": result.fetched_at.isoformat(),
             "missing_fields": result.missing_fields,
             "summary": result.summary,
@@ -235,9 +258,16 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             )
             lines.insert(0, known_summary)
     plan = state.get("plan")
+    results = state.get("task_results") or {}
     if plan:
         data["plan_version"] = plan.version
     notes: list[str] = []
+    if intake and intake.unavailable_commit_requested:
+        data["unavailable_actions"] = [action.value for action in intake.unavailable_commit_requested]
+        notes.append(
+            "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
+            "mình chỉ tra cứu thông tin/báo giá, chưa thực hiện giao dịch nào."
+        )
     if intake and intake.prefilled and has_results:
         parts = ", ".join(f"{PREFILL_LABEL.get(k, k)} {v.value}" for k, v in intake.prefilled.items())
         notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
@@ -314,6 +344,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 else "Mình chưa lấy được kết quả từ dịch vụ. Bạn thử lại sau nhé."
             )
             data["failed_tasks"] = failed
+            if any(
+                (results.get(t["task_id"]).error_code if results.get(t["task_id"]) else None) == "invalid_input"
+                for t in failed
+            ):
+                head = "Một phần yêu cầu chưa có dữ liệu hợp lệ hoặc bạn chưa có quyền truy cập. Hãy kiểm tra mã và thông tin đã cung cấp."
         summary = state.get("cost_summary")
         if summary:
             data["cost_summary"] = summary.model_dump(mode="json")
@@ -363,9 +398,12 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         head = f"Chưa rõ kết quả đặt chỗ ({outcome.detail}). Mình sẽ không tự đặt lại; vui lòng kiểm tra lại sau."
     else:
         kind = "ERROR"
-        head = f"Có lỗi khi xử lý yêu cầu{': ' + outcome.detail if outcome and outcome.detail else ''}."
+        head = "Hệ thống chưa xử lý được yêu cầu trong lượt này. Không có giao dịch nào được thực hiện; bạn có thể thử lại."
+        if outcome:
+            data["error"] = {"node": outcome.node, "code": code.value}
     if kind == "CLARIFY" and code == OutcomeCode.CLARIFY:
         lines = [known_summary] if known_summary else []
+    questions = unique_questions(questions)
     body = [head, *lines, *(q.text for q in questions), *notes]
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)
 

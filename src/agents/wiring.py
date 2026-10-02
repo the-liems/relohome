@@ -155,6 +155,9 @@ class AgentService:
             if AgentName.FLIGHT in agents:
                 agents[AgentName.FLIGHT].capability = agents[AgentName.FLIGHT].capability.model_copy(deep=True)
                 agents[AgentName.FLIGHT].capability.commit_kinds = []
+            if not services.agent_writes_enabled:
+                for agent in agents.values():
+                    agent.capability.commit_kinds = []
             components.planner.registry = CapabilityRegistry({n: a.capability for n, a in agents.items()})
             db = RuntimeDatabase(services.agent_state_dir)
             stack.callback(db.close)

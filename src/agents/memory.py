@@ -124,10 +124,14 @@ def memory_updates(state: dict) -> list[MemoryUpdate]:
     updates: list[MemoryUpdate] = []
     if intake is not None and plan is not None:
         statuses = state.get("task_status") or {}
-        done_inputs = [t.inputs for t in plan.tasks if statuses.get(t.id) == TaskStatus.DONE]
+        done_tasks = [t for t in plan.tasks if statuses.get(t.id) == TaskStatus.DONE]
 
         def used(key: str, value: Any) -> bool:
-            for inputs in done_inputs:
+            for task in done_tasks:
+                # Housing preferences must not be learned from a one-off Map/Flight request.
+                if key in PREFILL_FIELDS_BY_DOMAIN[AgentName.PROPERTY] and task.agent != AgentName.PROPERTY:
+                    continue
+                inputs = task.inputs
                 soft = inputs.get("soft_filters") or {}
                 if inputs.get(key) == value or (isinstance(soft, dict) and soft.get(key) == value):
                     return True

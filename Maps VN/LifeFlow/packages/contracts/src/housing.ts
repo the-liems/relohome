@@ -199,6 +199,7 @@ export const HousingSearchResultSchema = z.object({
   thumbnail_url: z.url().nullable().default(null),
   matched_constraints: z.array(z.string()),
   unknown_fields: z.array(z.string()),
+  quality_flags: z.array(z.string()).default([]),
   nearby: z.array(NearbyPlaceMatchSchema),
   commute: RouteResultSchema.nullable(),
   created_at: z.iso.datetime(),

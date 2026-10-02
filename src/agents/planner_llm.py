@@ -74,6 +74,8 @@ Không tạo task với placeholder. Chỉ làm các domain được yêu cầu 
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
 Map key: flight_date -> flight.date; nearby_categories -> map.categories; nearby_radius_m -> map.radius_m.
+map_near -> Map.near và map_city -> Map.city, không được chuyển sang input Housing.
+Nếu có map_near thì Map độc lập với Housing, không thêm depends_on hoặc selected_listing_id.
 Khi map_mode='route': tạo map task với map_mode, route_from, route_to, city, route_profile nếu có.
 Khi trước đó Map đã tìm tiện ích và lượt mới yêu cầu đường đi, tạo task Map route mới.
 Task Map nearby cũ có thể giữ nguyên để giữ kết quả, nhưng không được thay cho task route;
@@ -84,6 +86,8 @@ Map nearby không có near nhưng có selected:property: dùng selected_listing_
 không tra tiện ích cho mọi căn trong trang cũ. Nếu chưa chọn căn thì dùng phụ thuộc property như trước.
 Route giữa hai địa danh độc lập không cần property; không đổi route thành nearby.
 Moving quote dùng mode='quote', from_address, to_address hoặc selected_listing_id, move_date, move_time.
+moving_mode='catalog' tạo relocation task inputs={mode:'catalog'}: tra danh mục/phạm vi thật,
+không đòi điểm lấy/giao hay thời gian, không bịa city_id. moving_mode là fact, mode là input task.
 Nếu from_address hoặc to_address là 'selected:property', giữ nguyên marker đó và thêm
 selected_listing_id đúng căn user đã chọn. Moving tự tra chi tiết ID đó, không cần depends_on property. Căn đã chọn
 có thể là điểm LẤY hoặc điểm GIAO; không tự đổi vai hai đầu tuyến.
@@ -153,11 +157,17 @@ class LlmPlanner(UsageOwner):
         selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
         if AgentName.MAP in inp.intake.domains and inp.intake.constraints.values.get("map_mode") != "route":
             data["map_origin_binding"] = {
-                "kind": "selected_property"
+                "kind": "explicit_near"
+                if inp.intake.constraints.values.get("map_near")
+                else "selected_property"
                 if selected
-                else ("explicit_near" if inp.intake.constraints.values.get("near") else "upstream_property"),
+                else (
+                    "explicit_near"
+                    if inp.intake.constraints.values.get("map_near") or inp.intake.constraints.values.get("near")
+                    else "upstream_property"
+                ),
                 "selected_listing_id": selected.value if selected else None,
-                "near": inp.intake.constraints.values.get("near"),
+                "near": inp.intake.constraints.values.get("map_near") or inp.intake.constraints.values.get("near"),
             }
         data["previous_results"] = {
             k: {
@@ -171,7 +181,18 @@ class LlmPlanner(UsageOwner):
         }
         errors = ["LLM budget exhausted"]
         for attempt in range(run.max_calls):
-            draft = await run.parse(self.llm, PROMPT, data, PlanDraft)
+            try:
+                draft = await run.parse(self.llm, PROMPT, data, PlanDraft)
+            except LLMError as exc:
+                if (
+                    exc.code not in {"LLM_NO_RESULT", "LLM_INVALID_OUTPUT", "LLM_TIMEOUT", "LLM_CONNECTION_ERROR"}
+                    or attempt + 1 >= run.max_calls
+                ):
+                    raise
+                data["validation_feedback"] = [
+                    "Previous call did not produce a valid structured plan; return the required schema."
+                ]
+                continue
             try:
                 plan = self._convert(draft, inp)
                 questions, deferral_errors = self._deferrals(draft, plan, inp, registry)
@@ -224,8 +245,13 @@ class LlmPlanner(UsageOwner):
                         task.inputs.pop("bounding_box", None)
                 fields = ("near",) if task.agent == AgentName.PROPERTY else ("near", "route_from", "route_to")
                 for field in fields:
-                    place_id = values.get(field + "_place_id")
-                    if place_id and task.inputs.get(field) == values.get(field):
+                    source_field = (
+                        "map_near"
+                        if task.agent == AgentName.MAP and field == "near" and values.get("map_near")
+                        else field
+                    )
+                    place_id = values.get(source_field + "_place_id")
+                    if place_id and task.inputs.get(field) == values.get(source_field):
                         task.inputs[field + "_place_id"] = place_id
                     else:
                         task.inputs.pop(field + "_place_id", None)
@@ -358,6 +384,13 @@ class LlmPlanner(UsageOwner):
                     )
                 },
             }
+            if task.agent == AgentName.RELOCATION and task.inputs.get("mode") == "catalog":
+                mappings[AgentName.RELOCATION] = {}
+            if task.agent == AgentName.MAP:
+                if task.inputs.get("map_mode") == "route" and values.get("map_city"):
+                    mappings[AgentName.MAP]["map_city"] = mappings[AgentName.MAP].pop("city")
+                elif values.get("map_near"):
+                    mappings[AgentName.MAP]["map_near"] = "near"
             if not carried_unrequested and not carried_other_map_mode:
                 if task.agent == AgentName.MAP:
                     selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
@@ -377,8 +410,16 @@ class LlmPlanner(UsageOwner):
             for key, value in task.inputs.items():
                 source_key = aliases.get(key, key)
                 expected = values.get(source_key)
+                if task.agent == AgentName.MAP and key == "near_place_id" and values.get("map_near"):
+                    expected = values.get("map_near_place_id")
+                if task.agent == AgentName.MAP and key == "near" and values.get("map_near"):
+                    expected = values["map_near"]
+                if task.agent == AgentName.MAP and key == "city" and values.get("map_city"):
+                    expected = values["map_city"]
                 if key == "mode":
-                    expected = "order_status" if values.get("order_id") or values.get("tracking_number") else "quote"
+                    expected = values.get("moving_mode") or (
+                        "order_status" if values.get("order_id") or values.get("tracking_number") else "quote"
+                    )
                 elif key == "passengers":
                     expected = {"adults": values.get("passengers", values.get("household_size", 1))}
                 elif key == "selected_listing_id":

@@ -55,7 +55,12 @@ PROPERTY = AgentCapability(
             "limit": {"type": "integer", "minimum": 1, "maximum": 20},
             "cursor": {"type": ["string", "null"], "maxLength": 1000},
         },
-        "anyOf": [{"required": ["city"]}, {"required": ["near"]}, {"required": ["bounding_box"]}],
+        "anyOf": [
+            {"required": ["city"]},
+            {"required": ["near"]},
+            {"required": ["district"]},
+            {"required": ["bounding_box"]},
+        ],
         "additionalProperties": False,
     },
     output_schema={

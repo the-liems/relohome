@@ -36,6 +36,8 @@ def select_options(plan: Plan, results: dict[str, TaskResult], intake: IntakeRes
             continue
         options = {q.option_id for q in result.quotes}
         fact = intake.user_confirmed_facts.get(selected_fact_key(task.agent))
+        if fact is not None and str(fact.value) not in options:
+            continue  # Do not silently budget a different home when the selected price is unverified.
         choice = str(fact.value) if fact is not None and str(fact.value) in options else result.quotes[0].option_id
         selected[task.id] = choice
     return selected

@@ -58,6 +58,19 @@ function list(value: string | string[] | undefined) {
   return Array.isArray(value) ? value : [value]
 }
 
+function qualityFlags(attributes: unknown): string[] {
+  if (!attributes || typeof attributes !== 'object') return []
+  const quality = (attributes as Record<string, unknown>).quality
+  if (!quality || typeof quality !== 'object') return []
+  const flags = (quality as Record<string, unknown>).flags
+  if (!Array.isArray(flags)) return []
+  return flags.flatMap((flag) => {
+    if (typeof flag === 'string') return [flag]
+    if (flag && typeof flag === 'object' && typeof flag.code === 'string') return [flag.code]
+    return []
+  })
+}
+
 function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilder, listingId?: string): string[] {
   const conditions = [
     "l.status = 'active'",
@@ -457,6 +470,7 @@ export class HousingQueryService {
       offer_id: String(row.offer_id),
       place_id: row.place_id,
       title: String(row.title),
+      quality_flags: qualityFlags(row.listing_attributes),
       property_type: row.property_type as HousingSearchResult['property_type'],
       listing_type: row.listing_type as HousingSearchResult['listing_type'],
       location,

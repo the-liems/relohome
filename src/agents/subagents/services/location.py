@@ -48,6 +48,7 @@ ROOM_TYPES = {
 # Khoá `address_normalized` của importer housing (Location); `raw` là chuỗi địa chỉ gốc của nguồn.
 ADDRESS_ORDER = ("housenumber", "street", "ward", "district", "city")
 CLEAR_MARGIN = 0.15  # chênh match_score tối thiểu để coi ứng viên đầu là rõ ràng
+MIN_SUGGESTION_SCORE = 0.8  # fuzzy suggestions require strong similarity, never auto-selection
 
 
 def format_address(address: dict[str, Any] | None) -> str | None:
@@ -147,7 +148,7 @@ def pick_place(results: list[dict], radius_m: float = SAME_PLACE_RADIUS_M) -> di
     Các ứng viên khớp chính xác tên mà mọi cặp cách nhau không quá `radius_m` là cùng một điểm đến
     trong thực tế (bản ghi trùng của nguồn): chọn bản ghi có hình học đầy đủ nhất. Ứng viên xa nhau
     vẫn là mơ hồ thật, dùng luật `pick_clear` và hỏi lại."""
-    unique = _distinct(results)
+    unique = _distinct([r for r in results if r.get("match_type") != "fuzzy"])
     exact = [r for r in unique if r.get("match_type") == "exact" and (r.get("location") or {}).get("lat") is not None]
     if len(exact) >= 2 and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2)):
         return max(exact, key=_geometry_rank)
@@ -217,8 +218,14 @@ def rank_listings(results: list[dict]) -> list[dict]:
 
     def key(r: dict):
         verified = (r.get("verification") or {}).get("status") != "unverified"
+        price_flagged = any(str(f).startswith("price_") for f in r.get("quality_flags", []))
         price = (r.get("price") or {}).get("amount")
-        return (not verified, len(r.get("unknown_fields") or []), price if price is not None else float("inf"))
+        return (
+            price_flagged,
+            not verified,
+            len(r.get("unknown_fields") or []),
+            price if price is not None else float("inf"),
+        )
 
     return sorted(results, key=key)
 
@@ -251,6 +258,8 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "source": r.get("source"),
         "verification": r.get("verification"),
         "unknown_fields": r.get("unknown_fields") or [],
+        "quality_flags": r.get("quality_flags") or [],
+        "price_unverified": any(str(f).startswith("price_") for f in r.get("quality_flags", [])),
     }
     missing = [k for k in ("price_vnd", "deposit_vnd", "area_m2", "address") if candidate[k] is None]
     missing += [m for m in must_have if m not in amenities]
@@ -306,10 +315,22 @@ class LocationSubagent:
     ) -> AgentTaskResult:
         if not options:
             return self._not_found(req, tools, field, text)
+        # Fuzzy records are suggestions for an explicit user choice, never an
+        # automatic coordinate. Dropping them here hides useful real matches
+        # whenever the user's natural name differs from the OSM formal name.
+        suggested = all(o.get("match_type") == "fuzzy" for o in options)
+        if suggested:
+            options = [o for o in options if (o.get("match_score") or 0) >= MIN_SUGGESTION_SCORE]
+            if not options:
+                return self._not_found(req, tools, field, text)
         labels = list(dict.fromkeys(label_of(o) for o in options))[:5]
         question = Question(
             field=field,
-            text=f'"{text}" khớp nhiều nơi. Bạn muốn nói tới nơi nào?',
+            text=(
+                f'Mình tìm thấy các địa điểm có tên gần với "{text}". Bạn chọn đúng địa điểm trên bản đồ nhé.'
+                if suggested
+                else f'"{text}" khớp nhiều nơi. Bạn muốn nói tới nơi nào?'
+            ),
             options=labels,
             choices=location_choices(options),
         )
@@ -356,6 +377,17 @@ class LocationSubagent:
             found = pick_city_area(areas)
             if found is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
+            area = {"administrative_area_ids": [found["area_id"]]}
+            area_name = found.get("name")
+            scope_bbox = found.get("bounding_box")
+        elif inp.get("district"):
+            # A district alone is a valid scope only after Location resolves it uniquely.
+            areas = ((await tools.call("search_areas", {"text": inp["district"], "limit": 5})) or {}).get(
+                "results"
+            ) or []
+            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            if found is None:
+                return self._choose(req, tools, "district", inp["district"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
@@ -414,6 +446,9 @@ class LocationSubagent:
                 continue
             missing += [f"candidates[{len(candidates)}].{k}" for k in unknown]
             candidates.append(candidate)
+            if candidate["price_unverified"]:
+                missing.append(f"candidates[{len(candidates) - 1}].price_quality")
+                continue
             quotes.append(
                 Quote(
                     option_id=candidate["id"],

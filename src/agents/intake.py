@@ -284,7 +284,7 @@ class Requirement:
 
 REQUIRED_INPUTS: dict[AgentName, tuple[Requirement, ...]] = {
     AgentName.PAYMENT: (Requirement(("payment_id",)),),
-    AgentName.PROPERTY: (Requirement(("city", "near")),),
+    AgentName.PROPERTY: (Requirement(("city", "near", "district")),),
     AgentName.RELOCATION: (
         Requirement(("from_address",)),
         Requirement(("to_address",), derived_from=AgentName.PROPERTY, needs_selection=True),
@@ -326,6 +326,8 @@ def missing_for(
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
     if domain == AgentName.RELOCATION:
+        if values.get("moving_mode") == "catalog":
+            return []
         selected_endpoint = any(values.get(k) == "selected:property" for k in ("from_address", "to_address"))
         missing = []
         if selected_endpoint and "selected:property" not in facts:
@@ -346,13 +348,17 @@ def missing_for(
     if domain == AgentName.PROPERTY and _has(values, "bounding_box"):
         return []  # khung bản đồ đang xem là phạm vi tìm kiếm đủ dùng
     if domain == AgentName.MAP and values.get("map_mode") == "route":
-        missing = [f"map.{k}" for k in ("route_from", "route_to", "city") if not _has(values, k)]
+        missing = [f"map.{k}" for k in ("route_from", "route_to") if not _has(values, k)]
+        if not _has(values, "map_city") and not _has(values, "city"):
+            missing.append("map.city")
         if (
             any(values.get(k) == "selected:property" for k in ("route_from", "route_to"))
             and "selected:property" not in facts
         ):
             missing.append("map.selected:property")
         return missing
+    if domain == AgentName.MAP and _has(values, "map_near"):
+        return []
     if domain == AgentName.MAP and "selected:property" in facts and not _has(values, "near"):
         return []
     out = []

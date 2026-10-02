@@ -60,6 +60,11 @@ const AREA_FILTER_KEYS = [
   "amenities",
   "listing_type",
   "property_type",
+  "availability_from",
+  "availability_to",
+  "verification_requirement",
+  "source_filters",
+  "nearby",
 ];
 
 export function filtersFromSearch(request: Data | undefined): Data {

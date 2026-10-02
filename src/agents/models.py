@@ -149,6 +149,7 @@ class IntakeResult(BaseModel):
     conflicts: list[str] = []
     user_confirmed_facts: dict[str, ConfirmedFact] = {}
     commit_requested: list[CommitActionKind] = []
+    unavailable_commit_requested: list[CommitActionKind] = []  # intent retained; never executable
     change_request: str | None = None
     target_task_ids: list[str] = []
     declined_suggestions: list[str] = []  # key gợi ý người dùng từ chối trong lượt này (S9)

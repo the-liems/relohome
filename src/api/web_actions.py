@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.agents.common import utcnow
 from src.agents.graph import run_config
 from src.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, TaskStatus, active_commits
-from src.agents.nodes.change_impact import downstream_closure
+from src.agents.nodes.change_impact import selection_impact
 from src.agents.nodes.cost_summary import make_cost_summary
 from src.agents.subagents.services.location import to_candidate
 from src.agents.suggestions import next_step_suggestions
@@ -44,7 +44,7 @@ class ResultAction(BaseModel):
     kind: Literal["select", "more"]
     task_id: str = Field(min_length=1, max_length=128)
     plan_version: int
-    fetched_at: str
+    fetched_at: datetime
     entity_id: str | None = Field(default=None, max_length=200)
 
 
@@ -95,14 +95,20 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             or not result
             or result.status != "done"
             or (state.get("task_status") or {}).get(body.task_id) != TaskStatus.DONE
-            or result.fetched_at.isoformat() != body.fetched_at
+            or body.fetched_at.tzinfo is None
+            or result.fetched_at != body.fetched_at
         ):
             raise HTTPException(409, "Nhóm kết quả đã thay đổi. Hãy sử dụng kết quả mới nhất.")
         intake = state["intake"].model_copy(deep=True)
         update = {}
         if body.kind == "select":
             committed = active_commits(state.get("committed"))
-            affected = downstream_closure(plan, {body.task_id})
+            previous = intake.user_confirmed_facts.get(f"selected:{result.agent.value}")
+            affected = (
+                selection_impact(plan, body.task_id, result.agent, previous.value if previous else None)
+                if previous is None or previous.value != body.entity_id
+                else {body.task_id}
+            )
             if any(a.id in committed and a.source_task_id in affected for a in plan.commit_actions):
                 raise HTTPException(
                     409, "Lựa chọn liên quan tới dịch vụ đã đặt. Hãy yêu cầu thay đổi trong chat để kiểm tra đơn trước."
@@ -118,16 +124,12 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
                 chosen = await explored_listing(service, body.entity_id)
                 if chosen:
                     result = result.model_copy(deep=True)
-                    result.data.setdefault("candidates", []).append(chosen)
-                    if chosen.get("price_vnd") is not None:
-                        result.quotes.append(
-                            Quote(
-                                option_id=chosen["id"],
-                                label=chosen["title"],
-                                amount_vnd=chosen["price_vnd"],
-                                recurrence="monthly",
-                            )
-                        )
+                    missing = [
+                        key for key in ("price_vnd", "deposit_vnd", "area_m2", "address") if chosen.get(key) is None
+                    ]
+                    if chosen.get("price_unverified"):
+                        missing.append("price_quality")
+                    append_housing_candidate(result, chosen, missing)
                     update["task_results"] = {body.task_id: result}
             if not chosen:
                 raise HTTPException(409, "Lựa chọn không thuộc nhóm kết quả hiện tại.")
@@ -156,6 +158,21 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             )
             update.update(intake=intake, messages=[HumanMessage(text)])
             update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
+            for tid in affected - {body.task_id}:
+                intake.user_confirmed_facts.pop(f"selected:{plan.task(tid).agent.value}", None)
+            if result.agent == AgentName.PROPERTY and previous and previous.value != body.entity_id:
+                old_house = next((r for r in rows if r.get("id") == previous.value), {})
+                pins = dict(state.get("moving_locations") or {})
+                for endpoint, address_key, coordinate_key in (
+                    ("pickup", "from_address", "pickup_coordinate"),
+                    ("destination", "to_address", "destination_coordinate"),
+                ):
+                    if old_house.get("address") and (pins.get(endpoint) or {}).get("address") == old_house["address"]:
+                        pins.pop(endpoint)
+                        intake.constraints.values.pop(coordinate_key, None)
+                        intake.constraints.values[address_key] = "selected:property"
+                        intake.user_confirmed_facts.pop(address_key, None)
+                update["moving_locations"] = pins
             # Same next-step rules as a chat answer (e.g. quote moving to the chosen home).
             suggestions = next_step_suggestions(
                 {
@@ -186,19 +203,14 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             result = result.model_copy(deep=True)
             known = {c["id"] for c in result.data["candidates"]}
             for row in raw.get("results", []):
-                candidate, _ = to_candidate(row, request.get("amenities", []))
+                candidate, missing = to_candidate(row, request.get("amenities", []))
+                if candidate["price_vnd"] is None or candidate["address"] is None:
+                    continue
                 if candidate["id"] not in known:
+                    if candidate.get("price_unverified"):
+                        missing.append("price_quality")
                     known.add(candidate["id"])
-                    result.data["candidates"].append(candidate)
-                    if candidate["price_vnd"] is not None:
-                        result.quotes.append(
-                            Quote(
-                                option_id=candidate["id"],
-                                label=candidate["title"],
-                                amount_vnd=candidate["price_vnd"],
-                                recurrence="monthly",
-                            )
-                        )
+                    append_housing_candidate(result, candidate, missing)
             result.data.update(
                 next_cursor=(raw.get("page") or {}).get("next_cursor"),
                 map_context={"scope": "returned_candidates", "listing_ids": list(known)},
@@ -216,6 +228,7 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
                             "data": result.data,
                             "source": result.source,
                             "source_kind": result.source_kind,
+                            "source_refs": result.source_refs,
                             "fetched_at": result.fetched_at.isoformat(),
                         }
                     }
@@ -231,3 +244,26 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
         update.update(cost_summary=summary["cost_summary"], response=response)
         await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
         return _to_response(thread_id, {"response": response}, service)
+
+
+def append_housing_candidate(result, candidate: dict, missing: list[str]) -> None:
+    """Keep citations, cost options and missing-field indices in sync with added real listings."""
+    rows = result.data.setdefault("candidates", [])
+    index = len(rows)
+    rows.append(candidate)
+    result.source_refs = list(dict.fromkeys([*result.source_refs, candidate["id"]]))
+    result.missing_fields.extend(f"candidates[{index}].{key}" for key in missing)
+    result.data["map_context"] = {
+        **result.data.get("map_context", {}),
+        "scope": "returned_candidates",
+        "listing_ids": [c["id"] for c in rows],
+    }
+    if candidate.get("price_vnd") is not None and not candidate.get("price_unverified"):
+        result.quotes.append(
+            Quote(
+                option_id=candidate["id"],
+                label=candidate["title"],
+                amount_vnd=candidate["price_vnd"],
+                recurrence="monthly",
+            )
+        )

@@ -13,13 +13,11 @@ from langchain_core.messages import HumanMessage
 from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.intake import (
-    LOCATION_KEYS,
     MAP_VIEW_REF,
     PLACE_CHOICE_FIELDS,
     SCOPE_DEPENDENTS,
     SEARCH_SCOPE_KEYS,
     IntakeInput,
-    abbreviation_questions,
     commit_fact_key,
     ground_facts,
     redact_pii,
@@ -35,6 +33,7 @@ from src.agents.models import (
     OutcomeCode,
     RequestKind,
     TaskOutline,
+    TaskStatus,
     active_commits,
     error_record,
 )
@@ -114,6 +113,24 @@ def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
     return outline
 
 
+def continue_referenced_goal(result: IntakeResult, previous: IntakeResult | None) -> IntakeResult:
+    """A domain switch that consumes a confirmed selection is a continuation.
+
+    The reference comes from typed Intake fields and must already exist in
+    confirmed state. A genuine fresh goal without such a binding still resets.
+    """
+    if result.kind != RequestKind.NEW_GOAL or previous is None:
+        return result
+    references = [
+        value
+        for value in result.constraints.values.values()
+        if isinstance(value, str) and value.startswith("selected:")
+    ]
+    if any(reference in previous.user_confirmed_facts for reference in references):
+        return result.model_copy(update={"kind": RequestKind.REFINE})
+    return result
+
+
 def make_intake(deps: GraphDeps):
     async def intake(state: WorkflowState) -> dict:
         """Hiểu yêu cầu qua `deps.intake`, rồi kiểm evidence, gộp dữ kiện và tính phần thiếu bằng code."""
@@ -166,6 +183,7 @@ def make_intake(deps: GraphDeps):
                 "errors": [error_record("intake", code, now)],
             }
 
+        result = continue_referenced_goal(result, previous)
         contextual_coordinates = resolve_moving_references(result, previous)
         decision = state.get("user_decision")
         plan = state.get("plan")
@@ -222,14 +240,21 @@ def make_intake(deps: GraphDeps):
                 previous_facts.pop(key)
         selectors = operation_selector_keys(
             c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
-        )
+        ) | {"moving_mode"}
+        # Strip a model-authored Housing marker before conflict detection, not just before geocoding.
+        if str(result.constraints.values.get("near", "")).startswith("selected:"):
+            result.constraints.values.pop("near", None)
+            result.user_confirmed_facts.pop("near", None)
+        selected_map_anchor = result.constraints.values.get("map_near") == "selected:property"
+        if selected_map_anchor:
+            previous_facts.pop("map_near", None)
+            result.user_confirmed_facts.pop("map_near", None)
+            result.constraints.values.pop("map_near", None)
         grounded = ground_facts(
             result.user_confirmed_facts, previous_facts, result.kind, user_texts, suggestion_keys, selectors
         )
-        if (
-            AgentName.MAP in result.domains
-            and result.constraints.values.get("near") == "selected:property"
-            and "selected:property" in grounded.facts
+        if str(result.constraints.values.get("near", "")).startswith("selected:") or (
+            "near" in grounded.facts and str(grounded.facts["near"].value).startswith("selected:")
         ):
             # A selected listing is an entity reference, not a place name for
             # Housing/Map geocoding. Map binds the selected listing ID itself.
@@ -248,24 +273,24 @@ def make_intake(deps: GraphDeps):
         commit_requested = [k for k in CommitActionKind if commit_fact_key(k) in grounded.facts]
         supported_actions = {kind for name in deps.agents.names() for kind in deps.agents.commit_kinds(name)}
         unsupported = [kind for kind in commit_requested if kind not in supported_actions]
-        if unsupported:
-            result.conflicts.append(
-                "Hiện chưa kết nối giao dịch thật cho yêu cầu này. Bạn muốn chỉ tìm thông tin/báo giá không?"
-            )
-        # Tên viết tắt ("Q10", "BV", "HCM"): không dùng, hỏi lại tên đầy đủ. Bỏ giá trị viết tắt khỏi dữ kiện
-        # để câu trả lời lượt sau không bị coi là mâu thuẫn với nó.
-        stated_now = {
-            **{k: f.value for k, f in result.user_confirmed_facts.items() if k in grounded.facts},
-            **result.constraints.values,
-        }
-        abbreviated = {k for k in LOCATION_KEYS if abbreviation_questions({k: stated_now.get(k)})}
-        abbreviation_asks = abbreviation_questions(stated_now)
-        facts = {k: f for k, f in grounded.facts.items() if k not in abbreviated}
-        values = {k: v for k, v in result.constraints.values.items() if k not in abbreviated}
+        # A disabled transaction is not a conflict in otherwise valid read
+        # tasks. Retain its intent separately and explain it to the user;
+        # only enabled actions may reach planning/approval.
+        commit_requested = [kind for kind in commit_requested if kind in supported_actions]
+        # Preserve the user's spelling. Location/Flight resolve it against real catalogs;
+        # an unresolved abbreviation must not block unrelated requested domains.
+        facts = dict(grounded.facts)
+        values = dict(result.constraints.values)
         if previous is not None and result.kind != RequestKind.NEW_GOAL:
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        if str(values.get("near", "")).startswith("selected:"):
+            values.pop("near", None)
+            facts.pop("near", None)
+        if selected_map_anchor:
+            values.pop("map_near", None)
+            values.pop("map_near_place_id", None)
         # A point confirmed for an old address cannot silently survive an address edit.
         if (
             previous
@@ -291,7 +316,28 @@ def make_intake(deps: GraphDeps):
                         values.pop(dependent, None)
         if previous and previous.constraints.values.get("near") != values.get("near"):
             values.pop("near_coordinate", None)
+        if previous and "district" in result.user_confirmed_facts and not values.get("city"):
+            # Retain a city's real administrative identity when switching away from a landmark.
+            # Never infer it from the district spelling or invent a geographic alias.
+            prior_property = [
+                r
+                for tid, r in (state.get("task_results") or {}).items()
+                if r.agent == AgentName.PROPERTY and (state.get("task_status") or {}).get(tid) == TaskStatus.DONE
+            ]
+            cities = {c["city"] for r in prior_property for c in r.data.get("candidates", []) if c.get("city")}
+            if len(cities) == 1:
+                values["city"] = next(iter(cities))
         housing_pin = state.get("housing_location")
+        if (
+            housing_pin
+            and previous
+            and any(
+                key in result.user_confirmed_facts
+                and result.user_confirmed_facts[key].value != previous.constraints.values.get(key)
+                for key in ("city", "district")
+            )
+        ):
+            housing_pin = None  # A previous near-pin cannot override a newly named administrative scope.
         if housing_pin and previous and (new_near := result.user_confirmed_facts.get("near")):
             old_near = previous.constraints.values.get("near")
             if new_near.value != old_near and housing_pin["address"] == old_near:
@@ -346,8 +392,9 @@ def make_intake(deps: GraphDeps):
             if key in result.user_confirmed_facts and not (choice and choice["field"] == key):
                 values.pop(key + "_place_id", None)
         if choice:
-            values[choice["field"]] = choice["name"]
-            values[choice["field"] + "_place_id"] = choice["place_id"]
+            choice_field = "map_near" if choice["field"] == "near" and values.get("map_near") else choice["field"]
+            values[choice_field] = choice["name"]
+            values[choice_field + "_place_id"] = choice["place_id"]
             if choice["field"] == "near":
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)
@@ -356,7 +403,8 @@ def make_intake(deps: GraphDeps):
                 "constraints": result.constraints.model_copy(update={"values": values}),
                 "user_confirmed_facts": facts,
                 "commit_requested": commit_requested,
-                "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts, *abbreviation_asks])),
+                "unavailable_commit_requested": unsupported,
+                "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts])),
                 "declined_suggestions": [k for k in result.declined_suggestions if k in suggestion_keys],
             }
         )
@@ -368,7 +416,12 @@ def make_intake(deps: GraphDeps):
             prefill_ttl=deps.settings.prefill_ttl,
             now=now,
         )
-        update: dict = {"intake": result, "declined_suggestions": result.declined_suggestions, "planner_questions": []}
+        update: dict = {
+            "intake": result,
+            "declined_suggestions": result.declined_suggestions,
+            "planner_questions": [],
+            "housing_location": housing_pin,
+        }
         if result.kind == RequestKind.NEW_GOAL:
             # Do not display a previous goal's results when a new goal needs input.
             update.update(plan=None, cost_summary=None)

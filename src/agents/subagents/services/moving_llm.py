@@ -21,7 +21,7 @@ from src.agents.contracts import AgentManifest, AgentTaskRequest, AgentTaskResul
 from src.agents.llm import LLMError
 from src.agents.llm_provider import client_options, provider_model
 from src.agents.llm_runtime import Invocation, json_object, public_data
-from src.agents.models import AgentBudget, AgentName, Question, Quote, SourceKind
+from src.agents.models import AgentBudget, AgentName, LocationChoice, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import RELOCATION
 from src.agents.subagents.services.location import location_choices, to_candidate
 from src.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
@@ -264,6 +264,7 @@ class MovingLlmAgent:
                     return execution.failed("internal", "LLM phải chọn đúng một tool mỗi bước.")
                 history.extend(response.output)
                 call = calls[0]
+                execution.tools.append(call.name)  # Names only: never record contacts/tool payloads.
                 try:
                     args = json_object(call.arguments)
                     if call.name not in available or not Draft202012Validator(TOOL_SCHEMAS[call.name]).is_valid(args):
@@ -322,8 +323,11 @@ class MovingExecution:
         self.tried_services: set[str] = set()
         self.candidates: dict[str, list[dict]] = {}  # Location results per unresolved address
         self.rejection: dict | None = None  # last provider refusal, shown to the model
+        self.tools: list[str] = []
 
     def result(self, status: str, **kwargs):
+        data = dict(kwargs.pop("data", {}))
+        data["agent_trace"] = {"uses_llm": True, "tools": list(self.tools)}
         return AgentTaskResult(
             task_id=self.req.task_id,
             plan_version=self.req.plan_version,
@@ -332,6 +336,7 @@ class MovingExecution:
             source_kind=self.agent.source_kind,
             fetched_at=self.agent.clock(),
             usage=self.run.usage.model_copy(),
+            data=data,
             **kwargs,
         )
 
@@ -339,9 +344,11 @@ class MovingExecution:
         return self.result("needs_input", questions=[Question(field=field, text=public_data(question)[:500])])
 
     def failed(self, code: str, message: str, retryable: bool = False):
-        return failed_result(
+        result = failed_result(
             self.req, code, message, retryable, "ahamove", self.agent.source_kind, self.run.usage.model_copy()
         )
+        result.data["agent_trace"] = {"uses_llm": True, "tools": list(self.tools)}
+        return result
 
     async def tool(self, client: McpToolClient | None, name: str, args: dict):
         if client is None:
@@ -369,14 +376,14 @@ class MovingExecution:
         exact = [r for r in rows if r.get("entity_type") == "place" and r.get("match_type") == "exact"]
         if len(exact) == 1:
             return {"address": address, **exact[0]["location"]}
-        if resolved.get("ambiguous") or len(rows) != 1 or rows[0].get("entity_type") == "administrative_area":
-            return None
-        return {"address": address, **rows[0]["location"]}
+        # A sole fuzzy match is not evidence of the requested pickup/drop-off.
+        return None
 
     def location_question(self, field: str, address: str) -> Question:
+        house = None
         if address == "selected:property":
-            selected = self.selected_house()
-            address = (selected or {}).get("address") or "căn nhà bạn đã chọn"
+            house = self.selected_house()
+            address = (house or {}).get("address") or "căn nhà bạn đã chọn"
         label = "lấy" if field == "from_address" else "giao"
         broad = re.fullmatch(r"\s*(quận|huyện|phường|thành phố|tỉnh)\s+[^,]+\s*", address, flags=re.IGNORECASE)
         if broad:
@@ -386,7 +393,24 @@ class MovingExecution:
         else:
             text = f"Mình đã ghi địa chỉ {label} ‘{address}’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm {label} trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày giờ."
         # Candidates Location actually returned; the client shows them as pins to confirm.
-        return Question(field=field, text=text, choices=location_choices(self.candidates.get(address, [])))
+        choices = location_choices(
+            [
+                r
+                for r in self.candidates.get(address, [])
+                if r.get("match_type") == "exact" and r.get("entity_type") == "place"
+            ]
+        )
+        if house and all(house.get(k) is not None for k in ("lat", "lng")):
+            choices.append(
+                LocationChoice(
+                    id=house["id"],
+                    label=f"{address} (vị trí gần đúng — cần xác nhận điểm dừng xe)",
+                    entity_type="housing",
+                    lat=house["lat"],
+                    lng=house["lng"],
+                )
+            )
+        return Question(field=field, text=text, choices=choices)
 
     def selected_house(self) -> dict | None:
         if self.selected_listing:

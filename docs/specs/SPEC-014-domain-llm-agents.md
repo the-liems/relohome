@@ -23,6 +23,16 @@ không thay MCP contract của teammate.
 | SPEC-014/AC-10 | (01/10) Field `city` của Housing/Map phân giải bằng cấu trúc kết quả `search_areas` (cấp cao nhất, khớp tên không fuzzy, ranh giới bao các vùng cùng tên), không bằng danh sách tên cố định. "Hà Nội", "Đà Nẵng" không còn bị hỏi lại; khớp chính xác vẫn ưu tiên; vùng rời nhau vẫn hỏi lại. |
 | SPEC-014/AC-12 | (01/10) Moving: lỗi do yêu cầu từ provider (`PROVIDER_REJECTED`, `VALIDATION_ERROR`, `PROVIDER_NOT_FOUND`, `PROVIDER_CONFLICT`, `QUOTE_EXPIRED`, không retryable) được đưa lại cho LLM; sau đó chỉ được `ask_user` hoặc thử dịch vụ catalog chưa thử. Lỗi transport/retryable vẫn làm task thất bại. Câu hỏi chọn điểm có `choices` từ ứng viên Location thật. |
 | SPEC-014/AC-13 | (01/10) Moving: endpoint có toạ độ người dùng đã xác nhận (`moving_locations`) được Planner gắn bằng code cả địa chỉ lẫn toạ độ, kể cả khi model giữ marker `selected:property`; model không thể thay bằng địa chỉ khác. `/chat/{id}/state` trả `selections` từ `task_results`, không từ client. |
+| SPEC-014/AC-14 | Bộ nhớ sở thích Housing chỉ được cập nhật từ task Housing đã dùng dữ kiện đó. Một lượt Map/Flight không được tự trở thành phạm vi tìm nhà của lượt sau. |
+| SPEC-014/AC-15 | Intake hỗ trợ `moving_mode=catalog`; Planner chuyển thành task `mode=catalog`. Tra phạm vi không cần địa chỉ/ngày giờ. Runtime chỉ đọc không quảng bá commit capability; ý định ghi không khả dụng được giữ riêng và giải thích rõ, không sinh action hay chặn tác vụ tra cứu hợp lệ khác. |
+| SPEC-014/AC-16 | Đổi lựa chọn nhà vô hiệu hoá cả task tham chiếu trực tiếp `selected_listing_id`/`listing_ids` và task phụ thuộc, kể cả khi không có cạnh `depends_on` tới Housing. Không tự thay đổi dịch vụ đã đặt. |
+| SPEC-014/AC-17 | Cờ chất lượng nguồn Housing đi qua `quality_flags`. Giá bị gắn cờ `price_*` vẫn giữ nguyên để minh bạch nhưng không được dùng làm quote tính ngân sách; không thay thế căn user chọn bằng căn khác để tính tiền. |
+| SPEC-014/AC-18 | Map độc lập dùng fact `map_near`/`map_city`; không làm hẹp phạm vi Housing. Nhà được chọn có tọa độ gần đúng phải cung cấp lựa chọn pin để xác nhận, không tự biến thành điểm dừng xe chính xác. |
+| SPEC-014/AC-19 | Thêm nhà từ phân trang hoặc Map phải đồng bộ candidate, source_refs, missing_fields và quote. Kiểm kết quả cũ theo thời điểm ISO có timezone, không so sánh cách viết `Z` với `+00:00`. |
+| SPEC-014/AC-20 | Chuyển lĩnh vực nhưng tham chiếu `selected:*` đã xác nhận là tiếp tục mục tiêu, không xóa lựa chọn do LLM gán `new_goal`. Mục tiêu mới độc lập vẫn reset. |
+| SPEC-014/AC-21 | Housing/Map không tự nhận tọa độ từ fuzzy match. Khi similarity đủ mạnh (>=0.8), trả ứng viên thật cho user chọn; khớp yếu không được quảng bá thành lựa chọn hợp lệ. Moving vẫn phải xác nhận điểm dừng phù hợp. |
+| SPEC-014/AC-22 | Câu hỏi cùng ngày bay dùng `flight.date` và `flight.flight_date` được chuẩn hóa thành một câu `flight.flight_date`, không gộp với ngày chuyển đồ. |
+| SPEC-014/AC-23 | Bước LLM xem lại conflict phải dùng cả confirmed facts của các lượt trước. `selected:property` hợp lệ cho phép adapter đọc địa chỉ thật; Intake không bắt user gõ lại địa chỉ chỉ vì fact không được trích lại trong lượt mới. |
 
 ## Kiểm chứng
 
