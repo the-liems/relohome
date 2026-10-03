@@ -50,6 +50,23 @@ class IntakeInput(BaseModel):
 # Giá trị tham chiếu của `near` khi người dùng nói "khu này", "khu đang xem" trên bản đồ. Node thay bằng
 # `bounding_box` mà API đã kiểm; LLM không bao giờ tự sinh toạ độ.
 MAP_VIEW_REF = "current:map_view"
+# Map nearby origins that are entities bound by the graph, not place names (Intake `map_origin`):
+# the homes found by Housing in this goal (dependency) or the home already chosen (listing ID).
+MAP_ENTITY_ANCHORS = {"housing_results": "upstream:property", "selected_home": "selected:property"}
+
+
+def entity_reference(value: Any) -> str | None:
+    """Marker for a value that names a graph entity rather than a place (never geocoded).
+
+    Recognises the graph's own vocabulary only: entity markers and the `map_origin` labels a model
+    may echo into a text field. User phrasing is classified by the typed `map_origin` field, not here."""
+    if not isinstance(value, str):
+        return None
+    if value in MAP_ENTITY_ANCHORS.values() or value.startswith(("selected:", "upstream:")):
+        return value
+    return MAP_ENTITY_ANCHORS.get(value)
+
+
 # Field địa điểm mà người dùng có thể chọn ứng viên trên bản đồ (`ChatRequest.place_choice`).
 PLACE_CHOICE_FIELDS = ("near", "route_from", "route_to")
 # Phạm vi tìm nhà trong một thành phố; câu mới nêu phạm vi nào thì thay phạm vi cũ (node intake).
@@ -152,28 +169,6 @@ def redact_pii(text: str) -> str:
     return _PHONE.sub("[số điện thoại]", text)
 
 
-# Tên viết tắt địa danh: MVP không tự hiểu (Location không có alias), phải hỏi lại tên đầy đủ.
-LOCATION_KEYS = ("city", "near", "from_address", "to_address", "origin", "destination")
-_ABBREVIATION = re.compile(
-    r"(?<![\wÀ-ỹ])(?:[QqPp]\.?\s?\d{1,2}|[QqPp]\.|TP\.?\s?HCM|TPHCM|HCM|SG|HN|ĐN|DN|BV|ĐHQG|ĐH|DH|KTX|CĐ|TTTM|KCN|KĐT)"
-    r"(?![\wÀ-ỹ])"
-)
-
-
-def abbreviation_questions(values: dict[str, Any]) -> list[str]:
-    """Câu hỏi lại cho mỗi tên viết tắt trong field địa danh / địa chỉ (không tự diễn giải)."""
-    found: list[str] = []
-    for key in LOCATION_KEYS:
-        text = values.get(key)
-        if isinstance(text, str):
-            found += [m.group(0).strip() for m in _ABBREVIATION.finditer(text)]
-    return [
-        f'"{token}" là viết tắt; bạn ghi đầy đủ giúp mình nhé (ví dụ "Quận 10", "Thành phố Hồ Chí Minh", '
-        f'"Bệnh viện Chợ Rẫy").'
-        for token in dict.fromkeys(found)
-    ]
-
-
 def looks_like_pii(value: Any) -> bool:
     text = str(value)
     return bool(_EMAIL.search(text) or _LONG_DIGITS.search(text.replace(" ", "").replace(".", "")))
@@ -242,7 +237,15 @@ def ground_facts(
             name in {"min_price_vnd", "max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
             and type(fact.value) is int
         )
-        if name in PII_FACT_KEYS or (not numeric_constraint and looks_like_pii(fact.value)):
+        # A transaction reference (payment/order/booking ID) is a long code by nature; only a value that is
+        # itself an email or phone number is personal data there.
+        reference = name in REFERENCE_KEYS
+        personal = (
+            bool(_EMAIL.search(str(fact.value)) or _PHONE.search(str(fact.value)))
+            if reference
+            else looks_like_pii(fact.value)
+        )
+        if name in PII_FACT_KEYS or (not numeric_constraint and personal):
             dropped.append(name)
             continue
         if not evidence or evidence not in corpus:
@@ -305,6 +308,9 @@ LOOKUP_KEYS: dict[AgentName, tuple[str, ...]] = {
     AgentName.RELOCATION: ("order_id", "tracking_number"),
     AgentName.FLIGHT: ("booking_ref",),
 }
+
+# Identifier facts that look up the user's own transaction (domains' lookup inputs).
+REFERENCE_KEYS = frozenset(k for keys in LOOKUP_KEYS.values() for k in keys)
 
 DEFAULT_COST_TIERS = {
     AgentName.PAYMENT: "cheap",

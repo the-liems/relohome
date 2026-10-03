@@ -13,12 +13,14 @@ from langchain_core.messages import HumanMessage
 from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
 from src.agents.intake import (
+    MAP_ENTITY_ANCHORS,
     MAP_VIEW_REF,
     PLACE_CHOICE_FIELDS,
     SCOPE_DEPENDENTS,
     SEARCH_SCOPE_KEYS,
     IntakeInput,
     commit_fact_key,
+    entity_reference,
     ground_facts,
     redact_pii,
     resolve_missing,
@@ -241,11 +243,16 @@ def make_intake(deps: GraphDeps):
         selectors = operation_selector_keys(
             c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
         ) | {"moving_mode"}
-        # Strip a model-authored Housing marker before conflict detection, not just before geocoding.
-        if str(result.constraints.values.get("near", "")).startswith("selected:"):
+        # Strip a model-authored Housing reference before conflict detection, not just before geocoding:
+        # Housing `near` is a place; an entity reference there would be geocoded as text.
+        if entity_reference(result.constraints.values.get("near")):
             result.constraints.values.pop("near", None)
             result.user_confirmed_facts.pop("near", None)
-        selected_map_anchor = result.constraints.values.get("map_near") == "selected:property"
+        map_anchor = entity_reference(result.constraints.values.get("map_near"))
+        if map_anchor:
+            result.constraints.values["map_near"] = map_anchor
+        # An entity anchor replaces any earlier named Map anchor; the graph binds the entity itself.
+        selected_map_anchor = result.constraints.values.get("map_near") in MAP_ENTITY_ANCHORS.values()
         if selected_map_anchor:
             previous_facts.pop("map_near", None)
             result.user_confirmed_facts.pop("map_near", None)
@@ -253,8 +260,8 @@ def make_intake(deps: GraphDeps):
         grounded = ground_facts(
             result.user_confirmed_facts, previous_facts, result.kind, user_texts, suggestion_keys, selectors
         )
-        if str(result.constraints.values.get("near", "")).startswith("selected:") or (
-            "near" in grounded.facts and str(grounded.facts["near"].value).startswith("selected:")
+        if entity_reference(result.constraints.values.get("near")) or (
+            "near" in grounded.facts and entity_reference(grounded.facts["near"].value)
         ):
             # A selected listing is an entity reference, not a place name for
             # Housing/Map geocoding. Map binds the selected listing ID itself.
@@ -285,7 +292,7 @@ def make_intake(deps: GraphDeps):
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
-        if str(values.get("near", "")).startswith("selected:"):
+        if entity_reference(values.get("near")):
             values.pop("near", None)
             facts.pop("near", None)
         if selected_map_anchor:
@@ -316,6 +323,30 @@ def make_intake(deps: GraphDeps):
                         values.pop(dependent, None)
         if previous and previous.constraints.values.get("near") != values.get("near"):
             values.pop("near_coordinate", None)
+        selected_home = facts.get("selected:property") or (
+            previous.user_confirmed_facts.get("selected:property") if previous else None
+        )
+        for key in ("origin", "destination"):
+            if entity_reference(values.get(key)) == "selected:property":
+                # "bay vào đó" after choosing a home: the city is the chosen home's city as the provider
+                # recorded it. Without that record the reference is dropped and Flight asks for the city.
+                home = next(
+                    (
+                        c
+                        for r in (state.get("task_results") or {}).values()
+                        if r.agent == AgentName.PROPERTY
+                        for c in r.data.get("candidates", [])
+                        if selected_home and c.get("id") == str(selected_home.value)
+                    ),
+                    None,
+                )
+                if home and home.get("city"):
+                    values[key] = home["city"]
+                    if key in facts:
+                        facts[key] = facts[key].model_copy(update={"value": home["city"]})
+                else:
+                    values.pop(key, None)
+                    facts.pop(key, None)
         if previous and "district" in result.user_confirmed_facts and not values.get("city"):
             # Retain a city's real administrative identity when switching away from a landmark.
             # Never infer it from the district spelling or invent a geographic alias.

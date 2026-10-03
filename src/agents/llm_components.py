@@ -59,4 +59,7 @@ def build_llm_components(settings: ServiceSettings | None = None) -> LlmComponen
     capabilities = dict(BASELINE_CAPABILITIES)
     if moving:
         capabilities[moving.capability.agent] = moving.capability
-    return LlmComponents(LlmIntake(intake_llm), LlmPlanner(planner_llm, capabilities), moving)
+    attempts = settings.agent_max_attempts
+    return LlmComponents(
+        LlmIntake(intake_llm, max_calls=attempts), LlmPlanner(planner_llm, capabilities, max_calls=attempts), moving
+    )

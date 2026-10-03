@@ -158,8 +158,9 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             )
             update.update(intake=intake, messages=[HumanMessage(text)])
             update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
-            for tid in affected - {body.task_id}:
-                intake.user_confirmed_facts.pop(f"selected:{plan.task(tid).agent.value}", None)
+            # Downstream choices become stale; the choice just made in this domain stays.
+            for agent in {plan.task(tid).agent for tid in affected - {body.task_id}} - {result.agent}:
+                intake.user_confirmed_facts.pop(f"selected:{agent.value}", None)
             if result.agent == AgentName.PROPERTY and previous and previous.value != body.entity_id:
                 old_house = next((r for r in rows if r.get("id") == previous.value), {})
                 pins = dict(state.get("moving_locations") or {})

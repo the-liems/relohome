@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from typing import Any
 
 from langchain_core.messages import AIMessage
@@ -23,6 +24,7 @@ from src.agents.models import (
     TaskStatus,
     error_record,
 )
+from src.agents.progress import record_goal
 from src.agents.state import WorkflowState
 from src.agents.suggestions import next_step_suggestions
 
@@ -103,7 +105,15 @@ def unique_questions(questions: list[Question]) -> list[Question]:
     return list(unique.values())
 
 
-def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None = None) -> list[str]:
+def _folded(text: str) -> str:
+    """Accent/space-insensitive form, so a Vietnamese city name matches a provider's ASCII name."""
+    plain = unicodedata.normalize("NFKD", text.replace("đ", "d").replace("Đ", "D"))
+    return "".join(ch for ch in plain if ch.isalnum() and not unicodedata.combining(ch)).casefold()
+
+
+def describe_result(
+    agent: AgentName, data: dict, titles: dict[str, str] | None = None, asked_city: str | None = None
+) -> list[str]:
     lines = []
     if agent == AgentName.PAYMENT:
         payment = data.get("payment") or {}
@@ -116,6 +126,11 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
                 f"{i}. {c.get('title')} — {vnd(c.get('price_vnd'))}/tháng — {c.get('address') or 'chưa có địa chỉ'}"
                 + (f" — {c['bedrooms']} phòng ngủ" if c.get("bedrooms") is not None else "")
                 + (" — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách" if c.get("price_unverified") else "")
+                + "".join(
+                    f" — gần {n.get('name') or n.get('category')} ({int(n['distance_m'])}m đường thẳng)"
+                    for n in c.get("nearby") or []
+                    if n.get("distance_m") is not None
+                )
             )
         if not lines:
             lines.append("Chưa tìm thấy phòng phù hợp.")
@@ -141,6 +156,14 @@ def describe_result(agent: AgentName, data: dict, titles: dict[str, str] | None 
     elif agent == AgentName.RELOCATION:
         if data.get("cities"):
             names = [c.get("local_name") or c.get("city_name") or c["city_id"] for c in data["cities"]]
+            if asked_city:
+                # Answer the user's question first, from the provider's own list.
+                match = next((n for n in names if _folded(asked_city) and _folded(asked_city) in _folded(n)), None)
+                lines.append(
+                    f"AhaMove có phục vụ {asked_city} ({match})."
+                    if match
+                    else f"Danh sách khu vực AhaMove trả về không có {asked_city}."
+                )
             lines.append(
                 "Phạm vi AhaMove trả về: " + ", ".join(names) + ". Khả dụng cho tuyến cụ thể vẫn cần kiểm tra báo giá."
             )
@@ -187,6 +210,7 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
     statuses = state.get("task_status") or {}
     results = state.get("task_results") or {}
     lines: list[str] = []
+    earlier: list[str] = []  # results kept from previous turns: in `view`, not repeated in the text
     view: dict = {}
     kinds: set[str] = set()
     relaxed: list[str] = []
@@ -212,6 +236,8 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "summary": result.summary,
             "usage": result.usage.model_dump(mode="json"),
         }
+        fresh = (result.data.get("execution") or {}).get("request_id") == state.get("request_id")
+        target = lines if fresh else earlier
         display_data = result.data
         intake = state.get("intake")
         selected = intake.user_confirmed_facts.get(f"selected:{task.agent.value}") if intake else None
@@ -219,16 +245,19 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             chosen = [c for c in result.data.get("candidates", []) if c.get("id") == selected.value]
             if chosen:
                 display_data = {**result.data, "candidates": chosen}
-                lines.append("Căn bạn đã chọn:")
+                target.append("Căn bạn đã chọn:")
                 # Keep the full result for workflow dependencies, but expose which
                 # options actually appeared to support the next ordinal reference.
                 view[task.id]["displayed_option_ids"] = [c["id"] for c in chosen]
-        lines.extend(describe_result(task.agent, display_data, titles))
-        notes.extend(data_notes(result.data))
+        asked_city = intake.constraints.values.get("city") if intake and task.agent == AgentName.RELOCATION else None
+        target.extend(describe_result(task.agent, display_data, titles, asked_city))
+        if fresh:
+            notes.extend(data_notes(result.data))
         if result.source_kind != "live":
             kinds.add(result.source_kind)
         relaxed.extend(result.data.get("relaxed_filters") or [])
-    return [*lines, *dict.fromkeys(notes)], view, kinds, relaxed
+    # A turn that only reuses earlier results (nothing new ran) still shows them once.
+    return [*(lines or earlier), *dict.fromkeys(notes)], view, kinds, relaxed
 
 
 def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
@@ -294,7 +323,15 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 else "Chức năng lập kế hoạch cho yêu cầu này chưa sẵn sàng."
             )
             if code == OutcomeCode.PLAN_EMPTY
-            else "Mình hỗ trợ tìm phòng, bản đồ, chuyển đồ, tìm chuyến bay và tra thanh toán đã có. Tạo thanh toán sandbox cần dùng form có xác nhận; chưa hỗ trợ xuất vé hay hoàn tiền qua chat."
+            else " ".join(
+                p
+                for p in (
+                    intake.unsupported_reason if intake else None,
+                    "Mình hỗ trợ tìm nhà (kèm điều kiện gần tiện ích), đường đi, chuyển đồ, tìm chuyến bay và tra"
+                    " thanh toán đã có; chưa hỗ trợ xuất vé, thu hay hoàn tiền qua chat.",
+                )
+                if p
+            )
         )
     elif code == OutcomeCode.CLARIFY:
         kind = "CLARIFY"
@@ -413,7 +450,11 @@ def make_respond(deps: GraphDeps):
         """Soạn AgentResponse, gợi ý bước tiếp theo (S9) và ghi bộ nhớ cuối lượt."""
         response = compose(state, deps)
         response.suggestions = next_step_suggestions(state, deps.agents, deps.settings.max_suggestions, response.kind)
-        update: dict = {"response": response, "messages": [AIMessage(response.text)]}
+        update: dict = {
+            "response": response,
+            "messages": [AIMessage(response.text)],
+            "goal_tasks": record_goal(state),
+        }
         try:
             updates = memory_updates(state)
             if updates:

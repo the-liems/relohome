@@ -12,10 +12,11 @@ from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents.common import nfc, utcnow
-from src.agents.intake import REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
+from src.agents.intake import MAP_ENTITY_ANCHORS, REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
 from src.agents.llm import StructuredLLM
-from src.agents.llm_runtime import Invocation, UsageOwner, public_data
+from src.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
 from src.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
+from src.agents.subagents.capabilities import fact_fits_capabilities
 
 AMENITIES = frozenset(
     "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
@@ -42,6 +43,7 @@ COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
 )
 logger = logging.getLogger(__name__)
+WEEKDAYS = ("thứ hai", "thứ ba", "thứ tư", "thứ năm", "thứ sáu", "thứ bảy", "chủ nhật")
 
 
 class DraftFact(BaseModel):
@@ -68,6 +70,15 @@ class IntakeDraft(BaseModel):
         description="Explicit booking/cancel/update intent only. key=commit:moving_booking etc, value=true, evidence=exact user's action words. Empty for search/quote or negation. This expresses intent, NEVER transaction approval."
     )
     facts: list[DraftFact]
+    unsupported_reason: str | None = Field(
+        description="Only for kind=unsupported: one short Vietnamese sentence telling the user what is not supported and what is (e.g. amenities only as a condition when searching homes). Null otherwise."
+    )
+    drops_previous_goal: bool = Field(
+        description="True only when the user explicitly abandons or cancels the earlier goal in this message (e.g. 'thôi không tìm nhà nữa'). Asking for an additional service (flight, moving) while the earlier goal stands is false."
+    )
+    map_origin: Literal["named_place", "housing_results", "selected_home", "none"] = Field(
+        description="Where a requested Map nearby search is centred: named_place = a place the user names (map_near holds it); housing_results = homes found by the Housing search in this goal (e.g. 'gần các phòng đó'); selected_home = the home already chosen; none = no Map nearby search."
+    )
     conflicts: list[str]
     change_request: str | None
     target_task_ids: list[str]
@@ -75,19 +86,17 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
-Map ĐỘC LẬP với Housing: dùng map_near cho điểm tìm tiện ích, map_city cho thành phố tra đường;
-không ghi điểm Map vào near/city của Housing. map_near/map_city cũng hợp lệ cho Map đơn.
-Ví dụ tìm nhà Hồ Chí Minh và bệnh viện quanh Bách khoa Hà Nội: city='Hồ Chí Minh',
-map_near='Bách khoa Hà Nội'; không khoanh Housing quanh Bách khoa.
-Map quanh các căn tìm được hoặc căn đã chọn: KHÔNG tạo map_near; graph gắn dependency/ID nhà.
-Riêng khi đổi từ Map quanh một địa danh sang căn ĐÃ chọn, dùng map_near='selected:property'
-với evidence cụm 'căn đã chọn' để backend bỏ anchor Map cũ. Không dùng marker này cho near Housing.
+Tiện ích (bệnh viện, chợ, siêu thị, trường, nhà thuốc...) KHÔNG phải một dịch vụ riêng. Khi tìm nhà mà người
+dùng muốn gần tiện ích ('gần bệnh viện', 'có chợ gần', 'lọc căn gần bệnh viện'), đó là BỘ LỌC của Housing:
+fact nearby_categories (và nearby_radius_m nếu nói khoảng cách), domain property; KHÔNG thêm domain map, map_mode
+hay map_near. Lọc thêm trên kết quả vừa tìm là refine property. Hỏi tiện ích riêng lẻ không gắn với tìm nhà là
+unsupported: chỉ hỗ trợ tiện ích như điều kiện khi tìm nhà. map_origin='none'.
+Domain map chỉ dùng cho đường đi/khoảng cách (map_mode='route'); map_city là thành phố tra đường.
 Hỏi phạm vi/thành phố hỗ trợ, danh mục hoặc loại dịch vụ AhaMove: domain relocation,
 fact moving_mode='catalog' với evidence từ câu hỏi. Không đòi địa chỉ, ngày giờ cho catalog.
 Báo giá/chuyển đồ dùng moving_mode='quote'; tra đơn dùng moving_mode='order_status'.
 Không tự tạo city_id của nhà cung cấp. Chỉ có tên thành phố thì catalog trả phạm vi thật để đối chiếu.
-"gần các phòng đó" khi đang yêu cầu tìm nhà mới là Map phụ thuộc kết quả Housing,
-không phải fact near và không phải selected:property. near tuyệt đối không nhận marker selected:*.
+near tuyệt đối không nhận marker selected:* hay tên loại tiện ích; 'gần bệnh viện' là nearby_categories.
 Tra trạng thái thanh toán ZaloPay dùng domain payment và fact payment_id khi user đưa mã.
 Thiếu mã thì hỏi lại. Chỉ hỗ trợ tra cứu, không tự trả tiền/hoàn tiền/tạo thanh toán qua chat.
 Yêu cầu tạo/thu/hoàn tiền thì unsupported và hướng dẫn dùng form có xác nhận; không đổi thành đặt xe.
@@ -103,13 +112,11 @@ Phân loại LƯỢT MỚI, không chép loại của lượt trước. Nếu đ
 nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ cụ thể) thì change.
 'Đổi giờ thành 16 giờ, còn ngày và địa chỉ giữ nguyên' là change và CHỈ trích move_time.
 'Thôi bỏ tìm nhà, chỉ tìm chuyến bay ...' là new_goal: bỏ dữ kiện tìm nhà.
-'thêm bệnh viện quanh các phòng đó' là refine, GIỮ property và thêm map.
+'thêm điều kiện gần bệnh viện cho các phòng đó' là refine property với nearby_categories=['hospital'].
 Tìm nhà gần một trường/địa danh vẫn chỉ có domain property: Housing tự dùng công cụ Map để xác định vị trí.
 Thêm dịch vụ dựa vào căn/điểm đã chọn (ví dụ chuyển đồ tới căn đó) là refine/change,
 không phải new_goal: phải giữ lựa chọn đã xác nhận, không bắt chọn căn lại.
-Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách/tiện ích/bản đồ, không tự thêm vì có chữ 'gần'.
-Nếu nói "không cần tính đường nữa, chỉ tìm [tiện ích]", đó là change:
-map_mode='nearby', nearby_categories là danh mục mới và bán kính mới nếu nêu.
+Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách, không tự thêm vì có chữ 'gần'.
 Trả lời câu hỏi đang chờ không bao giờ tự khởi tạo mục tiêu mới.
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
@@ -145,6 +152,8 @@ volume, order_id, tracking_number, move_month. value đúng kiểu: số tiền/
 has_pet/has_motorbike và commit:* là boolean; must_have/nearby_categories là array string;
 các key còn lại là string. Không mã hóa value thành chuỗi JSON.
 Ngày rõ đổi YYYY-MM-DD dựa today giờ Việt Nam; ngày/tháng thiếu năm lấy lần tới gần nhất.
+Ngày tương đối (mai, mốt, thứ bảy này, chủ nhật tuần sau) tra trong calendar (ngày đầu là hôm nay), không tự tính;
+'thứ X này' là ngày thứ X gần nhất từ hôm nay trở đi, 'tuần sau' là tuần kế tiếp.
 Chỉ nói tháng: move_month YYYY-MM, không bịa ngày. Giờ rõ đổi HH:MM; thiếu giờ thì bỏ.
 Giữ nguyên tên địa danh/viết tắt người dùng, không tự geocode, tự đổi mã sân bay.
 Tìm nhà 'tại/trong/ở' một thành phố, quận hoặc phường: dùng city (phạm vi hành chính).
@@ -183,6 +192,8 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if not fact_fits_capabilities(key, value):
+        return False
     if key == "moving_mode":
         return value in {"catalog", "quote", "order_status"}
     if key == "map_mode":
@@ -243,11 +254,11 @@ def exact_bedroom_count(text: str) -> int | None:
 
 
 class LlmIntake(UsageOwner):
-    def __init__(self, llm: StructuredLLM, clock: Callable[[], datetime] = utcnow, *, max_calls: int = 2):
+    def __init__(self, llm: StructuredLLM, clock: Callable[[], datetime] = utcnow, *, max_calls: int = 5):
         super().__init__()
         if max_calls < 1:
             raise ValueError("max_calls must be positive")
-        self.llm, self.clock, self.max_calls = llm, clock, min(2, max_calls)
+        self.llm, self.clock, self.max_calls = llm, clock, min(MAX_REPAIR_CALLS, max_calls)
 
     async def understand(self, inp: IntakeInput) -> IntakeResult:
         run = Invocation(max_calls=self.max_calls)
@@ -260,8 +271,17 @@ class LlmIntake(UsageOwner):
         messages = public_data(messages)
         latest_user = next((m["text"] for m in reversed(messages) if m["role"] == "user"), "")
         previous = inp.previous
+        today = self.clock().astimezone(timezone(timedelta(hours=7)))
         data = {
-            "today": self.clock().astimezone(timezone(timedelta(hours=7))).isoformat(),
+            "today": today.isoformat(),
+            # Computed dates: the model looks relative days up here instead of doing calendar arithmetic.
+            "calendar": [
+                {
+                    "date": (today + timedelta(days=i)).date().isoformat(),
+                    "weekday": WEEKDAYS[(today + timedelta(days=i)).weekday()],
+                }
+                for i in range(15)
+            ],
             "messages": messages,
             "latest_user_message": latest_user,
             "supported_domains": inp.supported_domains,
@@ -289,8 +309,7 @@ class LlmIntake(UsageOwner):
             },
             "map_contract": {
                 "route": ["map_mode=route", "route_from", "route_to", "city"],
-                "nearby": ["near (or upstream housing results)"],
-                "note": "For directions use route, not nearby; route never requires near.",
+                "note": "Map is directions only; amenities near a home are the Housing filter nearby_categories.",
             },
             "moving_contract": {
                 "catalog": ["moving_mode=catalog"],
@@ -415,6 +434,10 @@ class LlmIntake(UsageOwner):
                 )
             except (ValueError, TypeError):
                 rejected.append(f"{f.key}: invalid fact")
+        anchor = MAP_ENTITY_ANCHORS.get(draft.map_origin)
+        if anchor and "map_near" in facts and facts["map_near"].value != anchor:
+            # The origin is an entity the graph binds (dependency or selected ID), never a place name to geocode.
+            facts["map_near"] = facts["map_near"].model_copy(update={"value": anchor})
         grounded = ground_facts(facts, {}, RequestKind.NEW_GOAL, [user_text], list(suggestions))
         facts = grounded.facts
         rejected.extend(f"{k}: evidence/PII validation rejected" for k in grounded.dropped)
@@ -423,7 +446,30 @@ class LlmIntake(UsageOwner):
             if draft.kind != "unsupported"
             else []
         )
+        is_route = (facts.get("map_mode") and facts["map_mode"].value == "route") or any(
+            k in facts for k in ("route_from", "route_to")
+        )
+        if AgentName.MAP in domains and not is_route:
+            # Amenities are not a service of their own: a Map "nearby" request becomes the Housing
+            # proximity filter (same nearby_* facts) within a housing goal; Map stays for directions only.
+            domains.remove(AgentName.MAP)
+            for key in ("map_mode", "map_near"):
+                facts.pop(key, None)
+            housing_goal = inp.previous is not None and AgentName.PROPERTY in inp.previous.domains
+            if facts.get("nearby_categories") and housing_goal and AgentName.PROPERTY not in domains:
+                domains.append(AgentName.PROPERTY)
         kind = RequestKind(draft.kind) if domains else RequestKind.UNSUPPORTED
+        if (
+            kind == RequestKind.NEW_GOAL
+            and not draft.drops_previous_goal
+            and inp.previous is not None
+            and inp.previous.domains
+            and not set(domains) & set(inp.previous.domains)
+        ):
+            # A different service added to a goal the user did not abandon extends that goal: its
+            # choices and results stay. Abandoning is the model's typed decision, not a phrase list.
+            kind = RequestKind.REFINE
+            domains = list(dict.fromkeys([*inp.previous.domains, *domains]))
         task_ids = {p.id for p in inp.plan_outline or []}
         targets = (
             inp.decision.target_task_ids if inp.decision and inp.decision.target_task_ids else draft.target_task_ids
@@ -440,5 +486,8 @@ class LlmIntake(UsageOwner):
             change_request=public_data(draft.change_request) if kind == RequestKind.CHANGE else None,
             target_task_ids=[t for t in targets if t in task_ids],
             declined_suggestions=[k for k in draft.declined_suggestions if k in suggestions],
+            unsupported_reason=public_data(draft.unsupported_reason or "")[:300] or None
+            if kind == RequestKind.UNSUPPORTED
+            else None,
         )
         return result, rejected

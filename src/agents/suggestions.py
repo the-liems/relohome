@@ -102,22 +102,6 @@ NEXT_STEPS: tuple[NextStep, ...] = (
             and _supports(c, AgentName.RELOCATION, CommitActionKind.MOVING_BOOKING)
         ),
     ),
-    NextStep(
-        "search:map",
-        AgentName.MAP,
-        "search",
-        "Xem tiện ích quanh phòng",
-        lambda c: "Xem tiện ích xung quanh phòng mình chọn",
-        lambda c: c.selected_property and AgentName.MAP not in c.in_plan,
-    ),
-    NextStep(
-        "search:map:new_home",
-        AgentName.MAP,
-        "search",
-        "Xem tiện ích quanh nhà mới",
-        lambda c: "Xem tiện ích xung quanh nhà mới của mình",
-        lambda c: CommitActionKind.MOVING_BOOKING in c.booked_this_turn and AgentName.MAP not in c.in_plan,
-    ),
 )
 
 

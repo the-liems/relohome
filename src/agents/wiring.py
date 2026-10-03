@@ -213,7 +213,11 @@ class AgentService:
                 transaction=tx,
                 approvals=approvals,
                 pii=pii,
-                settings=GraphSettings(),
+                settings=GraphSettings(
+                    max_task_attempts=services.agent_max_attempts,
+                    max_replans=services.agent_max_attempts,
+                    agent_transport_retries=services.agent_max_attempts - 1,
+                ),
                 usage=SqliteUsageMeter(db),
             )
             path = str(Path(services.agent_state_dir).resolve() / "checkpoints.sqlite3")

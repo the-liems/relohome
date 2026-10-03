@@ -23,7 +23,7 @@ from src.agents.llm_provider import client_options, provider_model
 from src.agents.llm_runtime import Invocation, json_object, public_data
 from src.agents.models import AgentBudget, AgentName, LocationChoice, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import RELOCATION
-from src.agents.subagents.services.location import location_choices, to_candidate
+from src.agents.subagents.services.location import MIN_SUGGESTION_SCORE, location_choices, to_candidate
 from src.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
@@ -397,7 +397,10 @@ class MovingExecution:
             [
                 r
                 for r in self.candidates.get(address, [])
-                if r.get("match_type") == "exact" and r.get("entity_type") == "place"
+                # Same suggestion rule as Housing/Map: real places whose name matches, or a strong fuzzy
+                # match; the user still confirms the stop point, nothing is auto-selected.
+                if r.get("entity_type") == "place"
+                and (r.get("match_type") != "fuzzy" or (r.get("match_score") or 0) >= MIN_SUGGESTION_SCORE)
             ]
         )
         if house and all(house.get(k) is not None for k in ("lat", "lng")):

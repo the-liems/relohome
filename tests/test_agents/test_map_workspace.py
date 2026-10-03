@@ -223,3 +223,214 @@ async def test_viewport_ignores_fuzzy_district_and_uses_returned_listings():
         {"west": 105, "south": 8, "east": 108, "north": 11.5},
     )
     assert 106.6 < box["west"] < 106.7 and box["east"] < 106.75, box
+
+
+# --- Follow-ups of the khoa retest (K-01..K-03) ---
+
+
+def plan_errors(tasks, values, domains):
+    planner = LlmPlanner(None, BASELINE_CAPABILITIES)
+    drafts = [
+        TaskDraft(
+            id=t["id"],
+            agent=t["agent"],
+            inputs_json=json.dumps(t["inputs"]),
+            depends_on=t.get("deps", []),
+            required=True,
+        )
+        for t in tasks
+    ]
+    inp = planner_input(values, domains)
+    plan = planner._convert(PlanDraft(tasks=drafts, actions=[], needs_input=[]), inp)
+    return plan, LlmPlanner._grounding_errors(plan, inp)
+
+
+def test_route_task_is_not_forced_to_carry_a_previous_nearby_anchor():
+    # K-02: turn 1 searched pharmacies near a place, turn 2 asks a route; map_near is still in constraints.
+    values = {
+        "map_mode": "route",
+        "map_near": "Văn Miếu - Quốc Tử Giám",
+        "route_from": "Văn Miếu - Quốc Tử Giám",
+        "route_to": "Nhà hát Lớn Hà Nội",
+        "city": "Hà Nội",
+        "route_profile": "walking",
+        "nearby_categories": ["pharmacy"],
+    }
+    route = {k: values[k] for k in ("map_mode", "route_from", "route_to", "city", "route_profile")}
+    _, errors = plan_errors([{"id": "m", "agent": AgentName.MAP, "inputs": route}], values, [AgentName.MAP])
+    assert errors == []
+
+
+def test_amenity_near_homes_is_a_housing_filter_not_a_map_task():
+    # "gần bệnh viện" while searching homes: the Housing task must carry the proximity filter.
+    values = {"city": "Hà Nội", "max_price_vnd": 5_000_000, "nearby_categories": ["hospital"]}
+    home = {"id": "home", "agent": AgentName.PROPERTY, "inputs": {"city": "Hà Nội", "max_price_vnd": 5_000_000}}
+    _, errors = plan_errors([home], values, [AgentName.PROPERTY])
+    assert errors == ["home: omitted user constraint nearby_categories"]
+    home["inputs"]["nearby_categories"] = ["hospital"]
+    _, errors = plan_errors([home], values, [AgentName.PROPERTY])
+    assert errors == []
+
+
+def test_map_bound_to_housing_results_drops_a_named_anchor():
+    # K-01 (directions-free Map nearby kept for old plans): a Housing dependency is the origin.
+    values = {"city": "Hà Nội", "max_price_vnd": 5_000_000}
+    tasks = [
+        {"id": "home", "agent": AgentName.PROPERTY, "inputs": {"city": "Hà Nội", "max_price_vnd": 5_000_000}},
+        {
+            "id": "near",
+            "agent": AgentName.MAP,
+            "inputs": {"categories": ["supermarket"], "radius_m": 1500, "near": "các phòng đó"},
+            "deps": ["home"],
+        },
+    ]
+    plan, _ = plan_errors(tasks, {**values, "map_near": "các phòng đó"}, [AgentName.PROPERTY, AgentName.MAP])
+    assert "near" not in plan.task("near").inputs
+
+
+def test_intake_rejects_bounds_that_exclude_every_listing():
+    # K-03: "ưu tiên phòng rộng nhất" must not become max_area_m2=0; the capability schema decides.
+    from src.agents.intake_llm import valid_value
+
+    assert not valid_value("max_area_m2", 0) and not valid_value("max_price_vnd", 0)
+    assert valid_value("max_area_m2", 30) and valid_value("max_bedrooms", 0) and valid_value("min_area_m2", 0)
+
+
+def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
+    from src.agents.intake import IntakeInput
+    from src.agents.intake_llm import IntakeDraft, LlmIntake
+
+    draft = IntakeDraft(
+        kind="new_goal",
+        normalized_goal="x",
+        intent_name="x",
+        domains=[AgentName.PROPERTY, AgentName.MAP],
+        requested_actions=[],
+        facts=[
+            {"key": "city", "value": "Hà Nội", "evidence": "Hà Nội", "suggestion_key": None},
+            {"key": "map_near", "value": "các phòng đó", "evidence": "các phòng đó", "suggestion_key": None},
+            {"key": "nearby_categories", "value": ["supermarket"], "evidence": "siêu thị", "suggestion_key": None},
+        ],
+        unsupported_reason=None,
+        drops_previous_goal=False,
+        map_origin="housing_results",
+        conflicts=[],
+        change_request=None,
+        target_task_ids=[],
+        declined_suggestions=[],
+    )
+    inp = IntakeInput(messages=[], session=SessionContext(), supported_domains=[AgentName.PROPERTY, AgentName.MAP])
+    result, _ = LlmIntake(None)._convert(draft, inp, "Tìm phòng ở Hà Nội và siêu thị gần các phòng đó")
+    # Amenities are not a Map service: the Map domain is dropped, the proximity stays as a Housing filter.
+    assert result.domains == [AgentName.PROPERTY]
+    assert "map_near" not in result.user_confirmed_facts
+    assert result.constraints.values["nearby_categories"] == ["supermarket"]
+
+
+def test_fact_schema_check_only_applies_to_the_same_shaped_field():
+    from src.agents.intake_llm import valid_value
+
+    assert valid_value("passengers", 1)  # fact is a count; Flight's input is {adults: n}
+
+
+def test_echoed_reference_labels_are_entities_not_places():
+    from src.agents.intake import entity_reference
+
+    assert entity_reference("housing_results") == "upstream:property"
+    assert entity_reference("selected:property") == "selected:property"
+    assert entity_reference("Đại học Bách khoa Hà Nội") is None
+
+
+def test_completed_task_of_a_requested_domain_is_kept_when_the_model_leaves_it_out():
+    from src.agents.models import Plan, Task, TaskResult
+
+    values = {"origin": "Đà Nẵng", "destination": "Hà Nội", "flight_date": "2026-10-04", "moving_mode": "catalog"}
+    flight_inputs = {"origin": "Đà Nẵng", "destination": "Hà Nội", "date": "2026-10-04", "passengers": {"adults": 1}}
+    old = Plan(version=1, tasks=[Task(id="fly", agent=AgentName.FLIGHT, inputs=flight_inputs)])
+    done = TaskResult(
+        task_id="fly", agent=AgentName.FLIGHT, plan_version=1, status="done", fetched_at=utcnow(), data={"offers": []}
+    )
+    domains = [AgentName.FLIGHT, AgentName.RELOCATION]
+    inp = planner_input(values, domains).model_copy(update={"previous_plan": old, "previous_results": {"fly": done}})
+    planner = LlmPlanner(None, BASELINE_CAPABILITIES)
+    draft = TaskDraft(
+        id="move", agent=AgentName.RELOCATION, inputs_json='{"mode": "catalog"}', depends_on=[], required=True
+    )
+    plan = planner._convert(PlanDraft(tasks=[draft], actions=[], needs_input=[]), inp)
+    assert [t.id for t in plan.tasks] == ["fly", "move"]
+    # Changed constraints: the old flight no longer matches, so it is not silently reused.
+    changed = inp.model_copy(update={"intake": planner_input({**values, "flight_date": "2026-10-09"}, domains).intake})
+    assert [t.id for t in planner._convert(PlanDraft(tasks=[draft], actions=[], needs_input=[]), changed).tasks] == [
+        "move"
+    ]
+
+
+def test_selected_listing_id_is_bound_from_state_not_from_the_draft():
+    from src.agents.models import ConfirmedFact
+
+    values = {
+        "moving_mode": "quote",
+        "from_address": "Đại học Bách khoa Hà Nội",
+        "to_address": "selected:property",
+        "move_date": "2026-10-04",
+        "move_time": "17:00",
+    }
+    facts = {"selected:property": ConfirmedFact(value="home-1", evidence="chọn", stated_at=utcnow())}
+    inp = planner_input(values, [AgentName.RELOCATION])
+    inp = inp.model_copy(update={"intake": inp.intake.model_copy(update={"user_confirmed_facts": facts})})
+    planner = LlmPlanner(None, BASELINE_CAPABILITIES)
+    wrong = {**values, "mode": "quote", "selected_listing_id": "property_search"}  # model wrote the task id
+    wrong.pop("moving_mode")
+    draft = TaskDraft(
+        id="move", agent=AgentName.RELOCATION, inputs_json=json.dumps(wrong), depends_on=[], required=True
+    )
+    plan = planner._convert(PlanDraft(tasks=[draft], actions=[], needs_input=[]), inp)
+    assert plan.task("move").inputs["selected_listing_id"] == "home-1"
+    assert LlmPlanner._grounding_errors(plan, inp) == []
+
+
+def test_adding_a_service_to_an_unabandoned_goal_keeps_it():
+    from src.agents.intake import IntakeInput
+    from src.agents.intake_llm import IntakeDraft, LlmIntake
+
+    def draft(drops):
+        return IntakeDraft(
+            kind="new_goal",
+            normalized_goal="x",
+            intent_name="x",
+            domains=[AgentName.FLIGHT],
+            requested_actions=[],
+            facts=[{"key": "origin", "value": "Hà Nội", "evidence": "Hà Nội", "suggestion_key": None}],
+            unsupported_reason=None,
+            drops_previous_goal=drops,
+            map_origin="none",
+            conflicts=[],
+            change_request=None,
+            target_task_ids=[],
+            declined_suggestions=[],
+        )
+
+    previous = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "Đà Nẵng"})
+    inp = IntakeInput(messages=[], session=SessionContext(), supported_domains=list(AgentName), previous=previous)
+    kept, _ = LlmIntake(None)._convert(draft(False), inp, "tìm vé bay từ Hà Nội vào Đà Nẵng")
+    assert kept.kind == RequestKind.REFINE and kept.domains == [AgentName.PROPERTY, AgentName.FLIGHT]
+    dropped, _ = LlmIntake(None)._convert(draft(True), inp, "thôi không tìm nhà nữa, vé bay từ Hà Nội")
+    assert dropped.kind == RequestKind.NEW_GOAL and dropped.domains == [AgentName.FLIGHT]
+
+
+def test_reference_codes_are_not_dropped_as_personal_data():
+    from src.agents.intake import ground_facts
+    from src.agents.models import ConfirmedFact
+
+    code = {"payment_id": ConfirmedFact(value="ZP123456789", evidence="ZP123456789", stated_at=utcnow())}
+    assert list(ground_facts(code, {}, RequestKind.NEW_GOAL, ["thanh toán mã ZP123456789"], []).facts) == ["payment_id"]
+    phone = {"payment_id": ConfirmedFact(value="0901234567", evidence="0901234567", stated_at=utcnow())}
+    assert ground_facts(phone, {}, RequestKind.NEW_GOAL, ["mã 0901234567"], []).dropped == ["payment_id"]
+
+
+def test_catalog_answer_matches_the_asked_city_across_spelling():
+    from src.agents.nodes.respond import describe_result
+
+    cities = {"cities": [{"city_id": "HAN", "city_name": "Hanoi"}, {"city_id": "VCA", "city_name": "Can Tho"}]}
+    assert describe_result(AgentName.RELOCATION, cities, None, "Cần Thơ")[0] == "AhaMove có phục vụ Cần Thơ (Can Tho)."
+    assert describe_result(AgentName.RELOCATION, cities, None, "Cà Mau")[0].endswith("không có Cà Mau.")

@@ -153,6 +153,7 @@ class IntakeResult(BaseModel):
     change_request: str | None = None
     target_task_ids: list[str] = []
     declined_suggestions: list[str] = []  # key gợi ý người dùng từ chối trong lượt này (S9)
+    unsupported_reason: str | None = None  # câu giải thích ngắn khi kind=unsupported, do Intake viết
 
     @property
     def needs_clarification(self) -> bool:

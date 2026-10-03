@@ -25,13 +25,13 @@ def memory(value, days_ago=1, **kw):
 
 def test_blocks_only_when_no_task_can_run():
     out = resolve(intake_result(domains=[AgentName.PROPERTY]))
-    assert out.blocking_missing == ["property.city|near"]
+    assert out.blocking_missing == ["property.city|near|district"]
 
 
 def test_asks_only_root_task_when_dependent_can_derive():
     # "tìm phòng và vé bay vào đó": chỉ hỏi khu vực; điểm đến suy ra từ phòng, ngày bay hỏi sau.
     out = resolve(intake_result(domains=[AgentName.PROPERTY, AgentName.FLIGHT], values={"origin": "Hà Nội"}))
-    assert out.blocking_missing == ["property.city|near"]
+    assert out.blocking_missing == ["property.city|near|district"]
 
 
 def test_runnable_task_defers_missing_of_others():
@@ -85,7 +85,7 @@ def test_expired_or_stopped_memory_not_prefilled():
         preferences={"near": memory("Quận 10", days_ago=200), "city": memory("HCM", stop_prefill=True)}
     )
     out = resolve(intake_result(domains=[AgentName.PROPERTY]), session=session)
-    assert out.blocking_missing == ["property.city|near"]
+    assert out.blocking_missing == ["property.city|near|district"]
 
 
 def test_anchor_changed_blocks_dependent_prefill():

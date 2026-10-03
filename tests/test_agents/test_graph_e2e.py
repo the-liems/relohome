@@ -124,7 +124,7 @@ async def test_new_user_asks_location_without_calling_agents():
     deps = test_deps(ScriptedIntake([intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY])]), TemplatePlanner())
     out = await Session(deps).say("Tìm phòng giúp mình.")
     assert out["response"].kind == "CLARIFY"
-    assert out["intake"].blocking_missing == ["property.city|near"]
+    assert out["intake"].blocking_missing == ["property.city|near|district"]
     assert out.get("plan") is None
     assert deps.agents.get(AgentName.PROPERTY).requests == []
 

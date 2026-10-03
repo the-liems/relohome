@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.agents.models import SourceKind
@@ -74,6 +74,7 @@ class ServiceSettings(BaseSettings):
     agent_payment_model: str = "gpt-6-luna"
     openai_api_key: SecretStr = SecretStr("")
     agent_writes_enabled: bool = False
+    agent_max_attempts: int = Field(default=5, ge=1, le=5)  # Intake/Planner repairs, task retries, replans
     agent_sandbox_payments_enabled: bool = False
     agent_allow_simulated_transactions: bool = False
 

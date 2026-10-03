@@ -67,7 +67,8 @@ async def test_ambiguous_area_is_asked_back_with_options():
         sample_request(AgentName.PROPERTY, {"city": "Hải Châu"})
     )
     assert result.status == "needs_input"
-    assert result.questions[0].options == ["Hải Châu (Đà Nẵng)", "Hải Châu (Nghệ An)"]
+    # Only strong fuzzy matches (>= MIN_SUGGESTION_SCORE) are offered; weaker ones are not real choices.
+    assert result.questions[0].options == ["Hải Châu (Đà Nẵng)"]
     assert [c[0] for c in client.calls] == ["search_areas"]
 
 

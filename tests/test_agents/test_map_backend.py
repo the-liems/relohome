@@ -31,12 +31,12 @@ async def test_housing_keeps_source_thumbnail_and_resumable_page():
     )
     result = await LocationSubagent(client, AgentName.PROPERTY).run(
         sample_request(
-            AgentName.PROPERTY, {"city": "Hồ Chí Minh", "limit": 1, "cursor": "previous", "max_price_vnd": 0}
+            AgentName.PROPERTY, {"city": "Hồ Chí Minh", "limit": 1, "cursor": "previous", "max_price_vnd": 6_000_000}
         )
     )
     request = client.calls[-1][1]
     assert request["pagination"] == {"limit": 1, "cursor": "previous"}
-    assert request["max_price"]["amount"] == 0
+    assert request["max_price"]["amount"] == 6_000_000  # a 0 ceiling is not a valid Housing input
     assert result.data["search_request"] == request
     assert result.data["next_cursor"] == "next"
     assert result.data["candidates"][0]["thumbnail_url"] == item["thumbnail_url"]
@@ -238,3 +238,24 @@ async def test_graph_search_then_selected_home_route_keeps_identity_across_turns
     assert len(routes) == 1 and routes[0]["origin"] == {"type": "housing", "listing_id": home_id}
     assert [tool for tool, _ in client.calls].count("search_housing") == 1
     assert "1.20 km" in second["response"].text
+
+
+@pytest.mark.asyncio
+async def test_amenity_proximity_is_sent_as_a_housing_filter():
+    item = listing(1, 5_000_000) | {
+        "nearby": [{"place_id": PLACE, "name": "Bệnh viện A", "category": "hospital", "distance_meters": 420.5}]
+    }
+    client = FakeToolClient(
+        {
+            "search_areas": {"results": [{"area_id": "hn", "name": "Hà Nội"}]},
+            "search_housing": {"results": [item], "page": {"next_cursor": None}},
+        }
+    )
+    result = await LocationSubagent(client, AgentName.PROPERTY).run(
+        sample_request(AgentName.PROPERTY, {"city": "Hà Nội", "nearby_categories": ["hospital"]})
+    )
+    request = client.calls[-1][1]
+    assert request["nearby"] == [{"category": "hospital", "max_distance_m": 1500}]
+    assert result.data["candidates"][0]["nearby"] == [
+        {"name": "Bệnh viện A", "category": "hospital", "distance_m": 420.5}
+    ]

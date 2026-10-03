@@ -11,7 +11,7 @@ from src.agents.contracts import AgentCapability
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS
 from src.agents.intake import missing_for, selected_fact_key
 from src.agents.llm import LLMError, StructuredLLM
-from src.agents.llm_runtime import Invocation, UsageOwner, json_object, public_data
+from src.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, json_object, public_data
 from src.agents.models import AgentName, CommitAction, CommitActionKind, Plan, Question, RequestKind, Task
 from src.agents.planning import COMMIT_DOMAIN, PII_REQUIRED, PlannerInput, PlannerOutput, TemplatePlanner, validate_plan
 
@@ -73,7 +73,8 @@ approval, giá, toạ độ, ID hoặc thông tin còn thiếu. Không thay đ�
 Không tạo task với placeholder. Chỉ làm các domain được yêu cầu hoặc task cũ cần giữ.
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
-Map key: flight_date -> flight.date; nearby_categories -> map.categories; nearby_radius_m -> map.radius_m.
+Map key: flight_date -> flight.date. Tiện ích gần nhà là bộ lọc Housing: nearby_categories và nearby_radius_m
+chép nguyên vào task property (không tạo task map cho tiện ích). Map chỉ dùng cho đường đi (map_mode='route').
 map_near -> Map.near và map_city -> Map.city, không được chuyển sang input Housing.
 Nếu có map_near thì Map độc lập với Housing, không thêm depends_on hoặc selected_listing_id.
 Khi map_mode='route': tạo map task với map_mode, route_from, route_to, city, route_profile nếu có.
@@ -129,11 +130,15 @@ Không im lặng bỏ domain được yêu cầu; hoặc có task, hoặc có ne
 
 
 class LlmPlanner(UsageOwner):
-    def __init__(self, llm: StructuredLLM, capabilities: Mapping[AgentName, AgentCapability], *, max_calls: int = 2):
+    def __init__(self, llm: StructuredLLM, capabilities: Mapping[AgentName, AgentCapability], *, max_calls: int = 5):
         super().__init__()
         if max_calls < 1:
             raise ValueError("max_calls must be positive")
-        self.llm, self.registry, self.max_calls = llm, CapabilityRegistry(capabilities), min(2, max_calls)
+        self.llm, self.registry, self.max_calls = (
+            llm,
+            CapabilityRegistry(capabilities),
+            min(MAX_REPAIR_CALLS, max_calls),
+        )
 
     async def plan(self, inp: PlannerInput) -> PlannerOutput:
         run = Invocation(max_calls=self.max_calls)
@@ -219,22 +224,38 @@ class LlmPlanner(UsageOwner):
         ]
         values = inp.intake.constraints.values
         selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
-        if (
-            selected
-            and AgentName.PROPERTY in inp.intake.domains
-            and inp.previous_plan
-            and inp.intake.kind != RequestKind.NEW_GOAL
-            and not any(t.agent == AgentName.PROPERTY for t in tasks)
-        ):
-            # A selected listing may be reused by a new Map task without
-            # repeating the Housing query. Retain the actual completed task
-            # only while every Housing input still matches the current goal.
-            expected, _ = TemplatePlanner._inputs(AgentName.PROPERTY, values, inp.intake)
-            old_property = next((t for t in inp.previous_plan.tasks if t.agent == AgentName.PROPERTY), None)
-            old_result = inp.previous_results.get(old_property.id) if old_property else None
-            if old_property and old_property.inputs == expected and old_result and old_result.status == "done":
-                tasks.insert(0, old_property.model_copy(deep=True))
+        if inp.previous_plan and inp.intake.kind != RequestKind.NEW_GOAL:
+            # A requested domain the model left out keeps its completed task (e.g. the flight found last
+            # turn while this turn adds moving), but only while its inputs still equal what the current
+            # constraints imply; otherwise the model must plan it again.
+            for domain in inp.intake.domains:
+                if any(t.agent == domain for t in tasks):
+                    continue
+                expected, _ = TemplatePlanner._inputs(domain, values, inp.intake)
+                for old_task in inp.previous_plan.tasks:
+                    old_result = inp.previous_results.get(old_task.id)
+                    if (
+                        old_task.agent == domain
+                        and expected is not None
+                        and old_task.inputs == expected
+                        and not old_task.depends_on
+                        and old_result is not None
+                        and old_result.status == "done"
+                        and all(t.id != old_task.id for t in tasks)
+                    ):
+                        tasks.insert(0, old_task.model_copy(deep=True))
+                        break
+        agents_by_id = {t.id: t.agent for t in tasks}
         for task in tasks:
+            if (
+                task.agent == AgentName.MAP
+                and task.inputs.get("map_mode", "nearby") != "route"
+                and any(agents_by_id.get(d) == AgentName.PROPERTY for d in task.depends_on)
+            ):
+                # A dependency on Housing means "around the homes found": origins come from upstream
+                # results, so a named anchor written next to it would contradict the edge.
+                for key in ("near", "near_place_id", "near_coordinate"):
+                    task.inputs.pop(key, None)
             if task.agent in inp.intake.domains and task.agent in {AgentName.PROPERTY, AgentName.MAP}:
                 # Map view and chosen place IDs come from API-validated state only; a model can
                 # neither invent them nor carry one to an endpoint the user has since renamed.
@@ -255,6 +276,18 @@ class LlmPlanner(UsageOwner):
                         task.inputs[field + "_place_id"] = place_id
                     else:
                         task.inputs.pop(field + "_place_id", None)
+            if task.agent == AgentName.MAP and task.agent in inp.intake.domains:
+                # The chosen listing is trusted state: a model-written ID is replaced, never trusted.
+                nearby = task.inputs.get("map_mode", "nearby") != "route"
+                uses_home = any(task.inputs.get(k) == "selected:property" for k in ("route_from", "route_to")) or (
+                    nearby
+                    and not task.inputs.get("near")
+                    and not any(agents_by_id.get(d) == AgentName.PROPERTY for d in task.depends_on)
+                )
+                if selected and uses_home:
+                    task.inputs["selected_listing_id"] = str(selected.value)
+                elif not uses_home:
+                    task.inputs.pop("selected_listing_id", None)
             if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
                 continue
             # Coordinates belong to trusted state. A model cannot override them
@@ -271,7 +304,9 @@ class LlmPlanner(UsageOwner):
                     task.inputs[address_key] = values[address_key]
                     task.inputs[coordinate_key] = dict(values[coordinate_key])
             if selected and any(task.inputs.get(k) == "selected:property" for k in ("from_address", "to_address")):
-                task.inputs.setdefault("selected_listing_id", selected.value)
+                task.inputs["selected_listing_id"] = str(selected.value)  # trusted state wins over the draft
+            elif not any(task.inputs.get(k) == "selected:property" for k in ("from_address", "to_address")):
+                task.inputs.pop("selected_listing_id", None)
         actions = [
             CommitAction(
                 id=f"{a.kind.value}:{a.source_task_id}",
@@ -327,6 +362,8 @@ class LlmPlanner(UsageOwner):
         }
         blocked = set(inp.intake.blocking_missing + inp.intake.constraints.missing)
         planned = {t.agent for t in plan.tasks}
+        plan_agents = {t.id: t.agent for t in plan.tasks}
+        plan_ids = set(plan_agents)
         requested_map_mode = values.get("map_mode", "nearby")
         if (
             AgentName.MAP in inp.intake.domains
@@ -386,10 +423,15 @@ class LlmPlanner(UsageOwner):
             }
             if task.agent == AgentName.RELOCATION and task.inputs.get("mode") == "catalog":
                 mappings[AgentName.RELOCATION] = {}
+            # A Map task bound to Housing results by depends_on takes its origins from upstream.
+            binds_upstream = task.agent == AgentName.MAP and any(
+                d in plan_ids and plan_agents[d] == AgentName.PROPERTY for d in task.depends_on
+            )
             if task.agent == AgentName.MAP:
                 if task.inputs.get("map_mode") == "route" and values.get("map_city"):
                     mappings[AgentName.MAP]["map_city"] = mappings[AgentName.MAP].pop("city")
-                elif values.get("map_near"):
+                elif values.get("map_near") and task.inputs.get("map_mode", "nearby") != "route" and not binds_upstream:
+                    # map_near is the anchor of a nearby search only; a route task never carries it.
                     mappings[AgentName.MAP]["map_near"] = "near"
             if not carried_unrequested and not carried_other_map_mode:
                 if task.agent == AgentName.MAP:

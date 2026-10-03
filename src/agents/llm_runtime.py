@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -13,6 +14,8 @@ from src.agents.common import utcnow
 from src.agents.intake import PII_FACT_KEYS, redact_pii
 from src.agents.llm import LLMError, StructuredLLM
 from src.agents.models import AgentUsage
+
+logger = logging.getLogger(__name__)
 
 PRIVATE_KEYS = PII_FACT_KEYS | {
     "api_key",
@@ -27,6 +30,12 @@ PRIVATE_KEYS = PII_FACT_KEYS | {
     "path",
 }
 CALL_LIMIT: ContextVar[int | None] = ContextVar("graph_llm_call_limit", default=None)
+
+
+# Upper bound for repair calls of one Intake/Planner invocation (AGENT_MAX_ATTEMPTS may lower it).
+MAX_REPAIR_CALLS = 5
+# Provider-side failures worth another attempt; a schema/validation problem is repaired by the caller.
+TRANSIENT_LLM_ERRORS = frozenset({"LLM_NO_RESULT", "LLM_TIMEOUT", "LLM_CONNECTION_ERROR"})
 
 
 def public_data(value: Any) -> Any:
@@ -72,7 +81,7 @@ class UsageOwner:
 @dataclass
 class Invocation:
     max_calls: int = 2
-    deadline: datetime = field(default_factory=lambda: utcnow() + timedelta(seconds=90))
+    deadline: datetime = field(default_factory=lambda: utcnow() + timedelta(seconds=150))
     usage: AgentUsage = field(default_factory=AgentUsage)
 
     def __post_init__(self):
@@ -93,10 +102,20 @@ class Invocation:
         self.usage.llm_calls += 1
 
     async def parse(self, llm: StructuredLLM, prompt: str, data: dict, schema):
-        self.reserve()
-        async with asyncio.timeout(self.remaining()):
+        """One structured call; a transient provider failure is retried within this invocation's
+        call budget and deadline (each retry counts as a call)."""
+        while True:
+            self.reserve()
             try:
-                return await llm.parse(prompt, public_data(data), schema)
-            finally:
-                self.usage.tokens_in += llm.last_usage[0]
-                self.usage.tokens_out += llm.last_usage[1]
+                async with asyncio.timeout(self.remaining()):
+                    try:
+                        return await llm.parse(prompt, public_data(data), schema)
+                    finally:
+                        self.usage.tokens_in += llm.last_usage[0]
+                        self.usage.tokens_out += llm.last_usage[1]
+            except LLMError as exc:
+                if exc.code not in TRANSIENT_LLM_ERRORS or self.usage.llm_calls >= self.max_calls:
+                    raise
+                logger.warning(
+                    "transient LLM error %s, retrying (%s/%s)", exc.code, self.usage.llm_calls, self.max_calls
+                )

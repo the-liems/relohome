@@ -2,13 +2,14 @@
 
 import pytest
 
-from src.agents.intake import ground_facts
+from src.agents.deps import test_deps
+from src.agents.intake import ScriptedIntake, ground_facts
 from src.agents.models import AgentName, Plan, RequestKind, SessionContext, Task
 from src.agents.planner_llm import CapabilityRegistry, LlmPlanner, NeedsInputDraft, PlanDraft, TaskDraft
-from src.agents.planning import PlannerInput
+from src.agents.planning import PlannerInput, TemplatePlanner
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES, operation_selector_keys
 from src.agents.subagents.services.location import pick_city_area
-from tests.test_agents.helpers import fact, intake_result
+from tests.test_agents.helpers import Session, fact, intake_result
 
 SELECTORS = operation_selector_keys(BASELINE_CAPABILITIES.values())
 
@@ -146,3 +147,43 @@ async def test_new_district_replaces_an_old_near_scope_but_keeps_city_and_budget
     values = out["intake"].constraints.values
     assert values["district"] == "Cầu Giấy" and "near" not in values
     assert values["city"] == "Hà Nội" and values["max_price_vnd"] == 6_000_000
+
+
+@pytest.mark.asyncio
+async def test_flight_to_the_chosen_home_uses_the_city_recorded_by_the_provider():
+    from src.agents.common import utcnow
+    from src.agents.models import ConfirmedFact, Plan, Task, TaskResult, TaskStatus
+
+    home = {"id": "h1", "title": "Căn A", "city": "Đà Nẵng"}
+    selected = {"selected:property": ConfirmedFact(value="h1", evidence="chọn", stated_at=utcnow())}
+    previous = intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "Đà Nẵng"}, facts=selected)
+    turn = intake_result(
+        RequestKind.REFINE,
+        [AgentName.PROPERTY, AgentName.FLIGHT],
+        values={"origin": "Hà Nội", "destination": "selected:property", "flight_date": "2026-10-04"},
+    )
+    deps = test_deps(ScriptedIntake([turn]), TemplatePlanner())
+    session = Session(deps)
+    await session.graph.aupdate_state(
+        session.config,
+        {
+            "user_id": session.user_id,
+            "thread_id": session.thread_id,
+            "intake": previous,
+            "plan": Plan(version=1, tasks=[Task(id="home", agent=AgentName.PROPERTY, inputs={"city": "Đà Nẵng"})]),
+            "task_status": {"home": TaskStatus.DONE},
+            "task_results": {
+                "home": TaskResult(
+                    task_id="home",
+                    agent=AgentName.PROPERTY,
+                    plan_version=1,
+                    status="done",
+                    fetched_at=utcnow(),
+                    data={"candidates": [home]},
+                )
+            },
+        },
+        as_node="respond",
+    )
+    out = await session.say("giờ tìm vé từ Hà Nội vào đó ngày 4/10/2026")
+    assert out["intake"].constraints.values["destination"] == "Đà Nẵng"

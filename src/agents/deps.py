@@ -40,8 +40,9 @@ def _default_prefill_ttl() -> dict[str, timedelta]:
 
 
 class GraphSettings(BaseModel):
-    max_task_attempts: int = 2
-    max_replans: int = 2
+    # Attempts per turn (AGENT_MAX_ATTEMPTS in live wiring): subagent task, replans, Planner/Intake repair calls.
+    max_task_attempts: int = 5
+    max_replans: int = 5
     max_parallel_tasks: int = 4
     recursion_limit: int = 100
     default_agent_timeout_s: float = 20.0
@@ -53,7 +54,7 @@ class GraphSettings(BaseModel):
         AgentName.FLIGHT: 100.0,
         AgentName.PAYMENT: 100.0,
     }
-    agent_transport_retries: int = 1
+    agent_transport_retries: int = 4  # 5 attempts in total
     stale_ttl_override: dict[AgentName, timedelta] = {}
     approval_ttl: timedelta = timedelta(minutes=10)
     approval_max_lifetime: timedelta = timedelta(minutes=30)
@@ -64,8 +65,9 @@ class GraphSettings(BaseModel):
 
     # --- Kiểm soát chi phí (§7.5) ---
     llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-6-luna", "heavy": "gpt-6-luna"}
-    max_llm_calls_per_turn: int = 8
-    max_subagent_llm_calls_per_turn: int = 20
+    # Room for Intake + Planner repair calls on each replan; still a hard ceiling per turn.
+    max_llm_calls_per_turn: int = 30
+    max_subagent_llm_calls_per_turn: int = 40
     max_paid_calls_per_turn: int = 6
     max_paid_calls_per_thread: int = 30
 

@@ -18,5 +18,8 @@ HOUSING_INPUT_KEYS = (
     "max_price_vnd",
     "room_type",
     "must_have",
+    # Proximity is a Housing filter ("gần bệnh viện"): listings with such a place within the radius.
+    "nearby_categories",
+    "nearby_radius_m",
     *HOUSING_NUMERIC_FILTERS,
 )

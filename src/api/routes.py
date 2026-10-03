@@ -19,6 +19,7 @@ from langgraph.types import Command
 from src.agents.common import utcnow
 from src.agents.graph import run_config
 from src.agents.intake import redact_pii
+from src.agents.progress import plan_progress
 from src.agents.wiring import AgentService
 from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 
@@ -304,6 +305,7 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "committed": {k: r.model_dump(mode="json") for k, r in (values.get("committed") or {}).items()},
         "pending": pending,
         "selections": _selections(values),
+        "progress": plan_progress(values),
     }
 
 

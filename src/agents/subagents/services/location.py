@@ -48,6 +48,7 @@ ROOM_TYPES = {
 # Khoá `address_normalized` của importer housing (Location); `raw` là chuỗi địa chỉ gốc của nguồn.
 ADDRESS_ORDER = ("housenumber", "street", "ward", "district", "city")
 CLEAR_MARGIN = 0.15  # chênh match_score tối thiểu để coi ứng viên đầu là rõ ràng
+DEFAULT_NEARBY_RADIUS_M = 1500  # "gần <tiện ích>" without a stated distance; same default as Map nearby
 MIN_SUGGESTION_SCORE = 0.8  # fuzzy suggestions require strong similarity, never auto-selection
 
 
@@ -253,6 +254,12 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "location_accuracy": r.get("location_accuracy") or "unknown",
         "location_method": r.get("location_method"),
         "amenities": amenities,
+        # Places that satisfied a proximity filter, as Location measured them (straight-line metres).
+        "nearby": [
+            {"name": n.get("name"), "category": n.get("category"), "distance_m": n.get("distance_meters")}
+            for n in r.get("nearby") or []
+            if isinstance(n, dict)
+        ],
         "price": price,
         "thumbnail_url": r.get("thumbnail_url"),
         "source": r.get("source"),
@@ -416,6 +423,9 @@ class LocationSubagent:
                 body["property_type"] = room
             if filters.get("must_have"):
                 body["amenities"] = list(filters["must_have"])
+            if filters.get("nearby_categories"):
+                radius = filters.get("nearby_radius_m") or DEFAULT_NEARBY_RADIUS_M
+                body["nearby"] = [{"category": c, "max_distance_m": radius} for c in filters["nearby_categories"]]
             return body
 
         hard = {k: inp[k] for k in HOUSING_INPUT_KEYS if inp.get(k) is not None}

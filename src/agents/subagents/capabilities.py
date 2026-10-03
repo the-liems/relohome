@@ -48,9 +48,13 @@ PROPERTY = AgentCapability(
             },
             "min_price_vnd": _INT,
             **{k: {"type": "integer" if "bedrooms" in k else "number", "minimum": 0} for k in HOUSING_NUMERIC_FILTERS},
-            "max_price_vnd": _INT,
+            # Rent and floor area are strictly positive: an upper bound of 0 can only exclude every listing.
+            "max_area_m2": {"type": "number", "exclusiveMinimum": 0},
+            "max_price_vnd": {"type": "integer", "exclusiveMinimum": 0},
             "room_type": _STR,
             "must_have": {"type": "array", "items": _STR},
+            "nearby_categories": {"type": "array", "items": _STR, "minItems": 1, "maxItems": 10},
+            "nearby_radius_m": {"type": "integer", "minimum": 50, "maximum": 20000},
             "soft_filters": {"type": "object"},
             "limit": {"type": "integer", "minimum": 1, "maximum": 20},
             "cursor": {"type": ["string", "null"], "maxLength": 1000},
@@ -366,3 +370,20 @@ def operation_selector_keys(capabilities) -> frozenset[str]:
         for clause in schema.get("allOf", []):
             keys |= consts(clause.get("if") or {})
     return frozenset(keys)
+
+
+def fact_fits_capabilities(key: str, value) -> bool:
+    """A stated fact must be a valid input wherever a domain uses the same key (schema, not phrasing)."""
+    from jsonschema import Draft202012Validator
+
+    for capability in BASELINE_CAPABILITIES.values():
+        spec = (capability.input_schema.get("properties") or {}).get(key)
+        if not isinstance(spec, dict):
+            continue
+        # Same key with a different shape is a different field (e.g. fact passengers=1 vs Flight
+        # input passengers={adults: 1}); only a value of the input's own type is checked against it.
+        if "type" in spec and not Draft202012Validator({"type": spec["type"]}).is_valid(value):
+            continue
+        if not Draft202012Validator(spec).is_valid(value):
+            return False
+    return True
