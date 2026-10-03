@@ -1,7 +1,7 @@
 # ADR-020 — LLM domain agents trong graph tích hợp
 
 Date: 2026-09-30
-Status: Accepted cho MVP local theo yêu cầu chủ task; nhóm review khi merge main.
+Status: Superseded by [ADR-021](ADR-021-mission-driven-domain-tools.md).
 Related: ADR-016, ADR-018, ADR-019.
 Specification: [SPEC-014](../specs/SPEC-014-domain-llm-agents.md).
 

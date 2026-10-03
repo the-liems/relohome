@@ -2,7 +2,8 @@
 
 Status: Draft (implemented local; chờ nhóm review).
 
-Ngày: 2026-09-30. Quyết định: [ADR-020](../adr/ADR-020-llm-domain-agents.md).
+Ngày: 2026-09-30. Cập nhật: 2026-10-03. Quyết định hiện hành:
+[ADR-021](../adr/ADR-021-mission-driven-domain-tools.md) (thay ADR-020).
 Phạm vi: runtime tích hợp local, không deploy. Bổ sung cho ADR-016/018/019;
 không thay MCP contract của teammate.
 
@@ -11,8 +12,8 @@ không thay MCP contract của teammate.
 | ID | Yêu cầu |
 |---|---|
 | SPEC-014/AC-01 | Intake/Planner phân task trong một graph; Housing, Map, Flight, Moving, Payment đăng ký capability riêng. `/api/v1/status` công bố implementation và uses_llm thực tế. |
-| SPEC-014/AC-02 | Housing/Map/Flight/Payment gọi OpenAI thật để điều khiển vòng tool. Không fallback dữ liệu giả. Tối đa 4 LLM calls/invocation và chịu budget chung của graph. |
-| SPEC-014/AC-03 | Tool đầu thực thi task đã validate, với tham số do adapter ràng buộc; LLM không tự sửa hard filters/ngày/giá/tọa độ. Các bước resolve/search dùng lại adapter hiện có. |
+| SPEC-014/AC-02 | Housing/Map/Flight/Payment dùng LLM thật để chọn thao tác trong namespace domain. Không fallback dữ liệu giả. Tối đa 6 LLM calls/invocation và chịu budget chung của graph; không bắt dùng hết budget. |
+| SPEC-014/AC-03 | Không có tool đầu do code chọn bắt buộc. LLM chọn preparation/search/details/pagination/ask/finish/replan; tool arguments phải là field/ID/cursor được cấp hoặc đã quan sát. Không sửa hard filters/ngày/giá/tọa độ; adapter giữ normalization và dữ kiện thật. |
 | SPEC-014/AC-04 | Housing/Flight chỉ được đọc chi tiết ID đã nhận từ provider; finish không thêm/bớt ID (thứ tự thiếu ID được bổ sung theo thứ tự provider, AC-11). Khi đổi thứ tự, quote và missing_fields vẫn trỏ đúng option. Map/Payment không có thao tác sắp xếp option. |
 | SPEC-014/AC-05 | Kết quả giữ nguồn, dữ kiện, agent_trace và usage. Không sinh SQL hoặc thực thi code do LLM viết. Không khẳng định fare rules tĩnh là dữ kiện live. |
 | SPEC-014/AC-06 | Payment chỉ tra ID có bản ghi ownership thuộc user được API xác thực. Kiểm tra trước LLM/MCP; không nhận user_id từ tool args. User khác không đọc được giao dịch. |
@@ -33,12 +34,24 @@ không thay MCP contract của teammate.
 | SPEC-014/AC-21 | Housing/Map không tự nhận tọa độ từ fuzzy match. Khi similarity đủ mạnh (>=0.8), trả ứng viên thật cho user chọn; khớp yếu không được quảng bá thành lựa chọn hợp lệ. Moving vẫn phải xác nhận điểm dừng phù hợp. |
 | SPEC-014/AC-22 | Câu hỏi cùng ngày bay dùng `flight.date` và `flight.flight_date` được chuẩn hóa thành một câu `flight.flight_date`, không gộp với ngày chuyển đồ. |
 | SPEC-014/AC-23 | Bước LLM xem lại conflict phải dùng cả confirmed facts của các lượt trước. `selected:property` hợp lệ cho phép adapter đọc địa chỉ thật; Intake không bắt user gõ lại địa chỉ chỉ vì fact không được trích lại trong lượt mới. |
+| SPEC-014/AC-24 | Contract 1.1 giao `goal` và `user_request` đã giới hạn/redact cùng inputs/hints/upstream. Goal không cấp quyền ghi hay thay dữ kiện; request 1.0 không có hai field vẫn tương thích. |
+| SPEC-014/AC-25 | Tool preparation dùng MCP thật, cache riêng từng invocation và bind chỉ vị trí không fuzzy đủ rõ. Tọa độ/pin đã xác nhận không bị resolve lại thành địa điểm khác. |
+| SPEC-014/AC-26 | Housing phân trang chỉ bằng cursor provider đã trả; giữ nhà/quote/nguồn/missing_fields/viewport của các trang đã đọc. Provider budget đếm cả preparation và details; không dùng LLM duyệt database. |
+| SPEC-014/AC-27 | `agent_assessment` là đánh giá model, tách khỏi dữ kiện provider. Khi agent báo `limited`, phản hồi đọc là `PARTIAL` và nêu rõ đây là đánh giá chưa xác minh, không che hạn chế bằng thông báo hoàn tất. `request_replan` gửi đề nghị có nguồn về Validator/Planner; không tự thêm domain, thay filter hoặc kích hoạt lặp do kết quả cũ. |
+| SPEC-014/AC-28 | Lọc nhà gần loại tiện ích dùng Housing `nearby_*`; khám phá quanh địa danh/căn đã chọn/các căn tìm được dùng Map `map_categories`/`map_radius_m`. Không biến Map exploration thành tìm lại nhà hay xóa lựa chọn. |
+| SPEC-014/AC-29 | Tìm nhà quanh địa danh dùng `search_radius_m` đã nêu hoặc default được thông báo; khoảng cách đường thẳng không được mô tả như thời gian/quãng đường di chuyển. |
+| SPEC-014/AC-30 | Intake/Planner/domain vẫn suy luận bằng LLM; context projection chỉ bỏ trường render/trace và dữ liệu trùng, không bỏ ID, ràng buộc, nguồn, hạn dùng hoặc dữ kiện chưa biết. Dữ liệu đầy đủ giữ trong state/API/UI. |
+| SPEC-014/AC-31 | LLM chọn số kết quả Housing trong giới hạn `limit` đã xác nhận; composite search resolve an toàn và phân trang tối đa ba trang trong provider budget, không đổi hard filters. Mơ hồ phải hỏi; lỗi trang sau giữ trang trước và báo hạn chế. |
+| SPEC-014/AC-32 | Chọn địa điểm đã được API xác minh gắn tên chuẩn và ID vào cùng fact/input, không sinh conflict vì nhãn hiển thị khác tên query. Map quanh căn đã chọn không được nhận anchor tìm nhà cũ thay cho căn đó. |
+| SPEC-014/AC-33 | Assessment limited của task optional từ lượt trước không làm hạ mức đáp ứng của task mới đã xong. Task required được tái dùng vẫn phải kiểm hạn chế; khi không có task mới, không che hạn chế của kết quả đang dùng. |
 
 ## Kiểm chứng
 
 `tests/test_llm_agents/test_integrated_live.py`: Housing/Flight/Map thực và trace,
 multiturn, Moving báo giá; không tạo giao dịch.
 `test_multiturn_live.py`: bảo toàn/sửa ngữ cảnh và liên kết tọa độ.
+`test_domain_missions_live.py`: Location thật + tool policy (không gọi LLM),
+Housing gần địa danh → chọn → Map exploration, và Map || Flight thật.
 `test_payment_agent_live.py`: tra giao dịch sandbox **đã tồn tại** và chặn user khác;
 skip nếu chưa có giao dịch thật, không tự tạo dữ liệu thay thế.
 
@@ -50,6 +63,7 @@ Các test phụ thuộc API/LLM/MCP thật; không coi skip hoặc lỗi mạng 
 
 Payment chat hiện tra trạng thái, chưa tạo/hoàn tiền qua hội thoại.
 Flight hiện tìm chuyến; chưa có provider xuất vé thật.
-Các tool nghiệp vụ là composite operations, không phải LLM tự tùy ý gọi mọi MCP tool.
+Các tool là thao tác đọc có giới hạn; model chọn thao tác và entity được cấp,
+không được tùy ý sửa mọi tham số MCP. Composite search và preparation đều có thể dùng.
 Housing/Map dùng chung Location MCP theo thiết kế teammate, nhưng domain agent riêng.
 Chất lượng dữ liệu housing và coverage địa điểm vẫn phụ thuộc snapshot/provider.

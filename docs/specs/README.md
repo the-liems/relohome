@@ -6,6 +6,9 @@ SPEC nói **hệ thống phải làm gì**; ADR nói **vì sao chọn cách làm
 dùng `Draft`, `Accepted` hoặc `Superseded`. Mã tiêu chí (`SPEC-NNN/AC-NN`) giữ ổn
 định; tiến độ theo dõi ở GitHub Issues, không ở mục lục này.
 
+[SPEC-014 — Domain LLM agents](SPEC-014-domain-llm-agents.md) mô tả vòng tool
+mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
+
 ## Agent
 
 | Cần tìm hiểu | SPEC | Trạng thái | Phụ trách |

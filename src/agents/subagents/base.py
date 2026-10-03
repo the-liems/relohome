@@ -24,6 +24,7 @@ from src.agents.contracts import (
     contract_major,
     failed_result,
 )
+from src.agents.llm_runtime import public_data
 from src.agents.models import AgentBudget, TaskResult, TaskStatus
 from src.agents.state import AgentInput
 
@@ -70,6 +71,8 @@ def build_request(capability: AgentCapability, inp: AgentInput, policy: AgentPol
         attempt=inp["attempt"],
         agent=task.agent,
         inputs=dict(task.inputs),
+        goal=public_data(inp.get("goal", ""))[:1500],
+        user_request=public_data(inp.get("user_request", ""))[:2000],
         constraints=constraints,
         hints=hints,
         upstream={

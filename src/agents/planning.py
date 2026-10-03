@@ -297,8 +297,12 @@ class TemplatePlanner:
                 if selected and any(inputs.get(k) == "selected:property" for k in ("route_from", "route_to")):
                     inputs["selected_listing_id"] = str(selected.value)
                 return inputs, False
-            _put(inputs, "categories", values.get("nearby_categories") or DEFAULT_MAP_CATEGORIES)
-            inputs["radius_m"] = int(values.get("nearby_radius_m") or 1500)
+            _put(
+                inputs,
+                "categories",
+                values.get("map_categories") or values.get("nearby_categories") or DEFAULT_MAP_CATEGORIES,
+            )
+            inputs["radius_m"] = int(values.get("map_radius_m") or values.get("nearby_radius_m") or 1500)
             standalone = values.get("map_near") or (values.get("near") and AgentName.PROPERTY not in intake.domains)
             if standalone:
                 inputs["near"] = values.get("map_near") or values["near"]

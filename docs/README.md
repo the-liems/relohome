@@ -1,5 +1,10 @@
 # Project documentation
 
+- [Bàn giao agent và tối ưu ngữ cảnh trên khoa — 03/10](integration/agent-handoff-khoa-2026-10-03.md)
+- [So sánh toàn bộ MVP gốc và bản sửa: 4 câu liên kết mới](../eval/original-mvp-followups-2026-10-03.md)
+- [Domain agents theo mục tiêu: thay đổi và kiểm thử thật 03/10](integration/domain-missions-2026-10-03.md)
+- [Đánh giá A/B sau thay đổi: cải thiện, chi phí và regression](../eval/domain-mission-quality-2026-10-03.md)
+
 - [Bàn giao tích hợp MVP và sửa lỗi chat](integration/mvp-completion-2026-09-30.md)
 
 - [MVP local: cài đặt, cấu trúc, demo và phục hồi](runbooks/local-mvp.md)

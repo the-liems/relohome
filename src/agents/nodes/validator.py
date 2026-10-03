@@ -178,6 +178,20 @@ def decide(
             continue
         upstream = [results[d] for d in task.depends_on if d in results]
         findings.extend(check_task(task.id, result, capabilities.get(task.id), ttl_s.get(task.id, 0), upstream, now))
+        # Domain semantic feedback is a request, not authority to alter the plan.
+        # A retained result from an older plan must not trigger the same replan
+        # repeatedly. Planner still validates every domain, hard input and edge.
+        if result and result.plan_version == plan.version and result.data.get("agent_replan"):
+            findings.append(
+                Finding(
+                    ValidationIssue(
+                        code="V5",
+                        task_id=task.id,
+                        message="Subagent yêu cầu xem lại kế hoạch: "
+                        + str(result.data["agent_replan"].get("reason", ""))[:400],
+                    )
+                )
+            )
     for message in (m for rule in rules for m in rule(plan, results, intake)):
         findings.append(Finding(ValidationIssue(code="V5", task_id=None, message=message), ask_user=True))
 

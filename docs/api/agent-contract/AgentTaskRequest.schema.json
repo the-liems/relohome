@@ -76,7 +76,7 @@
   },
   "properties": {
     "contract_version": {
-      "default": "1.0",
+      "default": "1.1",
       "title": "Contract Version",
       "type": "string"
     },
@@ -107,6 +107,16 @@
       "additionalProperties": true,
       "title": "Inputs",
       "type": "object"
+    },
+    "goal": {
+      "default": "",
+      "title": "Goal",
+      "type": "string"
+    },
+    "user_request": {
+      "default": "",
+      "title": "User Request",
+      "type": "string"
     },
     "constraints": {
       "additionalProperties": true,

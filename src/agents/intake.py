@@ -45,6 +45,8 @@ class IntakeInput(BaseModel):
     last_suggestions: list[Suggestion] = []
     supported_domains: list[AgentName] = []
     map_view_available: bool = False  # client đang hiển thị bản đồ và đã gửi khung xem (API kiểm)
+    verified_place_choice: dict[str, Any] | None = None  # API-revalidated UI selection, not model-authored facts
+    verified_moving_locations: dict[str, Any] | None = None  # validated confirmed user pins, never model coordinates
 
 
 # Giá trị tham chiếu của `near` khi người dùng nói "khu này", "khu đang xem" trên bản đồ. Node thay bằng
@@ -186,6 +188,7 @@ FACT_LABELS = {
     "city": "thành phố",
     "district": "quận/huyện",
     "near": "địa điểm gần",
+    "search_radius_m": "bán kính tìm nhà",
     "min_price_vnd": "giá tối thiểu",
     "max_price_vnd": "ngân sách tối đa",
     "room_type": "loại phòng",
@@ -204,6 +207,8 @@ FACT_LABELS = {
     "route_profile": "phương tiện",
     "nearby_categories": "loại tiện ích",
     "nearby_radius_m": "bán kính",
+    "map_categories": "tiện ích muốn xem",
+    "map_radius_m": "bán kính xem tiện ích",
 }
 
 
@@ -234,7 +239,17 @@ def ground_facts(
         evidence = nfc(fact.evidence).strip().lower()
         # A typed amount/count is not a phone number merely because it has 9+ digits.
         numeric_constraint = (
-            name in {"min_price_vnd", "max_price_vnd", "budget_vnd", "household_size", "passengers", "nearby_radius_m"}
+            name
+            in {
+                "min_price_vnd",
+                "max_price_vnd",
+                "budget_vnd",
+                "household_size",
+                "passengers",
+                "nearby_radius_m",
+                "map_radius_m",
+                "search_radius_m",
+            }
             and type(fact.value) is int
         )
         # A transaction reference (payment/order/booking ID) is a long code by nature; only a value that is

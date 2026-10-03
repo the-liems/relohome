@@ -1,6 +1,7 @@
 # Mục lục ADR
 
-Cập nhật domain agents: [ADR-020 — LLM domain agents trong graph tích hợp](ADR-020-llm-domain-agents.md).
+Cập nhật domain agents: [ADR-021 — Mission-driven tools](ADR-021-mission-driven-domain-tools.md).
+ADR-020 giữ làm quyết định lịch sử, đã được ADR-021 thay chính sách vòng tool.
 
 ADR ghi **lý do và đánh đổi của một quyết định kỹ thuật**, không ghi tiến độ.
 Khi thay đổi quyết định, tạo ADR mới và đánh dấu ADR cũ `Superseded by ADR-XXX`.

@@ -63,6 +63,66 @@
       "title": "AgentUsage",
       "type": "object"
     },
+    "LocationChoice": {
+      "description": "Một ứng viên địa điểm do Location trả về; client hiển thị thành pin để người dùng chọn.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "entity_type": {
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "lat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lat"
+        },
+        "lng": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lng"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "entity_type"
+      ],
+      "title": "LocationChoice",
+      "type": "object"
+    },
     "Question": {
       "properties": {
         "field": {
@@ -79,6 +139,14 @@
             "type": "string"
           },
           "title": "Options",
+          "type": "array"
+        },
+        "choices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LocationChoice"
+          },
+          "title": "Choices",
           "type": "array"
         },
         "blocking": {
@@ -129,7 +197,7 @@
   },
   "properties": {
     "contract_version": {
-      "default": "1.0",
+      "default": "1.1",
       "title": "Contract Version",
       "type": "string"
     },

@@ -11,6 +11,7 @@ HOUSING_INPUT_KEYS = (
     "city",
     "district",
     "near",
+    "search_radius_m",
     "near_place_id",
     "near_coordinate",
     "bounding_box",
@@ -21,5 +22,6 @@ HOUSING_INPUT_KEYS = (
     # Proximity is a Housing filter ("gần bệnh viện"): listings with such a place within the radius.
     "nearby_categories",
     "nearby_radius_m",
+    "limit",  # user-requested result count; presentation bound, never a relaxed filter
     *HOUSING_NUMERIC_FILTERS,
 )

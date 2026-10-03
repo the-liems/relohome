@@ -19,6 +19,7 @@ from openai import APIError, AsyncOpenAI
 from src.agents.common import utcnow
 from src.agents.contracts import AgentManifest, AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.llm import LLMError
+from src.agents.llm_context import model_json
 from src.agents.llm_provider import client_options, provider_model
 from src.agents.llm_runtime import Invocation, json_object, public_data
 from src.agents.models import AgentBudget, AgentName, LocationChoice, Question, Quote, SourceKind
@@ -208,16 +209,17 @@ class MovingLlmAgent:
             history: list[Any] = [
                 {
                     "role": "user",
-                    "content": json.dumps(
+                    "content": model_json(
                         public_data(
                             {
                                 "inputs": req.inputs,
+                                "goal": req.goal,
+                                "user_request": req.user_request,
                                 "constraints": req.constraints,
                                 "hints": req.hints,
                                 "budget": req.budget.model_dump(mode="json"),
                             }
                         ),
-                        ensure_ascii=False,
                     ),
                 }
             ]
@@ -284,7 +286,7 @@ class MovingLlmAgent:
                     {
                         "type": "function_call_output",
                         "call_id": call.call_id,
-                        "output": json.dumps(public_data(output), ensure_ascii=False, default=str),
+                        "output": model_json(output),
                     }
                 )
         except LLMError as exc:

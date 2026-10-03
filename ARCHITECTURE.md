@@ -2,8 +2,11 @@
 
 ## Current implementation
 
-Local MVP now wires LLM Intake, Planner and Moving into the shared LangGraph
-runtime. Housing/Map/Flight use domain adapters; not every domain adds an LLM.
+Local MVP wires LLM Intake, Planner and Moving into the shared LangGraph
+runtime. Housing/Map/Flight/Payment have bounded, mission-driven domain tool loops,
+with grounded adapters, real-provider data and shared graph budgets. See
+[ADR-021](docs/adr/ADR-021-mission-driven-domain-tools.md) and
+[SPEC-014](docs/specs/SPEC-014-domain-llm-agents.md).
 SQLite persistence and sandbox boundaries are described in
 [ADR-019](docs/adr/ADR-019-local-integrated-mvp.md) and the
 [local runbook](docs/runbooks/local-mvp.md). This is not a deployment architecture.
@@ -23,15 +26,16 @@ The chat agent is one LangGraph graph (`src/agents/`, [agent graph design](docs/
 ADR-016): intake → Routing Orchestrator → domain subagents → validator → confirm → transaction.
 It connects to the Location (housing, place, route), Moving/AhaMove, Flight and Payment MCP services
 through `src/services/adapters/` (`AGENT_SUBAGENTS=live`), or runs fully offline with fake subagents.
-The LLM Intake and LLM Planner are not implemented yet (the graph uses stubs / the rule-based
-`TemplatePlanner`).
+The integrated local runtime uses LLM Intake and Planner. `TemplatePlanner` remains
+a historical/scaffolding implementation, not the default live planner.
 
 Independent [Intake and Routing Orchestrator services](docs/architecture/standalone-agent-services.md)
 implement direction B from the [original analysis](docs/architecture/intake-and-routing-orchestrator.md).
 They have separate HTTP entrypoints and images. Intake understands requests;
 Routing owns planning, scheduling, internal tool-call control and persisted workflow
-state. There is no separate Executor agent. Their integration into the chat graph,
-domain MCP connections and trusted approval backend remains future work.
+state. There is no separate LLM Executor agent: the integrated graph uses a code
+scheduler. The standalone entrypoints remain available, but the local chat runtime
+uses the shared graph and grounded domain MCP clients.
 See the [standalone runbook](docs/runbooks/agent-services.md).
 
 Moving is an independently startable MCP server. It shares canonical contracts

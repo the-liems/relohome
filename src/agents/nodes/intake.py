@@ -51,7 +51,7 @@ def explicitly_changed_fact(key: str, text: str) -> bool:
         return bool(re.search(r"\b(?:đổi|sửa|chuyển)\s+giờ\b", text, re.IGNORECASE))
     if key in {"from_address", "to_address"}:
         return bool(re.search(r"\b(?:đổi chiều|đảo chiều|ngược lại)\b", text, re.IGNORECASE))
-    if key in {"nearby_categories", "nearby_radius_m"}:
+    if key in {"nearby_categories", "nearby_radius_m", "map_categories", "map_radius_m"}:
         return bool(re.search(r"\b(?:không cần .+ nữa|chỉ tìm|đổi|thay)\b", text, re.IGNORECASE))
     return False
 
@@ -166,6 +166,8 @@ def make_intake(deps: GraphDeps):
                     last_suggestions=last_response.suggestions if last_response else [],
                     supported_domains=deps.agents.names(),
                     map_view_available=bool(state.get("map_view")),
+                    verified_place_choice=state.get("place_choice"),
+                    verified_moving_locations=state.get("moving_locations"),
                 ),
                 deps,
                 state,
@@ -214,7 +216,7 @@ def make_intake(deps: GraphDeps):
             and previous
             and previous.constraints.values.get("map_mode") == "route"
             and AgentName.MAP in result.domains
-            and "nearby_categories" in result.user_confirmed_facts
+            and any(k in result.user_confirmed_facts for k in ("map_categories", "nearby_categories"))
         ):
             result.user_confirmed_facts["map_mode"] = ConfirmedFact(
                 value="nearby", evidence=stopped_route.group(0), stated_at=now
@@ -234,6 +236,27 @@ def make_intake(deps: GraphDeps):
         user_texts = [str(m.content) for m in messages if isinstance(m, HumanMessage)]
         suggestion_keys = [s.key for s in last_response.suggestions] if last_response else []
         previous_facts = dict(previous.user_confirmed_facts) if previous else {}
+        for endpoint, address_key in (("pickup", "from_address"), ("destination", "to_address")):
+            pin = (state.get("moving_locations") or {}).get(endpoint)
+            if pin and pin.get("confirmed") is True:
+                old = previous_facts.get(address_key)
+                if old and old.value != pin["address"]:
+                    # A newly selected precise pin can differ from the old query
+                    # label. Its canonical address will be applied below, not
+                    # compared as a conflicting model-authored paraphrase.
+                    previous_facts.pop(address_key, None)
+        choice = state.get("place_choice")
+        choice_field = None
+        if choice:
+            current_values = {**(previous.constraints.values if previous else {}), **result.constraints.values}
+            choice_field = (
+                "map_near" if choice["field"] == "near" and current_values.get("map_near") else choice["field"]
+            )
+            # This field is explicitly selected through the verified API. Its
+            # canonical label need not equal the old free-text query, and must
+            # not be re-grounded as a conflicting model paraphrase.
+            previous_facts.pop(choice_field, None)
+            result.user_confirmed_facts.pop(choice_field, None)
         # Ý muốn đặt đã được thực hiện thì không mang sang lượt sau (tránh đặt lại ngoài ý muốn).
         for receipt in active_commits(state.get("committed")).values():
             key = commit_fact_key(receipt.kind)
@@ -401,6 +424,7 @@ def make_intake(deps: GraphDeps):
                     # Only the validated API input can supply this point, never a model draft.
                     values[address_key] = pin["address"]
                     values[coord_key] = {"lat": pin["lat"], "lng": pin["lng"]}
+                    facts[address_key] = ConfirmedFact(value=pin["address"], evidence=pin["address"], stated_at=now)
         # Bản đồ: "khu này" là khung đang xem mà API đã kiểm; nêu khu vực mới thì bỏ khung cũ.
         map_bbox = (state.get("map_view") or {}).get("bounding_box")
         named_area = any(
@@ -418,14 +442,13 @@ def make_intake(deps: GraphDeps):
         elif named_area:
             values.pop("bounding_box", None)
         # Ứng viên địa điểm người dùng bấm chọn trên bản đồ: API đã đối chiếu với Location.
-        choice = state.get("place_choice")
         for key in PLACE_CHOICE_FIELDS:
             if key in result.user_confirmed_facts and not (choice and choice["field"] == key):
                 values.pop(key + "_place_id", None)
         if choice:
-            choice_field = "map_near" if choice["field"] == "near" and values.get("map_near") else choice["field"]
             values[choice_field] = choice["name"]
             values[choice_field + "_place_id"] = choice["place_id"]
+            facts[choice_field] = ConfirmedFact(value=choice["name"], evidence=choice["name"], stated_at=now)
             if choice["field"] == "near":
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)

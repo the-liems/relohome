@@ -121,6 +121,11 @@ def describe_result(
             f"Thanh toán sandbox {payment.get('payment_id')}: {payment.get('status')} — {vnd(payment.get('amount'))}. Trạng thái do ZaloPay trả về, không đồng nghĩa dịch vụ đã được đặt."
         )
     if agent == AgentName.PROPERTY:
+        if data.get("search_radius_m"):
+            lines.append(
+                f"Phạm vi tìm nhà: {data['search_radius_m']} m đường thẳng quanh địa điểm"
+                + (" (bán kính mặc định, bạn có thể đổi)." if data.get("radius_is_default") else ".")
+            )
         for i, c in enumerate(data.get("candidates", [])[:5], 1):
             lines.append(
                 f"{i}. {c.get('title')} — {vnd(c.get('price_vnd'))}/tháng — {c.get('address') or 'chưa có địa chỉ'}"
@@ -132,7 +137,7 @@ def describe_result(
                     if n.get("distance_m") is not None
                 )
             )
-        if not lines:
+        if not data.get("candidates"):
             lines.append("Chưa tìm thấy phòng phù hợp.")
     elif agent == AgentName.MAP:
         routing = data.get("routing") or {}
@@ -327,7 +332,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 p
                 for p in (
                     intake.unsupported_reason if intake else None,
-                    "Mình hỗ trợ tìm nhà (kèm điều kiện gần tiện ích), đường đi, chuyển đồ, tìm chuyến bay và tra"
+                    "Mình hỗ trợ tìm nhà (kèm điều kiện gần tiện ích), khám phá tiện ích/đường đi, chuyển đồ, tìm chuyến bay và tra"
                     " thanh toán đã có; chưa hỗ trợ xuất vé, thu hay hoàn tiền qua chat.",
                 )
                 if p
@@ -386,6 +391,37 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 for t in failed
             ):
                 head = "Một phần yêu cầu chưa có dữ liệu hợp lệ hoặc bạn chưa có quyền truy cập. Hãy kiểm tra mã và thông tin đã cung cấp."
+        limited = {}
+        # A carried optional task is context, not unfinished work in this turn.
+        # Required reused results still matter; when no task ran, show limitations
+        # of reused results rather than incorrectly claiming a fresh completion.
+        fresh_ids = {
+            task.id
+            for task in (plan.tasks if plan else [])
+            if results.get(task.id) is not None
+            and (results[task.id].data.get("execution") or {}).get("request_id") == state.get("request_id")
+        }
+        for task in plan.tasks if plan else []:
+            if fresh_ids and not task.required and task.id not in fresh_ids:
+                continue
+            result = results.get(task.id)
+            assessment = result.data.get("agent_assessment", {}) if result and result.status == "done" else {}
+            if (
+                assessment.get("kind") == "model_assessment_not_provider_fact"
+                and assessment.get("satisfaction") == "limited"
+            ):
+                limited[task.id] = assessment
+                explanation = str(assessment.get("reason", ""))[:400]
+                next_step = str(assessment.get("next_step", ""))[:300]
+                notes.append(
+                    f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
+                    + " ".join(p for p in (explanation, next_step) if p)
+                )
+        if limited:
+            data["limited_tasks"] = limited
+            if kind == "ANSWER":
+                kind = "PARTIAL"
+                head = "Mình đã lấy được dữ liệu, nhưng chưa xác minh đủ mọi yêu cầu:"
         summary = state.get("cost_summary")
         if summary:
             data["cost_summary"] = summary.model_dump(mode="json")

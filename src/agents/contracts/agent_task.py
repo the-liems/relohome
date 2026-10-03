@@ -24,7 +24,7 @@ from src.agents.models import (
     SourceKind,
 )
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "1.1"
 
 
 def contract_major(version: str) -> str:
@@ -68,6 +68,8 @@ class AgentTaskRequest(BaseModel):
     attempt: int
     agent: AgentName
     inputs: dict[str, Any]
+    goal: str = ""  # semantic mission; not permission to change validated inputs
+    user_request: str = ""  # latest user turn, bounded/redacted before delivery
     constraints: dict[str, Any] = {}
     hints: dict[str, Any] = {}
     upstream: dict[str, UpstreamResult] = {}

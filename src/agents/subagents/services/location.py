@@ -346,6 +346,7 @@ class LocationSubagent:
     async def _property(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
         limit = int(inp.get("limit") or 5)
+        search_radius = int(inp.get("search_radius_m") or DEFAULT_RADIUS_M)
         soft = inp.get("soft_filters") or {}
         area: dict[str, Any] = {}
         area_name = None
@@ -363,7 +364,7 @@ class LocationSubagent:
         if area:
             pass
         elif inp.get("near") and inp.get("near_coordinate"):
-            area = {"center": inp["near_coordinate"], "radius_m": DEFAULT_RADIUS_M}
+            area = {"center": inp["near_coordinate"], "radius_m": search_radius}
             area_name = inp["near"]
         elif inp.get("near_place_id"):
             # Người dùng đã chọn ứng viên trên bản đồ: dùng đúng ID đó, không resolve lại tên.
@@ -371,13 +372,13 @@ class LocationSubagent:
             location = (place or {}).get("location") or {}
             if location.get("lat") is None:
                 return self._not_found(req, tools, "near", inp.get("near") or "")
-            area = {"center": location, "radius_m": DEFAULT_RADIUS_M}
+            area = {"center": location, "radius_m": search_radius}
             area_name = place.get("name") or inp.get("near")
         elif inp.get("near"):
             place, options = await self._resolve(tools, inp["near"], (city_scope or {}).get("bounding_box"))
             if place is None:
                 return self._choose(req, tools, "near", inp["near"], options)
-            area = {"center": place["location"], "radius_m": DEFAULT_RADIUS_M}
+            area = {"center": place["location"], "radius_m": search_radius}
             area_name = (place.get("parent") or {}).get("name") or place.get("name")
         elif inp.get("city"):
             areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
@@ -469,6 +470,9 @@ class LocationSubagent:
             )
         data = {
             "area_name": area_name,
+            "distance_basis": "straight_line" if area.get("center") else "administrative_or_viewport",
+            "search_radius_m": area.get("radius_m"),
+            "radius_is_default": bool(area.get("center") and not inp.get("search_radius_m")),
             "candidates": candidates,
             "excluded_without_price_or_address": excluded,
             # Xếp hạng chỉ trong trang đã lấy; còn trang sau thì không nói là tốt nhất toàn bộ dữ liệu.

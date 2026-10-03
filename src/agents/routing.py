@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from langgraph.types import Send
 
+from src.agents.llm_runtime import public_data
 from src.agents.models import SessionContext
 from src.agents.state import AgentInput, WorkflowState
 
@@ -55,6 +56,10 @@ def route_from_executor(state: WorkflowState) -> list[Send] | str:
             request_id=state.get("request_id", ""),
             thread_id=state.get("thread_id", ""),
             constraints=intake.constraints,
+            goal=public_data(intake.normalized_goal)[:1500],
+            user_request=public_data(
+                next((str(m.content) for m in reversed(state.get("messages") or []) if m.type == "human"), "")
+            )[:2000],
             hints=hints,
             upstream={d: results[d] for d in task.depends_on if d in results},
         )

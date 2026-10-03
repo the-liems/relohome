@@ -95,5 +95,7 @@ class AgentInput(TypedDict):
     request_id: str
     thread_id: str
     constraints: Constraints
+    goal: str
+    user_request: str
     hints: dict[str, Any]
     upstream: dict[str, TaskResult]

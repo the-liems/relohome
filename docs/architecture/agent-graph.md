@@ -1,5 +1,10 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
+> Cập nhật 03/10/2026: domain agent nhận goal/user_request và tự chọn preparation,
+> search, details, pagination, ask/finish/replan trong tool namespace giới hạn.
+> Map nearby vẫn hỗ trợ khám phá độc lập; bộ lọc Housing không bị thay bởi câu hỏi Map.
+> Xem [ADR-021](../adr/ADR-021-mission-driven-domain-tools.md) và SPEC-014.
+
 > Cập nhật runtime `mvp` 30/09/2026: Intake/Planner/Moving đã được nối bằng LLM;
 > Housing/Map/Flight và Payment tra cứu được bổ sung domain tool loop theo
 > [ADR-020](../adr/ADR-020-llm-domain-agents.md) và [SPEC-014](../specs/SPEC-014-domain-llm-agents.md).
@@ -1067,7 +1072,7 @@ class AgentCapability(BaseModel):
 class AgentManifest(BaseModel):
     name: str                          # id subagent, ví dụ "lifeflow-location"
     owner: str                         # người / đội chịu trách nhiệm
-    contract_version: str              # ví dụ "1.0"
+    contract_version: str              # hiện hành "1.1"; chấp nhận cùng major
     capabilities: list[AgentCapability]
 ```
 
@@ -1089,6 +1094,8 @@ class AgentTaskRequest(BaseModel):
     attempt: int
     agent: AgentName
     inputs: dict[str, Any]             # đúng input_schema
+    goal: str = ""                    # mục tiêu ngữ nghĩa; không cấp thêm quyền
+    user_request: str = ""            # lượt user mới nhất, đã giới hạn/redact
     constraints: dict[str, Any]        # chỉ các key trong constraint_keys
     hints: dict[str, Any] = {}         # chỉ các key trong hint_keys; để xếp hạng, không làm bộ lọc
     upstream: dict[str, UpstreamResult]  # kết quả của task trong depends_on

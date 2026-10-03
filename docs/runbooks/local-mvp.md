@@ -3,8 +3,10 @@
 ## Đã nối những gì?
 
 React (Frontend/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
-Moving có vòng gọi tool bằng LLM; Housing/Map/Flight dùng adapter chuyên biệt,
-không bắt buộc mỗi service phải có thêm một LLM. Planner có thể sửa kế hoạch;
+Moving giữ vòng gọi tool bằng LLM; Housing/Map/Flight/Payment có domain LLM riêng,
+nhận mục tiêu và tự chọn thao tác đọc có giới hạn theo
+[ADR-021](../adr/ADR-021-mission-driven-domain-tools.md). Adapter giữ dữ kiện nguồn
+và kiểm tra tham số. Planner có thể sửa kế hoạch;
 code kiểm schema, quyền gọi tool, dependency, giới hạn gọi và xác nhận giao dịch.
 
 Housing/Map đọc snapshot thật của nhóm; Flight tìm bằng SerpApi;

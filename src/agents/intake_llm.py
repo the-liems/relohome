@@ -22,13 +22,20 @@ AMENITIES = frozenset(
     "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
 )
 CATEGORIES = frozenset(
-    "hospital clinic pharmacy school university marketplace supermarket convenience_store gym park bus_stop bus_station".split()
+    # Canonical categories emitted by Location's poi-normalization.ts and shown
+    # by the existing map UI. Keep this vocabulary aligned with that provider;
+    # it is not a list of user phrases or location-specific routing rules.
+    "hospital clinic pharmacy doctor dentist other_healthcare school kindergarten college university "
+    "marketplace supermarket convenience_store shopping_mall shop_other restaurant cafe fast_food food_court "
+    "gym sports_centre park swimming_pool bus_stop bus_station rail_station airport airport_terminal "
+    "public_transport_other bank atm fuel parking ev_charging hotel guest_house hostel motel apartment "
+    "camp_site chalet resort homestay".split()
 )
 TEXT_KEYS = frozenset(
     "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
 )
 INT_KEYS = frozenset(
-    "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m passengers".split()
+    "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m map_radius_m search_radius_m passengers limit".split()
 )
 NUMBER_KEYS = frozenset({"min_bathrooms", "min_area_m2", "max_area_m2"})
 BOOL_KEYS = frozenset({"has_pet", "has_motorbike"})
@@ -37,7 +44,7 @@ VALUE_KEYS = (
     | INT_KEYS
     | NUMBER_KEYS
     | BOOL_KEYS
-    | {"must_have", "nearby_categories", "flight_date", "move_date", "move_time"}
+    | {"must_have", "nearby_categories", "map_categories", "flight_date", "move_date", "move_time"}
 )
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
@@ -86,12 +93,19 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
-Tiện ích (bệnh viện, chợ, siêu thị, trường, nhà thuốc...) KHÔNG phải một dịch vụ riêng. Khi tìm nhà mà người
-dùng muốn gần tiện ích ('gần bệnh viện', 'có chợ gần', 'lọc căn gần bệnh viện'), đó là BỘ LỌC của Housing:
-fact nearby_categories (và nearby_radius_m nếu nói khoảng cách), domain property; KHÔNG thêm domain map, map_mode
-hay map_near. Lọc thêm trên kết quả vừa tìm là refine property. Hỏi tiện ích riêng lẻ không gắn với tìm nhà là
-unsupported: chỉ hỗ trợ tiện ích như điều kiện khi tìm nhà. map_origin='none'.
-Domain map chỉ dùng cho đường đi/khoảng cách (map_mode='route'); map_city là thành phố tra đường.
+verified_moving_locations là lựa chọn map đã qua kiểm tra API. Khi user chỉ xác nhận các điểm đó,
+không trích lại from_address/to_address thành marker hay nhãn cũ; backend gắn đúng địa chỉ và tọa độ.
+Giữ ngày giờ/mục tiêu báo giá và domain relocation. Chỉ trích địa chỉ khác nếu user thực sự yêu cầu đổi.
+Phân biệt LỌC NHÀ và KHÁM PHÁ TIỆN ÍCH. 'Tìm/lọc phòng gần bệnh viện' là bộ lọc Housing:
+nearby_categories (+ nearby_radius_m nếu có), domain property; không tạo thêm Map chỉ để lọc.
+'Quanh căn đã chọn có bệnh viện nào?', 'tìm nhà thuốc quanh X', 'tìm nhà rồi xem chợ quanh các phòng đó'
+là nhiệm vụ Map nearby, vẫn được hỗ trợ: domain map, map_mode='nearby', map_categories (+ map_radius_m).
+nearby_categories/nearby_radius_m CHỈ là bộ lọc Housing; map_categories/map_radius_m CHỈ dùng khám phá Map.
+Không thay bộ lọc Housing đã chốt chỉ vì user hỏi tiện ích quanh căn đó.
+Map ĐỘC LẬP: dùng map_near cho địa danh, map_city cho thành phố; không ghi vào near/city của Housing.
+map_origin='named_place' cho địa danh có tên; 'housing_results' cho các nhà vừa tìm (dependency Housing);
+'selected_home' cho căn đã chọn (dùng ID đã xác nhận); 'none' nếu không có Map nearby.
+Không chép 'các phòng đó' hoặc marker selected:* vào near Housing. Map route dùng map_mode='route'.
 Hỏi phạm vi/thành phố hỗ trợ, danh mục hoặc loại dịch vụ AhaMove: domain relocation,
 fact moving_mode='catalog' với evidence từ câu hỏi. Không đòi địa chỉ, ngày giờ cho catalog.
 Báo giá/chuyển đồ dùng moving_mode='quote'; tra đơn dùng moving_mode='order_status'.
@@ -116,7 +130,7 @@ nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ c�
 Tìm nhà gần một trường/địa danh vẫn chỉ có domain property: Housing tự dùng công cụ Map để xác định vị trí.
 Thêm dịch vụ dựa vào căn/điểm đã chọn (ví dụ chuyển đồ tới căn đó) là refine/change,
 không phải new_goal: phải giữ lựa chọn đã xác nhận, không bắt chọn căn lại.
-Chỉ thêm domain map khi người dùng yêu cầu riêng đường đi/khoảng cách, không tự thêm vì có chữ 'gần'.
+Chỉ thêm domain map khi người dùng yêu cầu đường đi/khoảng cách hoặc khám phá tiện ích, không tự thêm vì có chữ 'gần'.
 Trả lời câu hỏi đang chờ không bao giờ tự khởi tạo mục tiêu mới.
 Mỗi fact có evidence nguyên văn từ lời NGƯỜI DÙNG. Chỉ trích dữ kiện được nói trong lượt mới nhất;
 các lượt cũ và pending_questions dùng để hiểu câu ngắn. Không chép dữ liệu assistant/session thành fact.
@@ -142,14 +156,16 @@ Nếu người dùng nói phương tiện đi lại, BẮT BUỘC trích route_p
 'đi bộ' => walking, 'xe máy' => motorcycle, 'ô tô' => driving. map_mode='route' cũng là một fact,
 evidence là cụm hỏi đường/khoảng cách có thật trong tin nhắn, không bỏ vì từ tiếng Anh 'route' không có trong lời user.
 min_bedrooms, max_bedrooms (số nguyên), min_bathrooms, min_area_m2, max_area_m2 (số).
+limit là số phương án nhà user muốn xem, số nguyên 1–20; không phải ngân sách hay số phòng ngủ.
+Nếu user đòi hơn giới hạn, không bịa đã lấy đủ hoặc đổi ý user; giữ mục tiêu và nêu giới hạn.
 "2 phòng ngủ" = min_bedrooms=2 và max_bedrooms=2; "ít nhất 2 phòng ngủ" chỉ min_bedrooms=2.
 Số phòng ngủ KHÔNG phải room_type hoặc household_size. Không tự chọn loại bất động sản
 khi người dùng chỉ nói chung "tìm phòng có 2 phòng ngủ".
 Nếu có cả quận và thành phố: district là tên quận, city là thành phố; không dùng near cho quận.
-has_motorbike, budget_vnd (một lần), nearby_categories, nearby_radius_m, origin, destination,
+has_motorbike, budget_vnd (một lần), nearby_categories, nearby_radius_m, map_categories, map_radius_m, search_radius_m, origin, destination,
 flight_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
 volume, order_id, tracking_number, move_month. value đúng kiểu: số tiền/số người/bán kính là integer,
-has_pet/has_motorbike và commit:* là boolean; must_have/nearby_categories là array string;
+has_pet/has_motorbike và commit:* là boolean; must_have/nearby_categories/map_categories là array string;
 các key còn lại là string. Không mã hóa value thành chuỗi JSON.
 Ngày rõ đổi YYYY-MM-DD dựa today giờ Việt Nam; ngày/tháng thiếu năm lấy lần tới gần nhất.
 Ngày tương đối (mai, mốt, thứ bảy này, chủ nhật tuần sau) tra trong calendar (ngày đầu là hôm nay), không tự tính;
@@ -158,6 +174,8 @@ Chỉ nói tháng: move_month YYYY-MM, không bịa ngày. Giờ rõ đổi HH:M
 Giữ nguyên tên địa danh/viết tắt người dùng, không tự geocode, tự đổi mã sân bay.
 Tìm nhà 'tại/trong/ở' một thành phố, quận hoặc phường: dùng city (phạm vi hành chính).
 near chỉ dùng khi người dùng muốn gần một địa chỉ/địa danh cụ thể; không đổi cả thành phố thành điểm gần.
+search_radius_m là bán kính đường thẳng tìm NHÀ quanh near (đổi km thành m), không phải nearby_radius_m của tiện ích.
+Nếu yêu cầu thời gian/quãng đường di chuyển thực tế, giữ yêu cầu đó trong normalized_goal; không giả thành bán kính.
 "quanh căn đã chọn" dùng fact selected:property đã xác nhận; KHÔNG tạo near='selected:property'.
 Khi map_view_available=true và người dùng nói tới vùng đang xem trên bản đồ ('khu này', 'khu vực
 đang xem', 'quanh đây', 'trong vùng bản đồ'), dùng near='current:map_view', evidence là cụm đó.
@@ -208,7 +226,7 @@ def valid_value(key: str, value) -> bool:
         return type(value) is int and value >= (1 if key in {"passengers", "household_size"} else 0)
     if key in BOOL_KEYS:
         return type(value) is bool
-    if key in {"must_have", "nearby_categories"}:
+    if key in {"must_have", "nearby_categories", "map_categories"}:
         allowed = AMENITIES if key == "must_have" else CATEGORIES
         return isinstance(value, list) and all(isinstance(v, str) and v in allowed for v in value)
     if key in {"flight_date", "move_date"}:
@@ -299,6 +317,8 @@ class LlmIntake(UsageOwner):
             else None,
             "is_first_turn": previous is None,
             "map_view_available": inp.map_view_available,
+            "verified_place_choice": inp.verified_place_choice,
+            "verified_moving_locations": inp.verified_moving_locations,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
@@ -309,7 +329,8 @@ class LlmIntake(UsageOwner):
             },
             "map_contract": {
                 "route": ["map_mode=route", "route_from", "route_to", "city"],
-                "note": "Map is directions only; amenities near a home are the Housing filter nearby_categories.",
+                "nearby": ["map_mode=nearby", "map_categories", "map_near or grounded housing reference"],
+                "note": "Housing proximity FILTER is distinct from Map EXPLORATION around a place or homes.",
             },
             "moving_contract": {
                 "catalog": ["moving_mode=catalog"],
@@ -446,18 +467,8 @@ class LlmIntake(UsageOwner):
             if draft.kind != "unsupported"
             else []
         )
-        is_route = (facts.get("map_mode") and facts["map_mode"].value == "route") or any(
-            k in facts for k in ("route_from", "route_to")
-        )
-        if AgentName.MAP in domains and not is_route:
-            # Amenities are not a service of their own: a Map "nearby" request becomes the Housing
-            # proximity filter (same nearby_* facts) within a housing goal; Map stays for directions only.
-            domains.remove(AgentName.MAP)
-            for key in ("map_mode", "map_near"):
-                facts.pop(key, None)
-            housing_goal = inp.previous is not None and AgentName.PROPERTY in inp.previous.domains
-            if facts.get("nearby_categories") and housing_goal and AgentName.PROPERTY not in domains:
-                domains.append(AgentName.PROPERTY)
+        # A nearby Map request is a valid domain task. Do not silently turn
+        # exploration around an already chosen home into a new Housing search.
         kind = RequestKind(draft.kind) if domains else RequestKind.UNSUPPORTED
         if (
             kind == RequestKind.NEW_GOAL

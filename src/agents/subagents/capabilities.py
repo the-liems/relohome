@@ -35,6 +35,7 @@ PROPERTY = AgentCapability(
             "city": _STR,
             "district": _STR,
             "near": _STR,
+            "search_radius_m": {"type": "integer", "minimum": 50, "maximum": 20000},
             "near_place_id": _STR,  # ứng viên người dùng đã chọn trên bản đồ (LocationChoice.id)
             "bounding_box": _BBOX,  # khung bản đồ người dùng đang xem, do API kiểm, không do LLM sinh
             "near_coordinate": {
@@ -197,7 +198,16 @@ MAP = AgentCapability(
     stale_ttl_s=7 * 24 * 3600,
     cost_tier="cheap",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=12),
-    constraint_keys=["near", "map_mode", "route_from", "route_to", "city", "route_profile"],
+    constraint_keys=[
+        "near",
+        "map_mode",
+        "map_categories",
+        "map_radius_m",
+        "route_from",
+        "route_to",
+        "city",
+        "route_profile",
+    ],
 )
 
 FLIGHT = AgentCapability(
