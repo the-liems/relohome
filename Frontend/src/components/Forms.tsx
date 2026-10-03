@@ -19,7 +19,7 @@ export function TaskForm({
   const title: Record<string, string> = {
     property: "Bạn muốn tìm ngôi nhà như thế nào?",
     flight: "Tìm chuyến bay cho hành trình của bạn",
-    map: "Khám phá đường đi & tiện ích",
+    map: "Tính đường đi",
   };
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,10 +44,7 @@ export function TaskForm({
       text = `Tìm chuyến bay một chiều từ ${f.from} đến ${f.to} ngày ${f.date}, cho ${f.adults} người lớn. Chỉ tìm chuyến.`;
     }
     if (kind === "map") {
-      text =
-        f.mode === "nearby"
-          ? `Tìm ${f.categories} quanh ${f.near} trong bán kính ${f.radius} mét.`
-          : `Tính đường ${f.profile} từ ${f.from} đến ${f.to} tại ${f.city}.`;
+      text = `Tính đường ${f.profile} từ ${f.from} đến ${f.to} tại ${f.city}.`;
     }
     setBusy(true);
     try {
@@ -192,87 +189,39 @@ export function TaskForm({
     </Dialog>
   );
 }
+// Directions only: amenities are a filter of the home search, not a service of their own.
 function MapFields() {
-  const [mode, setMode] = useState("route");
   return (
-    <>
-      <div className="segmented">
-        <button
-          type="button"
-          className={mode === "route" ? "active" : ""}
-          onClick={() => setMode("route")}
-        >
-          Tuyến đường
-        </button>
-        <button
-          type="button"
-          className={mode === "nearby" ? "active" : ""}
-          onClick={() => setMode("nearby")}
-        >
-          Tiện ích gần đây
-        </button>
-      </div>
-      <input type="hidden" name="mode" value={mode} />
-      {mode === "route" ? (
-        <div className="form-grid">
-          <label>
-            Điểm đi
-            <input
-              name="from"
-              placeholder="Tên địa điểm hoặc căn nhà đã chọn"
-              required
-            />
-          </label>
-          <label>
-            Điểm đến
-            <input name="to" placeholder="Nơi bạn muốn tới" required />
-          </label>
-          <label>
-            Thành phố
-            <select name="city">
-              {cities.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Phương tiện
-            <select name="profile">
-              <option>đi bộ</option>
-              <option>xe máy</option>
-              <option>ô tô</option>
-            </select>
-          </label>
-        </div>
-      ) : (
-        <div className="form-grid">
-          <label>
-            Quanh địa điểm
-            <input name="near" placeholder="Ví dụ: căn nhà đã chọn" required />
-          </label>
-          <label>
-            Loại tiện ích
-            <select name="categories">
-              <option>bệnh viện và nhà thuốc</option>
-              <option>siêu thị</option>
-              <option>trường học</option>
-              <option>quán cà phê</option>
-            </select>
-          </label>
-          <label>
-            Bán kính · mét
-            <input
-              name="radius"
-              type="number"
-              min="100"
-              max="20000"
-              defaultValue="1000"
-              required
-            />
-          </label>
-        </div>
-      )}
-    </>
+    <div className="form-grid">
+      <label>
+        Điểm đi
+        <input
+          name="from"
+          placeholder="Tên địa điểm hoặc căn nhà đã chọn"
+          required
+        />
+      </label>
+      <label>
+        Điểm đến
+        <input name="to" placeholder="Nơi bạn muốn tới" required />
+      </label>
+      <label>
+        Thành phố
+        <select name="city">
+          {cities.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Phương tiện
+        <select name="profile">
+          <option>đi bộ</option>
+          <option>xe máy</option>
+          <option>ô tô</option>
+        </select>
+      </label>
+    </div>
   );
 }
 

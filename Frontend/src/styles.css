@@ -3086,7 +3086,7 @@ input[type="checkbox"] {
   display: grid;
   grid-template-columns: minmax(300px, 380px) 1fr;
   gap: 14px;
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
 }
 .ws-list {
@@ -4039,4 +4039,139 @@ input[type="checkbox"] {
   gap: 6px;
   padding: 12px 16px;
   border-top: 1px solid var(--line);
+}
+
+/* Plan strip: goals the user asked for, left to right; parallel goals stack in one column. */
+.plan-strip {
+  flex: 0 0 auto;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.plan-strip header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.plan-strip header .text-button {
+  margin-left: auto;
+  font-size: 13px;
+}
+.plan-total {
+  font-size: 13px;
+  color: var(--muted);
+}
+.plan-total b {
+  color: #202b51;
+}
+.plan-flow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 10px 2px 4px;
+  scrollbar-width: thin;
+}
+.plan-step-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.plan-arrow {
+  color: #9aa3c0;
+  flex: 0 0 auto;
+}
+.plan-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "icon body" "icon badge";
+  column-gap: 9px;
+  row-gap: 4px;
+  width: 248px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcff;
+}
+.plan-step.confirmed {
+  border-color: #86d3a4;
+  background: #f2fbf5;
+}
+.plan-step.reviewed {
+  border-color: #c7d2fb;
+}
+.plan-step-icon {
+  grid-area: icon;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #eef0ff;
+  color: var(--brand);
+}
+.plan-step.confirmed .plan-step-icon {
+  background: #dcf5e5;
+  color: #15803d;
+}
+.plan-step-body {
+  grid-area: body;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.plan-step-body small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-step-body .plan-chosen {
+  color: #15803d;
+  font-weight: 500;
+}
+.plan-badge {
+  grid-area: badge;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f0f2f8;
+  color: var(--muted);
+}
+.plan-badge.confirmed {
+  background: #dcf5e5;
+  color: #15803d;
+}
+.plan-badge.reviewed {
+  background: #e8edff;
+  color: #3b4fc4;
+}
+.content-page .plan-strip {
+  margin-bottom: 16px;
+}
+@media (max-width: 767px) {
+  .plan-strip {
+    margin: 0 0 8px;
+    padding: 8px 10px;
+  }
+  .plan-step {
+    width: 210px;
+  }
 }

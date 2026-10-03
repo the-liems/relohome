@@ -59,7 +59,7 @@ import type {
 import { Robot } from "./components/Robot";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
 import { HousingCard, HousingDetail } from "./components/Housing";
-import { Approval, CostLines, TaskForm } from "./components/Forms";
+import { Approval, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
 import { MapWorkspace } from "./components/MapWorkspace";
@@ -71,6 +71,7 @@ import {
   movingField,
 } from "./components/ServiceWorkspaces";
 import { filtersFromSearch } from "./mapWorkspace";
+import { ConfirmedTotal, PlanProgress } from "./components/PlanProgress";
 
 interface AppContext {
   user: User;
@@ -110,8 +111,8 @@ const quick = [
   },
   {
     kind: "map",
-    title: "Khám phá khu vực",
-    subtitle: "Tiện ích và đường đi quanh bạn",
+    title: "Đường đi",
+    subtitle: "Khoảng cách và thời gian di chuyển",
     icon: Compass,
     color: "mint",
   },
@@ -948,8 +949,17 @@ function Chat() {
     ),
     ...(lastAssistant?.content.response?.data?.known_request || {}),
   };
+  // Results produced in this turn. A reply repeats earlier results (e.g. the home list while
+  // answering about moving); only a fresh result reopens its workspace or replaces the chat text.
+  const earlierIds = new Set(
+    (thread?.messages || [])
+      .filter((m) => m.role === "assistant" && m.id !== lastAssistant?.id)
+      .flatMap((m) =>
+        (m.content.ui?.components || []).map((c: Component) => c.id),
+      ),
+  );
   const lastHasService = (lastAssistant?.content.ui?.components || []).some(
-    (c: Component) => c.id === latestService?.c.id,
+    (c: Component) => c.id === latestService?.c.id && !earlierIds.has(c.id),
   );
   // The newest message decides: a confirmation request, a service result, or plain chat.
   useEffect(() => {
@@ -963,9 +973,7 @@ function Chat() {
   }, [lastAssistant?.id, threadId]);
   const chatDock = {
     text: lastAssistant?.content.response?.text,
-    fromResult: (lastAssistant?.content.ui?.components || []).some(
-      (c: Component) => c.id === latestService?.c.id,
-    ),
+    fromResult: lastHasService,
     kind: lastAssistant?.content.response?.kind,
     questions: lastAssistant?.content.response?.questions || [],
     suggestions: lastAssistant?.content.response?.suggestions || [],
@@ -1000,6 +1008,7 @@ function Chat() {
   }
   return (
     <div className={"chat-page" + (workspace ? " map-mode" : "")}>
+      <PlanProgress progress={thread?.state?.progress} />
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
           key={lastAssistant?.id || "new"}
@@ -1225,18 +1234,6 @@ function Chat() {
                         }}
                         onFilter={() => setForm("property")}
                       />
-                      {m.content.response?.data?.cost_summary && (
-                        <section className="result-group">
-                          <h3>Chi phí dự kiến tại thời điểm tìm kiếm</h3>
-                          <CostLines
-                            summary={m.content.response.data.cost_summary}
-                          />
-                          <p className="muted">
-                            Chưa phải khoản đã thanh toán. Xem Kế hoạch để biết
-                            tổng theo lựa chọn mới nhất.
-                          </p>
-                        </section>
-                      )}
                       <Receipts
                         receipts={m.content.response?.data?.receipts || []}
                       />
@@ -1666,6 +1663,7 @@ function PlanDetail() {
           Tiếp tục chat
         </Link>
       </div>
+      <PlanProgress progress={state.progress} />
       <div className="plan-detail-grid">
         <section className="surface">
           <h3>Các bước trong kế hoạch</h3>
@@ -1721,15 +1719,11 @@ function PlanDetail() {
           <Receipts receipts={Object.values(state.committed || {})} />
         </section>
         <section className="surface">
-          <h3>Chi phí dự kiến</h3>
-          {state.cost_summary ? (
-            <CostLines summary={state.cost_summary} />
-          ) : (
-            <p className="muted">Chưa có đủ thông tin chi phí.</p>
-          )}
+          <h3>Tổng tiền đã chốt</h3>
+          <ConfirmedTotal progress={state.progress} />
           <p className="muted small">
-            Các khoản chưa biết chưa được tính. Đây là chi phí dự kiến, chưa
-            phải số tiền đã chi.
+            Chỉ tính phương án bạn đã chọn (đã chốt), không phải số tiền đã
+            thanh toán. Khoản chưa xác minh giá chưa được cộng.
           </p>
         </section>
       </div>

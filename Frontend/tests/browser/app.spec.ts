@@ -1015,3 +1015,88 @@ test("a conversation can be deleted, and all conversations reset", async ({
   ).toBeVisible();
   expect(calls.at(-1)).toEqual({ path: "/threads", method: "DELETE" });
 });
+
+test("plan strip shows only requested goals, parallel and sequential, with the confirmed total", async ({
+  page,
+}) => {
+  const { thread } = await fixture(page);
+  seed(thread);
+  thread.state.progress = {
+    plan_version: 2,
+    items: [
+      {
+        task_id: "home",
+        agent: "property",
+        inputs: {
+          district: "Cầu Giấy",
+          city: "Hà Nội",
+          max_price_vnd: 5000000,
+        },
+        state: "confirmed",
+        after: [],
+        level: 0,
+        chosen: {
+          id: "h1",
+          label: "Căn A",
+          amount_vnd: 4000000,
+          recurrence: "monthly",
+        },
+      },
+      {
+        task_id: "fly",
+        agent: "flight",
+        inputs: {
+          origin: "Hà Nội",
+          destination: "Đà Nẵng",
+          date: "2026-10-20",
+        },
+        state: "reviewed",
+        after: [],
+        level: 0,
+        chosen: null,
+      },
+      {
+        task_id: "move",
+        agent: "relocation",
+        mode: "quote",
+        inputs: {
+          mode: "quote",
+          from_address: "Bách khoa",
+          to_address: "selected:property",
+        },
+        state: "waiting",
+        after: ["home"],
+        level: 1,
+        chosen: null,
+      },
+    ],
+    totals: {
+      monthly_vnd: 4000000,
+      one_time_vnd: 0,
+      confirmed: 1,
+      unpriced: [],
+    },
+  };
+  await page.goto("/ai/th_ui");
+  const strip = page.getByRole("region", { name: "Tiến trình kế hoạch" });
+  await expect(strip).toContainText("3 mục · 1 đã chốt");
+  await expect(strip).toContainText("Tổng đã chốt:");
+  await expect(strip).toContainText("/tháng");
+  const columns = strip.locator(".plan-column");
+  await expect(columns).toHaveCount(2);
+  await expect(columns.nth(0).locator(".plan-step")).toHaveCount(2);
+  await expect(columns.nth(1)).toContainText("Bách khoa → căn đã chọn");
+  await expect(strip.locator(".plan-arrow")).toHaveCount(1);
+  await expect(strip.locator(".plan-step.confirmed")).toContainText("Đã chốt");
+  await expect(strip.locator(".plan-step.reviewed")).toContainText(
+    "Đã xem xét",
+  );
+  await strip.getByRole("button", { name: "Thu gọn kế hoạch" }).click();
+  await expect(columns).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page
+      .getByRole("region", { name: "Tiến trình kế hoạch" })
+      .getByRole("button", { name: "Mở kế hoạch" }),
+  ).toBeVisible();
+});
