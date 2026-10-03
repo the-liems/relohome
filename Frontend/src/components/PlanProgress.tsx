@@ -39,7 +39,11 @@ const short = (n: number) =>
     ? `${(n / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr`
     : money(n);
 
-function describe(item: Data): { icon: any; title: string; detail: string } {
+export function describePlanItem(item: Data): {
+  icon: any;
+  title: string;
+  detail: string;
+} {
   const i = item.inputs || {};
   if (item.agent === "property")
     return {
@@ -183,7 +187,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
               {c > 0 && <ArrowRight className="plan-arrow" size={18} />}
               <div className="plan-column">
                 {column.map((item) => {
-                  const d = describe(item),
+                  const d = describePlanItem(item),
                     s = STATE[item.state] || STATE.waiting;
                   return (
                     <article
@@ -238,7 +242,7 @@ export function ConfirmedTotal({ progress }: { progress?: Data }) {
           <span>
             {i.chosen.label}
             <small>
-              {describe(i).title} ·{" "}
+              {describePlanItem(i).title} ·{" "}
               {i.chosen.recurrence === "monthly"
                 ? "Khoản hằng tháng"
                 : i.chosen.recurrence

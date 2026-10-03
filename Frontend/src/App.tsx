@@ -9,7 +9,6 @@ import {
 import {
   Link,
   Navigate,
-  NavLink,
   Route as WebRoute,
   Routes,
   useLocation,
@@ -29,7 +28,6 @@ import {
   LayoutList,
   LogOut,
   MapPin,
-  Menu,
   MessageCircle,
   MoreHorizontal,
   Plane,
@@ -38,9 +36,9 @@ import {
   Send,
   Settings2,
   ShieldCheck,
+  UserRound,
   Sparkles,
   Truck,
-  UserRound,
   X,
   RefreshCw,
   Clock,
@@ -71,7 +69,8 @@ import {
   movingField,
 } from "./components/ServiceWorkspaces";
 import { filtersFromSearch } from "./mapWorkspace";
-import { ConfirmedTotal, PlanProgress } from "./components/PlanProgress";
+import { PlanPeek } from "./components/PlanPeek";
+import { RequestHistory } from "./components/RequestHistory";
 
 interface AppContext {
   user: User;
@@ -238,8 +237,11 @@ export default function App() {
         <Routes>
           <WebRoute path="/ai" element={<Chat />} />
           <WebRoute path="/ai/:threadId" element={<Chat />} />
-          <WebRoute path="/plans" element={<Plans />} />
-          <WebRoute path="/plans/:planId" element={<PlanDetail />} />
+          <WebRoute
+            path="/plans"
+            element={<Navigate to="/account" replace />}
+          />
+          <WebRoute path="/plans/:planId" element={<LegacyPlanRedirect />} />
           <WebRoute
             path="/account"
             element={
@@ -429,117 +431,19 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
 function Shell({ children }: { children: ReactNode }) {
   const { user, status, threads } = useApp(),
     location = useLocation();
-  const [menu, setMenu] = useState(false),
-    [history, setHistory] = useState(false),
+  const [history, setHistory] = useState(false),
     [removing, setRemoving] = useState<Thread | null>(null);
-  useEffect(() => setMenu(false), [location.pathname]);
-  const isChat = location.pathname.startsWith("/ai"),
-    title = isChat
-      ? "Hệ thống AI"
-      : location.pathname.startsWith("/plans")
-        ? "Kế hoạch"
-        : "Tài khoản";
+  const isChat = location.pathname.startsWith("/ai");
   const active = threads.find((t) => location.pathname === "/ai/" + t.id);
   return (
-    <div className="app-shell">
-      {menu && (
-        <button
-          className="sidebar-backdrop"
-          aria-label="Đóng menu"
-          onClick={() => setMenu(false)}
-        />
-      )}
-      <aside className={"sidebar " + (menu ? "open" : "")}>
-        <Link className="brand" to="/ai">
-          <span className="brand-symbol">
-            <Sparkles size={22} />
-          </span>
-          SIU AI
-          <span className="brand-dot" />
-        </Link>
-        <p className="brand-caption">Trợ lý cuộc sống của bạn</p>
-        <nav aria-label="Điều hướng chính">
-          <NavLink to="/ai">
-            <MessageCircle size={20} />
-            <span>Hệ thống AI</span>
-            <ChevronRight size={15} />
-          </NavLink>
-          <NavLink to="/plans">
-            <LayoutList size={20} />
-            <span>Kế hoạch</span>
-          </NavLink>
-          <NavLink to="/account">
-            <UserRound size={20} />
-            <span>Tài khoản</span>
-          </NavLink>
-        </nav>
-        <div className="sidebar-art">
-          <div className="art-spark">✧</div>
-          <p>
-            Mỗi hành trình mới,
-            <br />
-            <strong>một người bạn đồng hành.</strong>
-          </p>
-          <Robot />
-          <div className="cityline">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <p className="art-caption">
-            Nhẹ việc hôm nay.
-            <br />
-            Rộng mở ngày mai.
-          </p>
-        </div>
-        <Link className="sidebar-profile" to="/account">
-          <span className="avatar">{user.name.slice(0, 1).toUpperCase()}</span>
-          <span>
-            <strong>{user.name}</strong>
-            <small>Tài khoản của bạn</small>
-          </span>
-          <Settings2 size={16} />
-        </Link>
-      </aside>
+    <div className="app-shell chat-only-shell">
       <div className="main-shell">
-        <header className="topbar">
-          <div className="topbar-left">
-            <button
-              className="icon-button mobile-menu"
-              aria-label="Mở menu"
-              onClick={() => setMenu(true)}
-            >
-              <Menu size={22} />
-            </button>
-            <span className="breadcrumb">
-              Không gian của bạn <ChevronRight size={13} />{" "}
-              <strong>{title}</strong>
-            </span>
-          </div>
-          <div className="topbar-right">
-            <span className={"connection " + (status ? "online" : "")}>
-              <i />
-              {status ? "AI đã kết nối" : "Chưa kết nối AI"}
-            </span>
-            <Link
-              className="avatar avatar-small"
-              aria-label="Mở tài khoản"
-              to="/account"
-            >
-              {user.name.slice(0, 1).toUpperCase()}
-            </Link>
-          </div>
-        </header>
-        {isChat && (
-          <div className="chat-header">
+        <header className="chat-header">
+          {isChat ? (
             <div className="chat-brand">
-              <span className="robot-avatar">
+              <Link className="robot-avatar" to="/ai" aria-label="Về chat">
                 <Robot />
-              </span>
+              </Link>
               <div>
                 <h2>
                   {active?.title ||
@@ -550,35 +454,70 @@ function Shell({ children }: { children: ReactNode }) {
                 </p>
               </div>
             </div>
-            <div className="header-actions">
-              <button
-                className="secondary"
-                aria-label="Lịch sử"
-                onClick={() => setHistory(true)}
-              >
-                <History size={17} />
-                <span>Lịch sử</span>
-              </button>
-              {active && (
+          ) : (
+            <Link className="brand" to="/ai">
+              <span className="brand-symbol">
+                <Sparkles size={22} />
+              </span>
+              SIU AI
+              <span className="brand-dot" />
+            </Link>
+          )}
+          <div className="header-actions">
+            {isChat ? (
+              <>
+                <span className={"connection " + (status ? "online" : "")}>
+                  <i />
+                  {status ? "AI đã kết nối" : "Chưa kết nối AI"}
+                </span>
                 <button
-                  className="icon-button outlined"
-                  aria-label="Xóa cuộc trò chuyện này"
-                  title="Xóa cuộc trò chuyện này"
-                  onClick={() => setRemoving(active)}
+                  className="secondary"
+                  aria-label="Lịch sử"
+                  onClick={() => setHistory(true)}
                 >
-                  <Trash2 size={18} />
+                  <History size={17} />
+                  <span>Lịch sử</span>
                 </button>
-              )}
-              <Link
-                className="icon-button outlined"
-                to="/ai"
-                aria-label="Cuộc trò chuyện mới"
-              >
-                <Plus size={20} />
+                {active && (
+                  <button
+                    className="icon-button outlined"
+                    aria-label="Xóa cuộc trò chuyện này"
+                    title="Xóa cuộc trò chuyện này"
+                    onClick={() => setRemoving(active)}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                <Link
+                  className="icon-button outlined"
+                  to="/ai"
+                  aria-label="Cuộc trò chuyện mới"
+                >
+                  <Plus size={20} />
+                </Link>
+              </>
+            ) : (
+              <Link className="secondary" to="/ai">
+                <MessageCircle size={16} />
+                Về chat
               </Link>
-            </div>
+            )}
+            <Link
+              className="account-chip"
+              to="/account"
+              aria-label="Mở tài khoản"
+              title={user.name}
+            >
+              <span className="avatar account-chip-avatar">
+                {user.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="account-chip-name">
+                <strong>{user.name}</strong>
+                <small>Tài khoản</small>
+              </span>
+            </Link>
           </div>
-        )}
+        </header>
         <main className={isChat ? "page-main chat-main" : "page-main"}>
           {children}
         </main>
@@ -907,9 +846,12 @@ function Chat() {
           (h: HouseData) => h.id === params.get("house"),
         ),
     );
-  const openDetail = opened?.c.data.candidates.find(
+  // A home saved while exploring the map may be absent from the agent's result cards.
+  const openDetail = (opened?.c.data.candidates.find(
     (h: HouseData) => h.id === params.get("house"),
-  ) as HouseData | undefined;
+  ) ||
+    saved.find((s) => s.id === params.get("house") && s.thread_id === threadId)
+      ?.house) as HouseData | undefined;
   const unavailable = (kind: string) => !status?.domains?.includes(kind);
   // Each service result opens its own workspace (map for housing, flights, moving quotes).
   // Choosing an option there returns to the chat so the user can continue with other services.
@@ -1008,7 +950,16 @@ function Chat() {
   }
   return (
     <div className={"chat-page" + (workspace ? " map-mode" : "")}>
-      <PlanProgress progress={thread?.state?.progress} />
+      <PlanPeek
+        key={threadId || "new"}
+        progress={thread?.state?.progress}
+        threadId={thread?.id}
+        thread={thread}
+        writesEnabled={!!status?.writes_enabled}
+        onDecision={(body) => mutate("decision", body)}
+        onPaymentCheck={() => mutate("payment/check", {})}
+        busy={busy}
+      />
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
           key={lastAssistant?.id || "new"}
@@ -1366,44 +1317,46 @@ function Chat() {
               )}
           </div>
           <div className="composer-wrap">
-            {newMessage && (
-              <button
-                className="new-message"
-                onClick={() => {
-                  scroll.current?.scrollTo({
-                    top: scroll.current.scrollHeight,
-                    behavior: "smooth",
-                  });
-                  setNewMessage(false);
-                }}
-              >
-                <ArrowDown size={14} />
-                Có phản hồi mới
-              </button>
-            )}
-            {movingQuestions.length > 0 && (
-              <button
-                className="secondary open-map"
-                onClick={() => setWorkspace("relocation-form")}
-              >
-                <Truck size={15} /> Nhập thông tin chuyển đồ
-              </button>
-            )}
-            {latestService && !movingQuestions.length && (
-              <button
-                className="secondary open-map"
-                onClick={() => setWorkspace(latestService.c.type)}
-              >
-                <MapPin size={15} />{" "}
-                {
+            <div className="chat-plan-tools">
+              {newMessage && (
+                <button
+                  className="new-message"
+                  onClick={() => {
+                    scroll.current?.scrollTo({
+                      top: scroll.current.scrollHeight,
+                      behavior: "smooth",
+                    });
+                    setNewMessage(false);
+                  }}
+                >
+                  <ArrowDown size={14} />
+                  Có phản hồi mới
+                </button>
+              )}
+              {movingQuestions.length > 0 && (
+                <button
+                  className="secondary open-map"
+                  onClick={() => setWorkspace("relocation-form")}
+                >
+                  <Truck size={15} /> Nhập thông tin chuyển đồ
+                </button>
+              )}
+              {latestService && !movingQuestions.length && (
+                <button
+                  className="secondary open-map"
+                  onClick={() => setWorkspace(latestService.c.type)}
+                >
+                  <MapPin size={15} />{" "}
                   {
-                    property: "Mở bản đồ nhà ở",
-                    flight: "Mở danh sách chuyến bay",
-                    relocation: "Mở phương án chuyển đồ",
-                  }[latestService.c.type]
-                }
-              </button>
-            )}
+                    {
+                      property: "Mở bản đồ nhà ở",
+                      flight: "Mở danh sách chuyến bay",
+                      relocation: "Mở phương án chuyển đồ",
+                    }[latestService.c.type]
+                  }
+                </button>
+              )}
+            </div>
             {selectedHouse && (
               <div className="selection-strip">
                 <span>
@@ -1489,7 +1442,7 @@ function Chat() {
       {form && (
         <TaskForm kind={form} onClose={() => setForm(null)} onSubmit={send} />
       )}
-      {params.get("panel") === "house" && openDetail && opened && (
+      {params.get("panel") === "house" && openDetail && thread && (
         <HousingDetail
           house={openDetail}
           saved={savedIds.has(openDetail.id)}
@@ -1497,20 +1450,23 @@ function Chat() {
           busy={busy}
           onClose={() => setParams({}, { replace: true })}
           onSave={() => void save(openDetail, thread!.id)}
-          onSelect={() =>
-            mutate("action", {
-              kind: "select",
-              task_id: opened.c.task_id,
-              plan_version: opened.version,
-              fetched_at: opened.c.fetched_at,
-              entity_id: openDetail.id,
-            })
-              .then(() =>
-                notify(
-                  "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
-                ),
-              )
-              .catch(() => {})
+          onSelect={
+            opened
+              ? () =>
+                  mutate("action", {
+                    kind: "select",
+                    task_id: opened.c.task_id,
+                    plan_version: opened.version,
+                    fetched_at: opened.c.fetched_at,
+                    entity_id: openDetail.id,
+                  })
+                    .then(() =>
+                      notify(
+                        "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
+                      ),
+                    )
+                    .catch(() => {})
+              : undefined
           }
           onAsk={() => {
             setContext(openDetail);
@@ -1523,241 +1479,16 @@ function Chat() {
   );
 }
 
-function Plans() {
-  const { threads } = useApp();
-  const [filter, setFilter] = useState("all");
-  const plans = threads.filter(
-    (t) => t.state?.plan && (filter !== "pending" || t.state.pending),
-  );
-  return (
-    <div className="content-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">TỪ Ý TƯỞNG ĐẾN TỪNG BƯỚC NHỎ</span>
-          <h1>Kế hoạch của bạn</h1>
-          <p>Theo dõi những lựa chọn, chi phí và việc cần bạn phản hồi.</p>
-        </div>
-        <Link to="/ai" className="primary">
-          <Plus size={17} />
-          Lên kế hoạch với AI
-        </Link>
-      </div>
-      <div className="plan-banner">
-        <span className="robot-avatar">
-          <Robot />
-        </span>
-        <div>
-          <h3>Cùng bạn đi từng bước</h3>
-          <p>
-            Kế hoạch và cuộc trò chuyện luôn dùng chung những lựa chọn của bạn.
-          </p>
-        </div>
-        <span className="banner-spark">✦</span>
-      </div>
-      <div className="tabs">
-        <button
-          className={filter === "all" ? "active" : ""}
-          onClick={() => setFilter("all")}
-        >
-          Tất cả kế hoạch
-        </button>
-        <button
-          className={filter === "pending" ? "active" : ""}
-          onClick={() => setFilter("pending")}
-        >
-          Cần bạn phản hồi
-        </button>
-      </div>
-      {!plans.length ? (
-        <Empty
-          icon={<LayoutList />}
-          title={
-            filter === "pending"
-              ? "Không có việc đang chờ bạn"
-              : "Mọi kế hoạch đều bắt đầu bằng một câu chuyện"
-          }
-          text="Nhắn nhu cầu của bạn để SIU giúp chia thành những bước dễ theo dõi."
-        >
-          <Link className="secondary" to="/ai">
-            Bắt đầu trò chuyện <ArrowRight size={16} />
-          </Link>
-        </Empty>
-      ) : (
-        <div className="plan-grid">
-          {plans.map((t) => (
-            <Link to={"/plans/" + t.id} className="plan-card" key={t.id}>
-              <div className="plan-card-top">
-                <span className="service-icon purple">
-                  <LayoutList size={23} />
-                </span>
-                <span className={"tag " + (t.state.pending ? "amber" : "")}>
-                  {t.state.pending ? "Cần phản hồi" : "Đã có phương án"}
-                </span>
-              </div>
-              <h3>{t.title}</h3>
-              <p className="muted">
-                {t.state.plan.tasks?.length || 0} tác vụ AI · Cập nhật{" "}
-                {dateTime(t.updated)}
-              </p>
-              <div className="tags">
-                {[
-                  ...new Set<string>(
-                    (t.state.plan.tasks || []).map((a: Data) => a.agent),
-                  ),
-                ].map((d) => (
-                  <span className="tag" key={d}>
-                    {domainLabels[d] || d}
-                  </span>
-                ))}
-              </div>
-              <div className="plan-card-footer">
-                Xem kế hoạch
-                <ArrowRight size={17} />
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-function PlanDetail() {
-  const { planId } = useParams(),
-    { status, refresh } = useApp();
-  const [thread, setThread] = useState<Thread | null>(null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  useEffect(() => {
-    let active = true;
-    api<Thread>("/threads/" + planId)
-      .then((t) => {
-        if (active) setThread(t);
-      })
-      .catch((e) => setError(e.message));
-    return () => {
-      active = false;
-    };
-  }, [planId]);
-  if (error)
-    return (
-      <Empty
-        icon={<LayoutList />}
-        title="Chưa tải được kế hoạch"
-        text={error}
-      />
-    );
-  if (!thread) return <div className="loading-history">Đang tải kế hoạch…</div>;
-  const state = thread.state;
-  return (
-    <div className="content-page">
-      <Link to="/plans" className="text-button">
-        ← Kế hoạch của bạn
-      </Link>
-      <div className="page-heading">
-        <div>
-          <h1>{thread.title}</h1>
-          <p>Các tác vụ AI và lựa chọn hiện tại của bạn</p>
-        </div>
-        <Link className="primary" to={"/ai/" + thread.id}>
-          <MessageCircle size={17} />
-          Tiếp tục chat
-        </Link>
-      </div>
-      <PlanProgress progress={state.progress} />
-      <div className="plan-detail-grid">
-        <section className="surface">
-          <h3>Các bước trong kế hoạch</h3>
-          <div className="timeline">
-            {(state.plan?.tasks || []).map((t: Data, i: number) => (
-              <div className="timeline-row" key={t.id}>
-                <span
-                  className={
-                    "timeline-number " +
-                    (state.task_status?.[t.id] === "done" ? "complete" : "")
-                  }
-                >
-                  {state.task_status?.[t.id] === "done" ? (
-                    <Check size={17} />
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <div>
-                  <h4>{domainLabels[t.agent] || t.agent}</h4>
-                  <p>
-                    {t.inputs.city ||
-                      t.inputs.origin ||
-                      t.inputs.from_address ||
-                      "Theo yêu cầu trong hội thoại"}
-                  </p>
-                  <span className="tag">
-                    {(
-                      {
-                        done: "Đã có kết quả tìm kiếm",
-                        failed: "Chưa thực hiện được",
-                        running: "Đang xử lý",
-                        pending: "Chờ xử lý",
-                        blocked: "Cần bổ sung thông tin",
-                        stale: "Cần tính lại theo lựa chọn mới",
-                        needs_input: "Cần bổ sung thông tin",
-                        skipped: "Đã bỏ qua",
-                        ready: "Sẵn sàng xử lý",
-                      } as Data
-                    )[state.task_status?.[t.id]] || "Chờ xử lý"}
-                  </span>
-                </div>
-                <Link className="text-button" to={"/ai/" + thread.id}>
-                  Xem kết quả <ArrowUpRight size={14} />
-                </Link>
-              </div>
-            ))}
-          </div>
-          <p className="notice">
-            Hoàn thành tìm kiếm chưa đồng nghĩa đã thuê nhà hoặc đặt dịch vụ.
-            Đơn đã xác nhận được hiển thị riêng.
-          </p>
-          <Receipts receipts={Object.values(state.committed || {})} />
-        </section>
-        <section className="surface">
-          <h3>Tổng tiền đã chốt</h3>
-          <ConfirmedTotal progress={state.progress} />
-          <p className="muted small">
-            Chỉ tính phương án bạn đã chọn (đã chốt), không phải số tiền đã
-            thanh toán. Khoản chưa xác minh giá chưa được cộng.
-          </p>
-        </section>
-      </div>
-      {state.pending?.type === "confirmation_required" && (
-        <Approval
-          pending={state.pending}
-          enabled={!!status?.writes_enabled}
-          busy={busy}
-          onDecision={async (body) => {
-            setBusy(true);
-            try {
-              setThread(
-                await api<Thread>(
-                  "/threads/" + thread.id + "/decision",
-                  "POST",
-                  { ...body, request_id: requestId() },
-                ),
-              );
-              await refresh();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      )}
-    </div>
-  );
+function LegacyPlanRedirect() {
+  const { planId } = useParams();
+  return <Navigate to={"/ai/" + planId + "?panel=plan"} replace />;
 }
 
 function Account({ onLogout }: { onLogout: () => void }) {
   const { user, setUser, saved, threads, save, notify } = useApp();
   const [resetting, setResetting] = useState(false),
     [openSaved, setOpenSaved] = useState<Saved | null>(null);
-  const [tab, setTab] = useState("profile"),
+  const [tab, setTab] = useState("history"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [dirty, setDirty] = useState(false);
@@ -1798,64 +1529,117 @@ function Account({ onLogout }: { onLogout: () => void }) {
     setError("");
   }
   return (
-    <div className="content-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">KHÔNG GIAN RIÊNG CỦA BẠN</span>
-          <h1>Tài khoản của tôi</h1>
-          <p>Quản lý hồ sơ, những ưu tiên và các căn nhà đã lưu.</p>
+    <div className="content-page account-page">
+      <section className="account-overview">
+        <div className="page-heading">
+          <div>
+            <span className="eyebrow">
+              <UserRound size={13} /> TÀI KHOẢN SIU AI
+            </span>
+            <h1>Tài khoản của tôi</h1>
+            <p>Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.</p>
+          </div>
+          <button
+            className="secondary"
+            onClick={async () => {
+              if (
+                dirty &&
+                !window.confirm("Bạn có thay đổi chưa lưu. Đăng xuất?")
+              )
+                return;
+              await api("/logout", "POST");
+              onLogout();
+            }}
+          >
+            <LogOut size={16} />
+            Đăng xuất
+          </button>
         </div>
-        <button
-          className="secondary"
-          onClick={async () => {
-            if (
-              dirty &&
-              !window.confirm("Bạn có thay đổi chưa lưu. Đăng xuất?")
-            )
-              return;
-            await api("/logout", "POST");
-            onLogout();
-          }}
-        >
-          <LogOut size={16} />
-          Đăng xuất
-        </button>
-      </div>
-      <div className="profile-banner">
-        <span className="avatar avatar-large">
-          {user.name.slice(0, 1).toUpperCase()}
-        </span>
-        <div>
-          <h2>{user.name}</h2>
-          <p>{user.email}</p>
-          <span className="tag selected-tag">
-            <ShieldCheck size={12} />
-            Không gian cá nhân
+        <div className="profile-banner">
+          <span className="avatar avatar-large">
+            {user.name.slice(0, 1).toUpperCase()}
           </span>
+          <div className="account-identity">
+            <h2>{user.name}</h2>
+            <p>{user.email}</p>
+          </div>
+          <div className="account-overview-stats">
+            <div>
+              <span className="account-stat-icon">
+                <MessageCircle size={18} />
+              </span>
+              <span>
+                <strong>{threads.length}</strong>
+                <small>Cuộc trò chuyện</small>
+              </span>
+            </div>
+            <div>
+              <span className="account-stat-icon saved">
+                <Heart size={18} />
+              </span>
+              <span>
+                <strong>{saved.length}</strong>
+                <small>Nhà đã lưu</small>
+              </span>
+            </div>
+          </div>
         </div>
-        <Robot />
-      </div>
-      <div className="tabs">
+      </section>
+      <div className="tabs account-tabs">
+        <button
+          className={tab === "history" ? "active" : ""}
+          onClick={() => changeTab("history")}
+        >
+          <History size={17} /> Lịch sử yêu cầu
+        </button>
+        <button
+          className={tab === "security" ? "active" : ""}
+          onClick={() => changeTab("security")}
+        >
+          <ShieldCheck size={17} /> Đăng nhập & bảo mật
+        </button>
         <button
           className={tab === "profile" ? "active" : ""}
           onClick={() => changeTab("profile")}
         >
-          Hồ sơ
+          <UserRound size={17} /> Hồ sơ
         </button>
         <button
           className={tab === "preferences" ? "active" : ""}
           onClick={() => changeTab("preferences")}
         >
-          Sở thích AI
+          <Settings2 size={17} /> Sở thích AI
         </button>
         <button
           className={tab === "saved" ? "active" : ""}
           onClick={() => changeTab("saved")}
         >
-          Đã lưu <span className="count">{saved.length}</span>
+          <Heart size={17} /> Đã lưu{" "}
+          <span className="count">{saved.length}</span>
         </button>
       </div>
-      {tab !== "saved" ? (
+      {tab === "history" ? (
+        <RequestHistory threads={threads} />
+      ) : tab === "security" ? (
+        <section className="surface account-security">
+          <ShieldCheck size={26} />
+          <h3>Đăng nhập & bảo mật</h3>
+          <label>
+            Email đăng nhập
+            <input value={user.email} disabled />
+          </label>
+          <p className="muted">
+            Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.
+          </p>
+          <p className="muted">
+            Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền
+            khi đăng nhập lần sau.
+          </p>
+          <p className="muted small">
+            Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.
+          </p>
+        </section>
+      ) : tab !== "saved" ? (
         <div className="account-grid">
           <section className="surface">
             <h3>

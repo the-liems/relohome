@@ -1,31 +1,96 @@
-# SIU AI — Frontend React
+# SIU AI — Frontend
 
-Ứng dụng React + TypeScript + Vite, triển khai trong chính thư mục `Frontend/`. Gateway FastAPI giữ session và token dịch vụ phía máy chủ. Lệnh `local-integration.py ui` nay chạy frontend này thay cho Streamlit.
+Cập nhật **03/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
 
-## Tiến độ sau rà soát 01/10/2026
+## Trạng thái hiện tại
 
-Đã đối chiếu **34 tool** và các trang/tương tác: xem [bảng audit từng tool, giới hạn và kết quả kiểm tra](SERVICE_AUDIT.md).
+- **Chat là màn hình chính**, không còn sidebar trái hoặc breadcrumb.
+- **Kế hoạch nằm ở mép phải**, người dùng mở/thu gọn để xem **Tiến trình**, **Chi phí**, **Cần phản hồi** của hội thoại đang mở.
+- Đã bỏ trang Kế hoạch riêng và tab **Các kế hoạch**. Hội thoại cũ được mở lại từ **Lịch sử** hoặc **Tài khoản → Lịch sử yêu cầu**.
+- **Nút tài khoản** ở header: avatar, tên, khung chữ nhật bo góc cùng kiểu nút Lịch sử; không có icon hình người phía sau.
+- **Tiện ích trên map tự hiển thị khi zoom đủ gần** (zoom ≥ 14), không cần tick công tắc.
+- **Chat trong workspace mặc định thu gọn** thành nút “Chat với SIU”. Bấm để mở thanh nhập nhỏ, bấm mũi tên xuống để ẩn lại; giữ nội dung đang gõ. Đã bỏ khối tóm tắt phản hồi và nút “Xem đầy đủ”; hội thoại đầy đủ vẫn xem tại chat chính. Câu hỏi cần chọn và lỗi gửi vẫn có phần hiển thị ngắn khi mở thanh chat.
+- Đợt chỉnh giao diện và rà soát gần nhất chỉ sửa frontend; giữ nguyên backend, logic agent, gateway, lưu trữ và `.env`.
 
-| Phần | Trạng thái |
+### Kết quả kiểm tra gần nhất
+
+| Kiểm tra ngày 03/10 | Kết quả và phạm vi |
 | --- | --- |
-| Nhà, bản đồ, địa điểm, tuyến đường | 9 tool Location đã gọi thật thành công; database nhà hiện có và 9 OSRM endpoint hoạt động |
-| Chat, kế hoạch, tài khoản, form và phê duyệt | Có UI desktop/mobile; xử lý yêu cầu bằng ngôn ngữ vẫn cần LLM |
-| AhaMove | Có form/pin, báo giá, phí chi tiết, approval và biên nhận/tracking; thiếu credentials/liên hệ báo giá để thử provider thật |
-| Tính tiền | Tách tháng/một lần, không cộng trùng khoản đã đặt; có kiểm tra expiry và biên độ khi được cấu hình |
-| Thanh toán | Có trạng thái/link/QR workflow và kiểm tra provider; chưa có form ZaloPay demo độc lập/refund |
-| Flight | Có tìm/chọn/xem offer; thiếu key SerpApi; không bật xuất vé giả lập |
-| Workspace dịch vụ (01/10 chiều) | Chọn mọi căn từ danh sách bản đồ (AI ghi nhận lựa chọn), về chat sau khi chọn; giao diện bản đồ theo map-app (pill giá, lớp tiện ích); chat ẩn/hiện; workspace riêng cho chuyến bay và chuyển đồ. Xem [map workspace §7](../docs/integration/map-workspace-2026-10-01.md) |
-| Chế độ bản đồ (01/10) | Kết quả tìm nhà mở bản đồ + danh sách theo vùng (10 căn/trang, ngưỡng theo số căn trong vùng), sort chọn được, chat điều khiển bản đồ, chọn địa điểm bằng pin. Xem [map workspace](../docs/integration/map-workspace-2026-10-01.md) |
-| Chuyển đồ (01/10) | AhaMove từ chối báo giá thì chat hỏi lại kèm lý do của provider. Form **Thông tin chuyển đồ** (thay modal cũ): điểm lấy/giao (gõ, chọn ứng viên Location, tìm, chạm bản đồ), ngày, giờ; mở khi agent hỏi thông tin chuyển đồ, khi bấm "Chuyển đồ tới đây" hoặc thẻ Chuyển đồ; điền sẵn căn đã chọn (kể cả căn chọn trên bản đồ, qua `state.selections`). Xem [map workspace §9–§10](../docs/integration/map-workspace-2026-10-01.md) |
-| Xóa / làm mới trò chuyện (01/10) | Nút thùng rác ở đầu khung chat và từng mục trong **Lịch sử**; **Xóa tất cả và làm mới SIU** trong Lịch sử và Tài khoản. Gateway `DELETE /web/api/threads/{id}` gọi agent xoá checkpoint + bộ nhớ của hội thoại rồi mới xoá lịch sử local; `DELETE /web/api/threads` xoá mọi hội thoại xoá được, giữ hội thoại đang chờ thanh toán (báo lý do) và gọi `DELETE /memory`. Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ (nhà đã lưu mở chi tiết ngay trong Tài khoản khi hội thoại gốc đã xoá); đơn đã đặt không bị hủy |
-| Kế hoạch & tổng đã chốt (02/10) | Dải ngang trên khung chat (đóng/mở được): chỉ các mục tiêu người dùng đã nêu, mục độc lập cùng cột (song song), mục dựa vào kết quả/lựa chọn khác sau mũi tên; trạng thái Đã xem xét / Đã chốt / Chưa có kết quả. Tổng tiền chỉ cộng phương án đã chốt (đã chọn, chưa phải đã trả), thay mục chi phí dự kiến. Dữ liệu từ `state.progress`. Thanh toán qua chat vẫn tắt. Xem [mvp-architecture §7.1](../docs/review/mvp-architecture.md) |
-| Kiểm thử | Build đạt; 28 test UI desktop/mobile (14 kịch bản × 2; thêm ca bản đồ, workspace dịch vụ, form chuyển đồ, xóa/làm mới trò chuyện) và các test backend liên quan. Bộ Python rộng còn 22 lỗi fixture/hợp đồng cũ (17 trong audit + 5 test Flight MCP server khi tắt simulation) |
+| TypeScript + Vite build | Thành công |
+| Playwright | 32 ca hiện có qua trọn bộ; 4 ca bổ sung qua các lượt kiểm tra tiếp theo. Hiện có 18 tình huống × desktop/mobile = 36 ca |
+| Kiểm tra lại sau sửa giao diện | Luồng chi tiết/chọn/lưu nhà và panel kế hoạch đã chạy lại; test đo vị trí panel chờ hiệu ứng mở hoàn tất. Sau khi thu gọn chat workspace, 12 ca map/chuyển đồ/chuyến bay desktop/mobile qua |
+| Kiểm tra chỉ đọc ứng dụng local | Frontend 8503, Agent `/api/v1/status`, Platform `/health`, Moving API `/health` trả HTTP 200 tại thời điểm kiểm tra |
+| Capability local | Agent công bố 5 domain: property, map, relocation, flight, payment; `writes_enabled=false` |
 
-**Chưa phải tất cả tính năng đều chỉ chờ LLM:** AhaMove, SerpApi, ZaloPay cần cấu hình riêng. Các tool nhiều đơn, callback timeline, rating và refund chưa có flow UI đầy đủ. Không có dữ liệu demo thay thế provider trong app.
+**Lỗi đã sửa:** nhà lưu khi khám phá map có thể không nằm trong kết quả chat ban đầu. Mở nhà đó từ Tài khoản nay lấy bản lưu đúng hội thoại và gọi API chi tiết hiện có, kể cả sau tải lại. Khi bản lưu không có ngữ cảnh kết quả để chọn phương án, dialog chỉ xem thông tin; thao tác chọn vẫn thực hiện qua map/kết quả dịch vụ.
+
+Các ca trình duyệt dùng API giả lập. Chúng xác minh đường đi, trạng thái hiển thị và dữ liệu gửi đi; **không chứng minh chất lượng suy luận LLM, đặt đơn hoặc thanh toán thật**. Các kết quả Python/provider trong [SERVICE_AUDIT.md](SERVICE_AUDIT.md) có ngày kiểm tra riêng, chưa được chạy lại toàn bộ trong đợt chỉnh giao diện này.
+
+## Màn hình và cách sử dụng
+
+### Chat và lịch sử
+
+1. Đăng nhập, bắt đầu tại `/ai`; nhập yêu cầu hoặc chọn một trong bốn nhóm: Tìm nhà, Tìm chuyến bay, Chuyển đồ, Đường đi.
+2. Agent hỏi bổ sung hoặc trả kết quả. Form tìm kiếm vẫn gửi yêu cầu tới graph, cần LLM để xử lý đầy đủ.
+3. Kết quả nhà, chuyến bay hoặc báo giá chuyển đồ mở workspace tương ứng. Nhấn **Chat với SIU** để mở thanh chat nhỏ; mũi tên xuống thu gọn lại.
+4. Chọn phương án để trở lại chat và tiếp tục các dịch vụ khác.
+5. Nút **Lịch sử** trên header tìm theo tiêu đề, mở lại hội thoại; có tạo mới, xóa từng hội thoại và xóa tất cả/làm mới SIU.
+
+Lịch sử lưu ở máy chủ. Xóa hội thoại không đồng nghĩa hủy đơn đã đặt. Luồng xóa tất cả giữ hội thoại đang chờ thanh toán khi backend yêu cầu; hồ sơ, sở thích và nhà đã lưu được giữ.
+
+### Kế hoạch bên phải
+
+| Tab | Nội dung |
+| --- | --- |
+| Tiến trình | Các mục tiêu, trạng thái, phương án đã chọn và quan hệ phụ thuộc/song song từ `state.progress`; hội thoại cũ có thể dùng danh sách task hiện có |
+| Chi phí | Tổng phương án đã chọn, tách hằng tháng/một lần, biên nhận dịch vụ |
+| Cần phản hồi | Thông tin agent cần bổ sung; form phê duyệt hoặc kiểm tra thanh toán khi workflow đang chờ |
+
+Panel dùng cùng hội thoại và callback với chat, không tạo bản kế hoạch riêng. **Đã chọn phương án chưa có nghĩa đã đặt dịch vụ hay đã thanh toán.** Người dùng đóng bằng nút trên mép phải, nút X, Escape hoặc bấm ngoài panel.
+
+### Tài khoản
+
+Nhấn avatar/tên trên header để vào `/account`.
+
+| Mục | Nội dung |
+| --- | --- |
+| Lịch sử yêu cầu — tab mặc định | Từng lượt yêu cầu/phản hồi đã lưu, thời gian, tìm kiếm, lọc trạng thái, xem phản hồi, mở lại hội thoại |
+| Đăng nhập & bảo mật | Email đăng nhập, thông tin bảo mật và khả năng trình duyệt lưu/tự điền mật khẩu |
+| Hồ sơ | Sửa tên hiển thị |
+| Sở thích AI | Thành phố, ngân sách, loại nhà, phương tiện, tiện nghi; chỉ áp dụng khi người dùng chọn, yêu cầu mới trong chat được ưu tiên |
+| Đã lưu | Xem/bỏ lưu nhà; mở chi tiết gắn với hội thoại hoặc xem tại Tài khoản nếu hội thoại gốc đã bị xóa |
+
+Lịch sử yêu cầu đọc API `/threads` và `/threads/:id` hiện có; không phải nhật ký từng tool/LLM. Mật khẩu không hiển thị lại. Chưa có đổi/khôi phục mật khẩu, xác minh email hoặc SSO.
+
+### URL hiện có
+
+| URL | Đích đến |
+| --- | --- |
+| `/ai` | Chat mới |
+| `/ai/:threadId` | Hội thoại đã lưu |
+| `/ai/:threadId?panel=plan` | Hội thoại và panel kế hoạch |
+| `/account` | Tài khoản, mặc định lịch sử yêu cầu |
+| `/plans` — URL cũ | Chuyển đến `/account` |
+| `/plans/:planId` — URL cũ | Chuyển đến hội thoại tương ứng và mở panel kế hoạch |
+| `/login` | Đăng nhập khi chưa có session; đã đăng nhập thì về chat |
+
+## Phạm vi các dịch vụ
+
+| Dịch vụ | Frontend hiện có | Giới hạn |
+| --- | --- | --- |
+| Nhà / Map | Card, chi tiết, lưu, so sánh tối đa 3 căn; danh sách theo viewport, sort, marker/cụm, tiện ích, tuyến đường, pin địa điểm | Bộ lọc commute/bán kính dùng bản đồ của kết quả; khám phá viewport không âm thầm bỏ điều kiện không hỗ trợ |
+| Chuyển đồ / AhaMove | Form điểm lấy/giao, pin, ngày/giờ; căn đã chọn điền sẵn điểm đến; báo giá, phí, lựa chọn, review, biên nhận/tracking | Đặt/sửa/hủy phụ thuộc capability và cấu hình provider; chưa có UI đầy đủ cho nhiều đơn, timeline callback, rating, special request/COD |
+| Chuyến bay | Tìm, sắp xếp, xem offer, chọn vào kế hoạch | Tìm thật cần SerpApi; chưa cung cấp luồng xuất vé thật |
+| Thanh toán | Trạng thái workflow, link/QR provider, kiểm tra thanh toán | Chưa có form ZaloPay sandbox độc lập hoặc refund; không coi lời người dùng là xác nhận đã thanh toán |
+| Phê duyệt / Chi phí | Form liên hệ riêng, task/version/hash và expiry; khóa thao tác khi không hỗ trợ hoặc writes tắt | Có giao diện không đồng nghĩa provider đã thực hiện giao dịch |
+
+Không có streaming token; giao diện hiển thị trạng thái chờ theo lượt. Runtime không thay lỗi provider bằng dữ liệu demo. Ghép trọ/cẩm nang, quản lý vé thật và các tính năng chưa có capability chưa được bật. Danh sách tool và bằng chứng kiểm tra chi tiết: [SERVICE_AUDIT.md](SERVICE_AUDIT.md).
 
 ## Chạy ứng dụng
 
-Tại gốc repo, dùng môi trường Python và cấu hình backend theo [runbook local](../docs/runbooks/local-mvp.md). Cài Node 22.12+ và build frontend:
+Cần Python environment của repo, Node 22.12+ và các service theo [runbook local](../docs/runbooks/local-mvp.md).
+
+Từ gốc repo:
 
 ```powershell
 cd Frontend
@@ -35,83 +100,88 @@ cd ..
 .venv/Scripts/python.exe scripts/local-integration.py ui
 ```
 
-Mở **http://127.0.0.1:8503**, tạo tài khoản rồi đăng nhập. API agent cần chạy ở cổng 8000; Housing/Map/Moving cần các service tương ứng trong runbook. Không phải chạy Streamlit.
+Mở **http://127.0.0.1:8503**. Agent API cần chạy tại 8000; map khám phá vùng cần Platform tại 4100. Location/Moving/OSRM và database khởi động theo runbook. Lệnh trên chỉ khởi động UI/gateway.
 
-Để sửa UI có hot reload, giữ gateway ở 8503 rồi chạy `npm run dev` trong `Frontend/`; mở **http://127.0.0.1:5174**. Vite chuyển `/web/api` tới gateway. Có thể cấu hình `SIU_GATEWAY_URL` nếu đổi cổng gateway.
+### Phát triển với hot reload
 
-## Phần đã triển khai
-
-- Ba mục điều hướng: Hệ thống AI, Kế hoạch, Tài khoản; desktop và mobile.
-- Chat nhiều hội thoại, lịch sử và lựa chọn lưu trên máy chủ; trạng thái xử lý/lỗi và khôi phục sau tải lại.
-- Form tìm nhà/chuyến bay/chuyển đồ/bản đồ; nhà dạng card, so sánh tối đa ba căn, chi tiết, lưu yêu thích.
-- Chế độ bản đồ ([`MapWorkspace.tsx`](src/components/MapWorkspace.tsx), ngưỡng trong [`mapWorkspace.ts`](src/mapWorkspace.ts)): danh sách bên trái đổi theo vùng đang xem, zoom quá rộng (< 13 hoặc > 500 căn) thì mời phóng to; căn trùng toạ độ gộp marker "n căn" nhưng danh sách vẫn liệt kê từng căn với địa chỉ và link chỉ đường; khung chat gửi `map_view` để AI hiểu "khu này".
-- MapLibre: nhà, cụm, điểm tiện ích, tuyến đường, mở rộng; khám phá khu vực giữ bộ lọc được API hỗ trợ. Bộ lọc commute hoặc bán kính chỉ dùng map của kết quả, không âm thầm bỏ điều kiện.
-- Chọn phương án gửi action có kiểm tra quyền sở hữu, phiên bản và nguồn kết quả; kế hoạch đọc trạng thái graph, chi phí tháng/một lần tách riêng.
-- Form phê duyệt và thông tin liên hệ gửi riêng, khóa theo capability/expiry; kiểm tra thanh toán theo trạng thái workflow.
-- Đăng ký/đăng nhập session HttpOnly, sở thích được áp dụng khi người dùng chọn, nhà đã lưu theo tài khoản.
-
-Không tạo dữ liệu kết quả giả khi dịch vụ lỗi. Ghép trọ/cẩm nang, xuất vé máy bay và các thao tác chưa có capability chưa được bật. ZaloPay sandbox độc lập vẫn có API backend nhưng chưa có form demo riêng trong UI này. Không có streaming token; frontend hiển thị trạng thái chờ khi API xử lý một lượt.
-
-## Cấu trúc và cấu hình
-
-| Đường dẫn | Vai trò |
-| --- | --- |
-| `src/` | React, component dịch vụ, CSS, API client |
-| `server.py`, `store.py` | Gateway cùng origin; SQLite cho user/session/history/saved |
-| `scripts/prepare-map.mjs` | Sao chép MapLibre worker/module đúng phiên bản khi install/dev/build |
-| `tests/` | Kiểm thử gateway/graph và Playwright desktop/mobile |
-| Các ảnh PNG bên dưới | Ảnh tham chiếu thiết kế được giữ nguyên |
-
-Gateway dùng `AGENT_API_TOKEN` từ môi trường máy chủ; không có biến `VITE_*` chứa token. `LIFEFLOW_API_BASE_URL` mặc định `http://127.0.0.1:8000/api/v1`, `SIU_PLATFORM_API_URL` mặc định `http://127.0.0.1:4100/v1`. Khởi động thêm `scripts/local-integration.py platform` để dùng map khám phá khu vực.
-
-`SIU_WEB_DB` mặc định `data/siu-web.sqlite3`, cần giữ cùng dữ liệu checkpoint của agent để bảo toàn lịch sử. Chạy một worker gateway. `SIU_ALLOW_REGISTRATION=false` tắt đăng ký mới; `SIU_SECURE_COOKIE=true` dùng khi phục vụ qua HTTPS. Đây là đăng nhập local, chưa có xác minh email/khôi phục mật khẩu hay SSO.
-
-## Kiểm tra
+Giữ gateway tại 8503. Trong terminal khác:
 
 ```powershell
-# Từ Frontend/ — Playwright dùng Chrome đã cài trên máy. WSL/Linux không có Chrome: dùng Chromium
-# của Playwright (`npx playwright install chromium`) và bỏ `channel: "chrome"` trong một config cục bộ
-npm run build
-npm run test:e2e
+cd Frontend
+npm run dev
+```
 
-# Từ gốc repo
+Mở **http://127.0.0.1:5174**. Vite proxy `/web/api` tới gateway. Nếu gateway đổi địa chỉ, đặt `SIU_GATEWAY_URL` trước khi chạy Vite.
+
+Sau khi chỉnh source để xem qua cổng 8503, chạy lại `npm run build`, rồi tải lại bằng **Ctrl + F5**.
+
+## Kiểm thử
+
+Hướng dẫn, phạm vi 18 tình huống và cách đọc kết quả: [tests/README.md](tests/README.md).
+
+```powershell
+# Từ Frontend/
+npm run build
+npm run test:e2e -- --workers=1
+
+# Từ gốc repo — gateway, hợp đồng UI và graph/action
 .venv/Scripts/python.exe -m pytest Frontend/tests -q
 ```
 
-Playwright dùng fixture API được khai báo trong test; pytest dùng provider mock và checkpoint graph thật. Các kiểm tra này không chứng minh đã đặt đơn/thanh toán với provider thật. Khi upstream timeout, giao diện yêu cầu kiểm tra trạng thái; giao dịch bất định vẫn cần đối chiếu backend/provider, không tự gửi lại.
+Playwright dùng Chrome đã cài, tự chạy Vite ở 5174; dừng dev server đang chiếm cổng này trước khi test. Fixture API chỉ có trong test. Các test Python dùng mock/graph, không thay thế kiểm tra provider thật.
 
-## Hướng thiết kế
+## Cấu trúc
 
-- Chat là giao diện chính; sidebar gồm **Hệ thống AI – Kế hoạch – Tài khoản**.
-- Theo yêu cầu của người dùng, hiển thị card nhà, bản đồ, tiện ích, tuyến đường, hồ sơ ghép trọ, vé, checklist và nút phê duyệt ngay trong hội thoại.
-- Người dùng tiếp tục tương tác qua chat hoặc component theo ngữ cảnh.
+| Đường dẫn | Vai trò |
+| --- | --- |
+| [src/App.tsx](src/App.tsx) | Route, chat, lịch sử, tài khoản và kết nối các workspace |
+| [src/components/PlanPeek.tsx](src/components/PlanPeek.tsx) | Panel kế hoạch bên phải |
+| [src/components/PlanProgress.tsx](src/components/PlanProgress.tsx) | Mô tả mục tiêu và tổng phương án đã chọn được tái sử dụng |
+| [src/components/RequestHistory.tsx](src/components/RequestHistory.tsx) | Lịch sử từng lượt gửi yêu cầu |
+| [src/components/MapWorkspace.tsx](src/components/MapWorkspace.tsx) | Map nhà và danh sách theo viewport |
+| [src/components/ServiceWorkspaces.tsx](src/components/ServiceWorkspaces.tsx) | Workspace chuyến bay/chuyển đồ và form chuyển đồ |
+| [src/components/WorkspaceChat.tsx](src/components/WorkspaceChat.tsx) | Chat ẩn/hiện trong workspace dịch vụ |
+| [src/components/Forms.tsx](src/components/Forms.tsx), [Transactions.tsx](src/components/Transactions.tsx) | Form, phê duyệt, thanh toán và biên nhận |
+| [src/styles.css](src/styles.css) | Giao diện và responsive |
+| [server.py](server.py), [store.py](store.py) | Gateway cùng origin; SQLite user/session/history/saved |
+| [scripts/prepare-map.mjs](scripts/prepare-map.mjs) | Chuẩn bị MapLibre worker/module khi install/dev/build |
+| [tests/](tests/README.md) | Playwright, kiểm thử gateway và hợp đồng |
+| `dist/` | Bản build Vite được gateway phục vụ |
 
-## Tài liệu để triển khai
+## Cấu hình gateway
 
-- [Kế hoạch tích hợp và yêu cầu backend/frontend](../docs/integration/siu-ai-agent-first-frontend-plan.md).
-- [Thiết kế các trang, màn hình và tương tác](../docs/integration/siu-ai-frontend-screen-design.md).
-- [Backend Map đã bổ sung và giới hạn hiện tại](../docs/integration/map-backend-update-2026-09-30.md).
+| Biến | Vai trò / mặc định |
+| --- | --- |
+| `AGENT_API_TOKEN` | Token ở máy chủ để gọi Agent API |
+| `LIFEFLOW_API_BASE_URL` | `http://127.0.0.1:8000/api/v1` |
+| `SIU_PLATFORM_API_URL` | `http://127.0.0.1:4100/v1` |
+| `SIU_WEB_DB` | `data/siu-web.sqlite3` |
+| `SIU_ALLOW_REGISTRATION` | `false` để tắt đăng ký mới |
+| `SIU_SECURE_COOKIE` | `true` khi phục vụ qua HTTPS |
+| `SIU_GATEWAY_URL` | Đích proxy Vite; mặc định `http://127.0.0.1:8503` |
 
-Ảnh thể hiện định hướng hình ảnh; trạng thái tính năng và API cần đối chiếu tài liệu trên.
+Chạy một worker gateway. Giữ database web cùng dữ liệu checkpoint của agent để bảo toàn lịch sử. Secret LLM/AhaMove/SerpApi/ZaloPay nằm phía máy chủ; không dùng biến `VITE_*` để chứa token.
 
-## Bộ ảnh demo
+## Tài liệu liên quan
 
-### Demo 1
+- [Audit tool và giới hạn dịch vụ](SERVICE_AUDIT.md).
+- [Kiểm thử frontend](tests/README.md).
+- [Kế hoạch frontend theo agent](../docs/integration/siu-ai-agent-first-frontend-plan.md).
+- [Thiết kế màn hình ban đầu](../docs/integration/siu-ai-frontend-screen-design.md).
+- [Workspace map và dịch vụ](../docs/integration/map-workspace-2026-10-01.md).
+- [Kiến trúc MVP](../docs/review/mvp-architecture.md).
+- [Chạy hệ thống local](../docs/runbooks/local-mvp.md).
 
-![Demo 1](ChatGPT%20Image%20Sep%2030,%202026,%2011_48_57%20AM-1.png)
+Tài liệu thiết kế và ảnh dưới đây là tham chiếu ban đầu. Bố cục hiện hành được mô tả trong README này.
 
-### Demo 2
+## Ảnh tham chiếu
 
-![Demo 2](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_23%20AM-2.png)
+![Tham chiếu 1](ChatGPT%20Image%20Sep%2030,%202026,%2011_48_57%20AM-1.png)
 
-### Demo 3
+![Tham chiếu 2](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_23%20AM-2.png)
 
-![Demo 3](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_34%20AM-3.png)
+![Tham chiếu 3](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_34%20AM-3.png)
 
-### Demo 4
+![Tham chiếu 4](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-4.png)
 
-![Demo 4](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-4.png)
-
-### Demo 5
-
-![Demo 5](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-5.png)
+![Tham chiếu 5](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-5.png)

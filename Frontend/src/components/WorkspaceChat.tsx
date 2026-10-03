@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ChevronDown,
   MapPin,
@@ -21,11 +21,9 @@ export interface ChatDockProps {
   onSend: (text: string, extra?: Data) => Promise<void>;
 }
 
-// Chat docked over a service workspace (map, flights, moving). It can be hidden so the
-// workspace stays readable; a floating button brings it back.
+// Workspaces start with a floating launcher. Opening it reveals a compact composer;
+// service results stay in the workspace and the full conversation remains in the main chat.
 export function WorkspaceChat({
-  text,
-  kind,
   questions,
   suggestions = [],
   busy,
@@ -42,8 +40,17 @@ export function WorkspaceChat({
   onChoose?: (choice: Data) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(""),
-    [expanded, setExpanded] = useState(false),
-    [hidden, setHidden] = useState(false);
+    [hidden, setHidden] = useState(true);
+  const panelId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!hidden) {
+      opened.current = true;
+      input.current?.focus();
+    } else if (opened.current) launcher.current?.focus();
+  }, [hidden]);
   async function submit() {
     if (!draft.trim() || busy) return;
     const value = draft;
@@ -57,84 +64,24 @@ export function WorkspaceChat({
   if (hidden)
     return (
       <button
+        ref={launcher}
         className="ws-chat-show"
         onClick={() => setHidden(false)}
         aria-label="Hiện khung chat"
+        aria-expanded={false}
+        aria-controls={panelId}
       >
         <MessageCircle size={17} /> Chat với SIU
         {busy && <span className="spinner small" />}
       </button>
     );
   return (
-    <div className="ws-dock" aria-label="Trò chuyện với SIU AI">
-      <div className={"ws-dock-answer " + (kind === "ERROR" ? "error" : "")}>
-        <div className="ws-dock-head">
-          <span className="assistant-label">
-            SIU AI <Sparkles size={12} />
-          </span>
-          <button
-            className="text-button"
-            onClick={() => setHidden(true)}
-            aria-label="Ẩn khung chat"
-          >
-            Ẩn chat <ChevronDown size={14} />
-          </button>
-        </div>
-        {busy ? (
-          <p className="muted">SIU đang xử lý yêu cầu của bạn…</p>
-        ) : (
-          text && <p className={expanded ? "prose" : "prose clamp"}>{text}</p>
-        )}
-        {!busy && text && text.length > 160 && (
-          <button
-            className="text-button"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? "Thu gọn" : "Xem đầy đủ"}
-          </button>
-        )}
-        {!busy &&
-          questions.map((q, i) => (
-            <div className="tags" key={i}>
-              {(q.choices?.length
-                ? q.choices
-                : (q.options || []).map((o: string) => ({ label: o }))
-              ).map((c: Data) => (
-                <button
-                  key={c.id || c.label}
-                  className="suggestion"
-                  onClick={() =>
-                    void (
-                      c.id && onChoose
-                        ? onChoose({ ...c, field: q.field })
-                        : onSendText(c.label)
-                    ).catch(() => {})
-                  }
-                >
-                  {c.id && <MapPin size={12} />} {c.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        {!busy && suggestions.length > 0 && (
-          <div className="tags">
-            {suggestions.map((s) => (
-              <button
-                key={s.key}
-                className="suggestion"
-                onClick={() => void onSendText(s.message).catch(() => {})}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {error && (
-          <p className="notice error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
+    <div
+      id={panelId}
+      className="ws-dock ws-dock-compact"
+      role="region"
+      aria-label="Trò chuyện với SIU AI"
+    >
       <form
         className="ws-dock-input"
         onSubmit={(e) => {
@@ -142,12 +89,14 @@ export function WorkspaceChat({
           void submit();
         }}
       >
-        <Sparkles size={18} className="muted" />
+        <Sparkles size={18} className="ws-dock-sparkle" />
         <input
+          ref={input}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
           aria-label="Tin nhắn cho SIU AI"
+          aria-describedby={caption ? panelId + "caption" : undefined}
           maxLength={5000}
         />
         <button
@@ -155,11 +104,78 @@ export function WorkspaceChat({
           disabled={busy || !draft.trim() || !online}
           aria-label="Gửi tin nhắn"
         >
-          <Send size={18} />
+          {busy ? <span className="spinner small" /> : <Send size={18} />}
+        </button>
+        <button
+          type="button"
+          className="icon-button ws-dock-collapse"
+          onClick={() => setHidden(true)}
+          aria-label="Ẩn khung chat"
+          title="Thu gọn chat"
+          aria-expanded={true}
+          aria-controls={panelId}
+        >
+          <ChevronDown size={18} />
         </button>
       </form>
       {caption && (
-        <span className="ws-dock-caption muted small">{caption}</span>
+        <span id={panelId + "caption"} className="ws-dock-accessible-caption">
+          {caption}
+        </span>
+      )}
+      {busy && (
+        <span className="ws-dock-accessible-caption" role="status">
+          SIU đang xử lý yêu cầu của bạn…
+        </span>
+      )}
+      {((!busy && (questions.length > 0 || suggestions.length > 0)) ||
+        error) && (
+        <div className="ws-dock-context">
+          {!busy &&
+            questions.map((q, i) => (
+              <div key={i}>
+                {q.text && <p>{q.text}</p>}
+                <div className="tags">
+                  {(q.choices?.length
+                    ? q.choices
+                    : (q.options || []).map((o: string) => ({ label: o }))
+                  ).map((c: Data) => (
+                    <button
+                      key={c.id || c.label}
+                      className="suggestion"
+                      onClick={() =>
+                        void (
+                          c.id && onChoose
+                            ? onChoose({ ...c, field: q.field })
+                            : onSendText(c.label)
+                        ).catch(() => {})
+                      }
+                    >
+                      {c.id && <MapPin size={12} />} {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          {!busy && suggestions.length > 0 && (
+            <div className="tags">
+              {suggestions.map((s) => (
+                <button
+                  key={s.key}
+                  className="suggestion"
+                  onClick={() => void onSendText(s.message).catch(() => {})}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {error && (
+            <p className="notice error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

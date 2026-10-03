@@ -115,8 +115,7 @@ export function MapWorkspace({
     [listOpen, setListOpen] = useState(true),
     [sheet, setSheet] = useState(false),
     [selecting, setSelecting] = useState<string | null>(null);
-  const [poiOn, setPoiOn] = useState(false),
-    [pois, setPois] = useState<Data | null>(null);
+  const [pois, setPois] = useState<Data | null>(null);
   const generation = useRef(0);
 
   // Chat answers replace the area filters and move the map to the area the agent resolved.
@@ -417,7 +416,7 @@ export function MapWorkspace({
 
   // Amenity layer for the visible area (same Platform endpoint as map-app).
   useEffect(() => {
-    if (!poiOn || !view || view.zoom < POI_MIN_ZOOM) {
+    if (!view || view.zoom < POI_MIN_ZOOM) {
       setPois(null);
       return;
     }
@@ -436,7 +435,7 @@ export function MapWorkspace({
       clearTimeout(timer);
       abort.abort();
     };
-  }, [poiOn, view]);
+  }, [view]);
 
   async function more() {
     if (!view || !cursor) return;
@@ -874,13 +873,6 @@ export function MapWorkspace({
               </span>
             ))}
             <span className="ws-spacer" />
-            <button
-              className={"ws-pill-button " + (poiOn ? "active" : "")}
-              aria-pressed={poiOn}
-              onClick={() => setPoiOn(!poiOn)}
-            >
-              <Layers size={15} /> Tiện ích
-            </button>
             <button className="ws-pill-button" onClick={onExit}>
               <MessageCircle size={15} /> Về hội thoại
             </button>
@@ -889,21 +881,19 @@ export function MapWorkspace({
             <span>
               <HouseIcon size={16} /> <strong>{countLabel}</strong> chỗ ở
             </span>
-            {poiOn && (
-              <span>
-                <Layers size={15} />{" "}
-                {pois ? (
-                  <>
-                    <strong>
-                      {(pois.features || []).length.toLocaleString("vi-VN")}
-                    </strong>{" "}
-                    tiện ích
-                  </>
-                ) : (
-                  "Phóng to để xem tiện ích"
-                )}
-              </span>
-            )}
+            <span>
+              <Layers size={15} />{" "}
+              {pois ? (
+                <>
+                  <strong>
+                    {(pois.features || []).length.toLocaleString("vi-VN")}
+                  </strong>{" "}
+                  tiện ích
+                </>
+              ) : (
+                "Phóng to để xem tiện ích"
+              )}
+            </span>
           </div>
         </div>
         <div ref={container} className="ws-canvas" />
@@ -992,14 +982,13 @@ export function MapWorkspace({
               <div>
                 <h4>Tiện ích xung quanh</h4>
                 <small className="muted">
-                  Bật lớp tiện ích để xem y tế, trường học, mua sắm và giao
-                  thông quanh căn này.
+                  Tiện ích luôn hiển thị trên bản đồ. Phóng to quanh căn này để
+                  xem y tế, trường học, mua sắm và giao thông.
                 </small>
               </div>
               <button
-                className={"ws-pill-button " + (poiOn ? "active" : "")}
+                className="ws-pill-button"
                 onClick={() => {
-                  setPoiOn(true);
                   if (Number.isFinite(detail.lat))
                     map.current?.easeTo({
                       center: [detail.lng!, detail.lat!],
@@ -1007,7 +996,7 @@ export function MapWorkspace({
                     });
                 }}
               >
-                <Layers size={14} /> {poiOn ? "Đang hiển thị" : "Hiển thị"}
+                <Layers size={14} /> Xem quanh căn
               </button>
             </div>
             {Number.isFinite(detail.lat) && (

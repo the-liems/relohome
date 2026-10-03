@@ -1,10 +1,14 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
-Ngày kiểm tra: **01/10/2026**. Phạm vi: source code service, schema đầu vào/đầu ra, adapter/graph, gateway và React. Không gọi LLM, không tạo đơn AhaMove, không tạo thanh toán thật trong đợt kiểm tra này.
+Audit service gốc: **01/10/2026**. Cập nhật mô tả giao diện và kết quả kiểm tra UI: **03/10/2026**. Audit gốc đọc source service, schema đầu vào/đầu ra, adapter/graph, gateway và React. Các bằng chứng tool/provider/Python bên dưới là kết quả của đợt cũ, không phải các lần gọi lại ngày 03/10. Đợt kiểm tra UI mới dùng API giả lập và chỉ đọc health/status local; không gọi LLM, tạo đơn hay thanh toán thật.
 
-## Kết luận hiện tại
+## Kết luận và phạm vi bằng chứng
 
 **Frontend đáp ứng luồng MVP chính, chưa bao phủ mọi tool của service. Chưa thể kết luận chỉ cần gắn LLM là toàn bộ hệ thống chạy được.**
+
+Giao diện hiện tại: chat toàn màn hình, bỏ sidebar trái, kế hoạch ba tab ở mép phải, tài khoản qua avatar/tên trên header. Lịch sử thay đường tới danh sách kế hoạch cũ. Chi tiết và hướng dẫn chạy: [README](README.md); phạm vi kiểm thử: [tests/README.md](tests/README.md).
+
+Các thông tin credentials, provider và dữ liệu trong các gạch đầu dòng tiếp theo ghi nhận từ audit service ngày 01/10, chưa được xác minh lại toàn bộ ngày 03/10.
 
 - Housing/Location: database có sẵn `lifeflow` tại 5433; đã xác minh 38.222 tin ở lượt trước. Đợt này gọi trực tiếp cả 9 tool đọc Location thành công.
 - Routing: đã khởi động lại container có sẵn. 9 endpoint OSRM của 3 thành phố × 3 phương tiện phản hồi `Ok`; đã thử hai tool tính đường qua MCP với tọa độ tại HCM. Kiểm tra `nearest` ở các thành phố còn lại không thay thế kiểm thử mọi tuyến đường.
@@ -22,14 +26,15 @@ Ngày kiểm tra: **01/10/2026**. Phạm vi: source code service, schema đầu 
 | `/ai/:threadId` | Chat, hỏi bổ sung, kết quả dịch vụ, lịch sử, lựa chọn, chi phí, phê duyệt, biên nhận | Chờ theo lượt; chưa stream token/tool progress |
 | Chi tiết nhà | Dialog có URL theo hội thoại/kết quả; ảnh, giá, nguồn, lưu/chọn/hỏi AI | Dữ liệu thiếu hiển thị chưa có; không tự nhận là tin còn trống |
 | So sánh nhà | Tối đa 3 căn từ kết quả đã tải | Không so sánh toàn bộ DB |
-| Bản đồ trong chat / mở rộng | Điểm nhà, cluster, POI, route, cảnh báo độ chính xác, mobile list/map | Khám phá viewport không áp dụng commute/bán kính; tin ngoài kết quả chưa chọn vào graph trực tiếp |
+| Bản đồ / workspace nhà | Danh sách theo viewport, sort, marker/cụm, POI tự hiện ở zoom ≥ 14, route, cảnh báo độ chính xác, chat ẩn/hiện | Khám phá viewport không áp dụng commute/bán kính; chọn nhà từ map dùng action/API kiểm tra lại tin |
 | Chuyển đồ | Điểm lấy/giao, pin phải xác nhận lại khi sửa, ngày/giờ, báo giá, phí, yêu cầu đặt/sửa/hủy qua chat | Chưa có form mọi special request/COD, danh sách đơn hàng riêng, lịch sử sự kiện chi tiết |
 | Phê duyệt | Chi phí, thao tác, thời hạn, form liên hệ riêng, xác nhận/đổi/từ chối | Chỉ chấp nhận các thao tác Moving UI hỗ trợ; chưa có giao diện operator đối soát giao dịch bất định |
 | Thanh toán workflow | Link provider, QR sinh tại máy chủ, kiểm tra trạng thái; link hết hạn bị khóa | Không tự coi callback/lời người dùng là đã trả tiền; chưa có trang tạo demo độc lập/refund |
-| `/plans`, `/plans/:planId` | Danh sách, trạng thái task graph, chi phí tháng/một lần, biên nhận, trở về chat | Trạng thái tìm kiếm không phải tiến độ chuyển nhà ngoài đời; không có lịch/reminder riêng |
-| `/account` | Tên, sở thích, nhà đã lưu, đăng xuất | Sở thích không tự áp dụng thay cho yêu cầu mới |
+| Panel Kế hoạch ở mép phải | Tiến trình, Chi phí, Cần phản hồi của hội thoại đang mở; tổng tháng/một lần, biên nhận, form xác nhận/thanh toán hiện có | Không còn tab Các kế hoạch; trạng thái tìm kiếm không phải tiến độ chuyển nhà ngoài đời; không có lịch/reminder riêng |
+| `/plans`, `/plans/:planId` — URL cũ | `/plans` chuyển tới `/account`; `/plans/:planId` mở đúng chat và panel kế hoạch | Không còn trang Kế hoạch riêng |
+| `/account` | Lịch sử từng yêu cầu/phản hồi, tìm/lọc/mở chat; hồ sơ, bảo mật, sở thích, nhà đã lưu, đăng xuất | Không phải log từng tool/LLM; chưa đổi/khôi phục mật khẩu; sở thích không tự áp dụng thay yêu cầu mới |
 
-Theo thiết kế, Map/AhaMove/Flight xuất hiện trong hội thoại và dialog; sidebar giữ **Hệ thống AI – Kế hoạch – Tài khoản**, không tạo một menu riêng cho mỗi service.
+Map/AhaMove/Flight có workspace theo kết quả và tương tác qua chat. Trong workspace, mặc định chỉ hiện nút Chat với SIU; mở thanh nhập nhỏ và thu gọn bằng mũi tên xuống, không còn khối tóm tắt/Xem đầy đủ. Bố cục hiện tại không có sidebar trái; kế hoạch nằm bên phải, tài khoản và Lịch sử nằm trên header. Đã sửa mở chi tiết nhà lưu từ map khi căn không nằm trong card chat ban đầu; bản lưu thiếu ngữ cảnh kết quả chỉ xem chi tiết, chọn phương án qua map/kết quả dịch vụ.
 
 ## Đối chiếu 34 tool
 
@@ -62,7 +67,7 @@ Nguồn: `Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts`, `packages/co
 | `list_service_areas` | Danh sách thành phố thực tế từ provider | Chat catalog → danh sách khu vực có nút hỏi tiếp. **Có UI qua graph** |
 | `list_moving_services` | Theo city/tọa độ, loại dịch vụ; có yêu cầu bổ sung | Graph dùng trước báo giá; danh sách dịch vụ hiển thị tên/mô tả. **Có UI cơ bản** |
 | `get_moving_service` | Giới hạn, mô tả, special requests của service ID | Có yêu cầu xem thêm qua chat; chưa có form đầy đủ giới hạn trọng lượng/kích thước và lựa chọn special request. **Một phần** |
-| `estimate_move` | Draft điểm lấy/giao, liên hệ, giờ, dịch vụ; quote có hạn và phí chi tiết | Form pin/ngày/giờ, báo giá, chi tiết phí, chọn. Liên hệ báo giá do cấu hình server. **Có UI; chưa thử provider thật** |
+| `estimate_move` | Draft điểm lấy/giao, liên hệ, giờ, dịch vụ; quote có hạn và phí chi tiết | Form pin/ngày/giờ, báo giá, chi tiết phí, chọn. Liên hệ báo giá do cấu hình server. **Có UI; audit 01/10 ghi nhận báo giá staging, chưa gọi lại trong đợt UI 03/10** |
 | `get_move_order` | ID đơn, trạng thái, phí, tracking; payload đầy đủ có PII | Graph rút gọn trước UI; card dùng `total_price`, `shared_link`. **Có UI trạng thái cơ bản** |
 | `get_move_orders` | Tối đa 100 order ID | Tool được service/allowlist hỗ trợ; chưa có flow graph và màn hình quản lý nhiều đơn hoàn chỉnh. Renderer nhận `orders[]` chưa đủ để gọi tính năng hoàn chỉnh. **Chưa nối đầy đủ** |
 | `find_move_orders_by_tracking_number` | Tracking đối tác; có thể nhiều đơn và khoảng thời gian | Qua chat; adapter hiện lấy một đơn. **Một phần**, chưa có UI chọn khi nhiều kết quả |
@@ -115,13 +120,14 @@ Nguồn: `src/mcp_servers/payments/tools.py`, `server.py`, engine/gateway và `s
 
 | Bộ kiểm tra | Kết quả / phạm vi |
 | --- | --- |
-| Build React/TypeScript | Thành công |
-| Playwright desktop 1440×960 + mobile 390×844 | 18 ca (01/10 thêm chế độ bản đồ: danh sách theo vùng, địa chỉ + chỉ đường, bộ lọc chat, sort, `map_view`); 16 ca gốc: auth/navigation, nhà/lưu/chọn/reload/plan, pin, map warning, phí/order AhaMove, approval/PII/receipt, expiry/payment pending, giữ form khi lỗi. Dùng fixture API, không phải giao dịch thật |
-| Gateway/graph + payment flow/approval/map/commit adapter | 36 passed; thêm test chi phí, quyền đọc QR và hủy thanh toán chưa chắc chắn |
-| Bộ Python rộng hơn `tests/test_agents tests/test_api tests/test_mcp_payments Frontend/tests` | Lượt rà rộng: **153 passed, 17 failed** trước khi thêm 2 test UI-contract. Chưa coi toàn bộ suite sạch; xem nhóm lỗi bên dưới |
-| Service local đọc thật | 9 tool Location thành công; platform/database và frontend HTTP 200; 9 OSRM nearest thành công. Không gọi LLM/provider giao dịch |
+| Build React/TypeScript — 03/10 | Thành công |
+| Playwright — 03/10 | 32 ca hiện có qua trọn bộ, 4 ca bổ sung qua các lượt chạy sau sửa lỗi; hiện 18 tình huống × desktop 1440×960/mobile 390×844 = 36 ca. Fixture API, không phải giao dịch thật. Xem [chi tiết](tests/README.md) |
+| Health/status local — 03/10 | Frontend 8503, Agent `/api/v1/status`, Platform `/health`, Moving API `/health` trả HTTP 200 tại thời điểm kiểm tra; Agent công bố 5 domain, `writes_enabled=false` |
+| Gateway/graph + payment flow/approval/map/commit adapter — audit 01/10 | 36 passed; test chi phí, quyền đọc QR và hủy thanh toán chưa chắc chắn. Chưa chạy lại trong đợt UI 03/10 |
+| Bộ Python rộng — audit 01/10 | `tests/test_agents tests/test_api tests/test_mcp_payments Frontend/tests`: **153 passed, 17 failed** trước khi thêm 2 test UI-contract. Đây là kết quả cũ; xem nhóm lỗi bên dưới, chưa coi suite hiện tại sạch |
+| Tool dịch vụ — audit 01/10 | 9 tool Location thành công; platform/database và frontend HTTP 200; 9 OSRM nearest thành công. Chưa chạy lại toàn bộ trong đợt UI 03/10 |
 
-### Các test cũ còn lệch hợp đồng cần xử lý tiếp
+### Các lỗi Python ghi nhận trong audit 01/10
 
 17 lỗi của lượt rà rộng đã được đọc, không bị xóa hoặc skip để làm đẹp kết quả:
 

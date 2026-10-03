@@ -218,6 +218,9 @@ async function fixture(page: Page, authenticated = true, calls: any[] = []) {
         results: houses.map(platformRow),
         page: { next_cursor: null, returned_count: houses.length },
       };
+    } else if (path === "/platform/places/map") {
+      calls.push({ path, body });
+      data = { type: "FeatureCollection", features: [] };
     } else if (path === "/map/search")
       data = {
         results: [
@@ -486,8 +489,15 @@ test("expired approval stays blocked and payment check never claims paid", async
     r.fulfill({ json: { domains: ["relocation"], writes_enabled: true } }),
   );
   await page.goto("/ai/th_ui");
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  const planPanel = page.getByRole("region", {
+    name: "Kế hoạch trong cuộc trò chuyện",
+  });
+  await planPanel
+    .getByRole("tab", { name: "Cần phản hồi", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Xác nhận thao tác" }),
+    planPanel.getByRole("button", { name: "Xác nhận thao tác" }),
   ).toBeDisabled();
   thread.state.pending = {
     type: "payment_required",
@@ -502,11 +512,17 @@ test("expired approval stays blocked and payment check never claims paid", async
     return r.fulfill({ json: thread });
   });
   await page.reload();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  await planPanel
+    .getByRole("tab", { name: "Cần phản hồi", exact: true })
+    .click();
   await expect(
-    page.getByRole("link", { name: /Mở trang thanh toán/ }),
+    planPanel.getByRole("link", { name: /Mở trang thanh toán/ }),
   ).toHaveAttribute("href", "https://example.test/pay");
-  await page.getByRole("button", { name: "Kiểm tra thanh toán" }).click();
-  await expect(page.getByText("Thanh toán đang chờ xác minh")).toBeVisible();
+  await planPanel.getByRole("button", { name: "Kiểm tra thanh toán" }).click();
+  await expect(
+    planPanel.getByText("Thanh toán đang chờ xác minh"),
+  ).toBeVisible();
   expect(checks).toBe(1);
   await expect(page.getByText("Đã thanh toán", { exact: true })).toHaveCount(0);
 });
@@ -541,6 +557,11 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
     page.getByRole("heading", { name: /kế hoạch gì hôm nay/ }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /Tìm nhà/ })).toBeEnabled();
+  await expect(
+    page.getByText("Không gian của bạn", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  expect((await page.locator(".main-shell").boundingBox())!.x).toBe(0);
   await page.screenshot({
     path: info.outputPath("welcome.png"),
     fullPage: true,
@@ -550,14 +571,30 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
-  if (info.project.name === "mobile")
-    await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("link", { name: "Mở tài khoản" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Tài khoản của tôi" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chưa có lịch sử yêu cầu" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
+    "Minh Anh",
+  );
   await page
-    .getByRole("navigation", { name: "Điều hướng chính" })
-    .getByRole("link", { name: "Kế hoạch" })
+    .getByRole("button", { name: "Đăng nhập & bảo mật", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Kế hoạch của bạn" }),
+    page.getByText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ."),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Về chat", exact: true }).click();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  await expect(
+    page.getByRole("tab", { name: "Các kế hoạch", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Kế hoạch bắt đầu từ câu chuyện của bạn"),
   ).toBeVisible();
 });
 
@@ -617,7 +654,10 @@ test("chat, housing details, selection, saved, plan and reload", async ({
     ),
   ).toBeTruthy();
   await page.goto("/plans/th_ui");
-  await expect(page.getByText("Đã có kết quả tìm kiếm")).toBeVisible();
+  await expect(page).toHaveURL(/\/ai\/th_ui\?panel=plan$/);
+  await expect(
+    page.getByRole("region", { name: "Kế hoạch trong cuộc trò chuyện" }),
+  ).toContainText("Có kết quả");
   await page.screenshot({ path: info.outputPath("plan.png"), fullPage: true });
   await page.goto("/account");
   await page.getByRole("button", { name: /Đã lưu/ }).click();
@@ -767,6 +807,20 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   await expect(
     page.getByRole("region", { name: "Bản đồ nhà ở" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  const quickPlan = page.getByRole("region", {
+    name: "Kế hoạch trong cuộc trò chuyện",
+  });
+  await expect(quickPlan).toContainText("Thành phố Hồ Chí Minh");
+  await page.getByRole("button", { name: "Đóng kế hoạch nhanh" }).click();
+  await expect(
+    page.getByRole("button", { name: "Tiện ích", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect
+    .poll(() => calls.filter((c) => c.path === "/platform/places/map").length)
+    .toBeGreaterThan(0);
   // Every listing is shown individually with its own address and directions link.
   await expect(list.getByText(houses[0].title)).toBeAttached();
   await expect(
@@ -801,6 +855,7 @@ test("housing answer opens the map workspace with viewport list, filters and cha
     sent = route.request().postDataJSON();
     await route.fallback();
   });
+  await page.getByRole("button", { name: "Hiện khung chat" }).click();
   await page
     .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
     .fill("Căn rẻ hơn ở khu này");
@@ -832,7 +887,17 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
   await expect(
     page.getByRole("region", { name: "Bản đồ nhà ở" }),
   ).toBeVisible();
-  // The dock hides to keep the map readable and comes back from the floating button.
+  // Only the launcher appears initially. Opening it reveals a small composer.
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Hiện khung chat" }).click();
+  await expect(
+    page.getByRole("button", { name: "Xem đầy đủ", exact: true }),
+  ).toHaveCount(0);
+  const input = page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" });
+  await input.fill("Tìm căn gần đây");
+  // Collapsing the composer preserves the unsent draft.
   await page.getByRole("button", { name: "Ẩn khung chat" }).click();
   await expect(
     page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
@@ -841,6 +906,9 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
   await expect(
     page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
   ).toBeVisible();
+  await expect(input).toHaveValue("Tìm căn gần đây");
+  await input.fill("");
+  await page.screenshot({ path: info.outputPath("compact-chat.png") });
   const list = page.getByRole("complementary", {
     name: "Nhà trong vùng bản đồ",
   });
@@ -1016,9 +1084,9 @@ test("a conversation can be deleted, and all conversations reset", async ({
   expect(calls.at(-1)).toEqual({ path: "/threads", method: "DELETE" });
 });
 
-test("plan strip shows only requested goals, parallel and sequential, with the confirmed total", async ({
+test("right panel contains only current progress, costs and responses", async ({
   page,
-}) => {
+}, info) => {
   const { thread } = await fixture(page);
   seed(thread);
   thread.state.progress = {
@@ -1079,24 +1147,232 @@ test("plan strip shows only requested goals, parallel and sequential, with the c
   };
   await page.goto("/ai/th_ui");
   const strip = page.getByRole("region", { name: "Tiến trình kế hoạch" });
-  await expect(strip).toContainText("3 mục · 1 đã chốt");
-  await expect(strip).toContainText("Tổng đã chốt:");
-  await expect(strip).toContainText("/tháng");
-  const columns = strip.locator(".plan-column");
-  await expect(columns).toHaveCount(2);
-  await expect(columns.nth(0).locator(".plan-step")).toHaveCount(2);
-  await expect(columns.nth(1)).toContainText("Bách khoa → căn đã chọn");
-  await expect(strip.locator(".plan-arrow")).toHaveCount(1);
-  await expect(strip.locator(".plan-step.confirmed")).toContainText("Đã chốt");
-  await expect(strip.locator(".plan-step.reviewed")).toContainText(
-    "Đã xem xét",
+  await expect(strip).toHaveCount(0);
+  const tab = page.getByRole("button", { name: "Xem nhanh kế hoạch" });
+  const peek = page.getByRole("region", {
+    name: "Kế hoạch trong cuộc trò chuyện",
+  });
+  await expect(tab).toHaveAttribute("aria-expanded", "false");
+  expect(
+    await tab.evaluate((el) => el.closest(".composer-wrap, .ws-dock")),
+  ).toBeNull();
+  const rail = (await tab.boundingBox())!;
+  expect(
+    Math.abs(rail.x + rail.width - page.viewportSize()!.width),
+  ).toBeLessThan(2);
+  await expect(peek).toHaveCount(0);
+  await tab.click();
+  await expect(peek).toContainText("3 mục tiêu · 1 phương án đã chọn");
+  // Wait for the panel's entry animation before checking its final edge.
+  await expect
+    .poll(async () => {
+      const card = (await peek.boundingBox())!;
+      return card.x + card.width;
+    })
+    .toBeLessThan(rail.x);
+  await expect(peek.locator("li")).toHaveCount(3);
+  await expect(peek).toContainText("Bách khoa → căn đã chọn");
+  await expect(peek).toContainText("Căn A");
+  await expect(peek).toContainText("Sau: Tìm nhà");
+  await expect(peek).not.toContainText("Tổng");
+  await page.screenshot({
+    path: info.outputPath("quick-plan.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(peek).toHaveCount(0);
+  await expect(tab).toBeFocused();
+  await tab.click();
+  await page.getByRole("button", { name: "Đóng kế hoạch nhanh" }).click();
+  await expect(peek).toHaveCount(0);
+  await tab.click();
+  await peek.getByRole("tab", { name: "Chi phí", exact: true }).click();
+  await expect(peek).toContainText("Tổng tiền đã chốt");
+  await expect(peek).toContainText("4.000.000");
+  await expect(peek).toContainText("Chưa có biên nhận dịch vụ.");
+  await expect(page).toHaveURL(/\/ai\/th_ui$/);
+  await peek.getByRole("tab", { name: "Cần phản hồi", exact: true }).click();
+  await expect(peek).toContainText("Không có xác nhận đang chờ");
+  await expect(peek.getByRole("tab")).toHaveCount(3);
+  await expect(
+    peek.getByRole("tab", { name: "Các kế hoạch", exact: true }),
+  ).toHaveCount(0);
+  await peek.getByRole("tab", { name: "Tiến trình", exact: true }).click();
+  await expect(peek).toContainText("Bách khoa → căn đã chọn");
+  await page.goto("/plans/th_ui");
+  await expect(page).toHaveURL(/\/ai\/th_ui\?panel=plan$/);
+  await expect(peek).toContainText("Căn A");
+  await page.reload();
+  await expect(peek).toBeVisible();
+  await page.goto("/plans");
+  await expect(page).toHaveURL(/\/account$/);
+});
+
+test("account reads saved request history and supports search, status filters and reopening chat", async ({
+  page,
+}, info) => {
+  const { thread } = await fixture(page);
+  thread.messages = [
+    {
+      id: "u1",
+      role: "user",
+      created: 1790751600,
+      content: { text: "Tìm nhà ở Quận 1", status: "done" },
+    },
+    {
+      id: "a1",
+      role: "assistant",
+      created: 1790751601,
+      content: {
+        status: "done",
+        response: { kind: "ANSWER", text: "Đã tìm được nhà trong khu vực." },
+      },
+    },
+    {
+      id: "u2",
+      role: "user",
+      created: 1790751660,
+      content: { text: "Tính đường tới sân bay", status: "done" },
+    },
+    {
+      id: "a2",
+      role: "assistant",
+      created: 1790751661,
+      content: {
+        status: "done",
+        response: { kind: "ERROR", text: "Chưa xác định được điểm đến." },
+      },
+    },
+  ];
+  await page.goto("/account");
+  const history = page.getByRole("region", { name: "Lịch sử yêu cầu" });
+  await expect(history.getByRole("article")).toHaveCount(2);
+  await page
+    .getByRole("combobox", { name: "Lọc trạng thái yêu cầu" })
+    .selectOption("ERROR");
+  await expect(history.getByRole("article")).toHaveCount(1);
+  await history
+    .getByRole("button", { name: "Xem phản hồi", exact: true })
+    .click();
+  await expect(history).toContainText("Chưa xác định được điểm đến.");
+  await page
+    .getByRole("combobox", { name: "Lọc trạng thái yêu cầu" })
+    .selectOption("all");
+  await page
+    .getByRole("textbox", { name: "Tìm trong lịch sử yêu cầu" })
+    .fill("Quận 1");
+  // The common thread title matches both requests; response content narrows the search.
+  await page
+    .getByRole("textbox", { name: "Tìm trong lịch sử yêu cầu" })
+    .fill("Đã tìm được nhà");
+  await expect(history.getByRole("article")).toHaveCount(1);
+  await page.screenshot({
+    path: info.outputPath("request-history.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await history.getByRole("link", { name: "Mở hội thoại" }).click();
+  await expect(page).toHaveURL(/\/ai\/th_ui$/);
+});
+
+test("account profile and preferences persist, history returns to its thread, and logout ends the session", async ({
+  page,
+}) => {
+  const { thread } = await fixture(page);
+  seed(thread);
+  const edits: any[] = [];
+  await page.route("**/web/api/profile", async (route) => {
+    edits.push(route.request().postDataJSON());
+    await route.fallback();
+  });
+  await page.goto("/ai/th_ui");
+  await page.getByRole("link", { name: "Mở tài khoản" }).click();
+  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Tên hiển thị" })
+    .fill("Minh Anh mới");
+  await page.getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
+  await expect(page.locator(".account-chip-name strong")).toHaveText(
+    "Minh Anh mới",
   );
-  await strip.getByRole("button", { name: "Thu gọn kế hoạch" }).click();
-  await expect(columns).toHaveCount(0);
+  await page.getByRole("button", { name: "Sở thích AI", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Thành phố", exact: true })
+    .selectOption("Hà Nội");
+  await page
+    .getByRole("spinbutton", { name: "Ngân sách thuê · VND/tháng" })
+    .fill("6000000");
+  await page.getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
+  await expect.poll(() => edits.length).toBe(2);
+  expect(edits[1]).toMatchObject({
+    name: "Minh Anh mới",
+    preferences: { city: "Hà Nội", budget: "6000000" },
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
+    "Minh Anh mới",
+  );
+  await page.getByRole("button", { name: "Sở thích AI", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Thành phố", exact: true }),
+  ).toHaveValue("Hà Nội");
+  await page.getByRole("link", { name: "Về chat", exact: true }).click();
+  await page.getByRole("button", { name: "Lịch sử", exact: true }).click();
+  const history = page.getByRole("dialog", { name: "Cuộc trò chuyện của bạn" });
+  await history.getByRole("textbox").fill("Quận 1");
+  await history.getByRole("link", { name: /Tìm nhà tại Quận 1/ }).click();
+  await expect(page).toHaveURL(/\/ai\/th_ui$/);
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  await expect(
+    page.getByRole("region", { name: "Kế hoạch trong cuộc trò chuyện" }),
+  ).toContainText(thread.title);
+  await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Mở tài khoản" }).click();
+  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await page.reload();
   await expect(
-    page
-      .getByRole("region", { name: "Tiến trình kế hoạch" })
-      .getByRole("button", { name: "Mở kế hoạch" }),
+    page.getByRole("button", { name: "Đăng nhập", exact: true }),
   ).toBeVisible();
+});
+
+test("a saved map home still opens its detail when it is absent from chat result cards", async ({
+  page,
+}) => {
+  const { thread, component } = await fixture(page);
+  seed(thread, [
+    { ...component, data: { ...component.data, candidates: [houses[0]] } },
+  ]);
+  // A house found by panning the map can be saved without appearing in the agent's original cards.
+  await page.route("**/web/api/saved", (route) =>
+    route.fulfill({
+      json: [{ id: houses[1].id, thread_id: thread.id, house: houses[1] }],
+    }),
+  );
+  await page.goto("/account");
+  await page.getByRole("button", { name: /Đã lưu/ }).click();
+  await page
+    .getByRole("button", { name: houses[1].title, exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/ai\/th_ui\?panel=house&house=listing-b$/);
+  const detail = page.getByRole("dialog", { name: "Chi tiết nhà" });
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText(houses[1].title);
+  await expect(
+    detail.getByRole("button", { name: "Chọn căn này", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(detail).toBeVisible();
+  await detail.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(page).toHaveURL(/\/ai\/th_ui$/);
 });
