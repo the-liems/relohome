@@ -10,6 +10,7 @@ build/
 # Virtual environments
 venv/
 .venv/
+.venv-map-data/
 env/
 
 # Environment variables
@@ -83,3 +84,17 @@ Frontend/public/maplibre/
 !Maps\ VN/Cities/boundaries/*.geojson
 !Maps\ VN/LifeFlow/map-app/public/data/
 !Maps\ VN/LifeFlow/map-app/public/data/*.geojson
+
+# DVC keeps pointers in Git; all raw and generated map bytes stay outside Git.
+Maps\ VN/Raw/**
+Maps\ VN/Extracts/**
+Maps\ VN/Routing/**
+!Maps\ VN/Raw/**/
+!Maps\ VN/Extracts/**/
+!Maps\ VN/Routing/**/
+!Maps\ VN/Raw/**/*.dvc
+!Maps\ VN/Extracts/**/*.dvc
+!Maps\ VN/Routing/**/*.dvc
+!Maps\ VN/Raw/**/.gitignore
+!Maps\ VN/Extracts/**/.gitignore
+!Maps\ VN/Routing/**/.gitignore

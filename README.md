@@ -40,6 +40,7 @@ The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection,
 - [GitHub issue and PR work in progress](docs/work-in-progress.md)
 - [Current architecture and proposed expansion](ARCHITECTURE.md)
 - [Working conventions](docs/project-organization.md)
+- [City dataset catalog](Maps%20VN/Cities/README.md) and [map data workflow](docs/runbooks/map-data.md)
 - [Development journal](JOURNAL.md) and [worklog](WORKLOG.md)
 - [Evaluation report](eval/results/report.md)
 - [Demo materials status](presentation/README.md)

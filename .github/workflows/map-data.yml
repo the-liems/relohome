@@ -1,0 +1,33 @@
+name: Map data catalog
+
+on:
+  pull_request:
+    paths:
+      - 'Maps VN/Cities/**'
+      - 'scripts/verify-map-data.py'
+      - 'scripts/test-map-data.py'
+      - '.gitattributes'
+      - '.github/workflows/map-data.yml'
+  push:
+    branches: [main, mvp]
+    paths:
+      - 'Maps VN/Cities/**'
+      - 'scripts/verify-map-data.py'
+      - 'scripts/test-map-data.py'
+      - '.gitattributes'
+      - '.github/workflows/map-data.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/verify-map-data.py
+      - run: python scripts/test-map-data.py

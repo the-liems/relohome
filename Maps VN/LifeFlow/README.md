@@ -72,6 +72,9 @@ backup database không chứa code của tool.
 
 ## Cấu trúc dữ liệu routing
 
+Quy ước dataset cho nhiều thành phố: [city catalog](../Cities/README.md) và
+[quy trình DVC / object storage](../../docs/runbooks/map-data.md).
+
 ```text
 Maps VN/
   Raw/                              PBF gốc, không chỉnh sửa
