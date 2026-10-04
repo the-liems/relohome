@@ -19,6 +19,8 @@ import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
+from log_privacy import redact_transcript_path
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -96,7 +98,9 @@ def main():
                 leftover_lines.append(line)
                 continue
             try:
-                entries.append(json.loads(stripped))
+                entry = json.loads(stripped)
+                if isinstance(entry, dict):
+                    entries.append(entry)
             except json.JSONDecodeError:
                 pass  # drop unparseable line
 
@@ -106,6 +110,11 @@ def main():
         pending.unlink()
         print("[ai-log] No valid entries to submit.", file=sys.stderr)
         sys.exit(0)
+
+    # Apply the same filter to older queued logs before they leave the machine.
+    for entry in entries:
+        if isinstance(entry.get("transcript_path"), str):
+            entry["transcript_path"] = redact_transcript_path(entry["transcript_path"])
 
     payload = json.dumps({"entries": entries}, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json"}

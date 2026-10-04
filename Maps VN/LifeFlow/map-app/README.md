@@ -53,3 +53,7 @@ npm run test:e2e
 
 `public/data/accommodations.geojson` là bản Point GeoJSON được tạo từ file
 nguồn. Quá trình chạy frontend không thay đổi dữ liệu gốc.
+
+`public/maplibre/` không được lưu trong Git. `npm ci`, `npm run dev` và
+`npm run build` tự chạy `prepare:worker` để copy worker từ phiên bản MapLibre
+đã cài. Khi build thủ công, chạy `npm run prepare:worker` trước khi đóng gói.

@@ -10,6 +10,8 @@ import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+from log_privacy import redact_transcript_path
+
 VN_TZ = timezone(timedelta(hours=7))
 
 
@@ -124,7 +126,7 @@ def normalize(data: dict, tool: str) -> dict | None:
         base.update({
             "prompt": data.get("prompt", "")[:1000],
             "turn_id": data.get("turn_id", ""),
-            "transcript_path": data.get("transcript_path", ""),
+            "transcript_path": redact_transcript_path(data.get("transcript_path", "")),
         })
 
     elif tool == "cursor":
@@ -180,11 +182,10 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    # Codex command hooks accept only the documented hook response fields.
-    # Logging is a side effect, so a successful Codex hook should stay silent.
-    # Other clients expect a JSON acknowledgement.
-    if tool != "codex":
-        print(json.dumps({"status": "logged"}))
+    # Codex validates hook output fields, not just JSON syntax. An empty
+    # object reports success without blocking or adding context to the turn.
+    # Keep the existing response for the other tools sharing this logger.
+    print(json.dumps({} if tool == "codex" else {"status": "logged"}))
 
 
 if __name__ == "__main__":

@@ -176,12 +176,12 @@ Tài liệu thiết kế và ảnh dưới đây là tham chiếu ban đầu. B�
 
 ## Ảnh tham chiếu
 
-![Tham chiếu 1](ChatGPT%20Image%20Sep%2030,%202026,%2011_48_57%20AM-1.png)
+![Tham chiếu 1](../docs/design/references/01-chat.png)
 
-![Tham chiếu 2](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_23%20AM-2.png)
+![Tham chiếu 2](../docs/design/references/02-housing-map.png)
 
-![Tham chiếu 3](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_34%20AM-3.png)
+![Tham chiếu 3](../docs/design/references/03-roommates.png)
 
-![Tham chiếu 4](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-4.png)
+![Tham chiếu 4](../docs/design/references/04-plan.png)
 
-![Tham chiếu 5](ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-5.png)
+![Tham chiếu 5](../docs/design/references/05-account.png)

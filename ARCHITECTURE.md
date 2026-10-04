@@ -1,175 +1,62 @@
-# LifeFlow Architecture
+# Architecture
 
-## Current implementation
+Status: local MVP integration, reconciled with `main` on 2026-10-04. The [product brief](docs/product.md) defines intended behavior; the [agent graph design](docs/architecture/agent-graph.md), [integration index](docs/integration/README.md), and [frontend audit](Frontend/SERVICE_AUDIT.md) describe implementation details and limits.
 
-Local MVP wires LLM Intake, Planner and Moving into the shared LangGraph
-runtime. Housing/Map/Flight/Payment have bounded, mission-driven domain tool loops,
-with grounded adapters, real-provider data and shared graph budgets. See
-[ADR-021](docs/adr/ADR-021-mission-driven-domain-tools.md) and
-[SPEC-014](docs/specs/SPEC-014-domain-llm-agents.md).
-SQLite persistence and sandbox boundaries are described in
-[ADR-019](docs/adr/ADR-019-local-integrated-mvp.md) and the
-[local runbook](docs/runbooks/local-mvp.md). This is not a deployment architecture.
+## Implemented system
 
-The repository contains a Python FastAPI/LangGraph application and a bounded
-TypeScript LifeFlow workspace for spatial, housing and moving integrations. The
-TypeScript layout exception and service boundaries are recorded in
-[`docs/adr/`](docs/adr/README.md).
-
-Detailed current designs:
-
-- [MCP service standard](docs/architecture/mcp-service-standard.md)
-- [Moving/AhaMove service](docs/architecture/moving-service.md)
-- [AhaMove integration contract](docs/api/ahamove-v3-integration.md)
-
-The chat agent is one LangGraph graph (`src/agents/`, [agent graph design](docs/architecture/agent-graph.md),
-ADR-016): intake → Routing Orchestrator → domain subagents → validator → confirm → transaction.
-It connects to the Location (housing, place, route), Moving/AhaMove, Flight and Payment MCP services
-through `src/services/adapters/` (`AGENT_SUBAGENTS=live`), or runs fully offline with fake subagents.
-The integrated local runtime uses LLM Intake and Planner. `TemplatePlanner` remains
-a historical/scaffolding implementation, not the default live planner.
-
-Independent [Intake and Routing Orchestrator services](docs/architecture/standalone-agent-services.md)
-implement direction B from the [original analysis](docs/architecture/intake-and-routing-orchestrator.md).
-They have separate HTTP entrypoints and images. Intake understands requests;
-Routing owns planning, scheduling, internal tool-call control and persisted workflow
-state. There is no separate LLM Executor agent: the integrated graph uses a code
-scheduler. The standalone entrypoints remain available, but the local chat runtime
-uses the shared graph and grounded domain MCP clients.
-See the [standalone runbook](docs/runbooks/agent-services.md).
-
-Moving is an independently startable MCP server. It shares canonical contracts
-and MCP behavior packages with other services but owns its provider adapter,
-configuration, persistence and tool registry.
-
-Moving now exposes authenticated HTTP MCP in its own `moving-mcp` image, separate
-from the AI application. A `moving-api` image receives AhaMove webhooks, and a
-one-shot `moving-migrate` image prepares its PostgreSQL schema and runtime role.
-Stdio remains available for local clients. See the
-[container runbook](docs/runbooks/moving-containers.md) and
-[deployment handoff](deploy/coolify/staging/moving.md). AI graph wiring and actual
-Coolify deployment remain integration work, not automatically enabled features.
-
-## Template/future system overview
-
-The remainder of this document originated as the course template and describes
-future system areas that are not all implemented yet.
-
-## Architecture Diagram
+The React frontend sends authenticated requests through a Python browser gateway. The gateway owns browser sessions and conversation history, and forwards requests to the FastAPI agent API with a server token and user identity. LangGraph coordinates intake, planning, domain reads, validation, confirmation, and transactions. Provider connections are configured separately.
 
 ```mermaid
-graph TB
-    subgraph Frontend
-        UI[React/Next.js UI]
-    end
-
-    subgraph Backend[FastAPI Backend]
-        API[API Routes]
-        Agent[LangGraph Agent]
-        LLM[LLM Service]
-        Tools[Agent Tools]
-    end
-
-    subgraph Data[Data Layer]
-        DB[(Database)]
-        Vector[Vector Store]
-    end
-
-    UI -->|HTTP/REST| API
-    API --> Agent
-    Agent --> LLM
-    Agent --> Tools
-    Agent --> Vector
-    Tools --> DB
-    API --> DB
+flowchart LR
+    Browser[React frontend] --> Gateway[Python browser gateway]
+    Gateway --> API[FastAPI agent API]
+    Gateway --> Platform[Location Platform API]
+    API --> Graph[LangGraph workflow]
+    Graph --> Read[Domain agents and read tools]
+    Read --> Location[Location MCP]
+    Read --> Moving[Moving MCP]
+    Read --> Flight[Flight MCP]
+    Read --> Payment[Payment MCP]
+    Graph --> Confirm[Human confirmation]
+    Confirm --> Transaction[Transaction adapter]
+    Transaction --> Moving
+    Graph --> SQLite[Local checkpoints and runtime stores]
+    Location --> PostGIS[PostGIS]
+    Platform --> PostGIS
+    Location --> OSRM[OSRM routing]
+    Platform --> OSRM
 ```
 
-## Components
+| Component | Source | Responsibility |
+|---|---|---|
+| Browser application | `Frontend/src/` | Chat, housing/map workspaces, plan progress, and confirmation forms |
+| Browser gateway | `Frontend/server.py`, `Frontend/store.py` | HttpOnly sessions, thread ownership, history, and upstream requests |
+| Agent API | `src/main.py`, `src/api/` | Chat, state, decisions, UI actions, and opt-in sandbox payment endpoints |
+| Agent workflow | `src/agents/` | LLM intake/planning, domain execution, validation, cost summary, approval, and response |
+| Service adapters | `src/services/adapters/` | MCP boundaries, moving approvals, transactions, and local persistence |
+| Location platform | `Maps VN/LifeFlow/` | Housing/POI queries, geographic data, routes, REST API, and MCP tools |
+| Moving service | `Maps VN/LifeFlow/packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
+| Flight and Payment | `src/mcp_servers/` | Flight search and payment tools with provider-specific configuration |
+| Standalone agent services | `src/agent_services/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
 
-### 1. Frontend (React/Next.js)
-- **Purpose:** [mô tả]
-- **Key Features:** [danh sách]
-- **State Management:** [approach]
+The integrated entrypoint is `AgentService.open()`. It requires live-mode configuration and an LLM API key. It persists graph checkpoints and runtime records in SQLite and wraps configured domains with LLM agents. The standalone services have a separate lifecycle and runbook.
 
-### 2. Backend (FastAPI)
-- **Purpose:** [mô tả]
-- **API Design:** RESTful
-- **Authentication:** [JWT/None]
+## Approvals and service limits
 
-### 3. AI Agent (LangGraph)
+Domain agents use read tools. The transaction adapter handles configured writes after confirmation and checks the approval against the user, thread, plan version, payload hash, and expiry. The moving service has separate read, write, and approval credentials. Changes to a plan can invalidate dependent results and require a new confirmation.
 
-Đã implement khung (M0–M2) và nối service bằng subagent nền (M3); Intake / Planner dùng LLM chưa làm (M4). Quyết định: ADR-016.
-Chi tiết và hiện trạng: [agent graph design](docs/architecture/agent-graph.md) §13.
+Moving transactions in the integrated MVP are restricted to AhaMove staging and use CASH. Flight search is supported, but the integrated runtime removes flight booking capabilities. ZaloPay sandbox payment creation is a separate opt-in form/API flow. These implementation limits do not establish production booking or payment support.
 
-- **Agent Type:** Intake + Plan-and-Execute + Result Validator + human-in-the-loop (sơ đồ v4, kết hợp góp ý mentor).
-- **State:** `WorkflowState`; kế hoạch (Dependency DAG) là dữ liệu trong state và được checkpoint theo `thread_id`.
-- **Nodes:** `load_context`, `intake` (hiểu yêu cầu, hỏi lại), Routing Orchestrator = `orchestrator` (Planner) + `executor` + `change_impact`, 4 node nối tới subagent của từng service (property, relocation, flight, map; Contract & Policy đã bỏ), `validator`, `cost_summary`, `confirm`, `transaction`, `await_payment` (chờ thanh toán bất đồng bộ), `respond`. Tái dùng phần kiểm evidence, approval, `validate_plan` từ nhánh `khoa` (xem agent-graph.md §3.3).
-- **Tools:** mỗi lĩnh vực có subagent riêng (nhóm AI viết; chủ service cung cấp tool và dữ liệu), nối vào graph qua contract chung (manifest + `run_task`); subagent chỉ đọc, thao tác ghi đi qua commit endpoint sau approval. Hiện dùng `FakeAgent` (mặc định) hoặc subagent nền bọc MCP tool đọc của Location, Moving, Flight (`AGENT_SUBAGENTS=live`); `transaction` gọi tool ghi của Flight, Payment, Moving theo chuỗi tất định.
-- **Flow:**
+Runtime state, approval records, and encrypted PII are stored locally. Deployment currently assumes one application worker for the agent runtime. A provider timeout can require reconciliation; the code includes write-intent records, but recovery and ownership gaps identified during review remain unresolved.
 
-```mermaid
-graph LR
-    S([START]) --> ctx[load_context] --> intake[intake]
-    intake -->|thiếu thông tin chặn| resp[respond]
-    intake -->|đủ| orch[orchestrator]
-    intake -->|CHANGE| ci[change_impact] --> orch
-    orch --> exe[executor]
-    exe -. Send .-> agents[subagent của service] --> exe
-    exe --> val[validator]
-    val -->|RETRY| exe
-    val -->|REPLAN| orch
-    val -->|ASK_USER / GIVE_UP| resp
-    val -->|PASS| cost[cost_summary] --> conf[confirm / interrupt]
-    conf -->|CONFIRM + approval| tx[transaction]
-    tx -->|chờ thanh toán| pay[await_payment / interrupt] --> tx
-    tx --> resp
-    conf -->|CHANGE / REJECT| intake
-    resp --> F([END])
-```
+## Product target and historical diagrams
 
-### 4. Database
-- **Type:** [PostgreSQL / SQLite]
-- **Tables:** [danh sách]
-- **Migrations:** Alembic
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The [shared tool catalogue](docs/specs/SPEC-008-service-tools.md) describes proposed contracts and vendor lifecycles. The [roadmap](docs/roadmap.md) owns delivery milestones.
 
-### 5. Vector Store
-- **Type:** [ChromaDB / FAISS / Pinecone]
-- **Embeddings:** [model]
-- **Purpose:** [RAG / similarity search]
+The [product flow and dependency diagrams](docs/architecture_diagram.md) and [issue/PR map](docs/work-in-progress.md) capture the baseline and proposals from 2026-09-30. The integrated graph is described in [agent-graph.md](docs/architecture/agent-graph.md). Architectural decisions are indexed under [docs/adr/](docs/adr/README.md).
 
-## Data Flow
+## Running and verifying
 
-1. User gửi request từ Frontend
-2. API route nhận và validate input
-3. Agent xử lý qua LangGraph pipeline
-4. LLM generate response
-5. Tools thực thi actions (nếu cần)
-6. Response trả về Frontend
+Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](Frontend/README.md), [Location guide](Maps%20VN/LifeFlow/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
 
-## Deployment Architecture
-
-```mermaid
-graph LR
-    subgraph Docker
-        FE[Frontend Container]
-        BE[Backend Container]
-        DB_C[Database Container]
-    end
-    FE --> BE --> DB_C
-```
-
-## Security
-
-- API keys stored in `.env` (never commit)
-- Input validation via Pydantic
-- Rate limiting on API endpoints
-- CORS configured for frontend domain
-
-## Design Decisions
-
-| Decision | Choice | Reason |
-|----------|--------|--------|
-| Framework | FastAPI | Async, auto-docs, type-safe |
-| Agent | LangGraph | Flexible state management |
-| Database | [choice] | [reason] |
-| Frontend | Next.js | [reason] |
+Review evidence is under [docs/review/](docs/review/) and [eval/](eval/). Dated reports describe the configurations they tested. Existing Python test failures and runtime review findings remain open; this documentation cleanup does not certify production readiness.

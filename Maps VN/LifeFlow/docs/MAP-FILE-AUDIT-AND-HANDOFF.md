@@ -6,6 +6,11 @@
 
 Ngày rà soát: 26/09/2026
 
+> **Cleanup 2026-10-04:** đã bỏ bốn bản `.en.bak` và ba asset mẫu không dùng ở mục 3.
+> Hai bundle MapLibre ở mục 4.2 được bỏ khỏi Git; `postinstall`, `predev` và `prebuild`
+> vẫn chạy `prepare:worker` để sinh lại từ dependency. Các mục bên dưới giữ nguyên
+> như ghi chép lịch sử. Fallback GeoJSON và báo cáo POI vẫn được giữ.
+
 ## 1. Kết luận nhanh
 
 Dự án hiện tại vẫn có thể build từ source. Không có file dư nào đang chặn TypeScript,

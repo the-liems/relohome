@@ -30,13 +30,6 @@ from pathlib import Path
 VN_TZ = timezone(timedelta(hours=7))
 
 
-def configure_console():
-    """Keep Vietnamese text and status icons safe on legacy Windows consoles."""
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
-
-
 def git(cmd):
     try:
         return subprocess.check_output(cmd.split(), shell=False, text=True, stderr=subprocess.DEVNULL).strip()
@@ -68,7 +61,6 @@ def interactive_mode():
 
 
 def main():
-    configure_console()
     parser = argparse.ArgumentParser(description="Manual AI usage logger")
     parser.add_argument("--tool", help="AI tool name (e.g. chatgpt, gemini-web)")
     parser.add_argument("--prompt", help="What you asked/did")

@@ -30,11 +30,11 @@ Kế hoạch bao gồm giao diện và những bổ sung backend cần thiết �
 
 | Ảnh tham chiếu | Áp dụng vào sản phẩm | Điều chỉnh theo backend hiện tại |
 | --- | --- | --- |
-| [01 – Chat chính](../../Frontend/ChatGPT%20Image%20Sep%2030,%202026,%2011_48_57%20AM-1.png) | Sidebar ba mục; avatar SIU AI; composer cố định; lời gợi ý và chip tiêu chí trong chat | Khi đã đủ thông tin thì tìm ngay. Các tiêu chí tùy chọn không được trở thành câu hỏi bắt buộc. Ghép trọ/cẩm nang chỉ bật khi service sẵn sàng. |
-| [02 – Nhà và bản đồ](../../Frontend/ChatGPT%20Image%20Sep%2030,%202026,%2011_52_23%20AM-2.png) | Một khối kết quả gồm card nhà + map; xem chi tiết; hỏi AI về căn cụ thể; lọc tiếp trong hội thoại | Không cố định “3 căn tốt nhất”, “dữ liệu mới nhất”, “có thể dọn ngay”. Chỉ hiển thị điều có bằng chứng từ dữ liệu. Map dùng lại MapLibre hiện có. |
-| [03 – Ghép trọ](../../Frontend/ChatGPT%20Image%20Sep%2030,%202026,%2011_52_34%20AM-3.png) | Card hồ sơ, tiêu chí, quan tâm và xem chi tiết là hướng mở rộng | Chưa có service ghép trọ trong runtime đã kiểm tra. Điểm 95%/88% cần công thức và dữ liệu được người dùng cho phép sử dụng. |
-| [04 – Kế hoạch](../../Frontend/ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-4.png) | Tổng hợp công việc, chi phí, việc chờ duyệt; bấm quay lại đúng đoạn chat | Phân biệt “đã tìm xong” với “đã đặt xong”. Chưa được hiển thị phê duyệt xuất vé thật. Lịch hẹn, tiến độ đời thực cần dữ liệu riêng. |
-| [05 – Tài khoản](../../Frontend/ChatGPT%20Image%20Sep%2030,%202026,%2011_52_39%20AM-5.png) | Hồ sơ, sở thích, dữ liệu đã lưu và hoạt động gần đây | Chưa có cơ sở để hiện Google Maps/MoMo/Vietnam Airlines/Zalo/Calendar đã liên kết, Premium hoặc thanh toán thuê bao. Mỗi kết nối cần backend tương ứng. |
+| [01 – Chat chính](../design/references/01-chat.png) | Sidebar ba mục; avatar SIU AI; composer cố định; lời gợi ý và chip tiêu chí trong chat | Khi đã đủ thông tin thì tìm ngay. Các tiêu chí tùy chọn không được trở thành câu hỏi bắt buộc. Ghép trọ/cẩm nang chỉ bật khi service sẵn sàng. |
+| [02 – Nhà và bản đồ](../design/references/02-housing-map.png) | Một khối kết quả gồm card nhà + map; xem chi tiết; hỏi AI về căn cụ thể; lọc tiếp trong hội thoại | Không cố định “3 căn tốt nhất”, “dữ liệu mới nhất”, “có thể dọn ngay”. Chỉ hiển thị điều có bằng chứng từ dữ liệu. Map dùng lại MapLibre hiện có. |
+| [03 – Ghép trọ](../design/references/03-roommates.png) | Card hồ sơ, tiêu chí, quan tâm và xem chi tiết là hướng mở rộng | Chưa có service ghép trọ trong runtime đã kiểm tra. Điểm 95%/88% cần công thức và dữ liệu được người dùng cho phép sử dụng. |
+| [04 – Kế hoạch](../design/references/04-plan.png) | Tổng hợp công việc, chi phí, việc chờ duyệt; bấm quay lại đúng đoạn chat | Phân biệt “đã tìm xong” với “đã đặt xong”. Chưa được hiển thị phê duyệt xuất vé thật. Lịch hẹn, tiến độ đời thực cần dữ liệu riêng. |
+| [05 – Tài khoản](../design/references/05-account.png) | Hồ sơ, sở thích, dữ liệu đã lưu và hoạt động gần đây | Chưa có cơ sở để hiện Google Maps/MoMo/Vietnam Airlines/Zalo/Calendar đã liên kết, Premium hoặc thanh toán thuê bao. Mỗi kết nối cần backend tương ứng. |
 
 Phạm vi địa lý tiếp tục là **Hà Nội, Đà Nẵng, TP.HCM** theo năng lực Location hiện có; dữ liệu thực tế từng thành phố phụ thuộc snapshot đã import. Nội dung chào không giới hạn toàn sản phẩm ở TP.HCM chỉ vì ảnh demo dùng ví dụ này.
 
