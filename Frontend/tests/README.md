@@ -1,6 +1,6 @@
 # Kiểm thử frontend SIU AI
 
-Cập nhật **04/10/2026**. Hướng dẫn này dùng cho giao diện chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
+Cập nhật **05/10/2026**. Hướng dẫn này dùng cho giao diện chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
 
 ## Các bộ kiểm tra
 
@@ -46,10 +46,10 @@ Trên máy không có Chrome, dùng Chromium của Playwright (`npx playwright i
 
 Test intercept `/web/api`, style map và glyph, dùng hợp đồng API giả lập. Không cần gateway/agent/provider đang chạy cho các ca trình duyệt hiện có; chúng không gửi truy vấn LLM, tạo đơn hay thanh toán thật.
 
-## 20 tình huống trong app.spec.ts
+## 22 tình huống trong app.spec.ts
 
-Mỗi tình huống chạy trên cả hai kích thước: **40 ca**. Ngoài ra có 3 tình huống
-POI và 2 tình huống camera/OSRM, tổng toàn bộ thư mục browser hiện có **50 ca**.
+Mỗi tình huống chạy trên cả hai kích thước: **44 ca**. Ngoài ra có 3 tình huống
+POI và 2 tình huống camera/OSRM, tổng toàn bộ thư mục browser hiện có **54 ca**.
 Con số này là danh sách test, không phải kết quả một lượt chạy toàn bộ mới nhất.
 
 | Nhóm | Tình huống |
@@ -68,12 +68,40 @@ Con số này là danh sách test, không phải kết quả một lượt chạ
 | Workspace nhà | Danh sách theo viewport, bộ lọc, sort và `map_view` từ chat |
 | Map → chat | Mặc định chỉ hiện nút Chat với SIU; mở thanh nhập nhỏ, bỏ Xem đầy đủ, giữ bản nháp khi thu gọn/mở lại; chọn căn trở lại chat |
 | Chuyến bay | Workspace, sắp xếp và chọn chuyến |
+| Chi tiết chuyến bay | Hiển thị `origin/destination` thật của provider; giữ kết quả mới nhất khi response cũ về chậm, không mở lại panel đã đóng |
+| Lỗi chọn phương án | Chat workspace tự mở hiển thị lỗi, giữ workspace để người dùng thử lại |
 | Báo giá chuyển đồ | Workspace, hai điểm A/B và phí chi tiết |
 | Lịch sử / xóa | Xóa hội thoại, làm mới tất cả với hộp xác nhận |
 | Panel kế hoạch | Ba tab hiện tại, tiến trình/chi phí/phản hồi, đóng/mở và URL cũ |
 | Lịch sử tài khoản | Đọc yêu cầu/phản hồi, tìm kiếm, lọc trạng thái, mở lại đúng chat |
 | Hồ sơ / session | Lưu tên và sở thích, giữ sau reload, mở chat từ Lịch sử, đăng xuất |
 | Nhà lưu từ map | Mở lại chi tiết dù căn không nằm trong kết quả chat ban đầu, reload và đóng dialog |
+
+## Kết quả kiểm tra ngày 05/10/2026
+
+- Trọn bộ trước bổ sung: **50/50 qua** (`npx playwright test --workers=2`).
+- Hai tình huống mới tái hiện mã sân bay thiếu và lỗi bị giấu khi chat thu gọn. Sau sửa,
+  **10/10 ca có mục tiêu qua**, gồm 4 ca mới và 6 ca liên quan đã có.
+- Kiểm tra ảnh kế hoạch, tài khoản và Moving trên hai kích thước: **6/6 qua**.
+  Đã xem ảnh panel kế hoạch, tài khoản và chi tiết chuyến bay trên desktop/mobile.
+- `npm run build` qua; gateway 8503 phục vụ đúng bản build mới.
+- Python `Frontend/tests`: **7/7 qua**. Trong môi trường giới hạn quyền temp, tạo thư
+  mục cha trước rồi dùng `--basetemp=data/user-flow-audit-20261005/pytest-temp-2`.
+- Flight/Payment Python: **86 passed, 6 failed**; 5 test server Flight kỳ vọng tool
+  simulation khi simulation mặc định tắt, 1 test Payment có allowlist thiếu
+  `expire_duration_seconds`. Đây là lỗi test còn mở, chưa kết luận suite sạch.
+- Live Location → Housing: **1 passed, 3 deselected**, không gọi LLM. Một truy vấn
+  SerpApi thật trả 3 offer; Payment chỉ kiểm tra danh sách tool, không tạo giao dịch.
+- Tổng **54 ca browser đã qua các lượt**, không ghi là một lần chạy toàn bộ 54 ca.
+
+Nhóm kiểm tra lại lỗi mới:
+
+```powershell
+npx playwright test tests/browser/app.spec.ts --grep 'flight detail keeps|failed workspace selection|flight results open|choosing a home from the map list|moving quotes open' --workers=2
+```
+
+Phạm vi thực tế và các tính năng chưa kiểm chứng được ghi ở
+[báo cáo 05/10](../../docs/integration/user-service-ui-audit-2026-10-05.md).
 
 ## Kết quả kiểm tra ngày 03/10/2026
 

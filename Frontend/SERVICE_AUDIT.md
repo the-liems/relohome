@@ -1,5 +1,31 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
+## Cập nhật kiểm tra người dùng và UI — 05/10/2026
+
+Đợt mới đã chạy toàn bộ **50 ca browser ban đầu**, **7 ca Python frontend**,
+kiểm tra thật chuỗi Location → Housing và một lần tìm Flight SerpApi. Hai tình
+huống browser mới đã bổ sung; sau sửa **10/10 ca liên quan qua** trên desktop/mobile.
+Kiểm tra ảnh kế hoạch/tài khoản/Moving thêm **6/6 qua**. Hiện có 54 ca browser,
+đã qua các lượt, chưa chạy toàn bộ 54 trong một lượt.
+
+Sửa source chỉ ở React: mã sân bay chi tiết Flight, response chi tiết về chậm,
+và lỗi lựa chọn bị giấu khi chat workspace thu gọn. Build qua, bản mới đang được
+phục vụ tại 8503. Không đổi backend, cấu hình, dữ liệu hay capability.
+
+Local hiện có cấu hình SerpApi/ZaloPay, khác với ghi nhận credentials của audit
+01/10 bên dưới. Có key không đồng nghĩa giao dịch đã sẵn sàng:
+`writes_enabled=false`, `flight_booking_enabled=false`, `sandbox_payments_enabled=false`.
+Flight MCP thực tế chỉ công bố 3 tool đọc; không có luồng xuất vé thật. Payment
+MCP có create/get/cancel/refund, nhưng chưa tạo hay thanh toán thật trong đợt này.
+Không gọi LLM nên chưa kiểm chứng suy luận hoặc hội thoại đa dịch vụ thật.
+
+Suite Python Flight/Payment còn **6 failed**: 5 ca simulation Flight và 1 ca
+allowlist Payment lệch payload thời hạn. Không sửa runtime để chiều theo fixture.
+Chi tiết luồng, bằng chứng và ưu tiên còn mở:
+[báo cáo 05/10](../docs/integration/user-service-ui-audit-2026-10-05.md).
+
+## Audit gốc và bằng chứng lịch sử
+
 Audit service gốc: **01/10/2026**. Cập nhật mô tả giao diện và kết quả kiểm tra UI: **03/10/2026**. Audit gốc đọc source service, schema đầu vào/đầu ra, adapter/graph, gateway và React. Các bằng chứng tool/provider/Python bên dưới là kết quả của đợt cũ, không phải các lần gọi lại ngày 03/10. Đợt kiểm tra UI mới dùng API giả lập và chỉ đọc health/status local; không gọi LLM, tạo đơn hay thanh toán thật.
 
 ## Kết luận và phạm vi bằng chứng

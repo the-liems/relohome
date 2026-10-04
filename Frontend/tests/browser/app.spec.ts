@@ -1177,6 +1177,137 @@ test("flight results open a flight workspace with sorting and selection", async 
   await expect(flights).toHaveCount(0);
 });
 
+test("flight detail keeps the latest request, shows provider airport codes and stays closed", async ({
+  page,
+}, info) => {
+  const { thread } = await fixture(page);
+  const offers = ["A", "B"].map((carrier, i) => ({
+    id: "detail-" + carrier,
+    carrier: "Hãng " + carrier,
+    fare_vnd: 900000 + i * 100000,
+    depart_at: "2026-11-20T06:00:00+07:00",
+    arrive_at: "2026-11-20T07:25:00+07:00",
+    stops: 0,
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  }));
+  seed(thread, [
+    {
+      id: "flight:details",
+      type: "flight",
+      task_id: "flight",
+      data: { origin: "HAN", destination: "DAD", offers },
+    },
+  ]);
+  let release: (() => void) | undefined;
+  let delayed = false;
+  let responseSent = false;
+  await page.route("**/api/flight/detail-*", async (route) => {
+    const isA = route.request().url().endsWith("detail-A");
+    if (isA) {
+      delayed = true;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    await route.fulfill({
+      json: {
+        segments: [
+          {
+            origin: isA ? "HAN" : "DAD",
+            destination: isA ? "DAD" : "SGN",
+            departure_time: "2026-11-20T06:00:00+07:00",
+            arrival_time: "2026-11-20T07:25:00+07:00",
+            airline_code: "VN",
+            flight_number: isA ? "VN101" : "VN102",
+          },
+        ],
+      },
+    });
+    if (isA) responseSent = true;
+  });
+  await page.goto("/ai/th_ui");
+  const cards = page.locator(".svc-card");
+  const panel = page.getByRole("complementary", {
+    name: "Chi tiết hành trình",
+  });
+  await cards
+    .filter({ hasText: "Hãng A" })
+    .getByRole("button", { name: "Xem hành trình" })
+    .click();
+  await expect.poll(() => delayed).toBe(true);
+  if (info.project.name === "mobile")
+    await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  await cards
+    .filter({ hasText: "Hãng B" })
+    .getByText("Hãng B", { exact: true })
+    .click();
+  await expect(panel).toContainText("VN102");
+  await expect(panel).toContainText("DAD");
+  await expect(panel).toContainText("SGN");
+  release!();
+  await expect.poll(() => responseSent).toBe(true);
+  await page.waitForLoadState("networkidle");
+  await expect(panel).toContainText("VN102");
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  delayed = false;
+  responseSent = false;
+  await cards
+    .filter({ hasText: "Hãng A" })
+    .getByRole("button", { name: "Xem hành trình" })
+    .click();
+  await expect.poll(() => delayed).toBe(true);
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  release!();
+  await expect.poll(() => responseSent).toBe(true);
+  await page.waitForLoadState("networkidle");
+  await expect(panel).toHaveCount(0);
+});
+
+test("a failed workspace selection shows its error without opening chat manually", async ({
+  page,
+}) => {
+  const { thread } = await fixture(page);
+  seed(thread, [
+    {
+      id: "flight:error",
+      type: "flight",
+      task_id: "flight",
+      data: {
+        origin: "HAN",
+        destination: "DAD",
+        offers: [
+          {
+            id: "expired-selection",
+            carrier: "Vietnam Airlines",
+            fare_vnd: 900000,
+            depart_at: "2026-11-20T06:00:00+07:00",
+            arrive_at: "2026-11-20T07:25:00+07:00",
+            stops: 0,
+            expires_at: new Date(Date.now() + 3600000).toISOString(),
+          },
+        ],
+      },
+    },
+  ]);
+  await page.route("**/api/threads/th_ui/action", (route) =>
+    route.fulfill({
+      status: 409,
+      json: { detail: "Giá đã thay đổi. Hãy tìm lại." },
+    }),
+  );
+  await page.goto("/ai/th_ui");
+  await expect(
+    page.getByRole("button", { name: "Hiện khung chat" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Chọn chuyến này" }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Trò chuyện với SIU AI" })
+      .getByRole("alert"),
+  ).toContainText("Giá đã thay đổi");
+  await expect(page.getByRole("region", { name: "Chuyến bay" })).toBeVisible();
+});
+
 test("moving quotes open a moving workspace with A/B points and fee details", async ({
   page,
 }) => {

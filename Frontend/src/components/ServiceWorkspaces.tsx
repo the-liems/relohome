@@ -96,6 +96,17 @@ export function FlightWorkspace({
     [carrier, setCarrier] = useState(""),
     [detail, setDetail] = useState<Data | null>(null);
   const { selecting, select } = useSelect(onSelect);
+  const detailRequest = useRef(0);
+  useEffect(
+    () => () => {
+      ++detailRequest.current;
+    },
+    [],
+  );
+  function closeDetail() {
+    ++detailRequest.current;
+    setDetail(null);
+  }
   const offers: Data[] = data.offers || [];
   const carriers = [...new Set(offers.map((o) => o.carrier).filter(Boolean))];
   const shown = useMemo(
@@ -106,14 +117,14 @@ export function FlightWorkspace({
     [offers, sort, carrier],
   );
   async function open(o: Data) {
+    const request = ++detailRequest.current;
     setDetail({ ...o, loading: true });
     try {
-      setDetail({
-        ...o,
-        ...(await api<Data>("/flight/" + encodeURIComponent(o.id))),
-      });
+      const loaded = await api<Data>("/flight/" + encodeURIComponent(o.id));
+      if (request === detailRequest.current) setDetail({ ...o, ...loaded });
     } catch (e) {
-      setDetail({ ...o, error: (e as Error).message });
+      if (request === detailRequest.current)
+        setDetail({ ...o, error: (e as Error).message });
     }
   }
   return (
@@ -256,7 +267,7 @@ export function FlightWorkspace({
           <button
             className="icon-button ws-detail-close"
             aria-label="Đóng chi tiết"
-            onClick={() => setDetail(null)}
+            onClick={closeDetail}
           >
             <X size={18} />
           </button>
@@ -270,8 +281,9 @@ export function FlightWorkspace({
             {(detail.segments || []).map((s: Data, i: number) => (
               <div className="svc-segment" key={i}>
                 <strong>
-                  {s.departure_airport || s.from} <ArrowRight size={13} />{" "}
-                  {s.arrival_airport || s.to}
+                  {s.origin || s.departure_airport || s.from}{" "}
+                  <ArrowRight size={13} />{" "}
+                  {s.destination || s.arrival_airport || s.to}
                 </strong>
                 <small>
                   {localDateTime(s.departure_time)} →{" "}

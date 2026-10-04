@@ -47,6 +47,9 @@ export function WorkspaceChat({
   const launcher = useRef<HTMLButtonElement>(null);
   const opened = useRef(false);
   useEffect(() => {
+    if (error) setHidden(false);
+  }, [error]);
+  useEffect(() => {
     if (!hidden) {
       opened.current = true;
       input.current?.focus();

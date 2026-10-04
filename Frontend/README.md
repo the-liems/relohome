@@ -1,6 +1,6 @@
 # SIU AI — Frontend
 
-Cập nhật **04/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+Cập nhật **05/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
 
 ## Trạng thái hiện tại
 
@@ -15,6 +15,33 @@ Cập nhật **04/10/2026**. React + TypeScript + Vite trong thư mục `Fronten
 - Đợt chỉnh giao diện mới không sửa mã backend, agent, gateway hoặc `.env`. Khi khởi động lại local đã chạy migration Moving **008** có sẵn để bổ sung bảng còn thiếu.
 
 ### Kết quả kiểm tra gần nhất
+
+Kiểm tra theo thao tác người dùng ngày **05/10/2026**:
+
+| Kiểm tra | Kết quả và phạm vi |
+| --- | --- |
+| Playwright ban đầu | **50/50 qua** trên desktop 1440×960 và mobile 390×844 |
+| Sau sửa lỗi UI | **10/10 qua**: chi tiết/chọn chuyến bay, lỗi khi chat thu gọn, chọn nhà và workspace Moving; gồm 4 ca mới. Kiểm tra ảnh kế hoạch/tài khoản/Moving thêm **6/6 qua** |
+| Python frontend | **7/7 qua** với thư mục temp riêng trong workspace |
+| Housing → Location thật | **1 ca live qua**, xác định Bách khoa Hà Nội rồi tìm phòng dưới 5 triệu trong 2 km, kiểm tra chi tiết/phân trang/pin; không gọi LLM |
+| Flight thật | Một lần tìm SerpApi HAN → DAD, 19/10/2026, trả 3 offer; đọc chi tiết thành công |
+| Payment | MCP công bố tool; UI kiểm tra chờ/hết hạn/phê duyệt bằng fixture. Chưa tạo hay thanh toán giao dịch thật |
+| Build và runtime | TypeScript/Vite qua; 8503 phục vụ đúng byte của bản build mới; UI/Agent/Platform/Moving API/MCP health/ready đều 200 |
+
+**Đã sửa ở frontend:** mã sân bay trong chi tiết chuyến bay dùng đúng `origin/destination`
+của provider; kết quả chi tiết cũ không ghi đè lựa chọn mới hoặc mở lại panel đã đóng;
+lỗi chọn phương án tự mở chat nhỏ để người dùng nhìn thấy.
+
+Hiện suite browser có **54 ca**, đã kiểm chứng qua các lượt trên, không phải một lượt
+chạy toàn bộ 54 ca. Suite Flight/Payment Python còn **6 ca thất bại** cần đồng bộ test:
+5 ca kỳ vọng booking mô phỏng trong khi mặc định tắt, 1 ca allowlist chưa chứa trường
+thời hạn thanh toán. Chưa sửa backend hoặc bật simulation để làm test qua.
+Local đang có `writes_enabled=false`, `flight_booking_enabled=false`,
+`sandbox_payments_enabled=false`; tìm/chọn phương án không đồng nghĩa đặt dịch vụ.
+Chưa kiểm chứng hội thoại LLM đa dịch vụ trong lượt này.
+Xem [báo cáo dịch vụ và UI 05/10](../docs/integration/user-service-ui-audit-2026-10-05.md).
+
+#### Bằng chứng các lượt trước
 
 | Kiểm tra ngày 03/10 | Kết quả và phạm vi |
 | --- | --- |

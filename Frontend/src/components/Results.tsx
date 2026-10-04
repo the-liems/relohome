@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plane,
   Truck,
@@ -53,6 +53,17 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
     [mobileTab, setMobileTab] = useState("list"),
     [detail, setDetail] = useState<Data | null>(null),
     [error, setError] = useState("");
+  const detailRequest = useRef(0);
+  useEffect(
+    () => () => {
+      ++detailRequest.current;
+    },
+    [],
+  );
+  function closeDetail() {
+    ++detailRequest.current;
+    setDetail(null);
+  }
   const data = c.data || {},
     version = p.payload.ui?.plan_version || 0;
   const icons: Data = {
@@ -75,12 +86,14 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
   const selected = p.selected["selected:" + c.type]?.value;
   const points: Data[] = Object.values(data.nearby || {}).flat() as Data[];
   async function flightDetail(offer: Data) {
+    const request = ++detailRequest.current;
     setDetail({ ...offer, loading: true });
     try {
       const detail = await api<Data>("/flight/" + encodeURIComponent(offer.id));
-      setDetail({ ...offer, ...detail });
+      if (request === detailRequest.current) setDetail({ ...offer, ...detail });
     } catch (e) {
-      setDetail({ ...offer, error: (e as Error).message });
+      if (request === detailRequest.current)
+        setDetail({ ...offer, error: (e as Error).message });
     }
   }
   return (
@@ -498,7 +511,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
               ? "Chi tiết dịch vụ"
               : "Chi tiết hành trình"
           }
-          onClose={() => setDetail(null)}
+          onClose={closeDetail}
         >
           {detail.kind === "moving" ? (
             <>
