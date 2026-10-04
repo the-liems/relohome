@@ -1,0 +1,14 @@
+{
+  "data": {
+    "quotes": [
+      {"id": "q_demo:SGN-TRUCK-500", "provider": "ahamove", "price_vnd": 3200000, "vehicle": "Xe tải 500kg", "movers": null, "date": "2026-11-14"},
+      {"id": "q_demo:SGN-TRUCK-1000", "provider": "ahamove", "price_vnd": 4100000, "vehicle": "Xe tải 1 tấn", "movers": null, "date": "2026-11-14"}
+    ]
+  },
+  "quotes": [
+    {"option_id": "q_demo:SGN-TRUCK-500", "label": "Xe tải 500kg", "amount_vnd": 3200000, "recurrence": "one_time"},
+    {"option_id": "q_demo:SGN-TRUCK-1000", "label": "Xe tải 1 tấn", "amount_vnd": 4100000, "recurrence": "one_time"}
+  ],
+  "missing_fields": ["quotes[0].movers", "quotes[1].movers"],
+  "source_refs": ["q_demo:SGN-TRUCK-500", "q_demo:SGN-TRUCK-1000"]
+}

@@ -1,0 +1,60 @@
+[
+  {
+    "code": "VN",
+    "name": "Vietnam Airlines",
+    "ticket_prefix": "738",
+    "price_factor": 1.25,
+    "trunk_only": false,
+    "cabins": ["economy", "premium_economy", "business"],
+    "fare_rules": {
+      "economy": {"checked_baggage_kg": 23, "carry_on_kg": 12, "changeable": true, "change_fee": 300000, "refundable": true, "cancel_fee": 500000},
+      "business": {"checked_baggage_kg": 32, "carry_on_kg": 18, "changeable": true, "change_fee": 0, "refundable": true, "cancel_fee": 300000}
+    }
+  },
+  {
+    "code": "VJ",
+    "name": "Vietjet Air",
+    "ticket_prefix": "978",
+    "price_factor": 0.9,
+    "trunk_only": false,
+    "cabins": ["economy", "business"],
+    "fare_rules": {
+      "economy": {"checked_baggage_kg": 0, "carry_on_kg": 7, "changeable": true, "change_fee": 400000, "refundable": false, "cancel_fee": null},
+      "business": {"checked_baggage_kg": 30, "carry_on_kg": 10, "changeable": true, "change_fee": 0, "refundable": true, "cancel_fee": 400000}
+    }
+  },
+  {
+    "code": "QH",
+    "name": "Bamboo Airways",
+    "ticket_prefix": "926",
+    "price_factor": 1.05,
+    "trunk_only": true,
+    "cabins": ["economy", "business"],
+    "fare_rules": {
+      "economy": {"checked_baggage_kg": 20, "carry_on_kg": 7, "changeable": true, "change_fee": 350000, "refundable": true, "cancel_fee": 450000},
+      "business": {"checked_baggage_kg": 30, "carry_on_kg": 14, "changeable": true, "change_fee": 0, "refundable": true, "cancel_fee": 300000}
+    }
+  },
+  {
+    "code": "VU",
+    "name": "Vietravel Airlines",
+    "ticket_prefix": "891",
+    "price_factor": 0.95,
+    "trunk_only": true,
+    "cabins": ["economy"],
+    "fare_rules": {
+      "economy": {"checked_baggage_kg": 20, "carry_on_kg": 7, "changeable": true, "change_fee": 350000, "refundable": false, "cancel_fee": null}
+    }
+  },
+  {
+    "code": "9G",
+    "name": "Sun PhuQuoc Airways",
+    "ticket_prefix": "999",
+    "price_factor": 1.0,
+    "trunk_only": true,
+    "cabins": ["economy"],
+    "fare_rules": {
+      "economy": {"checked_baggage_kg": 20, "carry_on_kg": 7, "changeable": true, "change_fee": 350000, "refundable": false, "cancel_fee": null}
+    }
+  }
+]

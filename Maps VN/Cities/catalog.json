@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "cities": [
+    {
+      "id": "danang",
+      "name": "Thành phố Đà Nẵng",
+      "country": "VN",
+      "boundary": {
+        "path": "boundaries/danang.geojson",
+        "sha256": "b1acbb4bb7eef615fe988bcf3fc3e0308392d0fb8ad5bdea083dd9561a33488b",
+        "bytes": 216636,
+        "feature_count": 1,
+        "bbox": [
+          107.2109165,
+          14.9513535,
+          109.0235567,
+          16.3340091
+        ],
+        "crs": "OGC:CRS84",
+        "source": {
+          "provider": "OpenStreetMap contributors",
+          "url": null,
+          "license": "ODbL-1.0",
+          "attribution": "© OpenStreetMap contributors",
+          "snapshot_at": null,
+          "retrieved_at": null,
+          "recipe": null,
+          "provenance_status": "legacy-incomplete",
+          "notes": "OSM origin inferred from existing repository documentation and feature tags. Original download URL, extraction query, OSM object IDs, and source snapshot date were not recorded. Git introduction: 3ff427a; whitespace-only compaction: b57b0bc. These commits are not source snapshot dates.",
+          "license_url": "https://www.openstreetmap.org/copyright"
+        }
+      }
+    },
+    {
+      "id": "hanoi",
+      "name": "Thành phố Hà Nội",
+      "country": "VN",
+      "boundary": {
+        "path": "boundaries/hanoi.geojson",
+        "sha256": "856a290c6ee2ba9d87c9264bd5f4f32d03fa89f324f67cc0a1f296c17ab66b01",
+        "bytes": 139558,
+        "feature_count": 1,
+        "bbox": [
+          105.2889615,
+          20.5645154,
+          106.0200407,
+          21.3854176
+        ],
+        "crs": "OGC:CRS84",
+        "source": {
+          "provider": "OpenStreetMap contributors",
+          "url": null,
+          "license": "ODbL-1.0",
+          "attribution": "© OpenStreetMap contributors",
+          "snapshot_at": null,
+          "retrieved_at": null,
+          "recipe": null,
+          "provenance_status": "legacy-incomplete",
+          "notes": "OSM origin inferred from existing repository documentation and feature tags. Original download URL, extraction query, OSM object IDs, and source snapshot date were not recorded. Git introduction: 3ff427a; whitespace-only compaction: b57b0bc. These commits are not source snapshot dates.",
+          "license_url": "https://www.openstreetmap.org/copyright"
+        }
+      }
+    },
+    {
+      "id": "hcm",
+      "name": "Thành phố Hồ Chí Minh",
+      "country": "VN",
+      "boundary": {
+        "path": "boundaries/hcm.geojson",
+        "sha256": "ff1c10395615573c31679712e4f08abec903a3fec4214966ae7b26247a4e2740",
+        "bytes": 592427,
+        "feature_count": 1,
+        "bbox": [
+          105.9769387,
+          8.3456879,
+          108.4311207,
+          11.5015885
+        ],
+        "crs": "OGC:CRS84",
+        "source": {
+          "provider": "OpenStreetMap contributors",
+          "url": null,
+          "license": "ODbL-1.0",
+          "attribution": "© OpenStreetMap contributors",
+          "snapshot_at": null,
+          "retrieved_at": null,
+          "recipe": null,
+          "provenance_status": "legacy-incomplete",
+          "notes": "OSM origin inferred from existing repository documentation and feature tags. Original download URL, extraction query, OSM object IDs, and source snapshot date were not recorded. Git introduction: 3ff427a; whitespace-only compaction: b57b0bc. These commits are not source snapshot dates.",
+          "license_url": "https://www.openstreetmap.org/copyright"
+        }
+      }
+    }
+  ]
+}

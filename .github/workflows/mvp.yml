@@ -1,0 +1,28 @@
+name: MVP local validation
+on:
+  push:
+    branches: [mvp]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
+      - run: python -m compileall -q src
+      - name: Real SQLite persistence (no provider calls or mocks)
+        run: pytest tests/test_llm_agents/test_runtime_storage.py -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: Maps VN/LifeFlow

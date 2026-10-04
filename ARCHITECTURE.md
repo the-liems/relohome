@@ -1,48 +1,62 @@
 # Architecture
 
-Status: current checkout baseline plus work-in-progress expansion, reviewed on 2026-09-30. The [GitHub issue and PR map](docs/work-in-progress.md) records branch work separately from this checkout.
+Status: local MVP integration, reconciled with `main` on 2026-10-04. The [product brief](docs/product.md) defines intended behavior; the [agent graph design](docs/architecture/agent-graph.md), [integration index](docs/integration/README.md), and [frontend audit](Frontend/SERVICE_AUDIT.md) describe implementation details and limits.
 
 ## Implemented system
 
-The current application is a single FastAPI process. It exposes a health route and mounts `/api/v1` routes. The chat route validates input with Pydantic and invokes a compiled LangGraph graph. The graph runs `analyze` and `respond` in sequence; both nodes generate example text. A conditional edge ends processing if state contains an error, but the example nodes do not currently set one.
+The React frontend sends authenticated requests through a Python browser gateway. The gateway owns browser sessions and conversation history, and forwards requests to the FastAPI agent API with a server token and user identity. LangGraph coordinates intake, planning, domain reads, validation, confirmation, and transactions. Provider connections are configured separately.
 
 ```mermaid
 flowchart LR
-    Client --> API[FastAPI routes]
-    API --> Schema[Pydantic request/response]
-    API --> Graph[LangGraph agent]
-    Graph --> Analyze[analyze node]
-    Analyze --> Respond[respond node]
-    Respond --> API
+    Browser[React frontend] --> Gateway[Python browser gateway]
+    Gateway --> API[FastAPI agent API]
+    Gateway --> Platform[Location Platform API]
+    API --> Graph[LangGraph workflow]
+    Graph --> Read[Domain agents and read tools]
+    Read --> Location[Location MCP]
+    Read --> Moving[Moving MCP]
+    Read --> Flight[Flight MCP]
+    Read --> Payment[Payment MCP]
+    Graph --> Confirm[Human confirmation]
+    Confirm --> Transaction[Transaction adapter]
+    Transaction --> Moving
+    Graph --> SQLite[Local checkpoints and runtime stores]
+    Location --> PostGIS[PostGIS]
+    Platform --> PostGIS
+    Location --> OSRM[OSRM routing]
+    Platform --> OSRM
 ```
 
-| Component | Current source | Current responsibility |
+| Component | Source | Responsibility |
 |---|---|---|
-| HTTP application | `src/main.py` | FastAPI setup, CORS, health route |
-| API | `src/api/routes.py` | Chat and agent status routes |
-| Data models | `src/models/schemas.py` | Chat request and response validation |
-| Agent state and graph | `src/agents/state.py`, `src/agents/graph.py` | State fields and node sequencing |
-| Example nodes | `src/agents/nodes/example_node.py` | Placeholder analysis and response |
-| Example tools | `src/agents/tools/example_tool.py` | Calculator and stub knowledge search; not wired into graph |
-| LLM factory | `src/services/llm.py` | Configures an OpenAI client; not called by graph |
-| Settings | `src/config.py` | Reads app, LLM, database, and vector-store settings |
+| Browser application | `Frontend/src/` | Chat, housing/map workspaces, plan progress, and confirmation forms |
+| Browser gateway | `Frontend/server.py`, `Frontend/store.py` | HttpOnly sessions, thread ownership, history, and upstream requests |
+| Agent API | `src/main.py`, `src/api/` | Chat, state, decisions, UI actions, and opt-in sandbox payment endpoints |
+| Agent workflow | `src/agents/` | LLM intake/planning, domain execution, validation, cost summary, approval, and response |
+| Service adapters | `src/services/adapters/` | MCP boundaries, moving approvals, transactions, and local persistence |
+| Location platform | `Maps VN/LifeFlow/` | Housing/POI queries, geographic data, routes, REST API, and MCP tools |
+| Moving service | `Maps VN/LifeFlow/packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
+| Flight and Payment | `src/mcp_servers/` | Flight search and payment tools with provider-specific configuration |
+| Standalone agent services | `src/agent_services/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
 
-The only active data flow is `message → query → analysis → response`. There is no application frontend, database connection, vector store, authentication, workflow persistence, service adapter, approval flow, or saga implementation in the current `src/` tree. Database and vector-store settings are configuration slots, not working integrations. `docker-compose.yml` runs one backend service.
+The integrated entrypoint is `AgentService.open()`. It requires live-mode configuration and an LLM API key. It persists graph checkpoints and runtime records in SQLite and wraps configured domains with LLM agents. The standalone services have a separate lifecycle and runbook.
 
-## Proposed expansion
+## Approvals and service limits
 
-The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The target design uses an LLM and LangGraph state machine to decompose the move, checkpoint workflows, execute dependent steps sequentially and independent steps in parallel, and pass outputs such as a selected housing address to downstream steps. The AI system owns orchestration and calls domain MCP tools defined in the [tool catalogue](docs/specs/SPEC-008-service-tools.md). Each paid step requires human approval; service tokens are scoped to the user. Custom saga orchestration handles partial failure, while realtime progress makes long workflows visible. The [roadmap](docs/roadmap.md) lists the Gate 1 and G2 deadlines and required deliverables.
+Domain agents use read tools. The transaction adapter handles configured writes after confirmation and checks the approval against the user, thread, plan version, payload hash, and expiry. The moving service has separate read, write, and approval credentials. Changes to a plan can invalidate dependent results and require a new confirmation.
 
-The canonical [proposed product flow diagram](docs/architecture_diagram.md#proposed-product-flow) shows the target design, including final results and recovery. Data-store choice, frontend, exact service contracts, authorization model, checkpoint storage, retry rules, and compensation semantics require explicit decisions before implementation. Record accepted decisions in `docs/adr/` when the team makes them.
+Moving transactions in the integrated MVP are restricted to AhaMove staging and use CASH. Flight search is supported, but the integrated runtime removes flight booking capabilities. ZaloPay sandbox payment creation is a separate opt-in form/API flow. These implementation limits do not establish production booking or payment support.
 
-For the customer, the [relocation dependency diagram](docs/architecture_diagram.md#relocation-task-dependencies-illustrative) shows why housing choice must feed the moving quote while a travel search may be independent. The [issue and PR map](docs/work-in-progress.md) identifies branch-level work for Location/Housing, Moving, Flight, Payment, and the agent graph. It does not change the implemented boundary of this checkout.
+Runtime state, approval records, and encrypted PII are stored locally. Deployment currently assumes one application worker for the agent runtime. A provider timeout can require reconciliation; the code includes write-intent records, but recovery and ownership gaps identified during review remain unresolved.
 
-### Plan changes after finalization
+## Product target and historical diagrams
 
-A finalized plan remains editable. A change should compute the downstream impact of changed inputs and mark affected pending tasks and quotes stale. Independent completed tasks may be reused only if their inputs and validity still hold. Approvals must be bound to the exact action, quote, and relevant inputs; changing those details requires fresh approval. Executed vendor actions remain recorded, and uncertain outcomes must be reconciled before retrying. A small revision identifier or action fingerprint may help distinguish old and new decisions without storing full plan snapshots. [Issue #13](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/13) proposes fuller plan versioning, but that is an implementation choice under review, not a product requirement. This behavior is not part of the implemented graph in this checkout.
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The [shared tool catalogue](docs/specs/SPEC-008-service-tools.md) describes proposed contracts and vendor lifecycles. The [roadmap](docs/roadmap.md) owns delivery milestones.
 
-## Current security boundary
+The [product flow and dependency diagrams](docs/architecture_diagram.md) and [issue/PR map](docs/work-in-progress.md) capture the baseline and proposals from 2026-09-30. The integrated graph is described in [agent-graph.md](docs/architecture/agent-graph.md). Architectural decisions are indexed under [docs/adr/](docs/adr/README.md).
 
-Settings load secrets from environment variables or `.env`; `.env` is ignored by Git. The API validates chat message length with Pydantic. CORS origins are configurable. The API does **not** currently authenticate users, enforce per-user service scopes, rate-limit requests, or gate paid actions. No real service booking should be treated as approved or protected by this baseline.
+## Running and verifying
 
-See the [current diagram](docs/architecture_diagram.md) for the same system at a glance.
+Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](Frontend/README.md), [Location guide](Maps%20VN/LifeFlow/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
+
+Review evidence is under [docs/review/](docs/review/) and [eval/](eval/). Dated reports describe the configurations they tested. Existing Python test failures and runtime review findings remain open; this documentation cleanup does not certify production readiness.

@@ -1,0 +1,10 @@
+{
+  "data": {
+    "nearby": {
+      "lst_001": [{"name": "Bệnh viện Chợ Rẫy", "category": "hospital", "distance_m": 350}, {"name": "Chợ An Đông", "category": "marketplace", "distance_m": 900}],
+      "lst_002": [{"name": "Bệnh viện Nhân dân 115", "category": "hospital", "distance_m": 600}],
+      "lst_003": [{"name": "Nhà thuốc Long Châu", "category": "pharmacy", "distance_m": 120}]
+    }
+  },
+  "source_refs": ["poi_cho_ray", "poi_an_dong", "poi_115", "poi_long_chau"]
+}

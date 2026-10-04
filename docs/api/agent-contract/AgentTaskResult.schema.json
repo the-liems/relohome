@@ -1,0 +1,322 @@
+{
+  "$defs": {
+    "AgentError": {
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_input",
+            "unsupported_contract",
+            "provider_unavailable",
+            "provider_rejected",
+            "timeout",
+            "budget_exceeded",
+            "internal"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "AgentError",
+      "type": "object"
+    },
+    "AgentUsage": {
+      "properties": {
+        "llm_calls": {
+          "default": 0,
+          "title": "Llm Calls",
+          "type": "integer"
+        },
+        "tokens_in": {
+          "default": 0,
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "default": 0,
+          "title": "Tokens Out",
+          "type": "integer"
+        },
+        "provider_calls": {
+          "default": 0,
+          "title": "Provider Calls",
+          "type": "integer"
+        },
+        "cached_calls": {
+          "default": 0,
+          "title": "Cached Calls",
+          "type": "integer"
+        }
+      },
+      "title": "AgentUsage",
+      "type": "object"
+    },
+    "LocationChoice": {
+      "description": "Một ứng viên địa điểm do Location trả về; client hiển thị thành pin để người dùng chọn.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "entity_type": {
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "lat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lat"
+        },
+        "lng": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lng"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "entity_type"
+      ],
+      "title": "LocationChoice",
+      "type": "object"
+    },
+    "Question": {
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "choices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LocationChoice"
+          },
+          "title": "Choices",
+          "type": "array"
+        },
+        "blocking": {
+          "default": true,
+          "title": "Blocking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "field",
+        "text"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "Quote": {
+      "properties": {
+        "option_id": {
+          "title": "Option Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "amount_vnd": {
+          "title": "Amount Vnd",
+          "type": "integer"
+        },
+        "recurrence": {
+          "enum": [
+            "one_time",
+            "monthly"
+          ],
+          "title": "Recurrence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id",
+        "label",
+        "amount_vnd",
+        "recurrence"
+      ],
+      "title": "Quote",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "default": "1.1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "plan_version": {
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "done",
+        "failed",
+        "needs_input"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Data",
+      "type": "object"
+    },
+    "quotes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Quote"
+      },
+      "title": "Quotes",
+      "type": "array"
+    },
+    "missing_fields": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Fields",
+      "type": "array"
+    },
+    "questions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Question"
+      },
+      "title": "Questions",
+      "type": "array"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "source_kind": {
+      "enum": [
+        "live",
+        "sandbox",
+        "demo",
+        "fake"
+      ],
+      "title": "Source Kind",
+      "type": "string"
+    },
+    "source_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "fetched_at": {
+      "format": "date-time",
+      "title": "Fetched At",
+      "type": "string"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    },
+    "usage": {
+      "$ref": "#/$defs/AgentUsage",
+      "default": {
+        "llm_calls": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "provider_calls": 0,
+        "cached_calls": 0
+      }
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "task_id",
+    "plan_version",
+    "status",
+    "source",
+    "source_kind",
+    "fetched_at"
+  ],
+  "title": "AgentTaskResult",
+  "type": "object"
+}

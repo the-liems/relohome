@@ -10,6 +10,7 @@ build/
 # Virtual environments
 venv/
 .venv/
+.venv-map-data/
 env/
 
 # Environment variables
@@ -58,3 +59,42 @@ out/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+# Local map workspace artifacts
+Maps\ VN/LifeFlow/.runtime/
+Maps\ VN/LifeFlow/node_modules/
+Maps\ VN/LifeFlow/map-app/node_modules/
+Maps\ VN/LifeFlow/**/dist/
+Maps\ VN/LifeFlow/.env
+Maps\ VN/LifeFlow/**/*.local
+test-results/
+Frontend/dist/
+Frontend/playwright-report/
+Frontend/*.tsbuildinfo
+Frontend/public/maplibre/
+
+# Large OSM and OSRM datasets are kept outside Git
+*.osm.pbf
+*.osrm*
+*.pbf
+*.geojson
+*.geojsonseq
+
+# Map data retained for city-boundary ingestion and legacy map tests
+!Maps\ VN/Cities/boundaries/*.geojson
+!Maps\ VN/LifeFlow/map-app/public/data/
+!Maps\ VN/LifeFlow/map-app/public/data/*.geojson
+
+# DVC keeps pointers in Git; all raw and generated map bytes stay outside Git.
+Maps\ VN/Raw/**
+Maps\ VN/Extracts/**
+Maps\ VN/Routing/**
+!Maps\ VN/Raw/**/
+!Maps\ VN/Extracts/**/
+!Maps\ VN/Routing/**/
+!Maps\ VN/Raw/**/*.dvc
+!Maps\ VN/Extracts/**/*.dvc
+!Maps\ VN/Routing/**/*.dvc
+!Maps\ VN/Raw/**/.gitignore
+!Maps\ VN/Extracts/**/.gitignore
+!Maps\ VN/Routing/**/.gitignore

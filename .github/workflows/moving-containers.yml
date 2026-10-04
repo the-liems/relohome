@@ -1,0 +1,191 @@
+name: Moving containers
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      verify_staging:
+        description: Run real AhaMove staging checks using the protected moving-staging environment
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      moving: ${{ steps.paths.outputs.moving }}
+      validate: ${{ steps.paths.outputs.validate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: paths
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo 'moving=true' >> "$GITHUB_OUTPUT"
+            echo 'validate=true' >> "$GITHUB_OUTPUT"
+          else
+            moving=false
+            validate=false
+            while IFS= read -r path; do
+              case "$path" in
+                *.md) continue ;;
+                'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml') validate=true ;;
+              esac
+              case "$path" in
+                */tests/*|*.md|*compose.moving*|*/scripts/test-moving*|*/scripts/verify-moving*) continue ;;
+                'Maps VN/LifeFlow/packages/contracts/'*|'Maps VN/LifeFlow/packages/mcp-core/'*|'Maps VN/LifeFlow/packages/moving-service/'*|\
+                'Maps VN/LifeFlow/moving-api/'*|'Maps VN/LifeFlow/moving-mcp-server/'*|\
+                'Maps VN/LifeFlow/database/moving/'*|'Maps VN/LifeFlow/database/migrations/008_'*|\
+                'Maps VN/LifeFlow/Dockerfile.moving'|'Maps VN/LifeFlow/Dockerfile.moving.dockerignore'|\
+                'Maps VN/LifeFlow/package.json'|'Maps VN/LifeFlow/package-lock.json'|'Maps VN/LifeFlow/tsconfig.base.json'|\
+                '.github/workflows/moving-containers.yml') moving=true ;;
+              esac
+            done < <(git diff --name-only "$BASE_SHA" HEAD)
+            echo "moving=$moving" >> "$GITHUB_OUTPUT"
+            echo "validate=$validate" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Maps VN/LifeFlow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci && npm run build:moving && npm run test:ci
+      - name: Validate scripts and Compose without calling the provider
+        shell: bash
+        run: |
+          node --check scripts/moving-stack.mjs
+          node --check scripts/test-moving-native.mjs
+          node --check scripts/verify-moving-deployment.mjs
+          export MOVING_DB_ADMIN_PASSWORD=$(openssl rand -hex 32)
+          export MOVING_DB_APP_PASSWORD=$(openssl rand -hex 32)
+          export MOVING_MCP_AUTH_TOKEN=$(openssl rand -hex 32)
+          export MOVING_MCP_WRITE_TOKEN=$(openssl rand -hex 32)
+          export MOVING_APPROVAL_TOKEN=$(openssl rand -hex 32)
+          export AHAMOVE_WEBHOOK_SECRET=$(openssl rand -hex 32)
+          docker compose -f compose.moving.yaml config --quiet
+          docker compose -f compose.moving.yaml -f compose.moving.ci.yaml config --quiet
+          docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
+
+  images:
+    needs: [changes, validate]
+    if: needs.changes.outputs.moving == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [moving-mcp, moving-api, moving-migrate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.target }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: Maps VN/LifeFlow
+          file: Maps VN/LifeFlow/Dockerfile.moving
+          target: ${{ matrix.target }}
+          build-args: RELEASE_SHA=${{ github.sha }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+      - name: Record build identity (not staging verification)
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "Image: $IMAGE; commit: $GITHUB_SHA; digest: $DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Built image only. Infra must verify the exact deployed digest before production promotion.' >> "$GITHUB_STEP_SUMMARY"
+
+  live-staging:
+    needs: images
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_staging
+    runs-on: ubuntu-latest
+    environment: moving-staging
+    defaults:
+      run:
+        working-directory: Maps VN/LifeFlow
+    env:
+      COMPOSE_PROJECT_NAME: moving-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      AHAMOVE_API_KEY: ${{ secrets.AHAMOVE_API_KEY }}
+      AHAMOVE_MOBILE: ${{ secrets.AHAMOVE_MOBILE }}
+      RELEASE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Require actual staging credentials and generate infrastructure secrets
+        shell: bash
+        run: |
+          test -n "$AHAMOVE_API_KEY" && test -n "$AHAMOVE_MOBILE"
+          for name in MOVING_DB_ADMIN_PASSWORD MOVING_DB_APP_PASSWORD MOVING_MCP_AUTH_TOKEN AHAMOVE_WEBHOOK_SECRET; do
+            value=$(openssl rand -hex 32)
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+      - run: npm ci && npm run build
+      - name: Start isolated real containers
+        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml up --build -d --wait --wait-timeout 180
+      - name: Verify actual container endpoints and staging API
+        shell: bash
+        run: |
+          export MOVING_MCP_URL="http://$(docker compose -f compose.moving.yaml -f compose.moving.ci.yaml port moving-mcp 4400)/mcp"
+          export MOVING_API_URL="http://$(docker compose -f compose.moving.yaml -f compose.moving.ci.yaml port moving-api 4200)"
+          npm run test:moving:deployment
+      - name: Collect diagnostics before cleanup
+        if: always()
+        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml logs --no-color --tail 100
+      - name: Remove only this job's disposable stack
+        if: always()
+        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml down --volumes
+
+  gate:
+    name: Moving container gate
+    if: always()
+    needs: [changes, validate, images, live-staging]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all requested work completed
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          NEEDED: ${{ needs.changes.outputs.moving }}
+          VALIDATION_NEEDED: ${{ needs.changes.outputs.validate }}
+          VALIDATION: ${{ needs.validate.result }}
+          IMAGES: ${{ needs.images.result }}
+          LIVE: ${{ needs.live-staging.result }}
+        run: |
+          test "$CHANGES" = success
+          if [ "$VALIDATION_NEEDED" = true ]; then test "$VALIDATION" = success; fi
+          if [ "$NEEDED" = true ]; then test "$IMAGES" = success; fi
+          test "$LIVE" != failure && test "$LIVE" != cancelled

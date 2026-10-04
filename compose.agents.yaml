@@ -1,0 +1,51 @@
+# Legacy ADR-006 standalone component harness, NOT the integrated MVP graph.
+# Current runtime: scripts/local-integration.py api (ADR-016/019/020).
+name: lifeflow-agents
+services:
+  intake:
+    image: lifeflow-intake:${AGENT_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+      target: intake
+    ports:
+      - "127.0.0.1:${INTAKE_PORT:-8011}:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      INTAKE_MODEL: ${INTAKE_MODEL:-gpt-4o-mini}
+      INTAKE_API_TOKEN: ${INTAKE_API_TOKEN:?Set INTAKE_API_TOKEN in .env}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1
+  orchestrator:
+    image: lifeflow-orchestrator:${AGENT_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+      target: orchestrator
+    ports:
+      - "127.0.0.1:${ORCHESTRATOR_PORT:-8012}:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ORCHESTRATOR_MODEL: ${ORCHESTRATOR_MODEL:-gpt-4o-mini}
+      ORCHESTRATOR_API_TOKEN: ${ORCHESTRATOR_API_TOKEN:?Set ORCHESTRATOR_API_TOKEN in .env}
+      ORCHESTRATOR_APPROVAL_TOKEN: ${ORCHESTRATOR_APPROVAL_TOKEN:-}
+      ORCHESTRATOR_DB_PATH: /app/data/orchestrator.sqlite3
+      ORCHESTRATOR_REGISTRY_PATH: /app/config/agent-services/registry.json
+    volumes:
+      - orchestrator-state:/app/data
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1
+volumes:
+  orchestrator-state:

@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "AgentBudget": {
+      "properties": {
+        "max_llm_calls": {
+          "title": "Max Llm Calls",
+          "type": "integer"
+        },
+        "max_provider_calls": {
+          "title": "Max Provider Calls",
+          "type": "integer"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline At"
+        }
+      },
+      "required": [
+        "max_llm_calls",
+        "max_provider_calls"
+      ],
+      "title": "AgentBudget",
+      "type": "object"
+    },
+    "AgentName": {
+      "enum": [
+        "property",
+        "relocation",
+        "flight",
+        "map",
+        "payment"
+      ],
+      "title": "AgentName",
+      "type": "string"
+    },
+    "UpstreamResult": {
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "agent": {
+          "$ref": "#/$defs/AgentName"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "agent",
+        "data"
+      ],
+      "title": "UpstreamResult",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "default": "1.1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "thread_id": {
+      "title": "Thread Id",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "plan_version": {
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "agent": {
+      "$ref": "#/$defs/AgentName"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "title": "Inputs",
+      "type": "object"
+    },
+    "goal": {
+      "default": "",
+      "title": "Goal",
+      "type": "string"
+    },
+    "user_request": {
+      "default": "",
+      "title": "User Request",
+      "type": "string"
+    },
+    "constraints": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Constraints",
+      "type": "object"
+    },
+    "hints": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Hints",
+      "type": "object"
+    },
+    "upstream": {
+      "additionalProperties": {
+        "$ref": "#/$defs/UpstreamResult"
+      },
+      "default": {},
+      "title": "Upstream",
+      "type": "object"
+    },
+    "budget": {
+      "$ref": "#/$defs/AgentBudget"
+    },
+    "locale": {
+      "default": "vi-VN",
+      "title": "Locale",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "thread_id",
+    "task_id",
+    "plan_version",
+    "attempt",
+    "agent",
+    "inputs",
+    "budget"
+  ],
+  "title": "AgentTaskRequest",
+  "type": "object"
+}

@@ -9,46 +9,29 @@ THE LIEMS is developing an AI system for people planning a relocation. Finding a
 3. Review the combined plan, source and validity of quotes, estimated costs, dependencies, and missing decisions.
 4. Approve each paid action separately, then follow its progress and any recovery or manual follow-up.
 
-This is the **intended** experience. It is not a description of the example chat endpoint in this checkout. The [product brief](docs/product.md) gives the detailed customer flow and open decisions.
-
-**Development status:** The API in this checkout provides a sample LangGraph chat flow. The relocation workflow and service integrations are in progress across the linked issues and PRs. See the [work-in-progress map](docs/work-in-progress.md) and [architecture](ARCHITECTURE.md) for the current implementation and planned components.
+The [product brief](docs/product.md) defines the intended customer flow and open decisions. This branch contains the local integration MVP; provider availability and transaction support depend on configuration.
 
 ## Current application
 
-- `GET /health` returns the application health and environment.
-- `GET /api/v1/status` returns the example agent status.
-- `POST /api/v1/chat` accepts `{"message": "..."}` and returns an example `response` and `analysis`. The two graph nodes currently echo the input through placeholder analysis and response text; they do not call an LLM or service.
-- The example calculator tool is implemented, but it is not connected to the graph. Knowledge search is a stub.
+- React browser application and authenticated Python gateway in [`Frontend/`](Frontend/README.md).
+- FastAPI agent API and LangGraph workflow in [`src/agents/`](src/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
+- Location/Housing/Map and Moving services in [`Maps VN/LifeFlow/`](Maps%20VN/LifeFlow/README.md).
+- Flight search and Payment MCP servers in `src/mcp_servers/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
+- Separate Intake and Routing services in `src/agent_services/`; their execution gateway is disconnected by default.
 
-The code is under `src/`; the tests under `tests/` cover the example API and graph structure. Current endpoint schemas are defined in [`src/models/schemas.py`](src/models/schemas.py).
+The [frontend service audit](Frontend/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
 
 ## Run locally
 
-Use a modern stable Python release (3.11 or newer). The Docker image currently uses Python 3.11. From the repository root:
+Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies, provider credentials, database snapshots, service startup, and recovery. Follow the [frontend README](Frontend/README.md) to build and run the browser application at port 8503. The agent runtime requires an LLM API key and a trusted gateway token; copying `.env.example` alone does not configure the services.
 
-```bash
-python3 --version
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn src.main:app --reload --port 8000
-```
+The [Moving container runbook](docs/runbooks/moving-containers.md) covers the isolated Moving stack. The root `docker-compose.yml` starts the backend and Flight/Payment MCP containers; Location, Moving, and the frontend have separate setup instructions.
 
-The example chat flow returns placeholder text and does not call the LLM factory, so it needs no OpenAI key. To use an LLM, wire the factory into the graph and set `OPENAI_API_KEY` in `.env`. Do not commit `.env` or API keys. Swagger UI is at <http://localhost:8000/docs>.
+Use `ruff check src/ tests/` and `pytest tests/ -v` for the Python checks. Build and test the TypeScript services with `npm ci`, `npm run build`, and `npm run test:ci` from `Maps VN/LifeFlow/`. Live tests require their documented opt-in settings and provider configuration. Do not commit `.env` or API keys.
 
-```bash
-curl http://localhost:8000/health
-curl -X POST http://localhost:8000/api/v1/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Hello"}'
-```
+## Product scope and delivery
 
-The Makefile provides `make run`, `make test`, and `make lint` shortcuts. Run `pytest tests/ -v` and `ruff check src/ tests/` after installing dependencies. Docker users can run `docker compose up --build` after creating `.env`.
-
-## Proposed product behavior
-
-The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The AI system will coordinate dependent steps, request approval for each paid action, show progress, and recover from partial failures. The [product brief](docs/product.md) owns the scope and open decisions; the [roadmap](docs/roadmap.md) lists the Gate 1 and G2 deadlines and required deliverables. This workflow is not yet available through the current API.
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The current integration implements part of that target; real flight booking and production readiness are not established. The [roadmap](docs/roadmap.md) owns Gate 1 and G2 deadlines. The [work-in-progress map](docs/work-in-progress.md) is a dated snapshot of branch work.
 
 ## Documentation
 
@@ -57,6 +40,7 @@ The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection,
 - [GitHub issue and PR work in progress](docs/work-in-progress.md)
 - [Current architecture and proposed expansion](ARCHITECTURE.md)
 - [Working conventions](docs/project-organization.md)
+- [City dataset catalog](Maps%20VN/Cities/README.md) and [map data workflow](docs/runbooks/map-data.md)
 - [Development journal](JOURNAL.md) and [worklog](WORKLOG.md)
 - [Evaluation report](eval/results/report.md)
 - [Demo materials status](presentation/README.md)

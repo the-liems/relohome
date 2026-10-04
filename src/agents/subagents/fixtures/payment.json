@@ -1,0 +1,12 @@
+{
+  "data": {
+    "payment": {
+      "payment_id": "payment_test_fixture",
+      "provider": "zalopay",
+      "status": "PENDING",
+      "amount": 10000,
+      "currency": "VND"
+    }
+  },
+  "source_refs": ["payment_test_fixture"]
+}

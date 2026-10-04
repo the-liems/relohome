@@ -1,0 +1,29 @@
+{
+  "name": "@lifeflow/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/server.ts",
+    "dev:http": "tsx src/http-server.ts",
+    "start": "node dist/server.js",
+    "start:http": "node dist/http-server.js",
+    "pretest": "npm run build",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@lifeflow/contracts": "0.1.0",
+    "@lifeflow/housing-query": "0.1.0",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.1.0",
+    "@types/node": "^24.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.18"
+  }
+}

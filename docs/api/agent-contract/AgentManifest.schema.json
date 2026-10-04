@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "AgentBudget": {
+      "properties": {
+        "max_llm_calls": {
+          "title": "Max Llm Calls",
+          "type": "integer"
+        },
+        "max_provider_calls": {
+          "title": "Max Provider Calls",
+          "type": "integer"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline At"
+        }
+      },
+      "required": [
+        "max_llm_calls",
+        "max_provider_calls"
+      ],
+      "title": "AgentBudget",
+      "type": "object"
+    },
+    "AgentCapability": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentName"
+        },
+        "input_schema": {
+          "additionalProperties": true,
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "output_schema": {
+          "additionalProperties": true,
+          "title": "Output Schema",
+          "type": "object"
+        },
+        "required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Fields",
+          "type": "array"
+        },
+        "stale_ttl_s": {
+          "title": "Stale Ttl S",
+          "type": "integer"
+        },
+        "cost_tier": {
+          "enum": [
+            "cheap",
+            "paid"
+          ],
+          "title": "Cost Tier",
+          "type": "string"
+        },
+        "uses_llm": {
+          "default": false,
+          "title": "Uses Llm",
+          "type": "boolean"
+        },
+        "default_budget": {
+          "$ref": "#/$defs/AgentBudget"
+        },
+        "constraint_keys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraint Keys",
+          "type": "array"
+        },
+        "hint_keys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Hint Keys",
+          "type": "array"
+        },
+        "commit_kinds": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommitActionKind"
+          },
+          "title": "Commit Kinds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agent",
+        "input_schema",
+        "output_schema",
+        "required_fields",
+        "stale_ttl_s",
+        "cost_tier",
+        "default_budget"
+      ],
+      "title": "AgentCapability",
+      "type": "object"
+    },
+    "AgentName": {
+      "enum": [
+        "property",
+        "relocation",
+        "flight",
+        "map",
+        "payment"
+      ],
+      "title": "AgentName",
+      "type": "string"
+    },
+    "CommitActionKind": {
+      "enum": [
+        "deposit",
+        "moving_booking",
+        "flight_booking",
+        "cancel_order",
+        "update_order"
+      ],
+      "title": "CommitActionKind",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "owner": {
+      "title": "Owner",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "1.1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/AgentCapability"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "owner",
+    "capabilities"
+  ],
+  "title": "AgentManifest",
+  "type": "object"
+}

@@ -1,5 +1,7 @@
 # Architecture diagrams
 
+> Baseline snapshot: 2026-09-30, before the local MVP integration. See the [current architecture](../ARCHITECTURE.md) and [agent graph](architecture/agent-graph.md) for the integrated runtime.
+
 These diagrams distinguish the code that exists from the proposed product. Component details and security limits are in [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Current implementation

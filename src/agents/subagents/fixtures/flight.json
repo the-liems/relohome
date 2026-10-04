@@ -1,0 +1,14 @@
+{
+  "data": {
+    "offers": [
+      {"id": "off_vj_123", "carrier": "Vietjet Air", "fare_vnd": 1650000, "baggage_kg": 0, "depart_at": "2026-11-15T06:00:00+07:00", "arrive_at": "2026-11-15T08:10:00+07:00", "seats_left": 7},
+      {"id": "off_vn_207", "carrier": "Vietnam Airlines", "fare_vnd": 2350000, "baggage_kg": 23, "depart_at": "2026-11-15T08:00:00+07:00", "arrive_at": "2026-11-15T10:10:00+07:00", "seats_left": null}
+    ]
+  },
+  "quotes": [
+    {"option_id": "off_vj_123", "label": "Vietjet Air 06:00 HAN→SGN", "amount_vnd": 1650000, "recurrence": "one_time"},
+    {"option_id": "off_vn_207", "label": "Vietnam Airlines 08:00 HAN→SGN", "amount_vnd": 2350000, "recurrence": "one_time"}
+  ],
+  "missing_fields": ["offers[1].seats_left"],
+  "source_refs": ["off_vj_123", "off_vn_207"]
+}

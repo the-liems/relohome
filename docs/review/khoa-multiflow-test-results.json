@@ -1,0 +1,4627 @@
+{
+  "title": "Chạy lại 30 case đa luồng trên nhánh khoa (194f51d)",
+  "branch": "khoa",
+  "commit": "194f51d",
+  "created": "2026-10-02",
+  "architecture_doc": "mvp-architecture.md",
+  "how_to_read": {
+    "level": "1 = một domain đơn giản ... 5 = nhiều domain, nhiều lượt, có phụ thuộc",
+    "flow": "single = một domain; parallel = các task không phụ thuộc nhau, Executor gửi cùng một wave; sequential = task sau depends_on task trước; multi_turn = trạng thái mang qua nhiều lượt chat",
+    "turns": "say = tin nhắn người dùng; select = bấm chọn phương án (web action), pick = vị trí trong danh sách kết quả",
+    "expect.kinds": "AgentResponse.kind chấp nhận được ở lượt cuối",
+    "expect.domains": "domain phải có task trong plan cuối",
+    "expect.edges": "[A, B] = task của domain A phải depends_on task của domain B (tuần tự)",
+    "expect.parallel": "[A, B] = không có phụ thuộc giữa A và B; nếu cả hai DONE thì khoảng thời gian chạy phải chồng nhau",
+    "expect.question_field": "câu hỏi lại phải nhắm đúng field này",
+    "expect.tools": "tool mà subagent phải gọi (đọc từ data.agent_trace.tools)",
+    "result": "do runner ghi sau khi chạy thật trên stack local (LLM thật, Location/OSRM/AhaMove staging/SerpApi thật)"
+  },
+  "baseline": {
+    "file": "mvp-multiflow-test-cases.json",
+    "branch": "mvp",
+    "commit": "74f778a"
+  },
+  "isolation": "Mỗi case một tài khoản mới; stack chạy từ worktree tạm của origin/khoa (Node build lại), dữ liệu PostGIS/OSRM như lần chạy mvp.",
+  "cases": [
+    {
+      "id": "TC01",
+      "level": 1,
+      "flow": "single",
+      "title": "Housing đơn: tìm phòng theo quận và giá",
+      "turns": [
+        {
+          "say": "Tìm phòng trọ ở quận Cầu Giấy, Hà Nội dưới 5 triệu một tháng"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property"
+        ],
+        "tools": {
+          "property": [
+            "search_housing"
+          ]
+        },
+        "min_items": {
+          "property": 1
+        }
+      },
+      "path": "intake → orchestrator → executor(wave1: property) → property_agent → validator → cost_summary → respond",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:11:01",
+        "thread_id": "th_6e08af30aa6dca5fdef63fcc51118084",
+        "account": "review-tc01-k1@example.test",
+        "total_seconds": 13.1,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['property']"
+          },
+          {
+            "check": "tools:property",
+            "ok": true,
+            "detail": "used ['search_housing', 'finish']"
+          },
+          {
+            "check": "items:property>=1",
+            "ok": true,
+            "detail": "got 5"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 13.1,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property-1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property-1": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property-1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:10:53.441626+00:00",
+                "finished_at": "2026-10-02T18:11:01.630955+00:00",
+                "elapsed_ms": 7355,
+                "request_id": "cefebbf8b41f4ec6814fe38b7fdfa823",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng trọ ở quận Cầu Giấy, Hà Nội dưới 5 triệu một tháng"
+          }
+        ],
+        "server_log": [
+          "Starting AI20K Agent in development mode"
+        ]
+      }
+    },
+    {
+      "id": "TC02",
+      "level": 1,
+      "flow": "single",
+      "title": "Map nearby đơn: tiện ích quanh một địa danh",
+      "turns": [
+        {
+          "say": "Tìm bệnh viện và hiệu thuốc gần Đại học Bách khoa Hà Nội trong bán kính 1 km"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "tools": {
+          "map": [
+            "find_nearby_places"
+          ]
+        }
+      },
+      "path": "intake → orchestrator → executor(wave1: map nearby) → map_agent → validator → respond",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:11:17",
+        "thread_id": "th_9a2d73d90707364b5bd3ac9d2faea1ca",
+        "account": "review-tc02-k1@example.test",
+        "total_seconds": 7.7,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map']"
+          },
+          {
+            "check": "tools:map",
+            "ok": true,
+            "detail": "used ['find_nearby_places', 'finish']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 7.7,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nQuanh Đại học Bách khoa Hà Nội: Bệnh viện Việt Pháp (377m đường thẳng), pharmacy (331m đường thẳng)",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_nearby",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "near": "Đại học Bách khoa Hà Nội",
+                  "categories": [
+                    "hospital",
+                    "pharmacy"
+                  ],
+                  "radius_m": 1000
+                }
+              }
+            ],
+            "task_status": {
+              "map_nearby": "done"
+            },
+            "facts": {
+              "map_mode": "nearby",
+              "near": "Đại học Bách khoa Hà Nội",
+              "nearby_categories": [
+                "hospital",
+                "pharmacy"
+              ],
+              "nearby_radius_m": 1000
+            },
+            "components": [
+              {
+                "task_id": "map_nearby",
+                "agent": "map",
+                "items": 2,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:11:13.613976+00:00",
+                "finished_at": "2026-10-02T18:11:17.296824+00:00",
+                "elapsed_ms": 3683,
+                "request_id": "cf815fc2e3a243a6909b11c19d28d399",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm bệnh viện và hiệu thuốc gần Đại học Bách khoa Hà Nội trong bán kính 1 km"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC03",
+      "level": 1,
+      "flow": "single",
+      "title": "Map route đơn: đường đi giữa hai địa danh",
+      "turns": [
+        {
+          "say": "Tính đường đi xe máy từ Hồ Hoàn Kiếm đến Lăng Chủ tịch Hồ Chí Minh ở Hà Nội"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "tools": {
+          "map": [
+            "calculate_route_between_entities"
+          ]
+        }
+      },
+      "path": "intake → orchestrator → executor(wave1: map route) → map_agent → validator → respond",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-04"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:11:38",
+        "thread_id": "th_f554f3ba1f09ca7973b676e0efee9cc8",
+        "account": "review-tc03-k1@example.test",
+        "total_seconds": 6.8,
+        "problems": [
+          "kind: got CLARIFY, want ['ANSWER']"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got CLARIFY, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map']"
+          },
+          {
+            "check": "tools:map",
+            "ok": true,
+            "detail": "không chạy tới subagent (câu hỏi lại)"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 6.8,
+            "kind": "CLARIFY",
+            "text": "Để làm tiếp, bạn cho mình biết thêm:\n\"Hồ Hoàn Kiếm\" khớp nhiều nơi. Bạn muốn nói tới nơi nào?",
+            "questions": [
+              {
+                "field": "route_from",
+                "text": "\"Hồ Hoàn Kiếm\" khớp nhiều nơi. Bạn muốn nói tới nơi nào?",
+                "choices": 5
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_route",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "route",
+                  "route_from": "Hồ Hoàn Kiếm",
+                  "route_to": "Lăng Chủ tịch Hồ Chí Minh",
+                  "city": "Hà Nội",
+                  "route_profile": "motorcycle"
+                }
+              }
+            ],
+            "task_status": {
+              "map_route": "needs_input"
+            },
+            "facts": {
+              "map_mode": "route",
+              "route_from": "Hồ Hoàn Kiếm",
+              "route_to": "Lăng Chủ tịch Hồ Chí Minh",
+              "city": "Hà Nội",
+              "route_profile": "motorcycle"
+            },
+            "components": [],
+            "say": "Tính đường đi xe máy từ Hồ Hoàn Kiếm đến Lăng Chủ tịch Hồ Chí Minh ở Hà Nội"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC04",
+      "level": 1,
+      "flow": "single",
+      "title": "Flight đơn: tìm chuyến bay một chiều",
+      "turns": [
+        {
+          "say": "Tìm chuyến bay một chiều từ Hà Nội đi Thành phố Hồ Chí Minh ngày 20/10/2026 cho 1 người lớn"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "flight"
+        ],
+        "tools": {
+          "flight": [
+            "search_flights"
+          ]
+        },
+        "min_items": {
+          "flight": 1
+        }
+      },
+      "path": "intake → orchestrator → executor(wave1: flight) → flight_agent → validator → respond",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:12:03",
+        "thread_id": "th_7730e747b6999a4d822955658ea9e9e5",
+        "account": "review-tc04-k1@example.test",
+        "total_seconds": 10.4,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight']"
+          },
+          {
+            "check": "tools:flight",
+            "ok": true,
+            "detail": "used ['search_flights', 'finish']"
+          },
+          {
+            "check": "items:flight>=1",
+            "ok": true,
+            "detail": "got 5"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 10.4,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nVietravel Airlines 2026-10-20T21:55:00+07:00 — 1.083.021đ\nVietnam Airlines 2026-10-20T22:55:00+07:00 — 1.117.181đ\nSun PhuQuoc Airways 2026-10-20T05:45:00+07:00 — 1.143.181đ\nSun PhuQuoc Airways 2026-10-20T06:30:00+07:00 — 1.143.181đ\nSun PhuQuoc Airways 2026-10-20T07:15:00+07:00 — 1.143.181đ",
+            "questions": [],
+            "suggestions": [
+              "search:property"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "flight",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Thành phố Hồ Chí Minh",
+                  "date": "2026-10-20",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "flight": "done"
+            },
+            "facts": {
+              "origin": "Hà Nội",
+              "destination": "Thành phố Hồ Chí Minh",
+              "flight_date": "2026-10-20",
+              "passengers": 1
+            },
+            "components": [
+              {
+                "task_id": "flight",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:11:56.389767+00:00",
+                "finished_at": "2026-10-02T18:12:03.026715+00:00",
+                "elapsed_ms": 6637,
+                "request_id": "e16aecd401b14e6096653d49371e29f2",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm chuyến bay một chiều từ Hà Nội đi Thành phố Hồ Chí Minh ngày 20/10/2026 cho 1 người lớn"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC05",
+      "level": 1,
+      "flow": "single",
+      "title": "Moving catalog: khu vực AhaMove hỗ trợ",
+      "turns": [
+        {
+          "say": "AhaMove đang hỗ trợ chuyển đồ ở những thành phố nào?"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "relocation"
+        ],
+        "tools": {
+          "relocation": [
+            "list_service_areas"
+          ]
+        }
+      },
+      "path": "intake → orchestrator → executor(wave1: relocation catalog) → relocation_agent → validator → respond",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "UNSUPPORTED",
+        "bug_refs": [
+          "BUG-02"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:12:21",
+        "thread_id": "th_665e8225e011fd0a8d214c050aaa51b1",
+        "account": "review-tc05-k1@example.test",
+        "total_seconds": 7.3,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['relocation']"
+          },
+          {
+            "check": "tools:relocation",
+            "ok": true,
+            "detail": "used ['list_service_areas', 'finish']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 7.3,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nPhạm vi AhaMove trả về: Hanoi, Ho Chi Minh, Hai Phong, Can Tho, Da Nang, Hai Duong, Long Xuyen, Rach Gia, Dalat, Hue, VNM, Buon Ma Thuot, Thanh Hoa, Long An, Phu Quoc, Nha Trang, Vinh, NA, Tien Giang, Dong Nai, Ha Long, Binh Duong, Vung Tau, Bac Ninh, Ben Tre Province, Nam Dinh Province, Tay Ninh Province, Tra Vinh Province, Ha Tinh Province, Lao Cai Province, Binh Dinh Province, Binh Phuoc Province, Quang Ngai Province, Vinh Phuc Province, Phu Tho Province, Ninh Binh Province, Bac Giang Province, Hung Yen Province, Ha Giang Province, Cao Bang Province, Bac Kan Province, Tuyen Quang Province, Dien Bien Province, Lai Chau Province, Son La Province, Yen Bai Province, Hoa Binh Province, Lang Son Province, Thai Binh Province, Ha Nam Province, Quang Binh Province, Quang Tri Province, Phu Yen Province, Ninh Thuan Province, Kon Tum Province, Dak Nong Province, Vinh",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "relocation_catalog",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "catalog"
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_catalog": "done"
+            },
+            "facts": {
+              "moving_mode": "catalog"
+            },
+            "components": [
+              {
+                "task_id": "relocation_catalog",
+                "agent": "relocation",
+                "items": 71,
+                "tools": [
+                  "list_service_areas",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:12:18.570811+00:00",
+                "finished_at": "2026-10-02T18:12:21.930975+00:00",
+                "elapsed_ms": 3360,
+                "request_id": "139b860e1cc84bf6847928d6cd673a64",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "AhaMove đang hỗ trợ chuyển đồ ở những thành phố nào?"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC06",
+      "level": 1,
+      "flow": "single",
+      "title": "Guard: yêu cầu ngoài phạm vi",
+      "turns": [
+        {
+          "say": "Đặt giúp mình hai vé xem phim tối nay ở rạp gần nhà"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "UNSUPPORTED",
+          "CLARIFY"
+        ],
+        "no_tasks": true
+      },
+      "path": "intake (UNSUPPORTED) → respond; không tạo plan",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "UNSUPPORTED",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:12:38",
+        "thread_id": "th_4029979be3670e41074a246be2bf647a",
+        "account": "review-tc06-k1@example.test",
+        "total_seconds": 2.5,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got UNSUPPORTED, want ['UNSUPPORTED', 'CLARIFY']"
+          },
+          {
+            "check": "no_tasks",
+            "ok": true,
+            "detail": "plan agents []"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 2.5,
+            "kind": "UNSUPPORTED",
+            "text": "Mình hỗ trợ tìm phòng, bản đồ, chuyển đồ, tìm chuyến bay và tra thanh toán đã có. Tạo thanh toán sandbox cần dùng form có xác nhận; chưa hỗ trợ xuất vé hay hoàn tiền qua chat.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": null,
+            "plan": [],
+            "task_status": {},
+            "facts": {},
+            "components": [],
+            "say": "Đặt giúp mình hai vé xem phim tối nay ở rạp gần nhà"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC07",
+      "level": 1,
+      "flow": "single",
+      "title": "Guard: thiếu thông tin bắt buộc",
+      "turns": [
+        {
+          "say": "Mình muốn thuê nhà"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "CLARIFY"
+        ],
+        "no_tasks": true
+      },
+      "path": "intake (blocking_missing) → respond(CLARIFY)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-01 (lần chạy 1, tài khoản dùng chung)"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:12:59",
+        "thread_id": "th_5874858dc732bbbf4d8212898eb90211",
+        "account": "review-tc07-k1@example.test",
+        "total_seconds": 2.5,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['CLARIFY']"
+          },
+          {
+            "check": "no_tasks",
+            "ok": true,
+            "detail": "plan agents []"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 2.5,
+            "kind": "CLARIFY",
+            "text": "Mình cần thêm một chút thông tin:\nBạn muốn tìm phòng ở thành phố, quận/huyện hoặc gần địa điểm nào?\nNếu có ngân sách hay yêu cầu như Wi-Fi, máy lạnh, chỗ để xe thì nói luôn để mình lọc sát hơn.",
+            "questions": [
+              {
+                "field": "property.city|near|district",
+                "text": "Bạn muốn tìm phòng ở thành phố, quận/huyện hoặc gần địa điểm nào?",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": null,
+            "plan": [],
+            "task_status": {},
+            "facts": {},
+            "components": [],
+            "say": "Mình muốn thuê nhà"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC08",
+      "level": 2,
+      "flow": "single",
+      "title": "Moving quote đủ thông tin (AhaMove staging, ngày trong 7 ngày)",
+      "turns": [
+        {
+          "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Lăng Chủ tịch Hồ Chí Minh ngày 5/10/2026 lúc 9 giờ sáng"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER",
+          "CLARIFY"
+        ],
+        "domains": [
+          "relocation"
+        ],
+        "tools": {
+          "relocation": [
+            "resolve_move_route"
+          ]
+        }
+      },
+      "note": "ANSWER khi Location xác định được hai điểm; CLARIFY kèm choices khi địa điểm mơ hồ. Cả hai đều đúng kiến trúc.",
+      "path": "intake → orchestrator → relocation_agent(resolve_move_route → list_moving_services → estimate_move → finish) → validator → respond",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-04"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:13:25",
+        "thread_id": "th_2657d23722d6ebc9e9bf53eef8d5f608",
+        "account": "review-tc08-k1@example.test",
+        "total_seconds": 6.6,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['ANSWER', 'CLARIFY']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['relocation']"
+          },
+          {
+            "check": "tools:relocation",
+            "ok": true,
+            "detail": "không chạy tới subagent (câu hỏi lại)"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 6.6,
+            "kind": "CLARIFY",
+            "text": "Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-05; giờ 09:00; lấy tại Đại học Bách khoa Hà Nội; giao tới Lăng Chủ tịch Hồ Chí Minh. Bạn không cần nhập lại các thông tin này.\nMình đã ghi địa chỉ giao ‘Lăng Chủ tịch Hồ Chí Minh’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày giờ.",
+            "questions": [
+              {
+                "field": "to_address",
+                "text": "Mình đã ghi địa chỉ giao ‘Lăng Chủ tịch Hồ Chí Minh’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại n",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "Lăng Chủ tịch Hồ Chí Minh",
+                  "move_date": "2026-10-05",
+                  "move_time": "09:00"
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_quote": "needs_input"
+            },
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "Lăng Chủ tịch Hồ Chí Minh",
+              "move_date": "2026-10-05",
+              "move_time": "09:00"
+            },
+            "components": [],
+            "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Lăng Chủ tịch Hồ Chí Minh ngày 5/10/2026 lúc 9 giờ sáng"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC09",
+      "level": 2,
+      "flow": "parallel",
+      "title": "Song song: Housing + Flight",
+      "turns": [
+        {
+          "say": "Tìm phòng ở quận Hải Châu, Đà Nẵng dưới 4 triệu và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 20/10/2026"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "flight"
+        ],
+        "parallel": [
+          [
+            "property",
+            "flight"
+          ]
+        ]
+      },
+      "path": "orchestrator → executor wave1 = {property, flight} (Send song song) → fan-in → validator → respond",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": [
+          "BUG-05"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:13:51",
+        "thread_id": "th_bdb367cf458499ae165270f5135ccf7a",
+        "account": "review-tc09-k1@example.test",
+        "total_seconds": 11.2,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property']"
+          },
+          {
+            "check": "parallel:property|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 11.2,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. cho thuê giường đơn — 1.500.000đ/tháng — 119, Đường Cao Xuân Dục, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n2. Phòng 654/4 Trưng Nữ Vương cho thuê — 1.700.000đ/tháng — 654/4, Đường Trưng Nữ Vương, Phường Hòa Thuận Tây, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n3. Phòng trọ Lux Dorm KV Hải Châu, gần ĐH Đông Á, giá 1.400k — 1.400.000đ/tháng — Đường 2 tháng 9, Phường Hòa Cường Bắc, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n4. Cho thuê phòng dorm nữ 1tr7 Hòa Cường, gần ĐH Đông Á — 1.700.000đ/tháng — Đường Hòa Cường, Phường Hòa Cường Nam, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n5. Cho thuê căn hộ 3pn view sông tại Samtower — 520.000đ/tháng — Đường Như Nguyệt, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nVietravel Airlines 2026-10-20T06:15:00+07:00 — 715.821đ\nVietjet 2026-10-20T05:40:00+07:",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "quận Hải Châu",
+                  "max_price_vnd": 4000000
+                }
+              },
+              {
+                "id": "flight_1",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Đà Nẵng",
+                  "date": "2026-10-20",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done",
+              "flight_1": "done"
+            },
+            "facts": {
+              "district": "quận Hải Châu",
+              "city": "Đà Nẵng",
+              "max_price_vnd": 4000000,
+              "origin": "Hà Nội",
+              "destination": "Đà Nẵng",
+              "flight_date": "2026-10-20"
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:13:45.311991+00:00",
+                "finished_at": "2026-10-02T18:13:49.677362+00:00",
+                "elapsed_ms": 4365,
+                "request_id": "c00be183f81940f28074a74ee87eaa71",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "flight_1",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:13:45.312116+00:00",
+                "finished_at": "2026-10-02T18:13:50.986630+00:00",
+                "elapsed_ms": 5675,
+                "request_id": "c00be183f81940f28074a74ee87eaa71",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm phòng ở quận Hải Châu, Đà Nẵng dưới 4 triệu và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 20/10/2026"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC10",
+      "level": 2,
+      "flow": "parallel",
+      "title": "Song song: Map route + Flight",
+      "turns": [
+        {
+          "say": "Tính đường đi bộ từ Chợ Bến Thành đến Nhà thờ Đức Bà ở Thành phố Hồ Chí Minh, đồng thời tìm chuyến bay Thành phố Hồ Chí Minh đi Hà Nội ngày 22/10/2026"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map",
+          "flight"
+        ],
+        "parallel": [
+          [
+            "map",
+            "flight"
+          ]
+        ]
+      },
+      "path": "executor wave1 = {map route, flight}",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:14:13",
+        "thread_id": "th_a16bd79b85eab394d2a02fd4228740a2",
+        "account": "review-tc10-k1@example.test",
+        "total_seconds": 12.4,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map']"
+          },
+          {
+            "check": "parallel:map|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 12.4,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nĐường đi (walking): 0.97 km, khoảng 12 phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp.\nVị trí đầu hoặc cuối tuyến chỉ gần đúng/chưa rõ độ chính xác; tuyến đường là ước tính.\nVietravel Airlines 2026-10-22T07:00:00+07:00 — 2.152.221đ\nVietravel Airlines 2026-10-22T17:10:00+07:00 — 2.152.221đ\nVietjet 2026-10-22T06:50:00+07:00 — 2.236.781đ\nVietjet 2026-10-22T06:55:00+07:00 — 2.236.781đ\nSun PhuQuoc Airways 2026-10-22T19:00:00+07:00 — 1.801.181đ",
+            "questions": [],
+            "suggestions": [
+              "search:property"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_route",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "route",
+                  "route_from": "Chợ Bến Thành",
+                  "route_to": "Nhà thờ Đức Bà",
+                  "city": "Thành phố Hồ Chí Minh",
+                  "route_profile": "walking"
+                }
+              },
+              {
+                "id": "flight_search",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Thành phố Hồ Chí Minh",
+                  "destination": "Hà Nội",
+                  "date": "2026-10-22",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "map_route": "done",
+              "flight_search": "done"
+            },
+            "facts": {
+              "map_mode": "route",
+              "route_from": "Chợ Bến Thành",
+              "route_to": "Nhà thờ Đức Bà",
+              "city": "Thành phố Hồ Chí Minh",
+              "route_profile": "walking",
+              "origin": "Thành phố Hồ Chí Minh",
+              "destination": "Hà Nội",
+              "flight_date": "2026-10-22"
+            },
+            "components": [
+              {
+                "task_id": "map_route",
+                "agent": "map",
+                "items": 1,
+                "tools": [
+                  "calculate_route_between_entities",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:05.870666+00:00",
+                "finished_at": "2026-10-02T18:14:10.009133+00:00",
+                "elapsed_ms": 4138,
+                "request_id": "5292dea6321d43ca8a233a748b89b2a3",
+                "depends_on": [],
+                "quality_flagged": 0
+              },
+              {
+                "task_id": "flight_search",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:05.870787+00:00",
+                "finished_at": "2026-10-02T18:14:13.373816+00:00",
+                "elapsed_ms": 7503,
+                "request_id": "5292dea6321d43ca8a233a748b89b2a3",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tính đường đi bộ từ Chợ Bến Thành đến Nhà thờ Đức Bà ở Thành phố Hồ Chí Minh, đồng thời tìm chuyến bay Thành phố Hồ Chí Minh đi Hà Nội ngày 22/10/2026"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC11",
+      "level": 2,
+      "flow": "parallel",
+      "title": "Song song: Housing và Map nearby độc lập (khác thành phố)",
+      "turns": [
+        {
+          "say": "Tìm phòng ở thành phố Thủ Đức, TP.HCM dưới 3 triệu, và riêng việc khác: tìm chợ gần Đại học Bách khoa Hà Nội"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "map"
+        ],
+        "parallel": [
+          [
+            "property",
+            "map"
+          ]
+        ]
+      },
+      "note": "Map có near riêng nên KHÔNG được depends_on property.",
+      "path": "executor wave1 = {property, map(explicit near)}",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-03"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:14:29",
+        "thread_id": "th_f5d1a6e447bbb046ed69ea7cf6d955cc",
+        "account": "review-tc11-k1@example.test",
+        "total_seconds": 7.0,
+        "problems": [
+          "kind: got CLARIFY, want ['ANSWER']"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got CLARIFY, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "parallel:property|map",
+            "ok": true,
+            "detail": "independent=True, overlap=chưa đo được (task chưa DONE cùng lượt)"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 7.0,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\nQuanh Đại học Bách khoa Hà Nội: Chợ Bách Khoa (467m đường thẳng)\nMình chưa xác định được vị trí \"thành phố Thủ Đức, TP.HCM\". Bạn nói rõ hơn được không?",
+            "questions": [
+              {
+                "field": "city",
+                "text": "Mình chưa xác định được vị trí \"thành phố Thủ Đức, TP.HCM\". Bạn nói rõ hơn được không?",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property-1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "thành phố Thủ Đức, TP.HCM",
+                  "max_price_vnd": 3000000
+                }
+              },
+              {
+                "id": "map-1",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "near": "Đại học Bách khoa Hà Nội",
+                  "categories": [
+                    "marketplace"
+                  ],
+                  "radius_m": 1500
+                }
+              }
+            ],
+            "task_status": {
+              "property-1": "needs_input",
+              "map-1": "done"
+            },
+            "facts": {
+              "city": "thành phố Thủ Đức, TP.HCM",
+              "max_price_vnd": 3000000,
+              "map_mode": "nearby",
+              "map_near": "Đại học Bách khoa Hà Nội",
+              "nearby_categories": [
+                "marketplace"
+              ]
+            },
+            "components": [
+              {
+                "task_id": "map-1",
+                "agent": "map",
+                "items": 1,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:26.848398+00:00",
+                "finished_at": "2026-10-02T18:14:29.841405+00:00",
+                "elapsed_ms": 2993,
+                "request_id": "9e615f607eb64db08a0340d0eb57f685",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm phòng ở thành phố Thủ Đức, TP.HCM dưới 3 triệu, và riêng việc khác: tìm chợ gần Đại học Bách khoa Hà Nội"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC12",
+      "level": 3,
+      "flow": "parallel",
+      "title": "Song song ba domain: Housing + Flight + Moving catalog",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Đà Nẵng dưới 5 triệu, tìm chuyến bay Hà Nội đi Đà Nẵng ngày 25/10/2026 và cho mình biết AhaMove có hỗ trợ chuyển đồ ở Đà Nẵng không"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "flight",
+          "relocation"
+        ],
+        "parallel": [
+          [
+            "property",
+            "flight"
+          ],
+          [
+            "property",
+            "relocation"
+          ],
+          [
+            "flight",
+            "relocation"
+          ]
+        ]
+      },
+      "path": "executor wave1 = {property, flight, relocation} (max_parallel_tasks = 4)",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-02"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:14:56",
+        "thread_id": "th_970e4cf13c1f26180e473d7d6044e82d",
+        "account": "review-tc12-k1@example.test",
+        "total_seconds": 12.9,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property', 'relocation']"
+          },
+          {
+            "check": "parallel:property|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          },
+          {
+            "check": "parallel:property|relocation",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          },
+          {
+            "check": "parallel:flight|relocation",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 12.9,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Phòng trọ gần CD nghề, Y dược, VKU, FPT software — 950.000đ/tháng — Đường Nam Kỳ Khởi Nghĩa, Phường Hoà Quý, Quận Ngũ Hành Sơn, Đà Nẵng — 0 phòng ngủ\n2. CHO THUÊ PHÒNG TRỌ GIÁ RẺ — 1.000.000đ/tháng — 416, Đường Nguyễn Lương Bằng, Phường Hòa Hiệp Nam, Quận Liên Chiểu, Đà Nẵng — 0 phòng ngủ\n3. Phòng giường tầng ở chung cho thuê tháng — 1.000.000đ/tháng — Đường Mỹ Khê 8, Phường Phước Mỹ, Quận Sơn Trà, Đà Nẵng — 0 phòng ngủ\n4. Cho thuê căn hộ 3pn view sông tại Samtower — 520.000đ/tháng — Đường Như Nguyệt, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\n5. CHO THUÊ NGUYÊN CĂN - KIỆT NGÔ QUYỀN - 3 PHÒNG NGỦ - GẦN CẦU SÔNG HÀN — 800.000đ/tháng — Kiệt, Đường Ngô Quyền, Phường An Hải Bắc, Quận Sơn Trà, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nVietravel Airline",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "flight_search",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Đà Nẵng",
+                  "date": "2026-10-25",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              },
+              {
+                "id": "moving_catalog",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "catalog"
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done",
+              "flight_search": "done",
+              "moving_catalog": "done"
+            },
+            "facts": {
+              "city": "Đà Nẵng",
+              "max_price_vnd": 5000000,
+              "origin": "Hà Nội",
+              "destination": "Đà Nẵng",
+              "flight_date": "2026-10-25",
+              "moving_mode": "catalog"
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:49.369248+00:00",
+                "finished_at": "2026-10-02T18:14:56.161875+00:00",
+                "elapsed_ms": 6024,
+                "request_id": "58be92abec894c1d810d24f2fe43d438",
+                "depends_on": [],
+                "quality_flagged": 2
+              },
+              {
+                "task_id": "flight_search",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:49.369385+00:00",
+                "finished_at": "2026-10-02T18:14:56.794908+00:00",
+                "elapsed_ms": 6657,
+                "request_id": "58be92abec894c1d810d24f2fe43d438",
+                "depends_on": [],
+                "quality_flagged": 0
+              },
+              {
+                "task_id": "moving_catalog",
+                "agent": "relocation",
+                "items": 71,
+                "tools": [
+                  "list_service_areas",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:14:49.369469+00:00",
+                "finished_at": "2026-10-02T18:14:52.993740+00:00",
+                "elapsed_ms": 2856,
+                "request_id": "58be92abec894c1d810d24f2fe43d438",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm phòng ở Đà Nẵng dưới 5 triệu, tìm chuyến bay Hà Nội đi Đà Nẵng ngày 25/10/2026 và cho mình biết AhaMove có hỗ trợ chuyển đồ ở Đà Nẵng không"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC13",
+      "level": 3,
+      "flow": "parallel",
+      "title": "Song song: Moving quote + Flight",
+      "turns": [
+        {
+          "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Hồ Hoàn Kiếm ngày 5/10/2026 lúc 14 giờ, và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 20/10/2026"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER",
+          "CLARIFY",
+          "PARTIAL"
+        ],
+        "domains": [
+          "relocation",
+          "flight"
+        ],
+        "parallel": [
+          [
+            "relocation",
+            "flight"
+          ]
+        ]
+      },
+      "path": "executor wave1 = {relocation quote, flight}",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-04"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:15:15",
+        "thread_id": "th_5210e919fa2793c7615a67c904573a8d",
+        "account": "review-tc13-k1@example.test",
+        "total_seconds": 10.2,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['ANSWER', 'CLARIFY', 'PARTIAL']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['flight', 'relocation']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'relocation']"
+          },
+          {
+            "check": "parallel:relocation|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=chưa đo được (task chưa DONE cùng lượt)"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 10.2,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-05; giờ 14:00; lấy tại Đại học Bách khoa Hà Nội; giao tới Hồ Hoàn Kiếm. Bạn không cần nhập lại các thông tin này.\nVietravel Airlines 2026-10-20T06:15:00+07:00 — 715.821đ\nVietjet 2026-10-20T05:40:00+07:00 — 742.061đ\nVietjet 2026-10-20T07:30:00+07:00 — 742.061đ\nVietravel Airlines 2026-10-20T16:55:00+07:00 — 867.021đ\nSun PhuQuoc Airways 2026-10-20T20:20:00+07:00 — 906.181đ\nMình đã ghi địa chỉ giao ‘Hồ Hoàn Kiếm’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày giờ.",
+            "questions": [
+              {
+                "field": "to_address",
+                "text": "Mình đã ghi địa chỉ giao ‘Hồ Hoàn Kiếm’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày giờ.",
+                "choices": 0
+              }
+            ],
+            "suggestions": [
+              "search:property"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "Hồ Hoàn Kiếm",
+                  "move_date": "2026-10-05",
+                  "move_time": "14:00"
+                }
+              },
+              {
+                "id": "flight_search",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Đà Nẵng",
+                  "date": "2026-10-20",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_quote": "needs_input",
+              "flight_search": "done"
+            },
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "Hồ Hoàn Kiếm",
+              "move_date": "2026-10-05",
+              "move_time": "14:00",
+              "origin": "Hà Nội",
+              "destination": "Đà Nẵng",
+              "flight_date": "2026-10-20"
+            },
+            "components": [
+              {
+                "task_id": "flight_search",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:15:10.001704+00:00",
+                "finished_at": "2026-10-02T18:15:15.240031+00:00",
+                "elapsed_ms": 5238,
+                "request_id": "8e4ce9d7b68f468a8a83069aee0e90d3",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Hồ Hoàn Kiếm ngày 5/10/2026 lúc 14 giờ, và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 20/10/2026"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC14",
+      "level": 3,
+      "flow": "sequential",
+      "title": "Tuần tự: Housing → Map nearby quanh các phòng tìm được",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu và xem bệnh viện, chợ gần các phòng đó"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "map"
+        ],
+        "edges": [
+          [
+            "map",
+            "property"
+          ]
+        ]
+      },
+      "path": "executor wave1 = {property} → fan-in → executor wave2 = {map (upstream = kết quả property)}",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:15:38",
+        "thread_id": "th_17d77eab6075f7ad97650e969210bb28",
+        "account": "review-tc14-k1@example.test",
+        "total_seconds": 11.5,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "edge:map->property",
+            "ok": true,
+            "detail": "[[\"property-1\", \"property\", []], [\"map-1\", \"map\", [\"property-1\"]]]"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 11.5,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nQuanh Tìm nữ ở ghép chỉ 1tr1/tháng: Bệnh viện Đa khoa Y học cổ truyền Hà Nội (736m đường thẳng), Chợ Đồng Xa (390m ",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property-1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "map-1",
+                "agent": "map",
+                "depends_on": [
+                  "property-1"
+                ],
+                "inputs": {
+                  "categories": [
+                    "hospital",
+                    "marketplace"
+                  ],
+                  "radius_m": 1500
+                }
+              }
+            ],
+            "task_status": {
+              "property-1": "done",
+              "map-1": "done"
+            },
+            "facts": {
+              "city": "Hà Nội",
+              "district": "Cầu Giấy",
+              "max_price_vnd": 5000000,
+              "map_mode": "nearby",
+              "nearby_categories": [
+                "hospital",
+                "marketplace"
+              ]
+            },
+            "components": [
+              {
+                "task_id": "property-1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:15:31.463862+00:00",
+                "finished_at": "2026-10-02T18:15:35.856136+00:00",
+                "elapsed_ms": 4392,
+                "request_id": "67ee5530699e4866ae1359c17fd5879a",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "map-1",
+                "agent": "map",
+                "items": 6,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:15:35.860968+00:00",
+                "finished_at": "2026-10-02T18:15:38.394929+00:00",
+                "elapsed_ms": 2534,
+                "request_id": "67ee5530699e4866ae1359c17fd5879a",
+                "depends_on": [
+                  "property-1"
+                ],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu và xem bệnh viện, chợ gần các phòng đó"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC15",
+      "level": 3,
+      "flow": "sequential",
+      "title": "Tuần tự: Housing → Map nearby (trường học) ở thành phố khác",
+      "turns": [
+        {
+          "say": "Tìm căn hộ ở quận Hải Châu Đà Nẵng dưới 6 triệu rồi tìm trường học gần những căn đó"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "map"
+        ],
+        "edges": [
+          [
+            "map",
+            "property"
+          ]
+        ]
+      },
+      "path": "wave1 property → wave2 map",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": [
+          "BUG-05"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:16:01",
+        "thread_id": "th_4f206a38368cb95d52e40f8915544388",
+        "account": "review-tc15-k1@example.test",
+        "total_seconds": 13.3,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "edge:map->property",
+            "ok": true,
+            "detail": "[[\"property_search\", \"property\", []], [\"map_nearby\", \"map\", [\"property_search\"]]]"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 13.3,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. CHO THUÊ CĂN HỘ 1 PHÒNG NGỦ – Q. HẢI CHÂU — 4.500.000đ/tháng — K19/11, Đường Lê Đình Thâm, Phường Hòa Thuận Đông, Quận Hải Châu, Đà Nẵng — 1 phòng ngủ\n2. ☘️☘️CHO THUÊ CĂN HỘ CÓ 2 CỬA SỔ- SÂN PHƠI RIÊNG TỪNG PHÒNG GIÁ 5TRIỆU — 5.000.000đ/tháng — nguyễn phong sắc, Phường Hòa Cường Nam, Quận Hải Châu, Đà Nẵng — 1 phòng ngủ\n3. Căn hộ full nội thất Tiểu La, Đà Nẵng — 4.000.000đ/tháng — Kiệt 14X Tiểu La, Phường Bình Hiên, Quận Hải Châu, Đà Nẵng\n4. Căn hộ full nội thất gần ĐH Ngoại ngữ, KT Y Dược, Duy Tân, Đông Á, Kiế — 5.000.000đ/tháng — Phan Châu Trinh, Phường Hải Châu I, Quận Hải Châu, Đà Nẵng\n5. Cho thuê căn hộ 3pn view sông tại Samtower — 520.000đ/tháng — Đường Như Nguyệt, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nQuanh CHO THUÊ CĂN HỘ 1 PHÒNG NGỦ – Q. HẢI CHÂU: school (378m đường thẳn",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "Hải Châu",
+                  "max_price_vnd": 6000000,
+                  "room_type": "căn hộ"
+                }
+              },
+              {
+                "id": "map_nearby",
+                "agent": "map",
+                "depends_on": [
+                  "property_search"
+                ],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "categories": [
+                    "school"
+                  ],
+                  "radius_m": 1500
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done",
+              "map_nearby": "done"
+            },
+            "facts": {
+              "city": "Đà Nẵng",
+              "district": "Hải Châu",
+              "max_price_vnd": 6000000,
+              "room_type": "căn hộ",
+              "map_mode": "nearby",
+              "nearby_categories": [
+                "school"
+              ]
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:15:54.202689+00:00",
+                "finished_at": "2026-10-02T18:15:58.665149+00:00",
+                "elapsed_ms": 3683,
+                "request_id": "7a1a4cddb3a8470a89946eb3145d5d75",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "map_nearby",
+                "agent": "map",
+                "items": 3,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:15:58.672307+00:00",
+                "finished_at": "2026-10-02T18:16:01.307748+00:00",
+                "elapsed_ms": 2635,
+                "request_id": "7a1a4cddb3a8470a89946eb3145d5d75",
+                "depends_on": [
+                  "property_search"
+                ],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm căn hộ ở quận Hải Châu Đà Nẵng dưới 6 triệu rồi tìm trường học gần những căn đó"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC16",
+      "level": 4,
+      "flow": "mixed",
+      "title": "DAG hỗn hợp: (Housing → Map) song song với Flight",
+      "turns": [
+        {
+          "say": "Tìm phòng ở quận 3 Thành phố Hồ Chí Minh dưới 6 triệu, tìm siêu thị gần các phòng đó, và tìm chuyến bay Hà Nội đi Thành phố Hồ Chí Minh ngày 21/10/2026"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "map",
+          "flight"
+        ],
+        "edges": [
+          [
+            "map",
+            "property"
+          ]
+        ],
+        "parallel": [
+          [
+            "property",
+            "flight"
+          ]
+        ]
+      },
+      "path": "wave1 = {property, flight} → wave2 = {map}",
+      "note": "Bản đầu viết 'TP.HCM' nên cả lượt bị hỏi lại vì luật chặn viết tắt (BUG-03, giống TC11); viết đầy đủ để kiểm DAG hỗn hợp.",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-12",
+          "BUG-03 (bản viết 'TP.HCM')"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:22:41",
+        "thread_id": "th_bee9039945895fc0cba1bc93eb0861be",
+        "account": "review-tc16-k2@example.test",
+        "total_seconds": 16.4,
+        "problems": [
+          "kind: got CLARIFY, want ['ANSWER']"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got CLARIFY, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property']"
+          },
+          {
+            "check": "edge:map->property",
+            "ok": true,
+            "detail": "[[\"property-1\", \"property\", []], [\"map-1\", \"map\", [\"property-1\"]], [\"flight-1\", \"flight\", []]]"
+          },
+          {
+            "check": "parallel:property|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 16.4,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\n1. PHÒNG TRỌ TRUNG TÂM GIÁ SIÊU SINH VIÊN - CHO NAM — 700.000đ/tháng — 656/52/19, Hẻm 656 Đường Cách Mạng Tháng 8, Phường 11, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ\n2. KÝ TÚC XÁ FULL NỘI THẤT (Bao hết chi phí, tự do 24/7) — 900.000đ/tháng — 548, Điện Biên Phủ, Phường 3, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ\n3. Tìm bạn ở ghép — 1.100.000đ/tháng — Đường Ðường Số 3 Cư Xá Đô Thành, Phường 4, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ\n4. Cho thuê phòng SLEEP BOX ( Hộp ngủ) có máy lạnh — 1.200.000đ/tháng — 134/93, Đường Lý Chính Thắng, Phường Võ Thị Sáu, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ\n5. CHO NỮ THUÊ PHÒNG MINI- SLEEPBOX GIÁ RẺ TRUNG TÂM Q3-Q1 — 1.100.000đ/tháng — Đường Trần Quốc Toản, Phường Võ Thị Sáu, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nVietravel Airlines 2026-10-21T20:0",
+            "questions": [
+              {
+                "field": "near",
+                "text": "Mình chưa xác định được vị trí \"các phòng đó\". Bạn nói rõ hơn được không?",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property-1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "district": "quận 3",
+                  "city": "Thành phố Hồ Chí Minh",
+                  "max_price_vnd": 6000000
+                }
+              },
+              {
+                "id": "map-1",
+                "agent": "map",
+                "depends_on": [
+                  "property-1"
+                ],
+                "inputs": {
+                  "categories": [
+                    "supermarket"
+                  ],
+                  "radius_m": 1500,
+                  "near": "các phòng đó"
+                }
+              },
+              {
+                "id": "flight-1",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Thành phố Hồ Chí Minh",
+                  "date": "2026-10-21",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "property-1": "done",
+              "flight-1": "done",
+              "map-1": "needs_input"
+            },
+            "facts": {
+              "district": "quận 3",
+              "city": "Thành phố Hồ Chí Minh",
+              "max_price_vnd": 6000000,
+              "map_near": "các phòng đó",
+              "map_mode": "nearby",
+              "nearby_categories": [
+                "supermarket"
+              ],
+              "origin": "Hà Nội",
+              "destination": "Thành phố Hồ Chí Minh",
+              "flight_date": "2026-10-21"
+            },
+            "components": [
+              {
+                "task_id": "property-1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:22:31.886022+00:00",
+                "finished_at": "2026-10-02T18:22:39.161859+00:00",
+                "elapsed_ms": 6559,
+                "request_id": "93ddd5fdfae143b4a68c7c2a35a246f3",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "flight-1",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:22:31.886132+00:00",
+                "finished_at": "2026-10-02T18:22:37.496696+00:00",
+                "elapsed_ms": 4894,
+                "request_id": "93ddd5fdfae143b4a68c7c2a35a246f3",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm phòng ở quận 3 Thành phố Hồ Chí Minh dưới 6 triệu, tìm siêu thị gần các phòng đó, và tìm chuyến bay Hà Nội đi Thành phố Hồ Chí Minh ngày 21/10/2026"
+          }
+        ],
+        "server_log": []
+      },
+      "previous_runs": [
+        {
+          "status": "FAIL",
+          "ran_at": "2026-10-02T18:16:29",
+          "thread_id": "th_558f8d97eea5369043ce2c2860b83c74",
+          "account": "review-tc16-k1@example.test",
+          "problems": [
+            "kind: got CLARIFY, want ['ANSWER']"
+          ],
+          "server_log": [],
+          "turns": [
+            {
+              "say": "Tìm phòng ở quận 3 Thành phố Hồ Chí Minh dưới 6 triệu, tìm siêu thị gần các phòng đó, và tìm chuyến bay Hà Nội đi Thành phố Hồ Chí Minh ngày 21/10/2026",
+              "kind": "CLARIFY",
+              "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\n1. PHÒNG TRỌ TRUNG TÂM GIÁ SIÊU SINH VIÊN - CHO NAM — 700.000đ/tháng — 656/52/19, Hẻm 656 Đường Cách Mạng Tháng 8, Phường 11, Quận 3, Tp Hồ Chí Minh — 0 phòng ngủ\n2. KÝ TÚC XÁ FULL NỘI THẤT (Bao hết chi phí, tự do 24/7) — 900.000đ/th"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TC17",
+      "level": 3,
+      "flow": "multi_turn",
+      "title": "Nhiều lượt: tìm → chọn căn → tiện ích quanh căn đã chọn",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+        },
+        {
+          "select": "property",
+          "pick": 0
+        },
+        {
+          "say": "Xem bệnh viện và chợ quanh phòng mình chọn"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "map_selected_listing": true
+      },
+      "path": "lượt 3: intake (fact selected:property) → planner gắn selected_listing_id → map_agent(get_housing → find_nearby_places)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:16:46",
+        "thread_id": "th_bc6331ea697cc9599601f9fa85ea8170",
+        "account": "review-tc17-k1@example.test",
+        "total_seconds": 15.2,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "map_selected_listing",
+            "ok": true,
+            "detail": "[{\"categories\": [\"hospital\", \"marketplace\"], \"radius_m\": 1500, \"selected_listing_id\": \"cc9bc792-f537-588f-bb8c-a8b606318e60\"}]"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.0,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "city": "Hà Nội",
+              "district": "Cầu Giấy",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:16:34.703523+00:00",
+                "finished_at": "2026-10-02T18:16:39.034139+00:00",
+                "elapsed_ms": 4331,
+                "request_id": "ee5644c2e62c4aa0889a819e9cbe16dd",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 0.1,
+            "kind": "ANSWER",
+            "text": "Đã lưu lựa chọn: Tìm nữ ở ghép chỉ 1tr1/tháng. Chưa thực hiện đặt dịch vụ. Bạn có thể làm tiếp:",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation",
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "city": "Hà Nội",
+              "district": "Cầu Giấy",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60"
+            },
+            "components": [],
+            "selected": {
+              "id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "title": "Tìm nữ ở ghép chỉ 1tr1/tháng",
+              "price_unverified": false
+            },
+            "selected_fact": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+            "select": "property"
+          },
+          {
+            "http": 200,
+            "seconds": 7.1,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nCăn bạn đã chọn:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\nQuanh Tìm nữ ở ghép chỉ 1tr1/tháng: Bệnh viện Đa khoa Y học cổ truyền Hà Nội (736m đường thẳng), Chợ Đồng Xa (390m đường thẳng)\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.\nVị trí một số phòng chỉ gần đúng, nên khoảng cách tới tiện ích là ước lượng.",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation"
+            ],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "map_nearby",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "categories": [
+                    "hospital",
+                    "marketplace"
+                  ],
+                  "radius_m": 1500,
+                  "selected_listing_id": "cc9bc792-f537-588f-bb8c-a8b606318e60"
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done",
+              "map_nearby": "done"
+            },
+            "facts": {
+              "city": "Hà Nội",
+              "district": "Cầu Giấy",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "map_mode": "nearby",
+              "nearby_categories": [
+                "hospital",
+                "marketplace"
+              ]
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:16:34.703523+00:00",
+                "finished_at": "2026-10-02T18:16:39.034139+00:00",
+                "elapsed_ms": 4331,
+                "request_id": "ee5644c2e62c4aa0889a819e9cbe16dd",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "map_nearby",
+                "agent": "map",
+                "items": 2,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:16:43.684634+00:00",
+                "finished_at": "2026-10-02T18:16:46.201260+00:00",
+                "elapsed_ms": 2517,
+                "request_id": "80792f30a2424d9e8624675e0e81016b",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Xem bệnh viện và chợ quanh phòng mình chọn"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC18",
+      "level": 4,
+      "flow": "multi_turn",
+      "title": "Nhiều lượt: tìm → chọn căn → đường đi từ căn đã chọn",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+        },
+        {
+          "select": "property",
+          "pick": 0
+        },
+        {
+          "say": "Tính đường đi xe máy từ phòng mình chọn đến Đại học Bách khoa Hà Nội"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "tools": {
+          "map": [
+            "calculate_route_between_entities"
+          ]
+        }
+      },
+      "path": "lượt 3: route_from = selected:property → map_agent(calculate_route_between_entities với housing ID)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:17:10",
+        "thread_id": "th_0ffea9bb9b9123b6590514866f02805b",
+        "account": "review-tc18-k1@example.test",
+        "total_seconds": 18.1,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map', 'property']"
+          },
+          {
+            "check": "tools:map",
+            "ok": true,
+            "detail": "used ['calculate_route_between_entities', 'finish']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.1,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:16:56.129633+00:00",
+                "finished_at": "2026-10-02T18:17:00.214750+00:00",
+                "elapsed_ms": 4085,
+                "request_id": "2fac6d52a61d4589a8f7e5508cd36107",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 0.0,
+            "kind": "ANSWER",
+            "text": "Đã lưu lựa chọn: Tìm nữ ở ghép chỉ 1tr1/tháng. Chưa thực hiện đặt dịch vụ. Bạn có thể làm tiếp:",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation",
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60"
+            },
+            "components": [],
+            "selected": {
+              "id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "title": "Tìm nữ ở ghép chỉ 1tr1/tháng",
+              "price_unverified": false
+            },
+            "selected_fact": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+            "select": "property"
+          },
+          {
+            "http": 200,
+            "seconds": 9.9,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nCăn bạn đã chọn:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\nĐường đi (motorcycle): 9.25 km, khoảng 14 phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp.\nVị trí đầu hoặc cuối tuyến chỉ gần đúng/chưa rõ độ chính xác; tuyến đường là ước tính.\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation"
+            ],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "map_route",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "route",
+                  "route_from": "selected:property",
+                  "selected_listing_id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+                  "route_to": "Đại học Bách khoa Hà Nội",
+                  "city": "Hà Nội",
+                  "route_profile": "motorcycle"
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done",
+              "map_route": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "map_mode": "route",
+              "route_profile": "motorcycle",
+              "route_from": "selected:property",
+              "route_to": "Đại học Bách khoa Hà Nội"
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:16:56.129633+00:00",
+                "finished_at": "2026-10-02T18:17:00.214750+00:00",
+                "elapsed_ms": 4085,
+                "request_id": "2fac6d52a61d4589a8f7e5508cd36107",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "map_route",
+                "agent": "map",
+                "items": 1,
+                "tools": [
+                  "calculate_route_between_entities",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:07.198769+00:00",
+                "finished_at": "2026-10-02T18:17:10.161104+00:00",
+                "elapsed_ms": 2962,
+                "request_id": "8bb383f8e2ba4f49b058368f4514b0b3",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tính đường đi xe máy từ phòng mình chọn đến Đại học Bách khoa Hà Nội"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC19",
+      "level": 4,
+      "flow": "multi_turn",
+      "title": "Nhiều lượt: tìm → chọn căn → báo giá chuyển đồ tới căn đã chọn",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+        },
+        {
+          "select": "property",
+          "pick": 0
+        },
+        {
+          "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến phòng mình chọn ngày 5/10/2026 lúc 9 giờ"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER",
+          "CLARIFY"
+        ],
+        "domains": [
+          "relocation"
+        ],
+        "moving_selected_listing": true
+      },
+      "note": "CLARIFY chỉ hợp lệ khi hỏi to_address kèm choices (tin đăng chỉ có vị trí gần đúng).",
+      "path": "lượt 3: to_address = selected:property + selected_listing_id → relocation_agent(get_housing → resolve → estimate)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-10"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:17:30",
+        "thread_id": "th_4dd422e959ff90dba6a9a845ad368317",
+        "account": "review-tc19-k1@example.test",
+        "total_seconds": 16.8,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['ANSWER', 'CLARIFY']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['property', 'relocation']"
+          },
+          {
+            "check": "moving_selected_listing",
+            "ok": true,
+            "detail": "[{\"mode\": \"quote\", \"from_address\": \"Đại học Bách khoa Hà Nội\", \"to_address\": \"selected:property\", \"selected_listing_id\": \"cc9bc792-f537-588f-bb8c-a8b606318e60\", \"move_date\": \"2026-10-05\", \"move_time\": \"09:00\"}]"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 7.8,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:16.794707+00:00",
+                "finished_at": "2026-10-02T18:17:20.975184+00:00",
+                "elapsed_ms": 4180,
+                "request_id": "c4539cb2f5ca42789b8474ed08ebb663",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 0.0,
+            "kind": "ANSWER",
+            "text": "Đã lưu lựa chọn: Tìm nữ ở ghép chỉ 1tr1/tháng. Chưa thực hiện đặt dịch vụ. Bạn có thể làm tiếp:",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation",
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60"
+            },
+            "components": [],
+            "selected": {
+              "id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "title": "Tìm nữ ở ghép chỉ 1tr1/tháng",
+              "price_unverified": false
+            },
+            "selected_fact": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+            "select": "property"
+          },
+          {
+            "http": 200,
+            "seconds": 9.0,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-05; giờ 09:00; lấy tại Đại học Bách khoa Hà Nội; giao tới căn nhà bạn đã chọn. Bạn không cần nhập lại các thông tin này.\nCăn bạn đã chọn:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.\nMình đã ghi địa chỉ giao ‘Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày giờ.",
+            "questions": [
+              {
+                "field": "to_address",
+                "text": "Mình đã ghi địa chỉ giao ‘Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm giao trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mì",
+                "choices": 1
+              }
+            ],
+            "suggestions": [
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "relocation_1",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "selected:property",
+                  "selected_listing_id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+                  "move_date": "2026-10-05",
+                  "move_time": "09:00"
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done",
+              "relocation_1": "needs_input"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000,
+              "selected:property": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "selected:property",
+              "move_date": "2026-10-05",
+              "move_time": "09:00"
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:16.794707+00:00",
+                "finished_at": "2026-10-02T18:17:20.975184+00:00",
+                "elapsed_ms": 4180,
+                "request_id": "c4539cb2f5ca42789b8474ed08ebb663",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến phòng mình chọn ngày 5/10/2026 lúc 9 giờ"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC20",
+      "level": 5,
+      "flow": "multi_turn",
+      "title": "Nhiều lượt + song song: chọn căn Đà Nẵng → Moving tới căn đó || Flight",
+      "turns": [
+        {
+          "say": "Tìm phòng ở quận Hải Châu Đà Nẵng dưới 5 triệu"
+        },
+        {
+          "select": "property",
+          "pick": 0
+        },
+        {
+          "say": "Báo giá chuyển đồ từ Sân bay Quốc tế Đà Nẵng tới phòng mình chọn ngày 5/10/2026 lúc 10 giờ, và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 4/10/2026"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER",
+          "CLARIFY",
+          "PARTIAL"
+        ],
+        "domains": [
+          "relocation",
+          "flight"
+        ],
+        "parallel": [
+          [
+            "relocation",
+            "flight"
+          ]
+        ]
+      },
+      "path": "lượt 3: wave1 = {relocation(selected home), flight}",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-06 (lần chạy trước)",
+          "BUG-10",
+          "BUG-05"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:17:57",
+        "thread_id": "th_571c98c8e978a458c72b6f75292fe43d",
+        "account": "review-tc20-k1@example.test",
+        "total_seconds": 23.4,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['ANSWER', 'CLARIFY', 'PARTIAL']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'property', 'relocation']"
+          },
+          {
+            "check": "parallel:relocation|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=chưa đo được (task chưa DONE cùng lượt)"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.8,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. cho thuê giường đơn — 1.500.000đ/tháng — 119, Đường Cao Xuân Dục, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n2. Phòng 654/4 Trưng Nữ Vương cho thuê — 1.700.000đ/tháng — 654/4, Đường Trưng Nữ Vương, Phường Hòa Thuận Tây, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n3. Phòng trọ Lux Dorm KV Hải Châu, gần ĐH Đông Á, giá 1.400k — 1.400.000đ/tháng — Đường 2 tháng 9, Phường Hòa Cường Bắc, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n4. Cho thuê phòng dorm nữ 1tr7 Hòa Cường, gần ĐH Đông Á — 1.700.000đ/tháng — Đường Hòa Cường, Phường Hòa Cường Nam, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n5. Cho thuê căn hộ 3pn view sông tại Samtower — 520.000đ/tháng — Đường Như Nguyệt, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọ",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "quận Hải Châu",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "quận Hải Châu",
+              "city": "Đà Nẵng",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:39.056564+00:00",
+                "finished_at": "2026-10-02T18:17:43.129024+00:00",
+                "elapsed_ms": 4072,
+                "request_id": "4b218ea254354d83a222ded35e7ca855",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng ở quận Hải Châu Đà Nẵng dưới 5 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 0.0,
+            "kind": "ANSWER",
+            "text": "Đã lưu lựa chọn: cho thuê giường đơn. Chưa thực hiện đặt dịch vụ. Bạn có thể làm tiếp:",
+            "questions": [],
+            "suggestions": [
+              "quote:relocation",
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "quận Hải Châu",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "quận Hải Châu",
+              "city": "Đà Nẵng",
+              "max_price_vnd": 5000000,
+              "selected:property": "4657e296-5b15-50d3-b1d5-a1870820ef64"
+            },
+            "components": [],
+            "selected": {
+              "id": "4657e296-5b15-50d3-b1d5-a1870820ef64",
+              "title": "cho thuê giường đơn",
+              "price_unverified": false
+            },
+            "selected_fact": "4657e296-5b15-50d3-b1d5-a1870820ef64",
+            "select": "property"
+          },
+          {
+            "http": 200,
+            "seconds": 14.6,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-05; giờ 10:00; lấy tại Sân bay Quốc tế Đà Nẵng; giao tới căn nhà bạn đã chọn. Bạn không cần nhập lại các thông tin này.\nCăn bạn đã chọn:\n1. cho thuê giường đơn — 1.500.000đ/tháng — 119, Đường Cao Xuân Dục, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\nVietravel Airlines 2026-10-04T06:15:00+07:00 — 1.061.421đ\nSun PhuQuoc Airways 2026-10-04T06:15:00+07:00 — 1.165.181đ\nVietjet 2026-10-04T07:30:00+07:00 — 1.210.781đ\nVietravel Airlines 2026-10-04T16:55:00+07:00 — 1.191.021đ\nSun PhuQuoc Airways 2026-10-04T07:05:00+07:00 — 1.165.181đ\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.\nMình đã ghi địa chỉ lấy ‘Sân bay Quốc tế Đà Nẵng’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm lấy trên bản đồ (bấm mộ",
+            "questions": [
+              {
+                "field": "from_address",
+                "text": "Mình đã ghi địa chỉ lấy ‘Sân bay Quốc tế Đà Nẵng’, nhưng dữ liệu bản đồ chưa xác định được điểm chính xác. Bạn chọn đúng điểm lấy trên bản đồ (bấm một gợi ý hoặc chạm vào vị trí) để mình báo giá; không cần nhập lại ngày ",
+                "choices": 2
+              }
+            ],
+            "suggestions": [
+              "search:map"
+            ],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "quận Hải Châu",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Sân bay Quốc tế Đà Nẵng",
+                  "to_address": "selected:property",
+                  "selected_listing_id": "4657e296-5b15-50d3-b1d5-a1870820ef64",
+                  "move_date": "2026-10-05",
+                  "move_time": "10:00"
+                }
+              },
+              {
+                "id": "flight_search",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Đà Nẵng",
+                  "date": "2026-10-04",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done",
+              "relocation_quote": "needs_input",
+              "flight_search": "done"
+            },
+            "facts": {
+              "district": "quận Hải Châu",
+              "city": "Đà Nẵng",
+              "max_price_vnd": 5000000,
+              "selected:property": "4657e296-5b15-50d3-b1d5-a1870820ef64",
+              "from_address": "Sân bay Quốc tế Đà Nẵng",
+              "to_address": "selected:property",
+              "move_date": "2026-10-05",
+              "move_time": "10:00",
+              "moving_mode": "quote",
+              "origin": "Hà Nội",
+              "destination": "Đà Nẵng",
+              "flight_date": "2026-10-04"
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:39.056564+00:00",
+                "finished_at": "2026-10-02T18:17:43.129024+00:00",
+                "elapsed_ms": 4072,
+                "request_id": "4b218ea254354d83a222ded35e7ca855",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "flight_search",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:17:50.964967+00:00",
+                "finished_at": "2026-10-02T18:17:57.707974+00:00",
+                "elapsed_ms": 6743,
+                "request_id": "268f6725a3f047c383e82f4ccf177ea9",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Báo giá chuyển đồ từ Sân bay Quốc tế Đà Nẵng tới phòng mình chọn ngày 5/10/2026 lúc 10 giờ, và tìm chuyến bay Hà Nội đi Đà Nẵng ngày 4/10/2026"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC21",
+      "level": 3,
+      "flow": "multi_turn",
+      "title": "Refine: thêm bộ lọc ở lượt sau, giữ phạm vi cũ",
+      "turns": [
+        {
+          "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+        },
+        {
+          "say": "Chỉ lấy phòng có đúng 1 phòng ngủ thôi"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property"
+        ],
+        "property_inputs": {
+          "min_bedrooms": 1,
+          "max_bedrooms": 1,
+          "keeps": [
+            "district|city|bounding_box"
+          ]
+        }
+      },
+      "path": "lượt 2: intake(REFINE) → orchestrator (reuse plan, sửa task property) → property_agent",
+      "note": "Schema Housing dùng min_bedrooms/max_bedrooms (\"đúng 1 phòng ngủ\" = cả hai bằng 1). Lần chạy đầu runner kiểm nhầm key 'bedrooms'; đã sửa expect.",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:18:13",
+        "thread_id": "th_88c12176b8137d8aa1843e64a02c457e",
+        "account": "review-tc21-k1@example.test",
+        "total_seconds": 15.4,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['property']"
+          },
+          {
+            "check": "property.min_bedrooms",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Cầu Giấy\", \"min_bedrooms\": 1, \"max_bedrooms\": 1, \"max_price_vnd\": 5000000}"
+          },
+          {
+            "check": "property.max_bedrooms",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Cầu Giấy\", \"min_bedrooms\": 1, \"max_bedrooms\": 1, \"max_price_vnd\": 5000000}"
+          },
+          {
+            "check": "property.keeps:district|city|bounding_box",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Cầu Giấy\", \"min_bedrooms\": 1, \"max_bedrooms\": 1, \"max_price_vnd\": 5000000}"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 7.9,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Tìm nữ ở ghép chỉ 1tr1/tháng — 1.100.000đ/tháng — Phố Doãn Kế Thiện, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n2. Phòng chính chủ ở Nguyễn Ngọc Vũ — 1.100.000đ/tháng — 8/23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n3. Phòng chính chủ cho thuê trên đường Nguyễn Ngọc Vũ — 1.200.000đ/tháng — 8 ngõ 23, Đường Nguyễn Ngọc Vũ, Phường Trung Hoà, Quận Cầu Giấy, Hà Nội — 0 phòng ngủ\n4. Homestay ngõ 43 Trung Kính giá 1tr2 cửa vân tay, không chung chủ — 1.200.000đ/tháng — 43/86 Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội\n5. Tìm người ở ghép tuổi dưới 35 vui tính sạch sẽ — 1.250.000đ/tháng — Lạc Long Quân, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:18:01.800570+00:00",
+                "finished_at": "2026-10-02T18:18:05.779969+00:00",
+                "elapsed_ms": 3979,
+                "request_id": "f204e13a01984fc582d0e8298628340a",
+                "depends_on": [],
+                "quality_flagged": 1
+              }
+            ],
+            "say": "Tìm phòng ở Cầu Giấy Hà Nội dưới 5 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 7.4,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Căn Mini Mới Tinh Full Đồ Thang Máy Giá Rẻ Cho Các Bạn Sinh Viên — 3.700.000đ/tháng — Phạm Văn Đồng, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 1 phòng ngủ\n2. Căn hộ mini cạnh CV Cầu Giấy- Dịch Vọng 3tr7- 6tr — 3.700.000đ/tháng — Ngõ 37, Phố Dịch Vọng, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội — 1 phòng ngủ\n3. Căn hộ mini Ngõ 79 Dương Quảng Hàm 4tr6- 6tr — 3.900.000đ/tháng — Ngõ 79, Phố Dương Quảng Hàm, Phường Quan Hoa, Quận Cầu Giấy, Hà Nội — 1 phòng ngủ\n4. Cầu Giấy Mới Tinh Full Đồ Thang Máy Giá Rẻ — 4.000.000đ/tháng — Nguyễn Đình Hoàn, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội — 1 phòng ngủ\n5. Căn hộ mini Ngõ 66 Hồ Tùng Mậu- Mai Dịch 3tr9 - 6tr — 3.900.000đ/tháng — Ngõ 66, Đường Hồ Tùng Mậu, Phường Mai Dịch, Quận Cầu Giấy, Hà Nội — 1 phòng ngủ\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_search",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Cầu Giấy",
+                  "min_bedrooms": 1,
+                  "max_bedrooms": 1,
+                  "max_price_vnd": 5000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_search": "done"
+            },
+            "facts": {
+              "district": "Cầu Giấy",
+              "city": "Hà Nội",
+              "max_price_vnd": 5000000,
+              "min_bedrooms": 1,
+              "max_bedrooms": 1
+            },
+            "components": [
+              {
+                "task_id": "property_search",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:18:10.281804+00:00",
+                "finished_at": "2026-10-02T18:18:13.180115+00:00",
+                "elapsed_ms": 2898,
+                "request_id": "2065de245865452596a304d4f43d5f6c",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Chỉ lấy phòng có đúng 1 phòng ngủ thôi"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC22",
+      "level": 3,
+      "flow": "multi_turn",
+      "title": "Hồi quy: khu vực mới thay khu vực cũ (đã sửa 01/10)",
+      "turns": [
+        {
+          "say": "Tìm phòng gần Đại học Bách khoa Hà Nội dưới 4 triệu"
+        },
+        {
+          "say": "Đổi sang tìm ở quận Hà Đông"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property"
+        ],
+        "property_inputs": {
+          "absent": [
+            "near",
+            "near_coordinate"
+          ],
+          "contains": {
+            "district": "Hà Đông"
+          }
+        },
+        "min_items": {
+          "property": 1
+        }
+      },
+      "path": "node intake: SEARCH_SCOPE_KEYS thay near bằng district",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-09"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:18:35",
+        "thread_id": "th_0e53f7630ff95f2faefdba18fbbf009a",
+        "account": "review-tc22-k1@example.test",
+        "total_seconds": 16.2,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['property']"
+          },
+          {
+            "check": "items:property>=1",
+            "ok": true,
+            "detail": "got 5"
+          },
+          {
+            "check": "property.absent:near",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Hà Đông\", \"max_price_vnd\": 4000000}"
+          },
+          {
+            "check": "property.absent:near_coordinate",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Hà Đông\", \"max_price_vnd\": 4000000}"
+          },
+          {
+            "check": "property.district~Hà Đông",
+            "ok": true,
+            "detail": "{\"city\": \"Hà Nội\", \"district\": \"Hà Đông\", \"max_price_vnd\": 4000000}"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.2,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. Phòng trọ nam(Kv Bách Kinh Xây) — 1.200.000đ/tháng — 146, Đường Hoàng Mai, Phường Hoàng Văn Thụ, Quận Hoàng Mai, Hà Nội — 0 phòng ngủ\n2. HOMESTAY GIƯỜNG TẦNG CAO CẤP – 1TR/NGƯỜI/THÁNG – FULL TIỆN ÍCH — 1.000.000đ/tháng — 105 Cự lộc, 105 Cự Lộc, Phường Thượng Đình, Quận Thanh Xuân, Hà Nội\n3. cho thuê Homestay check in 14:00 checkou 11:00 — 700.000đ/tháng — Lê Phụng Hiểu, Phường Tràng Tiền, Quận Hoàn Kiếm, Hà Nội — 1 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\n4. Trọ XIAOXIAO LUXURY: Siêu tiết kiệm cho sinh viên — 750.000đ/tháng — Trường Chinh, Phường Ngã Tư Sở, Quận Đống Đa, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\n5. Trọ XIAOXIAO LUXURY 2: Siêu Ưu Đãi — 750.000đ/tháng — Trường Chinh, Phường Ngã Tư Sở, Quận Đống Đa, Hà Nội — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nĐây là một phần các tin phù h",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "near": "Đại học Bách khoa Hà Nội",
+                  "max_price_vnd": 4000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done"
+            },
+            "facts": {
+              "near": "Đại học Bách khoa Hà Nội",
+              "max_price_vnd": 4000000
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:18:23.148201+00:00",
+                "finished_at": "2026-10-02T18:18:27.124907+00:00",
+                "elapsed_ms": 3977,
+                "request_id": "75d282b9eef848e5bc56115ef1b29cd5",
+                "depends_on": [],
+                "quality_flagged": 3
+              }
+            ],
+            "say": "Tìm phòng gần Đại học Bách khoa Hà Nội dưới 4 triệu"
+          },
+          {
+            "http": 200,
+            "seconds": 8.0,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\n1. cho thuê phòng trọ — 800.000đ/tháng — 78, Đường Nguyễn Trực, Phường Phú Lương, Quận Hà Đông, Hà Nội — 0 phòng ngủ\n2. CÓ PHÒNG CHO THUÊ GẦN ĐH KIẾN TRÚC BƯU CHINH CHỈ TỪ 1TRIỆU -1TRIỆU 2 — 1.200.000đ/tháng — Đường Trần Phú, Phường Mộ Lao, Quận Hà Đông, Hà Nội — 0 phòng ngủ\n3. Nhà mình còn 02 phòng trên tâng 2, ko ở hết cho thuê — 1.250.000đ/tháng — 02, ngõ 7 ngách 4, Phố Phú Lương, Phường Phú Lương, Quận Hà Đông, Hà Nội — 0 phòng ngủ\n4. Phòng trọ 1.4tr/tháng bao điện nước, wifi tại Hà Đông — 1.400.000đ/tháng — 33A, Đường Tô Hiệu, Phường Nguyễn Trãi, Quận Hà Đông, Hà Nội — 0 phòng ngủ\n5. Homestay ở ghép gía chỉ từ 1tr/ người đã bao gồm điện nước — 1.000.000đ/tháng — Phố Nguyễn Văn Lộc, Phường Mộ Lao, Quận Hà Đông, Hà Nội\nĐây là một phần các tin phù hợp, chưa phải toàn bộ thị trường. Bạn có thể bổ sung bộ lọc để thu hẹp kết quả.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Hà Đông",
+                  "max_price_vnd": 4000000
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done"
+            },
+            "facts": {
+              "max_price_vnd": 4000000,
+              "district": "Hà Đông"
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:18:31.018592+00:00",
+                "finished_at": "2026-10-02T18:18:35.091894+00:00",
+                "elapsed_ms": 4073,
+                "request_id": "4f98262b2f3349178ff999a78b015a43",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Đổi sang tìm ở quận Hà Đông"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC23",
+      "level": 3,
+      "flow": "multi_turn",
+      "title": "Hồi quy: đổi Map nearby sang route không bị coi là xung đột",
+      "turns": [
+        {
+          "say": "Tìm hiệu thuốc gần Văn Miếu - Quốc Tử Giám"
+        },
+        {
+          "say": "Giờ tính đường đi bộ từ Văn Miếu - Quốc Tử Giám đến Nhà hát Lớn Hà Nội"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "tools": {
+          "map": [
+            "calculate_route_between_entities"
+          ]
+        },
+        "no_conflict_question": true
+      },
+      "path": "selector key map_mode (từ schema) thay thế, không tạo conflict",
+      "note": "Bản đầu dùng 'Hồ Hoàn Kiếm': dữ liệu Location không có hồ này nên hai lượt đều hỏi lại (BUG-04); lượt 2 vẫn đổi sang route không hỏi xung đột. Đổi sang địa danh có trong dữ liệu để kiểm trọn luồng.",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": [
+          "BUG-04 (bản 'Hồ Hoàn Kiếm')"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:22:59",
+        "thread_id": "th_d40e9b1eb05700a3c0fdc929db31d977",
+        "account": "review-tc23-k2@example.test",
+        "total_seconds": 13.5,
+        "problems": [
+          "kind: got ERROR, want ['ANSWER']"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got ERROR, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map']"
+          },
+          {
+            "check": "tools:map",
+            "ok": true,
+            "detail": "không chạy tới subagent (câu hỏi lại)"
+          },
+          {
+            "check": "no_conflict",
+            "ok": true,
+            "detail": ""
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.0,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nQuanh Văn Miếu - Quốc Tử Giám: pharmacy (95m đường thẳng)",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_nearby",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "near": "Văn Miếu - Quốc Tử Giám",
+                  "categories": [
+                    "pharmacy"
+                  ]
+                }
+              }
+            ],
+            "task_status": {
+              "map_nearby": "done"
+            },
+            "facts": {
+              "map_mode": "nearby",
+              "map_near": "Văn Miếu - Quốc Tử Giám",
+              "nearby_categories": [
+                "pharmacy"
+              ]
+            },
+            "components": [
+              {
+                "task_id": "map_nearby",
+                "agent": "map",
+                "items": 1,
+                "tools": [
+                  "find_nearby_places",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:22:50.632926+00:00",
+                "finished_at": "2026-10-02T18:22:53.806891+00:00",
+                "elapsed_ms": 3174,
+                "request_id": "fb86b2606e7a4ee5a8cc9282b732ac54",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tìm hiệu thuốc gần Văn Miếu - Quốc Tử Giám"
+          },
+          {
+            "http": 200,
+            "seconds": 5.5,
+            "kind": "ERROR",
+            "text": "Hệ thống chưa xử lý được yêu cầu trong lượt này. Không có giao dịch nào được thực hiện; bạn có thể thử lại.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {
+              "error": {
+                "node": "orchestrator",
+                "code": "error"
+              }
+            },
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_nearby",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "near": "Văn Miếu - Quốc Tử Giám",
+                  "categories": [
+                    "pharmacy"
+                  ]
+                }
+              }
+            ],
+            "task_status": {
+              "map_nearby": "stale"
+            },
+            "facts": {
+              "map_mode": "route",
+              "map_near": "Văn Miếu - Quốc Tử Giám",
+              "nearby_categories": [
+                "pharmacy"
+              ],
+              "route_from": "Văn Miếu - Quốc Tử Giám",
+              "route_to": "Nhà hát Lớn Hà Nội",
+              "city": "Hà Nội",
+              "route_profile": "walking"
+            },
+            "components": [],
+            "say": "Giờ tính đường đi bộ từ Văn Miếu - Quốc Tử Giám đến Nhà hát Lớn Hà Nội"
+          }
+        ],
+        "server_log": [
+          "planner failed: PLAN_INVALID"
+        ]
+      },
+      "previous_runs": [
+        {
+          "status": "FAIL",
+          "ran_at": "2026-10-02T18:18:54",
+          "thread_id": "th_95b25997875d4146fdfc99bf7dbb9fb6",
+          "account": "review-tc23-k1@example.test",
+          "problems": [
+            "kind: got ERROR, want ['ANSWER']"
+          ],
+          "server_log": [
+            "planner failed: PLAN_INVALID"
+          ],
+          "turns": [
+            {
+              "say": "Tìm hiệu thuốc gần Văn Miếu - Quốc Tử Giám",
+              "kind": "ANSWER",
+              "text": "Đây là kết quả mình tìm được:\nQuanh Văn Miếu - Quốc Tử Giám: pharmacy (95m đường thẳng)"
+            },
+            {
+              "say": "Giờ tính đường đi bộ từ Văn Miếu - Quốc Tử Giám đến Nhà hát Lớn Hà Nội",
+              "kind": "ERROR",
+              "text": "Hệ thống chưa xử lý được yêu cầu trong lượt này. Không có giao dịch nào được thực hiện; bạn có thể thử lại."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TC24",
+      "level": 3,
+      "flow": "single",
+      "title": "Hồi quy: AhaMove từ chối ngày quá 7 ngày → hỏi lại move_date kèm lý do",
+      "turns": [
+        {
+          "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Văn Miếu - Quốc Tử Giám ngày 20/10/2026 lúc 9 giờ"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "CLARIFY"
+        ],
+        "question_field": "move_date"
+      },
+      "note": "Bản đầu giao tới 'Hồ Hoàn Kiếm' nên agent dừng ở bước xác định điểm (BUG-04), chưa tới estimate. Đổi điểm giao có một kết quả khớp chính xác để chạm nhánh AhaMove từ chối.",
+      "path": "relocation_agent: estimate_move → PROVIDER_REJECTED → ask_user(move_date) → validator(ASK_USER) → respond(CLARIFY)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-04 (bản 'Hồ Hoàn Kiếm')"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:19:16",
+        "thread_id": "th_8d35ef6ae3a33e2f647c7663d4da7cf0",
+        "account": "review-tc24-k1@example.test",
+        "total_seconds": 15.8,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['CLARIFY']"
+          },
+          {
+            "check": "question_field",
+            "ok": true,
+            "detail": "fields ['move_date']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 15.8,
+            "kind": "CLARIFY",
+            "text": "Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-20; giờ 09:00; lấy tại Đại học Bách khoa Hà Nội; giao tới Văn Miếu - Quốc Tử Giám. Bạn không cần nhập lại các thông tin này.\nAhaMove từ chối báo giá vì ngày chuyển 20/10/2026 nằm ngoài giới hạn đặt trước một tuần. Bạn vui lòng chọn ngày chuyển trong vòng 7 ngày tới để mình báo giá.",
+            "questions": [
+              {
+                "field": "move_date",
+                "text": "AhaMove từ chối báo giá vì ngày chuyển 20/10/2026 nằm ngoài giới hạn đặt trước một tuần. Bạn vui lòng chọn ngày chuyển trong vòng 7 ngày tới để mình báo giá.",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "Văn Miếu - Quốc Tử Giám",
+                  "move_date": "2026-10-20",
+                  "move_time": "09:00"
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_quote": "needs_input"
+            },
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "Văn Miếu - Quốc Tử Giám",
+              "move_date": "2026-10-20",
+              "move_time": "09:00"
+            },
+            "components": [],
+            "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Văn Miếu - Quốc Tử Giám ngày 20/10/2026 lúc 9 giờ"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC25",
+      "level": 2,
+      "flow": "single",
+      "title": "Guard: địa chỉ quá rộng (cấp quận) cho chuyển đồ",
+      "turns": [
+        {
+          "say": "Báo giá chuyển đồ từ quận Đống Đa đến quận Cầu Giấy ngày 5/10/2026 lúc 9 giờ"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "CLARIFY"
+        ],
+        "question_field": "from_address|to_address"
+      },
+      "path": "planner needs_input hoặc relocation_agent.ask_user → respond(CLARIFY)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "CLARIFY",
+        "bug_refs": []
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:19:26",
+        "thread_id": "th_36947710dc92783771148b2a5a0277af",
+        "account": "review-tc25-k1@example.test",
+        "total_seconds": 4.2,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got CLARIFY, want ['CLARIFY']"
+          },
+          {
+            "check": "question_field",
+            "ok": true,
+            "detail": "fields ['from_address']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 4.2,
+            "kind": "CLARIFY",
+            "text": "Để làm tiếp, bạn cho mình biết thêm:\nMình đã ghi nhận: ngày 2026-10-05; giờ 09:00; lấy tại quận Đống Đa; giao tới quận Cầu Giấy. Bạn không cần nhập lại các thông tin này.\nBạn cho biết địa chỉ cụ thể để xe đến lấy đồ ở quận Đống Đa nhé?",
+            "questions": [
+              {
+                "field": "relocation.from_address",
+                "text": "Bạn cho biết địa chỉ cụ thể để xe đến lấy đồ ở quận Đống Đa nhé?",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": null,
+            "plan": [],
+            "task_status": {},
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "quận Đống Đa",
+              "to_address": "quận Cầu Giấy",
+              "move_date": "2026-10-05",
+              "move_time": "09:00"
+            },
+            "components": [],
+            "say": "Báo giá chuyển đồ từ quận Đống Đa đến quận Cầu Giấy ngày 5/10/2026 lúc 9 giờ"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC26",
+      "level": 2,
+      "flow": "single",
+      "title": "Lỗi cũ A: POI trùng gần nhau (Cầu Rồng, Chợ Hàn) làm route hỏi lại",
+      "turns": [
+        {
+          "say": "Tính đường đi bộ từ Cầu Rồng đến Chợ Hàn ở Đà Nẵng"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "map"
+        ],
+        "tools": {
+          "map": [
+            "calculate_route_between_entities"
+          ]
+        }
+      },
+      "note": "Phát hiện ngày 01/10, đã sửa bằng pick_place (gom ứng viên khớp chính xác trong 150 m).",
+      "path": "map_agent: resolve_location → pick_place → calculate_route_between_entities",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": [
+          "Lỗi cũ A: đã sửa"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:19:51",
+        "thread_id": "th_8fe10751c6cede2005c53030c8a8b438",
+        "account": "review-tc26-k1@example.test",
+        "total_seconds": 8.0,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['ANSWER']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['map']"
+          },
+          {
+            "check": "tools:map",
+            "ok": true,
+            "detail": "used ['calculate_route_between_entities', 'finish']"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 8.0,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nĐường đi (walking): 1.94 km, khoảng 23 phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp.\nVị trí đầu hoặc cuối tuyến chỉ gần đúng/chưa rõ độ chính xác; tuyến đường là ước tính.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "map_route",
+                "agent": "map",
+                "depends_on": [],
+                "inputs": {
+                  "map_mode": "route",
+                  "route_from": "Cầu Rồng",
+                  "route_to": "Chợ Hàn",
+                  "city": "Đà Nẵng",
+                  "route_profile": "walking"
+                }
+              }
+            ],
+            "task_status": {
+              "map_route": "done"
+            },
+            "facts": {
+              "map_mode": "route",
+              "route_from": "Cầu Rồng",
+              "route_to": "Chợ Hàn",
+              "city": "Đà Nẵng",
+              "route_profile": "walking"
+            },
+            "components": [
+              {
+                "task_id": "map_route",
+                "agent": "map",
+                "items": 1,
+                "tools": [
+                  "calculate_route_between_entities",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:19:47.422443+00:00",
+                "finished_at": "2026-10-02T18:19:51.274498+00:00",
+                "elapsed_ms": 3110,
+                "request_id": "c4befb859af744e3ab98b80faf5c5ce5",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Tính đường đi bộ từ Cầu Rồng đến Chợ Hàn ở Đà Nẵng"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC27",
+      "level": 2,
+      "flow": "single",
+      "title": "Lỗi cũ B: Housing thất bại khi LLM xếp hạng thiếu ID",
+      "turns": [
+        {
+          "say": "Tìm phòng ở quận Đống Đa Hà Nội dưới 4 triệu, ưu tiên phòng rộng nhất lên đầu"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property"
+        ],
+        "min_items": {
+          "property": 2
+        },
+        "tools": {
+          "property": [
+            "search_housing",
+            "finish"
+          ]
+        }
+      },
+      "note": "Phát hiện ngày 01/10, đã sửa: finish thiếu ID là thứ tự ưu tiên, các ID còn lại giữ thứ tự provider.",
+      "path": "property_agent: search_housing → finish(option_ids một phần)",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ANSWER",
+        "bug_refs": [
+          "Lỗi cũ B: đã sửa",
+          "BUG-05"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:23:13",
+        "thread_id": "th_b0c28fd7a73562263804873f68d2f291",
+        "account": "review-tc27-k2@example.test",
+        "total_seconds": 6.1,
+        "problems": [
+          "kind: got ERROR, want ['ANSWER']",
+          "items:property>=2: got 0"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got ERROR, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['property']"
+          },
+          {
+            "check": "tools:property",
+            "ok": true,
+            "detail": "không chạy tới subagent (câu hỏi lại)"
+          },
+          {
+            "check": "items:property>=2",
+            "ok": false,
+            "detail": "got 0"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 6.1,
+            "kind": "ERROR",
+            "text": "Mình chưa lấy được kết quả từ dịch vụ. Bạn thử lại sau nhé.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {
+              "failed_tasks": [
+                {
+                  "agent": "property",
+                  "task_id": "property_1"
+                }
+              ]
+            },
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Hà Nội",
+                  "district": "Đống Đa",
+                  "max_price_vnd": 4000000,
+                  "max_area_m2": 0
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "failed"
+            },
+            "facts": {
+              "district": "Đống Đa",
+              "city": "Hà Nội",
+              "max_price_vnd": 4000000,
+              "max_area_m2": 0
+            },
+            "components": [],
+            "say": "Tìm phòng ở quận Đống Đa Hà Nội dưới 4 triệu, ưu tiên phòng rộng nhất lên đầu"
+          }
+        ],
+        "server_log": []
+      },
+      "previous_runs": [
+        {
+          "status": "FAIL",
+          "ran_at": "2026-10-02T18:20:12",
+          "thread_id": "th_f26849bc9ea42a3f6d3ee2f4cd643129",
+          "account": "review-tc27-k1@example.test",
+          "problems": [
+            "kind: got ERROR, want ['ANSWER']",
+            "items:property>=2: got 0"
+          ],
+          "server_log": [],
+          "turns": [
+            {
+              "say": "Tìm phòng ở quận Đống Đa Hà Nội dưới 4 triệu, ưu tiên phòng rộng nhất lên đầu",
+              "kind": "ERROR",
+              "text": "Mình chưa làm được (không có phương án khác)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TC28",
+      "level": 5,
+      "flow": "mixed",
+      "title": "Phức tạp 4 domain: (Housing → Map) || Flight || Moving catalog",
+      "turns": [
+        {
+          "say": "Mình chuẩn bị chuyển vào Đà Nẵng: tìm phòng ở Hải Châu dưới 5 triệu, tìm chợ và bệnh viện gần các phòng đó, tìm chuyến bay Hà Nội đi Đà Nẵng ngày 25/10/2026, và cho biết AhaMove có hoạt động ở Đà Nẵng không"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER"
+        ],
+        "domains": [
+          "property",
+          "map",
+          "flight",
+          "relocation"
+        ],
+        "edges": [
+          [
+            "map",
+            "property"
+          ]
+        ],
+        "parallel": [
+          [
+            "property",
+            "flight"
+          ],
+          [
+            "property",
+            "relocation"
+          ]
+        ]
+      },
+      "path": "wave1 = {property, flight, relocation} → wave2 = {map}",
+      "mvp_result": {
+        "status": "FAIL",
+        "kind": "CLARIFY",
+        "bug_refs": [
+          "BUG-02",
+          "BUG-12"
+        ]
+      },
+      "result": {
+        "status": "FAIL",
+        "ran_at": "2026-10-02T18:23:45",
+        "thread_id": "th_acbdd701363769be18d7a39c51bb3093",
+        "account": "review-tc28-k2@example.test",
+        "total_seconds": 17.0,
+        "problems": [
+          "kind: got CLARIFY, want ['ANSWER']"
+        ],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": false,
+            "detail": "got CLARIFY, want ['ANSWER']"
+          },
+          {
+            "check": "domain:property",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:map",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:flight",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property', 'relocation']"
+          },
+          {
+            "check": "domain:relocation",
+            "ok": true,
+            "detail": "plan agents ['flight', 'map', 'property', 'relocation']"
+          },
+          {
+            "check": "edge:map->property",
+            "ok": true,
+            "detail": "[[\"property_1\", \"property\", []], [\"map_1\", \"map\", [\"property_1\"]], [\"flight_1\", \"flight\", []], [\"relocation_1\", \"relocation\", []]]"
+          },
+          {
+            "check": "parallel:property|flight",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          },
+          {
+            "check": "parallel:property|relocation",
+            "ok": true,
+            "detail": "independent=True, overlap=True"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 17.0,
+            "kind": "CLARIFY",
+            "text": "Đây là kết quả mình tìm được. Để làm tiếp, bạn cho mình biết thêm:\n1. cho thuê giường đơn — 1.500.000đ/tháng — 119, Đường Cao Xuân Dục, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n2. Phòng 654/4 Trưng Nữ Vương cho thuê — 1.700.000đ/tháng — 654/4, Đường Trưng Nữ Vương, Phường Hòa Thuận Tây, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n3. Phòng trọ Lux Dorm KV Hải Châu, gần ĐH Đông Á, giá 1.400k — 1.400.000đ/tháng — Đường 2 tháng 9, Phường Hòa Cường Bắc, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n4. Cho thuê phòng dorm nữ 1tr7 Hòa Cường, gần ĐH Đông Á — 1.700.000đ/tháng — Đường Hòa Cường, Phường Hòa Cường Nam, Quận Hải Châu, Đà Nẵng — 0 phòng ngủ\n5. Cho thuê căn hộ 3pn view sông tại Samtower — 520.000đ/tháng — Đường Như Nguyệt, Phường Thuận Phước, Quận Hải Châu, Đà Nẵng — 3 phòng ngủ — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách\nVietravel Airlines 2026-10-25T06:25:00+07:00 — 964",
+            "questions": [
+              {
+                "field": "near",
+                "text": "Mình chưa xác định được vị trí \"housing_results\". Bạn nói rõ hơn được không?",
+                "choices": 0
+              }
+            ],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "property_1",
+                "agent": "property",
+                "depends_on": [],
+                "inputs": {
+                  "city": "Đà Nẵng",
+                  "district": "Hải Châu",
+                  "max_price_vnd": 5000000
+                }
+              },
+              {
+                "id": "map_1",
+                "agent": "map",
+                "depends_on": [
+                  "property_1"
+                ],
+                "inputs": {
+                  "map_mode": "nearby",
+                  "near": "housing_results",
+                  "categories": [
+                    "marketplace",
+                    "hospital"
+                  ],
+                  "radius_m": 1500
+                }
+              },
+              {
+                "id": "flight_1",
+                "agent": "flight",
+                "depends_on": [],
+                "inputs": {
+                  "origin": "Hà Nội",
+                  "destination": "Đà Nẵng",
+                  "date": "2026-10-25",
+                  "passengers": {
+                    "adults": 1
+                  }
+                }
+              },
+              {
+                "id": "relocation_1",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "catalog"
+                }
+              }
+            ],
+            "task_status": {
+              "property_1": "done",
+              "flight_1": "done",
+              "relocation_1": "done",
+              "map_1": "needs_input"
+            },
+            "facts": {
+              "city": "Đà Nẵng",
+              "district": "Hải Châu",
+              "max_price_vnd": 5000000,
+              "map_near": "housing_results",
+              "nearby_categories": [
+                "marketplace",
+                "hospital"
+              ],
+              "map_mode": "nearby",
+              "origin": "Hà Nội",
+              "destination": "Đà Nẵng",
+              "flight_date": "2026-10-25",
+              "moving_mode": "catalog"
+            },
+            "components": [
+              {
+                "task_id": "property_1",
+                "agent": "property",
+                "items": 5,
+                "tools": [
+                  "search_housing",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:23:37.035894+00:00",
+                "finished_at": "2026-10-02T18:23:42.431347+00:00",
+                "elapsed_ms": 4720,
+                "request_id": "8560af85698f4f3e9576e5d8b94233f9",
+                "depends_on": [],
+                "quality_flagged": 1
+              },
+              {
+                "task_id": "flight_1",
+                "agent": "flight",
+                "items": 5,
+                "tools": [
+                  "search_flights",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:23:37.035993+00:00",
+                "finished_at": "2026-10-02T18:23:42.583332+00:00",
+                "elapsed_ms": 4872,
+                "request_id": "8560af85698f4f3e9576e5d8b94233f9",
+                "depends_on": [],
+                "quality_flagged": 0
+              },
+              {
+                "task_id": "relocation_1",
+                "agent": "relocation",
+                "items": 71,
+                "tools": [
+                  "list_service_areas",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:23:37.036041+00:00",
+                "finished_at": "2026-10-02T18:23:40.493782+00:00",
+                "elapsed_ms": 3458,
+                "request_id": "8560af85698f4f3e9576e5d8b94233f9",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Mình chuẩn bị chuyển vào Đà Nẵng: tìm phòng ở Hải Châu dưới 5 triệu, tìm chợ và bệnh viện gần các phòng đó, tìm chuyến bay Hà Nội đi Đà Nẵng ngày 25/10/2026, và cho biết AhaMove có hoạt động ở Đà Nẵng không"
+          }
+        ],
+        "server_log": []
+      },
+      "previous_runs": [
+        {
+          "status": "FAIL",
+          "ran_at": "2026-10-02T18:20:37",
+          "thread_id": "th_5b0a429b46e6bb559bdc740f86556f62",
+          "account": "review-tc28-k1@example.test",
+          "problems": [
+            "kind: got ERROR, want ['ANSWER']",
+            "domain:property: plan agents []",
+            "domain:map: plan agents []",
+            "domain:flight: plan agents []",
+            "domain:relocation: plan agents []",
+            "edge:map->property: []",
+            "parallel:property|flight: thiếu task",
+            "parallel:property|relocation: thiếu task"
+          ],
+          "server_log": [
+            "planner failed: PLAN_INVALID"
+          ],
+          "turns": [
+            {
+              "say": "Mình chuẩn bị chuyển vào Đà Nẵng: tìm phòng ở Hải Châu dưới 5 triệu, tìm chợ và bệnh viện gần các phòng đó, tìm chuyến bay Hà Nội đi Đà Nẵng ngày 25/10/2026, và cho biết AhaMove có hoạt động ở Đà Nẵng không",
+              "kind": "ERROR",
+              "text": "Hệ thống chưa xử lý được yêu cầu trong lượt này. Không có giao dịch nào được thực hiện; bạn có thể thử lại."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TC29",
+      "level": 4,
+      "flow": "single",
+      "title": "Guard: tra thanh toán không thuộc người dùng",
+      "turns": [
+        {
+          "say": "Kiểm tra giúp mình trạng thái thanh toán pay_demo_123456"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "ANSWER",
+          "PARTIAL",
+          "CLARIFY",
+          "ERROR"
+        ],
+        "not_text": [
+          "đã thanh toán thành công",
+          "PAID"
+        ]
+      },
+      "path": "payment_agent.authorized() chặn trước khi gọi LLM/provider",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ERROR",
+        "bug_refs": [
+          "BUG-08"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:20:50",
+        "thread_id": "th_f622ec421d00df647167359e53925584",
+        "account": "review-tc29-k1@example.test",
+        "total_seconds": 3.3,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ERROR, want ['ANSWER', 'PARTIAL', 'CLARIFY', 'ERROR']"
+          },
+          {
+            "check": "not_text:đã thanh toán thành công",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "not_text:PAID",
+            "ok": true,
+            "detail": ""
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 3.3,
+            "kind": "ERROR",
+            "text": "Một phần yêu cầu chưa có dữ liệu hợp lệ hoặc bạn chưa có quyền truy cập. Hãy kiểm tra mã và thông tin đã cung cấp.",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {
+              "failed_tasks": [
+                {
+                  "agent": "payment",
+                  "task_id": "payment-1"
+                }
+              ]
+            },
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "payment-1",
+                "agent": "payment",
+                "depends_on": [],
+                "inputs": {
+                  "payment_id": "pay_demo_123456"
+                }
+              }
+            ],
+            "task_status": {
+              "payment-1": "failed"
+            },
+            "facts": {
+              "payment_id": "pay_demo_123456"
+            },
+            "components": [],
+            "say": "Kiểm tra giúp mình trạng thái thanh toán pay_demo_123456"
+          }
+        ],
+        "server_log": []
+      }
+    },
+    {
+      "id": "TC30",
+      "level": 5,
+      "flow": "multi_turn",
+      "title": "Guard: yêu cầu đặt xe khi chưa bật ghi (không được tạo đơn)",
+      "turns": [
+        {
+          "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Văn Miếu - Quốc Tử Giám ngày 5/10/2026 lúc 15 giờ"
+        },
+        {
+          "say": "Đặt xe với báo giá rẻ nhất giúp mình"
+        }
+      ],
+      "expect": {
+        "kinds": [
+          "CLARIFY",
+          "ANSWER",
+          "PARTIAL",
+          "UNSUPPORTED",
+          "ERROR",
+          "pending_confirmation"
+        ],
+        "not_kind": [
+          "COMMITTED"
+        ]
+      },
+      "note": "Runner không bao giờ gửi CONFIRM. Bản đầu giao tới 'Hồ Hoàn Kiếm' nên không có báo giá để đặt; đổi điểm giao để có báo giá thật rồi mới yêu cầu đặt.",
+      "path": "intake(commit_requested=moving_booking) → planner action → confirm(interrupt) hoặc chặn vì writes_enabled=false",
+      "mvp_result": {
+        "status": "PASS",
+        "kind": "ERROR",
+        "bug_refs": [
+          "BUG-07",
+          "BUG-08",
+          "BUG-11"
+        ]
+      },
+      "result": {
+        "status": "PASS",
+        "ran_at": "2026-10-02T18:21:31",
+        "thread_id": "th_7d012c800b79384e37d283d18724865b",
+        "account": "review-tc30-k1@example.test",
+        "total_seconds": 22.7,
+        "problems": [],
+        "checks": [
+          {
+            "check": "kind",
+            "ok": true,
+            "detail": "got ANSWER, want ['CLARIFY', 'ANSWER', 'PARTIAL', 'UNSUPPORTED', 'ERROR', 'pending_confirmation']"
+          },
+          {
+            "check": "not_kind",
+            "ok": true,
+            "detail": "got ANSWER"
+          }
+        ],
+        "turns": [
+          {
+            "http": 200,
+            "seconds": 18.1,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nTiêu chuẩn 500kg: 131.000đ\nTiêu chuẩn 750kg: 153.000đ\nTiêu chuẩn 1000kg: 175.000đ\nLưu ý: kết quả có dữ liệu môi trường thử nghiệm (sandbox).",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {},
+            "plan_version": 1,
+            "plan": [
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "Văn Miếu - Quốc Tử Giám",
+                  "move_date": "2026-10-05",
+                  "move_time": "15:00"
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_quote": "done"
+            },
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "Văn Miếu - Quốc Tử Giám",
+              "move_date": "2026-10-05",
+              "move_time": "15:00"
+            },
+            "components": [
+              {
+                "task_id": "relocation_quote",
+                "agent": "relocation",
+                "items": 3,
+                "tools": [
+                  "resolve_move_route",
+                  "list_moving_services",
+                  "get_moving_service",
+                  "get_moving_service",
+                  "estimate_move",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:21:13.396638+00:00",
+                "finished_at": "2026-10-02T18:21:27.256805+00:00",
+                "elapsed_ms": 13860,
+                "request_id": "f80bd7c2bdc84c55a9112a2e8f36f866",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến Văn Miếu - Quốc Tử Giám ngày 5/10/2026 lúc 15 giờ"
+          },
+          {
+            "http": 200,
+            "seconds": 4.6,
+            "kind": "ANSWER",
+            "text": "Đây là kết quả mình tìm được:\nTiêu chuẩn 500kg: 131.000đ\nTiêu chuẩn 750kg: 153.000đ\nTiêu chuẩn 1000kg: 175.000đ\nChức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; mình chỉ tra cứu thông tin/báo giá, chưa thực hiện giao dịch nào.\nLưu ý: kết quả có dữ liệu môi trường thử nghiệm (sandbox).",
+            "questions": [],
+            "suggestions": [],
+            "response_data": {
+              "unavailable_actions": [
+                "moving_booking"
+              ]
+            },
+            "plan_version": 2,
+            "plan": [
+              {
+                "id": "relocation_quote",
+                "agent": "relocation",
+                "depends_on": [],
+                "inputs": {
+                  "mode": "quote",
+                  "from_address": "Đại học Bách khoa Hà Nội",
+                  "to_address": "Văn Miếu - Quốc Tử Giám",
+                  "move_date": "2026-10-05",
+                  "move_time": "15:00"
+                }
+              }
+            ],
+            "task_status": {
+              "relocation_quote": "done"
+            },
+            "facts": {
+              "moving_mode": "quote",
+              "from_address": "Đại học Bách khoa Hà Nội",
+              "to_address": "Văn Miếu - Quốc Tử Giám",
+              "move_date": "2026-10-05",
+              "move_time": "15:00",
+              "selected:relocation": "0ce6c771-8c95-4e4b-b105-3c3eec24c942:HAN-TRUCK-ECO-500",
+              "commit:moving_booking": true
+            },
+            "components": [
+              {
+                "task_id": "relocation_quote",
+                "agent": "relocation",
+                "items": 3,
+                "tools": [
+                  "resolve_move_route",
+                  "list_moving_services",
+                  "get_moving_service",
+                  "get_moving_service",
+                  "estimate_move",
+                  "finish"
+                ],
+                "started_at": "2026-10-02T18:21:13.396638+00:00",
+                "finished_at": "2026-10-02T18:21:27.256805+00:00",
+                "elapsed_ms": 13860,
+                "request_id": "f80bd7c2bdc84c55a9112a2e8f36f866",
+                "depends_on": [],
+                "quality_flagged": 0
+              }
+            ],
+            "say": "Đặt xe với báo giá rẻ nhất giúp mình"
+          }
+        ],
+        "server_log": []
+      }
+    }
+  ],
+  "summary": {
+    "ran_at": "2026-10-02",
+    "pass": 24,
+    "fail": 6,
+    "mvp_baseline": {
+      "pass": 23,
+      "fail": 7
+    },
+    "improved": [
+      "TC05",
+      "TC12",
+      "TC22"
+    ],
+    "regressed": [
+      "TC23",
+      "TC27"
+    ],
+    "still_failing": [
+      "TC03",
+      "TC11",
+      "TC16",
+      "TC28"
+    ],
+    "reruns": "TC16, TC23, TC27, TC28 chạy lại lần 2 (tài khoản k2): cùng kết quả, kết quả lần 1 lưu ở previous_runs.",
+    "new_bugs": {
+      "K-01": "map_near nhận cụm tham chiếu ('các phòng đó', 'housing_results') thay vì để Map phụ thuộc Housing: TC16, TC28 (dạng mới của BUG-12).",
+      "K-02": "Đổi Map nearby sang route: map_near cũ còn trong constraints, grounding Planner buộc task route phải có near → PLAN_INVALID: TC23 (hồi quy).",
+      "K-03": "Intake trích max_area_m2=0 từ 'ưu tiên phòng rộng nhất', code không chặn giá trị 0 → task Housing failed, câu trả lời 'Mình chưa làm được (không có phương án khác)': TC27 (hồi quy).",
+      "K-04": "Chọn phương án xoá luôn selection vừa ghi nếu task phụ thuộc cùng domain (phát hiện bằng test offline Frontend/tests/test_actions.py, chưa gặp trong 30 case)."
+    },
+    "doc": "khoa-retest.md"
+  }
+}
