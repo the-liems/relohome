@@ -79,7 +79,7 @@ Frontend/public/maplibre/
 *.geojson
 *.geojsonseq
 
-# Small map assets required by the frontend
+# Map data retained for city-boundary ingestion and legacy map tests
 !Maps\ VN/Cities/boundaries/*.geojson
 !Maps\ VN/LifeFlow/map-app/public/data/
 !Maps\ VN/LifeFlow/map-app/public/data/*.geojson
