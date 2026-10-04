@@ -375,10 +375,8 @@ class MovingExecution:
             return None
         rows = resolved.get("results", [])
         self.candidates[address] = rows
-        exact = [r for r in rows if r.get("entity_type") == "place" and r.get("match_type") == "exact"]
-        if len(exact) == 1:
-            return {"address": address, **exact[0]["location"]}
-        # A sole fuzzy match is not evidence of the requested pickup/drop-off.
+        # Dedup can leave one exact POI (including a campus interior or bus stop).
+        # A unique name is not a confirmed vehicle stop; the user confirms its pin.
         return None
 
     def location_question(self, field: str, address: str) -> Question:

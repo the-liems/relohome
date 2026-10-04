@@ -8,6 +8,7 @@ subagent tự xếp hạng; tên khu vực / địa danh mơ hồ thì hỏi l�
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 from datetime import datetime
 from itertools import combinations
@@ -25,9 +26,7 @@ from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 SOURCE = "lifeflow-location"
 DEFAULT_RADIUS_M = 3000
-# Bản ghi POI khớp chính xác cùng tên nằm trong bán kính này coi là một điểm đến (ví dụ way + area
-# của cùng một chợ, hai trạm xe buýt hai bên đường). Chỉ dùng cho điểm đến của Map/Housing,
-# không dùng cho điểm lấy/giao Moving.
+# Sanity bound for two representations of the SAME OSM object, not a same-name merge rule.
 SAME_PLACE_RADIUS_M = 150
 # Độ đầy đủ hình học theo loại phần tử OSM của bản ghi nguồn: vùng > đường > điểm.
 _GEOMETRY_RANK = {"relation": 3, "area": 3, "way": 2, "node": 1}
@@ -67,6 +66,8 @@ def city_of(address: dict[str, Any] | None) -> str | None:
 
 
 def label_of(item: dict) -> str:
+    if item.get("display_name"):
+        return str(item["display_name"])
     parent = (item.get("parent") or {}).get("name")
     return f"{item.get('name')} ({parent})" if parent else str(item.get("name"))
 
@@ -143,15 +144,35 @@ def _geometry_rank(item: dict) -> int:
     return _GEOMETRY_RANK.get(source_id.split("/", 1)[0], 0)
 
 
+def _osm_identity(item: dict) -> str | None:
+    source = item.get("source") or {}
+    if source.get("type") not in (None, "osm"):
+        return None
+    match = re.fullmatch(r"(node|way|relation|area)/(\d+)", str(source.get("source_id") or ""))
+    if not match:
+        return None
+    kind, identifier = match[1], int(match[2])
+    if kind == "area":
+        kind, identifier = ("way" if identifier % 2 == 0 else "relation"), identifier // 2
+    return f"{kind}/{identifier}"
+
+
 def pick_place(results: list[dict], radius_m: float = SAME_PLACE_RADIUS_M) -> dict | None:
     """Điểm đến cho Map route / tiện ích / tìm nhà gần một địa danh.
 
-    Các ứng viên khớp chính xác tên mà mọi cặp cách nhau không quá `radius_m` là cùng một điểm đến
-    trong thực tế (bản ghi trùng của nguồn): chọn bản ghi có hình học đầy đủ nhất. Ứng viên xa nhau
-    vẫn là mơ hồ thật, dùng luật `pick_clear` và hỏi lại."""
+    Chỉ gộp hai biểu diễn cùng đối tượng OSM và cùng category. Các trạm/cổng gần nhau
+    hoặc cùng tên vẫn là địa điểm khác nhau, phải giữ khả năng hỏi lại."""
     unique = _distinct([r for r in results if r.get("match_type") != "fuzzy"])
     exact = [r for r in unique if r.get("match_type") == "exact" and (r.get("location") or {}).get("lat") is not None]
-    if len(exact) >= 2 and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2)):
+    identities = {_osm_identity(item) for item in exact}
+    categories = {item.get("category") for item in exact}
+    if (
+        len(exact) >= 2
+        and len(identities) == 1
+        and None not in identities
+        and len(categories) == 1
+        and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2))
+    ):
         return max(exact, key=_geometry_rank)
     return pick_clear(unique)
 

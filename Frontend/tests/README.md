@@ -1,17 +1,23 @@
 # Kiểm thử frontend SIU AI
 
-Cập nhật **03/10/2026**. Hướng dẫn này dùng cho giao diện chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
+Cập nhật **04/10/2026**. Hướng dẫn này dùng cho giao diện chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
 
 ## Các bộ kiểm tra
 
 | Bộ | File | Phạm vi |
 | --- | --- | --- |
 | Trình duyệt | [browser/app.spec.ts](browser/app.spec.ts) | Điều hướng, tương tác, dữ liệu gửi đi, trạng thái UI và desktop/mobile |
+| Picker POI | [browser/poi-candidates.spec.ts](browser/poi-candidates.spec.ts) | Loại ID/alias lặp, giữ pin cũ và các nhà/trạm khác ID |
+| Camera / OSRM | [browser/map-scope.spec.ts](browser/map-scope.spec.ts) | Camera MapLibre thật trong khung Việt Nam, fit điểm khác thành phố, hình học tuyến và coverage OSRM |
 | Gateway | [test_gateway.py](test_gateway.py) | API web, session, quyền truy cập và hành vi gateway |
 | Hợp đồng UI | [test_ui_contracts.py](test_ui_contracts.py) | Dữ liệu dịch vụ, chi phí, trạng thái và hợp đồng trình bày |
 | Action/graph | [test_actions.py](test_actions.py) | Chọn phương án và hành vi graph/API liên quan |
 
 Fixture nằm trong test, không được dùng để thay kết quả dịch vụ trong ứng dụng.
+
+Nhóm POI/Moving ngày 04/10: **10/10 đạt** trên desktop/mobile. Bao gồm tìm lại
+địa điểm, nhãn loại/thành phố, giữ ngày giờ, xác nhận pin và kiểm tra React key.
+Chạy bằng `npx playwright test --grep 'POI candidate|POI picker|a moving question opens'`.
 
 ## Chạy Playwright
 
@@ -40,9 +46,11 @@ Trên máy không có Chrome, dùng Chromium của Playwright (`npx playwright i
 
 Test intercept `/web/api`, style map và glyph, dùng hợp đồng API giả lập. Không cần gateway/agent/provider đang chạy cho các ca trình duyệt hiện có; chúng không gửi truy vấn LLM, tạo đơn hay thanh toán thật.
 
-## 18 tình huống hiện có
+## 20 tình huống trong app.spec.ts
 
-Mỗi tình huống chạy trên cả hai kích thước: **36 ca**.
+Mỗi tình huống chạy trên cả hai kích thước: **40 ca**. Ngoài ra có 3 tình huống
+POI và 2 tình huống camera/OSRM, tổng toàn bộ thư mục browser hiện có **50 ca**.
+Con số này là danh sách test, không phải kết quả một lượt chạy toàn bộ mới nhất.
 
 | Nhóm | Tình huống |
 | --- | --- |
@@ -55,6 +63,8 @@ Mỗi tình huống chạy trên cả hai kích thước: **36 ca**.
 | Nhà / khôi phục | Chi tiết, chọn, lưu nhà, URL kế hoạch cũ, tải lại |
 | Nhà → chuyển đồ | Căn đã chọn điền sẵn điểm đến; chưa xác nhận thì chưa gửi |
 | Form chuyển đồ | Câu hỏi mở form; đổi địa chỉ cần xác nhận lại pin |
+| Picker Moving | ID/alias không lặp; giữ ngày/giờ khi tìm trực tiếp trong ô A |
+| Tìm A/B | Cả hai ô tự tìm gợi ý, điền địa chỉ đã chọn và gửi đúng hai tọa độ; không có ô/nút tìm riêng |
 | Workspace nhà | Danh sách theo viewport, bộ lọc, sort và `map_view` từ chat |
 | Map → chat | Mặc định chỉ hiện nút Chat với SIU; mở thanh nhập nhỏ, bỏ Xem đầy đủ, giữ bản nháp khi thu gọn/mở lại; chọn căn trở lại chat |
 | Chuyến bay | Workspace, sắp xếp và chọn chuyến |
@@ -87,10 +97,28 @@ Các test này có mock/provider fixture và graph/checkpoint. Không dùng kế
 
 ## Đọc lỗi và giới hạn
 
+Cập nhật 04/10 cho map/Moving: `map-scope.spec.ts` dùng camera MapLibre thật để
+kiểm tra kéo/thu nhỏ/resize đến 4K trong khung Việt Nam, fit đồng thời Hà Nội và
+TP.HCM, focus điểm ngoài ba vùng routing và không thêm nút đổi khu vực.
+Ca Moving kiểm tra request route đúng tọa độ, nhãn OSRM, action chọn báo giá cũ
+và hai ô A/B tìm trực tiếp, giữ ngày/giờ, bỏ pin khi đổi địa chỉ.
+**14/14 ca qua**, sau đó bổ sung ca tìm cả A/B: **2/2 desktop/mobile qua**.
+Sau chỉnh trạng thái khi hủy tìm, chạy lại 6 ca form/POI/A-B: **6/6 qua**.
+Đây là 16 ca qua các lượt kiểm tra có mục tiêu, không phải chạy lại toàn bộ suite.
+
+```powershell
+npx playwright test tests/browser/map-scope.spec.ts tests/browser/app.spec.ts --grep 'nationwide|moving preview|chosen home prefills|a moving question opens|POI picker|housing answer opens|moving quotes open|moving A and B search inline' --workers=2
+```
+
+Tuyến gateway → Platform → 3 OSRM local được kiểm tra riêng bằng API đọc; 53/72/105
+điểm geometry khớp Docker. Xem [báo cáo hiện hành](../../docs/integration/vietnam-map-moving-update-2026-10-04.md).
+
 - Playwright trả số ca passed/failed và vị trí assertion. Screenshot khi lỗi cùng `error-context.md` nằm trong `Frontend/test-results/`.
 - Đối chiếu request body, route và contract trước khi sửa; test phải kiểm tra tác động người dùng hoặc dữ liệu gửi đi, không chỉ sự tồn tại của component.
 - Với layout có animation, chờ điều kiện cuối cùng trước khi đo vị trí.
 - HTTP 200/health hoặc danh sách domain chỉ xác minh trạng thái tại thời điểm đọc, không xác minh mọi provider đang hoạt động.
 - Chất lượng LLM, hội thoại đa dịch vụ thật, đặt/sửa/hủy AhaMove staging và thanh toán provider cần đợt kiểm tra tích hợp riêng.
 
-Đợt cập nhật này chỉ thay giao diện frontend, sửa đường mở lại nhà đã lưu và bổ sung test; backend, gateway, database và `.env` được giữ nguyên.
+Các đợt chỉnh giao diện trước chỉ sửa frontend/đường mở lại nhà đã lưu và test;
+gateway và `.env` được giữ nguyên. Đợt 04/10 còn chuẩn hóa studio ở dữ liệu theo
+yêu cầu riêng; xem báo cáo cập nhật để phân biệt phạm vi và số liệu từng đợt.

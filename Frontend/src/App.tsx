@@ -46,6 +46,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
+import { mergePlaceCandidates } from "./placeCandidates";
 import type {
   Component,
   Data,
@@ -1195,18 +1196,20 @@ function Chat() {
                               <p>{q.text}</p>
                             )}
                             <div className="tags">
-                              {(q.choices || []).map((c: Data) => (
-                                <button
-                                  key={c.id}
-                                  className="suggestion"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    choosePlace(c, q.field).catch(() => {})
-                                  }
-                                >
-                                  <MapPin size={12} /> {c.label}
-                                </button>
-                              ))}
+                              {mergePlaceCandidates(q.choices || []).map(
+                                (c: Data) => (
+                                  <button
+                                    key={c.id}
+                                    className="suggestion"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      choosePlace(c, q.field).catch(() => {})
+                                    }
+                                  >
+                                    <MapPin size={12} /> {c.label}
+                                  </button>
+                                ),
+                              )}
                               {(q.choices?.length ? [] : q.options || []).map(
                                 (o: string) => (
                                   <button

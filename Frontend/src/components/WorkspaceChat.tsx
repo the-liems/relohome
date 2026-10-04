@@ -7,6 +7,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { Data } from "../types";
+import { mergePlaceCandidates } from "../placeCandidates";
 
 export interface ChatDockProps {
   text?: string;
@@ -137,7 +138,7 @@ export function WorkspaceChat({
                 {q.text && <p>{q.text}</p>}
                 <div className="tags">
                   {(q.choices?.length
-                    ? q.choices
+                    ? mergePlaceCandidates(q.choices)
                     : (q.options || []).map((o: string) => ({ label: o }))
                   ).map((c: Data) => (
                     <button

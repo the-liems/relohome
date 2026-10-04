@@ -4751,6 +4751,42 @@ input[type="checkbox"] {
   width: 100%;
   margin-top: 2px;
 }
+.mv-location-input {
+  position: relative;
+}
+.mv-location-input > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.mv-request .mv-location-input input {
+  padding-left: 36px;
+  min-width: 0;
+}
+.mv-suggestions {
+  display: grid;
+  gap: 6px;
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  background: #f8faff;
+}
+.mv-suggestions .place {
+  margin: 0;
+  padding: 10px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+.mv-suggestions .place strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
 .mv-request .mv-endpoint .text-button {
   align-self: flex-start;
   padding: 0;

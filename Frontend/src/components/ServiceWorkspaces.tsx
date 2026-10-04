@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Map as LibreMap } from "maplibre-gl";
+import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import {
   ArrowRight,
   Check,
@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Plane,
   Route,
+  Search,
   Truck,
   X,
 } from "lucide-react";
@@ -14,6 +15,16 @@ import { api, dateTime, money } from "../api";
 import type { Data } from "../types";
 import { BASEMAP_STYLE_URL, MAP_THEME, tuneBasemap } from "../mapStyle";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
+import { mergePlaceCandidates } from "../placeCandidates";
+import {
+  cityForPoint,
+  scopedMapOptions,
+  installMapScope,
+  fitMapPoints,
+  focusMapPoint,
+  mapCity,
+} from "../mapScope";
+import { loadMovingRoute } from "../movingRoute";
 
 // Selecting an option is the same structured action as in the chat cards; the parent returns to
 // the conversation afterwards so the user can continue with other services.
@@ -290,12 +301,15 @@ export function MovingWorkspace({
   const container = useRef<HTMLDivElement>(null),
     map = useRef<LibreMap | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [routeNotice, setRouteNotice] = useState("Đang tải tuyến đường…");
   const { selecting, select } = useSelect(onSelect);
   const quotes: Data[] = data.quotes || [];
   const route = data.route || {};
   const late = expired(data.expires_at);
   useEffect(() => {
     let disposed = false;
+    const abort = new AbortController();
+    setRouteNotice("Đang tải tuyến đường…");
     import("maplibre-gl").then(
       ({ Map, Marker, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
@@ -303,16 +317,17 @@ export function MovingWorkspace({
         const points = [route.pickup, route.destination].filter(
           (p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng),
         );
+        const city =
+          points.map((p) => cityForPoint([p.lng, p.lat])).find(Boolean) ??
+          "hcm";
         const m = new Map({
           container: container.current,
           style: BASEMAP_STYLE_URL,
-          center: points[0]
-            ? [points[0].lng, points[0].lat]
-            : [106.7009, 10.7769],
-          zoom: 13,
+          ...scopedMapOptions(container.current, city),
           attributionControl: { compact: true },
         });
         map.current = m;
+        installMapScope(m, city);
         m.addControl(
           new NavigationControl({ showCompass: false }),
           "bottom-left",
@@ -322,14 +337,7 @@ export function MovingWorkspace({
           tuneBasemap(m);
           m.addSource("mv-line", {
             type: "geojson",
-            data: {
-              type: "Feature",
-              properties: {},
-              geometry: {
-                type: "LineString",
-                coordinates: points.map((p) => [p.lng, p.lat]),
-              },
-            },
+            data: { type: "FeatureCollection", features: [] },
           });
           m.addLayer({
             id: "mv-line",
@@ -338,7 +346,6 @@ export function MovingWorkspace({
             paint: {
               "line-color": MAP_THEME.route,
               "line-width": 4,
-              "line-dasharray": [2, 1.5],
             },
           });
           (["A", "B"] as const).forEach((label, i) => {
@@ -356,28 +363,53 @@ export function MovingWorkspace({
               .addTo(m);
           });
           if (points.length === 2)
-            m.fitBounds(
-              [
-                [
-                  Math.min(points[0].lng, points[1].lng),
-                  Math.min(points[0].lat, points[1].lat),
-                ],
-                [
-                  Math.max(points[0].lng, points[1].lng),
-                  Math.max(points[0].lat, points[1].lat),
-                ],
-              ],
+            fitMapPoints(
+              m,
+              points.map((p) => [p.lng, p.lat]),
               { padding: 80, duration: 0 },
             );
+          if (points.length !== 2) {
+            setRouteNotice("Chưa đủ tọa độ để hiển thị tuyến đường.");
+            return;
+          }
+          void loadMovingRoute(points[0], points[1], abort.signal)
+            .then((geometry) => {
+              if (disposed) return;
+              (m.getSource("mv-line") as GeoJSONSource).setData({
+                type: "Feature",
+                properties: {},
+                geometry,
+              });
+              fitMapPoints(m, geometry.coordinates, {
+                padding: 80,
+                duration: 0,
+              });
+              setRouteNotice("Tuyến đường tham khảo · OSRM (ô tô)");
+            })
+            .catch((error: Error) => {
+              if (!disposed && !abort.signal.aborted)
+                setRouteNotice(
+                  error.message.includes("cùng khu vực")
+                    ? error.message
+                    : "Chưa tải được tuyến đường. Bạn có thể tiếp tục xem báo giá.",
+                );
+            });
         });
       },
     );
     return () => {
       disposed = true;
+      abort.abort();
       map.current?.remove();
       map.current = null;
     };
-  }, [data.quote_id]);
+  }, [
+    data.quote_id,
+    route.pickup?.lat,
+    route.pickup?.lng,
+    route.destination?.lat,
+    route.destination?.lng,
+  ]);
   return (
     <div className="map-workspace">
       <aside className="ws-list" aria-label="Phương án chuyển đồ">
@@ -471,8 +503,7 @@ export function MovingWorkspace({
       <section className="ws-map" aria-label="Bản đồ chuyển đồ">
         <div className="ws-filterbar">
           <span className="ws-filter-label">
-            <Route size={15} /> Tuyến A → B (đường thẳng minh hoạ, không phải lộ
-            trình tài xế)
+            <Route size={15} /> <span role="status">{routeNotice}</span>
           </span>
           <span className="ws-spacer" />
           <button className="ws-pill-button" onClick={onExit}>
@@ -596,25 +627,31 @@ export function MovingRequestWorkspace({
     asked.to_address && !asked.from_address ? "to_address" : "from_address",
   );
   const [found, setFound] = useState<Record<string, Data[]>>({}),
-    [query, setQuery] = useState(""),
-    [searching, setSearching] = useState(false),
+    [drafts, setDrafts] = useState<Record<string, string>>({}),
+    [searching, setSearching] = useState<EndpointField | null>(null),
     [sending, setSending] = useState(false),
     [error, setError] = useState("");
   const container = useRef<HTMLDivElement>(null),
     map = useRef<LibreMap | null>(null),
     markers = useRef<any[]>([]),
     activeRef = useRef(active);
+  const searchAbort = useRef<AbortController | null>(null),
+    searchGeneration = useRef(0),
+    searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   activeRef.current = active;
   const candidates = (field: EndpointField): Data[] =>
-    [
-      ...(field === "to_address" && housePoint ? [housePoint] : []),
-      ...(asked[field]?.choices || []),
-      ...(found[field] || []),
-    ].filter(
-      (c) =>
-        Number.isFinite(c.lat) &&
-        Number.isFinite(c.lng) &&
-        c.entity_type !== "area",
+    mergePlaceCandidates(
+      [
+        ...(field === "to_address" && housePoint ? [housePoint] : []),
+        ...(asked[field]?.choices || []),
+        ...(found[field] || []),
+      ].filter(
+        (c) =>
+          Number.isFinite(c.lat) &&
+          Number.isFinite(c.lng) &&
+          c.entity_type !== "area",
+      ),
+      ends[field].pin || undefined,
     );
   const shown = candidates(active);
   function pin(field: EndpointField, point: Data) {
@@ -625,6 +662,11 @@ export function MovingRequestWorkspace({
   function type(field: EndpointField, address: string) {
     // A new address invalidates the confirmed point; the user confirms again.
     setEnds((e) => ({ ...e, [field]: { address, pin: null } }));
+    setDrafts((x) => ({ ...x, [field]: address }));
+    setFound((x) => ({ ...x, [field]: [] }));
+    searchAbort.current?.abort();
+    ++searchGeneration.current;
+    setSearching(null);
     if (field === "to_address") setUseHouse(false);
   }
   useEffect(() => {
@@ -633,14 +675,21 @@ export function MovingRequestWorkspace({
       if (disposed || !container.current) return;
       setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
       const first = housePoint || candidates(active)[0];
+      const center: [number, number] = first
+        ? [first.lng, first.lat]
+        : DEFAULT_CENTER;
+      const city = cityForPoint(center) ?? "hanoi";
       const m = new Map({
         container: container.current,
         style: BASEMAP_STYLE_URL,
-        center: first ? [first.lng, first.lat] : DEFAULT_CENTER,
-        zoom: first ? 15 : 11,
+        ...scopedMapOptions(container.current, city, {
+          center,
+          zoom: first ? 15 : 11,
+        }),
         attributionControl: { compact: true },
       });
       map.current = m;
+      installMapScope(m, city);
       m.addControl(
         new NavigationControl({ showCompass: false }),
         "bottom-left",
@@ -700,14 +749,16 @@ export function MovingRequestWorkspace({
         );
       }
       const focus = [...shown, ...pins.map(([, e]) => e.pin!)];
+      const activePin = ends[active].pin;
+      if (
+        activePin &&
+        cityForPoint([activePin.lng, activePin.lat]) !== mapCity(m)
+      )
+        focusMapPoint(m, [activePin.lng, activePin.lat], 17);
       if (focus.length && !ends[active].pin) {
-        const lats = focus.map((c) => c.lat),
-          lngs = focus.map((c) => c.lng);
-        m.fitBounds(
-          [
-            [Math.min(...lngs), Math.min(...lats)],
-            [Math.max(...lngs), Math.max(...lats)],
-          ],
+        fitMapPoints(
+          m,
+          focus.map((c) => [c.lng, c.lat]),
           { padding: 90, maxZoom: 16, duration: 500 },
         );
       }
@@ -716,35 +767,60 @@ export function MovingRequestWorkspace({
       cancelled = true;
     };
   }, [JSON.stringify(shown), JSON.stringify(ends), active]);
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
+  async function search(field: EndpointField, address: string) {
+    const query = address.trim();
     if (query.trim().length < 2) return;
-    setSearching(true);
+    clearTimeout(searchTimer.current);
+    searchAbort.current?.abort();
+    const abort = new AbortController();
+    searchAbort.current = abort;
+    const generation = ++searchGeneration.current;
+    setSearching(field);
     setError("");
     try {
       const r = await api<Data>(
         "/map/search?text=" + encodeURIComponent(query),
+        "GET",
+        undefined,
+        abort.signal,
       );
+      if (abort.signal.aborted || generation !== searchGeneration.current)
+        return;
       setFound((x) => ({
         ...x,
-        [active]: (r.results || [])
+        [field]: (r.results || [])
           .filter(
             (x: Data) => x.location && x.entity_type !== "administrative_area",
           )
           .map((x: Data) => ({
             id: x.canonical_id || x.name,
-            label: x.parent?.name ? `${x.name} (${x.parent.name})` : x.name,
+            label:
+              x.display_name ||
+              (x.parent?.name ? `${x.name} (${x.parent.name})` : x.name),
+            alias_ids: x.alias_ids || [],
             entity_type: x.entity_type,
             lat: x.location.lat,
             lng: x.location.lng,
           })),
       }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!abort.signal.aborted && generation === searchGeneration.current)
+        setError((e as Error).message);
     } finally {
-      setSearching(false);
+      if (generation === searchGeneration.current) setSearching(null);
     }
   }
+  useEffect(() => {
+    const draft = drafts[active];
+    if (draft !== undefined && draft.trim().length >= 2 && !ends[active].pin)
+      searchTimer.current = setTimeout(() => void search(active, draft), 400);
+    return () => {
+      clearTimeout(searchTimer.current);
+      searchAbort.current?.abort();
+      ++searchGeneration.current;
+      setSearching(null);
+    };
+  }, [active, drafts[active], ends[active].pin]);
   const destination = useHouse
     ? "phòng mình đã chọn"
     : ends.to_address.address.trim() || ends.to_address.pin?.label || "";
@@ -817,55 +893,105 @@ export function MovingRequestWorkspace({
               >
                 <i className={"mv-dot " + meta.tag.toLowerCase()}>{meta.tag}</i>
                 <span>
-                  <strong>{meta.label}</strong>
+                  <strong>
+                    Chọn điểm {meta.tag} · {meta.label}
+                  </strong>
                   {asked[field] && (
                     <small className="mv-asked">{asked[field].text}</small>
                   )}
-                  {home ? (
-                    <>
-                      <small>
-                        Phòng đã chọn: <b>{house.title}</b>
-                      </small>
-                      {house.address && <small>{house.address}</small>}
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => type("to_address", "")}
-                      >
-                        Giao tới địa chỉ khác
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <input
-                        aria-label={meta.input}
-                        value={e.address}
-                        onFocus={() => setActive(field)}
-                        onChange={(ev) => type(field, ev.target.value)}
-                        placeholder="Số nhà, đường, phường/quận, thành phố"
-                        maxLength={300}
-                      />
-                      {field === "to_address" && house && (
+                  <div className="mv-location-input">
+                    <Search size={16} aria-hidden="true" />
+                    <input
+                      aria-label={meta.input}
+                      value={
+                        home
+                          ? house.address || house.title
+                          : e.address || e.pin?.label || ""
+                      }
+                      onFocus={(ev) => {
+                        const value = ev.currentTarget.value;
+                        setActive(field);
+                        if (!e.pin && !home)
+                          setDrafts((x) => ({ ...x, [field]: value }));
+                      }}
+                      onChange={(ev) => type(field, ev.target.value)}
+                      onKeyDown={(ev) => {
+                        if (ev.key === "Enter") {
+                          ev.preventDefault();
+                          void search(field, ev.currentTarget.value);
+                        }
+                      }}
+                      placeholder={`Tìm địa chỉ hoặc chọn điểm ${meta.tag} trên bản đồ`}
+                      maxLength={300}
+                      autoComplete="off"
+                    />
+                  </div>
+                  {home && (
+                    <small>
+                      Phòng đã chọn: <b>{house.title}</b>
+                    </small>
+                  )}
+                  {!home && field === "to_address" && house && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setEnds((x) => ({
+                          ...x,
+                          to_address: { address: "", pin: null },
+                        }));
+                        setUseHouse(true);
+                      }}
+                    >
+                      Giao tới phòng đã chọn ({house.title})
+                    </button>
+                  )}
+                  {searching === field && (
+                    <small className="muted" role="status">
+                      Đang tìm địa điểm…
+                    </small>
+                  )}
+                  {active === field && !e.pin && shown.length > 0 && (
+                    <div
+                      className="mv-suggestions"
+                      role="group"
+                      aria-label={"Gợi ý " + meta.label.toLowerCase()}
+                    >
+                      {shown.slice(0, 8).map((c) => (
                         <button
+                          key={c.id + c.lat}
                           type="button"
-                          className="text-button"
-                          onClick={() => {
+                          className="place"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            pin(field, c);
                             setEnds((x) => ({
                               ...x,
-                              to_address: { address: "", pin: null },
+                              [field]: {
+                                ...x[field],
+                                address: found[field]?.some(
+                                  (p) => p.id === c.id,
+                                )
+                                  ? c.label
+                                  : x[field].address.trim() || c.label,
+                              },
                             }));
-                            setUseHouse(true);
+                            if (map.current)
+                              focusMapPoint(map.current, [c.lng, c.lat], 17);
                           }}
                         >
-                          Giao tới phòng đã chọn ({house.title})
+                          <span>
+                            <strong>{c.label}</strong>
+                            {c.category && <small>{c.category}</small>}
+                          </span>
                         </button>
-                      )}
-                    </>
+                      ))}
+                    </div>
                   )}
                   <small className={e.pin ? "ok" : "muted"}>
                     {e.pin
                       ? `Đã ghim: ${e.pin.label}`
-                      : "Chưa ghim trên bản đồ. SIU sẽ tìm theo địa chỉ."}
+                      : "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim."}
                   </small>
                   {e.pin && (
                     <button
@@ -910,40 +1036,6 @@ export function MovingRequestWorkspace({
               )}
             </label>
           </div>
-          <form className="search-row" onSubmit={search}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Tìm ${ENDPOINTS[active].label.toLowerCase()}: tòa nhà, ngõ, địa danh…`}
-              aria-label="Tìm địa điểm"
-            />
-            <button className="secondary" disabled={searching}>
-              Tìm
-            </button>
-          </form>
-          {shown.map((c) => (
-            <button
-              key={c.id + c.lat}
-              className={
-                "place " + (ends[active].pin?.id === c.id ? "active" : "")
-              }
-              onClick={() => {
-                pin(active, c);
-                map.current?.easeTo({ center: [c.lng, c.lat], zoom: 17 });
-              }}
-            >
-              <span>
-                <strong>{c.label}</strong>
-                {c.category && <small>{c.category}</small>}
-              </span>
-            </button>
-          ))}
-          {!shown.length && (
-            <p className="muted small">
-              Ghim là tùy chọn: tìm địa điểm hoặc chạm vào bản đồ để chỉ đúng
-              cổng xe đến cho {ENDPOINTS[active].label.toLowerCase()}.
-            </p>
-          )}
         </div>
         <div className="mv-confirm">
           {error && (

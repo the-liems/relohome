@@ -4,6 +4,13 @@ import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import { api, housePrice } from "../api";
 import type { Data, House } from "../types";
 import { Dialog } from "./Dialog";
+import {
+  cityForPoint,
+  scopedMapOptions,
+  installMapScope,
+  fitMapPoints,
+  focusMapPoint,
+} from "../mapScope";
 
 // Same MapLibre basemap and semantic colors as LifeFlow map-app/config/map-theme.ts.
 const theme = {
@@ -66,14 +73,30 @@ export function MapPanel({
         if (disposed || !container.current) return;
         try {
           setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+          const first =
+            initialViewport?.center ||
+            houses
+              .filter((h) => Number.isFinite(h.lng) && Number.isFinite(h.lat))
+              .map((h) => [h.lng!, h.lat!] as [number, number])[0] ||
+            points
+              .map(
+                (p) =>
+                  [p.location?.lng ?? p.lng, p.location?.lat ?? p.lat] as [
+                    number,
+                    number,
+                  ],
+              )
+              .find((p) => cityForPoint(p)) ||
+            routing?.route?.geometry?.coordinates?.[0];
+          const city = first ? (cityForPoint(first) ?? "hcm") : "hcm";
           const m = new Map({
             container: container.current,
             style: "https://tiles.openfreemap.org/styles/positron",
-            center: initialViewport?.center || [106.7009, 10.7769],
-            zoom: initialViewport?.zoom ?? 12,
+            ...scopedMapOptions(container.current, city, initialViewport),
             attributionControl: { compact: true },
           });
           map.current = m;
+          installMapScope(m, city);
           fitted.current = "";
           resize = new ResizeObserver(() => m.resize());
           resize.observe(container.current);
@@ -283,24 +306,14 @@ export function MapPanel({
     fitted.current = signature;
     if (initialViewport) return;
     if (features.length) {
-      const xs = features.map((f) => f.geometry.coordinates[0]),
-        ys = features.map((f) => f.geometry.coordinates[1]);
-      m.fitBounds(
-        [
-          [Math.min(...xs), Math.min(...ys)],
-          [Math.max(...xs), Math.max(...ys)],
-        ],
+      fitMapPoints(
+        m,
+        features.map((f) => f.geometry.coordinates),
         { padding: 55, maxZoom: 15, duration: 500 },
       );
     } else if (geometry?.coordinates?.length && !explore) {
       const xy = geometry.coordinates as number[][];
-      m.fitBounds(
-        [
-          [Math.min(...xy.map((p) => p[0])), Math.min(...xy.map((p) => p[1]))],
-          [Math.max(...xy.map((p) => p[0])), Math.max(...xy.map((p) => p[1]))],
-        ],
-        { padding: 45, duration: 500 },
-      );
+      fitMapPoints(m, xy, { padding: 45, duration: 500 });
     }
   }, [rows, points, selected, routing, ready, explore, clusters]);
   useEffect(() => {
@@ -507,7 +520,7 @@ export function MapPanel({
             initialExplore={explore}
             onViewport={(v) => {
               viewport.current = v;
-              map.current?.jumpTo(v);
+              if (map.current) focusMapPoint(map.current, v.center, v.zoom);
             }}
             large
           />

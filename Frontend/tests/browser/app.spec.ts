@@ -702,7 +702,9 @@ test("chosen home prefills the moving form; nothing is sent until confirmed", as
   await page.getByRole("button", { name: /Chuyển đồ tới đây/ }).click();
   const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
   await expect(form).toContainText("Phòng đã chọn: Phòng trọ trên bản đồ");
-  await expect(form).toContainText("255 Cầu Giấy, Hà Nội");
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "255 Cầu Giấy, Hà Nội",
+  );
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect(form.getByRole("alert")).toContainText("điểm lấy");
   await form.getByLabel("Địa chỉ lấy đồ").fill("Đại học Bách khoa Hà Nội");
@@ -784,6 +786,192 @@ test("a moving question opens the moving form; a new address needs the pin again
       address: "Ngõ 43 Phố Trung Kính, Cầu Giấy",
       lat: 21.0207,
       lng: 105.7917,
+      confirmed: true,
+    },
+  });
+});
+
+test("POI picker collapses aliases, labels the city and preserves moving date and time", async ({
+  page,
+}) => {
+  const duplicateKeys: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("same key"))
+      duplicateKeys.push(message.text());
+  });
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "poi-question",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "CLARIFY",
+        text: "Chọn điểm lấy đồ.",
+        questions: [
+          {
+            field: "from_address",
+            text: "Chọn điểm lấy đồ.",
+            choices: [
+              {
+                id: "old-way",
+                label: "Đại học Bách Khoa",
+                entity_type: "place",
+                lat: 21,
+                lng: 105.84,
+              },
+              {
+                id: "old-way",
+                label: "Đại học Bách Khoa",
+                entity_type: "place",
+                lat: 21,
+                lng: 105.84,
+              },
+              {
+                id: "stop-2",
+                label: "Đại học Bách Khoa · Trạm xe buýt",
+                entity_type: "place",
+                lat: 21.001,
+                lng: 105.84,
+              },
+            ],
+          },
+        ],
+        data: {
+          known_request: {
+            from_address: "Đại học Bách Khoa",
+            to_address: "12 Tràng Tiền, Hà Nội",
+            move_date: tomorrow(),
+            move_time: "10:00",
+          },
+        },
+      },
+    },
+  });
+  await page.route("**/api/map/search?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        results: [
+          {
+            canonical_id: "canonical-area",
+            alias_ids: ["old-way"],
+            name: "Đại học Bách Khoa",
+            display_name: "Đại học Bách Khoa · Trường đại học · Hà Nội",
+            entity_type: "place",
+            category: "university",
+            location: { lat: 21.0003, lng: 105.8403 },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(
+    form.getByRole("button", { name: "Đại học Bách Khoa", exact: true }),
+  ).toHaveCount(1);
+  await form
+    .getByRole("textbox", { name: "Địa chỉ lấy đồ", exact: true })
+    .fill("Đại học Bách Khoa");
+  await expect(form.getByRole("textbox", { name: /Địa chỉ/ })).toHaveCount(2);
+  await expect(form.getByRole("textbox", { name: "Tìm địa điểm" })).toHaveCount(
+    0,
+  );
+  await expect(
+    form.getByRole("button", { name: "Đại học Bách Khoa", exact: true }),
+  ).toHaveCount(0);
+  await expect(form.getByRole("button", { name: /Trạm xe buýt/ })).toHaveCount(
+    1,
+  );
+  await expect(form.getByLabel("Ngày chuyển")).toHaveValue(tomorrow());
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("10:00");
+  expect(turns).toEqual([]);
+  await form.getByRole("button", { name: /Trường đại học · Hà Nội/ }).click();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_locations.pickup).toMatchObject({
+    lat: 21.0003,
+    lng: 105.8403,
+    confirmed: true,
+  });
+  expect(duplicateKeys).toEqual([]);
+});
+
+test("moving A and B search inline and submit the selected coordinates", async ({
+  page,
+}) => {
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "moving-inline",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "CLARIFY",
+        text: "Chọn điểm lấy và điểm giao đồ.",
+        questions: [{ field: "from_address", text: "Điểm lấy đồ?" }],
+        data: { known_request: { move_date: tomorrow(), move_time: "10:00" } },
+      },
+    },
+  });
+  const queries: string[] = [];
+  await page.route("**/api/map/search?**", (route) => {
+    const query = new URL(route.request().url()).searchParams.get("text")!;
+    queries.push(query);
+    const pickup = query === "Bách Khoa Hà Nội";
+    return route.fulfill({
+      json: {
+        results: [
+          {
+            canonical_id: pickup ? "pickup-university" : "destination-home",
+            name: pickup ? "Đại học Bách khoa Hà Nội" : "12 Tràng Tiền, Hà Nội",
+            entity_type: "place",
+            location: pickup
+              ? { lat: 21.005, lng: 105.843 }
+              : { lat: 21.024, lng: 105.856 },
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form.getByRole("textbox", { name: /Địa chỉ/ })).toHaveCount(2);
+  await expect(
+    form.getByRole("button", { name: "Tìm", exact: true }),
+  ).toHaveCount(0);
+  await form.getByLabel("Địa chỉ lấy đồ").fill("Bách Khoa Hà Nội");
+  await form
+    .getByRole("button", { name: "Đại học Bách khoa Hà Nội", exact: true })
+    .click();
+  await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue(
+    "Đại học Bách khoa Hà Nội",
+  );
+  await form.getByLabel("Địa chỉ giao đồ").fill("Tràng Tiền Hà Nội");
+  await form
+    .getByRole("button", { name: "12 Tràng Tiền, Hà Nội", exact: true })
+    .click();
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "12 Tràng Tiền, Hà Nội",
+  );
+  expect(turns).toEqual([]);
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(queries).toEqual(["Bách Khoa Hà Nội", "Tràng Tiền Hà Nội"]);
+  expect(turns[0].moving_locations).toEqual({
+    pickup: {
+      address: "Đại học Bách khoa Hà Nội",
+      lat: 21.005,
+      lng: 105.843,
+      confirmed: true,
+    },
+    destination: {
+      address: "12 Tràng Tiền, Hà Nội",
+      lat: 21.024,
+      lng: 105.856,
       confirmed: true,
     },
   });
@@ -994,6 +1182,24 @@ test("moving quotes open a moving workspace with A/B points and fee details", as
 }) => {
   const calls: any[] = [];
   const { thread } = await fixture(page, true, calls);
+  const routeCalls: any[] = [];
+  await page.route("**/web/api/platform/routes/entities", (route) => {
+    routeCalls.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        route: {
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [106.698, 10.7725],
+              [106.699, 10.775],
+              [106.7, 10.78],
+            ],
+          },
+        },
+      },
+    });
+  });
   seed(thread, [
     {
       id: "moving:1",
@@ -1030,6 +1236,18 @@ test("moving quotes open a moving workspace with A/B points and fee details", as
   });
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Chợ Bến Thành")).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "OSRM (ô tô)" }),
+  ).toBeVisible();
+  expect(routeCalls).toEqual([
+    {
+      city: "hcm",
+      profile: "driving",
+      snap_radius_m: 100,
+      origin: { type: "coordinate", location: { lat: 10.7725, lng: 106.698 } },
+      destination: { type: "coordinate", location: { lat: 10.78, lng: 106.7 } },
+    },
+  ]);
   await panel.getByRole("button", { name: "Xem chi phí" }).click();
   await expect(panel.getByText("200.000 ₫")).toBeVisible();
   await panel.getByRole("button", { name: "Chọn phương án" }).click();

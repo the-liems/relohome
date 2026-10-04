@@ -19,6 +19,14 @@ import {
 } from "lucide-react";
 import { api, compactPrice, housePrice, safeUrl } from "../api";
 import type { Data, House } from "../types";
+import { mergePlaceCandidates } from "../placeCandidates";
+import {
+  cityForBox,
+  scopedMapOptions,
+  installMapScope,
+  fitMapBox,
+  focusMapPoint,
+} from "../mapScope";
 import {
   MAP_WORKSPACE,
   SORTS,
@@ -124,13 +132,7 @@ export function MapWorkspace({
     setStack(null);
     const box = focus?.viewport;
     if (box && map.current)
-      map.current.fitBounds(
-        [
-          [box.west, box.south],
-          [box.east, box.north],
-        ],
-        { padding: 48, duration: 700 },
-      );
+      fitMapBox(map.current, box, { padding: 48, duration: 700 });
   }, [focus?.key, ready]);
 
   useEffect(() => {
@@ -141,21 +143,16 @@ export function MapWorkspace({
         if (disposed || !container.current) return;
         setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
         const box = focus?.viewport;
+        const city = cityForBox(box);
         const m = new Map({
           container: container.current,
           style: BASEMAP_STYLE_URL,
-          ...(box
-            ? {
-                bounds: [
-                  [box.west, box.south],
-                  [box.east, box.north],
-                ],
-                fitBoundsOptions: { padding: 48 },
-              }
-            : { center: [106.7009, 10.7769], zoom: 12 }),
+          ...scopedMapOptions(container.current, city),
           attributionControl: { compact: true },
         });
         map.current = m;
+        installMapScope(m, city);
+        if (box) fitMapBox(m, box, { padding: 48, duration: 0 });
         resize = new ResizeObserver(() => m.resize());
         resize.observe(container.current);
         m.addControl(
@@ -474,7 +471,10 @@ export function MapWorkspace({
     }
   }
   const choices: Data[] = chat.questions.flatMap((q) =>
-    (q.choices || []).map((c: Data) => ({ ...c, field: q.field })),
+    mergePlaceCandidates(q.choices || []).map((c: Data) => ({
+      ...c,
+      field: q.field,
+    })),
   );
   async function choose(choice: Data) {
     const placeChoice =
@@ -989,11 +989,12 @@ export function MapWorkspace({
               <button
                 className="ws-pill-button"
                 onClick={() => {
-                  if (Number.isFinite(detail.lat))
-                    map.current?.easeTo({
-                      center: [detail.lng!, detail.lat!],
-                      zoom: Math.max(map.current.getZoom(), 15.5),
-                    });
+                  if (Number.isFinite(detail.lat) && map.current)
+                    focusMapPoint(
+                      map.current,
+                      [detail.lng!, detail.lat!],
+                      Math.max(map.current.getZoom(), 15.5),
+                    );
                 }}
               >
                 <Layers size={14} /> Xem quanh căn

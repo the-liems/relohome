@@ -1,6 +1,44 @@
 # Nền tảng bản đồ và vị trí LifeFlow
 
+## Cập nhật POI — 04/10/2026
+
+[Bàn giao QuangDung: file thay đổi, gói dữ liệu và cách cập nhật máy cũ](../../docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md).
+
+Đã xóa vật lý **20.853 POI có tên trùng**, chỉ khi chung đối tượng OSM và không
+xung đột loại tiện ích, tầng, phòng/cơ sở. Còn **131.191 POI active** trên local;
+38.222 housing anchors và dữ liệu nhà giữ nguyên. Khác tầng/tiện ích hoặc thiếu
+tên vẫn giữ riêng. ID cũ và pin đã xác nhận vẫn đọc được với tọa độ cũ.
+
+**Cần cài migration 011 và 012 trước khi chạy query mới**. Log làm sạch dùng
+`geo.import_runs` sẵn có; bảng `catalog.poi_dedup_runs` đã bỏ, chỉ giữ mapping
+ID cũ trong `catalog.poi_aliases`. Bộ dữ liệu portable nằm tại
+`../../data/poi-clean/2026-10-04/`: GeoJSON, nguồn gốc, ID cũ và manifest checksum.
+Máy khác cần apply hoặc nhập bộ sạch vào DB đã cài schema; pull code chưa đổi dữ liệu.
+Xem [quy trình làm sạch, xuất/nhập và khôi phục](docs/POI-CANONICALIZATION.md).
+
 ## Chạy nhanh trên DEMO_1
+
+### Audit Map/Housing/OSRM — 04/10/2026
+
+- OSRM **đã được gọi thực tế** trong route và housing commute; 9 container chạy
+  MLD. Kiểm tra 9 tuyến API khớp Docker, MCP và housing commute đạt.
+- Đã sửa **8.795 unit DB / 8.840 dòng crawl** phòng thuê 0 → 1, sau đó thêm
+  **1.521 studio** 0 → 1 theo yêu cầu; giữ metadata giá trị gốc và tin mâu thuẫn.
+- Frontend SIU đã mở camera xem toàn Việt Nam theo yêu cầu mới, không còn khóa
+  riêng từng thành phố. Không thay style/nhãn/đường biên trong dữ liệu nhà cung cấp.
+- Workspace Moving của SIU đã dùng geometry OSRM qua API đọc sẵn có, tuyến tham
+  khảo ô tô; báo giá/đặt xe AhaMove giữ nguyên. Map-app độc lập chưa đổi camera.
+- Form Moving dùng hai ô A/B tự tìm gợi ý; không còn ô tìm địa điểm riêng.
+  Local đã chạy migration **008_moving_service.sql** có sẵn để bổ sung 5 bảng
+  Moving còn thiếu; API 4200 và MCP 4400 `/ready` trả 200. Khi dùng snapshot cũ,
+  chạy `scripts/local-integration.py migrate` trước khi kiểm tra báo giá.
+
+Triển khai và giới hạn hiện hành:
+[map Việt Nam / Moving A/B và khởi động local](../../docs/integration/vietnam-map-moving-update-2026-10-04.md).
+Coverage OSRM vẫn là TP.HCM, Hà Nội, Đà Nẵng; mở camera không bổ sung dữ liệu routing.
+
+Ảnh, trace, checksum và giới hạn:
+[báo cáo chi tiết](../../docs/integration/map-housing-osrm-audit-2026-10-04.md).
 
 Yêu cầu: Docker Desktop đang chạy, Node.js/npm đã cài và PowerShell.
 

@@ -93,7 +93,8 @@ function toStagingRow(feature: GeoJsonFeature, rawLine: string, duplicate: boole
     openingHours: optionalTag(tags, 'opening_hours'),
     validationStatus,
     validationErrors: duplicate ? ['duplicate_source_id_in_import'] : errors,
-    canonicalPlaceId: validationStatus === 'accepted' ? stableUuid(`osm:${sourceId}`) : null,
+    // Keep the exported source ID for provenance; identity is the underlying OSM object.
+    canonicalPlaceId: validationStatus === 'accepted' ? stableUuid(`osm:${identity!.osmType}/${identity!.osmId}`) : null,
     publishAction: duplicate ? 'duplicate' : errors.length ? 'rejected' : 'pending',
   }
 }
@@ -155,6 +156,18 @@ async function publish(runId: string) {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+    await client.query('SELECT pg_advisory_xact_lock(1042026,11)')
+    // Conflicting representations require review; don't choose an arbitrary name/category.
+    await client.query(`WITH conflicts AS (
+      SELECT osm_type,osm_id FROM geo.poi_staging
+      WHERE import_run_id=$1 AND validation_status='accepted'
+      GROUP BY osm_type,osm_id
+      HAVING count(DISTINCT category_slug)>1 OR count(DISTINCT lower(btrim(name)))>1
+        OR count(DISTINCT catalog.poi_unit_signature(raw_tags))>1
+    ) UPDATE geo.poi_staging s SET validation_status='rejected',publish_action='rejected',
+      validation_errors=s.validation_errors || '["osm_identity_conflict"]'::jsonb
+    FROM conflicts c WHERE s.import_run_id=$1 AND s.osm_type=c.osm_type AND s.osm_id=c.osm_id
+      AND s.validation_status='accepted'`, [runId])
 
     const accounting = await client.query<{
       total: string
@@ -185,7 +198,7 @@ async function publish(runId: string) {
 
     await client.query(
       `UPDATE geo.poi_staging s
-       SET canonical_place_id = ps.place_id,
+       SET canonical_place_id = p.id,
            publish_action = CASE
              WHEN p.verification_status = 'lifeflow_verified' THEN 'protected'
              ELSE 'updated'
@@ -199,6 +212,19 @@ async function publish(runId: string) {
          AND ps.source_id = s.source_id`,
       [runId],
     )
+
+    await client.query(`WITH unique_objects AS (
+      SELECT catalog.osm_object_identity(ps.source_id) AS identity,
+        min(ps.place_id::text)::uuid AS place_id
+      FROM catalog.place_sources ps
+      WHERE ps.source_type='osm' AND catalog.osm_object_identity(ps.source_id) IS NOT NULL
+      GROUP BY catalog.osm_object_identity(ps.source_id)
+      HAVING count(DISTINCT ps.place_id)=1
+    ) UPDATE geo.poi_staging s SET canonical_place_id=p.id,
+      publish_action=CASE WHEN p.verification_status='lifeflow_verified' THEN 'protected' ELSE 'updated' END
+    FROM unique_objects u JOIN catalog.places p ON p.id=u.place_id
+    WHERE s.import_run_id=$1 AND s.validation_status='accepted' AND s.publish_action='pending'
+      AND u.identity=s.osm_type || '/' || s.osm_id`, [runId])
 
     await client.query(
       `WITH candidates AS (
@@ -216,6 +242,7 @@ async function publish(runId: string) {
            )
            AND ST_DWithin(p.geog, s.representative_geom::geography,
              CASE WHEN s.name IS NULL THEN 0.5 ELSE 3 END)
+           AND catalog.poi_unit_signature(p.attributes)=catalog.poi_unit_signature(s.raw_tags)
            AND (
              (s.name IS NOT NULL AND p.name IS NOT NULL
                AND geo.normalize_search(p.name) = geo.normalize_search(s.name))
@@ -287,7 +314,8 @@ async function publish(runId: string) {
        JOIN catalog.place_categories c ON c.slug = s.category_slug
        WHERE s.import_run_id = $1 AND s.validation_status = 'accepted'
        ORDER BY s.canonical_place_id,
-         CASE WHEN s.source_id LIKE 'area/%' THEN 1 ELSE 0 END,
+         CASE WHEN s.name IS NULL OR btrim(s.name) = '' THEN 1 ELSE 0 END,
+         CASE WHEN s.source_id LIKE 'area/%' THEN 0 ELSE 1 END,
          s.created_at, s.id
        ON CONFLICT (id) DO UPDATE SET
          category_id = EXCLUDED.category_id,
