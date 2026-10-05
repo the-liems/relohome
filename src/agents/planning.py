@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Protocol
+from uuid import uuid4
 
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel
@@ -56,6 +57,24 @@ class PlannerOutput(BaseModel):
 
 class Planner(Protocol):
     async def plan(self, inp: PlannerInput) -> PlannerOutput: ...
+
+
+def plan_confirmed_moving_quote(previous: Plan | None, inputs: dict) -> tuple[Plan, Task]:
+    """Planner-owned typed intent path, not a natural-language template/classifier.
+
+    A quote form does not authorize pending writes. Existing receipts/results are
+    retained in state; the next explicit booking request must plan its own actions.
+    """
+    tasks = list(previous.tasks) if previous else []
+    targets = [t for t in tasks if t.agent == AgentName.RELOCATION and t.inputs.get("mode") == "quote"]
+    if len(targets) > 1:
+        raise ValueError("Choose the moving task to change; multiple quote tasks are present")
+    old = targets[0] if targets else None
+    task = Task(id=old.id if old else "moving-form-" + uuid4().hex[:12], agent=AgentName.RELOCATION, inputs=inputs)
+    tasks = [task if old and t.id == old.id else t for t in tasks]
+    if not old:
+        tasks.append(task)
+    return Plan(version=(previous.version if previous else 0) + 1, tasks=tasks, commit_actions=[]), task
 
 
 def _empty() -> PlannerOutput:

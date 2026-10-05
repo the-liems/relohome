@@ -11,6 +11,7 @@ import json
 import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -158,7 +159,11 @@ class MovingLlmAgent:
     async def run_task(self, request: AgentTaskRequest) -> AgentTaskResult:
         return await self.run(request)
 
-    async def run(self, req: AgentTaskRequest) -> AgentTaskResult:
+    async def run_form_quote(self, req: AgentTaskRequest) -> AgentTaskResult:
+        """Typed UI intent only; chat continues to use the ordinary autonomous loop."""
+        return await self.run(req, form_quote=True)
+
+    async def run(self, req: AgentTaskRequest, *, form_quote: bool = False) -> AgentTaskResult:
         if rejected := reject_unsupported(req, "ahamove", self.source_kind):
             return rejected
         if req.budget.deadline_at is not None and req.budget.deadline_at.utcoffset() is None:
@@ -172,6 +177,7 @@ class MovingLlmAgent:
             ),
         )
         execution = MovingExecution(self, req, run)
+        execution.form_quote = form_quote
         try:
             if req.agent != AgentName.RELOCATION:
                 return execution.failed("invalid_input", "Task không thuộc Moving.")
@@ -184,6 +190,30 @@ class MovingLlmAgent:
                 return execution.ask(
                     "moving_request", "Cần đủ điểm lấy/giao và ngày giờ chuyển, hoặc mã đơn để tra cứu."
                 )
+            if form_quote:
+                if req.inputs.get("mode") != "quote" or not all(
+                    req.inputs.get(key) for key in ("pickup_coordinate", "destination_coordinate")
+                ):
+                    return execution.ask("moving_request", "Hãy xác nhận cả hai điểm trên bản đồ.")
+                for operation in ("resolve_move_route", "list_moving_services"):
+                    execution.tools.append(operation)
+                    async with asyncio.timeout(run.remaining()):
+                        prepared = await execution.call(operation, {})
+                    if isinstance(prepared, AgentTaskResult):
+                        return prepared
+                # The user already chose this service. Never ask a model to choose it again.
+                selected = (req.inputs.get("moving_options") or {}).get("service_id")
+                if selected:
+                    if selected not in execution.catalog:
+                        return execution.ask(
+                            "service_id", "Gói xe đã chọn không còn trong danh mục tại điểm lấy. Hãy chọn lại."
+                        )
+                    execution.tools.append("estimate_move")
+                    async with asyncio.timeout(run.remaining()):
+                        priced = await execution.call("estimate_move", {"service_ids": [selected]})
+                    if isinstance(priced, AgentTaskResult):
+                        return priced
+                    return await execution.finish_form_quote()
             if not self.api_key or self.api_key.startswith(("your-", "sk-your", "test-")):
                 return execution.failed("provider_unavailable", "Chưa cấu hình LLM.")
             if self.client is None:
@@ -224,6 +254,10 @@ class MovingLlmAgent:
                     ),
                 }
             ]
+            if form_quote:
+                # Provider catalog, not fixed service IDs or first-N rules. The model
+                # retains the useful decision when the user asks SIU to suggest vehicles.
+                history.append({"role": "user", "content": model_json(prepared)})
             while True:
                 # Only offer tools whose prerequisites are met. A completed
                 # quote must not start another catalog/quote loop.
@@ -245,6 +279,7 @@ class MovingLlmAgent:
                         if execution.detail_reads < 2:
                             available.add("get_moving_service")
                 run.reserve()
+                llm_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
                     response = await self.client.responses.create(
                         model=provider_model(self.api_key, self.model),
@@ -257,6 +292,7 @@ class MovingLlmAgent:
                         store=False,
                         **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
                     )
+                execution.llm_ms += (perf_counter() - llm_started) * 1000
                 if response.usage:
                     run.usage.tokens_in += response.usage.input_tokens
                     run.usage.tokens_out += response.usage.output_tokens
@@ -283,6 +319,8 @@ class MovingLlmAgent:
                     output = {"provider_rejected": execution.rejection}
                 if isinstance(output, AgentTaskResult):
                     return output
+                if form_quote and call.name == "estimate_move" and execution.quote is not None:
+                    return await execution.finish_form_quote()
                 history.append(
                     {
                         "type": "function_call_output",
@@ -298,6 +336,8 @@ class MovingLlmAgent:
         except TimeoutError:
             return execution.failed("timeout", "Đã hết thời gian xử lý.", True)
         except ToolCallError as exc:
+            if form_quote and not exc.transport and not exc.retryable and exc.code in REQUEST_REJECTION_CODES:
+                return execution.ask("moving_request", "AhaMove từ chối báo giá: " + public_data(exc.message)[:400])
             return execution.failed(
                 "provider_unavailable" if exc.retryable else "provider_rejected",
                 f"Moving tool failed ({exc.code}).",
@@ -314,6 +354,10 @@ class MovingExecution:
 
     def __init__(self, agent: MovingLlmAgent, req: AgentTaskRequest, run: Invocation):
         self.agent, self.req, self.run = agent, req, run
+        self.form_quote = False
+        self.started = perf_counter()
+        self.llm_ms = 0.0
+        self.tool_timings: list[dict] = []
         self.route: dict | None = None
         self.catalog: dict[str, dict] = {}
         self.catalog_loaded = False
@@ -330,7 +374,7 @@ class MovingExecution:
 
     def result(self, status: str, **kwargs):
         data = dict(kwargs.pop("data", {}))
-        data["agent_trace"] = {"uses_llm": True, "tools": list(self.tools)}
+        data["agent_trace"] = self.trace()
         return AgentTaskResult(
             task_id=self.req.task_id,
             plan_version=self.req.plan_version,
@@ -350,7 +394,28 @@ class MovingExecution:
         result = failed_result(
             self.req, code, message, retryable, "ahamove", self.agent.source_kind, self.run.usage.model_copy()
         )
-        result.data["agent_trace"] = {"uses_llm": True, "tools": list(self.tools)}
+        result.data["agent_trace"] = self.trace()
+        return result
+
+    def trace(self):
+        return {
+            "uses_llm": self.run.usage.llm_calls > 0 if self.form_quote else True,
+            "mode": "structured-form" if self.form_quote else "conversation",
+            "tools": list(self.tools),
+            "timing": {
+                "total_ms": round((perf_counter() - self.started) * 1000),
+                "llm_ms": round(self.llm_ms),
+                "mcp_tools": list(self.tool_timings),
+            },
+        }
+
+    async def finish_form_quote(self):
+        result = await self.call("finish", {"option_ids": []})
+        result.data["agent_completion"] = {
+            "mode": "provider_facts",
+            "model_assessed": False,
+            "scope": "confirmed_form_and_provider_catalog",
+        }
         return result
 
     async def tool(self, client: McpToolClient | None, name: str, args: dict):
@@ -364,7 +429,11 @@ class MovingExecution:
             raise LLMError("LLM_BUDGET", "Hết ngân sách gọi provider.")
         self.run.remaining()
         self.run.usage.provider_calls += 1
-        result = await client.call(name, args)
+        tool_started = perf_counter()
+        try:
+            result = await client.call(name, args)
+        finally:
+            self.tool_timings.append({"tool": name, "elapsed_ms": round((perf_counter() - tool_started) * 1000)})
         self.cache[key] = result
         return result
 
@@ -508,12 +577,20 @@ class MovingExecution:
             self.catalog = {s["service_id"]: s for s in got.get("services", [])}
             selected_service = (inp.get("moving_options") or {}).get("service_id")
             if mode == "quote" and selected_service:
+                # AhaMove's unfiltered catalog may default to INSTANT. A truck
+                # chosen by the user must also be checked against the TRUCK
+                # catalog, without inferring its type from service-ID prefixes.
+                if selected_service not in self.catalog:
+                    trucks = await self.tool(self.agent.moving, name, {**arguments, "delivery_type": "TRUCK"})
+                    self.catalog.update({s["service_id"]: s for s in trucks.get("services", [])})
                 self.catalog = {k: s for k, s in self.catalog.items() if k == selected_service}
             self.catalog_loaded = True
             if mode == "quote" and not self.catalog:
                 return self.ask(
                     "service_id",
-                    "AhaMove hiện không trả dịch vụ chuyển đồ tại điểm lấy này. Bạn muốn kiểm tra điểm lấy khác không?",
+                    "Gói xe đã chọn không còn trong danh mục tại điểm lấy. Hãy chọn lại từ danh mục hiện tại."
+                    if selected_service
+                    else "AhaMove hiện không trả dịch vụ chuyển đồ tại điểm lấy này. Bạn muốn kiểm tra điểm lấy khác không?",
                 )
             return {
                 "services": [
@@ -681,7 +758,16 @@ class MovingExecution:
                     "to_address": self.route["destination"]["address"],
                 },
                 quotes=quotes,
-                source_refs=ordered,
+                source_refs=[
+                    *ordered,
+                    *dict.fromkeys(
+                        r.get("_id") or r.get("request_id")
+                        for s in self.catalog.values()
+                        for r in s.get("requests", [])
+                        if (r.get("_id") or r.get("request_id"))
+                        in {x["request_id"] for x in (inp.get("moving_options") or {}).get("requests", [])}
+                    ),
+                ],
                 missing_fields=[f"quotes[{i}].movers" for i in range(len(items))],
             )
         raise ValueError("Tool not allowed")

@@ -758,11 +758,18 @@ function Chat() {
             }
           : t,
       );
-      const updated = await api<Thread>("/threads/" + id + "/chat", "POST", {
-        request_id: requestId(),
-        message,
-        ...extra,
-      });
+      const quoteForm = extra.moving_quote_form;
+      const updated = await api<Thread>(
+        "/threads/" + id + (quoteForm ? "/moving/quote" : "/chat"),
+        "POST",
+        quoteForm
+          ? {
+              request_id: requestId(),
+              ...quoteForm,
+              plan_version: thread?.state?.plan?.version || 0,
+            }
+          : { request_id: requestId(), message, ...extra },
+      );
       if (currentThread.current === id) setThread(updated);
       await refresh();
     } catch (e) {

@@ -172,3 +172,20 @@ provider-independent models in `@lifeflow/contracts`.
 
 See [internal approval API](../api/moving-internal-approvals.md) and
 [integration response](../integration/moving-service-response.md).
+
+## Confirmed quote form (2026-10-05; issue #52)
+
+- `SPEC-004/AC-26`: A typed quote form with confirmed pickup/destination and time
+  does not invoke Intake/Planner LLM. An explicitly selected service is validated
+  against the actual catalog and quoted without LLM; SIU-auto selection retains
+  the Moving LLM decision over observed provider services. Chat is unchanged.
+- `SPEC-004/AC-27`: Form quoting uses the shared task policy, usage ledger,
+  result/source/expiry validation and LangGraph checkpoint. A new quote increments
+  plan version, clears affected selections and invalidates downstream results,
+  without changing unrelated completed tasks or auto-authorizing a write.
+- `SPEC-004/AC-28`: Ownership, stale version, invalid pins/date/time, pending
+  approvals/payment/reconciliation and active Moving bookings are checked before
+  issuing a replacement quote. Verification uses real staging, not mocked prices.
+
+See [typed API](../api/moving-quote-form.md) and [ADR-022](../adr/ADR-022-confirmed-moving-form-intent.md)
+(Proposed; team review required).

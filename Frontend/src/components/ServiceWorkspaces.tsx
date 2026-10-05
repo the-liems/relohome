@@ -1024,6 +1024,20 @@ export function MovingRequestWorkspace({
       await onConfirm(
         `Báo giá chuyển đồ từ ${pickup} đến ${destination} ngày ${date} lúc ${time}. Chưa đặt đơn.`,
         {
+          ...(locations.pickup && locations.destination
+            ? {
+                moving_quote_form: {
+                  pickup: locations.pickup,
+                  destination: locations.destination,
+                  move_date: date,
+                  move_time: time,
+                  moving_options: options,
+                  ...(useHouse && house
+                    ? { destination_listing_id: house.id }
+                    : {}),
+                },
+              }
+            : {}),
           ...(Object.keys(locations).length
             ? { moving_locations: locations }
             : {}),
