@@ -83,8 +83,8 @@ không đoán loại xe bằng prefix ID. Test ban đầu không qua vì lỗi n
 - `ruff check .`: còn **9 lỗi có sẵn** trên nền QuangDung ở `Frontend/__init__.py`
   và scripts AI log; không trộn sửa CI/logger của teammate vào PR Moving.
 - Không chạy/khẳng định toàn bộ `pytest` xanh; test staging mặc định skip nếu chưa opt-in.
-- Không dùng browser tự bấm/đo thời gian render UI. Đo backend/gateway thật và build
-  frontend, không gọi đó là browser E2E.
+- Lần đầu chưa dùng browser tự bấm/đo thời gian render UI. Follow-up bên dưới bổ
+  sung Chrome E2E thật; không gọi phép đo ASGI ở trên là browser E2E.
 - Test giữ Housing chuẩn bị checkpoint bằng **kết quả nguồn thật**, không đi qua
   Housing LLM/chat; không chứng minh hiểu tham chiếu hội thoại bằng model.
 - SIU-auto đã qua đúng một ca thật, chưa phải bằng chứng cho mọi yêu cầu tự chọn xe.
@@ -99,3 +99,46 @@ không đoán loại xe bằng prefix ID. Test ban đầu không qua vì lỗi n
 [API](../docs/api/moving-quote-form.md). Review kỹ owner/version/quote expiry,
 selection/downstream, quyền ghi state và đường SIU-auto. PR nối tiếp lấy QuangDung
 làm base; sau #42 merge main thì kiểm diff và retarget main. Không tự approve/merge.
+
+## Follow-up: giữ form, catalog và context (cùng issue #52 / PR #53)
+
+- Giữ cùng form/pin/ngày giờ/gói xe trong lúc tạo thread và chờ báo giá; không để
+  effect theo thread/reply đóng form sớm. Lỗi HTTP hoặc làm rõ vẫn ở form; chỉ
+  quote thành công mở bước chọn xe. Người dùng vẫn được thoát/chuyển hội thoại.
+- Cache tối đa 45 giây / 64 query thật, RAM của một Moving client; endpoint/token
+  đổi bỏ cache, query tọa độ chính xác và delivery type tách biệt. Không dùng cache
+  giữa request cho estimate/giá/booking. Refresh bỏ các catalog tại điểm lấy;
+  provider từ chối estimate hoặc addon không khớp bỏ cache. Không cache lỗi/rỗng.
+- UI catalog không còn chỉ nhận INSTANT mặc định: đọc mặc định + TRUCK thật song
+  song, deduplicate theo ID. Form đã tải gói xe thì agent dùng cùng catalog trong
+  hạn, không bắt LLM chọn lại gói đã xác nhận và không hardcode mã xe.
+- Context chi tiết bỏ icon và nhãn đa ngôn ngữ lặp, giữ các request/options/giới
+  hạn và dữ kiện provider thực sự cung cấp. Không đổi tool schema, model hoặc
+  quyền quyết định của SIU-auto. Record đầy đủ ở backend không bị sửa.
+
+Kiểm thật sau sửa: **4 test backend passed**, gồm 3 ca trước và thêm scope/copy/
+expiry/refresh/projection; LLM test skip, không chạy lại. Browser thêm **2 ca Chrome
+passed** qua wrapper opt-in, socket backend/gateway thật, auth/session, Location
+và AhaMove staging thật; không interception hoặc fixture provider. Fresh thread
+và lỗi 422 rồi sửa lịch đều không mất form/remount, quote đúng nguồn và không
+commit; usage ledger xác nhận 0 Intake/Planner/domain LLM. Xe trong browser được
+operator chọn từ dòng `delivery_type=TRUCK` thật, không suy ra từ prefix ID.
+Browser từ click đến render quote lần cuối: **2.177 ms** (fresh thread) và
+**1.755 ms** (sửa lịch sau 422). Backend/gateway/DB đều riêng cho test, không phải
+đo tải đồng thời nhiều người dùng hoặc giao dịch đặt đơn.
+
+Đo backend cold selected service: **4.359 ms**, 2 catalog read + estimate.
+Requote đổi giờ, cùng điểm lấy, catalog còn hạn: **1.005 ms**, chỉ **1 provider call**
+(estimate mới), 2 cache hit, quote ID mới và bỏ selection cũ, **0 LLM/token**.
+Đây là cold/warm cùng runtime, không hứa mọi request đạt 1 giây; cold, provider
+chậm hoặc cache hết hạn vẫn cần đọc catalog.
+
+Model JSON của một detail thật trước/sau: **32.022 → 17.568 byte UTF-8**, giảm khoảng
+45%; giữ 15 request. Payload provider đầy đủ khoảng 90 KB nhưng `provider_data`
+đã bị loại trước khi gửi model ở bản cũ; không coi 90 KB là input LLM cũ.
+Đây là số byte, **không phải số token/credit đã đo**, và không chạy SIU-auto lại
+sau projection vì ngân sách test trả phí trước đã dùng hết. Không suy ra tốc độ
+hay chất lượng LLM mới từ phép đo này.
+
+Build frontend/TypeScript và Ruff `src/` + test/gateway thay đổi sạch. Chưa có CI
+trên PR base QuangDung, chưa full pytest, chưa merge/deploy hoặc thay demo gốc.

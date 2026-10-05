@@ -1,5 +1,6 @@
 """Structured read/selection actions for the SIU web client; never commits orders."""
 
+import asyncio
 from datetime import datetime
 from typing import Literal
 
@@ -57,14 +58,32 @@ def client_for(service, domain):
 
 
 @router.get("/moving/services")
-async def moving_services(service: Service, lat: float = Query(ge=-90, le=90), lng: float = Query(ge=-180, le=180)):
+async def moving_services(
+    service: Service, lat: float = Query(ge=-90, le=90), lng: float = Query(ge=-180, le=180), refresh: bool = False
+):
     """Read the provider's catalog for the confirmed pickup. No write credentials or raw provider data."""
     agent = service.deps.agents.get(AgentName.RELOCATION)
     client = getattr(agent, "moving", None) or getattr(agent, "client", None)
     if client is None:
         raise HTTPException(503, "Dịch vụ chuyển đồ chưa được kết nối.")
     try:
-        raw = await client.call("list_moving_services", {"lat": lat, "lng": lng})
+        arguments = {"lat": lat, "lng": lng}
+        catalog_cache = getattr(agent, "catalog_cache", None)
+        if refresh and catalog_cache is not None:
+            catalog_cache.invalidate(arguments)
+
+        async def read_catalog(query):
+            return (
+                await catalog_cache.read(query)
+                if catalog_cache is not None
+                else await client.call("list_moving_services", query)
+            )
+
+        # The default provider catalog can contain only INSTANT. Include actual
+        # TRUCK services too, reading independent catalogs in parallel.
+        catalogs = await asyncio.gather(read_catalog(arguments), read_catalog({**arguments, "delivery_type": "TRUCK"}))
+        services = {row["service_id"]: row for catalog in catalogs for row in (catalog or {}).get("services", [])}
+        raw = {"services": list(services.values())}
     except ToolCallError:
         raise HTTPException(502, "Chưa tải được gói xe và tùy chọn AhaMove. Hãy thử lại.") from None
     request_keys = (

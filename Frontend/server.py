@@ -451,8 +451,8 @@ def create_app(database=None, transport=None):
         return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
 
     @app.get("/web/api/moving/services")
-    async def moving_services(request: Request, lat: float, lng: float):
-        params = str(httpx.QueryParams({"lat": lat, "lng": lng}))
+    async def moving_services(request: Request, lat: float, lng: float, refresh: bool = False):
+        params = str(httpx.QueryParams({"lat": lat, "lng": lng, "refresh": refresh}))
         return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
 
     @app.post("/web/api/platform/{resource:path}")

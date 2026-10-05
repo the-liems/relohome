@@ -6,11 +6,15 @@ Three tests make no model calls; SIU-auto requires an additional explicit paid o
 The default suite skips these tests; it never substitutes invented provider results.
 """
 
+import asyncio
 import json
 import os
 import secrets
+import socket
+import subprocess
 from copy import deepcopy
 from datetime import timedelta
+from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
@@ -141,6 +145,7 @@ async def test_real_form_quote_selection_requote_and_rejections(runtime):
 
     changed = deepcopy(body)
     changed.update(plan_version=1, move_time="11:00" if body["move_time"] != "11:00" else "12:00")
+    started = perf_counter()
     requote = await http.post(path, json=changed)
     assert requote.status_code == 200 and requote.json()["response"]["kind"] == "ANSWER", requote.text
     state = (await service.graph.aget_state(run_config(thread, service.deps))).values
@@ -149,9 +154,80 @@ async def test_real_form_quote_selection_requote_and_rejections(runtime):
     assert state["task_results"][task.id].data["quote_id"] != result.data["quote_id"]
     assert state["intake"].constraints.values["move_time"] == changed["move_time"]
     assert not state["plan"].commit_actions and not state.get("committed")
+    requoted = state["task_results"][task.id]
+    assert requoted.usage.provider_calls == 1  # Fresh estimate; catalog reads hit the short-lived cache.
+    assert requoted.usage.cached_calls >= 1
+    print(
+        json.dumps(
+            {
+                "case": "warm_requote",
+                "elapsed_ms": round((perf_counter() - started) * 1000),
+                "usage": requoted.usage.model_dump(),
+                "agent_timing": requoted.data["agent_trace"]["timing"],
+            }
+        )
+    )
 
     counts = await service.deps.usage.counts(thread)
     assert counts.llm_calls == counts.subagent_llm_calls == 0
+
+
+async def test_real_catalog_cache_scope_expiry_and_detail_projection(runtime):
+    from src.agents.llm_context import model_json
+    from src.agents.subagents.services.moving_context import service_details_for_model
+
+    service, http, body, _ = runtime
+    moving = service.deps.agents.get(AgentName.RELOCATION)
+    cache = moving.catalog_cache
+    arguments = {k: body["pickup"][k] for k in ("lat", "lng")}
+    catalog = await moving.moving.call("list_moving_services", arguments)
+    assert catalog["services"]
+    cache.put(arguments, catalog)
+    returned = cache.get(arguments)
+    returned["services"].clear()
+    assert cache.get(arguments)["services"]  # Per-request mutation cannot poison another request.
+    other_point = {k: body["destination"][k] for k in ("lat", "lng")}
+    assert arguments != other_point and cache.get(other_point) is None
+    assert cache.get({**arguments, "delivery_type": "TRUCK"}) is None
+    response = await http.get("/api/v1/ui/moving/services", params=arguments)
+    assert response.status_code == 200 and response.json()["services"]
+    assert body["moving_options"]["service_id"] in {s["service_id"] for s in response.json()["services"]}
+    cache.put(
+        {**arguments, "delivery_type": "TRUCK"},
+        await moving.moving.call("list_moving_services", {**arguments, "delivery_type": "TRUCK"}),
+    )
+    cache.invalidate(arguments)
+    assert cache.get(arguments) is None and cache.get({**arguments, "delivery_type": "TRUCK"}) is None
+    refreshed = await http.get("/api/v1/ui/moving/services", params={**arguments, "refresh": "true"})
+    assert refreshed.status_code == 200 and cache.get(arguments)["services"]
+
+    # Expiry uses actual monotonic time, not a substituted clock/provider result.
+    cache.ttl_seconds = 0
+    cache.clear()
+    cache.put(arguments, catalog)
+    assert cache.get(arguments) is None
+    cache.ttl_seconds = 45
+    observed = await moving.moving.call("get_moving_service", {"service_id": body["moving_options"]["service_id"]})
+    original = deepcopy(observed)
+    projection = service_details_for_model(observed)
+    assert observed == original
+    assert projection["service"]["service_id"] == observed["service"]["service_id"]
+    assert "provider_data" not in projection["service"]
+    assert len(projection["service"]["requests"]) == len(observed["service"]["requests"])
+    for key, value in projection["service"].get("provider_constraints", {}).items():
+        assert value == observed["service"]["provider_data"][key]
+    before, after = len(model_json(observed).encode()), len(model_json(projection).encode())
+    assert after < before
+    print(
+        json.dumps(
+            {
+                "case": "actual_detail_projection",
+                "model_json_bytes_before": before,
+                "model_json_bytes_after": after,
+                "requests_preserved": len(projection["service"]["requests"]),
+            }
+        )
+    )
 
 
 async def test_real_gateway_authentication_quote_and_idempotent_replay(runtime):
@@ -262,6 +338,65 @@ async def test_form_preserves_real_housing_result_and_selection(runtime):
     )
     assert after["plan"].version == 2 and len(after["plan"].tasks) == 2
     assert (await service.deps.usage.counts(thread)).subagent_llm_calls == 0
+
+
+@pytest.mark.skipif(os.getenv("RUN_LIVE_MOVING_BROWSER") != "1", reason="Separate real browser opt-in required")
+async def test_real_browser_form_stays_open_and_retains_inputs(runtime):
+    import uvicorn
+
+    from Frontend.server import create_app
+
+    service, _, _, tmp_path = runtime
+    assert service.deps.agents.get(AgentName.RELOCATION).api_key == ""
+
+    def free_port():
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+    backend_port, gateway_port = free_port(), free_port()
+    old_base = os.environ.get("LIFEFLOW_API_BASE_URL")
+    os.environ["LIFEFLOW_API_BASE_URL"] = f"http://127.0.0.1:{backend_port}/api/v1"
+    gateway = create_app(database=str(tmp_path / "browser.sqlite3"))
+    servers = [
+        uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=backend_port, lifespan="off", log_level="warning")),
+        uvicorn.Server(uvicorn.Config(gateway, host="127.0.0.1", port=gateway_port, log_level="warning")),
+    ]
+    jobs = [asyncio.create_task(server.serve()) for server in servers]
+    try:
+        async with asyncio.timeout(20):
+            while not all(server.started for server in servers):
+                await asyncio.sleep(0.02)
+        frontend = Path(__file__).resolve().parents[2] / "Frontend"
+        env = {**os.environ, "MOVING_BROWSER_BASE_URL": f"http://127.0.0.1:{gateway_port}"}
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [
+                "node",
+                str(frontend / "node_modules/@playwright/test/cli.js"),
+                "test",
+                "--config=playwright.live.config.ts",
+            ],
+            cwd=frontend,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=120,
+        )
+        print(result.stdout)
+        assert result.returncode == 0, result.stderr + result.stdout
+        for thread in gateway.state.store.all("SELECT id FROM threads"):
+            counts = await service.deps.usage.counts(thread["id"])
+            assert counts.llm_calls == counts.subagent_llm_calls == 0
+    finally:
+        for server in servers:
+            server.should_exit = True
+        await asyncio.gather(*jobs)
+        if old_base is None:
+            os.environ.pop("LIFEFLOW_API_BASE_URL", None)
+        else:
+            os.environ["LIFEFLOW_API_BASE_URL"] = old_base
 
 
 @pytest.mark.skipif(

@@ -186,6 +186,18 @@ See [internal approval API](../api/moving-internal-approvals.md) and
 - `SPEC-004/AC-28`: Ownership, stale version, invalid pins/date/time, pending
   approvals/payment/reconciliation and active Moving bookings are checked before
   issuing a replacement quote. Verification uses real staging, not mocked prices.
+- `SPEC-004/AC-29`: The confirmed form remains mounted during thread creation and
+  quote submission. A rejected request retains pins, time and service choice;
+  success opens actual quotes directly without a flash back to the chat.
+- `SPEC-004/AC-30`: UI and agent may reuse actual catalogs for at most 45 seconds,
+  within one provider/client scope and exact pickup/city/delivery-type query.
+  Explicit refresh and provider refusal invalidate catalogs. Quotes/prices and
+  writes are never served from this cross-request cache. Default and TRUCK
+  catalogs are read in parallel for the UI, without invented service IDs.
+- `SPEC-004/AC-31`: Service detail model context omits presentation fields and
+  duplicate language labels, not request IDs/options/limits. Observed vehicle
+  constraints can be projected from redacted provider records; stored detail
+  remains unchanged and the agent still chooses its tools.
 
 See [typed API](../api/moving-quote-form.md) and [ADR-022](../adr/ADR-022-confirmed-moving-form-intent.md)
 (Proposed; team review required).

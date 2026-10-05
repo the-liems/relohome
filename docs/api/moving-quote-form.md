@@ -25,6 +25,15 @@ Planner helper → Moving node qua policy chung → kiểm kết quả → cost/
 cùng checkpoint. Không gọi Intake hoặc Planner LLM.
 
 - Người dùng chọn gói xe: kiểm catalog hiện tại + estimate thật, 0 LLM.
+- Catalog đọc thật được giữ tối đa 45 giây trong RAM của cùng Moving client;
+  khóa theo đúng tọa độ/city/delivery type, không làm tròn tọa độ. UI và agent dùng
+  chung catalog; endpoint/credential đổi sẽ bỏ cache. Không cache giá, quote hoặc
+  giao dịch giữa các request. Đổi ngày giờ/điểm giao/tùy chọn vẫn estimate mới.
+- UI đọc catalog mặc định và TRUCK song song, gộp theo ID provider để không mất
+  các xe tải. `GET /ui/moving/services?lat=...&lng=...&refresh=true` bỏ cache của
+  điểm lấy, gồm các biến thể delivery type; nút tải lại sử dụng đường này.
+- Provider từ chối estimate hoặc addon không khớp sẽ bỏ catalog cache; không tự
+  đổi xe/ngày giờ hay lấy giá cũ để che lỗi.
 - SIU chọn xe: catalog thật → Moving LLM quyết định → estimate thật; không thêm lượt
   model chỉ để trả kết quả. Không dùng danh sách mã xe cố định hoặc lấy N xe đầu.
 - Thiếu pin: frontend giữ đường chat thông thường và hỏi làm rõ, không vào endpoint này.
@@ -68,3 +77,13 @@ Ca SIU-auto có chi phí riêng: thêm `RUN_LIVE_MOVING_FORM_LLM=1` và chỉ ch
 `test_real_siu_vehicle_suggestion_at_most_two_model_calls` sau khi operator duyệt.
 Test đặt trần 2 lượt LLM; không tự chạy lại khi hết budget. Các ca khác giữ key
 Moving trống trong test để không gọi model.
+
+Ca browser riêng: build frontend trước (`npm run build --prefix Frontend`), cài
+Chrome và thêm `RUN_LIVE_MOVING_BROWSER=1`. Chạy riêng
+`test_real_browser_form_stays_open_and_retains_inputs`: backend/gateway chạy qua
+socket thật trên port tạm, web/state DB riêng; Playwright chỉ chạy
+`Frontend/playwright.live.config.ts`, không dùng route interception/fixture provider.
+Hai ca trên tuyến thật Chợ Bến Thành → Bưu điện Trung tâm Sài Gòn (nguồn trong eval):
+thread mới → pin từ Location thật → xe TRUCK từ AhaMove → báo giá; và backend
+từ chối lịch dưới 30 phút → giữ pin/ngày giờ/gói xe → sửa lịch → báo giá. Không
+gọi model, đặt xe hoặc thanh toán. Không chạy bộ browser fixture cũ để thay thế.

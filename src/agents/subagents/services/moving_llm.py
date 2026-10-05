@@ -27,6 +27,8 @@ from src.agents.models import AgentBudget, AgentName, LocationChoice, Question, 
 from src.agents.subagents.capabilities import RELOCATION
 from src.agents.subagents.services.location import MIN_SUGGESTION_SCORE, location_choices, to_candidate
 from src.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
+from src.agents.subagents.services.moving_catalog import MovingCatalogCache
+from src.agents.subagents.services.moving_context import service_details_for_model
 from src.models.moving_options import apply_draft_options, service_selection, validated_options
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
@@ -131,6 +133,7 @@ class MovingLlmAgent:
         self.api_key, self.model, self.moving = api_key, model, moving
         self.location, self.contact, self.source_kind, self.clock = location, contact, source_kind, clock
         self.client: AsyncOpenAI | None = None
+        self.catalog_cache = MovingCatalogCache(moving)
         self.capability = RELOCATION.model_copy(deep=True)
         self.capability.uses_llm = True
         self.capability.default_budget = AgentBudget(max_llm_calls=8, max_provider_calls=8)
@@ -425,6 +428,15 @@ class MovingExecution:
         if key in self.cache:
             self.run.usage.cached_calls += 1
             return self.cache[key]
+        catalog_read = client is self.agent.moving and name == "list_moving_services"
+        if catalog_read:
+            self.run.remaining()
+            observed = self.agent.catalog_cache.get(args)
+            if observed is not None:
+                self.run.usage.cached_calls += 1
+                self.tool_timings.append({"tool": name, "elapsed_ms": 0, "cache_hit": True})
+                self.cache[key] = observed
+                return observed
         if self.run.usage.provider_calls >= min(self.req.budget.max_provider_calls, 8):
             raise LLMError("LLM_BUDGET", "Hết ngân sách gọi provider.")
         self.run.remaining()
@@ -432,9 +444,15 @@ class MovingExecution:
         tool_started = perf_counter()
         try:
             result = await client.call(name, args)
+        except ToolCallError:
+            if client is self.agent.moving and name in {"list_moving_services", "estimate_move"}:
+                self.agent.catalog_cache.clear()
+            raise
         finally:
             self.tool_timings.append({"tool": name, "elapsed_ms": round((perf_counter() - tool_started) * 1000)})
         self.cache[key] = result
+        if catalog_read:
+            self.agent.catalog_cache.put(args, result)
         return result
 
     async def point(self, address: str, coordinate: dict | None):
@@ -608,7 +626,7 @@ class MovingExecution:
                 raise ValueError("Unknown service")
             got = await self.tool(self.agent.moving, name, {"service_id": args["service_id"]})
             self.detail_reads += 1
-            return public_data(got)
+            return service_details_for_model(got)
         if name == "estimate_move":
             options = validated_options(inp.get("moving_options"))
             ids = [options["service_id"]] if options.get("service_id") else args["service_ids"]
@@ -641,6 +659,7 @@ class MovingExecution:
             try:
                 services = [service_selection(self.catalog[s], options) for s in ids]
             except ValueError as exc:
+                self.agent.catalog_cache.clear()
                 return self.ask("service_id", str(exc))
             draft = apply_draft_options(draft, options)
             got = await self.tool(self.agent.moving, name, {"draft": draft, "services": services})

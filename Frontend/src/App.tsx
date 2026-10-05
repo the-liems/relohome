@@ -664,6 +664,10 @@ function Chat() {
     [context, setContext] = useState<HouseData | null>(null),
     [newMessage, setNewMessage] = useState(false),
     [workspace, setWorkspace] = useState<string | null>(null);
+  const [movingSubmission, setMovingSubmission] = useState<{
+    threadId?: string;
+    formKey: string;
+  } | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     nearBottom = useRef(true),
@@ -722,6 +726,12 @@ function Chat() {
   }
   async function send(text: string, extra: Data = {}) {
     if (inFlight.current || !text.trim()) return;
+    const quoteForm = extra.moving_quote_form;
+    const formKey = movingSubmission?.formKey || lastAssistant?.id || "new";
+    if (quoteForm) {
+      setMovingSubmission({ threadId, formKey });
+      setWorkspace("relocation-form");
+    } else setMovingSubmission(null);
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -733,6 +743,7 @@ function Chat() {
       if (!id) {
         const created = await api<Thread>("/threads", "POST");
         id = created.id;
+        if (quoteForm) setMovingSubmission({ threadId: id, formKey });
         setThread(created);
         navigate("/ai/" + id, { replace: true });
         currentThread.current = id;
@@ -758,7 +769,6 @@ function Chat() {
             }
           : t,
       );
-      const quoteForm = extra.moving_quote_form;
       const updated = await api<Thread>(
         "/threads/" + id + (quoteForm ? "/moving/quote" : "/chat"),
         "POST",
@@ -770,7 +780,27 @@ function Chat() {
             }
           : { request_id: requestId(), message, ...extra },
       );
-      if (currentThread.current === id) setThread(updated);
+      if (currentThread.current === id) {
+        setThread(updated);
+        if (quoteForm) {
+          const reply = [...updated.messages]
+            .reverse()
+            .find((m) => m.role === "assistant");
+          const hasQuotes =
+            reply?.content.response?.kind === "ANSWER" &&
+            (reply.content.ui?.components || []).some(
+              (c: Component) =>
+                c.type === "relocation" &&
+                c.data?.quotes?.length &&
+                !c.data?.order,
+            );
+          if (hasQuotes) {
+            setMovingSubmission(null);
+            setWorkspace("relocation");
+          }
+          // A clarification/error keeps the same mounted form and its confirmed pins.
+        }
+      }
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -961,6 +991,15 @@ function Chat() {
   );
   // The newest message decides: a confirmation request, a service result, or plain chat.
   useEffect(() => {
+    if (movingSubmission) {
+      if (
+        threadId === movingSubmission.threadId ||
+        (inFlight.current && !threadId)
+      )
+        return;
+      // Explicit navigation to another conversation must not retain this form.
+      setMovingSubmission(null);
+    }
     setWorkspace(
       movingQuestions.length
         ? "relocation-form"
@@ -968,6 +1007,8 @@ function Chat() {
           ? (latestService?.c.type ?? null)
           : null,
     );
+    // Only a new server reply or navigation auto-opens a workspace. A local
+    // submit/exit state change must not override the user's explicit workspace choice.
   }, [lastAssistant?.id, threadId]);
   const chatDock = {
     text: lastAssistant?.content.response?.text,
@@ -1018,7 +1059,7 @@ function Chat() {
       />
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
-          key={lastAssistant?.id || "new"}
+          key={movingSubmission?.formKey || lastAssistant?.id || "new"}
           questions={movingQuestions}
           known={movingKnown}
           house={selectedHouse}
@@ -1031,7 +1072,10 @@ function Chat() {
             suggestions: [],
           }}
           onConfirm={(text, extra) => send(text, extra)}
-          onExit={() => setWorkspace(null)}
+          onExit={() => {
+            setMovingSubmission(null);
+            setWorkspace(null);
+          }}
         />
       ) : workspace === "flight" && latestFlight ? (
         <FlightWorkspace
