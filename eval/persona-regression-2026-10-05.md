@@ -180,4 +180,3 @@ Intake/Map; không giấu trong PR tối ưu báo giá.
 Theo [OpenAI evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices):
 đánh giá theo nhiệm vụ và trace thực tế, tách giới hạn kiểm thử khỏi chất lượng
 sản phẩm; không coi label PASS lịch sử hoặc chỉ một response kind là đủ.
-
