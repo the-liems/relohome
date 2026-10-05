@@ -53,6 +53,8 @@ Runtime state, approval records, and encrypted PII are stored locally. Deploymen
 
 The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The [shared tool catalogue](docs/specs/SPEC-008-service-tools.md) describes proposed contracts and vendor lifecycles. The [roadmap](docs/roadmap.md) owns delivery milestones.
 
+The [interactive housing search spec](docs/specs/SPEC-016-housing-search.md) preserves the desktop list/map and automatic viewport-search baseline and distinguishes it from the current MapLibre workspace, Location contracts, and provider-backed home-selection path. Its remaining proposals cover shared requirements, evidence assessment, location precision, and selection provenance. Browsing or focusing a card does not choose a home; an explicit home choice can invalidate dependent plan results.
+
 The [product flow and dependency diagrams](docs/architecture_diagram.md) and [issue/PR map](docs/work-in-progress.md) capture the baseline and proposals from 2026-09-30. The integrated graph is described in [agent-graph.md](docs/architecture/agent-graph.md). Architectural decisions are indexed under [docs/adr/](docs/adr/README.md).
 
 ## Running and verifying

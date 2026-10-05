@@ -4,7 +4,7 @@ Status: Draft proposal. The team intends to expose each service through MCP and 
 
 Owner: unassigned. Reviewers: AI system, housing, recommendation, packing, transport, map utilities, and application security contributors. Implementation issue: not yet assigned.
 
-Related: [product brief](../product.md), [architecture](../../ARCHITECTURE.md), and [branch work](../work-in-progress.md).
+Related: [housing search](SPEC-016-housing-search.md), [product brief](../product.md), [architecture](../../ARCHITECTURE.md), and [branch work](../work-in-progress.md).
 
 ## Goal and scope
 
@@ -20,6 +20,8 @@ The AI system is confirmed as the component that orchestrates workflows and call
 | `get_housing` | Listing ID | Full description, images, structured facts, location, provenance, and availability information where known |
 
 Search applies supported geographic and structured constraints. Description search may help discover candidates for custom requirements. Report requirements not supported in retrieval; retrieval relevance does not establish that a requirement is satisfied. Recommendation performs evidence-based assessment.
+
+The current Location [housing schemas](../../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts) and [housing query spec](SPEC-010-tim-nha-o.md) define supported retrieval filters. Unsupported custom criteria remain explicit and pending/unknown for assessment; they must not become false matches or false zero-result claims. A failure to evaluate a supported hard constraint is an unavailable/failed search, not permission to retry without the constraint. Shared assessment and selection-provenance semantics are proposed in [Interactive housing search](SPEC-016-housing-search.md).
 
 Query the current area and requirements rather than only filtering an earlier candidate set. No fixed candidate count or cheapest-first policy is assumed. Report partial coverage. Descriptions can be included in search results or retrieved through details; bulk details are an optional optimization.
 
@@ -106,7 +108,7 @@ MCP provides tool schemas, structured results, and annotations; these workflow a
 
 ## First implementation sequence (proposed)
 
-1. Housing search/details, recommendation, and location resolution establish the housing discovery and requirement-assessment flow. Add route/nearby evaluation for requirements that need them.
+1. Housing search/details, recommendation, and location resolution establish [SPEC-016 — Interactive housing search](SPEC-016-housing-search.md). Add route/nearby evaluation for requirements that need them.
 2. Add AhaMove moving discovery/quotes, including supported packing needs. Confirm the proposed packing/moving grouping and select travel modes/providers for the required travel-booking flow.
 3. Complete one approved booking lifecycle, including status lookup and compensation/reconciliation. Discovery and quotes alone do not meet the full orchestrator execution goal.
 4. Complete both moving and travel-booking lifecycles for the MVP, including per-action approval, status lookup, and recovery. Add further vendor extensions as needed.

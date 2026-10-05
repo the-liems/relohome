@@ -44,7 +44,13 @@ The technical direction is an LLM with LangGraph for the multi-step state machin
 | Approve actions | Approve or reject each paid action separately with the exact action and current price visible. | No paid call can run before its own approval. |
 | Track and recover | See progress, confirmations, failures, and any cancellation, refund, or manual follow-up required. | Uses checkpoints and service-specific recovery rules. |
 
-Housing search and selection are distinct from signing a lease. The current [housing issue](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/6) describes read-only query tools and notes that real listing data has not yet been imported. The current [flight issue](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/10) describes live search data with simulated booking. These are branch reports, not integrated product claims.
+Housing search and selection are distinct from signing a lease. The integrated housing service has read-only query tools and an ingestion pipeline; the [Location data report](integration/location-data-status.md) records dated import evidence, not a guarantee of current listing availability. The integrated runtime supports flight search but disables flight booking; see the [architecture](../ARCHITECTURE.md#approvals-and-service-limits) for current transaction limits.
+
+## Interactive housing search
+
+The team has confirmed a desktop layout with housing listings on the left and a map on the right, with automatic visible-area search after dragging or zooming. The current MapLibre workspace retrieves viewport results and exposes filters and chat. Broad searches show area/cluster guidance before listing individual homes. Shared custom requirements and evidence assessment remain part of the target behavior.
+
+The [housing search spec](specs/SPEC-016-housing-search.md) records that baseline, current implementation evidence, and remaining proposals for shared requirements, description-based assessment, synchronized cards and markers, refresh failures, and explicit home choice. Its acceptance criteria are not a claim that every behavior is implemented. Shared interaction and prompt placement remain under review in [#28](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/28).
 
 ## Changing a finalized plan
 

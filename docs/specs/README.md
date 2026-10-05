@@ -11,6 +11,7 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
 | SPEC | Status | Scope |
 |---|---|---|
+| [SPEC-016 — Interactive housing search](SPEC-016-housing-search.md) | Draft; desktop list/map and automatic viewport search confirmed | Housing interaction, custom requirements, explicit home choice, and current implementation gaps |
 | [SPEC-008 — Domain MCP tool catalogue](SPEC-008-service-tools.md) | Draft | Proposed tool inputs/outputs, booking lifecycles, approval, and recovery |
 
 The shared catalogue and the Maps/POI specification both carry the existing identifier SPEC-008. Use their full titles and filenames when linking them; they describe different scopes. Implementation progress is tracked in GitHub issues and PRs.
