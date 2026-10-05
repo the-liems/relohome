@@ -1,10 +1,14 @@
 # Overlay for an isolated CI job: ephemeral random published ports, project-scoped volume.
 services:
   moving-mcp:
+    image: ${COMPOSE_PROJECT_NAME:-lifeflow-moving}-moving-mcp:ci
     ports: !override ['127.0.0.1::4400']
     restart: 'no'
   moving-api:
+    image: ${COMPOSE_PROJECT_NAME:-lifeflow-moving}-moving-api:ci
     ports: !override ['127.0.0.1::4200']
     restart: 'no'
   moving-db:
     restart: 'no'
+  moving-migrate:
+    image: ${COMPOSE_PROJECT_NAME:-lifeflow-moving}-moving-migrate:ci

@@ -15,9 +15,14 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     outputs:
       moving: ${{ steps.paths.outputs.moving }}
       validate: ${{ steps.paths.outputs.validate }}
@@ -25,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh
       - id: paths
         shell: bash
         env:
@@ -40,7 +47,7 @@ jobs:
             while IFS= read -r path; do
               case "$path" in
                 *.md) continue ;;
-                'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml') validate=true ;;
+                'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
               esac
               case "$path" in
                 */tests/*|*.md|*compose.moving*|*/scripts/test-moving*|*/scripts/verify-moving*) continue ;;
@@ -59,7 +66,10 @@ jobs:
   validate:
     needs: changes
     if: needs.changes.outputs.validate == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: moving-validate-${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
         working-directory: Maps VN/LifeFlow
@@ -68,6 +78,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify runner tools
+        working-directory: .
+        run: bash scripts/check-ci-runner.sh node docker compose
       - run: npm ci && npm run build:moving && npm run test:ci
       - name: Validate scripts and Compose without calling the provider
         shell: bash
@@ -75,6 +88,7 @@ jobs:
           node --check scripts/moving-stack.mjs
           node --check scripts/test-moving-native.mjs
           node --check scripts/verify-moving-deployment.mjs
+          bash -n scripts/verify-moving-ci.sh
           export MOVING_DB_ADMIN_PASSWORD=$(openssl rand -hex 32)
           export MOVING_DB_APP_PASSWORD=$(openssl rand -hex 32)
           export MOVING_MCP_AUTH_TOKEN=$(openssl rand -hex 32)
@@ -84,11 +98,16 @@ jobs:
           docker compose -f compose.moving.yaml config --quiet
           docker compose -f compose.moving.yaml -f compose.moving.ci.yaml config --quiet
           docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
+          bash scripts/verify-moving-ci.sh --check-imports
+      - name: Remove only this job's verifier
+        if: always()
+        run: docker rm -fv "$COMPOSE_PROJECT_NAME-verify" 2>/dev/null || true
 
   images:
     needs: [changes, validate]
     if: needs.changes.outputs.moving == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -99,6 +118,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh docker && docker buildx version
       - id: image
         shell: bash
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.target }}" >> "$GITHUB_OUTPUT"
@@ -130,7 +151,8 @@ jobs:
   live-staging:
     needs: images
     if: github.event_name == 'workflow_dispatch' && inputs.verify_staging
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     environment: moving-staging
     defaults:
       run:
@@ -145,6 +167,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify runner tools
+        working-directory: .
+        run: bash scripts/check-ci-runner.sh node docker compose
       - name: Require actual staging credentials and generate infrastructure secrets
         shell: bash
         run: |
@@ -159,22 +184,25 @@ jobs:
         run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml up --build -d --wait --wait-timeout 180
       - name: Verify actual container endpoints and staging API
         shell: bash
-        run: |
-          export MOVING_MCP_URL="http://$(docker compose -f compose.moving.yaml -f compose.moving.ci.yaml port moving-mcp 4400)/mcp"
-          export MOVING_API_URL="http://$(docker compose -f compose.moving.yaml -f compose.moving.ci.yaml port moving-api 4200)"
-          npm run test:moving:deployment
+        run: bash scripts/verify-moving-ci.sh
       - name: Collect diagnostics before cleanup
         if: always()
         run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml logs --no-color --tail 100
       - name: Remove only this job's disposable stack
         if: always()
-        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml down --volumes
+        run: |
+          docker rm -fv "$COMPOSE_PROJECT_NAME-verify" 2>/dev/null || true
+          docker compose -f compose.moving.yaml -f compose.moving.ci.yaml down --volumes --remove-orphans
+      - name: Remove only this job's images
+        if: always()
+        run: docker image rm "$COMPOSE_PROJECT_NAME-moving-mcp:ci" "$COMPOSE_PROJECT_NAME-moving-api:ci" "$COMPOSE_PROJECT_NAME-moving-migrate:ci" || true
 
   gate:
     name: Moving container gate
     if: always()
     needs: [changes, validate, images, live-staging]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     steps:
       - name: Check all requested work completed
         env:

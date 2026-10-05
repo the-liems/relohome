@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint-and-test:
-    runs-on: [self-hosted, team-44]
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +23,12 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+
+      - name: Create job-local Python environment
+        run: bash scripts/setup-ci-python.sh
+
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh python
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -31,32 +42,41 @@ jobs:
           APP_ENV: test
           OPENAI_API_KEY: test-key
 
+      - name: Remove job-local Python environment
+        if: always()
+        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi
+
   mcp-images:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    env:
+      MCP_IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh docker mcp
 
       - name: Build Docker image of every MCP server
         run: make mcp-build
 
       - name: Smoke test every MCP server container
+        run: bash scripts/smoke-mcp-containers.sh
+
+      - name: Remove only this job's containers and images
+        if: always()
         run: |
+          # Fallback if cancellation interrupted the smoke script's EXIT trap.
+          docker ps -aq --filter "label=lifeflow.ci.mcp=$MCP_IMAGE_TAG" | xargs -r docker rm -fv
           for dockerfile in src/mcp_servers/*/Dockerfile; do
             server=$(basename "$(dirname "$dockerfile")")
-            port=$(awk '/^EXPOSE/ {print $2; exit}' "$dockerfile")
-            docker run -d --name "$server-mcp" -p "$port:$port" "$server-mcp:latest"
-            for i in $(seq 1 30); do
-              [ "$(docker inspect -f '{{.State.Health.Status}}' "$server-mcp")" = healthy ] && break
-              sleep 2
-            done
-            curl --fail --silent "http://localhost:$port/health"
-            echo
-            docker rm -f "$server-mcp"
+            docker image rm "$server-mcp:$MCP_IMAGE_TAG" || true
           done
 
   lifeflow-typescript:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
 
     defaults:
       run:
@@ -71,6 +91,10 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+
+      - name: Verify runner tools
+        working-directory: .
+        run: bash scripts/check-ci-runner.sh node
 
       - name: Install dependencies
         run: npm ci

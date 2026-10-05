@@ -2,6 +2,7 @@
 
 # Mỗi MCP server là một thư mục src/mcp_servers/<tên>/ có Dockerfile riêng -> image/service <tên>-mcp
 MCP_SERVERS := $(notdir $(patsubst %/Dockerfile,%,$(wildcard src/mcp_servers/*/Dockerfile)))
+MCP_IMAGE_TAG ?= latest
 
 run:
 	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
@@ -15,7 +16,7 @@ ui-payment:
 mcp-build:
 	@for s in $(MCP_SERVERS); do \
 		echo "==> build $$s-mcp"; \
-		docker build -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:latest . || exit 1; \
+		docker build -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:$(MCP_IMAGE_TAG) . || exit 1; \
 	done
 
 mcp-up:
