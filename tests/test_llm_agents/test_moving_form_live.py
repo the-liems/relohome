@@ -1,7 +1,8 @@
-"""Opt-in real gateway/graph -> real Moving MCP -> AhaMove staging. No model calls or mocks.
+"""Opt-in real gateway/graph -> real Moving MCP -> AhaMove staging. No mocks.
 
 MOVING_FORM_LIVE_INPUTS must contain operator-approved confirmed pickup/destination,
 move_date, move_time and moving_options.service_id from the actual catalog.
+Three tests make no model calls; SIU-auto requires an additional explicit paid opt-in.
 The default suite skips these tests; it never substitutes invented provider results.
 """
 
@@ -261,3 +262,46 @@ async def test_form_preserves_real_housing_result_and_selection(runtime):
     )
     assert after["plan"].version == 2 and len(after["plan"].tasks) == 2
     assert (await service.deps.usage.counts(thread)).subagent_llm_calls == 0
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_LIVE_MOVING_FORM_LLM") != "1", reason="Separate explicit paid LLM test budget required"
+)
+async def test_real_siu_vehicle_suggestion_at_most_two_model_calls(runtime):
+    service, http, body, _ = runtime
+    moving = service.deps.agents.get(AgentName.RELOCATION)
+    moving.api_key = service.settings.openai_api_key.get_secret_value()
+    moving.capability.default_budget.max_llm_calls = 2
+    thread = "th_" + uuid4().hex
+    request = {**body, "moving_options": {"remarks": "Vận chuyển vài thùng carton. Chỉ báo giá, chưa đặt đơn."}}
+    started = perf_counter()
+    response = await http.post(f"/api/v1/ui/chat/{thread}/moving/quote", json=request)
+    state = (await service.graph.aget_state(run_config(thread, service.deps))).values
+    task = next(t for t in state["plan"].tasks if t.agent == AgentName.RELOCATION)
+    result = state["task_results"][task.id]
+    print(
+        json.dumps(
+            {
+                "case": "siu_auto",
+                "http_status": response.status_code,
+                "status": result.status,
+                "elapsed_ms": round((perf_counter() - started) * 1000),
+                "usage": result.usage.model_dump(),
+                "agent_trace": result.data.get("agent_trace"),
+                "error_code": result.error_code,
+            },
+            ensure_ascii=True,
+        )
+    )
+    assert response.status_code == 200, response.text
+    counts = await service.deps.usage.counts(thread)
+    assert counts.llm_calls == 0  # No Intake/Planner calls.
+    assert 1 <= counts.subagent_llm_calls <= 2
+    assert 1 <= result.usage.llm_calls <= 2 and result.usage.tokens_in > 0
+    assert result.status == "done", result.error
+    assert response.json()["response"]["kind"] == "ANSWER"
+    assert 1 <= len(result.data["quotes"]) <= 3
+    assert all(item["id"] in result.source_refs and item["price_vnd"] > 0 for item in result.data["quotes"])
+    assert result.data["agent_trace"]["mode"] == "structured-form"
+    assert "finish" not in result.data["agent_trace"]["tools"]
+    assert not state["plan"].commit_actions and not state.get("committed")

@@ -63,3 +63,8 @@ Chạy `python -m pytest tests/test_llm_agents/test_moving_form_live.py -v -s`.
 Backend gateway chạy thật qua ASGI; Moving đi qua HTTP MCP thật, lưu quote thật và
 gọi AhaMove staging. Không mock provider, không gọi LLM, không đặt/hủy/thu tiền.
 Không đưa contact/key vào body test, log hoặc git.
+
+Ca SIU-auto có chi phí riêng: thêm `RUN_LIVE_MOVING_FORM_LLM=1` và chỉ chạy
+`test_real_siu_vehicle_suggestion_at_most_two_model_calls` sau khi operator duyệt.
+Test đặt trần 2 lượt LLM; không tự chạy lại khi hết budget. Các ca khác giữ key
+Moving trống trong test để không gọi model.

@@ -7,8 +7,8 @@ Chỉ nhánh `fix/52-moving-quote-form`, không đưa các sửa đổi local kh
 
 Form có cả hai pin và ngày giờ gửi typed intent, không qua Intake/Planner LLM.
 Gói xe đã chọn được kiểm bằng catalog AhaMove thật rồi estimate trực tiếp.
-Nếu chưa chọn xe, LLM Moving vẫn chọn dịch vụ; đường này **chưa chạy lại bằng
-LLM thật** vì chưa có ngân sách mới được duyệt.
+Nếu chưa chọn xe, LLM Moving vẫn chọn dịch vụ. Chủ task đã duyệt riêng đúng một ca
+SIU-auto, tối đa 2 lượt LLM; ca đó đã qua và không chạy lại sau khi dùng đủ ngân sách.
 
 Hướng giảm lượt gọi nối tiếp theo
 [OpenAI latency guide](https://developers.openai.com/api/docs/guides/latency-optimization);
@@ -55,6 +55,15 @@ không đổi model, không phân loại câu đơn giản bằng keyword.
 Lần kiểm trước cùng loại ca: 4.565 ms, cũng 0 LLM. Các timing MCP gồm transport,
 backend, DB/provider; **không** phải phép đo HTTP AhaMove riêng.
 
+Ca **SIU-auto** chạy riêng sau khi được duyệt: **1 passed**, suite 9,76 s;
+endpoint 9.083 ms, agent 9.022 ms, trong đó LLM 4.372 ms. Có **2 lượt LLM**,
+12.267 token input + 58 output = **12.325 token**. Trace:
+`resolve_move_route → list_moving_services → get_moving_service → estimate_move`.
+Model thực sự chọn đọc chi tiết rồi estimate; không có lượt LLM `finish`, Intake
+hay Planner. Báo giá có nguồn/giá thật, không commit/receipt. MCP catalog 1.376 ms,
+detail 445 ms, estimate 2.724 ms. Không hứa SIU-auto mọi lần đều 2 lượt; test này
+đặt trần 2, runtime thông thường vẫn có budget hiện có.
+
 Baseline thực tế của người dùng: 25.612 ms, 6 lượt LLM, 20.752 token. Baseline để
 SIU đề xuất nhiều xe; phép đo mới đã chọn một gói xe và dùng tuyến/thời điểm khác.
 Do đó **không kết luận phần trăm speedup A/B** hoặc hứa mọi form đều 4 giây.
@@ -78,7 +87,8 @@ không đoán loại xe bằng prefix ID. Test ban đầu không qua vì lỗi n
   frontend, không gọi đó là browser E2E.
 - Test giữ Housing chuẩn bị checkpoint bằng **kết quả nguồn thật**, không đi qua
   Housing LLM/chat; không chứng minh hiểu tham chiếu hội thoại bằng model.
-- Chưa chạy LLM thật cho SIU-auto, addon/COD đầy đủ, provider outage, pending
+- SIU-auto đã qua đúng một ca thật, chưa phải bằng chứng cho mọi yêu cầu tự chọn xe.
+- Chưa chạy addon/COD đầy đủ, provider outage, pending
   approval/payment/uncertain order, hoặc booking sau form; code giữ các guard nhưng
   các nhánh đó cần reviewer/UAT. Không tạo giao dịch chỉ để lấp checklist.
 - Fix đang trong worktree/PR riêng; chưa thay vào code demo ở workspace gốc.
