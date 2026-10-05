@@ -1,7 +1,9 @@
 # ADR-022 — Typed intent cho form báo giá Moving đã xác nhận
 
-Ngày: 2026-10-05  
-Trạng thái: Proposed  
+Ngày: 2026-10-05
+
+Trạng thái: Proposed
+
 Người đề xuất: @drpie143 (Codex thay mặt, theo yêu cầu) | Review: Moving, Agent và UI owners
 
 ## Bối cảnh
