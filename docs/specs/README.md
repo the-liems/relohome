@@ -13,6 +13,7 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 |---|---|---|
 | [SPEC-016 — Interactive housing search](SPEC-016-housing-search.md) | Draft; desktop list/map and automatic viewport search confirmed | Housing interaction, custom requirements, explicit home choice, and current implementation gaps |
 | [SPEC-008 — Domain MCP tool catalogue](SPEC-008-service-tools.md) | Draft | Proposed tool inputs/outputs, booking lifecycles, approval, and recovery |
+| [SPEC-015 — Maps and location experience](SPEC-015-maps-and-location-experience.md) | Draft | Customer flow, geographic evidence, cross-service selection rules, and acceptance criteria |
 
 The shared catalogue and the Maps/POI specification both carry the existing identifier SPEC-008. Use their full titles and filenames when linking them; they describe different scopes. Implementation progress is tracked in GitHub issues and PRs.
 
@@ -37,6 +38,7 @@ là nơi tra code, kiểm thử và dữ liệu đã xác nhận.
 
 | Cần tìm hiểu | SPEC | API hoặc nơi sử dụng |
 |---|---|---|
+| Trải nghiệm bản đồ, bằng chứng và lựa chọn của người dùng | [015 - Maps and location experience](SPEC-015-maps-and-location-experience.md) | Relocation application; bổ sung yêu cầu cho SPEC-007 đến SPEC-013 |
 | Toàn cảnh và ranh giới với agent | [007 - Location Platform](SPEC-007-location-platform.md) | Maps workspace |
 | Basemap, POI, nguồn dữ liệu | [008 - Bản đồ và POI](SPEC-008-ban-do-va-poi.md) | `/v1/places/map` |
 | Resolve và nearby (chưa có reverse) | [009 - Tìm vị trí](SPEC-009-tim-kiem-va-tien-ich-gan.md) | `/v1/locations/resolve`, `/v1/places/nearby` |
