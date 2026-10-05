@@ -21,7 +21,7 @@ The shared catalogue and the Maps/POI specification both carry the existing iden
 |---|---|---|---|
 | Intake / hiểu yêu cầu | [001 - Goal understanding](SPEC-001-goal-understanding.md) | Draft | Khoa |
 | Routing Orchestrator | [003 - Planning and execution](SPEC-003-planning-and-execution.md) | Draft | Khoa |
-| Dịch vụ chuyển nhà AhaMove | [004 - AhaMove moving service](SPEC-004-ahamove-moving-service.md) | Draft | Chủ service Moving |
+| Dịch vụ chuyển nhà AhaMove, yêu cầu đóng gói và kịch bản người dùng | [004 - AhaMove moving service](SPEC-004-ahamove-moving-service.md) | Draft | Chủ service Moving |
 
 Thiết kế graph hợp nhất (intake, Routing Orchestrator, subagent theo lĩnh vực):
 [agent-graph.md](../architecture/agent-graph.md), ADR-016.

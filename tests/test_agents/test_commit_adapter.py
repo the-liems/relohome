@@ -1,14 +1,19 @@
 """McpTransaction cho Moving: báo giá lại, ghi approval sang Moving (Q22), tạo đơn CASH (Q21)."""
 
+from contextlib import asynccontextmanager
 from datetime import timedelta
 
+import httpx
 import pytest
+from mcp.types import CallToolResult
 
 from src.agents.common import utcnow
 from src.agents.models import Approval, CommitAction, CommitActionKind
 from src.services.adapters.commit import McpTransaction
+from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.moving_approval import moving_approval_id
 from src.services.adapters.ports import CommitError, CommitRequest
+from src.services.adapters.sqlite_runtime import RuntimeDatabase
 from tests.test_agents.test_service_subagents import FakeToolClient, moving_client
 
 APPROVAL = Approval(
@@ -154,3 +159,88 @@ async def test_flight_hold_amount_mismatch_releases_hold():
     with pytest.raises(CommitError, match="đã huỷ giữ chỗ"):
         await McpTransaction(flight=flight, payment=FakeToolClient({}), moving=None).start_payment(req)
     assert flight.calls[-1] == ("cancel_booking", {"booking_ref": "bk_1", "confirm": True})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("total", [240_000, 260_000])
+async def test_exact_price_change_requires_approval_before_any_write(total):
+    client = booking_client(total=total)
+    bridge = RecordingBridge()
+    with pytest.raises(CommitError, match="ngoài khoảng đã đồng ý"):
+        await tx(client, bridge).commit(request(band=0))
+    assert bridge.calls == []
+    assert [tool for tool, _ in client.calls] == ["find_move_orders_by_tracking_number", "estimate_move"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("after_dispatch", [False, True], ids=["before-dispatch", "after-dispatch"])
+async def test_moving_disconnect_retry_boundary_survives_restart(tmp_path, monkeypatch, after_dispatch):
+    """Exercise actual MCP classification and durable intents with a simulated session disconnect.
+
+    In the post-dispatch case the session records the create as accepted, but returns no response.
+    Tracking stays empty to model delayed visibility. No live provider or Moving DB is involved.
+    """
+    backend = booking_client()
+    provider_creates = []
+    disconnect = True
+    sessions = 0
+
+    class Session:
+        async def call_tool(self, tool, arguments):
+            if tool == "create_move_order":
+                provider_creates.append(arguments)
+                if disconnect:
+                    raise httpx.ReadError("response connection lost after acceptance")
+            result = await backend.call(tool, arguments)
+            return CallToolResult(content=[], structuredContent=result)
+
+    @asynccontextmanager
+    async def session():
+        nonlocal sessions
+        sessions += 1
+        # Lookup and estimate succeed; only opening the create session fails before dispatch.
+        if disconnect and not after_dispatch and sessions == 3:
+            raise httpx.ConnectError("connection failed before dispatch")
+        yield Session()
+
+    client = McpToolClient(
+        McpEndpoint(
+            service="moving",
+            allowed_tools=frozenset({"find_move_orders_by_tracking_number", "estimate_move", "create_move_order"}),
+        )
+    )
+    monkeypatch.setattr(client, "_session", session)
+    req = request(band=0)
+    db = RuntimeDatabase(str(tmp_path))
+    transaction = tx(client, RecordingBridge())
+    transaction.intent_store = db
+    try:
+        with pytest.raises(CommitError) as failed:
+            await transaction.guarded_commit(req)
+        assert failed.value.code == "unavailable"
+        assert failed.value.uncertain is after_dispatch
+        assert bool(db.get("write_intents", req.idempotency_key)) is after_dispatch
+        assert len(provider_creates) == int(after_dispatch)
+    finally:
+        db.close()
+
+    # A new transaction and reopened SQLite DB simulate a process restart.
+    disconnect = False
+    db = RuntimeDatabase(str(tmp_path))
+    restarted = tx(client, RecordingBridge())
+    restarted.intent_store = db
+    prior_sessions = sessions
+    try:
+        if after_dispatch:
+            with pytest.raises(CommitError) as blocked:
+                await restarted.guarded_commit(req)
+            assert blocked.value.uncertain and blocked.value.code == "pending_verification"
+            assert sessions == prior_sessions  # No lookup, estimate, or second create on replay.
+            assert db.get("write_intents", req.idempotency_key)["state"] == "started"
+        else:
+            receipt = await restarted.guarded_commit(req)
+            assert receipt.receipt_id == "O1"
+            assert db.get("write_intents", req.idempotency_key)["state"] == "done"
+        assert len(provider_creates) == 1
+    finally:
+        db.close()

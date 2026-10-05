@@ -1,7 +1,8 @@
 """`TransactionPort` thật: chuỗi gọi tool ghi tất định theo `CommitActionKind` (agent-graph.md §6.9).
 
 Không qua LLM (R3). Giá thực tế phải nằm trong khoảng người dùng đã đồng ý ở bước xác nhận (vé: đúng giá;
-chuyển đồ: ±5% theo `GraphSettings.price_tolerance`); ngoài khoảng thì dừng, xin xác nhận lại. Thao tác
+chuyển đồ: mặc định đúng giá vì `GraphSettings.price_tolerance = {}`; chỉ dùng biên độ khi cấu hình
+tường minh và người dùng đồng ý); ngoài khoảng thì dừng, xin xác nhận lại. Thao tác
 lỗi không kéo theo việc tự huỷ thao tác khác đã đặt.
 
 | Kind | Bước |
@@ -104,7 +105,8 @@ class McpTransaction:
         try:
             return await client.call(tool, args)
         except ToolCallError as exc:
-            # Lỗi sau khi đã gửi thao tác ghi: không rõ provider đã ghi chưa.
+            # McpToolClient sets transport=True only before dispatch to session.call_tool.
+            # A retryable disconnect after dispatch is uncertain for writes; do not replay it.
             uncertain = (
                 write
                 and not exc.transport

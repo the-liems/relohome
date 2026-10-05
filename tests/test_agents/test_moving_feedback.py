@@ -30,7 +30,12 @@ async def test_confirmation_shows_consented_price_band_for_moving():
         values=MOVE,
         facts=dict([commit_fact(CommitActionKind.MOVING_BOOKING, "Đặt xe")]),
     )
-    out = await Session(test_deps(ScriptedIntake([intake]), TemplatePlanner())).say("Đặt xe chuyển nhà")
+    deps = test_deps(
+        ScriptedIntake([intake]),
+        TemplatePlanner(),
+        settings=GraphSettings(price_tolerance={CommitActionKind.MOVING_BOOKING: 0.05}),
+    )
+    out = await Session(deps).say("Đặt xe chuyển nhà")
     payload = out["__interrupt__"][0].value
     line = payload["cost_summary"]["lines"][0]
     assert (line["min_amount_vnd"], line["amount_vnd"], line["max_amount_vnd"]) == (3_040_000, 3_200_000, 3_360_000)
@@ -40,16 +45,18 @@ async def test_confirmation_shows_consented_price_band_for_moving():
 
 
 @pytest.mark.asyncio
-async def test_band_can_be_disabled():
+async def test_default_confirmation_requires_exact_price():
     intake = intake_result(
         RequestKind.NEW_GOAL,
         [AgentName.RELOCATION],
         values=MOVE,
         facts=dict([commit_fact(CommitActionKind.MOVING_BOOKING, "Đặt xe")]),
     )
-    deps = test_deps(ScriptedIntake([intake]), TemplatePlanner(), settings=GraphSettings(price_tolerance={}))
+    deps = test_deps(ScriptedIntake([intake]), TemplatePlanner())
     out = await Session(deps).say("Đặt xe chuyển nhà")
-    assert out["__interrupt__"][0].value["cost_summary"]["lines"][0]["max_amount_vnd"] is None
+    line = out["__interrupt__"][0].value["cost_summary"]["lines"][0]
+    assert line["amount_vnd"] == 3_200_000
+    assert line["min_amount_vnd"] is None and line["max_amount_vnd"] is None
 
 
 def test_order_time_requires_explicit_future_time():

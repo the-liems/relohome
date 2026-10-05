@@ -4,6 +4,7 @@
 
 | Document | Purpose | Status |
 |---|---|---|
+| [Moving service specification](specs/SPEC-004-ahamove-moving-service.md) | AhaMove integration and customer-facing moving/packing requirements and scenarios | Draft; requirements review and provider verification tracked in linked issues |
 | [Product brief](product.md) | Relocation problem, target user, draft workflow, and open decisions | Draft; exact demo request unconfirmed |
 | [MCP tool catalogue](specs/SPEC-008-service-tools.md) | Proposed domain tools, AI system coordination, and vendor lifecycles | Draft contracts; travel booking in MVP, service grouping and schemas under review |
 | [Gate announcements](references/gate-announcements.md) | Official Gate 1 and G2 requirements | Official-channel origin and UTC+7 confirmed by @ai-dnn; applies until further official notices |
