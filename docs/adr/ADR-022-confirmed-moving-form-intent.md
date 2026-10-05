@@ -61,4 +61,4 @@ Giá, khoảng cách, dịch vụ và addon vẫn từ provider thật, không b
 
 Liên quan: [Issue #52](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/52),
 [PR #42](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/42),
-[API](../api/moving-quote-form.md), SPEC-004/AC-26..28.
+[API](../api/moving-quote-form.md), SPEC-004/AC-33..35.
