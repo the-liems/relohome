@@ -19,6 +19,7 @@ import type { Component, Data, House, Payload } from "../types";
 import { HousingCard, Comparison } from "./Housing";
 import { MapPanel } from "./MapPanel";
 import { Dialog } from "./Dialog";
+import { priceExpired, usePriceExpiry } from "../priceExpiry";
 
 export interface ResultProps {
   payload: Payload;
@@ -66,6 +67,16 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
   }
   const data = c.data || {},
     version = p.payload.ui?.plan_version || 0;
+  usePriceExpiry(
+    c.type === "flight"
+      ? [
+          ...(data.offers || []).map((o: Data) => o.expires_at),
+          detail?.expires_at,
+        ]
+      : c.type === "relocation"
+        ? [data.expires_at]
+        : [],
+  );
   const icons: Data = {
     property: HouseIcon,
     flight: Plane,
@@ -358,14 +369,18 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   className="text-button"
                   disabled={
                     p.busy ||
-                    !Number.isFinite(Date.parse(data.expires_at)) ||
-                    Date.parse(data.expires_at) < Date.now() ||
+                    priceExpired(data.expires_at) ||
                     q.price_vnd == null ||
                     selected === q.id
                   }
-                  onClick={() => select(q.id)}
+                  onClick={() => {
+                    if (!priceExpired(data.expires_at)) void select(q.id);
+                  }}
                 >
-                  Chọn báo giá <ArrowRight size={14} />
+                  {priceExpired(data.expires_at)
+                    ? "Báo giá hết hạn"
+                    : "Chọn báo giá"}{" "}
+                  <ArrowRight size={14} />
                 </button>
               </div>
             </article>
@@ -572,14 +587,17 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   detail.loading ||
                   !!detail.error ||
                   selected === detail.id ||
-                  !Number.isFinite(Date.parse(detail.expires_at)) ||
-                  Date.parse(detail.expires_at) < Date.now()
+                  priceExpired(detail.expires_at)
                 }
-                onClick={() => select(detail.id)}
+                onClick={() => {
+                  if (!priceExpired(detail.expires_at)) void select(detail.id);
+                }}
               >
                 {selected === detail.id
                   ? "Đã chọn vào kế hoạch"
-                  : "Chọn vào kế hoạch"}
+                  : priceExpired(detail.expires_at)
+                    ? "Giá đã hết hạn"
+                    : "Chọn vào kế hoạch"}
               </button>
             </>
           )}

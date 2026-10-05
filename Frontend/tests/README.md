@@ -46,11 +46,23 @@ Trên máy không có Chrome, dùng Chromium của Playwright (`npx playwright i
 
 Test intercept `/web/api`, style map và glyph, dùng hợp đồng API giả lập. Không cần gateway/agent/provider đang chạy cho các ca trình duyệt hiện có; chúng không gửi truy vấn LLM, tạo đơn hay thanh toán thật.
 
-## 22 tình huống trong app.spec.ts
+## 39 tình huống trong app.spec.ts
 
-Mỗi tình huống chạy trên cả hai kích thước: **44 ca**. Ngoài ra có 3 tình huống
-POI và 2 tình huống camera/OSRM, tổng toàn bộ thư mục browser hiện có **54 ca**.
-Con số này là danh sách test, không phải kết quả một lượt chạy toàn bộ mới nhất.
+Mỗi tình huống chạy trên cả hai kích thước: **78 ca**. Ngoài ra có 3 tình huống
+POI và 2 tình huống camera/OSRM, tổng toàn bộ thư mục browser hiện có **88 ca**.
+Lượt toàn bộ trước bổ sung hồi quy expiry thẻ chat đạt **78/78**. Sau bổ sung
+hai tình huống thẻ chat, nhóm expiry/Moving/Flight đạt **16/16**; sau chỉnh
+header Flight, **2/2** ca bố cục qua. Hồi quy căn chọn trên map → B Moving
+đạt **10/10** (ba tình huống mới và hai tình huống liên quan, mỗi tình huống
+desktop/mobile). Chưa chạy lại toàn bộ 88 ca trong một lượt.
+
+Ba tình huống mới: đọc căn theo ID ngoài kết quả chat/snapshot, tải chậm và
+reload; không ghi đè B đang nhập; lỗi đọc chi tiết vẫn nhập B được. Ô căn đã
+chọn luôn hiện để chọn lại, không tự gửi chat hay xác nhận pin gần đúng.
+
+```powershell
+npm run test:e2e -- --grep 'map-only selected home|late selected-home|missing selected-home|chosen home prefills|moving question opens' --workers=2
+```
 
 | Nhóm | Tình huống |
 | --- | --- |
@@ -63,6 +75,16 @@ Con số này là danh sách test, không phải kết quả một lượt chạ
 | Nhà / khôi phục | Chi tiết, chọn, lưu nhà, URL kế hoạch cũ, tải lại |
 | Nhà → chuyển đồ | Căn đã chọn điền sẵn điểm đến; chưa xác nhận thì chưa gửi |
 | Form chuyển đồ | Câu hỏi mở form; đổi địa chỉ cần xác nhận lại pin |
+| Form Moving mở rộng | Gửi đúng add-on/số lượng/mức dịch vụ, kiện/kg/cm, COD/khai giá/ghi chú/mã giảm giá/POD cùng hai pin xác nhận |
+| Giới hạn Moving | Chặn thiếu mức dịch vụ, option không khả dụng, kiện thiếu kg và COD quá giới hạn; đổi xe bỏ tùy chọn cũ |
+| Map và mobile Moving | Đổi A vô hiệu danh mục đã chọn; thu gọn/mở form, không tràn ngang |
+| Ghim B trên map | Không nhầm pin thủ công thành căn đã chọn khi không có căn; khi có căn, giữ địa chỉ B mới do user nhập và gửi đầy đủ địa chỉ/tọa độ |
+| Dữ liệu Moving trống | Nhập rồi xóa mô tả kiện hoặc chỉ có khoảng trắng: bỏ trường tùy chọn, vẫn gửi kg hợp lệ |
+| Lỗi báo giá Moving | Giữ A/B, lịch, kiện hàng, add-on và ghi chú khi API 502; lần thử lại gửi nguyên lựa chọn |
+| Danh mục Moving rỗng | Thông báo rõ, tải lại danh mục; không tự gửi chat/báo giá |
+| Giá hết hạn khi đang xem | Moving/Flight tự khóa nút trong workspace, thẻ chat và chi tiết, không gửi action khi hết hạn |
+| Form Flight | Chặn nơi đi/đến trống hoặc giống nhau; giữ dữ kiện khi API lỗi |
+| Lỗi danh mục Moving | Tải lại danh mục, giữ tuyến và giờ; không âm thầm gọi Agent |
 | Picker Moving | ID/alias không lặp; giữ ngày/giờ khi tìm trực tiếp trong ô A |
 | Tìm A/B | Cả hai ô tự tìm gợi ý, điền địa chỉ đã chọn và gửi đúng hai tọa độ; không có ô/nút tìm riêng |
 | Workspace nhà | Danh sách theo viewport, bộ lọc, sort và `map_view` từ chat |
@@ -79,6 +101,67 @@ Con số này là danh sách test, không phải kết quả một lượt chạ
 
 ## Kết quả kiểm tra ngày 05/10/2026
 
+### Rà frontend theo yêu cầu, không sửa backend
+
+- Trọn bộ browser tại thời điểm 78 ca: **78 passed**.
+- Sau bổ sung expiry ở thẻ chat và dialog: **16/16** ca liên quan qua; chỉnh
+  header Flight mobile: **2/2** ca bố cục qua.
+- **6/6** Python `test_gateway.py` + `test_ui_contracts.py` qua. Lần đầu bị
+  quyền ghi TEMP Windows; chạy lại với `--basetemp` mới trong `logs/local/`
+  giải quyết được, không sửa test hay code backend để vượt lỗi môi trường.
+- JSON thật browser gửi trong hai tình huống Moving × hai viewport được kiểm
+  bằng `ChatRequest.model_validate`: **4/4 hợp lệ**, không gọi LLM.
+- Bản build cuối được phục vụ tại 8503; đã xem ảnh desktop/mobile, không tràn
+  ngang/page error ở các màn khảo sát. Visual smoke dùng fixture API và basemap
+  OpenFreeMap thật; helper và ảnh ở `logs/local/`, không vào data bàn giao.
+- OSRM ô tô thật 5000/5001/5002 với `radiuses=100;100`: HCM 47 điểm tuyến,
+  Hà Nội 120, Đà Nẵng 41; không sửa cấu hình hoặc dữ liệu routing.
+- Không test booking/payment/SerpApi/LLM thật trong đợt frontend này.
+
+### Hồi quy lỗi ghim B và kiểm tra Moving/Flight
+
+- Tái hiện lỗi trước sửa: cả **4/4** ca ghim B sai (hai tình huống × desktop/mobile).
+- Sau sửa: **4/4** ca mới qua. Nhóm `moving|flight|AhaMove|approval sends`
+  đạt **32/32**, bao gồm ghim A/B, danh mục, form tùy chọn, chọn căn, phê duyệt,
+  tuyến OSRM, sắp xếp chuyến và xử lý response chi tiết chuyến về chậm.
+- TypeScript/Vite build qua; không thay đổi Agent để tối ưu tốc độ trong lượt
+  kiểm tra này. Không gọi thêm LLM, tìm chuyến SerpApi hay báo giá AhaMove thật.
+- Phân tích thời gian thực từ log và đo MCP Flight local: xem phần cuối
+  [báo cáo Moving](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
+
+### Đợt Moving mở rộng
+
+- `npm run test:e2e -- --workers=2`: **62 passed** (một lượt toàn bộ).
+- Sau bổ sung kiểm tra nút sao chép liên hệ: **2/2** ca phê duyệt qua. Hai ca
+  form Moving được chụp/xem ảnh desktop/mobile và chạy lại **2/2 qua**.
+- Python nhóm form/commit/POI-confirmation/intake/gateway: **50 passed**. Test
+  mới nằm tại `tests/test_agents/test_moving_form_options.py`; kiểm tra cả đường
+  LLM execution với quyết định giả lập và adapter nền, không gọi LLM thật.
+- Ruff toàn bộ Python đã sửa và TypeScript/Vite build qua.
+- Hai báo giá staging thật: **162.000đ → 237.000đ**, phụ phí bốc xếp **75.000đ**;
+  không gọi tool tạo đơn, thanh toán hoặc LLM.
+- Kiểm tra rộng Python lúc đầu: **179 passed, 19 failed**. Bản HEAD trước sửa
+  chạy cùng nhóm, bỏ hai ca stdio/live phụ thuộc môi trường: **157 passed,
+  17 failed**; tập 17 tên lỗi trùng hoàn toàn. Không ghi suite rộng là sạch.
+- Bằng chứng và giới hạn: [báo cáo Moving](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
+
+```powershell
+.venv/Scripts/python.exe -m pytest tests/test_agents/test_moving_form_options.py tests/test_agents/test_commit_adapter.py tests/test_agents/test_poi_moving_confirmation.py tests/test_agents/test_intake.py Frontend/tests -q --basetemp=logs/local/pytest-moving
+```
+
+Từ `Frontend/`, có thể chụp ảnh form fixture khi chạy test:
+
+```powershell
+$env:SIU_UI_SCREENSHOTS='1'
+npm run test:e2e -- --grep 'moving form submits' --workers=2
+```
+
+Ảnh nằm trong `logs/local/` ở gốc repo. Map nền trống trong fixture là chủ ý
+chặn mạng; camera/OSRM có test riêng. Không dùng ảnh fixture để kết luận tile
+provider thật đã tải.
+
+### Đợt kiểm tra trước Moving mở rộng
+
 - Trọn bộ trước bổ sung: **50/50 qua** (`npx playwright test --workers=2`).
 - Hai tình huống mới tái hiện mã sân bay thiếu và lỗi bị giấu khi chat thu gọn. Sau sửa,
   **10/10 ca có mục tiêu qua**, gồm 4 ca mới và 6 ca liên quan đã có.
@@ -86,7 +169,7 @@ Con số này là danh sách test, không phải kết quả một lượt chạ
   Đã xem ảnh panel kế hoạch, tài khoản và chi tiết chuyến bay trên desktop/mobile.
 - `npm run build` qua; gateway 8503 phục vụ đúng bản build mới.
 - Python `Frontend/tests`: **7/7 qua**. Trong môi trường giới hạn quyền temp, tạo thư
-  mục cha trước rồi dùng `--basetemp=data/user-flow-audit-20261005/pytest-temp-2`.
+  mục cha trước rồi dùng `--basetemp=logs/local/pytest-temp`.
 - Flight/Payment Python: **86 passed, 6 failed**; 5 test server Flight kỳ vọng tool
   simulation khi simulation mặc định tắt, 1 test Payment có allowlist thiếu
   `expire_duration_seconds`. Đây là lỗi test còn mở, chưa kết luận suite sạch.

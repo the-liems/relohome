@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ShieldCheck, ArrowRight, MapPin, Copy } from "lucide-react";
 import { dateTime, money } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
+import { MovingSteps, MovingQuoteSummary } from "./MovingOptionsForm";
 
 const cities = ["Hà Nội", "Đà Nẵng", "Thành phố Hồ Chí Minh"];
 export function TaskForm({
@@ -37,6 +38,16 @@ export function TaskForm({
       text = `Tìm ${f.type || "nhà cho thuê"} tại ${f.district ? f.district + ", " : ""}${f.city}${f.min ? ", giá từ " + f.min + " đồng/tháng" : ""}${f.max ? ", không quá " + f.max + " đồng/tháng" : ""}${f.bedrooms ? ", có đúng " + f.bedrooms + " phòng ngủ" : ""}${f.area ? ", diện tích ít nhất " + f.area + " m²" : ""}${f.amenities ? ", cần " + f.amenities : ""}.`;
     }
     if (kind === "flight") {
+      f.from = f.from.trim();
+      f.to = f.to.trim();
+      if (!f.from || !f.to) {
+        setError("Hãy nhập nơi đi và nơi đến.");
+        return;
+      }
+      if (f.from.toLocaleLowerCase("vi") === f.to.toLocaleLowerCase("vi")) {
+        setError("Nơi đi và nơi đến phải khác nhau.");
+        return;
+      }
       if (new Date(f.date + "T23:59:59") < new Date()) {
         setError("Hãy chọn ngày bay trong tương lai.");
         return;
@@ -239,6 +250,7 @@ export function Approval({
   const [error, setError] = useState(""),
     [now, setNow] = useState(Date.now()),
     [change, setChange] = useState(false);
+  const approvalForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(id);
@@ -274,11 +286,15 @@ export function Approval({
           };
           for (const k of ["name", "mobile", "remarks"])
             if (data[prefix + k]) forms[id][field][k] = data[prefix + k];
-        } else
+        } else {
           forms[id][field] = {
-            name: data[prefix + "name"],
-            mobile: data[prefix + "mobile"],
+            name: String(data[prefix + "name"] || "").trim(),
+            mobile: String(data[prefix + "mobile"] || "").trim(),
           };
+          for (const key of ["building", "apartment_or_floor", "remarks"])
+            if (String(data[prefix + key] || "").trim())
+              forms[id][field][key] = String(data[prefix + key]).trim();
+        }
       }
     }
     try {
@@ -303,6 +319,29 @@ export function Approval({
           <p>Kiểm tra thao tác và chi phí trước khi tiếp tục.</p>
         </div>
       </div>
+      {Object.keys(pending.pii_required || {}).length > 0 && (
+        <MovingSteps stage={2} />
+      )}
+      {Object.entries(pending.moving_details || {}).map(([id, detail]) => (
+        <div className="mv-approval-route" key={id}>
+          <p>
+            <MapPin size={15} />
+            <b>A · Lấy đồ</b>
+            <span>{(detail as Data).from_address}</span>
+          </p>
+          <p>
+            <MapPin size={15} />
+            <b>B · Giao đồ</b>
+            <span>{(detail as Data).to_address}</span>
+          </p>
+          {(detail as Data).moving_options && (
+            <MovingQuoteSummary
+              options={(detail as Data).moving_options}
+              labels={(detail as Data).addon_labels}
+            />
+          )}
+        </div>
+      ))}
       <CostLines summary={pending.cost_summary} />
       <ul>
         {(pending.cost_summary?.commit_actions || []).map((action: Data) => (
@@ -347,7 +386,7 @@ export function Approval({
           đổi phương án.
         </p>
       )}
-      <form onSubmit={submit}>
+      <form ref={approvalForm} onSubmit={submit}>
         {Object.entries(pending.pii_required || {}).map(([id, fields]) => (
           <div key={id}>
             {(fields as string[]).map((field) => (
@@ -359,6 +398,27 @@ export function Approval({
                       ? "Liên hệ điểm giao"
                       : "Cập nhật liên hệ / ghi chú"}
                 </legend>
+                {field === "destination_contact" &&
+                  (fields as string[]).includes("pickup_contact") && (
+                    <button
+                      type="button"
+                      className="text-button mv-copy-contact"
+                      onClick={() => {
+                        const form = approvalForm.current;
+                        for (const key of ["name", "mobile"]) {
+                          const source = form?.elements.namedItem(
+                            `${id}|pickup_contact|${key}`,
+                          ) as HTMLInputElement | null;
+                          const target = form?.elements.namedItem(
+                            `${id}|destination_contact|${key}`,
+                          ) as HTMLInputElement | null;
+                          if (source && target) target.value = source.value;
+                        }
+                      }}
+                    >
+                      <Copy size={14} /> Dùng liên hệ điểm lấy
+                    </button>
+                  )}
                 {field === "order_update" && (
                   <label>
                     Điểm cần sửa
@@ -386,9 +446,41 @@ export function Approval({
                       pattern="\+?[0-9]{9,15}"
                       inputMode="tel"
                       autoComplete="tel"
+                      maxLength={16}
                     />
                   </label>
                 </div>
+                {field !== "order_update" && (
+                  <div className="mv-contact-more">
+                    <div className="form-grid">
+                      <label>
+                        Tòa nhà
+                        <input
+                          name={`${id}|${field}|building`}
+                          maxLength={200}
+                          placeholder="Tên tòa nhà, nếu có"
+                        />
+                      </label>
+                      <label>
+                        Căn hộ / tầng
+                        <input
+                          name={`${id}|${field}|apartment_or_floor`}
+                          maxLength={100}
+                          placeholder="Ví dụ: tầng 3, căn 302"
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      Chỉ dẫn giao nhận
+                      <textarea
+                        name={`${id}|${field}|remarks`}
+                        rows={2}
+                        maxLength={500}
+                        placeholder="Ví dụ: gọi khi tới cổng, có thang máy"
+                      />
+                    </label>
+                  </div>
+                )}
                 {field === "order_update" && (
                   <label>
                     Ghi chú

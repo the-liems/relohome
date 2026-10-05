@@ -311,10 +311,15 @@ def make_intake(deps: GraphDeps):
         # an unresolved abbreviation must not block unrelated requested domains.
         facts = dict(grounded.facts)
         values = dict(result.constraints.values)
+        # This structured form is supplied by the user, never authored by Intake/Planner.
+        values.pop("moving_options", None)
+        facts.pop("moving_options", None)
         if previous is not None and result.kind != RequestKind.NEW_GOAL:
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        if state.get("moving_options") is not None and AgentName.RELOCATION in result.domains:
+            values["moving_options"] = state["moving_options"]
         if entity_reference(values.get("near")):
             values.pop("near", None)
             facts.pop("near", None)

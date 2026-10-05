@@ -45,6 +45,7 @@ class WorkflowState(TypedDict, total=False):
     thread_id: str
     request_id: str  # mỗi lượt API tạo mới
     moving_locations: dict | None  # validated explicit user pins; never authored by LLM
+    moving_options: dict | None  # validated service form, without contacts
     housing_location: dict | None  # shared map selection validated by API
     map_view: dict | None  # client viewport {bounding_box, zoom}, validated by API
     place_choice: dict | None  # {field, place_id, name, lat, lng} re-read from Location by API

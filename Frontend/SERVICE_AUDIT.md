@@ -1,5 +1,51 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
+## Điểm B và housing chung pin — 05/10/2026
+
+Căn trong ảnh có fact `selected:property`, nhưng không có snapshot property
+và không nằm trong candidates chat. Frontend nay dùng endpoint chi tiết
+hiện có để khôi phục đúng căn theo ID. Ô căn đã chọn nằm dưới B, cho phép
+chọn lại sau khi nhập địa chỉ khác; không ghi đè B người dùng nhập khi fetch
+về chậm, không tự xác nhận tọa độ gần đúng. **10/10 browser qua** trên hai
+viewport; build qua. GET chi tiết căn thật trả 200 trong khoảng 0,62 giây.
+
+Đọc toàn bộ 38.222 housing active: tọa độ khớp file nguồn và staging gốc
+38.222/38.222; 33.761 tin dùng chung tọa độ. Căn đã chọn chung pin với 9 tin
+khác, nguồn ghi `approximate/source_map`. Không chỉnh tọa độ, xóa housing,
+gọi thêm LLM/provider hoặc sửa backend ở lượt này. Nhãn nhóm map nay nói rõ
+đây là các tin dùng chung điểm, chưa xác nhận cùng một căn. Tổng suite hiện
+có 88 ca; số 82 bên dưới ghi nhận thời điểm rà Moving/Flight trước lượt này.
+
+## Rà giao diện Moving/Flight, không sửa logic backend — 05/10/2026
+
+Trọn bộ **78/78 browser qua**. Bổ sung hồi quy giá hết hạn trong thẻ chat/chi
+tiết: **16/16** ca liên quan qua; header Flight mobile **2/2 qua**. Suite hiện
+có 82 ca, chưa chạy lại cả 82 cùng một lượt. Gateway/UI contract **6/6 qua**;
+4 payload Moving capture từ browser qua schema Agent API. Build qua.
+
+Chỉ sửa React/CSS/test/docs: mô tả kiện trống không gửi chuỗi rỗng; Flight
+chặn nơi đi/đến trống/trùng; Moving/Flight tự cập nhật nút chọn khi hết hạn;
+catalog rỗng có thông báo/tải lại; bố cục header Flight mobile gọn hơn.
+Đã xem ảnh hai viewport và kiểm tra build thật trên 8503 với API fixture,
+basemap công khai thật. OSRM driving ba thành phố trả tuyến có hình học;
+UI/Agent/Platform/Location/Moving API/MCP health/ready đều 200 khi kết thúc.
+Không gọi thêm LLM/SerpApi/báo giá AhaMove hoặc đặt đơn/thanh toán thật.
+
+## Moving mở rộng — 05/10/2026
+
+Đã nối các trường form mới qua gateway/Agent tới báo giá và báo giá lại theo
+cho phép của người dùng. Có kiện/kg/cm, gói xe theo tọa độ A, add-on/số lượng/mức,
+khai giá/COD, mã giảm giá, ghi chú và POD/xác minh; liên hệ/tòa nhà/tầng/chỉ dẫn
+gửi riêng ở bước xác nhận. Giữ CASH, phê duyệt/hash/expiry, kiểm giá và idempotency.
+
+**62/62 browser qua trọn bộ; 50/50 Python có mục tiêu qua; Ruff/build qua.** Hai
+báo giá AhaMove staging thật cùng gói/tuyến: cơ bản 162.000đ, có bốc xếp 237.000đ,
+phí thêm 75.000đ. Không tạo đơn, thanh toán hoặc gọi LLM. Suite Python rộng còn
+17 lỗi đã tái hiện trên HEAD trước sửa và hai ca phụ thuộc môi trường.
+
+[Chi tiết và phạm vi](../docs/integration/moving-service-workspace-update-2026-10-05.md).
+Các kết quả bên dưới là bằng chứng của các đợt trước.
+
 ## Cập nhật kiểm tra người dùng và UI — 05/10/2026
 
 Đợt mới đã chạy toàn bộ **50 ca browser ban đầu**, **7 ca Python frontend**,
@@ -53,7 +99,7 @@ Các thông tin credentials, provider và dữ liệu trong các gạch đầu d
 | Chi tiết nhà | Dialog có URL theo hội thoại/kết quả; ảnh, giá, nguồn, lưu/chọn/hỏi AI | Dữ liệu thiếu hiển thị chưa có; không tự nhận là tin còn trống |
 | So sánh nhà | Tối đa 3 căn từ kết quả đã tải | Không so sánh toàn bộ DB |
 | Bản đồ / workspace nhà | Danh sách theo viewport, sort, marker/cụm, POI tự hiện ở zoom ≥ 14, route, cảnh báo độ chính xác, chat ẩn/hiện | Khám phá viewport không áp dụng commute/bán kính; chọn nhà từ map dùng action/API kiểm tra lại tin |
-| Chuyển đồ | Điểm lấy/giao, pin phải xác nhận lại khi sửa, ngày/giờ, báo giá, phí, yêu cầu đặt/sửa/hủy qua chat | Chưa có form mọi special request/COD, danh sách đơn hàng riêng, lịch sử sự kiện chi tiết |
+| Chuyển đồ | A/B tìm/ghim map, ngày giờ, kiện hàng, gói xe, add-on theo danh mục, COD/khai giá/ghi chú/mã giảm giá, POD/xác minh; báo giá/phê duyệt/biên nhận | CASH; chưa có add-on nhập tự do, nhiều điểm giao, quản lý nhiều đơn, timeline callback hoặc rating |
 | Phê duyệt | Chi phí, thao tác, thời hạn, form liên hệ riêng, xác nhận/đổi/từ chối | Chỉ chấp nhận các thao tác Moving UI hỗ trợ; chưa có giao diện operator đối soát giao dịch bất định |
 | Thanh toán workflow | Link provider, QR sinh tại máy chủ, kiểm tra trạng thái; link hết hạn bị khóa | Không tự coi callback/lời người dùng là đã trả tiền; chưa có trang tạo demo độc lập/refund |
 | Panel Kế hoạch ở mép phải | Tiến trình, Chi phí, Cần phản hồi của hội thoại đang mở; tổng tháng/một lần, biên nhận, form xác nhận/thanh toán hiện có | Không còn tab Các kế hoạch; trạng thái tìm kiếm không phải tiến độ chuyển nhà ngoài đời; không có lịch/reminder riêng |
@@ -91,9 +137,9 @@ Nguồn: `Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts`, `packages/co
 | Tool | Hợp đồng cần giữ | Đường tới frontend / mức đáp ứng |
 | --- | --- | --- |
 | `list_service_areas` | Danh sách thành phố thực tế từ provider | Chat catalog → danh sách khu vực có nút hỏi tiếp. **Có UI qua graph** |
-| `list_moving_services` | Theo city/tọa độ, loại dịch vụ; có yêu cầu bổ sung | Graph dùng trước báo giá; danh sách dịch vụ hiển thị tên/mô tả. **Có UI cơ bản** |
-| `get_moving_service` | Giới hạn, mô tả, special requests của service ID | Có yêu cầu xem thêm qua chat; chưa có form đầy đủ giới hạn trọng lượng/kích thước và lựa chọn special request. **Một phần** |
-| `estimate_move` | Draft điểm lấy/giao, liên hệ, giờ, dịch vụ; quote có hạn và phí chi tiết | Form pin/ngày/giờ, báo giá, chi tiết phí, chọn. Liên hệ báo giá do cấu hình server. **Có UI; audit 01/10 ghi nhận báo giá staging, chưa gọi lại trong đợt UI 03/10** |
+| `list_moving_services` | Theo city/tọa độ, loại dịch vụ; có yêu cầu bổ sung | Form đọc danh mục tại pin A qua endpoint xác thực mới, chỉ trả trường cần cho UI; graph kiểm lại trước báo giá. **Có UI gói/add-on** |
+| `get_moving_service` | Giới hạn, mô tả, special requests của service ID | Đọc thêm qua chat; form dùng danh mục với mô tả/tùy chọn/COD và kg/cm. **Chưa mô hình hóa tất cả quy tắc sức chứa/tùy chọn nhập tự do** |
+| `estimate_move` | Draft điểm lấy/giao, liên hệ, giờ, dịch vụ; quote có hạn và phí chi tiết | Form mở rộng nối tới báo giá/báo giá lại. Liên hệ báo giá cấu hình server; liên hệ thật nhập riêng. **Hai ca staging 05/10 thành công; chưa đặt đơn thật** |
 | `get_move_order` | ID đơn, trạng thái, phí, tracking; payload đầy đủ có PII | Graph rút gọn trước UI; card dùng `total_price`, `shared_link`. **Có UI trạng thái cơ bản** |
 | `get_move_orders` | Tối đa 100 order ID | Tool được service/allowlist hỗ trợ; chưa có flow graph và màn hình quản lý nhiều đơn hoàn chỉnh. Renderer nhận `orders[]` chưa đủ để gọi tính năng hoàn chỉnh. **Chưa nối đầy đủ** |
 | `find_move_orders_by_tracking_number` | Tracking đối tác; có thể nhiều đơn và khoảng thời gian | Qua chat; adapter hiện lấy một đơn. **Một phần**, chưa có UI chọn khi nhiều kết quả |

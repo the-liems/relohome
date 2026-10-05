@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,6 +54,47 @@ def client_for(service, domain):
     if client is None:
         raise HTTPException(503, "Dịch vụ này chưa được kết nối.")
     return client
+
+
+@router.get("/moving/services")
+async def moving_services(service: Service, lat: float = Query(ge=-90, le=90), lng: float = Query(ge=-180, le=180)):
+    """Read the provider's catalog for the confirmed pickup. No write credentials or raw provider data."""
+    agent = service.deps.agents.get(AgentName.RELOCATION)
+    client = getattr(agent, "moving", None) or getattr(agent, "client", None)
+    if client is None:
+        raise HTTPException(503, "Dịch vụ chuyển đồ chưa được kết nối.")
+    try:
+        raw = await client.call("list_moving_services", {"lat": lat, "lng": lng})
+    except ToolCallError:
+        raise HTTPException(502, "Chưa tải được gói xe và tùy chọn AhaMove. Hãy thử lại.") from None
+    request_keys = (
+        "_id",
+        "request_id",
+        "name",
+        "name_vi_vn",
+        "description",
+        "description_vi_vn",
+        "type",
+        "price",
+        "enable",
+    )
+    choice_keys = ("_id", "code", "name", "name_vi_vn", "description_vi_vn", "price", "selectable", "need_user_input")
+    rows = []
+    for service_row in (raw or {}).get("services", []):
+        row = {
+            k: service_row.get(k)
+            for k in ("service_id", "name", "description", "delivery_type", "currency", "cod_limit")
+        }
+        row["requests"] = []
+        for item in service_row.get("requests", []):
+            if item.get("enable") is False:
+                continue
+            clean = {k: item.get(k) for k in request_keys}
+            for key in ("tier_list", "options"):
+                clean[key] = [{k: c.get(k) for k in choice_keys} for c in item.get(key) or []]
+            row["requests"].append(clean)
+        rows.append(row)
+    return {"services": rows}
 
 
 @router.get("/flight/{offer_id}")

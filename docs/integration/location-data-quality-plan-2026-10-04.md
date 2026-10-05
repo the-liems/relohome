@@ -573,3 +573,64 @@ khớp manifest. Log startup: data/startup-poi-clean-20261004-163535/.
 **Xóa vật lý không hoàn tác bằng --rollback hoặc xóa alias**; phải restore backup
 đã kiểm chứng vào DB phục hồi. Hướng dẫn mới ở
 [runbook POI](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+
+## 11. Kiểm tra tọa độ housing và điểm B Moving — 05/10/2026
+
+Kiểm toán chỉ đọc sau phản ánh nhiều tin nhà chung pin. Đối chiếu theo
+`source_type:source_listing_id`, không ghép theo tên/địa chỉ hoặc khoảng cách.
+Mỗi housing listing nối property → housing anchor để đọc tọa độ hiện dùng;
+so sánh với JSONL nguồn và payload `location` staging gốc. Không tạo bảng,
+restore/reimport, sửa hoặc xóa bản ghi trong lượt này.
+
+| Chỉ số | Kết quả |
+|---|---:|
+| Tin active | 38.222 |
+| Record JSONL nguồn | 38.930 |
+| Tọa độ khớp JSONL nguồn | **38.222/38.222** |
+| Tọa độ khớp staging gốc | **38.222/38.222** |
+| Khác hoặc thiếu tọa độ nguồn trong tin active | **0** |
+| Tin dùng chung tọa độ chính xác với tin khác | **33.761 (88,3%)** |
+| Nhóm dùng chung tọa độ | **3.818** |
+| Nhóm lớn nhất | **195 tin** |
+| `location_accuracy=approximate` | **15.595** |
+| `location_accuracy=rooftop` | **22.627** |
+
+Số tọa độ chia sẻ khớp audit trước lượt làm sạch POI. Kết quả xác nhận việc
+làm sạch không làm đổi tọa độ housing; **không chứng minh các pin nguồn
+đã đúng ngoài đời**. Nhãn rooftop cũng là metadata nguồn, không phải xác
+minh độc lập. Các tin khác ID cùng tọa độ không tự xem là tin trùng.
+
+Căn được chọn trong ảnh (`75d4463b-fc37-5c2d-9f58-d694bf538d4c`, phòng full
+nội thất gần Hàng Xanh/UTH/HUTECH): nguồn ghi `approximate`, `source_map`,
+tọa độ **10.800452, 106.70504**, có **10 tin active** tại chính tọa độ đó.
+UI có thể hiển thị nhóm nhỏ hơn do bộ lọc/viewport; nhóm marker được làm
+tròn 5 chữ số thập phân, khoảng 1 mét, và không làm đổi data.
+
+### Điểm B bị thiếu căn đã chọn
+
+Hội thoại có ID đã chọn trong `selected:property`, nhưng căn không nằm
+trong candidates chat và không còn `state.selections.property`. Frontend
+trước đây chỉ đọc các nguồn này nên B trống, map mặc định về Hà Nội.
+
+Đã sửa ở frontend: đọc chi tiết theo ID qua endpoint hiện có, khôi phục
+sau reload; ô tên/địa chỉ căn đã chọn nằm ngay dưới B và cho phép bấm dùng
+lại; không ghi đè B đang nhập khi fetch trả chậm. Tọa độ gần đúng chỉ gợi ý,
+vẫn cần người dùng kiểm tra pin. Nhãn nhóm map đổi thành “tin chung điểm
+bản đồ”, kèm giải thích về vị trí gần đúng.
+
+**10/10 browser có mục tiêu qua** trên desktop/mobile; TypeScript/Vite
+build qua. GET chi tiết căn thật qua Agent/Location local trả 200, đúng
+ID/địa chỉ/tọa độ trong khoảng **0,62 giây** tại lượt kiểm tra. Chưa gọi
+LLM, báo giá hoặc đặt đơn thật. Backend, dữ liệu và quy trình xác nhận giữ
+nguyên trong lượt này.
+
+Visual smoke bản build thật 8503 dùng chi tiết căn thật, session/hội thoại
+fixture và basemap công khai: desktop/mobile hiện đúng ô căn dưới B và pin
+gợi ý trong Bình Thạnh; mỗi viewport tải 10 tile PBF HTTP 200, không lỗi
+JavaScript/tràn ngang. Mọi chat/action/quote đều bị chặn trong smoke này.
+
+Chứng cứ cục bộ (ignored, không thêm vào data bàn giao):
+`logs/local/housing-pin-audit-20261005.json`, ảnh/trace trong
+`Frontend/test-results/`. Nếu muốn cải thiện độ chính xác housing, cần
+đối chiếu địa chỉ/cổng thật từ nguồn trước khi cập nhật tọa độ; không rải
+pin giả hoặc xóa các tin khác nhau chỉ để map bớt chồng.

@@ -26,6 +26,7 @@ from src.agents.models import AgentBudget, AgentName, LocationChoice, Question, 
 from src.agents.subagents.capabilities import RELOCATION
 from src.agents.subagents.services.location import MIN_SUGGESTION_SCORE, location_choices, to_candidate
 from src.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
+from src.models.moving_options import apply_draft_options, service_selection, validated_options
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 
@@ -497,12 +498,17 @@ class MovingExecution:
             if self.route:
                 p = self.route["pickup"]
                 arguments = {"lat": p["lat"], "lng": p["lng"], "delivery_type": "TRUCK"}
+                if (inp.get("moving_options") or {}).get("service_id"):
+                    arguments.pop("delivery_type")
             elif mode == "catalog" and inp.get("city_id"):
                 arguments = {"city_id": inp["city_id"]}
             else:
                 return {"error": "resolve_route_first_or_supply_city_id"}
             got = await self.tool(self.agent.moving, name, arguments)
             self.catalog = {s["service_id"]: s for s in got.get("services", [])}
+            selected_service = (inp.get("moving_options") or {}).get("service_id")
+            if mode == "quote" and selected_service:
+                self.catalog = {k: s for k, s in self.catalog.items() if k == selected_service}
             self.catalog_loaded = True
             if mode == "quote" and not self.catalog:
                 return self.ask(
@@ -527,7 +533,8 @@ class MovingExecution:
             self.detail_reads += 1
             return public_data(got)
         if name == "estimate_move":
-            ids = args["service_ids"]
+            options = validated_options(inp.get("moving_options"))
+            ids = [options["service_id"]] if options.get("service_id") else args["service_ids"]
             if (
                 mode != "quote"
                 or self.route is None
@@ -554,9 +561,12 @@ class MovingExecution:
                 "payment_method": "CASH",
                 "order_time": self.route["order_time"],
             }
-            got = await self.tool(
-                self.agent.moving, name, {"draft": draft, "services": [{"service_id": s} for s in ids]}
-            )
+            try:
+                services = [service_selection(self.catalog[s], options) for s in ids]
+            except ValueError as exc:
+                return self.ask("service_id", str(exc))
+            draft = apply_draft_options(draft, options)
+            got = await self.tool(self.agent.moving, name, {"draft": draft, "services": services})
             self.quote = got["quote"]
             self.rejection = None
             return {
@@ -659,6 +669,14 @@ class MovingExecution:
                     "warnings": public_data(self.quote.get("warnings", [])),
                     "route": self.route,
                     "payment_method": "CASH",
+                    "moving_options": validated_options(inp.get("moving_options")),
+                    "addon_labels": [
+                        {"id": r.get("_id") or r.get("request_id"), "label": r.get("name_vi_vn") or r.get("name")}
+                        for s in self.catalog.values()
+                        for r in s.get("requests", [])
+                        if (r.get("_id") or r.get("request_id"))
+                        in {x["request_id"] for x in (inp.get("moving_options") or {}).get("requests", [])}
+                    ],
                     "from_address": self.route["pickup"]["address"],
                     "to_address": self.route["destination"]["address"],
                 },

@@ -643,7 +643,7 @@ export function MapWorkspace({
             <span className="eyebrow">NHÀ Ở QUANH ĐÂY</span>
             <h2>
               {stack
-                ? `${stack.length} căn cùng vị trí`
+                ? `${stack.length} tin chung điểm bản đồ`
                 : `${countLabel} lựa chọn`}
             </h2>
           </div>
@@ -664,6 +664,12 @@ export function MapWorkspace({
           </button>
         )}
         <div className="ws-list-body">
+          {stack?.some((h) => h.location_accuracy !== "rooftop") && (
+            <p className="notice">
+              Một số tin có vị trí gần đúng nên dùng chung pin. Đây là các tin
+              riêng, chưa xác nhận cùng một căn hay cùng địa chỉ thực tế.
+            </p>
+          )}
           {listError && (
             <p className="notice error" role="alert">
               {listError}

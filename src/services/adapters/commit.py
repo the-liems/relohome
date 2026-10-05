@@ -321,12 +321,18 @@ class McpTransaction:
         if not pickup or not destination or not all(contacts):
             raise CommitError("thiếu điểm lấy / giao hoặc liên hệ để đặt xe")
 
+        from src.models.moving_options import apply_draft_options, validated_options
+        from src.models.schemas import MovingContact
+
+        options = validated_options(req.task_data.get("moving_options"))
+        if options.get("service_id") and options["service_id"] != service_id:
+            raise CommitError("Gói xe không khớp báo giá đã chọn; cần lấy báo giá mới.")
+
         def point(p: dict, contact: dict) -> dict[str, Any]:
             return {
                 "address": p["address"],
                 "coordinate": {"lat": p["lat"], "lng": p["lng"]},
-                "name": contact["name"],
-                "mobile": contact["mobile"],
+                **MovingContact.model_validate(contact).model_dump(exclude_none=True),
             }
 
         # Mã đối soát vô danh, ổn định theo thao tác: đặt vào điểm giao TRƯỚC lần báo giá dùng để tạo đơn,
@@ -348,9 +354,18 @@ class McpTransaction:
         }
         if route.get("order_time"):
             draft["order_time"] = route["order_time"]
+        draft = apply_draft_options(draft, options)
         # 1. Báo giá lại với liên hệ thật (đọc); giá phải nằm trong khoảng người dùng đã đồng ý.
         estimate = await self._call(
-            self.moving, "moving", "estimate_move", {"draft": draft, "services": [{"service_id": service_id}]}
+            self.moving,
+            "moving",
+            "estimate_move",
+            {
+                "draft": draft,
+                "services": [
+                    {"service_id": service_id, **({"requests": options["requests"]} if options.get("requests") else {})}
+                ],
+            },
         )
         quote = estimate["quote"]
         option = next((o for o in quote.get("options", []) if o.get("service_id") == service_id), None)

@@ -129,7 +129,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending and pending.get("type") == "payment_required":
             return _payment_response(thread_id, pending, service)
         if pending:
-            if request.moving_locations or request.housing_location or request.place_choice:
+            if request.moving_locations or request.moving_options or request.housing_location or request.place_choice:
                 raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
             result = await service.graph.ainvoke(
                 Command(
@@ -156,6 +156,8 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     if request.moving_locations
                     else None,
                     "map_view": request.map_view.model_dump(mode="json") if request.map_view else None,
+                    "moving_options": request.moving_options.model_dump(mode="json", exclude_none=True)
+                    if request.moving_options is not None else None,
                     "place_choice": await _verified_place(service, request.place_choice)
                     if request.place_choice
                     else None,

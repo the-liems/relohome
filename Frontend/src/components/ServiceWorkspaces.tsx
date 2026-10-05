@@ -3,7 +3,10 @@ import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import {
   ArrowRight,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  Home,
   MessageCircle,
   Plane,
   Route,
@@ -25,21 +28,28 @@ import {
   mapCity,
 } from "../mapScope";
 import { loadMovingRoute } from "../movingRoute";
+import {
+  priceExpired as expired,
+  usePriceExpiry as useExpiryRefresh,
+} from "../priceExpiry";
+import {
+  MovingOptionsForm,
+  MovingSteps,
+  MovingQuoteSummary,
+  validateMovingForm,
+} from "./MovingOptionsForm";
 
 // Selecting an option is the same structured action as in the chat cards; the parent returns to
 // the conversation afterwards so the user can continue with other services.
 interface WorkspaceProps {
   data: Data;
+  onEdit?: () => void;
   selectedId?: string;
   chat: ChatDockProps;
   onSelect: (id: string) => Promise<void>;
   onExit: () => void;
 }
 
-const expired = (value?: string) =>
-  !value ||
-  !Number.isFinite(Date.parse(value)) ||
-  Date.parse(value) <= Date.now();
 const minutes = (from?: string, to?: string) =>
   from && to ? Math.round((Date.parse(to) - Date.parse(from)) / 60000) : null;
 // Flight times are shown in the airport's local time carried by the provider's ISO offset,
@@ -108,6 +118,7 @@ export function FlightWorkspace({
     setDetail(null);
   }
   const offers: Data[] = data.offers || [];
+  useExpiryRefresh(offers.map((o) => o.expires_at));
   const carriers = [...new Set(offers.map((o) => o.carrier).filter(Boolean))];
   const shown = useMemo(
     () =>
@@ -227,12 +238,16 @@ export function FlightWorkspace({
                       o.fare_vnd == null
                     }
                     title={late ? "Giá đã hết hạn, hãy tìm lại" : undefined}
-                    onClick={() => void select(o.id)}
+                    onClick={() => {
+                      if (!expired(o.expires_at)) void select(o.id);
+                    }}
                   >
                     {selectedId === o.id ? (
                       <>
                         <Check size={14} /> Đã chọn
                       </>
+                    ) : late ? (
+                      "Giá đã hết hạn"
                     ) : selecting === o.id ? (
                       "Đang chọn…"
                     ) : (
@@ -309,14 +324,17 @@ export function MovingWorkspace({
   chat,
   onSelect,
   onExit,
+  onEdit,
 }: WorkspaceProps) {
   const container = useRef<HTMLDivElement>(null),
     map = useRef<LibreMap | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(true);
   const [routeNotice, setRouteNotice] = useState("Đang tải tuyến đường…");
   const { selecting, select } = useSelect(onSelect);
   const quotes: Data[] = data.quotes || [];
   const route = data.route || {};
+  useExpiryRefresh([data.expires_at]);
   const late = expired(data.expires_at);
   useEffect(() => {
     let disposed = false;
@@ -423,14 +441,29 @@ export function MovingWorkspace({
     route.destination?.lng,
   ]);
   return (
-    <div className="map-workspace">
-      <aside className="ws-list" aria-label="Phương án chuyển đồ">
+    <div className="map-workspace moving-booking">
+      <aside
+        className={"ws-list " + (sheetOpen ? "open" : "")}
+        aria-label="Phương án chuyển đồ"
+      >
+        <button
+          className="ws-sheet-toggle"
+          aria-expanded={sheetOpen}
+          onClick={() => setSheetOpen(!sheetOpen)}
+        >
+          {sheetOpen ? <ChevronDown size={15} /> : <ChevronUp size={15} />} Báo
+          giá chuyển đồ · {quotes.length} gói xe
+        </button>
         <header className="ws-list-head">
           <div>
             <span className="eyebrow">CHUYỂN ĐỒ · AHAMOVE</span>
-            <h2>{quotes.length} phương án</h2>
+            <h2>Chọn gói xe phù hợp</h2>
+            <p className="mv-head-caption">
+              {quotes.length} báo giá từ AhaMove
+            </p>
           </div>
         </header>
+        <MovingSteps stage={1} />
         <div className="mv-route">
           <div>
             <i className="mv-dot a">A</i>
@@ -441,11 +474,20 @@ export function MovingWorkspace({
             <span>{data.to_address || route.destination?.address}</span>
           </div>
           <small className="muted">
+            {route.order_time
+              ? `Lịch lấy đồ: ${dateTime(route.order_time)} · `
+              : ""}
             <Clock size={12} /> Báo giá hết hạn {dateTime(data.expires_at)} ·
             trả tiền mặt cho tài xế
           </small>
         </div>
         <div className="ws-list-body">
+          {data.moving_options && (
+            <MovingQuoteSummary
+              options={data.moving_options}
+              labels={data.addon_labels}
+            />
+          )}
           {quotes.map((q) => (
             <article
               key={q.id}
@@ -480,13 +522,17 @@ export function MovingWorkspace({
                   title={
                     late ? "Báo giá đã hết hạn, hãy báo giá lại" : undefined
                   }
-                  onClick={() => void select(q.id)}
+                  onClick={() => {
+                    if (!expired(data.expires_at)) void select(q.id);
+                  }}
                 >
                   {selectedId === q.id
                     ? "Đã chọn"
-                    : selecting === q.id
-                      ? "Đang chọn…"
-                      : "Chọn phương án"}
+                    : late
+                      ? "Báo giá hết hạn"
+                      : selecting === q.id
+                        ? "Đang chọn…"
+                        : "Chọn phương án"}
                 </button>
                 <button
                   className="text-button"
@@ -508,9 +554,19 @@ export function MovingWorkspace({
             </p>
           ))}
         </div>
-        <p className="ws-list-foot muted small">
-          Giá do AhaMove trả tại thời điểm báo giá; chưa đặt xe.
-        </p>
+        <div className="mv-confirm">
+          <button
+            className="secondary"
+            disabled={chat.busy}
+            onClick={onEdit || onExit}
+          >
+            Sửa yêu cầu / báo giá lại
+          </button>
+          <small className="muted">
+            Chọn gói xe để tiếp tục trong chat. Tên/SĐT được nhập ở bước xác
+            nhận đặt đơn.
+          </small>
+        </div>
       </aside>
       <section className="ws-map" aria-label="Bản đồ chuyển đồ">
         <div className="ws-filterbar">
@@ -542,13 +598,28 @@ function FeeBreakdown({ fee }: { fee?: Data }) {
   if (!fee)
     return <p className="muted small">Nhà cung cấp chưa trả chi tiết phí.</p>;
   const rows = Object.entries(fee).filter(([, v]) => typeof v === "number");
+  const labels: Data = {
+    distance_km: "Quãng đường · km",
+    duration_seconds: "Thời gian · giây",
+    distance_price: "Phí quãng đường",
+    stop_point_price: "Phí điểm dừng",
+    special_request_price: "Phí dịch vụ thêm",
+    cod_commission_price: "Phí thu hộ",
+    voucher_discount: "Giảm giá",
+    subtotal_price: "Tạm tính",
+    total_price: "Tổng báo giá",
+    total_pay: "Tổng cần trả",
+  };
   return (
     <dl className="mv-fee">
       {rows.map(([k, v]) => (
         <div key={k}>
-          <dt>{k.replaceAll("_", " ")}</dt>
+          <dt>{labels[k] || k.replaceAll("_", " ")}</dt>
           <dd>
-            {k.includes("price") || k.includes("fee") || k.includes("amount")
+            {k.includes("price") ||
+            k.includes("fee") ||
+            k.includes("amount") ||
+            k === "total_pay"
               ? money(v)
               : String(v)}
           </dd>
@@ -578,6 +649,7 @@ export const MOVING_FIELDS = [
   "to_address",
   "move_date",
   "move_time",
+  "service_id",
 ] as const;
 // Intake asks "relocation.move_date"; the Moving agent asks "move_date".
 export const movingField = (field?: string) =>
@@ -597,6 +669,8 @@ export function MovingRequestWorkspace({
   questions,
   known,
   house,
+  homeLoading = false,
+  homeIssue = "",
   chat,
   onConfirm,
   onExit,
@@ -604,6 +678,8 @@ export function MovingRequestWorkspace({
   questions: Data[];
   known: Data;
   house?: Data;
+  homeLoading?: boolean;
+  homeIssue?: string;
   chat: ChatDockProps;
   onConfirm: (text: string, extra: Data) => Promise<void>;
   onExit: () => void;
@@ -626,15 +702,38 @@ export function MovingRequestWorkspace({
       : null;
   const text = (v: unknown) =>
     typeof v === "string" && v !== SELECTED ? v : "";
+  const initialPin = (field: string, coordinate: Data | undefined) =>
+    coordinate &&
+    Number.isFinite(coordinate.lat) &&
+    Number.isFinite(coordinate.lng) &&
+    text(known[field])
+      ? { ...coordinate, label: text(known[field]) }
+      : null;
   const [ends, setEnds] = useState<Record<EndpointField, Endpoint>>({
-    from_address: { address: text(known.from_address), pin: null },
-    to_address: { address: text(known.to_address), pin: null },
+    from_address: {
+      address: text(known.from_address),
+      pin: initialPin("from_address", known.pickup_coordinate),
+    },
+    to_address: {
+      address: text(known.to_address),
+      pin: initialPin("to_address", known.destination_coordinate),
+    },
   });
   const [useHouse, setUseHouse] = useState(
     Boolean(house) && !text(known.to_address),
   );
+  const destinationTouched = useRef(false);
+  useEffect(() => {
+    // Detail may arrive after the form mounts. Prefill only an untouched destination;
+    // typing or pinning another B always takes precedence over a late response.
+    if (house && !text(known.to_address) && !destinationTouched.current)
+      setUseHouse(true);
+  }, [house?.id]);
   const [date, setDate] = useState(text(known.move_date)),
     [time, setTime] = useState(text(known.move_time));
+  const [options, setOptions] = useState<Data>(known.moving_options || {}),
+    [optionsIssue, setOptionsIssue] = useState(""),
+    [sheetOpen, setSheetOpen] = useState(true);
   const [active, setActive] = useState<EndpointField>(
     asked.to_address && !asked.from_address ? "to_address" : "from_address",
   );
@@ -667,11 +766,28 @@ export function MovingRequestWorkspace({
     );
   const shown = candidates(active);
   function pin(field: EndpointField, point: Data) {
+    if (field === "to_address") destinationTouched.current = true;
+    if (
+      field === "from_address" &&
+      (ends[field].pin?.lat !== point.lat || ends[field].pin?.lng !== point.lng)
+    )
+      setOptions((v) => ({
+        ...v,
+        service_id: undefined,
+        requests: [],
+        cod: undefined,
+      }));
     setEnds((e) => ({ ...e, [field]: { ...e[field], pin: point } }));
     if (field === "to_address")
-      setUseHouse(point.id === housePoint?.id || (useHouse && !point.id));
+      setUseHouse(
+        (current) =>
+          Boolean(house) &&
+          (Boolean(point.id && point.id === housePoint?.id) ||
+            (current && !point.id)),
+      );
   }
   function type(field: EndpointField, address: string) {
+    if (field === "to_address") destinationTouched.current = true;
     // A new address invalidates the confirmed point; the user confirms again.
     setEnds((e) => ({ ...e, [field]: { address, pin: null } }));
     setDrafts((x) => ({ ...x, [field]: address }));
@@ -680,13 +796,24 @@ export function MovingRequestWorkspace({
     ++searchGeneration.current;
     setSearching(null);
     if (field === "to_address") setUseHouse(false);
+    if (field === "from_address")
+      setOptions((v) => ({
+        ...v,
+        service_id: undefined,
+        requests: [],
+        cod: undefined,
+      }));
   }
+  const pinRef = useRef(pin);
+  pinRef.current = pin;
+  const housePointRef = useRef(housePoint);
+  housePointRef.current = housePoint;
   useEffect(() => {
     let disposed = false;
     import("maplibre-gl").then(({ Map, NavigationControl, setWorkerUrl }) => {
       if (disposed || !container.current) return;
       setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
-      const first = housePoint || candidates(active)[0];
+      const first = housePointRef.current || candidates(active)[0];
       const center: [number, number] = first
         ? [first.lng, first.lat]
         : DEFAULT_CENTER;
@@ -709,7 +836,7 @@ export function MovingRequestWorkspace({
       m.on("load", () => tuneBasemap(m));
       // A tap places the pin for the endpoint being edited (e.g. the exact gate).
       m.on("click", (e) =>
-        pin(activeRef.current, {
+        pinRef.current(activeRef.current, {
           lat: e.lngLat.lat,
           lng: e.lngLat.lng,
           label: "Vị trí bạn chạm trên bản đồ",
@@ -726,6 +853,15 @@ export function MovingRequestWorkspace({
     EndpointField,
     Endpoint,
   ][];
+  useEffect(() => {
+    if (
+      housePoint &&
+      !destinationTouched.current &&
+      !ends.from_address.pin &&
+      map.current
+    )
+      focusMapPoint(map.current, [housePoint.lng, housePoint.lat], 15);
+  }, [house?.id, house?.lat, house?.lng]);
   useEffect(() => {
     let cancelled = false;
     import("maplibre-gl").then(({ Marker }) => {
@@ -833,9 +969,10 @@ export function MovingRequestWorkspace({
       setSearching(null);
     };
   }, [active, drafts[active], ends[active].pin]);
-  const destination = useHouse
-    ? "phòng mình đã chọn"
-    : ends.to_address.address.trim() || ends.to_address.pin?.label || "";
+  const destination =
+    useHouse && house
+      ? "phòng mình đã chọn"
+      : ends.to_address.address.trim() || ends.to_address.pin?.label || "";
   const pickup =
     ends.from_address.address.trim() || ends.from_address.pin?.label || "";
   async function confirm() {
@@ -852,16 +989,31 @@ export function MovingRequestWorkspace({
       setError("Hãy chọn thời gian chuyển đồ trong tương lai.");
       return;
     }
+    const invalidOptions = validateMovingForm(options) || optionsIssue;
+    if (invalidOptions) {
+      setError(invalidOptions);
+      return;
+    }
     const locations: Data = {};
     for (const field of Object.keys(ENDPOINTS) as EndpointField[]) {
       const p = ends[field].pin;
       if (!p) continue;
       const address =
-        field === "to_address" && useHouse
+        field === "to_address" && useHouse && house
           ? house?.address || house?.title
           : ends[field].address.trim() || p.label;
+      if (
+        typeof address !== "string" ||
+        address.trim().length < 3 ||
+        address.trim().length > 300
+      ) {
+        setError(
+          `Địa chỉ điểm ${ENDPOINTS[field].tag} cần từ 3 đến 300 ký tự. Hãy nhập hoặc ghim lại địa điểm.`,
+        );
+        return;
+      }
       locations[ENDPOINTS[field].key] = {
-        address,
+        address: address.trim(),
         lat: p.lat,
         lng: p.lng,
         confirmed: true,
@@ -871,7 +1023,12 @@ export function MovingRequestWorkspace({
     try {
       await onConfirm(
         `Báo giá chuyển đồ từ ${pickup} đến ${destination} ngày ${date} lúc ${time}. Chưa đặt đơn.`,
-        Object.keys(locations).length ? { moving_locations: locations } : {},
+        {
+          ...(Object.keys(locations).length
+            ? { moving_locations: locations }
+            : {}),
+          ...(Object.keys(options).length ? { moving_options: options } : {}),
+        },
       );
     } catch (e) {
       setError((e as Error).message);
@@ -880,14 +1037,29 @@ export function MovingRequestWorkspace({
     }
   }
   return (
-    <div className="map-workspace">
-      <aside className="ws-list" aria-label="Thông tin chuyển đồ">
+    <div className="map-workspace moving-booking">
+      <aside
+        className={"ws-list " + (sheetOpen ? "open" : "")}
+        aria-label="Thông tin chuyển đồ"
+      >
+        <button
+          className="ws-sheet-toggle"
+          aria-expanded={sheetOpen}
+          onClick={() => setSheetOpen(!sheetOpen)}
+        >
+          {sheetOpen ? <ChevronDown size={15} /> : <ChevronUp size={15} />}{" "}
+          Thông tin chuyển đồ
+        </button>
         <header className="ws-list-head">
           <div>
             <span className="eyebrow">CHUYỂN ĐỒ · AHAMOVE</span>
             <h2>Thông tin chuyển đồ</h2>
+            <p className="mv-head-caption">
+              Sắp xếp chuyến chuyển đồ theo cách của bạn
+            </p>
           </div>
         </header>
+        <MovingSteps stage={0} />
         <div className="ws-list-body mv-request">
           {(Object.keys(ENDPOINTS) as EndpointField[]).map((field) => {
             const meta = ENDPOINTS[field],
@@ -938,24 +1110,51 @@ export function MovingRequestWorkspace({
                       autoComplete="off"
                     />
                   </div>
-                  {home && (
-                    <small>
-                      Phòng đã chọn: <b>{house.title}</b>
-                    </small>
+                  {field === "to_address" && homeLoading && (
+                    <small role="status">Đang lấy địa chỉ căn đã chọn…</small>
                   )}
-                  {!home && field === "to_address" && house && (
+                  {field === "to_address" && homeIssue && (
+                    <small role="status">{homeIssue}</small>
+                  )}
+                  {field === "to_address" && house && (
                     <button
                       type="button"
-                      className="text-button"
-                      onClick={() => {
-                        setEnds((x) => ({
-                          ...x,
-                          to_address: { address: "", pin: null },
-                        }));
+                      className={"mv-selected-home" + (home ? " selected" : "")}
+                      aria-label={`Giao tới phòng đã chọn (${house.title})`}
+                      aria-pressed={Boolean(home)}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        destinationTouched.current = true;
+                        if (!home)
+                          setEnds((x) => ({
+                            ...x,
+                            to_address: { address: "", pin: null },
+                          }));
                         setUseHouse(true);
+                        setActive("to_address");
+                        if (housePoint && map.current)
+                          focusMapPoint(
+                            map.current,
+                            [housePoint.lng, housePoint.lat],
+                            16,
+                          );
                       }}
                     >
-                      Giao tới phòng đã chọn ({house.title})
+                      <Home size={18} aria-hidden="true" />
+                      <span>
+                        <small>
+                          Phòng đã chọn: <b>{house.title}</b>
+                        </small>
+                        <span>
+                          {house.address || "Địa chỉ đang được cập nhật"}
+                        </span>
+                        <small>
+                          {home
+                            ? "Đang dùng làm điểm B · Kiểm tra pin trên bản đồ"
+                            : "Dùng căn này làm điểm giao"}
+                        </small>
+                      </span>
+                      {home && <Check size={16} aria-hidden="true" />}
                     </button>
                   )}
                   {searching === field && (
@@ -1011,6 +1210,13 @@ export function MovingRequestWorkspace({
                       className="text-button"
                       onClick={(ev) => {
                         ev.stopPropagation();
+                        if (field === "from_address")
+                          setOptions((x) => ({
+                            ...x,
+                            service_id: undefined,
+                            requests: [],
+                            cod: undefined,
+                          }));
                         setEnds((x) => ({
                           ...x,
                           [field]: { ...x[field], pin: null },
@@ -1048,6 +1254,12 @@ export function MovingRequestWorkspace({
               )}
             </label>
           </div>
+          <MovingOptionsForm
+            value={options}
+            onChange={setOptions}
+            pickup={ends.from_address.pin}
+            onValidationChange={setOptionsIssue}
+          />
         </div>
         <div className="mv-confirm">
           {error && (
@@ -1086,7 +1298,7 @@ export function MovingRequestWorkspace({
           text={
             chat.fromResult
               ? chat.text
-              : "Điền thông tin bên trái hoặc nhắn cho SIU, rồi bấm “Xác nhận và lấy báo giá”."
+              : "Điền thông tin chuyến chuyển đồ hoặc nhắn cho SIU, rồi bấm “Xác nhận và lấy báo giá”."
           }
           placeholder="Hoặc nhắn yêu cầu chuyển đồ…"
           onSendText={chat.onSend}

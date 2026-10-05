@@ -2,11 +2,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.models.moving_options import MovingOptions
+
 
 class MovingContact(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     name: str = Field(min_length=1, max_length=150)
     mobile: str = Field(pattern=r"^\+?\d{9,15}$")
+    building: str | None = Field(default=None, max_length=200)
+    apartment_or_floor: str | None = Field(default=None, max_length=100)
+    remarks: str | None = Field(default=None, max_length=500)
 
 
 class MovingOrderUpdate(BaseModel):
@@ -74,6 +79,7 @@ class PlaceChoice(BaseModel):
 class ChatRequest(BaseModel):
     housing_location: ConfirmedLocation | None = None
     moving_locations: MovingLocations | None = None
+    moving_options: MovingOptions | None = None
     map_view: MapView | None = None
     place_choice: PlaceChoice | None = None
     message: str = Field(..., min_length=1, max_length=5000, description="Tin nhắn từ user")
