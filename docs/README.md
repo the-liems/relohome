@@ -6,6 +6,7 @@
 |---|---|---|
 | [Moving service specification](specs/SPEC-004-ahamove-moving-service.md) | AhaMove integration and customer-facing moving/packing requirements and scenarios | Draft; requirements review and provider verification tracked in linked issues |
 | [SPEC-015: Maps and location experience](specs/SPEC-015-maps-and-location-experience.md) | Customer flow, evidence rules, service interfaces, and acceptance criteria | Draft |
+| [Travel and flight booking specification](specs/SPEC-017-travel-and-flight-booking.md) | Journey search, comparison, approval, booking outcomes, and recovery requirements | Draft; reviewed against the integrated MVP, booking enablement remains a decision |
 | [Product brief](product.md) | Relocation problem, target user, draft workflow, and open decisions | Draft; exact demo request unconfirmed |
 | [Housing search spec](specs/SPEC-016-housing-search.md) | Housing scope, current implementation evidence, custom requirements, and explicit home choice | Draft; desktop list/map and automatic viewport search confirmed |
 | [MCP tool catalogue](specs/SPEC-008-service-tools.md) | Proposed domain tools, AI system coordination, and vendor lifecycles | Draft contracts; travel booking in MVP, service grouping and schemas under review |

@@ -28,6 +28,12 @@ The shared catalogue and the Maps/POI specification both carry the existing iden
 Thiết kế graph hợp nhất (intake, Routing Orchestrator, subagent theo lĩnh vực):
 [agent-graph.md](../architecture/agent-graph.md), ADR-016.
 
+## Travel
+
+| SPEC | Status | Scope |
+|---|---|---|
+| [SPEC-017 — Travel and flight booking](SPEC-017-travel-and-flight-booking.md) | Draft | Customer requirements, existing flight contracts, booking approval, payment linkage, cancellation, and recovery |
+
 ## Maps
 
 Bắt đầu từ [SPEC-007](SPEC-007-location-platform.md) để hiểu toàn cảnh, rồi
