@@ -4,10 +4,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../src/app.js'
 
 let app: FastifyInstance
+let pool: ReturnType<typeof createDatabasePool>
 
 beforeAll(async () => {
   const config = getRuntimeConfig()
-  app = buildApp(createDatabasePool(config.databaseUrl, 2), config)
+  pool = createDatabasePool(config.databaseUrl, 2)
+  app = buildApp(pool, config)
   await app.ready()
 })
 
@@ -25,7 +27,15 @@ describe('LifeFlow Platform API', () => {
     expect(response.statusCode).toBe(200)
     const body = response.json()
     expect(body.type).toBe('FeatureCollection')
-    expect(body.features.length).toBeGreaterThan(30_000)
+    // Count the imported snapshot's visible identities; dedup intentionally reduces map rows.
+    const raw = await pool.query(`SELECT id FROM catalog.places
+      WHERE status='active' AND deleted_at IS NULL
+        AND COALESCE(attributes->>'entity_role','') <> 'housing_anchor'
+        AND ST_X(geom) BETWEEN 106.34 AND 107.05 AND ST_Y(geom) BETWEEN 10.34 AND 11.2`)
+    const aliases = new Set((await pool.query('SELECT alias_place_id FROM catalog.poi_aliases')).rows.map(r => r.alias_place_id))
+    const expected = raw.rows.map(r => r.id).filter(id => !aliases.has(id)).sort()
+    expect(expected.length).toBeGreaterThan(0)
+    expect(body.features.map((feature: { id: string }) => feature.id).sort()).toEqual(expected)
     expect([...new Set(body.features.map((feature: { properties: { group: string } }) => feature.properties.group))].sort())
       .toEqual(['accommodation', 'education', 'food', 'healthcare', 'lifestyle', 'shopping', 'transport', 'utility'])
     expect(new Set(body.features.map((feature: { id: string }) => feature.id)).size).toBe(body.features.length)

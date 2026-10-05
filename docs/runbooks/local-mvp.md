@@ -48,6 +48,17 @@ docker compose -f config/local-routing.compose.yaml up -d
 
 Build UI một lần: `cd Frontend`, `npm ci`, `npm run build`, rồi trở về gốc repo.
 
+Nếu snapshot chưa có bảng Moving, chạy migration hiện có từ gốc repo:
+
+```powershell
+.venv/Scripts/python.exe scripts/local-integration.py migrate
+```
+
+Lệnh bỏ qua migration đã áp dụng. Kiểm tra `http://127.0.0.1:4200/ready` và
+`http://127.0.0.1:4400/ready` đều 200 sau khi các process chạy; `/health` 200
+chưa chứng minh schema đã sẵn sàng. Đợt 04/10 phát hiện thiếu 5 bảng Moving và
+khắc phục bằng `008_moving_service.sql` có sẵn, không cần sửa code provider.
+
 Mở từng terminal riêng (Ctrl+C dừng đúng process):
 
 ```powershell

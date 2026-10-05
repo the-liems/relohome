@@ -90,6 +90,10 @@ export const ResolvedLocationSchema = z.object({
   source: ResolvedLocationSourceSchema,
   match_type: LocationMatchTypeSchema,
   match_score: z.number().min(0).max(1),
+  // Additive display metadata; IDs and coordinate semantics remain unchanged.
+  display_name: z.string().optional(),
+  city: z.string().nullable().optional(),
+  alias_ids: z.array(z.string()).optional(),
 })
 
 export const ResolveLocationResponseSchema = z.object({

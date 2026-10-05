@@ -305,6 +305,9 @@ class LlmPlanner(UsageOwner):
                     task.inputs.pop("selected_listing_id", None)
             if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
                 continue
+            task.inputs.pop("moving_options", None)
+            if task.inputs.get("mode") == "quote" and values.get("moving_options") is not None:
+                task.inputs["moving_options"] = dict(values["moving_options"])
             # Coordinates belong to trusted state. A model cannot override them
             # or accidentally retain the old direction's coordinates.
             for address_key, coordinate_key in (

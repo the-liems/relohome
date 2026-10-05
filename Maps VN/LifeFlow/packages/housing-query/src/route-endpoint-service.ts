@@ -47,14 +47,17 @@ export class RouteEndpointService {
       WHERE l.id = $1 AND l.status = 'active' AND l.deleted_at IS NULL
         AND p.deleted_at IS NULL AND cp.status = 'active' AND cp.deleted_at IS NULL
     ` : `
-      SELECT cp.id AS canonical_id, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat,
+      SELECT COALESCE(legacy.alias_place_id,cp.id) AS canonical_id,
+        ST_X(COALESCE(legacy.legacy_geom,cp.geom)) AS lng, ST_Y(COALESCE(legacy.legacy_geom,cp.geom)) AS lat,
         cp.address, cp.attributes, s.source_type, s.source_id, s.source_url, s.observed_at
       FROM catalog.places cp
+      LEFT JOIN catalog.poi_aliases legacy ON legacy.alias_place_id=$1 AND legacy.canonical_place_id=cp.id
       LEFT JOIN LATERAL (
         SELECT source_type, source_id, source_url, observed_at FROM catalog.place_sources
         WHERE place_id = cp.id ORDER BY observed_at DESC, id LIMIT 1
       ) s ON true
-      WHERE cp.id = $1 AND cp.status = 'active' AND cp.deleted_at IS NULL
+      WHERE cp.id = COALESCE((SELECT canonical_place_id FROM catalog.poi_aliases WHERE alias_place_id=$1),$1)
+        AND cp.status = 'active' AND cp.deleted_at IS NULL
         AND COALESCE(cp.attributes->>'entity_role', '') <> 'housing_anchor'
     `, [id])
     const row = result.rows[0]

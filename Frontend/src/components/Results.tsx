@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plane,
   Truck,
@@ -19,6 +19,7 @@ import type { Component, Data, House, Payload } from "../types";
 import { HousingCard, Comparison } from "./Housing";
 import { MapPanel } from "./MapPanel";
 import { Dialog } from "./Dialog";
+import { priceExpired, usePriceExpiry } from "../priceExpiry";
 
 export interface ResultProps {
   payload: Payload;
@@ -53,8 +54,29 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
     [mobileTab, setMobileTab] = useState("list"),
     [detail, setDetail] = useState<Data | null>(null),
     [error, setError] = useState("");
+  const detailRequest = useRef(0);
+  useEffect(
+    () => () => {
+      ++detailRequest.current;
+    },
+    [],
+  );
+  function closeDetail() {
+    ++detailRequest.current;
+    setDetail(null);
+  }
   const data = c.data || {},
     version = p.payload.ui?.plan_version || 0;
+  usePriceExpiry(
+    c.type === "flight"
+      ? [
+          ...(data.offers || []).map((o: Data) => o.expires_at),
+          detail?.expires_at,
+        ]
+      : c.type === "relocation"
+        ? [data.expires_at]
+        : [],
+  );
   const icons: Data = {
     property: HouseIcon,
     flight: Plane,
@@ -75,12 +97,14 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
   const selected = p.selected["selected:" + c.type]?.value;
   const points: Data[] = Object.values(data.nearby || {}).flat() as Data[];
   async function flightDetail(offer: Data) {
+    const request = ++detailRequest.current;
     setDetail({ ...offer, loading: true });
     try {
       const detail = await api<Data>("/flight/" + encodeURIComponent(offer.id));
-      setDetail({ ...offer, ...detail });
+      if (request === detailRequest.current) setDetail({ ...offer, ...detail });
     } catch (e) {
-      setDetail({ ...offer, error: (e as Error).message });
+      if (request === detailRequest.current)
+        setDetail({ ...offer, error: (e as Error).message });
     }
   }
   return (
@@ -345,14 +369,18 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   className="text-button"
                   disabled={
                     p.busy ||
-                    !Number.isFinite(Date.parse(data.expires_at)) ||
-                    Date.parse(data.expires_at) < Date.now() ||
+                    priceExpired(data.expires_at) ||
                     q.price_vnd == null ||
                     selected === q.id
                   }
-                  onClick={() => select(q.id)}
+                  onClick={() => {
+                    if (!priceExpired(data.expires_at)) void select(q.id);
+                  }}
                 >
-                  Chọn báo giá <ArrowRight size={14} />
+                  {priceExpired(data.expires_at)
+                    ? "Báo giá hết hạn"
+                    : "Chọn báo giá"}{" "}
+                  <ArrowRight size={14} />
                 </button>
               </div>
             </article>
@@ -498,7 +526,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
               ? "Chi tiết dịch vụ"
               : "Chi tiết hành trình"
           }
-          onClose={() => setDetail(null)}
+          onClose={closeDetail}
         >
           {detail.kind === "moving" ? (
             <>
@@ -559,14 +587,17 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   detail.loading ||
                   !!detail.error ||
                   selected === detail.id ||
-                  !Number.isFinite(Date.parse(detail.expires_at)) ||
-                  Date.parse(detail.expires_at) < Date.now()
+                  priceExpired(detail.expires_at)
                 }
-                onClick={() => select(detail.id)}
+                onClick={() => {
+                  if (!priceExpired(detail.expires_at)) void select(detail.id);
+                }}
               >
                 {selected === detail.id
                   ? "Đã chọn vào kế hoạch"
-                  : "Chọn vào kế hoạch"}
+                  : priceExpired(detail.expires_at)
+                    ? "Giá đã hết hạn"
+                    : "Chọn vào kế hoạch"}
               </button>
             </>
           )}

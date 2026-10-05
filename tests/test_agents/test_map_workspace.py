@@ -43,10 +43,23 @@ def place(pid, name, lat, lng, source, match="exact"):
 # --- Place grouping: duplicates of one destination vs real ambiguity ---
 
 
-def test_exact_duplicates_within_radius_are_one_destination_with_richest_geometry():
-    node = place("p1", "Chợ A", 16.06824, 108.22458, "node/1")
+def test_same_osm_way_and_area_are_one_destination_with_richest_geometry():
+    node = place("p1", "Chợ A", 16.06824, 108.22458, "way/1")
     area = place("p2", "Chợ A", 16.06835, 108.22428, "area/2")  # ~35 m away
     assert pick_place([node, area])["canonical_id"] == "p2"
+
+
+def test_nearby_same_name_stops_are_not_the_same_osm_object():
+    a = place("p1", "Đại học Bách Khoa", 21.0050, 105.8450, "node/1")
+    b = place("p2", "Đại học Bách Khoa", 21.0051, 105.8451, "node/2")
+    assert pick_place([a, b]) is None
+
+
+def test_same_name_different_category_is_not_merged():
+    a = place("p1", "Bách Khoa", 21.0050, 105.8450, "way/1")
+    b = place("p2", "Bách Khoa", 21.0051, 105.8451, "area/2")
+    a["category"], b["category"] = "university", "bus_stop"
+    assert pick_place([a, b]) is None
 
 
 def test_exact_matches_far_apart_stay_ambiguous_and_carry_choices():

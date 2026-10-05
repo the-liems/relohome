@@ -271,6 +271,7 @@ RELOCATION = AgentCapability(
             "move_time": {"type": "string", "pattern": r"^([01]\d|2[0-3]):[0-5]\d$"},
             "selected_listing_id": _STR,
             "volume": _STR,
+            "moving_options": {"type": "object"},
             "order_id": _STR,
             "tracking_number": _STR,
         },
@@ -315,7 +316,7 @@ RELOCATION = AgentCapability(
     stale_ttl_s=300,  # báo giá AhaMove mặc định hết hạn sau 5 phút (AHAMOVE_QUOTE_TTL_SECONDS)
     cost_tier="paid",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=8),
-    constraint_keys=["from_address", "to_address", "move_date", "move_time", "volume"],
+    constraint_keys=["from_address", "to_address", "move_date", "move_time", "volume", "moving_options"],
     hint_keys=["preferred_mover"],
     commit_kinds=[CommitActionKind.MOVING_BOOKING, CommitActionKind.CANCEL_ORDER, CommitActionKind.UPDATE_ORDER],
 )

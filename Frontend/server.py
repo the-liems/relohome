@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from Frontend.store import Store, password_hash
 from src.agents.intake import redact_pii
+from src.models.moving_options import MovingOptions
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
@@ -47,6 +48,7 @@ class Turn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
     housing_location: dict | None = None
     moving_locations: dict | None = None
+    moving_options: MovingOptions | None = None
     map_view: dict | None = None  # validated again by the Agent API
     place_choice: dict | None = None
 
@@ -431,6 +433,11 @@ def create_app(database=None, transport=None):
     @app.get("/web/api/flight/{offer_id}")
     async def flight_detail(offer_id: str, request: Request):
         return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
+
+    @app.get("/web/api/moving/services")
+    async def moving_services(request: Request, lat: float, lng: float):
+        params = str(httpx.QueryParams({"lat": lat, "lng": lng}))
+        return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
 
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):

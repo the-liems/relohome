@@ -12,6 +12,7 @@
     "db:import:pois:v2": "tsx src/import-pois-v2.ts",
     "db:import:housing": "tsx src/import-housing.ts",
     "db:report:pois": "tsx src/report-poi-coverage.ts",
+    "db:deduplicate:pois": "tsx src/deduplicate-pois.ts",
     "db:import:areas": "tsx src/import-admin-areas.ts",
     "test": "vitest run tests"
   },

@@ -163,11 +163,11 @@ export class PlaceService {
   async get(placeId: string): Promise<Place | null> {
     const result = await this.pool.query(
       `SELECT
-         p.id AS place_id,
-         p.name,
+         COALESCE(legacy.alias_place_id,p.id) AS place_id,
+         COALESCE(legacy.legacy_name,p.name) AS name,
          c.slug AS category,
-         ST_X(p.geom) AS lng,
-         ST_Y(p.geom) AS lat,
+         ST_X(COALESCE(legacy.legacy_geom,p.geom)) AS lng,
+         ST_Y(COALESCE(legacy.legacy_geom,p.geom)) AS lat,
          p.address,
          p.phone,
          p.website,
@@ -189,7 +189,9 @@ export class PlaceService {
          ORDER BY ps.observed_at DESC, ps.id
          LIMIT 1
        ) source ON true
-       WHERE p.id = $1 AND p.deleted_at IS NULL`,
+       LEFT JOIN catalog.poi_aliases legacy ON legacy.alias_place_id=$1 AND legacy.canonical_place_id=p.id
+       WHERE p.id = COALESCE((SELECT canonical_place_id FROM catalog.poi_aliases WHERE alias_place_id=$1),$1)
+         AND p.deleted_at IS NULL`,
       [placeId],
     )
     return result.rowCount ? rowToPlace(result.rows[0]) : null

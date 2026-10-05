@@ -124,6 +124,13 @@ Chỉ nhận bản ghi nếu có tối thiểu:
 
 ### Nhóm ưu tiên cao
 
+**Quy ước phòng thuê cập nhật 04/10/2026:** loại `room` cho thuê nguyên phòng
+có giá trị nguồn 0 có thể chuẩn hóa thành 1, kèm original_value và quy tắc trong
+`unit.attributes.bedroom_normalization`. Không đồng nghĩa một phòng ngủ tách biệt
+đã xác minh. Studio = 0 vẫn hợp lệ. Tin giường/ở ghép hoặc số phòng mâu thuẫn
+phải review; null không tự điền thành 1. Xem
+[báo cáo và script xử lý](../../../docs/integration/map-housing-osrm-audit-2026-10-04.md).
+
 - diện tích `area_m2`;
 - số phòng ngủ `bedrooms`;
 - số phòng tắm `bathrooms`;
@@ -213,7 +220,7 @@ Mỗi dòng là một listing độc lập. Không dùng một file tổng hợp
   },
   "unit": {
     "unit_code": null,
-    "bedrooms": 0,
+    "bedrooms": 1,
     "bathrooms": 1,
     "area_m2": 25,
     "amenities": [

@@ -1,6 +1,6 @@
 # SIU AI — Frontend
 
-Cập nhật **03/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+Cập nhật **05/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
 
 ## Trạng thái hiện tại
 
@@ -10,9 +10,85 @@ Cập nhật **03/10/2026**. React + TypeScript + Vite trong thư mục `Fronten
 - **Nút tài khoản** ở header: avatar, tên, khung chữ nhật bo góc cùng kiểu nút Lịch sử; không có icon hình người phía sau.
 - **Tiện ích trên map tự hiển thị khi zoom đủ gần** (zoom ≥ 14), không cần tick công tắc.
 - **Chat trong workspace mặc định thu gọn** thành nút “Chat với SIU”. Bấm để mở thanh nhập nhỏ, bấm mũi tên xuống để ẩn lại; giữ nội dung đang gõ. Đã bỏ khối tóm tắt phản hồi và nút “Xem đầy đủ”; hội thoại đầy đủ vẫn xem tại chat chính. Câu hỏi cần chọn và lỗi gửi vẫn có phần hiển thị ngắn khi mở thanh chat.
-- Đợt chỉnh giao diện và rà soát gần nhất chỉ sửa frontend; giữ nguyên backend, logic agent, gateway, lưu trữ và `.env`.
+- **Moving có form dịch vụ đầy đủ hơn**: hai ô A/B tự tìm/ghim map, ngày giờ, kiện hàng, gói xe và dịch vụ thêm theo danh mục AhaMove, khai giá/COD, ghi chú, mã khuyến mãi và yêu cầu giao nhận. Form/báo giá thu gọn được trên mobile.
+- **Map có thể kéo và thu nhỏ xem toàn Việt Nam**; phạm vi hiển thị tách khỏi vùng dữ liệu OSRM hiện có ở TP.HCM, Hà Nội, Đà Nẵng.
+- Đợt bổ sung Moving nối thêm trường qua gateway → Agent → báo giá/báo giá lại theo cho phép của người dùng. Giữ luồng chọn phương án → phê duyệt riêng → transaction, CASH và các write flags hiện có; không đổi `.env`, data, migration hoặc service TypeScript.
 
 ### Kết quả kiểm tra gần nhất
+
+**Căn đã chọn → điểm B Moving — 05/10/2026:** bổ sung ô tên/địa chỉ căn
+đã chọn ngay dưới điểm B, luôn có thể bấm dùng lại khi đã nhập B khác. Khi
+căn chọn trên map không còn trong kết quả chat hoặc snapshot, frontend đọc
+đúng ID qua `GET /web/api/housing/{id}` hiện có. Khôi phục sau reload, giữ
+ngày/giờ và không ghi đè B người dùng nhập trong lúc tải chi tiết. Tọa độ nhà
+gần đúng vẫn là gợi ý, không tự đánh dấu đã xác nhận. **10/10 ca browser có
+mục tiêu qua** trên desktop/mobile, build qua; GET căn thật trong ảnh trả
+200, đúng ID/địa chỉ/tọa độ, khoảng **0,62 giây** ở lượt kiểm tra.
+Đã xem bản build 8503 với chi tiết căn thật và session/hội thoại fixture:
+desktop/mobile hiện đúng ô căn dưới B, map tới Bình Thạnh, mỗi viewport tải
+10 tile PBF thành công; không lỗi JavaScript hoặc tràn ngang.
+
+Kiểm toán chỉ đọc toàn bộ housing: **38.222/38.222 tọa độ khớp file nguồn
+và staging gốc**; **33.761 tin** dùng chung tọa độ với tin khác. Không sửa
+data hoặc logic backend trong lượt này. Map ghi “tin chung điểm bản đồ” và
+giải thích pin gần đúng để tránh hiểu là các tin chắc chắn cùng một căn.
+Xem [kết quả dữ liệu](../docs/integration/location-data-quality-plan-2026-10-04.md#11-kiểm-tra-tọa-độ-housing-và-điểm-b-moving--05102026).
+
+**Rà frontend Moving/Flight — 05/10/2026:** đã sửa mô tả kiện trống gây payload
+không hợp lệ, kiểm tra nơi đi/đến Flight và cập nhật nút chọn khi giá hết hạn
+trong workspace, thẻ chat và chi tiết chuyến. Moving có thông báo/tải lại khi
+danh mục rỗng; header Flight mobile được bố trí lại để tên nơi đi/đến không bị
+nút quay về ép xuống nhiều dòng. Giữ sửa lỗi ghim B của lượt trước.
+
+Đã chạy trọn bộ **78/78 browser qua**; sau bổ sung expiry ở chat, nhóm liên quan
+**16/16 qua**, sau sửa header **2/2 qua**. Suite hiện có **88 ca**, chưa chạy lại
+toàn bộ 88 trong một lượt. **6/6 Python gateway/UI contract qua**, 4 payload
+Moving lấy từ browser qua schema Agent API; TypeScript/Vite build qua.
+Đã xem ảnh desktop/mobile và bản build thật tại 8503, tải basemap công khai,
+không tràn ngang/lỗi JavaScript trong các màn đã kiểm tra. API/UI và các service
+đã khởi động; OSRM ô tô ba thành phố trả tuyến có hình học. Các lượt browser
+dùng dữ liệu dịch vụ giả lập: không gọi thêm LLM, tìm SerpApi hay báo giá/đặt
+đơn AhaMove thật. Lượt này chỉ sửa React/CSS/tests/docs, không sửa logic backend.
+
+**Bổ sung Moving — 05/10/2026:** toàn bộ **62/62 ca browser qua** trên desktop/mobile;
+**50/50 ca Python có mục tiêu qua**, gồm form, intake/planner, hai adapter Moving,
+phê duyệt, kiểm giá và gateway. Hai ca phê duyệt được chạy lại sau bổ sung nút dùng
+chung liên hệ, đều qua. Build và Ruff qua; Agent/gateway đã khởi động lại.
+
+Hai báo giá **AhaMove staging thật** được người dùng cho phép: cùng tuyến/gói
+`SGN-TRUCK-750`, cơ bản **162.000đ**, thêm bốc xếp **237.000đ** (phí thêm
+**75.000đ**). Không tạo đơn, thanh toán hoặc gọi LLM trong đợt này. Suite Python
+rộng còn lỗi có sẵn: đã đối chiếu **17 lỗi trùng với HEAD trước sửa**; hai ca
+stdio/live còn phụ thuộc môi trường. Xem [báo cáo Moving](../docs/integration/moving-service-workspace-update-2026-10-05.md).
+
+Các kết quả sau ghi nhận đợt kiểm tra trước phần Moving mở rộng:
+
+Kiểm tra theo thao tác người dùng ngày **05/10/2026**:
+
+| Kiểm tra | Kết quả và phạm vi |
+| --- | --- |
+| Playwright ban đầu | **50/50 qua** trên desktop 1440×960 và mobile 390×844 |
+| Sau sửa lỗi UI | **10/10 qua**: chi tiết/chọn chuyến bay, lỗi khi chat thu gọn, chọn nhà và workspace Moving; gồm 4 ca mới. Kiểm tra ảnh kế hoạch/tài khoản/Moving thêm **6/6 qua** |
+| Python frontend | **7/7 qua** với thư mục temp riêng trong workspace |
+| Housing → Location thật | **1 ca live qua**, xác định Bách khoa Hà Nội rồi tìm phòng dưới 5 triệu trong 2 km, kiểm tra chi tiết/phân trang/pin; không gọi LLM |
+| Flight thật | Một lần tìm SerpApi HAN → DAD, 19/10/2026, trả 3 offer; đọc chi tiết thành công |
+| Payment | MCP công bố tool; UI kiểm tra chờ/hết hạn/phê duyệt bằng fixture. Chưa tạo hay thanh toán giao dịch thật |
+| Build và runtime | TypeScript/Vite qua; 8503 phục vụ đúng byte của bản build mới; UI/Agent/Platform/Moving API/MCP health/ready đều 200 |
+
+**Đã sửa ở frontend:** mã sân bay trong chi tiết chuyến bay dùng đúng `origin/destination`
+của provider; kết quả chi tiết cũ không ghi đè lựa chọn mới hoặc mở lại panel đã đóng;
+lỗi chọn phương án tự mở chat nhỏ để người dùng nhìn thấy.
+
+Trước phần Moving mở rộng, suite browser có **54 ca**, đã kiểm chứng qua các lượt trên, không phải một lượt
+chạy toàn bộ 54 ca. Suite Flight/Payment Python còn **6 ca thất bại** cần đồng bộ test:
+5 ca kỳ vọng booking mô phỏng trong khi mặc định tắt, 1 ca allowlist chưa chứa trường
+thời hạn thanh toán. Chưa sửa backend hoặc bật simulation để làm test qua.
+Local đang có `writes_enabled=false`, `flight_booking_enabled=false`,
+`sandbox_payments_enabled=false`; tìm/chọn phương án không đồng nghĩa đặt dịch vụ.
+Chưa kiểm chứng hội thoại LLM đa dịch vụ trong lượt này.
+Xem [báo cáo dịch vụ và UI 05/10](../docs/integration/user-service-ui-audit-2026-10-05.md).
+
+#### Bằng chứng các lượt trước
 
 | Kiểm tra ngày 03/10 | Kết quả và phạm vi |
 | --- | --- |
@@ -25,6 +101,13 @@ Cập nhật **03/10/2026**. React + TypeScript + Vite trong thư mục `Fronten
 **Lỗi đã sửa:** nhà lưu khi khám phá map có thể không nằm trong kết quả chat ban đầu. Mở nhà đó từ Tài khoản nay lấy bản lưu đúng hội thoại và gọi API chi tiết hiện có, kể cả sau tải lại. Khi bản lưu không có ngữ cảnh kết quả để chọn phương án, dialog chỉ xem thông tin; thao tác chọn vẫn thực hiện qua map/kết quả dịch vụ.
 
 Các ca trình duyệt dùng API giả lập. Chúng xác minh đường đi, trạng thái hiển thị và dữ liệu gửi đi; **không chứng minh chất lượng suy luận LLM, đặt đơn hoặc thanh toán thật**. Các kết quả Python/provider trong [SERVICE_AUDIT.md](SERVICE_AUDIT.md) có ngày kiểm tra riêng, chưa được chạy lại toàn bộ trong đợt chỉnh giao diện này.
+
+Kiểm tra cập nhật ngày **04/10**: build qua; **16 ca desktop/mobile qua hai lượt**
+cho map toàn quốc, gợi ý ngay trong cả A/B, đổi địa chỉ/ghim lại, căn đã chọn,
+workspace nhà và báo giá. API route thật khớp 3 OSRM local; Moving API/MCP `/ready`
+đều 200 sau migration. Hai tool đọc danh mục AhaMove staging trả 71 thành phố và
+5 dịch vụ tại thành phố được kiểm tra. Chưa chạy báo giá/đặt đơn provider thật
+trong đợt này. Xem [báo cáo mới](../docs/integration/vietnam-map-moving-update-2026-10-04.md).
 
 ## Màn hình và cách sử dụng
 
@@ -79,12 +162,27 @@ Lịch sử yêu cầu đọc API `/threads` và `/threads/:id` hiện có; khô
 | Dịch vụ | Frontend hiện có | Giới hạn |
 | --- | --- | --- |
 | Nhà / Map | Card, chi tiết, lưu, so sánh tối đa 3 căn; danh sách theo viewport, sort, marker/cụm, tiện ích, tuyến đường, pin địa điểm | Bộ lọc commute/bán kính dùng bản đồ của kết quả; khám phá viewport không âm thầm bỏ điều kiện không hỗ trợ |
-| Chuyển đồ / AhaMove | Form điểm lấy/giao, pin, ngày/giờ; căn đã chọn điền sẵn điểm đến; báo giá, phí, lựa chọn, review, biên nhận/tracking | Đặt/sửa/hủy phụ thuộc capability và cấu hình provider; chưa có UI đầy đủ cho nhiều đơn, timeline callback, rating, special request/COD |
+| Chuyển đồ / AhaMove | A/B tự tìm/ghim map, ngày giờ; căn đã chọn điền sẵn B; kiện hàng, gói xe, add-on/số lượng/mức dịch vụ, khai giá/COD, ghi chú/mã giảm giá, POD/xác minh; báo giá, liên hệ riêng, review, biên nhận/tracking | CASH; tùy chọn phụ thuộc danh mục/giới hạn hãng; chưa hỗ trợ add-on yêu cầu nhập tự do, nhiều điểm giao, quản lý nhiều đơn, timeline callback hoặc rating; đặt/sửa/hủy phụ thuộc capability; OSRM có dữ liệu 3 vùng |
 | Chuyến bay | Tìm, sắp xếp, xem offer, chọn vào kế hoạch | Tìm thật cần SerpApi; chưa cung cấp luồng xuất vé thật |
 | Thanh toán | Trạng thái workflow, link/QR provider, kiểm tra thanh toán | Chưa có form ZaloPay sandbox độc lập hoặc refund; không coi lời người dùng là xác nhận đã thanh toán |
 | Phê duyệt / Chi phí | Form liên hệ riêng, task/version/hash và expiry; khóa thao tác khi không hỗ trợ hoặc writes tắt | Có giao diện không đồng nghĩa provider đã thực hiện giao dịch |
 
 Không có streaming token; giao diện hiển thị trạng thái chờ theo lượt. Runtime không thay lỗi provider bằng dữ liệu demo. Ghép trọ/cẩm nang, quản lý vé thật và các tính năng chưa có capability chưa được bật. Danh sách tool và bằng chứng kiểm tra chi tiết: [SERVICE_AUDIT.md](SERVICE_AUDIT.md).
+
+### Sử dụng form Moving mới
+
+1. Mở Chuyển đồ từ chat. Nhập/chọn điểm A và B ngay trong hai ô hoặc chạm map; chọn ngày giờ.
+2. Thêm kiện hàng nếu cần: mô tả, kg và kích thước cm. Khai giá trị hàng/COD riêng với phí vận chuyển.
+3. Chọn gói xe tại điểm A để mở các dịch vụ thêm **do AhaMove trả về**. Có thể giữ lựa chọn so sánh để Agent tìm các gói chuyển đồ phù hợp như trước.
+4. Chọn bốc xếp/tùy chọn, số lượng hoặc mức dịch vụ nếu gói có hỗ trợ; thêm ghi chú, mã khuyến mãi, yêu cầu giao nhận. Phí hiển thị trong danh mục là tham khảo; báo giá hãng quyết định tổng phí.
+5. Bấm **Xác nhận và lấy báo giá**, kiểm tra phí và chọn phương án. Nút **Sửa yêu cầu / báo giá lại** mở lại form, giữ dữ kiện hiện có.
+6. Khi yêu cầu đặt đơn, nhập tên/SĐT người gửi/người nhận, tòa nhà/tầng và chỉ dẫn tại form xác nhận riêng. Nút **Dùng liên hệ điểm lấy** sao chép tên/SĐT sang điểm giao. Chỉ transaction có phê duyệt hợp lệ mới có thể tạo đơn khi cấu hình cho phép.
+
+Đổi/bỏ ghim A sẽ bỏ gói xe, add-on và COD cũ; đổi xe cũng bỏ add-on/COD. Các
+thông tin hàng hóa và lịch chuyển vẫn giữ. Thiếu mức dịch vụ, COD quá giới hạn,
+kiện thiếu khối lượng hoặc lỗi danh mục đều được báo ngay. Danh mục lỗi có nút
+tải lại. Tên/SĐT không đưa vào tin nhắn; ghi chú form báo giá được che số điện
+thoại/email, liên hệ chính xác gửi ở bước phê duyệt.
 
 ## Chạy ứng dụng
 
@@ -117,7 +215,56 @@ Sau khi chỉnh source để xem qua cổng 8503, chạy lại `npm run build`, 
 
 ## Kiểm thử
 
-Hướng dẫn, phạm vi 18 tình huống và cách đọc kết quả: [tests/README.md](tests/README.md).
+### Cập nhật picker địa điểm — 04/10/2026
+
+Chat chính, chat workspace, bản đồ và form Moving dùng chung bộ loại ID/alias lặp
+ở `src/placeCandidates.ts`. Chỉ gộp khi ID giống nhau hoặc backend cung cấp alias;
+cùng tên hoặc cùng tọa độ không đủ để gộp, kể cả các tin nhà.
+
+Kết quả tìm kiếm ưu tiên nhãn `display_name` có loại địa điểm/thành phố. Pin đã
+chọn giữ nguyên ID/tọa độ; tìm lại không tự gửi yêu cầu và không xóa ngày/giờ Moving.
+Backend Location cần migration **011 + 012** và bộ POI đã làm sạch trên database.
+Local đã xóa vật lý 20.853 POI có tên trùng; còn 131.191 POI active. Không chỉ
+ẩn bản ghi ở frontend. POI khác tầng/loại tiện ích và dữ liệu nhà được giữ riêng;
+ID/tọa độ cũ vẫn đọc được qua mapping để lịch sử và pin đã chọn hoạt động.
+Bộ dữ liệu xuất nằm ở `../data/poi-clean/2026-10-04/` (không commit vào Git).
+Xem [runbook POI](../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+
+### Map Việt Nam và hai ô A/B Moving — 04/10/2026
+
+Map SIU đã mở rộng từ ba khung thành phố sang khung Việt Nam: `[101, 7]` →
+`[118, 24.5]`. Có thể kéo/thu nhỏ giữa các vùng, fit đồng thời các điểm khác thành
+phố, chọn điểm ngoài ba vùng OSRM; không thêm nút đổi thành phố. Đây là khung
+camera chữ nhật, không phải polygon biên giới; có thể thấy một phần các nước
+lân cận. Áp dụng cả map phóng lớn, workspace nhà và hai màn hình Moving.
+
+Trong form Moving, nhập trực tiếp vào **A · Điểm lấy đồ** hoặc **B · Điểm giao đồ**.
+Từ 2 ký tự, giao diện đợi 400 ms rồi gọi API tìm hiện có, hiển thị gợi ý dưới đúng
+ô đang chọn. Chọn gợi ý điền tên và ghim tọa độ; vẫn có thể chạm map để chọn cổng
+xe đến. Đổi nội dung sẽ bỏ pin cũ; kết quả tìm cũ bị hủy khi đổi ô/địa chỉ.
+Ngày/giờ và payload `moving_locations` giữ nguyên, chưa tự gửi báo giá khi tìm.
+
+Moving vẽ GeoJSON từ API OSRM có sẵn thay đường nối thẳng A/B. Nhãn tuyến tham khảo
+ô tô được tách khỏi báo giá AhaMove; thiếu/lỗi route không vẽ đường thẳng thay thế.
+Planner, subagent, gateway, đặt xe, tính tiền và `.env` không đổi trong đợt này.
+Hiển thị toàn quốc không mở rộng coverage OSRM: hai điểm phải thuộc cùng một
+trong ba vùng có dữ liệu để lấy tuyến tham khảo.
+
+Đã chuẩn hóa thêm **1.521 studio 0 → 1** ở DB/file; snapshot lịch sử cũ không bị
+viết lại; không chuẩn hóa housing thêm trong đợt mở camera này.
+Xem [triển khai hiện hành](../docs/integration/vietnam-map-moving-update-2026-10-04.md),
+[đợt studio trước đó](../docs/integration/mainland-map-moving-studio-update-2026-10-04.md)
+và [audit trước sửa](../docs/integration/map-housing-osrm-audit-2026-10-04.md).
+
+Kiểm tra riêng picker và Moving trên desktop/mobile:
+
+```powershell
+npx playwright test --grep "POI candidate|POI picker|a moving question opens"
+```
+
+Kết quả lần triển khai: **10/10 đạt**, có kiểm tra cảnh báo React key trùng.
+
+Hướng dẫn, danh sách tình huống và cách đọc kết quả: [tests/README.md](tests/README.md).
 
 ```powershell
 # Từ Frontend/
@@ -139,6 +286,7 @@ Playwright dùng Chrome đã cài, tự chạy Vite ở 5174; dừng dev server 
 | [src/components/PlanProgress.tsx](src/components/PlanProgress.tsx) | Mô tả mục tiêu và tổng phương án đã chọn được tái sử dụng |
 | [src/components/RequestHistory.tsx](src/components/RequestHistory.tsx) | Lịch sử từng lượt gửi yêu cầu |
 | [src/components/MapWorkspace.tsx](src/components/MapWorkspace.tsx) | Map nhà và danh sách theo viewport |
+| [src/mapScope.ts](src/mapScope.ts), [src/movingRoute.ts](src/movingRoute.ts) | Camera khung Việt Nam, tuyến OSRM tham khảo của Moving trong ba vùng có dữ liệu |
 | [src/components/ServiceWorkspaces.tsx](src/components/ServiceWorkspaces.tsx) | Workspace chuyến bay/chuyển đồ và form chuyển đồ |
 | [src/components/WorkspaceChat.tsx](src/components/WorkspaceChat.tsx) | Chat ẩn/hiện trong workspace dịch vụ |
 | [src/components/Forms.tsx](src/components/Forms.tsx), [Transactions.tsx](src/components/Transactions.tsx) | Form, phê duyệt, thanh toán và biên nhận |
@@ -164,6 +312,7 @@ Chạy một worker gateway. Giữ database web cùng dữ liệu checkpoint c�
 
 ## Tài liệu liên quan
 
+- [Danh sách file thay đổi và bàn giao code + data QuangDung](../docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md).
 - [Audit tool và giới hạn dịch vụ](SERVICE_AUDIT.md).
 - [Kiểm thử frontend](tests/README.md).
 - [Kế hoạch frontend theo agent](../docs/integration/siu-ai-agent-first-frontend-plan.md).

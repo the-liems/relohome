@@ -46,6 +46,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
+import { mergePlaceCandidates } from "./placeCandidates";
 import type {
   Component,
   Data,
@@ -823,9 +824,7 @@ function Chat() {
     (l: Data) =>
       thread?.state?.cost_summary?.selected?.[l.task_id] === selectedId,
   );
-  // The agent reads the chosen home from its own results (a home chosen on the map is not in any
-  // chat message), so its address and coordinate can prefill the moving destination.
-  const selectedHouse =
+  const selectedHouseInState =
     (thread?.state?.selections?.property?.id === selectedId
       ? (thread?.state?.selections?.property as HouseData)
       : undefined) ||
@@ -835,6 +834,49 @@ function Chat() {
     (selectedId && costLine
       ? ({ id: selectedId, title: costLine.label } as HouseData)
       : undefined);
+  // Map choices can outlive result cards and selection snapshots. Resolve the persisted ID
+  // through the existing read-only detail endpoint; never substitute another candidate.
+  const [resolvedHome, setResolvedHome] = useState<{
+    threadId: string;
+    house: HouseData;
+  } | null>(null);
+  const [homeIssue, setHomeIssue] = useState("");
+  const needsHomeDetail = Boolean(
+    selectedId &&
+    (!selectedHouseInState?.address ||
+      !Number.isFinite(selectedHouseInState.lat) ||
+      !Number.isFinite(selectedHouseInState.lng)),
+  );
+  useEffect(() => {
+    setHomeIssue("");
+    if (!threadId || !selectedId || !needsHomeDetail) return;
+    const abort = new AbortController();
+    api<HouseData>(
+      "/housing/" + encodeURIComponent(selectedId),
+      "GET",
+      undefined,
+      abort.signal,
+    )
+      .then((house) => {
+        if (house?.id !== selectedId)
+          throw new Error("Không tìm thấy căn đã chọn.");
+        if (!abort.signal.aborted) setResolvedHome({ threadId, house });
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted)
+          setHomeIssue(
+            "Chưa đọc được địa chỉ căn đã chọn. Bạn có thể nhập điểm B hoặc tải lại trang để thử lại.",
+          );
+      });
+    return () => abort.abort();
+  }, [threadId, selectedId, needsHomeDetail]);
+  const fetchedHome =
+    resolvedHome &&
+    resolvedHome.threadId === threadId &&
+    resolvedHome.house.id === selectedId
+      ? resolvedHome.house
+      : undefined;
+  const selectedHouse = fetchedHome || selectedHouseInState;
   const opened = [...allComponents]
     .reverse()
     .find(
@@ -883,6 +925,13 @@ function Chat() {
     (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
   );
   const movingKnown: Data = {
+    ...Object.fromEntries(
+      ["moving_options", "pickup_coordinate", "destination_coordinate"]
+        .filter(
+          (k) => thread?.state?.intake?.constraints?.values?.[k] !== undefined,
+        )
+        .map((k) => [k, thread!.state.intake.constraints.values[k]]),
+    ),
     ...Object.fromEntries(
       MOVING_FIELDS.filter((k) => facts[k]?.value).map((k) => [
         k,
@@ -966,6 +1015,8 @@ function Chat() {
           questions={movingQuestions}
           known={movingKnown}
           house={selectedHouse}
+          homeLoading={needsHomeDetail && !fetchedHome && !homeIssue}
+          homeIssue={homeIssue}
           // Next-step suggestions would only repeat this form; the dock keeps the question.
           chat={{
             ...chatDock,
@@ -990,6 +1041,7 @@ function Chat() {
           data={latestMoving.c.data}
           selectedId={facts["selected:relocation"]?.value}
           chat={chatDock}
+          onEdit={() => setWorkspace("relocation-form")}
           onSelect={(id) =>
             selectIn(
               latestMoving,
@@ -1195,18 +1247,20 @@ function Chat() {
                               <p>{q.text}</p>
                             )}
                             <div className="tags">
-                              {(q.choices || []).map((c: Data) => (
-                                <button
-                                  key={c.id}
-                                  className="suggestion"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    choosePlace(c, q.field).catch(() => {})
-                                  }
-                                >
-                                  <MapPin size={12} /> {c.label}
-                                </button>
-                              ))}
+                              {mergePlaceCandidates(q.choices || []).map(
+                                (c: Data) => (
+                                  <button
+                                    key={c.id}
+                                    className="suggestion"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      choosePlace(c, q.field).catch(() => {})
+                                    }
+                                  >
+                                    <MapPin size={12} /> {c.label}
+                                  </button>
+                                ),
+                              )}
                               {(q.choices?.length ? [] : q.options || []).map(
                                 (o: string) => (
                                   <button
