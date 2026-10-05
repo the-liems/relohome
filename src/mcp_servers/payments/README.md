@@ -67,8 +67,16 @@ src/mcp_servers/payments/
 | `app_trans_id` | `yymmdd_P044_<8 hex ngẫu nhiên>` | PNR, booking_id, tên, email, SĐT |
 | `app_user` | Mã băm có muối của `customer_ref` | Tên, email, SĐT thật |
 | `amount` | Số tiền VND | — |
+| `expire_duration_seconds` | `PAYMENT_EXPIRE_MINUTES × 60` (mặc định `900`) | Dữ liệu khách hàng |
 | `description` | `"P044 demo <mã đơn>"` (cố định) | Văn bản tự do |
 | `item` / `embed_data` | `"[]"` / chỉ `redirecturl` | Mọi dữ liệu người dùng |
+
+`expire_duration_seconds` là thời hạn cấu hình của đơn, không chứa dữ liệu cá nhân.
+Server gửi cùng thời lượng dùng để tính `expires_at` cục bộ, thay vì dựa vào thời hạn mặc định của merchant.
+Engine tính thời hạn cục bộ từ `now` trước khi gọi gateway. Gateway gửi `app_time` lấy trước khi gửi HTTP,
+nhưng tài liệu ZaloPay không nêu rõ mốc bắt đầu thời hạn ở cổng; hai thời điểm hết hạn tuyệt đối không bảo đảm trùng nhau.
+[API tạo đơn ZaloPay](https://docs.zalopay.vn/docs/specs/order-create/) hỗ trợ từ `300` đến `2592000` giây;
+`PAYMENT_EXPIRE_MINUTES` cho phép từ `5` đến `1440` phút, nằm trong giới hạn này.
 
 - `order_ref`, `customer_ref` phải là mã nội bộ vô danh (`bk_1a2b3c`); có `@` hoặc dãy từ 9 chữ số là bị từ
   chối, và **message lỗi không in lại giá trị** đã gửi.

@@ -24,6 +24,7 @@ ALLOWED_CREATE_FIELDS = {
     "app_trans_id",
     "app_user",
     "app_time",
+    "expire_duration_seconds",
     "amount",
     "item",
     "embed_data",
@@ -79,6 +80,7 @@ async def test_zalopay_receives_only_allowlisted_anonymous_fields(
 
     path, form = fake_zalopay.forms[0]
     assert path == "create" and set(form) == ALLOWED_CREATE_FIELDS
+    assert form["expire_duration_seconds"] == "900"  # Thời lượng cấu hình 15 phút, không chứa dữ liệu khách.
     assert form["app_trans_id"] == payment.gateway_ref and gateway_ref_pattern("P044").match(form["app_trans_id"])
     assert form["description"] == f"P044 demo {payment.gateway_ref}"
     assert re.fullmatch(r"[0-9a-f]{16}", form["app_user"])
