@@ -9,9 +9,10 @@ from typing import Any
 
 import pytest
 
+from src.agents.common import utcnow
 from src.agents.contracts import UpstreamResult
-from src.agents.models import AgentName
-from src.agents.subagents.base import AgentTransportError
+from src.agents.models import AgentName, Constraints, Task, TaskStatus
+from src.agents.subagents.base import AgentPolicy, AgentTransportError, run_with_policy
 from src.agents.subagents.conformance import check_conformance, sample_request
 from src.agents.subagents.fake import FakeAgent
 from src.agents.subagents.services.flight import FlightSubagent
@@ -234,14 +235,18 @@ FLIGHTS = {
 
 
 @pytest.mark.asyncio
-async def test_flight_destination_from_room_city():
+@pytest.mark.parametrize(
+    "source,allow_simulation,source_kind",
+    [("mock", True, "demo"), ("serpapi", False, "live"), ("serpapi", True, "live")],
+)
+async def test_flight_destination_from_room_city(source, allow_simulation, source_kind):
     client = FakeToolClient(
         {
             "search_airports": lambda a: [{"code": {"Hà Nội": "HAN", "TP.HCM": "SGN"}[a["query"]]}],
-            "search_flights": FLIGHTS,
+            "search_flights": {**FLIGHTS, "source": source},
         }
     )
-    agent = FlightSubagent(client)
+    agent = FlightSubagent(client, allow_simulation=allow_simulation)
     upstream = {
         "t1": UpstreamResult(
             task_id="t1", agent=AgentName.PROPERTY, data={"candidates": [{"id": "x", "city": "TP.HCM"}]}
@@ -251,7 +256,8 @@ async def test_flight_destination_from_room_city():
     result = await agent.run(req)
     body = client.calls[-1][1]["request"]
     assert (body["origin"], body["destination"]) == ("HAN", "SGN")
-    assert result.source_kind == "demo" and result.quotes[0].amount_vnd == 1_650_000
+    assert result.status == "done" and result.source_kind == source_kind
+    assert result.quotes[0].amount_vnd == 1_650_000
     assert await check_conformance(agent, [req]) == []
 
 
@@ -260,9 +266,47 @@ async def test_first_call_transport_error_is_retryable_by_wrapper():
     def down(args):
         raise ToolCallError("unavailable", "down", retryable=True, transport=True)
 
-    agent = FlightSubagent(FakeToolClient({"search_flights": down}))
+    client = FakeToolClient({"search_airports": down, "search_flights": FLIGHTS})
+    agent = FlightSubagent(client)
+    inputs = {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"}
     with pytest.raises(AgentTransportError):
-        await agent.run(sample_request(AgentName.FLIGHT, {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"}))
+        await agent.run(sample_request(AgentName.FLIGHT, inputs))
+    client.calls.clear()
+    out = await run_with_policy(
+        agent,
+        {
+            "task": Task(id="t1", agent=AgentName.FLIGHT, inputs=inputs),
+            "plan_version": 1,
+            "attempt": 1,
+            "request_id": "r1",
+            "thread_id": "th1",
+            "constraints": Constraints(),
+            "hints": {},
+            "upstream": {},
+        },
+        policy=AgentPolicy(transport_retries=1),
+        clock=utcnow,
+    )
+    assert [tool for tool, _ in client.calls] == ["search_airports", "search_airports"]
+    assert out["task_status"]["t1"] == TaskStatus.FAILED
+    assert out["task_results"]["t1"].error_code == "provider_unavailable"
+    assert out["task_results"]["t1"].retryable is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source,allow_simulation", [("mock", False), ("unknown", True)])
+async def test_flight_rejects_unapproved_simulated_or_unknown_source(source, allow_simulation):
+    client = FakeToolClient(
+        {
+            "search_airports": lambda a: [{"code": a["query"]}],
+            "search_flights": {**FLIGHTS, "source": source},
+        }
+    )
+    result = await FlightSubagent(client, allow_simulation=allow_simulation).run(
+        sample_request(AgentName.FLIGHT, {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"})
+    )
+    assert result.status == "failed" and result.error.code == "provider_unavailable"
+    assert result.quotes == []
 
 
 @pytest.mark.asyncio

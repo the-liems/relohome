@@ -76,6 +76,8 @@ class ServiceSettings(BaseSettings):
     agent_writes_enabled: bool = False
     agent_max_attempts: int = Field(default=5, ge=1, le=5)  # Intake/Planner repairs, task retries, replans
     agent_sandbox_payments_enabled: bool = False
+    # Local graph demos also use this opt-in for mock Flight search results.
+    # AgentService.open rejects it for the application runtime.
     agent_allow_simulated_transactions: bool = False
 
     # Location: housing + place + route (nhánh QuangDung), Streamable HTTP + Bearer
