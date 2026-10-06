@@ -13,7 +13,7 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_flight_settings()
-    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port)
+    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port, settings=settings)
     server.run(transport=args.transport)
 
 

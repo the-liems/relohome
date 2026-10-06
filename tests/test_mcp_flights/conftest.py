@@ -18,7 +18,13 @@ def clock() -> FakeClock:
 @pytest.fixture
 def settings() -> FlightSettings:
     # _env_file=None: không đọc .env của máy dev để test luôn chạy với mock
-    return FlightSettings(_env_file=None, db_path=":memory:", search_provider="mock", serpapi_api_key="test-key")
+    return FlightSettings(
+        _env_file=None,
+        db_path=":memory:",
+        search_provider="mock",
+        serpapi_api_key="test-key",
+        simulation_enabled=True,
+    )
 
 
 @pytest.fixture

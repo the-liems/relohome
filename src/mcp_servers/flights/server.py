@@ -3,7 +3,7 @@ from mcp.types import ToolAnnotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from src.mcp_servers.flights.settings import get_flight_settings
+from src.mcp_servers.flights.settings import FlightSettings, get_flight_settings
 from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
 
 SERVER_NAME = "vn-flight-booking"
@@ -26,16 +26,26 @@ HOLD = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint
 COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
 
 
-def create_server(services: FlightServices | None = None, host: str = "127.0.0.1", port: int = 8765) -> FastMCP:
+def create_server(
+    services: FlightServices | None = None,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    *,
+    settings: FlightSettings | None = None,
+) -> FastMCP:
     """Tạo MCP server; truyền `services` để test với provider/DB riêng.
+
+    Truyền `settings` để chọn chế độ rõ ràng; nếu không thì đọc FLIGHT_* từ môi trường.
+    Chỉ bật tool/resource/prompt booking khi simulation_enabled=True.
 
     `host` phải truyền ngay lúc khởi tạo: FastMCP chỉ bật chống DNS rebinding (chỉ nhận
     Host localhost) khi host là loopback. Trong container dùng `0.0.0.0` để service khác
     trong mạng Docker gọi được qua tên service.
     """
-    services = services or build_services()
+    settings = settings or get_flight_settings()
+    services = services or build_services(settings)
     tools = FlightTools(services)
-    simulation = get_flight_settings().simulation_enabled
+    simulation = settings.simulation_enabled
     instructions = (
         INSTRUCTIONS
         if simulation

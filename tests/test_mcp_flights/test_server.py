@@ -2,21 +2,22 @@ from typing import Any
 
 import pytest
 from mcp import ClientSession
+from mcp.shared.exceptions import McpError
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from src.mcp_servers.flights.server import create_server
+from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, FakeClock
 
-EXPECTED_TOOLS = {
-    "search_airports",
-    "search_flights",
-    "get_offer",
+READ_ONLY_TOOLS = {"search_airports", "search_flights", "get_offer"}
+SIMULATION_TOOLS = {
     "hold_booking",
     "confirm_booking",
     "get_booking",
     "cancel_booking",
 }
+EXPECTED_TOOLS = READ_ONLY_TOOLS | SIMULATION_TOOLS
 PASSENGER = {
     "type": "adult",
     "title": "MS",
@@ -41,18 +42,27 @@ async def first_offer_id(session: ClientSession) -> str:
 
 
 @pytest.mark.asyncio
-async def test_lists_tools_with_annotations(services: FlightServices) -> None:
-    async with create_connected_server_and_client_session(create_server(services)) as session:
+@pytest.mark.parametrize("simulation", [False, True])
+async def test_lists_tools_with_annotations(
+    services: FlightServices, settings: FlightSettings, simulation: bool
+) -> None:
+    settings = settings.model_copy(update={"simulation_enabled": simulation})
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
         tools = {t.name: t for t in (await session.list_tools()).tools}
-    assert set(tools) == EXPECTED_TOOLS
-    assert tools["search_flights"].annotations.readOnlyHint is True
-    assert tools["confirm_booking"].annotations.destructiveHint is True
+    assert set(tools) == (EXPECTED_TOOLS if simulation else READ_ONLY_TOOLS)
+    for name in READ_ONLY_TOOLS:
+        assert tools[name].annotations.readOnlyHint is True
+    if simulation:
+        for name in {"hold_booking", "confirm_booking", "cancel_booking"}:
+            assert tools[name].annotations.readOnlyHint is False
+        assert tools["confirm_booking"].annotations.destructiveHint is True
+        assert tools["get_booking"].annotations.readOnlyHint is True
     assert tools["search_flights"].outputSchema is not None
 
 
 @pytest.mark.asyncio
-async def test_full_booking_flow(services: FlightServices) -> None:
-    async with create_connected_server_and_client_session(create_server(services)) as session:
+async def test_full_booking_flow(services: FlightServices, settings: FlightSettings) -> None:
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
         assert (await call(session, "search_airports", {"query": "đà nẵng"}))["result"][0]["code"] == "DAD"
         offer_id = await first_offer_id(session)
         detail = await call(session, "get_offer", {"offer_id": offer_id})
@@ -61,6 +71,8 @@ async def test_full_booking_flow(services: FlightServices) -> None:
         hold = {"offer_id": offer_id, "passengers": [PASSENGER], "contact": CONTACT}
         held = await call(session, "hold_booking", {"request": hold})
         assert held["status"] == "HELD" and held["passengers"][0]["last_name"] == "PHAM"
+        resource = await session.read_resource(f"flights://bookings/{held['pnr']}")
+        assert held["booking_id"] in resource.contents[0].text
 
         ticketed = await call(session, "confirm_booking", {"booking_ref": held["pnr"]})
         assert ticketed["status"] == "TICKETED" and len(ticketed["ticket_numbers"]) == 1
@@ -72,8 +84,8 @@ async def test_full_booking_flow(services: FlightServices) -> None:
 
 
 @pytest.mark.asyncio
-async def test_errors_are_returned_as_tool_errors(services: FlightServices) -> None:
-    async with create_connected_server_and_client_session(create_server(services)) as session:
+async def test_errors_are_returned_as_tool_errors(services: FlightServices, settings: FlightSettings) -> None:
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
         bad_airport = await session.call_tool(
             "search_flights",
             {"request": {"origin": "HAN", "destination": "BKK", "departure_date": FLIGHT_DAY.isoformat()}},
@@ -84,8 +96,10 @@ async def test_errors_are_returned_as_tool_errors(services: FlightServices) -> N
 
 
 @pytest.mark.asyncio
-async def test_expired_offer_cannot_be_held(services: FlightServices, clock: FakeClock) -> None:
-    async with create_connected_server_and_client_session(create_server(services)) as session:
+async def test_expired_offer_cannot_be_held(
+    services: FlightServices, clock: FakeClock, settings: FlightSettings
+) -> None:
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
         offer_id = await first_offer_id(session)
         clock.advance(31)
         hold = {"offer_id": offer_id, "passengers": [PASSENGER], "contact": CONTACT}
@@ -94,11 +108,38 @@ async def test_expired_offer_cannot_be_held(services: FlightServices, clock: Fak
 
 
 @pytest.mark.asyncio
-async def test_resources_and_prompt(services: FlightServices) -> None:
-    async with create_connected_server_and_client_session(create_server(services)) as session:
+async def test_resources_and_prompt(services: FlightServices, settings: FlightSettings) -> None:
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
         airports = await session.read_resource("flights://airports")
         prompt = await session.get_prompt(
             "plan_domestic_trip", {"origin": "Hà Nội", "destination": "Phú Quốc", "departure_date": "2026-10-10"}
         )
     assert '"PQC"' in airports.contents[0].text
     assert "confirm_booking" in prompt.messages[0].content.text
+
+
+@pytest.mark.asyncio
+async def test_search_only_mode_excludes_simulated_booking_contract(
+    services: FlightServices, settings: FlightSettings
+) -> None:
+    # Search provider selection must not implicitly authorize simulated writes.
+    settings = settings.model_copy(update={"simulation_enabled": False})
+    async with create_connected_server_and_client_session(create_server(services, settings=settings)) as session:
+        offer_id = await first_offer_id(session)
+        assert (await call(session, "get_offer", {"offer_id": offer_id}))["offer"]["offer_id"] == offer_id
+        assert {str(r.uri) for r in (await session.list_resources()).resources} == {
+            "flights://airports",
+            "flights://airlines",
+        }
+        assert (await session.list_resource_templates()).resourceTemplates == []
+        assert (await session.list_prompts()).prompts == []
+        for name in SIMULATION_TOOLS:
+            denied = await session.call_tool(name, {})
+            assert denied.isError and f"Unknown tool: {name}" in denied.content[0].text
+        with pytest.raises(McpError, match="Unknown prompt"):
+            await session.get_prompt(
+                "plan_domestic_trip",
+                {"origin": "HAN", "destination": "DAD", "departure_date": FLIGHT_DAY.isoformat()},
+            )
+        with pytest.raises(McpError, match="Unknown resource"):
+            await session.read_resource("flights://bookings/NOPE00")
