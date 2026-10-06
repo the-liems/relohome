@@ -35,6 +35,7 @@ issue ownership, board fields, and milestone outcomes. Keep the application unde
 | Spec | What must a capability do, including failures? | `docs/specs/` |
 | ADR | Why did we choose this technical approach? | `docs/adr/` |
 | Architecture | How does the current system fit together? | `ARCHITECTURE.md` overview; detailed designs and diagrams in `docs/architecture/` |
+| Infrastructure and delivery plan | How will local development, CI/CD, and hosted environments operate? | `docs/architecture/infrastructure.md`; Coolify scaling/cutover gates in `docs/architecture/migration-options.md` |
 | API contracts | How do services exchange data? | `docs/api/` for supplementary documentation, service specifications, and examples |
 | Issue | What concrete work needs doing, and who owns it? | GitHub Issues |
 | Milestone | What must work end to end at this checkpoint? | GitHub Milestones |
@@ -65,6 +66,8 @@ docs/
   product.md                      # Product brief / PRD: users, MVP, non-goals
   roadmap.md                      # Outcomes and links to milestones
   architecture/                   # Detailed designs and diagrams
+    infrastructure.md             # Coolify-first delivery and release contract
+    migration-options.md          # Alternative scaling and migration paths
   api/                            # Supplementary API documentation
     openapi/                      # Mock/external service specifications
     examples/                     # Representative requests and responses
@@ -99,6 +102,23 @@ tests/
   PULL_REQUEST_TEMPLATE.md
   CODEOWNERS
 ```
+
+## Infrastructure and deployment organization
+
+Follow the [Coolify delivery plan](architecture/infrastructure.md) for actual local
+entrypoints, CI, GHCR images, automatic staging delivery, and production promotion.
+Its [canonical planned repository structure](architecture/infrastructure.md#planned-repository-structure)
+owns deployment paths. These project-specific infrastructure conventions extend
+the technical guide; the guide does not mandate this deployment layout.
+Use `deploy/` for application runtime configuration and `infra/` for host,
+runner, and shared-platform configuration. Keep both on `main` through reviewed
+short-lived branches. Provisioning and application releases have separate
+authorization and lifecycles; credentials and infrastructure state stay out of Git.
+
+The [Coolify scaling and migration options](architecture/migration-options.md)
+cover host resizing/relocation and multi-server qualification with common data
+cutover and recovery gates. Create the selected destination's configuration when
+implementation begins; planned directories do not establish deployed infrastructure.
 
 ## Specifications
 

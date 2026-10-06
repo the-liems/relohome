@@ -57,6 +57,22 @@ The [interactive housing search spec](docs/specs/SPEC-016-housing-search.md) pre
 
 The [product flow and dependency diagrams](docs/architecture_diagram.md) and [issue/PR map](docs/work-in-progress.md) capture the baseline and proposals from 2026-09-30. The integrated graph is described in [agent-graph.md](docs/architecture/agent-graph.md). Architectural decisions are indexed under [docs/adr/](docs/adr/README.md).
 
+## Planned hosted delivery
+
+The [infrastructure plan](docs/architecture/infrastructure.md) defines integrated application
+delivery through GitHub Actions, ARM64 images in GHCR, and Coolify Docker Compose
+Empty Services in one project with staging and production environments. Resources,
+data, credentials, and release configuration are environment-specific; server
+placement is a deployment input and can expand independently of the CD contract.
+Successful eligible `main` revisions reach staging; a published
+versioned release selects staging-verified image digests for an operator-dispatched
+production promotion from current `main`, without rebuilding. The plan records the existing Coolify/runner setup separately from
+deployment automation and production readiness that still require verification.
+
+The [Coolify scaling and migration plan](docs/architecture/migration-options.md)
+covers host resizing/relocation and qualified multi-server deployment, preserving
+the same release contract and data cutover/recovery gates.
+
 ## Running and verifying
 
 Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](Frontend/README.md), [Location guide](Maps%20VN/LifeFlow/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
