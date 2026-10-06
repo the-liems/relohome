@@ -5,6 +5,7 @@ nhánh Doan/api).
 """
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -17,7 +18,7 @@ from src.agents.subagents.conformance import check_conformance, sample_request
 from src.agents.subagents.fake import FakeAgent
 from src.agents.subagents.services.flight import FlightSubagent
 from src.agents.subagents.services.location import LocationSubagent
-from src.agents.subagents.services.moving import MovingSubagent, QuoteContact
+from src.agents.subagents.services.moving import VN_TZ, MovingSubagent, QuoteContact
 from src.services.adapters.mcp import ToolCallError
 
 
@@ -159,17 +160,29 @@ def moving_client(total=250_000):
 
 
 @pytest.mark.asyncio
-async def test_moving_quote_to_selected_room():
+@pytest.mark.parametrize("with_upstream", [False, True])
+async def test_moving_quote_to_selected_room(with_upstream):
     client = moving_client()
+    home = listing(2, 5_000_000) | {
+        "address": {"raw": "45 Thành Thái", "city": "TP.HCM"},
+        "location": {"lat": 10.77, "lng": 106.66},
+        "location_accuracy": "rooftop",
+    }
     geo = FakeToolClient(
-        {"resolve_location": {"results": [{"name": "12 Láng Hạ", "location": {"lat": 21.0, "lng": 105.8}}]}}
+        {
+            "get_housing": home,
+            "resolve_location": {"results": [{"name": "12 Láng Hạ", "location": {"lat": 21.0, "lng": 105.8}}]},
+        }
     )
-    agent = MovingSubagent(client, geo, QuoteContact("LifeFlow", "19001234"))
+    agent = MovingSubagent(
+        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+    )
     upstream = {
         "t1": UpstreamResult(
             task_id="t1",
             agent=AgentName.PROPERTY,
-            data={"candidates": [{"id": "lst_2", "address": "45 Thành Thái", "lat": 10.77, "lng": 106.66}]},
+            # A previous search result must not override the current selected-room detail.
+            data={"candidates": [{"id": home["listing_id"], "address": "Old address", "lat": 10.7, "lng": 106.6}]},
         )
     }
     req = sample_request(
@@ -179,17 +192,49 @@ async def test_moving_quote_to_selected_room():
             "from_address": "12 Láng Hạ",
             "move_date": "2026-11-14",
             "move_time": "09:00",
-            "selected_listing_id": "lst_2",
+            "selected_listing_id": home["listing_id"],
         },
-        upstream,
+        upstream if with_upstream else {},
     )
     result = await agent.run(req)
     assert result.status == "done"
     assert result.quotes[0].option_id == "q1:SGN-TRUCK-500" and result.quotes[0].amount_vnd == 250_000
     assert result.data["to_address"] == "45 Thành Thái"
+    assert geo.calls[0] == ("get_housing", {"listing_id": home["listing_id"]})
     draft = client.calls[1][1]["draft"]
     assert draft["payment_method"] == "CASH" and draft["pickup"]["mobile"] == "19001234"
+    assert draft["destinations"][0]["coordinate"] == home["location"]
     assert await check_conformance(agent, [req]) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("accuracy", ["approximate", "unknown", None])
+async def test_moving_selected_room_requires_precise_current_location(accuracy):
+    home = listing(2, 5_000_000) | {"location_accuracy": accuracy}
+    client = moving_client()
+    geo = FakeToolClient(
+        {
+            "get_housing": home,
+            "resolve_location": {"results": [{"location": {"lat": 21.0, "lng": 105.8}}]},
+        }
+    )
+    agent = MovingSubagent(
+        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+    )
+    result = await agent.run(
+        sample_request(
+            AgentName.RELOCATION,
+            {
+                "mode": "quote",
+                "from_address": "12 Láng Hạ",
+                "selected_listing_id": home["listing_id"],
+                "move_date": "2026-11-14",
+                "move_time": "09:00",
+            },
+        )
+    )
+    assert result.status == "needs_input" and [q.field for q in result.questions] == ["to_address"]
+    assert client.calls == []
 
 
 @pytest.mark.asyncio
