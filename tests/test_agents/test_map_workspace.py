@@ -113,7 +113,68 @@ def test_planner_binds_chosen_place_only_to_the_same_endpoint_text():
     task = {"map_mode": "route", "route_from": "A", "route_to": "Chợ Hàn", "city": "Đà Nẵng"}
     assert convert(task, values, AgentName.MAP)["route_to_place_id"] == "p2"
     renamed = {**task, "route_to": "Cầu Rồng", "route_to_place_id": "p2"}
-    assert "route_to_place_id" not in convert(renamed, values, AgentName.MAP)
+    # ADR-021: an API-confirmed place binds both ID and label. A draft cannot rename it.
+    restored = convert(renamed, values, AgentName.MAP)
+    assert restored["route_to"] == "Chợ Hàn" and restored["route_to_place_id"] == "p2"
+    # Once trusted state changes the endpoint, a model-authored old ID is discarded.
+    changed_values = {**values, "route_to": "Cầu Rồng"}
+    changed_values.pop("route_to_place_id")
+    changed = convert(renamed, changed_values, AgentName.MAP)
+    assert changed["route_to"] == "Cầu Rồng" and "route_to_place_id" not in changed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["route_from", "route_to"])
+async def test_user_endpoint_change_clears_only_that_endpoints_chosen_place_id(field):
+    from langchain_core.messages import HumanMessage
+
+    from src.agents.deps import test_deps
+    from src.agents.intake import ScriptedIntake
+    from src.agents.nodes.intake import make_intake
+    from src.agents.planning import TemplatePlanner
+    from tests.test_agents.helpers import fact
+
+    values = {
+        "map_mode": "route",
+        "city": "Đà Nẵng",
+        "route_from": "Cầu Rồng",
+        "route_from_place_id": "p1",
+        "route_to": "Chợ Hàn",
+        "route_to_place_id": "p2",
+    }
+    previous = intake_result(
+        RequestKind.NEW_GOAL,
+        domains=[AgentName.MAP],
+        values=values,
+        facts={k: fact(v, v) for k, v in values.items() if not k.endswith("_place_id")},
+    )
+    change = intake_result(
+        RequestKind.CHANGE,
+        domains=[AgentName.MAP],
+        values={field: "Cầu Sông Hàn"},
+        facts={field: fact("Cầu Sông Hàn", "Cầu Sông Hàn")},
+    )
+    node = make_intake(test_deps(ScriptedIntake([change]), TemplatePlanner()))
+    endpoint = "đi" if field == "route_from" else "đến"
+    update = await node(
+        {
+            "messages": [HumanMessage(f"Đổi điểm {endpoint} thành Cầu Sông Hàn")],
+            "intake": previous,
+            "session": SessionContext(),
+            "user_id": "u",
+            "thread_id": "t",
+            "request_id": "r",
+        }
+    )
+    assert not update["intake"].conflicts
+    current = update["intake"].constraints.values
+    other = "route_to" if field == "route_from" else "route_from"
+    assert current[field] == "Cầu Sông Hàn" and field + "_place_id" not in current
+    assert current[other] == values[other] and current[other + "_place_id"] == values[other + "_place_id"]
+    stale_draft = {**values, field: "Cầu Sông Hàn"}
+    converted = convert(stale_draft, current, AgentName.MAP)
+    assert converted[field] == "Cầu Sông Hàn" and field + "_place_id" not in converted
+    assert converted[other + "_place_id"] == values[other + "_place_id"]
 
 
 def test_confirmed_moving_pin_fixes_the_endpoint_even_over_the_selected_home_marker():
@@ -172,10 +233,19 @@ class FakeHousing:
 
 
 @pytest.mark.asyncio
-async def test_partial_ranking_keeps_every_observed_option():
+@pytest.mark.parametrize("order", [["c"], ["c", "a"], []])
+async def test_partial_ranking_keeps_every_observed_option(order):
     agent = ReadLlmAgent("sk-test-local", "test-model", FakeHousing())
     agent.llm_client = SimpleNamespace(
-        responses=FakeResponses([call("search_housing", {}), call("finish", {"option_ids": ["c"]})])
+        responses=FakeResponses(
+            [
+                call("search_housing", {"limit": None}),
+                call(
+                    "finish",
+                    {"option_ids": order, "satisfaction": "fulfilled", "reason": "", "next_step": ""},
+                ),
+            ]
+        )
     )
     req = AgentTaskRequest(
         request_id="r",
@@ -189,8 +259,10 @@ async def test_partial_ranking_keeps_every_observed_option():
     )
     result = await agent.run(req)
     assert result.status == "done"
-    assert [r["id"] for r in result.data["candidates"]] == ["c", "a", "b"]
-    assert [q.option_id for q in result.quotes] == ["c", "a", "b"]
+    expected = [*order, *(i for i in ("a", "b", "c") if i not in order)]
+    assert [r["id"] for r in result.data["candidates"]] == expected
+    assert [q.option_id for q in result.quotes] == expected
+    assert result.data["agent_assessment"]["satisfaction"] == "fulfilled"
 
 
 @pytest.mark.asyncio
@@ -296,7 +368,7 @@ def test_intake_rejects_bounds_that_exclude_every_listing():
     assert valid_value("max_area_m2", 30) and valid_value("max_bedrooms", 0) and valid_value("min_area_m2", 0)
 
 
-def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
+def amenity_intake(*, explore, legacy_anchor=False):
     from src.agents.intake import IntakeInput
     from src.agents.intake_llm import IntakeDraft, LlmIntake
 
@@ -304,27 +376,141 @@ def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
         kind="new_goal",
         normalized_goal="x",
         intent_name="x",
-        domains=[AgentName.PROPERTY, AgentName.MAP],
+        domains=[AgentName.PROPERTY, AgentName.MAP] if explore else [AgentName.PROPERTY],
         requested_actions=[],
         facts=[
             {"key": "city", "value": "Hà Nội", "evidence": "Hà Nội", "suggestion_key": None},
-            {"key": "map_near", "value": "các phòng đó", "evidence": "các phòng đó", "suggestion_key": None},
-            {"key": "nearby_categories", "value": ["supermarket"], "evidence": "siêu thị", "suggestion_key": None},
-        ],
+            {
+                "key": "map_categories" if explore and not legacy_anchor else "nearby_categories",
+                "value": ["supermarket"],
+                "evidence": "siêu thị",
+                "suggestion_key": None,
+            },
+        ]
+        + (
+            [{"key": "map_near", "value": "các phòng đó", "evidence": "các phòng đó", "suggestion_key": None}]
+            if legacy_anchor
+            else []
+        ),
         unsupported_reason=None,
         drops_previous_goal=False,
-        map_origin="housing_results",
+        map_origin="housing_results" if explore else "none",
         conflicts=[],
         change_request=None,
         target_task_ids=[],
         declined_suggestions=[],
     )
     inp = IntakeInput(messages=[], session=SessionContext(), supported_domains=[AgentName.PROPERTY, AgentName.MAP])
-    result, _ = LlmIntake(None)._convert(draft, inp, "Tìm phòng ở Hà Nội và siêu thị gần các phòng đó")
-    # Amenities are not a Map service: the Map domain is dropped, the proximity stays as a Housing filter.
+    text = "Tìm phòng ở Hà Nội rồi xem siêu thị quanh các phòng đó" if explore else "Tìm phòng ở Hà Nội gần siêu thị"
+    result, rejected = LlmIntake(None)._convert(draft, inp, text)
+    assert rejected == []
+    return result
+
+
+@pytest.mark.asyncio
+async def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
+    from src.agents.planning import TemplatePlanner
+
+    # ADR-021: nearby_* constrains Housing; the LLM classifies a filter as PROPERTY only.
+    result = amenity_intake(explore=False)
     assert result.domains == [AgentName.PROPERTY]
     assert "map_near" not in result.user_confirmed_facts
     assert result.constraints.values["nearby_categories"] == ["supermarket"]
+    plan = (await TemplatePlanner().plan(PlannerInput(intake=result, session=SessionContext()))).plan
+    assert [t.agent for t in plan.tasks] == [AgentName.PROPERTY]
+    assert plan.tasks[0].inputs["nearby_categories"] == ["supermarket"]
+    assert "map_categories" not in plan.tasks[0].inputs
+
+
+@pytest.mark.asyncio
+async def test_amenity_exploration_around_housing_results_keeps_a_separate_map_task():
+    from src.agents.planning import TemplatePlanner
+
+    # ADR-021: asking to inspect amenities remains supported Map exploration.
+    result = amenity_intake(explore=True)
+    assert result.domains == [AgentName.PROPERTY, AgentName.MAP]
+    assert result.constraints.values["map_categories"] == ["supermarket"]
+    assert "nearby_categories" not in result.constraints.values
+    plan = (await TemplatePlanner().plan(PlannerInput(intake=result, session=SessionContext()))).plan
+    home, nearby = plan.tasks
+    assert home.agent == AgentName.PROPERTY and nearby.agent == AgentName.MAP
+    assert nearby.depends_on == [home.id]
+    assert nearby.inputs["categories"] == ["supermarket"]
+    assert "nearby_categories" not in home.inputs
+    assert "map_categories" not in home.inputs
+    assert "near" not in nearby.inputs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("planner_kind", ["template", "llm"])
+async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_kind):
+    from langchain_core.messages import HumanMessage
+
+    from src.agents.deps import test_deps
+    from src.agents.intake import ScriptedIntake
+    from src.agents.models import TaskStatus
+    from src.agents.nodes.executor import compute_ready
+    from src.agents.nodes.intake import make_intake
+    from src.agents.planning import TemplatePlanner
+
+    # Preserve the old fixture shape: conversion produces a typed entity reference.
+    raw = amenity_intake(explore=True, legacy_anchor=True)
+    assert raw.domains == [AgentName.PROPERTY, AgentName.MAP]
+    assert raw.constraints.values["map_near"] == "upstream:property"
+    assert raw.constraints.values["nearby_categories"] == ["supermarket"]
+    # Runtime passes every intake through this node before either planner sees it.
+    node = make_intake(test_deps(ScriptedIntake([raw]), TemplatePlanner()))
+    update = await node(
+        {
+            "messages": [HumanMessage("Tìm phòng ở Hà Nội rồi xem siêu thị quanh các phòng đó")],
+            "session": SessionContext(),
+            "user_id": "u",
+            "thread_id": "t",
+            "request_id": "r",
+        }
+    )
+    normalized = update["intake"]
+    assert not normalized.needs_clarification
+    assert "map_near" not in normalized.constraints.values
+    assert "map_near" not in normalized.user_confirmed_facts
+    inp = PlannerInput(intake=normalized, session=SessionContext(), available_agents=raw.domains)
+    template_plan = (await TemplatePlanner().plan(inp)).plan
+    if planner_kind == "llm":
+
+        class PlannerResponse:
+            last_usage = (0, 0)
+
+            async def parse(self, _instructions, data, schema):
+                assert data["map_origin_binding"]["kind"] == "upstream_property"
+                assert data["map_origin_binding"]["near"] is None
+                assert data["ready_requested_domains"] == ["property", "map"]
+                return schema(
+                    tasks=[
+                        TaskDraft(
+                            id=t.id,
+                            agent=t.agent,
+                            inputs_json=json.dumps(t.inputs),
+                            depends_on=t.depends_on,
+                            required=t.required,
+                        )
+                        for t in template_plan.tasks
+                    ],
+                    actions=[],
+                    needs_input=[],
+                )
+
+        plan = (await LlmPlanner(PlannerResponse(), BASELINE_CAPABILITIES, max_calls=1).plan(inp)).plan
+    else:
+        plan = template_plan
+    home, nearby = plan.tasks
+    assert nearby.agent == AgentName.MAP and nearby.depends_on == [home.id]
+    assert nearby.inputs["categories"] == ["supermarket"]
+    assert "near" not in nearby.inputs
+    assert "selected_listing_id" not in nearby.inputs
+    _, ready = compute_ready(plan, {}, {}, 2)
+    assert ready == [home.id]
+    _, ready = compute_ready(plan, {home.id: TaskStatus.DONE}, {}, 2)
+    assert ready == [nearby.id]
 
 
 def test_fact_schema_check_only_applies_to_the_same_shaped_field():
