@@ -5,6 +5,11 @@ from pathlib import Path
 from src.roommate.migrations import migrate
 
 
+def require_transaction(connection: sqlite3.Connection) -> None:
+    if not connection.in_transaction:
+        raise RuntimeError("Roommate writes require an explicit unit-of-work transaction")
+
+
 class Storage:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
