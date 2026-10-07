@@ -125,3 +125,18 @@ AreaCatalog chỉ nhận canonical IDs/membership từ adapter Location (API `/v
 Ngân sách VND/người/tháng: chỉ comparable khi hai bên khai cùng fee_basis, overlap bao gồm endpoint (khoảng bằng một mức hợp lệ). Move-in flexible đáp ứng mọi ngày đã khai, không thay thế unknown. Quiet hours là local wall-clock, minute resolution, tỷ lệ phút yên tĩnh mong muốn được bên kia đáp ứng; cho phép qua nửa đêm.
 
 Migration dùng `BEGIN IMMEDIATE` và execute từng statement để rollback DDL cùng version; không dùng executescript vì có implicit commit ([Python sqlite3](https://docs.python.org/3.11/library/sqlite3.html#sqlite3.Cursor.executescript)). Các test repository thực sự dùng file SQLite riêng và hai connection độc lập cho race unordered pair.
+
+## 7. Factor matrix RM-10 (chốt trước engine)
+
+Chỉ preference đã đặt được tính. Unknown hoặc ngân sách khác/mất fee_basis: factor nội bộ 0,5 nhưng known=false, giữ nguyên weight. Giới tính chỉ filter khi must, không cộng điểm giới tính/nghề nghiệp.
+
+| Tiêu chí | Factor đã biết |
+| --- | --- |
+| Vùng (20) | Có giao vùng hoặc chọn toàn thành phố: 1; không giao: 0. |
+| Ngân sách (20) | Khoảng giao nhau: 1; không giao: `max(0, 1-gap/max(trần mong muốn,1))`. |
+| Move-in (15) | Giao khoảng hoặc một bên flexible: 1; lệch ngày: `max(0,1-gap_days/30)`. |
+| Hút thuốc (10), thú cưng (10) | Đáp ứng tolerance: 1; không đáp ứng: 0. Không đánh giá tốt/xấu cá nhân. |
+| Quiet hours (10) | Tỷ lệ phút mong muốn có giao với giờ yên tĩnh của candidate. |
+| Sạch sẽ (10), giao tiếp (5) | Cùng lựa chọn: 1; lệch một bậc trong ba hành vi: 0,5; lệch hai bậc: 0. |
+
+Ví dụ: muốn thuê tối đa 4 triệu rent_only, candidate tối thiểu 5 triệu rent_only → 0,75; khác fee_basis → unknown. Muốn 7/10, candidate 22/10 → 0,5. Yên tĩnh 22–06 so với 02–06 → 0,5. Đây là thước đo đáp ứng yêu cầu, không phải xác suất hòa hợp. Hard filter đã loại trường hợp must không đáp ứng trước khi xếp hạng.
