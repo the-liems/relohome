@@ -423,6 +423,7 @@ class LlmPlanner(UsageOwner):
             if task.agent not in inp.intake.domains and task != old.get(task.id):
                 errors.append(f"{task.id}: domain not requested")
             mappings = {
+                AgentName.ROOMMATE: {"roommate_criteria": "roommate_criteria"},
                 AgentName.PAYMENT: {"payment_id": "payment_id"},
                 AgentName.PROPERTY: {k: k for k in HOUSING_INPUT_KEYS},
                 AgentName.FLIGHT: {

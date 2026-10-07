@@ -1,9 +1,13 @@
+import json
+
 import pytest
 
 from src.agents.intake import FixedIntake
 from src.agents.models import AgentName, RequestKind, TaskStatus
+from src.agents.planner_llm import LlmPlanner, PlanDraft, TaskDraft
 from src.agents.planning import PlannerInput, TemplatePlanner, validate_plan
 from src.agents.progress import plan_progress
+from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from src.agents.wiring import AgentService
 from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import Session, intake_result
@@ -53,3 +57,35 @@ async def test_mixed_plan_keeps_domains_independent_and_scoped(tmp_path):
     assert tasks[AgentName.PROPERTY].inputs["city"] == "Hà Nội"
     assert tasks[AgentName.ROOMMATE].inputs == {"roommate_criteria": {"city": "hcm"}}
     assert tasks[AgentName.ROOMMATE].depends_on == [] and not out.plan.commit_actions
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("criteria", [None, {"city": "hcm"}])
+async def test_llm_planner_supports_grounded_roommate_without_per_candidate_calls(criteria):
+    inputs = {"roommate_criteria": criteria} if criteria else {}
+    draft = PlanDraft(
+        tasks=[
+            TaskDraft(id="r1", agent=AgentName.ROOMMATE, inputs_json=json.dumps(inputs), depends_on=[], required=True)
+        ],
+        actions=[],
+    )
+
+    class Model:
+        last_usage = (0, 0)
+        calls = 0
+
+        async def parse(self, prompt, data, schema):
+            self.calls += 1
+            assert "roommate" in data["available_capabilities"]
+            return draft
+
+    model = Model()
+    planner = LlmPlanner(model, BASELINE_CAPABILITIES)
+    inp = PlannerInput(
+        intake=intake_result(domains=[AgentName.ROOMMATE], values=inputs),
+        session={},
+        available_agents=[AgentName.ROOMMATE],
+    )
+    result = await planner.plan(inp)
+    assert result.plan.tasks[0].inputs == inputs and result.plan.commit_actions == []
+    assert model.calls == 1
