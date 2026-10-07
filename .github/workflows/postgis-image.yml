@@ -1,0 +1,73 @@
+name: PostGIS ARM64 image
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/postgis-image.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/postgis-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgis-image-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UPSTREAM_SHA: 2bcd236e3af9ec6e668db51eb37162a79f0eaeaa
+
+jobs:
+  build-publish:
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - variant: 16-3.5-alpine
+            directory: 16-3.5/alpine
+    env:
+      VARIANT: ${{ matrix.variant }}
+      UPSTREAM_DIRECTORY: ${{ matrix.directory }}
+    steps:
+      - name: Prepare image tag and temporary registry login
+        run: |
+          echo "IMAGE_TAG=ghcr.io/${GITHUB_REPOSITORY,,}/postgis:$VARIANT-$UPSTREAM_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/postgis-docker.XXXXXX")" >> "$GITHUB_ENV"
+      - name: Build from the pinned upstream repository
+        run: |
+          docker build --pull --platform linux/arm64 --build-arg NPROC=2 -t "$IMAGE_TAG" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            "https://github.com/postgis/docker-postgis.git?ref=$UPSTREAM_SHA&subdir=$UPSTREAM_DIRECTORY"
+      - name: Push image and record its digest
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE_TAG"
+          printf 'Upstream: %s\nImage: %s\nPlatform: linux/arm64\n' "$UPSTREAM_SHA" "$IMAGE_TAG" > postgis-image.txt
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE_TAG" >> postgis-image.txt
+          cat postgis-image.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          name: postgis-image-${{ matrix.variant }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: postgis-image.txt
+          if-no-files-found: error
+      - name: Clean up this job's image and registry login
+        if: always()
+        run: |
+          if [ -n "${IMAGE_TAG:-}" ]; then docker image rm "$IMAGE_TAG" || true; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi
