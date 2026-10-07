@@ -18,11 +18,13 @@ upstream change. A recipe pin does not freeze its base image or package reposito
 the resulting image digest identifies the actual artifact. Deploy that digest.
 Git URL queries require Buildx 0.28+ and a compatible Dockerfile frontend.
 
-Tags contain the variant, upstream SHA, run ID and attempt. The workflow summary
-and `postgis-image-*` artifact record the tag, upstream SHA, platform and digest.
-Retain this information with application release records and keep required images
-in GHCR. Publishing uses `GITHUB_TOKEN` and a temporary Docker configuration;
-cleanup removes only this job's local image tag and login configuration.
+Each publish moves the `16-3.5-alpine` tag to the new build, like upstream
+`postgis/postgis` tags. The workflow summary and `postgis-image-*` artifact record
+the tag, upstream SHA, platform and digest. Retain this information with application
+release records and keep required images in GHCR; earlier builds stay there untagged,
+so do not prune untagged versions that deployments still pin. Publishing uses
+`GITHUB_TOKEN` and a temporary Docker configuration; cleanup removes only this job's
+local image tags and login configuration.
 
 The workflow does not change Coolify resources or application databases.
 Mount the data volume at `/var/lib/postgresql/data` in the application stack.

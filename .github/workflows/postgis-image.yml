@@ -56,9 +56,12 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          docker push "$IMAGE_TAG"
-          printf 'Upstream: %s\nImage: %s\nPlatform: linux/arm64\n' "$UPSTREAM_SHA" "$IMAGE_TAG" > postgis-image.txt
-          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE_TAG" >> postgis-image.txt
+          PUBLISH_TAG="ghcr.io/${GITHUB_REPOSITORY,,}/postgis:$VARIANT"
+          echo "PUBLISH_TAG=$PUBLISH_TAG" >> "$GITHUB_ENV"
+          docker tag "$IMAGE_TAG" "$PUBLISH_TAG"
+          docker push "$PUBLISH_TAG"
+          printf 'Upstream: %s\nImage: %s\nPlatform: linux/arm64\n' "$UPSTREAM_SHA" "$PUBLISH_TAG" > postgis-image.txt
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$PUBLISH_TAG" >> postgis-image.txt
           cat postgis-image.txt >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -69,5 +72,6 @@ jobs:
       - name: Clean up this job's image and registry login
         if: always()
         run: |
+          if [ -n "${PUBLISH_TAG:-}" ]; then docker image rm "$PUBLISH_TAG" || true; fi
           if [ -n "${IMAGE_TAG:-}" ]; then docker image rm "$IMAGE_TAG" || true; fi
           if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi
