@@ -1,6 +1,49 @@
 """Roommate vocabulary; independent of existing service contracts."""
 
+from datetime import timedelta
 from enum import StrEnum
+
+PROFILE_TTL = timedelta(days=30)
+REQUEST_TTL = timedelta(days=7)
+GRANT_TTL = timedelta(days=7)
+REJECT_COOLDOWN = timedelta(days=30)
+WITHDRAW_COOLDOWN = timedelta(hours=24)
+EXPIRED_COOLDOWN = timedelta(days=7)
+REVOKE_COOLDOWN = timedelta(days=30)
+REQUEST_WINDOW = timedelta(hours=24)
+MAX_REQUESTS_PER_WINDOW = 10
+MAX_PENDING = 20
+TERMS_VERSION = "roommate-1.0"
+
+
+class ProfileState(StrEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    RESOLVED = "resolved"
+    EXPIRED = "expired"
+    RESTRICTED = "restricted"
+    DELETED = "deleted"
+
+
+class RequestState(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class GrantState(StrEnum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+
+
+class ContactKind(StrEnum):
+    PHONE = "phone"
+    ZALO = "zalo"
 
 
 class City(StrEnum):
