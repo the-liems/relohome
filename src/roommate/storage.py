@@ -14,7 +14,8 @@ class Storage:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
-        self.connection = sqlite3.connect(path, isolation_level=None, timeout=10)
+        # Each unit of work owns its connection; FastAPI sync dependencies can enter/exit on different workers.
+        self.connection = sqlite3.connect(path, isolation_level=None, timeout=10, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys=ON")
         self.connection.execute("PRAGMA journal_mode=WAL")

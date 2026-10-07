@@ -11,18 +11,25 @@ from src.api.routes import router
 from src.api.sandbox_payments import router as sandbox_payment_router
 from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
+from src.roommate.runtime import RoommateRuntime
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     print(f"Starting {settings.app_name} in {settings.app_env} mode")
-    service = await AgentService.open()
-    app.state.agent_service = service
+    roommate = RoommateRuntime.open(settings)
+    app.state.roommate_runtime = roommate
+    service = None
     try:
+        service = await AgentService.open()
+        app.state.agent_service = service
         yield
     finally:
-        await service.close()
+        if service:
+            await service.close()
+        if roommate:
+            roommate.close()
         print("Shutting down...")
 
 
