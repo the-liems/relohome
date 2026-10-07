@@ -83,3 +83,19 @@ class ContactLeaseView(RoommateModel):
     request_id: Identifier
     expires_at: UtcTimestamp
     contact: ContactView
+
+
+ReasonText = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class BlockInput(OperationInput):
+    selected: StrictBool
+
+
+class ReportInput(OperationInput):
+    profile_id: Identifier
+    reason: ReasonText
+
+
+class ModerationInput(BlockInput):
+    reason: ReasonText
