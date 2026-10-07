@@ -53,5 +53,5 @@ async def test_gateway_session_csrf_whitelist_and_binary(tmp_path, monkeypatch):
         assert response.status_code == 200
         response = await client.get("/web/api/roommate/media/image1")
         assert response.content == b"png-bytes" and response.headers["content-type"] == "image/png"
-        await client.post("/web/api/auth/logout", headers=HEADERS)
+        assert (await client.post("/web/api/logout", headers=HEADERS)).status_code == 200
         assert (await client.get("/web/api/roommate/access")).status_code == 401
