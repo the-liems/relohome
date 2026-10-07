@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -157,27 +158,33 @@ export function PlanProgress({ progress }: { progress?: Data }) {
   return (
     <section
       className={"plan-strip" + (open ? "" : " closed")}
-      aria-label="Tiến trình kế hoạch"
+      aria-label={uiText("Tiến trình kế hoạch")}
     >
       <header>
-        <strong>Kế hoạch của bạn</strong>
+        <strong>{uiText("Kế hoạch của bạn")}</strong>
         <span className="muted small">
-          {items.length} mục · {confirmed} đã chốt
+          {items.length}
+          {uiText(" mục · ")}
+          {confirmed}
+          {uiText(" đã chốt")}
         </span>
         <span className="plan-total">
-          Tổng đã chốt: <b>{total || "chưa có"}</b>
+          {uiText("Tổng đã chốt: ")}
+          <b>{total || uiText("chưa có")}</b>
           {totals.unpriced?.length > 0 && (
-            <small className="muted"> (có mục chưa xác minh giá)</small>
+            <small className="muted">
+              {uiText(" (có mục chưa xác minh giá)")}
+            </small>
           )}
         </span>
         <button
           className="text-button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          aria-label={open ? "Thu gọn kế hoạch" : "Mở kế hoạch"}
+          aria-label={open ? uiText("Thu gọn kế hoạch") : uiText("Mở kế hoạch")}
         >
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          {open ? "Thu gọn" : "Mở"}
+          {open ? uiText("Thu gọn") : uiText("Mở")}
         </button>
       </header>
       {open && (
@@ -210,7 +217,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
                         )}
                       </span>
                       <span className={"plan-badge " + item.state}>
-                        {s.icon && <s.icon size={12} />} {s.label}
+                        {s.icon && <s.icon size={12} />} {uiText(s.label)}
                       </span>
                     </article>
                   );
@@ -231,8 +238,9 @@ export function ConfirmedTotal({ progress }: { progress?: Data }) {
   if (!chosen.length)
     return (
       <p className="muted">
-        Chưa chốt phương án nào. Chọn một phương án trong kết quả để đưa vào
-        tổng.
+        {uiText(
+          "Chưa chốt phương án nào. Chọn một phương án trong kết quả để đưa vào tổng.",
+        )}
       </p>
     );
   return (
@@ -244,10 +252,10 @@ export function ConfirmedTotal({ progress }: { progress?: Data }) {
             <small>
               {describePlanItem(i).title} ·{" "}
               {i.chosen.recurrence === "monthly"
-                ? "Khoản hằng tháng"
+                ? uiText("Khoản hằng tháng")
                 : i.chosen.recurrence
-                  ? "Khoản một lần"
-                  : "Giá chưa xác minh, chưa tính"}
+                  ? uiText("Khoản một lần")
+                  : uiText("Giá chưa xác minh, chưa tính")}
             </small>
           </span>
           <strong>{money(i.chosen.amount_vnd)}</strong>
@@ -255,10 +263,12 @@ export function ConfirmedTotal({ progress }: { progress?: Data }) {
       ))}
       <div className="cost-totals">
         <span>
-          Một lần <b>{money(totals.one_time_vnd || 0)}</b>
+          {uiText("Một lần ")}
+          <b>{money(totals.one_time_vnd || 0)}</b>
         </span>
         <span>
-          Mỗi tháng <b>{money(totals.monthly_vnd || 0)}</b>
+          {uiText("Mỗi tháng ")}
+          <b>{money(totals.monthly_vnd || 0)}</b>
         </span>
       </div>
     </div>

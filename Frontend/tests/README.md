@@ -1,6 +1,37 @@
 # Kiểm thử frontend SIU AI
 
-Cập nhật **05/10/2026**. Hướng dẫn này dùng cho giao diện chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
+Cập nhật **07/10/2026**. Hướng dẫn này dùng cho trang giới thiệu, chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
+
+## Kết quả mới nhất
+
+Browser hiện có **110 ca**: full ngày 07/10 **105 pass**, **4 live opt-in skip**,
+**1 ca lỗi Chrome `ERR_NETWORK_IO_SUSPENDED` khi goto**. Chạy lại đúng ca
+bằng `--last-failed`: **1/1 pass**, tổng **106 ca đã xác minh qua**; không
+sửa test/app để bỏ qua lỗi. Gateway/UI contracts **8/8 pass ở lượt trước**,
+build TypeScript/Vite qua.
+Các con số thấp hơn bên dưới mô tả những đợt trước khi bổ sung ca mới.
+
+Ca mới kiểm tra landing guest/auth, CTA dùng login hiện có, asset ảnh koi,
+menu mobile, trạng thái Cẩm nang/Ghép trọ, sáng/tối và VI/EN. Picker Moving
+kiểm tra icon xe máy, guide hover/touch/focus, chọn trực tiếp gói/cỡ xe trên
+thẻ, không có bộ lọc tải trọng/Gói khác, ECO/POOL/mua hộ phân loại đúng,
+không đổi service_id/pin/payload, clear addon/COD khi đổi gói, giữ lựa chọn
+khi tải lại catalog. Mở hướng dẫn loại đang chọn không xóa dữ liệu; chế độ
+SIU gợi ý chỉ gửi khi xác nhận. Test không gửi theme/locale/nhóm UI vào Agent payload.
+
+Ca Van mới xác nhận: chuyển từ tải sang Van chỉ có Van 500/750/1000,
+radio không lớn hơn 18 px và thẻ chưa chọn không quá 65 px; gói 1000kg vẫn
+hiện đúng mô tả nguồn 850kg. Hover/focus xe khác không đổi loại đang chọn;
+refresh bỏ đúng gói đã ngừng hỗ trợ, giữ ID hợp lệ và gửi đúng gói khi bấm
+báo giá. **20/20 ca Moving có mục tiêu qua** trong lượt kiểm tra này.
+
+Từ repo root:
+
+```powershell
+npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 4
+.venv/Scripts/python.exe -m pytest Frontend/tests -q --basetemp logs/local/pytest-frontend
+npm.cmd run build --prefix Frontend
+```
 
 ## Các bộ kiểm tra
 

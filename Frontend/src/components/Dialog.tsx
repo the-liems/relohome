@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
@@ -41,7 +42,11 @@ export function Dialog({
     >
       <div className="dialog-head">
         <h2>{title}</h2>
-        <button className="icon-button" aria-label="Đóng" onClick={onClose}>
+        <button
+          className="icon-button"
+          aria-label={uiText("Đóng")}
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
       </div>
@@ -71,12 +76,12 @@ export function ConfirmDialog({
       <div className="confirm-body">{children}</div>
       {error && (
         <p className="notice error" role="alert">
-          {error}
+          {uiText(error)}
         </p>
       )}
       <div className="form-actions">
         <button className="secondary" disabled={busy} onClick={onClose}>
-          Hủy
+          {uiText("Hủy")}
         </button>
         <button
           className="primary danger"

@@ -1,3 +1,5 @@
+import { formatUi } from "../uiPreferences";
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
@@ -116,12 +118,13 @@ export function PlanPeek({
       <button
         ref={button}
         className={"plan-peek-tab" + (open ? " active" : "")}
-        aria-label="Xem nhanh kế hoạch"
+        aria-label={uiText("Xem nhanh kế hoạch")}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <Target size={16} /> <span className="plan-peek-label">Kế hoạch</span>
+        <Target size={16} />{" "}
+        <span className="plan-peek-label">{uiText("Kế hoạch")}</span>
         {items.length > 0 && (
           <span className="plan-peek-count">{items.length}</span>
         )}
@@ -134,25 +137,28 @@ export function PlanPeek({
             id={panelId}
             tabIndex={-1}
             className="plan-peek-panel"
-            aria-label="Kế hoạch trong cuộc trò chuyện"
+            aria-label={uiText("Kế hoạch trong cuộc trò chuyện")}
           >
             <header className="plan-peek-header">
               <span className="plan-peek-target">
                 <Target size={22} />
               </span>
               <div>
-                <h3>Kế hoạch của bạn</h3>
+                <h3>{uiText("Kế hoạch của bạn")}</h3>
                 <p>
                   {busy
-                    ? "SIU đang cập nhật yêu cầu…"
+                    ? uiText("SIU đang cập nhật yêu cầu…")
                     : items.length
-                      ? `${items.length} mục tiêu · ${chosen} phương án đã chọn`
-                      : "Cùng SIU sắp xếp từng bước"}
+                      ? formatUi("{0} mục tiêu · {1} phương án đã chọn", [
+                          items.length,
+                          chosen,
+                        ])
+                      : uiText("Cùng SIU sắp xếp từng bước")}
                 </p>
               </div>
               <button
                 className="icon-button"
-                aria-label="Đóng kế hoạch nhanh"
+                aria-label={uiText("Đóng kế hoạch nhanh")}
                 onClick={close}
               >
                 <X size={17} />
@@ -161,7 +167,7 @@ export function PlanPeek({
             <div
               className="plan-panel-tabs"
               role="tablist"
-              aria-label="Nội dung kế hoạch"
+              aria-label={uiText("Nội dung kế hoạch")}
             >
               {[
                 ["progress", "Tiến trình"],
@@ -176,7 +182,7 @@ export function PlanPeek({
                   aria-controls={panelId + "content"}
                   onClick={() => setTab(key)}
                 >
-                  {label}
+                  {uiText(label)}
                   {key === "pending" && pending && <i />}
                 </button>
               ))}
@@ -236,7 +242,7 @@ export function PlanPeek({
                               ) : (
                                 parallel.length > 0 && (
                                   <small>
-                                    Song song với{" "}
+                                    {uiText("Song song với")}{" "}
                                     {parallel
                                       .map((p) =>
                                         describePlanItem(
@@ -250,7 +256,7 @@ export function PlanPeek({
                             </div>
                             <span className={"plan-peek-status " + s.tone}>
                               <i />
-                              {s.label}
+                              {uiText(s.label)}
                             </span>
                           </li>
                         );
@@ -259,32 +265,39 @@ export function PlanPeek({
                   ) : (
                     <div className="plan-peek-empty">
                       <Target size={28} />
-                      <strong>Kế hoạch bắt đầu từ câu chuyện của bạn</strong>
+                      <strong>
+                        {uiText("Kế hoạch bắt đầu từ câu chuyện của bạn")}
+                      </strong>
                       <p>
-                        Nhắn điều bạn muốn làm. Các bước sẽ xuất hiện ở đây khi
-                        SIU lập kế hoạch.
+                        {uiText(
+                          "Nhắn điều bạn muốn làm. Các bước sẽ xuất hiện ở đây khi SIU lập kế hoạch.",
+                        )}
                       </p>
                     </div>
                   )}
                   <p className="plan-panel-note">
-                    Có kết quả hoặc đã chọn phương án chưa đồng nghĩa đã thuê
-                    nhà hay đặt dịch vụ.
+                    {uiText(
+                      "Có kết quả hoặc đã chọn phương án chưa đồng nghĩa đã thuê nhà hay đặt dịch vụ.",
+                    )}
                   </p>
                 </>
               )}
               {tab === "cost" && (
                 <div className="plan-panel-section">
-                  <h4>Tổng tiền đã chốt</h4>
+                  <h4>{uiText("Tổng tiền đã chốt")}</h4>
                   <ConfirmedTotal progress={progress} />
                   <p className="muted small">
-                    Chỉ tính các phương án đã chọn. Đây chưa phải số tiền đã
-                    thanh toán.
+                    {uiText(
+                      "Chỉ tính các phương án đã chọn. Đây chưa phải số tiền đã thanh toán.",
+                    )}
                   </p>
-                  <h4>Biên nhận dịch vụ</h4>
+                  <h4>{uiText("Biên nhận dịch vụ")}</h4>
                   {Object.keys(state.committed || {}).length ? (
                     <Receipts receipts={Object.values(state.committed || {})} />
                   ) : (
-                    <p className="muted">Chưa có biên nhận dịch vụ.</p>
+                    <p className="muted">
+                      {uiText("Chưa có biên nhận dịch vụ.")}
+                    </p>
                   )}
                 </div>
               )}
@@ -308,11 +321,11 @@ export function PlanPeek({
                     <>
                       <h4>
                         {questions.length
-                          ? "SIU cần bạn bổ sung"
-                          : "Không có xác nhận đang chờ"}
+                          ? uiText("SIU cần bạn bổ sung")
+                          : uiText("Không có xác nhận đang chờ")}
                       </h4>
                       <p className="muted">
-                        Bạn có thể tiếp tục trả lời ngay trong chat.
+                        {uiText("Bạn có thể tiếp tục trả lời ngay trong chat.")}
                       </p>
                       {questions.map((q: Data, i: number) => (
                         <p key={i} className="notice">
@@ -325,9 +338,12 @@ export function PlanPeek({
               )}
             </div>
             <footer className="plan-peek-footer">
-              <span>Kế hoạch và chat dùng chung lựa chọn của bạn.</span>
+              <span>
+                {uiText("Kế hoạch và chat dùng chung lựa chọn của bạn.")}
+              </span>
               <button className="text-button" onClick={close}>
-                Về chat <ChevronRight size={14} />
+                {uiText("Về chat ")}
+                <ChevronRight size={14} />
               </button>
             </footer>
           </section>,

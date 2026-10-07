@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import {
   Plane,
@@ -123,17 +124,17 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
           <Icon size={21} />
         </span>
         <div>
-          <h3>{title[c.type] || "Kết quả dịch vụ"}</h3>
+          <h3>{title[c.type] || uiText("Kết quả dịch vụ")}</h3>
           <p>
-            {c.source_kind === "sandbox" ? "Môi trường sandbox · " : ""}
-            {c.source || "Theo nguồn dịch vụ"}
+            {c.source_kind === "sandbox" ? uiText("Môi trường sandbox · ") : ""}
+            {c.source || uiText("Theo nguồn dịch vụ")}
             {c.fetched_at ? " · " + dateTime(c.fetched_at) : ""}
           </p>
         </div>
         {c.type === "property" && (
           <button
             className="icon-button"
-            aria-label="Sửa tiêu chí tìm nhà"
+            aria-label={uiText("Sửa tiêu chí tìm nhà")}
             onClick={p.onFilter}
           >
             <SlidersHorizontal size={18} />
@@ -142,23 +143,28 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
       </div>
       {error && (
         <p className="notice error" role="alert">
-          {error}
+          {uiText(error)}
         </p>
       )}
       {c.type === "property" && (
         <>
           <div className="filter-row">
-            <span className="tag">{data.area_name || "Kết quả tìm nhà"}</span>
+            <span className="tag">
+              {data.area_name || uiText("Kết quả tìm nhà")}
+            </span>
             {data.search_request?.district && (
               <span className="tag">{data.search_request.district}</span>
             )}
             {data.search_request?.max_price && (
               <span className="tag">
-                Đến {housePrice({ price: data.search_request.max_price })}
+                {uiText("Đến ")}
+                {housePrice({ price: data.search_request.max_price })}
               </span>
             )}
             <span className="result-count">
-              Đang hiển thị {(data.candidates || []).length} căn
+              {uiText("Đang hiển thị ")}
+              {(data.candidates || []).length}
+              {uiText(" căn")}
             </span>
           </div>
           {data.candidates?.length ? (
@@ -168,13 +174,13 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   className={mobileTab === "list" ? "active" : ""}
                   onClick={() => setMobileTab("list")}
                 >
-                  Danh sách
+                  {uiText("Danh sách")}
                 </button>
                 <button
                   className={mobileTab === "map" ? "active" : ""}
                   onClick={() => setMobileTab("map")}
                 >
-                  Bản đồ
+                  {uiText("Bản đồ")}
                 </button>
               </div>
               <div className={"housing-layout tab-" + mobileTab}>
@@ -220,7 +226,8 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                         .catch((e) => setError(e.message))
                     }
                   >
-                    Xem thêm kết quả <ArrowRight size={16} />
+                    {uiText("Xem thêm kết quả ")}
+                    <ArrowRight size={16} />
                   </button>
                 )}
                 {compare.length >= 2 && (
@@ -229,7 +236,9 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                     onClick={() => setComparing(true)}
                   >
                     <GitCompareArrows size={16} />
-                    So sánh {compare.length} căn
+                    {uiText("So sánh ")}
+                    {compare.length}
+                    {uiText(" căn")}
                   </button>
                 )}
               </div>
@@ -237,10 +246,12 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
           ) : (
             <div className="empty-inline">
               <HouseIcon size={30} />
-              <h4>Chưa tìm thấy căn phù hợp</h4>
-              <p>Thử thay đổi ngân sách hoặc khu vực bạn quan tâm.</p>
+              <h4>{uiText("Chưa tìm thấy căn phù hợp")}</h4>
+              <p>
+                {uiText("Thử thay đổi ngân sách hoặc khu vực bạn quan tâm.")}
+              </p>
               <button className="secondary" onClick={p.onFilter}>
-                Sửa tiêu chí
+                {uiText("Sửa tiêu chí")}
               </button>
             </div>
           )}
@@ -265,7 +276,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
               {data.origin} <ArrowRight size={13} /> {data.destination}
             </span>
             <span className="muted small">
-              Giá tại thời điểm tra cứu · chưa đặt vé
+              {uiText("Giá tại thời điểm tra cứu · chưa đặt vé")}
             </span>
           </div>
           <div className="offer-list">
@@ -285,24 +296,27 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   </div>
                   <small>
                     {o.stops === 0
-                      ? "Bay thẳng"
+                      ? uiText("Bay thẳng")
                       : o.stops != null
-                        ? o.stops + " điểm dừng"
-                        : "Chưa rõ điểm dừng"}
+                        ? o.stops + uiText(" điểm dừng")
+                        : uiText("Chưa rõ điểm dừng")}
                   </small>
                 </div>
                 <div className="offer-end">
                   <strong className="price">{money(o.fare_vnd)}</strong>
-                  <small>Tổng giá theo kết quả</small>
+                  <small>{uiText("Tổng giá theo kết quả")}</small>
                   <button className="secondary" onClick={() => flightDetail(o)}>
-                    Xem hành trình <ArrowUpRight size={14} />
+                    {uiText("Xem hành trình ")}
+                    <ArrowUpRight size={14} />
                   </button>
                 </div>
               </article>
             ))}
           </div>
           {!data.offers?.length && (
-            <p className="notice">Chưa có chuyến phù hợp với yêu cầu này.</p>
+            <p className="notice">
+              {uiText("Chưa có chuyến phù hợp với yêu cầu này.")}
+            </p>
           )}
         </>
       )}
@@ -344,18 +358,21 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   {q.provider || "AhaMove"} · {q.date}
                 </p>
                 <div className="tags">
-                  <span className="tag">Tiền mặt</span>
+                  <span className="tag">{uiText("Tiền mặt")}</span>
                   {q.distance_km != null && (
                     <span className="tag">{q.distance_km} km</span>
                   )}
                   {selected === q.id && (
                     <span className="tag selected-tag">
                       <Check size={12} />
-                      Đã chọn
+                      {uiText("Đã chọn")}
                     </span>
                   )}
                 </div>
-                <small>Hết hạn: {dateTime(data.expires_at)}</small>
+                <small>
+                  {uiText("Hết hạn: ")}
+                  {dateTime(data.expires_at)}
+                </small>
               </div>
               <div className="offer-end">
                 <strong className="price">{money(q.price_vnd)}</strong>
@@ -363,7 +380,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   className="secondary"
                   onClick={() => setDetail({ ...q, kind: "moving" })}
                 >
-                  Xem dịch vụ
+                  {uiText("Xem dịch vụ")}
                 </button>
                 <button
                   className="text-button"
@@ -378,8 +395,8 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   }}
                 >
                   {priceExpired(data.expires_at)
-                    ? "Báo giá hết hạn"
-                    : "Chọn báo giá"}{" "}
+                    ? uiText("Báo giá hết hạn")
+                    : uiText("Chọn báo giá")}{" "}
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -388,8 +405,12 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
           {data.quotes?.length > 0 && (
             <p className="notice">
               {p.writes
-                ? "Sau khi chọn, nhắn yêu cầu đặt để xem và phê duyệt phương án."
-                : "Hiện chưa thể đặt đơn trên hệ thống. Bạn vẫn có thể xem báo giá."}
+                ? uiText(
+                    "Sau khi chọn, nhắn yêu cầu đặt để xem và phê duyệt phương án.",
+                  )
+                : uiText(
+                    "Hiện chưa thể đặt đơn trên hệ thống. Bạn vẫn có thể xem báo giá.",
+                  )}
             </p>
           )}
           {data.order && <Order order={data.order} onPrompt={p.onPrompt} />}{" "}
@@ -406,7 +427,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
               <Truck size={18} />
               <div>
                 <strong>{s.service_name || s.name}</strong>
-                <p>{s.description || "Chưa có mô tả bổ sung."}</p>
+                <p>{s.description || uiText("Chưa có mô tả bổ sung.")}</p>
                 <button
                   className="text-button"
                   onClick={() =>
@@ -415,7 +436,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                     )
                   }
                 >
-                  Xem thông tin dịch vụ
+                  {uiText("Xem thông tin dịch vụ")}
                 </button>
               </div>
             </div>
@@ -431,13 +452,14 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                 <strong>
                   {(data.routing.route.distance_meters / 1000).toFixed(2)} km{" "}
                   <span>·</span>{" "}
-                  {Math.round(data.routing.route.duration_seconds / 60)} phút
+                  {Math.round(data.routing.route.duration_seconds / 60)}
+                  {uiText(" phút")}
                 </strong>
                 <p>
                   {{ walking: "Đi bộ", motorcycle: "Xe máy", driving: "Ô tô" }[
                     data.routing.profile as string
                   ] || data.routing.profile}{" "}
-                  · Ước tính, chưa tính giao thông trực tiếp
+                  {uiText("· Ước tính, chưa tính giao thông trực tiếp")}
                 </p>
               </div>
             </div>
@@ -458,7 +480,9 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
           {points.length > 0 && (
             <>
               <p className="muted small">
-                Các địa điểm gần nhất theo nhóm · khoảng cách đường thẳng
+                {uiText(
+                  "Các địa điểm gần nhất theo nhóm · khoảng cách đường thẳng",
+                )}
               </p>
               <div className="poi-list">
                 {points.map((poi, i) => (
@@ -467,17 +491,18 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                       <MapPin size={17} />
                     </span>
                     <div>
-                      <strong>{poi.name || "Địa điểm"}</strong>
+                      <strong>{poi.name || uiText("Địa điểm")}</strong>
                       <small>
                         {poi.category} ·{" "}
                         {poi.distance_m != null
-                          ? Math.round(poi.distance_m) + " m đường thẳng"
-                          : "Chưa rõ khoảng cách"}
+                          ? Math.round(poi.distance_m) +
+                            uiText(" m đường thẳng")
+                          : uiText("Chưa rõ khoảng cách")}
                       </small>
                     </div>
                     <button
                       className="icon-button"
-                      aria-label={"Tính đường tới " + poi.name}
+                      aria-label={uiText("Tính đường tới ") + poi.name}
                       onClick={() =>
                         p.onPrompt(
                           "Tính đường đi bộ từ căn nhà đã chọn đến " +
@@ -495,12 +520,14 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
           )}
           {!points.length && !data.routing?.route && (
             <p className="notice">
-              Chưa có địa điểm phù hợp trong kết quả này.
+              {uiText("Chưa có địa điểm phù hợp trong kết quả này.")}
             </p>
           )}
           {data.approximate_origins?.length > 0 && (
             <p className="notice amber">
-              Vị trí nhà gần đúng; khoảng cách tới tiện ích cũng chỉ gần đúng.
+              {uiText(
+                "Vị trí nhà gần đúng; khoảng cách tới tiện ích cũng chỉ gần đúng.",
+              )}
             </p>
           )}
           {(data.routing?.warnings || []).map((w: any, i: number) => (
@@ -515,16 +542,17 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
         c.type,
       ) && (
         <p className="notice">
-          Kết quả này chưa có giao diện chi tiết. Xem nội dung phản hồi của AI ở
-          trên.
+          {uiText(
+            "Kết quả này chưa có giao diện chi tiết. Xem nội dung phản hồi của AI ở trên.",
+          )}
         </p>
       )}
       {detail && (
         <Dialog
           title={
             detail.kind === "moving"
-              ? "Chi tiết dịch vụ"
-              : "Chi tiết hành trình"
+              ? uiText("Chi tiết dịch vụ")
+              : uiText("Chi tiết hành trình")
           }
           onClose={closeDetail}
         >
@@ -532,23 +560,24 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
             <>
               <h2>{detail.vehicle || detail.service_id}</h2>
               <p className="price price-large">{money(detail.price_vnd)}</p>
-              <p>Trả tiền mặt · AhaMove staging</p>
+              <p>{uiText("Trả tiền mặt · AhaMove staging")}</p>
               {detail.fee_breakdown && (
                 <FeeBreakdown fee={detail.fee_breakdown} />
               )}
               <dl className="detail-grid">
                 <div>
-                  <dt>Khoảng cách</dt>
-                  <dd>{detail.distance_km ?? "Chưa có dữ liệu"} km</dd>
+                  <dt>{uiText("Khoảng cách")}</dt>
+                  <dd>{detail.distance_km ?? uiText("Chưa có dữ liệu")} km</dd>
                 </div>
                 <div>
-                  <dt>Nhân công bốc xếp</dt>
-                  <dd>{detail.movers ?? "Chưa có dữ liệu"}</dd>
+                  <dt>{uiText("Nhân công bốc xếp")}</dt>
+                  <dd>{detail.movers ?? uiText("Chưa có dữ liệu")}</dd>
                 </div>
               </dl>
               <p className="notice">
-                Dịch vụ đóng gói, bốc xếp hoặc tháo lắp chỉ được xác nhận khi
-                nhà cung cấp có thông tin.
+                {uiText(
+                  "Dịch vụ đóng gói, bốc xếp hoặc tháo lắp chỉ được xác nhận khi nhà cung cấp có thông tin.",
+                )}
               </p>
             </>
           ) : (
@@ -557,7 +586,9 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
               <p className="price price-large">
                 {money(detail.total_price ?? detail.fare_vnd)}
               </p>
-              {detail.loading && <p role="status">Đang tải hành trình…</p>}
+              {detail.loading && (
+                <p role="status">{uiText("Đang tải hành trình…")}</p>
+              )}
               {detail.error && <p className="notice amber">{detail.error}</p>}
               {(detail.segments || []).map((s: Data, i: number) => (
                 <div className="itinerary-stop" key={i}>
@@ -577,8 +608,9 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                 </div>
               ))}
               <p className="notice">
-                Chưa có thông tin hành lý và điều kiện đổi/hủy được xác minh.
-                Lựa chọn vào kế hoạch chưa phải đặt vé.
+                {uiText(
+                  "Chưa có thông tin hành lý và điều kiện đổi/hủy được xác minh. Lựa chọn vào kế hoạch chưa phải đặt vé.",
+                )}
               </p>
               <button
                 className="primary"
@@ -594,10 +626,10 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                 }}
               >
                 {selected === detail.id
-                  ? "Đã chọn vào kế hoạch"
+                  ? uiText("Đã chọn vào kế hoạch")
                   : priceExpired(detail.expires_at)
-                    ? "Giá đã hết hạn"
-                    : "Chọn vào kế hoạch"}
+                    ? uiText("Giá đã hết hạn")
+                    : uiText("Chọn vào kế hoạch")}
               </button>
             </>
           )}
@@ -619,7 +651,7 @@ export function PaymentStatus({ payment }: { payment: Data }) {
     <div className="payment-status">
       <CreditCard size={28} />
       <div>
-        <h4>{states[payment.status] || "Đang xác minh"}</h4>
+        <h4>{states[payment.status] || uiText("Đang xác minh")}</h4>
         <p>
           {money(payment.amount ?? payment.amount_vnd)} ·{" "}
           {payment.provider || "ZaloPay"} sandbox
@@ -644,8 +676,11 @@ export function Order({
       <div className="section-heading">
         <Truck />
         <div>
-          <h4>Đơn chuyển đồ {order.order_id}</h4>
-          <p>{order.status || "Đang xác minh trạng thái"}</p>
+          <h4>
+            {uiText("Đơn chuyển đồ ")}
+            {order.order_id}
+          </h4>
+          <p>{order.status || uiText("Đang xác minh trạng thái")}</p>
         </div>
       </div>
       <strong>{money(order.total_price ?? order.amount_vnd)}</strong>
@@ -656,11 +691,12 @@ export function Order({
             onPrompt("Kiểm tra trạng thái đơn chuyển đồ " + order.order_id)
           }
         >
-          Kiểm tra trạng thái
+          {uiText("Kiểm tra trạng thái")}
         </button>
         {url && (
           <a className="secondary" href={url} target="_blank" rel="noreferrer">
-            Theo dõi <ExternalLink size={14} />
+            {uiText("Theo dõi ")}
+            <ExternalLink size={14} />
           </a>
         )}
         <button
@@ -673,7 +709,7 @@ export function Order({
             )
           }
         >
-          Yêu cầu sửa liên hệ
+          {uiText("Yêu cầu sửa liên hệ")}
         </button>
         <button
           className="text-button"
@@ -685,7 +721,7 @@ export function Order({
             )
           }
         >
-          Yêu cầu hủy đơn
+          {uiText("Yêu cầu hủy đơn")}
         </button>
       </div>
     </div>

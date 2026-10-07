@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import type { Data } from "../types";
@@ -18,17 +19,19 @@ export function Receipts({ receipts }: { receipts: Data[] }) {
             <div>
               <strong>
                 {r.kind === "cancel_order"
-                  ? "Kết quả hủy đơn"
+                  ? uiText("Kết quả hủy đơn")
                   : r.kind === "update_order"
-                    ? "Kết quả cập nhật đơn"
-                    : "Biên nhận dịch vụ"}
+                    ? uiText("Kết quả cập nhật đơn")
+                    : uiText("Biên nhận dịch vụ")}
               </strong>
               <p>
                 {r.provider} · {r.receipt_id} · {r.status}
               </p>
               <p>
                 {money(r.amount_vnd)}{" "}
-                {r.source_kind === "sandbox" ? "· Môi trường sandbox" : ""}
+                {r.source_kind === "sandbox"
+                  ? uiText("· Môi trường sandbox")
+                  : ""}
               </p>
               {link && (
                 <a
@@ -37,7 +40,8 @@ export function Receipts({ receipts }: { receipts: Data[] }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Theo dõi đơn <ExternalLink size={14} />
+                  {uiText("Theo dõi đơn ")}
+                  <ExternalLink size={14} />
                 </a>
               )}
             </div>
@@ -72,33 +76,40 @@ export function PendingPayment({
   const link = safeUrl(pending.pay_url);
   return (
     <section className="approval-card">
-      <h3>Thanh toán đang chờ xác minh</h3>
+      <h3>{uiText("Thanh toán đang chờ xác minh")}</h3>
       <p className="price">
         {money(pending.amount_vnd)}{" "}
         {pending.source_kind === "sandbox" ? "· Sandbox" : ""}
       </p>
-      <p>Hạn thanh toán: {dateTime(pending.expires_at)}</p>
+      <p>
+        {uiText("Hạn thanh toán: ")}
+        {dateTime(pending.expires_at)}
+      </p>
       {expired ? (
         <p className="notice amber">
-          Link đã hết hạn. Kiểm tra trạng thái để đối chiếu kết quả với nhà cung
-          cấp.
+          {uiText(
+            "Link đã hết hạn. Kiểm tra trạng thái để đối chiếu kết quả với nhà cung cấp.",
+          )}
         </p>
       ) : (
         <div className="form-actions">
           {link && (
             <a className="primary" href={link} target="_blank" rel="noreferrer">
-              Mở trang thanh toán <ExternalLink size={15} />
+              {uiText("Mở trang thanh toán ")}
+              <ExternalLink size={15} />
             </a>
           )}
           {pending.qr_code && (
             <button className="secondary" onClick={() => setQr(true)}>
-              Mở mã QR
+              {uiText("Mở mã QR")}
             </button>
           )}
         </div>
       )}
       <p className="muted">
-        Chỉ xác nhận đã thanh toán sau khi kiểm tra với nhà cung cấp.
+        {uiText(
+          "Chỉ xác nhận đã thanh toán sau khi kiểm tra với nhà cung cấp.",
+        )}
       </p>
       <button
         className="secondary"
@@ -108,15 +119,18 @@ export function PendingPayment({
           onCheck().catch((e) => setError(e.message));
         }}
       >
-        Kiểm tra thanh toán
+        {uiText("Kiểm tra thanh toán")}
       </button>
       {error && (
         <p className="notice error" role="alert">
-          {error}
+          {uiText(error)}
         </p>
       )}
       {qr && (
-        <Dialog title="Quét mã thanh toán" onClose={() => setQr(false)}>
+        <Dialog
+          title={uiText("Quét mã thanh toán")}
+          onClose={() => setQr(false)}
+        >
           <img
             style={{
               width: "100%",
@@ -125,7 +139,7 @@ export function PendingPayment({
               margin: "auto",
             }}
             src={`/web/api/threads/${encodeURIComponent(threadId)}/payment/qr.svg`}
-            alt="Mã QR thanh toán từ nhà cung cấp"
+            alt={uiText("Mã QR thanh toán từ nhà cung cấp")}
           />
           <p>
             {money(pending.amount_vnd)} · {dateTime(pending.expires_at)}

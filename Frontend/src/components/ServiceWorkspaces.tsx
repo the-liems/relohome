@@ -1,3 +1,5 @@
+import { formatUi } from "../uiPreferences";
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import {
@@ -140,28 +142,30 @@ export function FlightWorkspace({
   }
   return (
     <div className="svc-workspace">
-      <section className="svc-main" aria-label="Chuyến bay">
+      <section className="svc-main" aria-label={uiText("Chuyến bay")}>
         <header className="svc-head">
           <span className="service-icon blue">
             <Plane size={20} />
           </span>
           <div>
-            <span className="eyebrow">CHUYẾN BAY</span>
+            <span className="eyebrow">{uiText("CHUYẾN BAY")}</span>
             <h2>
-              {data.origin || "Nơi đi"} <ArrowRight size={18} />{" "}
-              {data.destination || "Nơi đến"}
+              {data.origin || uiText("Nơi đi")} <ArrowRight size={18} />{" "}
+              {data.destination || uiText("Nơi đến")}
             </h2>
             <p className="muted small">
-              {offers.length} chuyến · giá tại thời điểm tra cứu · chưa đặt vé
+              {offers.length}
+              {uiText(" chuyến · giá tại thời điểm tra cứu · chưa đặt vé")}
             </p>
           </div>
           <button className="ws-pill-button" onClick={onExit}>
-            <MessageCircle size={15} /> Về hội thoại
+            <MessageCircle size={15} />
+            {uiText(" Về hội thoại")}
           </button>
         </header>
         <div className="svc-toolbar">
           <select
-            aria-label="Sắp xếp chuyến bay"
+            aria-label={uiText("Sắp xếp chuyến bay")}
             value={sort}
             onChange={(e) => setSort(e.target.value)}
           >
@@ -175,7 +179,7 @@ export function FlightWorkspace({
             className={"ws-pill-button " + (!carrier ? "active" : "")}
             onClick={() => setCarrier("")}
           >
-            Tất cả hãng
+            {uiText("Tất cả hãng")}
           </button>
           {carriers.map((c) => (
             <button
@@ -212,10 +216,10 @@ export function FlightWorkspace({
                       <i />
                       <small>
                         {o.stops === 0
-                          ? "Bay thẳng"
+                          ? uiText("Bay thẳng")
                           : o.stops != null
-                            ? `${o.stops} điểm dừng`
-                            : "Chưa rõ"}
+                            ? formatUi("{0} điểm dừng", [o.stops])
+                            : uiText("Chưa rõ")}
                       </small>
                     </span>
                     <span>
@@ -227,7 +231,9 @@ export function FlightWorkspace({
                 </div>
                 <div className="svc-card-end">
                   <strong className="price">{money(o.fare_vnd)}</strong>
-                  <small className="muted">Tổng giá theo kết quả</small>
+                  <small className="muted">
+                    {uiText("Tổng giá theo kết quả")}
+                  </small>
                   <button
                     className="primary"
                     disabled={
@@ -237,51 +243,59 @@ export function FlightWorkspace({
                       late ||
                       o.fare_vnd == null
                     }
-                    title={late ? "Giá đã hết hạn, hãy tìm lại" : undefined}
+                    title={
+                      late ? uiText("Giá đã hết hạn, hãy tìm lại") : undefined
+                    }
                     onClick={() => {
                       if (!expired(o.expires_at)) void select(o.id);
                     }}
                   >
                     {selectedId === o.id ? (
                       <>
-                        <Check size={14} /> Đã chọn
+                        <Check size={14} />
+                        {uiText(" Đã chọn")}
                       </>
                     ) : late ? (
-                      "Giá đã hết hạn"
+                      uiText("Giá đã hết hạn")
                     ) : selecting === o.id ? (
-                      "Đang chọn…"
+                      uiText("Đang chọn…")
                     ) : (
-                      "Chọn chuyến này"
+                      uiText("Chọn chuyến này")
                     )}
                   </button>
                   <button className="text-button" onClick={() => void open(o)}>
-                    Xem hành trình
+                    {uiText("Xem hành trình")}
                   </button>
                 </div>
               </article>
             );
           })}
-          {!shown.length && <p className="notice">Chưa có chuyến phù hợp.</p>}
+          {!shown.length && (
+            <p className="notice">{uiText("Chưa có chuyến phù hợp.")}</p>
+          )}
         </div>
         <WorkspaceChat
           {...chat}
           text={
             chat.fromResult
-              ? `Có ${offers.length} chuyến ${data.origin || ""} → ${data.destination || ""}. Chọn một chuyến trong danh sách; giá theo thời điểm tra cứu, chưa đặt vé.`
+              ? formatUi(
+                  "Có {0} chuyến {1} → {2}. Chọn một chuyến trong danh sách; giá theo thời điểm tra cứu, chưa đặt vé.",
+                  [offers.length, data.origin || "", data.destination || ""],
+                )
               : chat.text
           }
-          placeholder="Hỏi SIU: đổi ngày bay, thêm hành khách…"
+          placeholder={uiText("Hỏi SIU: đổi ngày bay, thêm hành khách…")}
           onSendText={chat.onSend}
         />
       </section>
       {detail && (
         <aside
           className="ws-detail svc-detail"
-          aria-label="Chi tiết hành trình"
+          aria-label={uiText("Chi tiết hành trình")}
         >
           <button
             className="icon-button ws-detail-close"
-            aria-label="Đóng chi tiết"
+            aria-label={uiText("Đóng chi tiết")}
             onClick={closeDetail}
           >
             <X size={18} />
@@ -291,7 +305,9 @@ export function FlightWorkspace({
             <strong className="price">
               {money(detail.fare_vnd ?? detail.total_price)}
             </strong>
-            {detail.loading && <p className="muted">Đang tải hành trình…</p>}
+            {detail.loading && (
+              <p className="muted">{uiText("Đang tải hành trình…")}</p>
+            )}
             {detail.error && <p className="notice error">{detail.error}</p>}
             {(detail.segments || []).map((s: Data, i: number) => (
               <div className="svc-segment" key={i}>
@@ -308,8 +324,11 @@ export function FlightWorkspace({
               </div>
             ))}
             <p className="muted small">
-              Giá hết hạn: {dateTime(detail.expires_at)}. Điều kiện hành lý/đổi
-              vé chưa được nhà cung cấp xác nhận.
+              {uiText("Giá hết hạn: ")}
+              {dateTime(detail.expires_at)}
+              {uiText(
+                ". Điều kiện hành lý/đổi vé chưa được nhà cung cấp xác nhận.",
+              )}
             </p>
           </div>
         </aside>
@@ -357,6 +376,7 @@ export function MovingWorkspace({
           attributionControl: { compact: true },
         });
         map.current = m;
+        m.on("style.load", () => tuneBasemap(m));
         installMapScope(m, city);
         m.addControl(
           new NavigationControl({ showCompass: false }),
@@ -444,22 +464,25 @@ export function MovingWorkspace({
     <div className="map-workspace moving-booking">
       <aside
         className={"ws-list " + (sheetOpen ? "open" : "")}
-        aria-label="Phương án chuyển đồ"
+        aria-label={uiText("Phương án chuyển đồ")}
       >
         <button
           className="ws-sheet-toggle"
           aria-expanded={sheetOpen}
           onClick={() => setSheetOpen(!sheetOpen)}
         >
-          {sheetOpen ? <ChevronDown size={15} /> : <ChevronUp size={15} />} Báo
-          giá chuyển đồ · {quotes.length} gói xe
+          {sheetOpen ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+          {uiText(" Báo giá chuyển đồ · ")}
+          {quotes.length}
+          {uiText(" gói xe")}
         </button>
         <header className="ws-list-head">
           <div>
-            <span className="eyebrow">CHUYỂN ĐỒ · AHAMOVE</span>
-            <h2>Chọn gói xe phù hợp</h2>
+            <span className="eyebrow">{uiText("CHUYỂN ĐỒ · AHAMOVE")}</span>
+            <h2>{uiText("Chọn gói xe phù hợp")}</h2>
             <p className="mv-head-caption">
-              {quotes.length} báo giá từ AhaMove
+              {quotes.length}
+              {uiText(" báo giá từ AhaMove")}
             </p>
           </div>
         </header>
@@ -475,10 +498,12 @@ export function MovingWorkspace({
           </div>
           <small className="muted">
             {route.order_time
-              ? `Lịch lấy đồ: ${dateTime(route.order_time)} · `
+              ? formatUi("Lịch lấy đồ: {0} · ", [dateTime(route.order_time)])
               : ""}
-            <Clock size={12} /> Báo giá hết hạn {dateTime(data.expires_at)} ·
-            trả tiền mặt cho tài xế
+            <Clock size={12} />
+            {uiText(" Báo giá hết hạn ")}
+            {dateTime(data.expires_at)}
+            {uiText(" · trả tiền mặt cho tài xế")}
           </small>
         </div>
         <div className="ws-list-body">
@@ -502,7 +527,9 @@ export function MovingWorkspace({
                   <small className="muted">
                     {q.distance_km != null ? `${q.distance_km} km` : ""}
                     {q.duration_seconds != null
-                      ? ` · ~${Math.round(q.duration_seconds / 60)} phút`
+                      ? formatUi(" · ~{0} phút", [
+                          Math.round(q.duration_seconds / 60),
+                        ])
                       : ""}
                   </small>
                 </div>
@@ -520,32 +547,34 @@ export function MovingWorkspace({
                     q.price_vnd == null
                   }
                   title={
-                    late ? "Báo giá đã hết hạn, hãy báo giá lại" : undefined
+                    late
+                      ? uiText("Báo giá đã hết hạn, hãy báo giá lại")
+                      : undefined
                   }
                   onClick={() => {
                     if (!expired(data.expires_at)) void select(q.id);
                   }}
                 >
                   {selectedId === q.id
-                    ? "Đã chọn"
+                    ? uiText(" Đã chọn")
                     : late
-                      ? "Báo giá hết hạn"
+                      ? uiText("Báo giá hết hạn")
                       : selecting === q.id
-                        ? "Đang chọn…"
-                        : "Chọn phương án"}
+                        ? uiText("Đang chọn…")
+                        : uiText("Chọn phương án")}
                 </button>
                 <button
                   className="text-button"
                   onClick={() => setOpen(open === q.id ? null : q.id)}
                 >
-                  {open === q.id ? "Ẩn chi phí" : "Xem chi phí"}
+                  {open === q.id ? uiText("Ẩn chi phí") : uiText("Xem chi phí")}
                 </button>
               </div>
             </article>
           ))}
           {late && (
             <p className="notice amber">
-              Báo giá đã hết hạn. Nhắn "báo giá lại" để lấy giá mới.
+              {uiText('Báo giá đã hết hạn. Nhắn "báo giá lại" để lấy giá mới.')}
             </p>
           )}
           {(data.warnings || []).map((w: any, i: number) => (
@@ -560,22 +589,24 @@ export function MovingWorkspace({
             disabled={chat.busy}
             onClick={onEdit || onExit}
           >
-            Sửa yêu cầu / báo giá lại
+            {uiText("Sửa yêu cầu / báo giá lại")}
           </button>
           <small className="muted">
-            Chọn gói xe để tiếp tục trong chat. Tên/SĐT được nhập ở bước xác
-            nhận đặt đơn.
+            {uiText(
+              "Chọn gói xe để tiếp tục trong chat. Tên/SĐT được nhập ở bước xác nhận đặt đơn.",
+            )}
           </small>
         </div>
       </aside>
-      <section className="ws-map" aria-label="Bản đồ chuyển đồ">
+      <section className="ws-map" aria-label={uiText("Bản đồ chuyển đồ")}>
         <div className="ws-filterbar">
           <span className="ws-filter-label">
             <Route size={15} /> <span role="status">{routeNotice}</span>
           </span>
           <span className="ws-spacer" />
           <button className="ws-pill-button" onClick={onExit}>
-            <MessageCircle size={15} /> Về hội thoại
+            <MessageCircle size={15} />
+            {uiText(" Về hội thoại")}
           </button>
         </div>
         <div ref={container} className="ws-canvas" />
@@ -583,10 +614,13 @@ export function MovingWorkspace({
           {...chat}
           text={
             chat.fromResult
-              ? `${quotes.length} phương án chuyển đồ từ điểm A tới điểm B. Chọn một phương án; báo giá hết hạn lúc ${dateTime(data.expires_at)}.`
+              ? formatUi(
+                  "{0} phương án chuyển đồ từ điểm A tới điểm B. Chọn một phương án; báo giá hết hạn lúc {1}.",
+                  [quotes.length, dateTime(data.expires_at)],
+                )
               : chat.text
           }
-          placeholder="Hỏi SIU: đổi giờ lấy hàng, đổi điểm giao…"
+          placeholder={uiText("Hỏi SIU: đổi giờ lấy hàng, đổi điểm giao…")}
           onSendText={chat.onSend}
         />
       </section>
@@ -596,7 +630,11 @@ export function MovingWorkspace({
 
 function FeeBreakdown({ fee }: { fee?: Data }) {
   if (!fee)
-    return <p className="muted small">Nhà cung cấp chưa trả chi tiết phí.</p>;
+    return (
+      <p className="muted small">
+        {uiText("Nhà cung cấp chưa trả chi tiết phí.")}
+      </p>
+    );
   const rows = Object.entries(fee).filter(([, v]) => typeof v === "number");
   const labels: Data = {
     distance_km: "Quãng đường · km",
@@ -614,7 +652,7 @@ function FeeBreakdown({ fee }: { fee?: Data }) {
     <dl className="mv-fee">
       {rows.map(([k, v]) => (
         <div key={k}>
-          <dt>{labels[k] || k.replaceAll("_", " ")}</dt>
+          <dt>{uiText(labels[k] || k.replaceAll("_", " "))}</dt>
           <dd>
             {k.includes("price") ||
             k.includes("fee") ||
@@ -828,6 +866,7 @@ export function MovingRequestWorkspace({
         attributionControl: { compact: true },
       });
       map.current = m;
+      m.on("style.load", () => tuneBasemap(m));
       installMapScope(m, city);
       m.addControl(
         new NavigationControl({ showCompass: false }),
@@ -1054,7 +1093,7 @@ export function MovingRequestWorkspace({
     <div className="map-workspace moving-booking">
       <aside
         className={"ws-list " + (sheetOpen ? "open" : "")}
-        aria-label="Thông tin chuyển đồ"
+        aria-label={uiText("Thông tin chuyển đồ")}
       >
         <button
           className="ws-sheet-toggle"
@@ -1062,14 +1101,14 @@ export function MovingRequestWorkspace({
           onClick={() => setSheetOpen(!sheetOpen)}
         >
           {sheetOpen ? <ChevronDown size={15} /> : <ChevronUp size={15} />}{" "}
-          Thông tin chuyển đồ
+          {uiText("Thông tin chuyển đồ")}
         </button>
         <header className="ws-list-head">
           <div>
-            <span className="eyebrow">CHUYỂN ĐỒ · AHAMOVE</span>
-            <h2>Thông tin chuyển đồ</h2>
+            <span className="eyebrow">{uiText("CHUYỂN ĐỒ · AHAMOVE")}</span>
+            <h2>{uiText("Thông tin chuyển đồ")}</h2>
             <p className="mv-head-caption">
-              Sắp xếp chuyến chuyển đồ theo cách của bạn
+              {uiText("Sắp xếp chuyến chuyển đồ theo cách của bạn")}
             </p>
           </div>
         </header>
@@ -1092,7 +1131,8 @@ export function MovingRequestWorkspace({
                 <i className={"mv-dot " + meta.tag.toLowerCase()}>{meta.tag}</i>
                 <span>
                   <strong>
-                    Chọn điểm {meta.tag} · {meta.label}
+                    {uiText("Chọn điểm ")}
+                    {meta.tag} · {uiText(meta.label)}
                   </strong>
                   {asked[field] && (
                     <small className="mv-asked">{asked[field].text}</small>
@@ -1100,7 +1140,7 @@ export function MovingRequestWorkspace({
                   <div className="mv-location-input">
                     <Search size={16} aria-hidden="true" />
                     <input
-                      aria-label={meta.input}
+                      aria-label={uiText(meta.input)}
                       value={
                         home
                           ? house.address || house.title
@@ -1119,13 +1159,17 @@ export function MovingRequestWorkspace({
                           void search(field, ev.currentTarget.value);
                         }
                       }}
-                      placeholder={`Tìm địa chỉ hoặc chọn điểm ${meta.tag} trên bản đồ`}
+                      placeholder={uiText(
+                        `Tìm địa chỉ hoặc chọn điểm ${meta.tag} trên bản đồ`,
+                      )}
                       maxLength={300}
                       autoComplete="off"
                     />
                   </div>
                   {field === "to_address" && homeLoading && (
-                    <small role="status">Đang lấy địa chỉ căn đã chọn…</small>
+                    <small role="status">
+                      {uiText("Đang lấy địa chỉ căn đã chọn…")}
+                    </small>
                   )}
                   {field === "to_address" && homeIssue && (
                     <small role="status">{homeIssue}</small>
@@ -1134,7 +1178,9 @@ export function MovingRequestWorkspace({
                     <button
                       type="button"
                       className={"mv-selected-home" + (home ? " selected" : "")}
-                      aria-label={`Giao tới phòng đã chọn (${house.title})`}
+                      aria-label={formatUi("Giao tới phòng đã chọn ({0})", [
+                        house.title,
+                      ])}
                       aria-pressed={Boolean(home)}
                       onClick={(ev) => {
                         ev.stopPropagation();
@@ -1157,15 +1203,19 @@ export function MovingRequestWorkspace({
                       <Home size={18} aria-hidden="true" />
                       <span>
                         <small>
-                          Phòng đã chọn: <b>{house.title}</b>
+                          {uiText("Phòng đã chọn: ")}
+                          <b>{house.title}</b>
                         </small>
                         <span>
-                          {house.address || "Địa chỉ đang được cập nhật"}
+                          {house.address ||
+                            uiText("Địa chỉ đang được cập nhật")}
                         </span>
                         <small>
                           {home
-                            ? "Đang dùng làm điểm B · Kiểm tra pin trên bản đồ"
-                            : "Dùng căn này làm điểm giao"}
+                            ? uiText(
+                                "Đang dùng làm điểm B · Kiểm tra pin trên bản đồ",
+                              )
+                            : uiText("Dùng căn này làm điểm giao")}
                         </small>
                       </span>
                       {home && <Check size={16} aria-hidden="true" />}
@@ -1173,14 +1223,16 @@ export function MovingRequestWorkspace({
                   )}
                   {searching === field && (
                     <small className="muted" role="status">
-                      Đang tìm địa điểm…
+                      {uiText("Đang tìm địa điểm…")}
                     </small>
                   )}
                   {active === field && !e.pin && shown.length > 0 && (
                     <div
                       className="mv-suggestions"
                       role="group"
-                      aria-label={"Gợi ý " + meta.label.toLowerCase()}
+                      aria-label={
+                        uiText("Gợi ý ") + uiText(meta.label).toLowerCase()
+                      }
                     >
                       {shown.slice(0, 8).map((c) => (
                         <button
@@ -1215,8 +1267,8 @@ export function MovingRequestWorkspace({
                   )}
                   <small className={e.pin ? "ok" : "muted"}>
                     {e.pin
-                      ? `Đã ghim: ${e.pin.label}`
-                      : "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim."}
+                      ? formatUi("Đã ghim: {0}", [e.pin.label])
+                      : uiText("Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.")}
                   </small>
                   {e.pin && (
                     <button
@@ -1237,7 +1289,7 @@ export function MovingRequestWorkspace({
                         }));
                       }}
                     >
-                      Bỏ ghim
+                      {uiText("Bỏ ghim")}
                     </button>
                   )}
                 </span>
@@ -1246,7 +1298,7 @@ export function MovingRequestWorkspace({
           })}
           <div className="form-grid mv-when">
             <label>
-              Ngày chuyển
+              {uiText("Ngày chuyển")}
               <input
                 type="date"
                 value={date}
@@ -1257,7 +1309,7 @@ export function MovingRequestWorkspace({
               )}
             </label>
             <label>
-              Giờ xe đến
+              {uiText("Giờ xe đến")}
               <input
                 type="time"
                 value={time}
@@ -1278,7 +1330,7 @@ export function MovingRequestWorkspace({
         <div className="mv-confirm">
           {error && (
             <p className="notice error" role="alert">
-              {error}
+              {uiText(error)}
             </p>
           )}
           <button
@@ -1286,22 +1338,27 @@ export function MovingRequestWorkspace({
             disabled={sending || chat.busy}
             onClick={() => void confirm()}
           >
-            {sending ? "Đang gửi…" : "Xác nhận và lấy báo giá"}
+            {sending ? uiText("Đang gửi…") : uiText("Xác nhận và lấy báo giá")}
           </button>
           <small className="muted">
-            Báo giá AhaMove, trả tiền mặt. Chưa đặt đơn cho tới khi bạn đồng ý.
+            {uiText(
+              "Báo giá AhaMove, trả tiền mặt. Chưa đặt đơn cho tới khi bạn đồng ý.",
+            )}
           </small>
         </div>
       </aside>
-      <section className="ws-map" aria-label="Bản đồ chuyển đồ">
+      <section className="ws-map" aria-label={uiText("Bản đồ chuyển đồ")}>
         <div className="ws-top">
           <div className="ws-filterbar">
             <span className="ws-filter-label">
-              <Route size={15} /> Đang ghim: {ENDPOINTS[active].label}
+              <Route size={15} />
+              {uiText(" Đang ghim: ")}
+              {uiText(ENDPOINTS[active].label)}
             </span>
             <span className="ws-spacer" />
             <button className="ws-pill-button" onClick={onExit}>
-              <MessageCircle size={15} /> Về hội thoại
+              <MessageCircle size={15} />
+              {uiText(" Về hội thoại")}
             </button>
           </div>
         </div>
@@ -1312,9 +1369,11 @@ export function MovingRequestWorkspace({
           text={
             chat.fromResult
               ? chat.text
-              : "Điền thông tin chuyến chuyển đồ hoặc nhắn cho SIU, rồi bấm “Xác nhận và lấy báo giá”."
+              : uiText(
+                  "Điền thông tin chuyến chuyển đồ hoặc nhắn cho SIU, rồi bấm “Xác nhận và lấy báo giá”.",
+                )
           }
-          placeholder="Hoặc nhắn yêu cầu chuyển đồ…"
+          placeholder={uiText("Hoặc nhắn yêu cầu chuyển đồ…")}
           onSendText={chat.onSend}
         />
       </section>

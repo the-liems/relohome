@@ -1,9 +1,11 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import { Expand, Layers, MapPin, RotateCw } from "lucide-react";
 import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import { api, housePrice } from "../api";
 import type { Data, House } from "../types";
 import { Dialog } from "./Dialog";
+import { tuneBasemap } from "../mapStyle";
 import {
   cityForPoint,
   scopedMapOptions,
@@ -16,7 +18,7 @@ import {
 const theme = {
   fill: "#d6efe9",
   border: "#176e69",
-  selected: "#f97316",
+  selected: "#256348",
   route: "#347fd6",
 };
 export function MapPanel({
@@ -96,6 +98,7 @@ export function MapPanel({
             attributionControl: { compact: true },
           });
           map.current = m;
+          m.on("style.load", () => tuneBasemap(m));
           installMapScope(m, city);
           fitted.current = "";
           resize = new ResizeObserver(() => m.resize());
@@ -116,6 +119,7 @@ export function MapPanel({
           );
           m.on("load", () => {
             if (disposed) return;
+            tuneBasemap(m);
             m.addSource("siu-points", {
               type: "geojson",
               data: { type: "FeatureCollection", features: [] },
@@ -429,18 +433,18 @@ export function MapPanel({
     <section
       className={"map-panel " + (large ? "map-large" : "")}
       data-map-ready={ready}
-      aria-label="Bản đồ kết quả"
+      aria-label={uiText("Bản đồ kết quả")}
     >
       <div className="map-toolbar">
         <span>
           <MapPin size={16} />
-          {explore ? "Khám phá khu vực" : "Vị trí trên bản đồ"}
+          {explore ? uiText("Khám phá khu vực") : uiText("Vị trí trên bản đồ")}
         </span>
         <div>
           {filter && !filter.commute && !filter.center && !filter.radius_m && (
             <button
-              aria-label="Đổi chế độ bản đồ"
-              title="Khám phá khu vực theo bộ lọc hiện tại"
+              aria-label={uiText("Đổi chế độ bản đồ")}
+              title={uiText("Khám phá khu vực theo bộ lọc hiện tại")}
               className={explore ? "icon-button active" : "icon-button"}
               onClick={() => setExplore(!explore)}
             >
@@ -450,7 +454,7 @@ export function MapPanel({
           {!large && (
             <button
               className="icon-button"
-              aria-label="Mở bản đồ lớn"
+              aria-label={uiText("Mở bản đồ lớn")}
               onClick={() => setExpanded(true)}
             >
               <Expand size={16} />
@@ -460,16 +464,16 @@ export function MapPanel({
       </div>
       {inspected && (
         <Dialog
-          title="Nhà trong khu vực đang xem"
+          title={uiText("Nhà trong khu vực đang xem")}
           onClose={() => setInspected(null)}
         >
           <h3>{inspected.title}</h3>
           <p>{inspected.address}</p>
           <strong>{housePrice(inspected)}</strong>
           <p className="muted">
-            Đây là tin khám phá trên bản đồ, chưa thuộc nhóm kết quả của cuộc
-            trò chuyện. Hãy yêu cầu AI tìm nhà tại khu vực này để đưa vào kế
-            hoạch.
+            {uiText(
+              "Đây là tin khám phá trên bản đồ, chưa thuộc nhóm kết quả của cuộc trò chuyện. Hãy yêu cầu AI tìm nhà tại khu vực này để đưa vào kế hoạch.",
+            )}
           </p>
           <button
             className="secondary"
@@ -486,7 +490,7 @@ export function MapPanel({
               }
             }}
           >
-            Cập nhật thông tin tin nhà
+            {uiText("Cập nhật thông tin tin nhà")}
           </button>
           {inspected.description && <p>{inspected.description}</p>}
         </Dialog>
@@ -494,23 +498,30 @@ export function MapPanel({
       <div ref={container} className="map-canvas" />
       {error && (
         <div className="map-error" role="status">
-          {error}
+          {uiText(error)}
           <button
             className="text-button"
             onClick={() => setAttempt((a) => a + 1)}
           >
-            <RotateCw size={14} /> Tải lại
+            <RotateCw size={14} />
+            {uiText(" Tải lại")}
           </button>
         </div>
       )}
       <div className="map-legend">
-        <i /> {explore ? "Nhà trong vùng đang xem" : "Các kết quả đang xem"}
-        <i className="orange" /> Đang chọn
-        {truncated && <span> · Kết quả có giới hạn, hãy phóng to</span>}
+        <i />{" "}
+        {explore
+          ? uiText("Nhà trong vùng đang xem")
+          : uiText("Các kết quả đang xem")}
+        <i className="orange" />
+        {uiText(" Đang chọn")}
+        {truncated && (
+          <span>{uiText(" · Kết quả có giới hạn, hãy phóng to")}</span>
+        )}
       </div>
       {expanded && (
         <Dialog
-          title="Bản đồ · Về cuộc trò chuyện khi đóng"
+          title={uiText("Bản đồ · Về cuộc trò chuyện khi đóng")}
           wide
           onClose={() => setExpanded(false)}
         >

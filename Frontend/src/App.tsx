@@ -1,3 +1,4 @@
+import { t as uiText } from "./uiPreferences";
 import {
   createContext,
   useContext,
@@ -72,6 +73,8 @@ import {
 import { filtersFromSearch } from "./mapWorkspace";
 import { PlanPeek } from "./components/PlanPeek";
 import { RequestHistory } from "./components/RequestHistory";
+import { LandingPage } from "./components/LandingPage";
+import { AppearanceControls, useUiPreferences } from "./uiPreferences";
 
 interface AppContext {
   user: User;
@@ -119,6 +122,7 @@ const quick = [
 ];
 
 export default function App() {
+  useUiPreferences();
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [status, setStatus] = useState<Data | null>(null),
@@ -202,11 +206,13 @@ export default function App() {
           : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của SIU, hãy thử lại sau.",
     );
   }
+  if (location.pathname === "/")
+    return <LandingPage signedIn={Boolean(user)} />;
   if (loading)
     return (
       <div className="boot">
         <Robot />
-        <p>Đang mở không gian của bạn…</p>
+        <p>{uiText("Đang mở không gian của bạn…")}</p>
       </div>
     );
   if (!user)
@@ -264,11 +270,13 @@ export default function App() {
             element={
               <Empty
                 icon={<Compass />}
-                title="Không tìm thấy trang"
-                text="Trang này không tồn tại hoặc bạn chưa có quyền truy cập."
+                title={uiText("Không tìm thấy trang")}
+                text={uiText(
+                  "Trang này không tồn tại hoặc bạn chưa có quyền truy cập.",
+                )}
               >
                 <Link className="primary" to="/ai">
-                  Về Hệ thống AI
+                  {uiText("Về Hệ thống AI")}
                 </Link>
               </Empty>
             }
@@ -280,7 +288,7 @@ export default function App() {
           {toast}
           <button
             className="icon-button"
-            aria-label="Đóng thông báo"
+            aria-label={uiText("Đóng thông báo")}
             onClick={() => setToast("")}
           >
             <X size={16} />
@@ -316,6 +324,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
   }
   return (
     <main className="login-page">
+      <AppearanceControls className="login-appearance" />
       <section className="login-story">
         <Link className="brand" to="/ai">
           <span className="brand-symbol">
@@ -336,19 +345,25 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
             <MapPin size={25} />
           </span>
         </div>
-        <span className="eyebrow">MỘT KHỞI ĐẦU MỚI, DỄ DÀNG HƠN</span>
+        <span className="eyebrow">
+          {uiText("MỘT KHỞI ĐẦU MỚI, DỄ DÀNG HƠN")}
+        </span>
         <h1>
-          Cuộc sống có nhiều việc.
+          {uiText("Cuộc sống có nhiều việc.")}
           <br />
-          <em>Cùng SIU, từng bước một.</em>
+          <em>{uiText("Cùng SIU, từng bước một.")}</em>
         </h1>
         <p>
-          Từ tìm một nơi ở, khám phá khu vực đến sắp xếp hành trình. Trợ lý của
-          bạn, trong một cuộc trò chuyện.
+          {uiText(
+            "Từ tìm một nơi ở, khám phá khu vực đến sắp xếp hành trình. Trợ lý của bạn, trong một cuộc trò chuyện.",
+          )}
         </p>
         <div className="login-cities">
           <MapPin size={15} />
-          Hà Nội <span>·</span> Đà Nẵng <span>·</span> TP.HCM
+          {uiText("Hà Nội ")}
+          <span>·</span>
+          {uiText(" Đà Nẵng ")}
+          <span>·</span> TP.HCM
         </div>
       </section>
       <section className="login-form-wrap">
@@ -356,20 +371,26 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           <span className="service-icon purple">
             <MessageCircle size={24} />
           </span>
-          <h2>{register ? "Bắt đầu cùng SIU AI" : "Chào bạn quay lại"}</h2>
+          <h2>
+            {register
+              ? uiText("Bắt đầu cùng SIU AI")
+              : uiText("Chào bạn quay lại")}
+          </h2>
           <p>
             {register
-              ? "Tạo tài khoản để lưu hội thoại và những lựa chọn của bạn."
-              : "Đăng nhập để tiếp tục câu chuyện của bạn."}
+              ? uiText(
+                  "Tạo tài khoản để lưu hội thoại và những lựa chọn của bạn.",
+                )
+              : uiText("Đăng nhập để tiếp tục câu chuyện của bạn.")}
           </p>
           <form onSubmit={submit}>
             {register && (
               <label>
-                Tên hiển thị
+                {uiText("Tên hiển thị")}
                 <input
                   name="name"
                   autoComplete="name"
-                  placeholder="Bạn muốn SIU gọi là gì?"
+                  placeholder={uiText("Bạn muốn SIU gọi là gì?")}
                   required
                   maxLength={80}
                 />
@@ -386,12 +407,12 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
               />
             </label>
             <label>
-              Mật khẩu
+              {uiText("Mật khẩu")}
               <input
                 name="password"
                 type="password"
                 autoComplete={register ? "new-password" : "current-password"}
-                placeholder="Ít nhất 10 ký tự"
+                placeholder={uiText("Ít nhất 10 ký tự")}
                 minLength={10}
                 maxLength={128}
                 required
@@ -399,16 +420,22 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
             </label>
             {error && (
               <p className="notice error" role="alert">
-                {error}
+                {uiText(error)}
               </p>
             )}
             <button className="primary full" disabled={busy}>
-              {busy ? "Đang xử lý…" : register ? "Tạo tài khoản" : "Đăng nhập"}
+              {busy
+                ? uiText("Đang xử lý…")
+                : register
+                  ? uiText("Tạo tài khoản")
+                  : uiText("Đăng nhập")}
               <ArrowRight size={18} />
             </button>
           </form>
           <p className="auth-switch">
-            {register ? "Đã có tài khoản?" : "Lần đầu đến với SIU?"}{" "}
+            {register
+              ? uiText("Đã có tài khoản?")
+              : uiText("Lần đầu đến với SIU?")}{" "}
             <button
               className="text-button"
               onClick={() => {
@@ -416,12 +443,12 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
                 setError("");
               }}
             >
-              {register ? "Đăng nhập" : "Tạo tài khoản"}
+              {register ? uiText("Đăng nhập") : uiText("Tạo tài khoản")}
             </button>
           </p>
           <div className="login-foot">
             <ShieldCheck size={16} />
-            Không gian riêng cho kế hoạch của bạn
+            {uiText("Không gian riêng cho kế hoạch của bạn")}
           </div>
         </div>
       </section>
@@ -442,16 +469,21 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="chat-header">
           {isChat ? (
             <div className="chat-brand">
-              <Link className="robot-avatar" to="/ai" aria-label="Về chat">
-                <Robot />
+              <Link
+                className="robot-avatar"
+                to="/ai"
+                aria-label={uiText("Về chat")}
+              >
+                <Robot compact />
               </Link>
               <div>
                 <h2>
                   {active?.title ||
-                    "Một cuộc trò chuyện, nhiều điều được giải quyết"}
+                    uiText("Một cuộc trò chuyện, nhiều điều được giải quyết")}
                 </h2>
                 <p>
-                  SIU AI <span>·</span> Cùng bạn sắp xếp cuộc sống
+                  SIU AI <span>·</span>
+                  {uiText(" Cùng bạn sắp xếp cuộc sống")}
                 </p>
               </div>
             </div>
@@ -465,25 +497,34 @@ function Shell({ children }: { children: ReactNode }) {
             </Link>
           )}
           <div className="header-actions">
+            <Link
+              className="icon-button outlined header-home"
+              to="/"
+              aria-label={uiText("Trang giới thiệu")}
+              title={uiText("Trang giới thiệu")}
+            >
+              <House size={18} />
+            </Link>
+            <AppearanceControls />
             {isChat ? (
               <>
                 <span className={"connection " + (status ? "online" : "")}>
                   <i />
-                  {status ? "AI đã kết nối" : "Chưa kết nối AI"}
+                  {status ? uiText("AI đã kết nối") : uiText("Chưa kết nối AI")}
                 </span>
                 <button
                   className="secondary"
-                  aria-label="Lịch sử"
+                  aria-label={uiText("Lịch sử")}
                   onClick={() => setHistory(true)}
                 >
                   <History size={17} />
-                  <span>Lịch sử</span>
+                  <span>{uiText("Lịch sử")}</span>
                 </button>
                 {active && (
                   <button
                     className="icon-button outlined"
-                    aria-label="Xóa cuộc trò chuyện này"
-                    title="Xóa cuộc trò chuyện này"
+                    aria-label={uiText("Xóa cuộc trò chuyện này")}
+                    title={uiText("Xóa cuộc trò chuyện này")}
                     onClick={() => setRemoving(active)}
                   >
                     <Trash2 size={18} />
@@ -492,7 +533,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <Link
                   className="icon-button outlined"
                   to="/ai"
-                  aria-label="Cuộc trò chuyện mới"
+                  aria-label={uiText("Cuộc trò chuyện mới")}
                 >
                   <Plus size={20} />
                 </Link>
@@ -500,13 +541,13 @@ function Shell({ children }: { children: ReactNode }) {
             ) : (
               <Link className="secondary" to="/ai">
                 <MessageCircle size={16} />
-                Về chat
+                {uiText("Về chat")}
               </Link>
             )}
             <Link
               className="account-chip"
               to="/account"
-              aria-label="Mở tài khoản"
+              aria-label={uiText("Mở tài khoản")}
               title={user.name}
             >
               <span className="avatar account-chip-avatar">
@@ -514,7 +555,7 @@ function Shell({ children }: { children: ReactNode }) {
               </span>
               <span className="account-chip-name">
                 <strong>{user.name}</strong>
-                <small>Tài khoản</small>
+                <small>{uiText("Tài khoản")}</small>
               </span>
             </Link>
           </div>
@@ -544,17 +585,21 @@ function DeleteThreadDialog({
   const { deleteThread } = useApp();
   return (
     <ConfirmDialog
-      title="Xóa cuộc trò chuyện?"
-      action="Xóa cuộc trò chuyện"
+      title={uiText("Xóa cuộc trò chuyện?")}
+      action={uiText("Xóa cuộc trò chuyện")}
       onConfirm={() => deleteThread(thread.id)}
       onClose={onClose}
     >
       <p>
-        <strong>{thread.title}</strong> và những gì SIU ghi nhớ từ cuộc trò
-        chuyện này sẽ bị xóa, không khôi phục được.
+        <strong>{thread.title}</strong>
+        {uiText(
+          " và những gì SIU ghi nhớ từ cuộc trò chuyện này sẽ bị xóa, không khôi phục được.",
+        )}
       </p>
       <p className="muted small">
-        Đơn đã đặt không bị hủy. Nhà đã lưu vẫn ở Tài khoản → Đã lưu.
+        {uiText(
+          "Đơn đã đặt không bị hủy. Nhà đã lưu vẫn ở Tài khoản → Đã lưu.",
+        )}
       </p>
     </ConfirmDialog>
   );
@@ -564,18 +609,20 @@ function ResetThreadsDialog({ onClose }: { onClose: () => void }) {
   const { resetThreads } = useApp();
   return (
     <ConfirmDialog
-      title="Xóa tất cả và làm mới SIU?"
-      action="Xóa tất cả"
+      title={uiText("Xóa tất cả và làm mới SIU?")}
+      action={uiText("Xóa tất cả")}
       onConfirm={resetThreads}
       onClose={onClose}
     >
       <p>
-        Mọi cuộc trò chuyện sẽ bị xóa và SIU quên các sở thích đã ghi nhớ từ trò
-        chuyện. Bạn bắt đầu lại từ đầu.
+        {uiText(
+          "Mọi cuộc trò chuyện sẽ bị xóa và SIU quên các sở thích đã ghi nhớ từ trò chuyện. Bạn bắt đầu lại từ đầu.",
+        )}
       </p>
       <p className="muted small">
-        Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ. Đơn đã đặt không bị hủy;
-        cuộc trò chuyện đang chờ thanh toán sẽ được giữ lại.
+        {uiText(
+          'Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ. Đơn đã đặt không bị hủy; cuộc trò chuyện đang chờ thanh toán sẽ được giữ lại.',
+        )}
       </p>
     </ConfirmDialog>
   );
@@ -593,18 +640,18 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
   if (resetting)
     return <ResetThreadsDialog onClose={() => setResetting(false)} />;
   return (
-    <Dialog title="Cuộc trò chuyện của bạn" onClose={onClose}>
+    <Dialog title={uiText("Cuộc trò chuyện của bạn")} onClose={onClose}>
       <div className="search-row">
         <Search size={17} />
         <input
-          placeholder="Tìm theo tiêu đề…"
+          placeholder={uiText("Tìm theo tiêu đề…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
       <Link className="primary full" to="/ai" onClick={onClose}>
         <Plus size={17} />
-        Cuộc trò chuyện mới
+        {uiText("Cuộc trò chuyện mới")}
       </Link>
       <div className="history-list">
         {threads
@@ -625,8 +672,8 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
               </Link>
               <button
                 className="icon-button"
-                aria-label={"Xóa cuộc trò chuyện " + t.title}
-                title="Xóa cuộc trò chuyện"
+                aria-label={uiText("Xóa cuộc trò chuyện ") + t.title}
+                title={uiText("Xóa cuộc trò chuyện")}
                 onClick={() => setRemoving(t)}
               >
                 <Trash2 size={16} />
@@ -639,11 +686,12 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
           className="text-button danger"
           onClick={() => setResetting(true)}
         >
-          <Trash2 size={14} /> Xóa tất cả và làm mới SIU
+          <Trash2 size={14} />
+          {uiText(" Xóa tất cả và làm mới SIU")}
         </button>
       ) : (
         <p className="muted">
-          Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.
+          {uiText("Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.")}
         </p>
       )}
     </Dialog>
@@ -659,7 +707,12 @@ function Chat() {
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [draft, setDraft] = useState(""),
+    [draft, setDraft] = useState(
+      () =>
+        sessionStorage.getItem(
+          "siu-draft-" + user.id + "-" + (threadId || "new"),
+        ) || "",
+    ),
     [form, setForm] = useState<string | null>(null),
     [context, setContext] = useState<HouseData | null>(null),
     [newMessage, setNewMessage] = useState(false),
@@ -1140,7 +1193,7 @@ function Chat() {
             {loading && (
               <div className="loading-history">
                 <span className="spinner" />
-                <span>Đang tải hội thoại…</span>
+                <span>{uiText("Đang tải hội thoại…")}</span>
               </div>
             )}
             {!loading && !thread?.messages?.length && (
@@ -1150,17 +1203,22 @@ function Chat() {
                     <Sparkles size={22} />
                   </span>
                   <span className="eyebrow">
-                    CHÀO {user.name.toLocaleUpperCase("vi")}
+                    {uiText("CHÀO ")}
+                    {user.name.toLocaleUpperCase("vi")}
                   </span>
                 </div>
                 <h1>
-                  Bạn đang ấp ủ<br />
-                  <span>kế hoạch gì hôm nay?</span>
+                  <span className="welcome-title-lead">
+                    {uiText("Bạn đang ấp ủ")}
+                  </span>{" "}
+                  <span>{uiText("kế hoạch gì hôm nay?")}</span>
                 </h1>
                 <p>
-                  Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.
-                  <br className="desktop-only" /> Kể SIU nghe, mình sẽ cùng bạn
-                  bắt đầu.
+                  {uiText(
+                    "Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.",
+                  )}
+                  <br className="desktop-only" />
+                  {uiText(" Kể SIU nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
                 <div className="quick-grid">
                   {quick.map((q) => (
@@ -1175,21 +1233,23 @@ function Chat() {
                       disabled={unavailable(q.kind)}
                       title={
                         unavailable(q.kind)
-                          ? "Dịch vụ chưa được kết nối"
-                          : q.title
+                          ? uiText("Dịch vụ chưa được kết nối")
+                          : uiText(q.title)
                       }
                     >
                       <span className={"service-icon " + q.color}>
                         <q.icon size={24} />
                       </span>
-                      <strong>{q.title}</strong>
-                      <span>{q.subtitle}</span>
+                      <strong>{uiText(q.title)}</strong>
+                      <span>{uiText(q.subtitle)}</span>
                       <ArrowUpRight size={17} className="quick-arrow" />
                     </button>
                   ))}
                 </div>
                 <div className="starter">
-                  <span className="muted small">THỬ BẮT ĐẦU VỚI</span>
+                  <span className="muted small">
+                    {uiText("THỬ BẮT ĐẦU VỚI")}
+                  </span>
                   <button
                     onClick={() => {
                       setDraft(
@@ -1198,7 +1258,7 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    “Tìm phòng ở Hà Nội dưới 5 triệu/tháng”
+                    {uiText("“Tìm phòng ở Hà Nội dưới 5 triệu/tháng”")}
                     <ArrowRight size={16} />
                   </button>
                   <button
@@ -1207,13 +1267,13 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    “Tôi muốn tìm nhà và chuyển đồ tới đó”
+                    {uiText("“Tôi muốn tìm nhà và chuyển đồ tới đó”")}
                     <ArrowRight size={16} />
                   </button>
                 </div>
                 <div className="welcome-note">
                   <ShieldCheck size={15} />
-                  Bạn luôn là người xác nhận trước mỗi giao dịch.
+                  {uiText("Bạn luôn là người xác nhận trước mỗi giao dịch.")}
                 </div>
                 {Object.values(user.preferences).some(Boolean) && (
                   <button
@@ -1226,7 +1286,7 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    Dùng sở thích đã lưu cho lần tìm này
+                    {uiText("Dùng sở thích đã lưu cho lần tìm này")}
                   </button>
                 )}
               </section>
@@ -1261,7 +1321,9 @@ function Chat() {
                           </div>
                           <p className="prose">{m.content.response.text}</p>
                           {m.content.response.kind === "PARTIAL" && (
-                            <span className="tag amber">Kết quả một phần</span>
+                            <span className="tag amber">
+                              {uiText("Kết quả một phần")}
+                            </span>
                           )}
                         </div>
                       )}
@@ -1336,7 +1398,7 @@ function Chat() {
                               className="suggestion"
                               onClick={() => setDraft(s.message)}
                             >
-                              {s.label}
+                              {uiText(s.label)}
                               <ArrowUpRight size={13} />
                             </button>
                           ))}
@@ -1346,14 +1408,16 @@ function Chat() {
                         m.content.confirmation.payload_hash !==
                           pending?.payload_hash && (
                           <p className="notice">
-                            Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng
-                            thái hiện tại bên dưới.
+                            {uiText(
+                              "Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng thái hiện tại bên dưới.",
+                            )}
                           </p>
                         )}
                       {m.content.uncertain && (
                         <p className="notice amber">
-                          Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi
-                          gửi lại.
+                          {uiText(
+                            "Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi gửi lại.",
+                          )}
                         </p>
                       )}
                     </>
@@ -1388,12 +1452,12 @@ function Chat() {
                   <i />
                   <i />
                 </span>
-                <small>SIU đang xử lý yêu cầu của bạn…</small>
+                <small>{uiText("SIU đang xử lý yêu cầu của bạn…")}</small>
               </div>
             )}
             {error && (
               <div className="notice error" role="alert">
-                {error}
+                {uiText(error)}
                 <button
                   className="text-button"
                   onClick={() => {
@@ -1402,7 +1466,7 @@ function Chat() {
                   }}
                 >
                   <RefreshCw size={14} />
-                  Kiểm tra trạng thái
+                  {uiText("Kiểm tra trạng thái")}
                 </button>
               </div>
             )}
@@ -1411,12 +1475,12 @@ function Chat() {
             ) &&
               !busy && (
                 <div className="notice amber">
-                  Có yêu cầu đang xử lý hoặc chưa rõ kết quả.
+                  {uiText("Có yêu cầu đang xử lý hoặc chưa rõ kết quả.")}
                   <button
                     className="text-button"
                     onClick={() => reload().catch((e) => setError(e.message))}
                   >
-                    Kiểm tra trạng thái
+                    {uiText("Kiểm tra trạng thái")}
                   </button>
                 </div>
               )}
@@ -1435,7 +1499,7 @@ function Chat() {
                   }}
                 >
                   <ArrowDown size={14} />
-                  Có phản hồi mới
+                  {uiText("Có phản hồi mới")}
                 </button>
               )}
               {movingQuestions.length > 0 && (
@@ -1443,7 +1507,8 @@ function Chat() {
                   className="secondary open-map"
                   onClick={() => setWorkspace("relocation-form")}
                 >
-                  <Truck size={15} /> Nhập thông tin chuyển đồ
+                  <Truck size={15} />
+                  {uiText(" Nhập thông tin chuyển đồ")}
                 </button>
               )}
               {latestService && !movingQuestions.length && (
@@ -1466,22 +1531,25 @@ function Chat() {
               <div className="selection-strip">
                 <span>
                   <Check size={14} />
-                  Đã chọn: <strong>{selectedHouse.title}</strong>
+                  {uiText("Đã chọn: ")}
+                  <strong>{selectedHouse.title}</strong>
                 </span>
                 <button
                   className="text-button"
                   onClick={() => setWorkspace("relocation-form")}
                 >
-                  Chuyển đồ tới đây <ArrowRight size={13} />
+                  {uiText("Chuyển đồ tới đây ")}
+                  <ArrowRight size={13} />
                 </button>
               </div>
             )}
             {context && (
               <div className="context-chip">
-                Đang hỏi về: {context.title}
+                {uiText("Đang hỏi về: ")}
+                {context.title}
                 <button
                   className="icon-button"
-                  aria-label="Bỏ ngữ cảnh"
+                  aria-label={uiText("Bỏ ngữ cảnh")}
                   onClick={() => setContext(null)}
                 >
                   <X size={14} />
@@ -1503,8 +1571,10 @@ function Chat() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={1}
-                placeholder="Nhắn cho SIU AI… cùng bắt đầu một điều mới"
-                aria-label="Tin nhắn cho SIU AI"
+                placeholder={uiText(
+                  "Nhắn cho SIU AI… cùng bắt đầu một điều mới",
+                )}
+                aria-label={uiText("Tin nhắn cho SIU AI")}
                 maxLength={5000}
                 onKeyDown={(e) => {
                   if (
@@ -1520,24 +1590,28 @@ function Chat() {
               <button
                 className="send-button"
                 disabled={busy || !draft.trim() || !status}
-                aria-label="Gửi tin nhắn"
+                aria-label={uiText("Gửi tin nhắn")}
               >
                 <Send size={20} />
               </button>
             </form>
             <div className="composer-caption">
               <span>
-                SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
+                {uiText(
+                  "SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.",
+                )}
               </span>
               <span className="desktop-only">
-                Enter để gửi <span>·</span> Shift + Enter xuống dòng
+                {uiText("Enter để gửi ")}
+                <span>·</span>
+                {uiText(" Shift + Enter xuống dòng")}
               </span>
             </div>
             {!status && (
               <div className="connection-alert">
-                Chưa kết nối được AI.{" "}
+                {uiText("Chưa kết nối được AI.")}{" "}
                 <button className="text-button" onClick={() => void refresh()}>
-                  Thử kết nối lại
+                  {uiText("Thử kết nối lại")}
                 </button>
               </div>
             )}
@@ -1639,10 +1713,15 @@ function Account({ onLogout }: { onLogout: () => void }) {
         <div className="page-heading">
           <div>
             <span className="eyebrow">
-              <UserRound size={13} /> TÀI KHOẢN SIU AI
+              <UserRound size={13} />
+              {uiText(" TÀI KHOẢN SIU AI")}
             </span>
-            <h1>Tài khoản của tôi</h1>
-            <p>Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.</p>
+            <h1>{uiText("Tài khoản của tôi")}</h1>
+            <p>
+              {uiText(
+                "Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.",
+              )}
+            </p>
           </div>
           <button
             className="secondary"
@@ -1657,7 +1736,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             }}
           >
             <LogOut size={16} />
-            Đăng xuất
+            {uiText("Đăng xuất")}
           </button>
         </div>
         <div className="profile-banner">
@@ -1675,7 +1754,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </span>
               <span>
                 <strong>{threads.length}</strong>
-                <small>Cuộc trò chuyện</small>
+                <small>{uiText("Cuộc trò chuyện")}</small>
               </span>
             </div>
             <div>
@@ -1684,7 +1763,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </span>
               <span>
                 <strong>{saved.length}</strong>
-                <small>Nhà đã lưu</small>
+                <small>{uiText("Nhà đã lưu")}</small>
               </span>
             </div>
           </div>
@@ -1695,32 +1774,36 @@ function Account({ onLogout }: { onLogout: () => void }) {
           className={tab === "history" ? "active" : ""}
           onClick={() => changeTab("history")}
         >
-          <History size={17} /> Lịch sử yêu cầu
+          <History size={17} />
+          {uiText(" Lịch sử yêu cầu")}
         </button>
         <button
           className={tab === "security" ? "active" : ""}
           onClick={() => changeTab("security")}
         >
-          <ShieldCheck size={17} /> Đăng nhập & bảo mật
+          <ShieldCheck size={17} />
+          {uiText(" Đăng nhập & bảo mật")}
         </button>
         <button
           className={tab === "profile" ? "active" : ""}
           onClick={() => changeTab("profile")}
         >
-          <UserRound size={17} /> Hồ sơ
+          <UserRound size={17} />
+          {uiText(" Hồ sơ")}
         </button>
         <button
           className={tab === "preferences" ? "active" : ""}
           onClick={() => changeTab("preferences")}
         >
-          <Settings2 size={17} /> Sở thích AI
+          <Settings2 size={17} />
+          {uiText(" Sở thích AI")}
         </button>
         <button
           className={tab === "saved" ? "active" : ""}
           onClick={() => changeTab("saved")}
         >
-          <Heart size={17} /> Đã lưu{" "}
-          <span className="count">{saved.length}</span>
+          <Heart size={17} />
+          {uiText(" Đã lưu")} <span className="count">{saved.length}</span>
         </button>
       </div>
       {tab === "history" ? (
@@ -1728,20 +1811,23 @@ function Account({ onLogout }: { onLogout: () => void }) {
       ) : tab === "security" ? (
         <section className="surface account-security">
           <ShieldCheck size={26} />
-          <h3>Đăng nhập & bảo mật</h3>
+          <h3>{uiText(" Đăng nhập & bảo mật")}</h3>
           <label>
-            Email đăng nhập
+            {uiText("Email đăng nhập")}
             <input value={user.email} disabled />
           </label>
           <p className="muted">
-            Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.
+            {uiText(
+              "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
+            )}
           </p>
           <p className="muted">
-            Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền
-            khi đăng nhập lần sau.
+            {uiText(
+              "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
+            )}
           </p>
           <p className="muted small">
-            Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.
+            {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
           </p>
         </section>
       ) : tab !== "saved" ? (
@@ -1749,8 +1835,8 @@ function Account({ onLogout }: { onLogout: () => void }) {
           <section className="surface">
             <h3>
               {tab === "profile"
-                ? "Thông tin cá nhân"
-                : "Những điều bạn ưu tiên"}
+                ? uiText("Thông tin cá nhân")
+                : uiText("Những điều bạn ưu tiên")}
             </h3>
             <form
               key={tab + user.name + JSON.stringify(user.preferences)}
@@ -1760,7 +1846,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               {tab === "profile" ? (
                 <>
                   <label>
-                    Tên hiển thị
+                    {uiText("Tên hiển thị")}
                     <input
                       name="name"
                       required
@@ -1769,66 +1855,69 @@ function Account({ onLogout }: { onLogout: () => void }) {
                     />
                   </label>
                   <label>
-                    Email đăng nhập
+                    {uiText("Email đăng nhập")}
                     <input value={user.email} disabled />
                   </label>
                 </>
               ) : (
                 <>
                   <p className="muted">
-                    Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi
-                    nào áp dụng; yêu cầu mới trong chat được ưu tiên.
+                    {uiText(
+                      "Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi nào áp dụng; yêu cầu mới trong chat được ưu tiên.",
+                    )}
                   </p>
                   <div className="form-grid">
                     <label>
-                      Thành phố
+                      {uiText("Thành phố")}
                       <select
                         name="city"
                         defaultValue={user.preferences.city || ""}
                       >
-                        <option value="">Chưa chọn</option>
-                        <option>Hà Nội</option>
-                        <option>Đà Nẵng</option>
-                        <option>Thành phố Hồ Chí Minh</option>
+                        <option value="">{uiText("Chưa chọn")}</option>
+                        <option value="Hà Nội">{uiText("Hà Nội ")}</option>
+                        <option value="Đà Nẵng">{uiText("Đà Nẵng")}</option>
+                        <option value="Thành phố Hồ Chí Minh">
+                          {uiText("Thành phố Hồ Chí Minh")}
+                        </option>
                       </select>
                     </label>
                     <label>
-                      Ngân sách thuê · VND/tháng
+                      {uiText("Ngân sách thuê · VND/tháng")}
                       <input
                         name="budget"
                         type="number"
                         min="0"
                         defaultValue={user.preferences.budget || ""}
-                        placeholder="Ví dụ: 5000000"
+                        placeholder={uiText("Ví dụ: 5000000")}
                       />
                     </label>
                     <label>
-                      Loại nhà
+                      {uiText("Loại nhà")}
                       <input
                         name="room_type"
                         defaultValue={user.preferences.room_type || ""}
-                        placeholder="Căn hộ, phòng trọ…"
+                        placeholder={uiText("Căn hộ, phòng trọ…")}
                       />
                     </label>
                     <label>
-                      Phương tiện
+                      {uiText("Phương tiện")}
                       <select
                         name="transport"
                         defaultValue={user.preferences.transport || ""}
                       >
-                        <option value="">Chưa chọn</option>
-                        <option>Đi bộ</option>
-                        <option>Xe máy</option>
-                        <option>Ô tô</option>
+                        <option value="">{uiText("Chưa chọn")}</option>
+                        <option value="Đi bộ">{uiText("Đi bộ")}</option>
+                        <option value="Xe máy">{uiText("Xe máy")}</option>
+                        <option value="Ô tô">{uiText("Ô tô")}</option>
                       </select>
                     </label>
                   </div>
                   <label>
-                    Tiện nghi quan tâm
+                    {uiText("Tiện nghi quan tâm")}
                     <input
                       name="amenities"
                       defaultValue={user.preferences.amenities || ""}
-                      placeholder="Ví dụ: có chỗ để xe"
+                      placeholder={uiText("Ví dụ: có chỗ để xe")}
                       maxLength={300}
                     />
                   </label>
@@ -1836,7 +1925,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               )}
               {error && (
                 <p className="notice error" role="alert">
-                  {error}
+                  {uiText(error)}
                 </p>
               )}
               <div className="form-actions">
@@ -1845,16 +1934,16 @@ function Account({ onLogout }: { onLogout: () => void }) {
                   className="secondary"
                   onClick={() => setDirty(false)}
                 >
-                  Hủy thay đổi
+                  {uiText("Hủy thay đổi")}
                 </button>
                 <button className="primary" disabled={busy || !dirty}>
-                  Lưu thay đổi
+                  {uiText("Lưu thay đổi")}
                 </button>
               </div>
             </form>
           </section>
           <section className="surface recent-activity">
-            <h3>Hội thoại gần đây</h3>
+            <h3>{uiText("Hội thoại gần đây")}</h3>
             {threads.slice(0, 5).map((t) => (
               <Link key={t.id} to={"/ai/" + t.id}>
                 <span className="service-icon blue">
@@ -1869,7 +1958,9 @@ function Account({ onLogout }: { onLogout: () => void }) {
             ))}
             {!threads.length && (
               <p className="muted">
-                Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng SIU.
+                {uiText(
+                  "Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng SIU.",
+                )}
               </p>
             )}
             {threads.length > 0 && (
@@ -1877,7 +1968,8 @@ function Account({ onLogout }: { onLogout: () => void }) {
                 className="text-button danger"
                 onClick={() => setResetting(true)}
               >
-                <Trash2 size={14} /> Xóa tất cả trò chuyện và làm mới SIU
+                <Trash2 size={14} />
+                {uiText(" Xóa tất cả trò chuyện và làm mới SIU")}
               </button>
             )}
           </section>
@@ -1906,11 +1998,14 @@ function Account({ onLogout }: { onLogout: () => void }) {
       ) : (
         <Empty
           icon={<Heart />}
-          title="Giữ lại những nơi bạn thích"
-          text="Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây."
+          title={uiText("Giữ lại những nơi bạn thích")}
+          text={uiText(
+            "Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây.",
+          )}
         >
           <Link className="secondary" to="/ai">
-            Tìm nhà cùng SIU <ArrowRight size={15} />
+            {uiText("Tìm nhà cùng SIU ")}
+            <ArrowRight size={15} />
           </Link>
         </Empty>
       )}

@@ -1,6 +1,172 @@
 # SIU AI — Frontend
 
-Cập nhật **05/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+Cập nhật **07/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+
+## Trang giới thiệu, Cẩm nang và bộ chọn AhaMove — bản mới nhất 07/10/2026
+
+- **`/`** là trang giới thiệu công khai, tone xanh rừng/kem, giữ logo robot AI.
+  Nút **Bắt đầu cùng SIU** mở **`/ai`**; dùng session/đăng nhập hiện có.
+  Chat, hội thoại đã lưu, account và các route cũ vẫn mở trực tiếp được.
+- Nội dung dựa trên chức năng đang có: tìm nhà, tiện ích/đường đi, chuyển đồ
+  AhaMove và chuyến bay; có phần cách sử dụng và CTA vào chatbot. Header có
+  sáng/tối, VI/EN và menu gọn trên điện thoại.
+- **Ghép trọ** và **Cẩm nang** được giới thiệu ở trạng thái **đang chuẩn bị /
+  sắp ra mắt**. Ba nhóm chủ đề: chọn khu vực, chuẩn bị chuyển nhà, sống chung.
+  Đây là giới thiệu định hướng; chưa có tìm người ở ghép hay kho bài viết.
+- Ảnh nhà mới có **hồ cá koi**, lưu local tại
+  `public/images/siu-home-hero.png`. Là minh họa, không phải tin nhà.
+  [Prompt và cách tạo ảnh](public/images/README.md) bằng imagegen built-in.
+- Moving dùng **loại xe → chọn trực tiếp thẻ gói**. Đã bỏ bộ lọc tải trọng
+  và dropdown gói trùng bước theo yêu cầu. Thẻ ghi tên/cỡ xe, mô tả giới hạn
+  từ API và service_id gốc; các gói đầu hiện gọn, có nút xem đủ khi nhiều gói.
+  Không suy tải trọng thực tế từ mã: tên gói 1000kg có thể được hãng mô tả
+  giới hạn 850kg; giữ nguyên cả tên và mô tả để người dùng cân nhắc.
+- Danh sách bên dưới luôn theo **loại xe đang chọn**: Van chỉ có các gói
+  Van tại điểm A, không lẫn xe tải/xe máy/bán tải. Tiêu đề ghi rõ loại xe;
+  hover chỉ xem hướng dẫn, **bấm** mới chọn loại. Không ghép gói của loại cũ
+  vào danh sách mới khi chuyển loại. Thẻ gọn, radio 16 px; chọn một gói mới
+  mở mô tả hãng và mã gói của chính gói đó. Không thêm bước lọc tải trọng.
+- Biểu tượng và hình minh họa riêng cho xe máy, van, tải, bán tải, ba gác.
+  Rê chuột, focus bàn phím hoặc bấm loại xe để mở giới thiệu; đóng được.
+  Xem hướng dẫn của loại đang chọn không xóa gói, addon hay dữ liệu nhập.
+  Hình là SVG minh họa loại xe, không hứa hẹn một mẫu xe thực tế.
+- Đã bỏ ô **Gói khác**. Các gói `ECO`/`POOL` phân về xe máy; mua hộ `AIPOB`
+  và gói chưa xác định loại vận chuyển không đưa vào lựa chọn mới của form.
+  Bán tải/ba gác chỉ hiện khi catalog tại điểm A có. Không sửa catalog server,
+  xóa dữ liệu hay thêm giá/gói giả. Gói đã chọn trước đây vẫn giữ theo ID để
+  không âm thầm đổi lựa chọn khi mở lại form.
+- **Để SIU gợi ý**: chưa chốt service_id; sau khi bấm lấy báo giá, SIU so
+  sánh một số gói chuyển đồ tại điểm A để người dùng chọn. Không tự đặt xe,
+  không hứa chọn rẻ nhất hay kiểm tra đầy đủ kích thước chỉ bằng loại xe.
+- `service_id`, addon, COD và payload typed quote giữ hợp đồng PR #53.
+  Đổi gói vẫn bỏ addon/COD của gói cũ; đổi điểm A vẫn kiểm tra catalog mới.
+  Không đổi logic Agent, xác nhận đặt dịch vụ, write flags, `.env`, backend
+  hoặc housing data. Loại xe UI không gửi thành trường mới cho Agent.
+
+**Kiểm tra:** suite browser hiện có **110 ca**: lượt full **105 pass**, **4 live
+opt-in skip**, **1 ca bị Chrome ngắt mạng `ERR_NETWORK_IO_SUSPENDED` tại goto**.
+Chạy lại đúng ca đó **1/1 pass**, không sửa test/app để bỏ qua lỗi; tổng
+**106 ca đã xác minh qua**. Nhóm Moving riêng **20/20 pass**.
+gateway/UI contract **8/8 pass** ở lượt trước, TypeScript/Vite build qua. Browser kiểm tra
+public landing, login/CTA, mobile, theme/locale, menu Cẩm nang và bảo toàn ID
+gói xe; các ca chat/map/housing/Moving/Flight/history/account/approval hiện có
+đều qua bằng fixtures. Rà catalog thật HCM/Hà Nội và build 8503: chọn gói
+bằng thẻ, hover xem hình xe máy không đổi gói xe tải đang chọn, không mất
+ID/pin khi đổi theme/locale; không có lỗi JavaScript. Rà Van trên build thật
+1920×990: chỉ có **Van 500/750/1000 kg**, radio **16×16 px**, không lẫn tải.
+Không gửi chat LLM,
+quote, order hay payment thật trong lượt này.
+
+Mô tả tham khảo hướng dẫn chính thức của AhaMove về
+[xe tải](https://ahamove.com/service/aha-truck),
+[xe máy](https://ahamove.com/huong-dan-dat-don-dich-vu-giao-hang-bang-xe-may-ahamove)
+và [các loại xe chở hàng](https://ahamove.com/dich-vu-ba-gac-tai-tai-van);
+thông số mỗi gói vẫn lấy từ API hiện tại.
+
+File chính: `src/components/LandingPage.tsx`, `src/landing.css`,
+`src/movingCatalog.ts`, `src/components/MovingOptionsForm.tsx`,
+`src/components/VehicleGuide.tsx`, `src/locales/en.json`, `tests/browser/app.spec.ts`.
+
+Các số liệu ở mục bên dưới là kết quả của từng đợt trước đó.
+
+## Giao diện sản phẩm, sáng/tối và Việt/Anh — 07/10/2026
+
+### Trang đầu và logo AI — cập nhật cùng ngày
+
+Đã thu gọn riêng trang chào: giảm khoảng cách, card dịch vụ chuyển thành
+icon cạnh nội dung, hai câu “Thử bắt đầu với” nằm cạnh nhau trên desktop
+và xếp dọc trên mobile. Laptop thấp dùng tiêu đề một hàng; điện thoại thấp
+giữ tên/icon dịch vụ, thu gọn phần mô tả để gợi ý và ô nhập hiện ngay.
+Không tắt cuộn của các hội thoại hay cắt nội dung khi viewport quá nhỏ.
+
+Giữ **robot AI** theo yêu cầu, đổi palette sang xanh/mint; header dùng
+khuôn mặt gọn, favicon cùng tone. Ảnh/gradient của robot có token riêng
+cho sáng/tối. Tên SIU AI và các luồng dịch vụ không đổi.
+
+**6/6 ca có mục tiêu qua**: welcome mới, login/welcome hiện có và appearance
+trên desktop/mobile. Ca layout kiểm tra đủ 4 dịch vụ, 2 gợi ý, thông báo,
+nút dùng preferences đã lưu và composer đều nằm trong vùng nhìn thấy,
+không cần cuộn, trên **6 viewport** (1536×790, 1366×650, 1280×600,
+390×844, 360×740, 390×680) × **VI/EN**. Bấm gợi ý vẫn chỉ điền nháp,
+không gửi API. Build qua. Suite hiện có 102 ca; số 96 pass + 4 skip bên
+dưới là lượt full suite trước khi thêm hai ca layout, không phải một
+lượt full suite mới của 102 ca. Chỉ JSX hình ảnh/layout và CSS thay đổi.
+
+**Đã khởi động và rà runtime:** mở http://127.0.0.1:8503. Sáu thành phần
+UI/Agent/Platform/Location/Moving đều sẵn sàng; PostGIS healthy, 9/9 OSRM
+trả route có hình học. Kiểm tra lại 96/96 browser + 8/8 contract qua,
+13/13 bước browser trên build thật qua, có 29 gói AhaMove staging tại HCM.
+Chỉ đọc provider/catalog; chưa chạy thêm chat LLM, tìm Flight, quote hoặc
+transaction thật. Ghi nhận gợi ý Location có thể không khớp tên truy vấn.
+Chi tiết phạm vi, bằng chứng và xác nhận không đổi nghiệp vụ ở
+[báo cáo runtime](RUNTIME_CHECK_2026-10-07.md).
+
+- Bảng màu xanh rừng, nền trắng ngà/xám xanh, đường viền nhẹ; giảm gradient,
+  bóng và trang trí. Giữ tên SIU AI và robot màu xanh/mint theo yêu cầu mới.
+  Header, chat, nhà ở/map, Moving, Flight, kế hoạch và account giữ bố cục
+  chức năng hiện có, cải thiện màu/chữ/khung trên desktop và mobile.
+- Nút **VI / EN** và **mặt trăng/mặt trời** ở header và trang đăng nhập.
+  Lưu trong `localStorage["siu-ui-preferences"]`; mặc định Việt, theme theo
+  hệ điều hành nếu chưa chọn. Đổi chế độ không tạo hội thoại mới, gửi API,
+  xóa form hay đổi gói xe. Lựa chọn UI này chưa đồng bộ theo tài khoản/server.
+- Dịch nhãn UI, tooltip, placeholder và đơn vị hiển thị; định dạng tiền/ngày
+  theo locale. Địa chỉ, tên tin nhà/gói dịch vụ từ provider, ghi chú và nội
+  dung hội thoại giữ nguyên ngôn ngữ nguồn. Đây không phải dịch nội dung LLM.
+- Giá trị option lưu/gửi API giữ nguyên dù nhãn đổi tiếng Anh. Kiểm tra
+  điểm A/B, ngày giờ, service_id, addon và ghi chú vẫn giữ giá trị cũ.
+  Không thêm `theme`/`locale` vào payload Agent hay thay workflow PR #53.
+- Basemap đổi màu paint theo theme, giữ MapLibre instance, source/marker,
+  tuyến OSRM, giới hạn camera và lựa chọn; không reload style để đổi màu.
+- Sửa lỗi nháp chat mất sau reload do effect lưu nháp rỗng trong StrictMode:
+  khởi tạo từ đúng sessionStorage trước effect. Chỉ sửa trạng thái hiển thị
+  frontend; không thay logic Intake/Planner/Agent, giao dịch hoặc dữ liệu.
+
+### File cần biết
+
+| File | Nội dung |
+| --- | --- |
+| `src/product-theme.css` | Token màu sáng/tối và khung giao diện |
+| `src/styles.css` | Layout hiện có sử dụng token thay các màu pastel cứng |
+| `src/uiPreferences.tsx` | Preferences trình duyệt, nút UI, dịch nhãn/format |
+| `src/locales/en.json` | Từ điển nhãn tiếng Anh; fallback giữ tiếng Việt |
+| `src/mapStyle.ts` | Paint của bản đồ theo theme, không đổi nguồn/tuyến |
+| `tests/browser/app.spec.ts` | Regression UI và bảo toàn payload khi đổi theme/locale |
+
+Nguồn thiết kế: thư mục `../Frontend MVP planning questions/`, đặc biệt
+`SIU Planner v2.dc.html`, `THE LIEMS Move Planner.dc.html` và ảnh người dùng
+gửi; tham khảo phân vai màu nền/chữ/viền/trạng thái trong
+[Primer Color](https://primer.style/product/primitives/color/). Link Claude
+trả “Page not found” khi đọc bằng browser; dùng mẫu local làm nguồn chính.
+Không nhập script mẫu vào app hoặc thay app bằng dữ liệu demo.
+
+### Kiểm chứng đợt này
+
+- **96/96 browser qua trong một lượt**, desktop 1440×960 và mobile 390×844.
+  Suite có 100 ca; **4 ca live opt-in skip**, không gộp chúng vào số pass.
+- 8 ca mới (4 tình huống × 2 viewport): preferences qua reload, nháp/transcript
+  không mất, account không đổi giá trị lưu, Moving không đổi pin/lịch/gói/ghi
+  chú/payload, login/welcome/map không tràn ngang và map không bị remount.
+- **8/8 Python frontend/gateway contract qua** bằng HTTP fixture; không gọi
+  LLM, geocode, SerpApi, đặt xe hay thanh toán thật trong đợt UI này.
+- TypeScript/Vite build qua; đã kiểm tra ảnh sáng/tối, Việt/Anh trên các
+  viewport. Ảnh browser nằm trong `test-results/` và là artifacts local.
+- Các fixture Moving cũ được cập nhật đúng typed endpoint `/moving/quote`
+  của PR #53, giữ nhánh `/chat` khi thiếu pin. Assert trực tiếp payload mới;
+  không đổi product endpoint hoặc làm giảm các guards để test qua.
+- Git diff backend `src/`, gateway Python, service và `.env` trống. Hash
+  `.env` và JSONL housing bằng trước đợt UI. Housing geocode trước đó là
+  công việc riêng; cache/data/docs của nó được giữ nguyên.
+
+Chạy lại:
+
+```powershell
+npm.cmd run build --prefix Frontend
+npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 4
+.\.venv\Scripts\python.exe -m pytest Frontend/tests -q --basetemp logs/local/frontend-contracts-check
+```
+
+Các số đếm và hạn chế trong các mục 05/10 bên dưới là lịch sử, không phải
+kết quả mới nhất hay xác nhận end-to-end provider thật.
 
 ## Trạng thái hiện tại
 

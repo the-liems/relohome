@@ -1,5 +1,84 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
+## Landing, Cẩm nang và gói xe — lượt mới nhất 07/10/2026
+
+Landing công khai tại `/`, CTA vào `/ai` theo auth/session hiện có. Mục
+Ghép trọ và Cẩm nang ghi rõ đang chuẩn bị; không gọi endpoint chưa có.
+Ảnh nhà/hồ cá koi lưu local, có alt/caption minh họa. Theme/VI/EN và menu
+mobile hoạt động; chatbot không bị nhúng vào trang giới thiệu.
+
+Gói AhaMove chia theo loại xe, chọn trực tiếp thẻ có tên/cỡ xe/mô tả thật.
+Đã bỏ bộ lọc tải trọng và ô Gói khác. ECO/POOL thuộc xe máy; mua hộ/gói
+chưa xác định loại vận chuyển không hiện trong lựa chọn mới. Bán tải/ba gác
+chỉ hiện nếu catalog có. Catalog backend không sửa, gói đã chọn giữ ID cũ.
+Giữ addon, COD, quote typed PR #53 và
+quy trình xác nhận. Chỉ khi người dùng chọn tự chọn xe mà chưa chọn gói,
+frontend nhắc chọn gói hoặc quay về SIU gợi ý. Không sửa backend hay data.
+
+Guide có SVG từng loại xe, mở bằng hover/focus/click, có nút đóng, VI/EN,
+sáng/tối. Hover chỉ xem, không chọn xe hoặc gọi quote; mở lại loại đang
+chọn không xóa addon/COD/ghi chú. SIU gợi ý giải thích bước so sánh báo giá,
+không hứa tự đặt xe hoặc phương án tối ưu chưa được kiểm chứng.
+
+Rà lại theo phản hồi chọn Van: danh sách/tiêu đề theo loại đã bấm, không
+chen gói của loại cũ. Hover xe khác vẫn giữ Van; catalog refresh và VI/EN
+không đổi loại/gói. Sửa CSS input văn bản áp nhầm cho radio: radio 16 px,
+thẻ chưa chọn gọn, mô tả/mã hiện ở gói đang chọn. **20/20 ca Moving có mục
+tiêu qua**, gồm ca Van 500/750/1000 trên desktop/mobile.
+Build thật 8503 tại viewport 1920×990 cũng qua: catalog HCM trả đúng
+`SGN-VAN-500`, `SGN-VAN-750`, `SGN-VAN-1000`; sau chọn Van chỉ có ba gói
+này, radio đều 16×16 px, không có lỗi JavaScript. Chỉ đọc catalog và chọn
+trên UI; không gửi chat/quote/order/payment. Bằng chứng:
+`logs/local/product-runtime-20261007/van-live.json`, `live-van-only.png`.
+
+**Browser tổng 110 ca**: full **105 pass, 4 live opt-in skip, 1 lỗi mạng Chrome
+`ERR_NETWORK_IO_SUSPENDED` tại goto**; chạy lại ca lỗi **1/1 pass**. Tổng
+**106 ca đã xác minh qua**, không sửa code/test để bỏ qua lỗi môi trường.
+**8/8 contract qua ở lượt trước**,
+build qua. Read build thật 8503: landing/ảnh/auth CTA/catalog/theme-pin-ID
+đều qua; chọn thẻ gói từ catalog HCM thật, hover xem xe máy vẫn giữ gói xe
+tải, không có select tải trọng hoặc Gói khác. Không lỗi JS, không gửi
+chat/quote/order/payment thật. Sáu health endpoint 200 ở lượt startup.
+`.env`, integration.env và housing nguồn khớp hash trước đợt frontend;
+`git diff` của `src/`, `Frontend/server.py`, `Maps VN/` rỗng.
+
+Artifacts local: `logs/local/product-runtime-20261007/landing-live.json`,
+`live-landing-koi.png`, `live-motorbike-guide.png`, `live-vehicle-guide-dark.png`, `Frontend/test-results/`.
+
+Các mục sau là lịch sử những lượt kiểm tra trước.
+
+## Khởi động và rà build thật — 07/10/2026
+
+UI 8503, Agent 8000, Platform 4100, Location 4300, Moving 4200/4400 đều
+sẵn sàng; PostGIS và 9 OSRM đang chạy. Read thật housing/search/detail,
+Location/POI và catalog AhaMove qua. **13/13 bước browser trên build thật**,
+**96/96 regression UI**, **8/8 contract qua**; 4 live opt-in skip. Không
+chạy thêm LLM/Flight search, quote, order hay payment thật. Chỉ bổ sung
+nhãn EN và repaint map từ style.load; không đổi business/backend/data.
+Location còn trả gợi ý không khớp tên trong ca Bưu điện Trung tâm Sài Gòn;
+được ghi nhận, không sửa logic. Xem [báo cáo runtime](RUNTIME_CHECK_2026-10-07.md).
+
+## Giao diện sản phẩm và bảo toàn luồng — 07/10/2026
+
+Thay bảng màu, chữ/khung, dấu hiệu thương hiệu; thêm theme sáng/tối và
+nhãn Việt/Anh lưu trên trình duyệt. Giữ Agent/API, pin A/B, catalog thật,
+quote form PR #53, guard ngày giờ/phê duyệt và write flags hiện có.
+
+**96/96 browser regression qua** trên desktop/mobile trong một lượt;
+**4 ca live opt-in skip**. **8/8 Python gateway/UI contract qua**. Build
+TypeScript/Vite qua. Kiểm tra mới xác nhận đổi theme/locale không gửi thêm
+yêu cầu chat, không mất nháp/form, không dịch địa chỉ/ghi chú và không đổi
+payload/giá trị preferences. Map đổi paint, giữ canvas/marker/tuyến.
+
+Fixtures báo giá có cả hai pin được đồng bộ typed endpoint `/moving/quote`;
+ca chưa đủ pin vẫn dùng `/chat`. Không đổi logic sản phẩm để test qua.
+Đã xem ảnh sáng/tối và EN/VI desktop/mobile. Backend/service/.env/housing
+không sửa trong đợt này. Chưa chạy thêm LLM/provider hay transaction thật;
+các lỗi backend fixture đã thấy khi lấy PR #53 không được che bằng việc
+bật simulation. Chi tiết cấu trúc theme/locale và lệnh test ở [README](README.md).
+
+Các mục bên dưới ghi nhận từng đợt kiểm tra trước đây.
+
 ## Điểm B và housing chung pin — 05/10/2026
 
 Căn trong ảnh có fact `selected:property`, nhưng không có snapshot property

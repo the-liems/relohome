@@ -1,11 +1,17 @@
 import { useId } from "react";
 
-export function Robot({ className = "" }: { className?: string }) {
+export function Robot({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const id = useId().replaceAll(":", "");
   return (
     <svg
       className={"robot " + className}
-      viewBox="0 0 240 255"
+      viewBox={compact ? "28 18 188 146" : "0 0 240 255"}
       fill="none"
       aria-hidden="true"
     >
@@ -18,24 +24,24 @@ export function Robot({ className = "" }: { className?: string }) {
           y2="225"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#fff" />
-          <stop offset=".5" stopColor="#e9eaff" />
-          <stop offset="1" stopColor="#aca8fb" />
+          <stop stopColor="var(--ai-shell-highlight)" />
+          <stop offset=".5" stopColor="var(--ai-shell)" />
+          <stop offset="1" stopColor="var(--ai-shell-shade)" />
         </linearGradient>
         <linearGradient id={id + "ear"}>
-          <stop stopColor="#6ac6ff" />
-          <stop offset="1" stopColor="#8861f8" />
+          <stop stopColor="#9bd8b6" />
+          <stop offset="1" stopColor="#3f8860" />
         </linearGradient>
         <radialGradient id={id + "eye"}>
-          <stop stopColor="#a4ffff" />
-          <stop offset="1" stopColor="#20ceff" />
+          <stop stopColor="#e6ffef" />
+          <stop offset="1" stopColor="#72dca1" />
         </radialGradient>
       </defs>
-      <ellipse cx="121" cy="239" rx="61" ry="9" fill="#9086dc" opacity=".17" />
+      <ellipse cx="121" cy="239" rx="61" ry="9" fill="#49775b" opacity=".17" />
       <path
         d="M99 193l-7 27q1 14 14 13l13-32M133 199l6 27q9 12 19 3l-7-34"
         fill={"url(#" + id + "body)"}
-        stroke="#b4b1ef"
+        stroke="#79a18a"
         strokeWidth="2"
       />
       <path
@@ -53,14 +59,14 @@ export function Robot({ className = "" }: { className?: string }) {
         height="64"
         rx="29"
         fill={"url(#" + id + "body)"}
-        stroke="#b4b1ef"
+        stroke="#79a18a"
         strokeWidth="2"
       />
-      <path d="M98 148l23 19 27-17" stroke="#b6b6f1" strokeWidth="3" />
+      <path d="M98 148l23 19 27-17" stroke="#83aa92" strokeWidth="3" />
       <text
         x="109"
         y="188"
-        fill="#6d5cde"
+        fill="#256348"
         fontSize="15"
         fontWeight="800"
         fontFamily="sans-serif"
@@ -90,13 +96,13 @@ export function Robot({ className = "" }: { className?: string }) {
       <path
         d="M58 81q13-28 65-27q52 0 66 28l5 43q-4 32-71 34q-67 0-72-35z"
         fill={"url(#" + id + "body)"}
-        stroke="#fff"
+        stroke="var(--ai-shell-highlight)"
         strokeWidth="3"
       />
-      <rect x="67" y="78" width="112" height="64" rx="29" fill="#18254d" />
+      <rect x="67" y="78" width="112" height="64" rx="29" fill="#132a20" />
       <path
         d="M80 89q25-14 68-7"
-        stroke="#5366a4"
+        stroke="#49745a"
         strokeWidth="4"
         strokeLinecap="round"
         opacity=".7"
@@ -105,15 +111,15 @@ export function Robot({ className = "" }: { className?: string }) {
       <ellipse cx="149" cy="110" rx="9" ry="13" fill={"url(#" + id + "eye)"} />
       <path
         d="M116 126q8 7 16-1"
-        stroke="#4de5ff"
+        stroke="#9de5bb"
         strokeWidth="4"
         strokeLinecap="round"
       />
-      <circle cx="77" cy="126" r="5" fill="#7675f0" opacity=".6" />
-      <circle cx="171" cy="126" r="5" fill="#7675f0" opacity=".6" />
+      <circle cx="77" cy="126" r="5" fill="#68b487" opacity=".6" />
+      <circle cx="171" cy="126" r="5" fill="#68b487" opacity=".6" />
       <path
         d="M215 53v14m-7-7h14M34 151v10m-5-5h10"
-        stroke="#a59bf7"
+        stroke="#89b69a"
         strokeWidth="3"
         strokeLinecap="round"
       />
