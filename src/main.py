@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     app.state.roommate_runtime = roommate
     service = None
     try:
-        service = await AgentService.open()
+        service = await AgentService.open(roommate_runtime=roommate)
         app.state.agent_service = service
         yield
     finally:
