@@ -17,6 +17,7 @@ from src.agents.llm import StructuredLLM
 from src.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
 from src.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
 from src.agents.subagents.capabilities import fact_fits_capabilities
+from src.roommate.models import RoommateSearchCriteria
 
 AMENITIES = frozenset(
     "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
@@ -44,7 +45,7 @@ VALUE_KEYS = (
     | INT_KEYS
     | NUMBER_KEYS
     | BOOL_KEYS
-    | {"must_have", "nearby_categories", "map_categories", "flight_date", "move_date", "move_time"}
+    | {"must_have", "nearby_categories", "map_categories", "flight_date", "move_date", "move_time", "roommate_criteria"}
 )
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
@@ -56,7 +57,7 @@ WEEKDAYS = ("thứ hai", "thứ ba", "thứ tư", "thứ năm", "thứ sáu", "t
 class DraftFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
-    value: str | int | float | bool | list[str] = Field(
+    value: str | int | float | bool | list[str] | RoommateSearchCriteria = Field(
         description="Use a plain string for city, district, near, addresses, route endpoints, map_mode, route_profile, dates and time. Arrays ONLY for must_have and nearby_categories. Numbers for prices/counts."
     )
     evidence: str = Field(
@@ -93,6 +94,17 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
+Roommate là dịch vụ tìm NGƯỜI đang có nhu cầu ở cùng, độc lập với property (tìm PHÒNG).
+'Tôi muốn tìm người ở cùng', 'Tôi muốn ghép trọ', 'Có ai đang tìm roommate không?' dùng domain roommate.
+'Tìm phòng ở ghép' chỉ tìm tin nhà nếu user không yêu cầu tìm người. Không tự ghép cặp hay liên hệ.
+Roommate chỉ dùng fact roommate_criteria kiểu object theo schema: city hcm/hanoi/danang,
+self_facts là thông tin user tự nói về mình, preferences là mong muốn về đối phương.
+Chỉ tạo criteria khi có thành phố rõ; thiếu thành phố vẫn mở domain với facts rỗng để mở form.
+Không đoán ID khu vực: chỉ dùng canonical IDs đã được cấp, nếu chưa có chỉ giữ city.
+Không ghi city/max_price_vnd/move_date Housing/Moving từ yêu cầu chỉ Roommate.
+strength=hard CHỈ khi user nói bắt buộc/không chấp nhận; còn lại soft. Không tự nới hard.
+Không bịa trait, giới tính, ngân sách, fee_basis hoặc ngày chuyển vào. Không có contact, tuổi,
+eligibility, consent, publish, request hay actor trong criteria. Evidence nguyên văn toàn cụm yêu cầu.
 verified_moving_locations là lựa chọn map đã qua kiểm tra API. Khi user chỉ xác nhận các điểm đó,
 không trích lại from_address/to_address thành marker hay nhãn cũ; backend gắn đúng địa chỉ và tọa độ.
 Giữ ngày giờ/mục tiêu báo giá và domain relocation. Chỉ trích địa chỉ khác nếu user thực sự yêu cầu đổi.
@@ -210,6 +222,12 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key == "roommate_criteria":
+        try:
+            RoommateSearchCriteria.model_validate(value)
+            return True
+        except (ValueError, TypeError):
+            return False
     if not fact_fits_capabilities(key, value):
         return False
     if key == "moving_mode":
@@ -410,7 +428,11 @@ class LlmIntake(UsageOwner):
         candidates += [f for f in draft.requested_actions[:4] if f.key in COMMIT_KEYS]
         for f in candidates:
             try:
-                value = f.value
+                value = (
+                    f.value.model_dump(mode="json", exclude_none=True)
+                    if isinstance(f.value, RoommateSearchCriteria)
+                    else f.value
+                )
                 if f.key in facts and facts[f.key].value == value:
                     continue  # Identical duplicate is harmless; keep the first grounded evidence.
                 if f.key in {"flight_date", "move_date"} and valid_value(f.key, value):
