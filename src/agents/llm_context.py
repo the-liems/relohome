@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 from src.agents.llm_runtime import public_data
+from src.roommate.agent_projection import reference_data
 
 # These keys describe rendering, tracing or repeated schema, not domain facts.
 PRESENTATION_KEYS = frozenset(
@@ -43,7 +44,7 @@ def result_context(result) -> dict:
             "missing_fields": result.missing_fields,
             "questions": [q.model_dump(mode="json") for q in result.questions],
             "error": result.error.model_dump(mode="json") if hasattr(result.error, "model_dump") else result.error,
-            "data": result.data,
+            "data": reference_data(result.data) if getattr(result, "agent", None) == "roommate" else result.data,
         }
     )
 
