@@ -188,6 +188,8 @@ def plan_progress(values: dict) -> dict[str, Any]:
                 "chosen": chosen,
             }
         )
+        if agent == AgentName.ROOMMATE:
+            items[-1]["roommate_availability"] = result.data.get("availability") if result else "criteria_required"
     confirmed = sum(1 for i in items if i["state"] == "confirmed")
     return {
         "plan_version": plan.version if plan else None,

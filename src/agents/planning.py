@@ -201,7 +201,14 @@ def validate_plan(
 
 # --- TemplatePlanner (§6.2, §7.5 nguyên tắc 2) ---
 
-DOMAIN_ORDER = (AgentName.PROPERTY, AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION, AgentName.PAYMENT)
+DOMAIN_ORDER = (
+    AgentName.PROPERTY,
+    AgentName.MAP,
+    AgentName.FLIGHT,
+    AgentName.RELOCATION,
+    AgentName.PAYMENT,
+    AgentName.ROOMMATE,
+)
 DEFAULT_MAP_CATEGORIES = ["hospital", "marketplace", "pharmacy"]
 PII_REQUIRED: dict[CommitActionKind, list[str]] = {
     CommitActionKind.FLIGHT_BOOKING: ["passengers", "contact"],
@@ -337,6 +344,8 @@ class TemplatePlanner:
             adults = values.get("passengers") or values.get("household_size") or 1
             inputs["passengers"] = {"adults": int(adults)}
             return inputs, "destination" not in inputs
+        if domain == AgentName.ROOMMATE:
+            return {"roommate_criteria": values["roommate_criteria"]} if values.get("roommate_criteria") else {}, False
         if domain == AgentName.PAYMENT:
             return {"payment_id": values["payment_id"]}, False
         if domain == AgentName.RELOCATION:

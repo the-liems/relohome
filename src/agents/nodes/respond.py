@@ -115,6 +115,21 @@ def describe_result(
     agent: AgentName, data: dict, titles: dict[str, str] | None = None, asked_city: str | None = None
 ) -> list[str]:
     lines = []
+    if agent == AgentName.ROOMMATE:
+        availability = data.get("availability")
+        if availability == "eligibility_required":
+            return [
+                "Để tìm người ở cùng, hãy đăng nhập, xác nhận bạn từ 18 tuổi và đồng ý điều khoản dịch vụ trong form."
+            ]
+        if availability == "criteria_required":
+            return [
+                "Hãy chọn thành phố và tiêu chí trong dịch vụ Tìm người ở cùng. Bạn tự quyết định xem hồ sơ và liên hệ."
+            ]
+        if availability == "disabled":
+            return ["Dịch vụ Tìm người ở cùng chưa được bật."]
+        return [
+            f"Có {len(data.get('profile_refs') or [])} hồ sơ trong trang kết quả. Mở dịch vụ để xem thông tin hiện tại; hệ thống không tự ghép cặp hoặc gửi yêu cầu liên hệ."
+        ]
     if agent == AgentName.PAYMENT:
         payment = data.get("payment") or {}
         lines.append(
