@@ -1,5 +1,5 @@
 from src.roommate.access import RoommateContext, RoommateError
-from src.roommate.policy import TERMS_VERSION
+from src.roommate.policy import TERMS_VERSION, ProfileState
 from src.roommate.ports import Actor
 
 
@@ -25,6 +25,17 @@ class AccessService:
             raise RoommateError("terms_version_changed")
         with self.ctx.transaction():
             self.ctx.profiles.set_access(actor.id, adult, terms, self.ctx.clock.now())
+            if not adult:
+                from src.roommate.services.lifecycle import purge_connections, redact_intros
+
+                purge_connections(self.ctx, actor.id, revoke=True)
+                redact_intros(self.ctx, actor.id)
+                record = self.ctx.profiles.get(actor.id)
+                if record and record.state is ProfileState.ACTIVE:
+                    self.ctx.profiles.save(
+                        record.model_copy(update={"state": ProfileState.PAUSED, "version": record.version + 1}),
+                        record.version,
+                    )
         return self.status(actor)
 
     def status(self, actor: Actor) -> dict:

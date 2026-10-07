@@ -32,9 +32,14 @@ def request_failures(context: RoommateContext, request) -> tuple[str, ...]:
         or context.safety.restricted(request.recipient_id)
     ):
         return ("unavailable",)
-    return mutual_failures(
+    if sender.facts.city != recipient.content.facts.city or request.intro.facts.city != recipient.content.facts.city:
+        return ("city_changed",)
+    # The reviewed snapshot remains immutable; both it and current facts must still fit.
+    failures = mutual_failures(
         request.intro.facts, sender.preferences, recipient.content.facts, recipient.content.preferences
     )
+    current = mutual_failures(sender.facts, sender.preferences, recipient.content.facts, recipient.content.preferences)
+    return tuple(dict.fromkeys((*failures, *current)))
 
 
 def cancel_changed_hard_conditions(context: RoommateContext, actor: str) -> None:
