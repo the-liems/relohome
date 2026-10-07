@@ -1,0 +1,65 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from src.roommate.access import RoommateContext, RoommateError
+from src.roommate.clock import FrozenClock
+from src.roommate.models import RoommateProfile
+from src.roommate.policy import TERMS_VERSION
+from src.roommate.ports import Actor
+from src.roommate.services.access import AccessService
+from src.roommate.services.profiles import ProfileService
+from src.roommate.storage import Storage
+
+
+def complete():
+    return RoommateProfile(
+        display_name="Name",
+        introduction="Looking for a quiet place",
+        facts={
+            "city": "hcm",
+            "area_ids": ["city:hcm"],
+            "budget": {"max_vnd": 4000000, "fee_basis": "rent_only"},
+            "need": {"kind": "looking_together"},
+            "move_in": {"kind": "flexible"},
+        },
+    )
+
+
+def test_publish_edit_pause_and_reconfirm_deadlines(tmp_path):
+    now = datetime(2026, 10, 7, tzinfo=UTC)
+    with Storage(tmp_path / "db") as db:
+        ctx = RoommateContext(db, clock=FrozenClock(now))
+        actor = Actor(id="a")
+        AccessService(ctx).accept(actor, True, TERMS_VERSION)
+        service = ProfileService(ctx)
+        draft = service.save(actor, complete(), None)
+        with pytest.raises(RoommateError, match="review_required"):
+            service.transition(actor, "publish", draft.version, False)
+        published = service.transition(actor, "publish", draft.version, True)
+        assert published.expires_at == now + timedelta(days=30)
+        ctx.clock.advance(timedelta(days=2))
+        edited = service.save(actor, complete().model_copy(update={"introduction": "Updated"}), published.version)
+        assert edited.expires_at == published.expires_at
+        paused = service.transition(actor, "pause", edited.version)
+        assert paused.state.value == "paused"
+        resumed = service.transition(actor, "resume", paused.version, True)
+        assert resumed.expires_at == ctx.clock.now() + timedelta(days=30)
+        deleted = service.transition(actor, "delete", resumed.version)
+        assert deleted.content.display_name is None and deleted.avatar_id is None
+        assert deleted.state.value == "deleted"
+
+
+def test_private_intro_never_publishes_and_validation(tmp_path):
+    with Storage(tmp_path / "db") as db:
+        ctx = RoommateContext(db)
+        actor = Actor(id="a")
+        AccessService(ctx).accept(actor, True, TERMS_VERSION)
+        service = ProfileService(ctx)
+        service.save_intro(actor, complete())
+        assert ctx.profiles.get(actor.id) is None
+        with pytest.raises(RoommateError, match="contact_in_public_text"):
+            service.save(actor, complete().model_copy(update={"introduction": "Call 0901234567"}), None)
+        draft = service.save(actor, RoommateProfile(display_name="Draft"), None)
+        with pytest.raises(RoommateError, match="intro_incomplete"):
+            service.transition(actor, "publish", draft.version, True)
