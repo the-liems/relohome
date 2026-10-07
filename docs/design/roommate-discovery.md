@@ -117,3 +117,11 @@ Actor chỉ được composition/API tạo từ danh tính tin cậy, không có
 Repository boundaries độc lập LangGraph: hồ sơ có optimistic version; transaction UoW nguyên tử cho write. SQLite một host là baseline đã duyệt; không cần Docker cho module này. G1: migration chỉ tạo DB Roommate riêng, không đụng tài khoản/Housing; foreign keys nội bộ, operation `(actor, key)`, unordered pair reservation riêng, quota dựa request history. Contact vault dùng Fernet với khóa riêng, không có plaintext contact trong record/prompt. Backup bắt buộc giữ cả DB và khóa, không đóng gói vào zip data công khai.
 
 RM-02: 69 tests (53 RM-01 + 16 mới) pass; commit `98a53e6`. RM-03 bổ sung projection/ownership tests; gate chạy trước migration.
+
+## 6. Normalization RM-08
+
+AreaCatalog chỉ nhận canonical IDs/membership từ adapter Location (API `/v1/areas/search` hiện có) hoặc snapshot server đã xuất từ nguồn đó. Không tin city/area do LLM tự đoán; IDs không có trong catalog bị từ chối. `city:hcm/hanoi/danang` đã dùng trong Housing là lựa chọn toàn thành phố. Adapter runtime phải nạp membership trước khi dùng vùng chi tiết; không gọi geocode cho từng hồ sơ.
+
+Ngân sách VND/người/tháng: chỉ comparable khi hai bên khai cùng fee_basis, overlap bao gồm endpoint (khoảng bằng một mức hợp lệ). Move-in flexible đáp ứng mọi ngày đã khai, không thay thế unknown. Quiet hours là local wall-clock, minute resolution, tỷ lệ phút yên tĩnh mong muốn được bên kia đáp ứng; cho phép qua nửa đêm.
+
+Migration dùng `BEGIN IMMEDIATE` và execute từng statement để rollback DDL cùng version; không dùng executescript vì có implicit commit ([Python sqlite3](https://docs.python.org/3.11/library/sqlite3.html#sqlite3.Cursor.executescript)). Các test repository thực sự dùng file SQLite riêng và hai connection độc lập cho race unordered pair.
