@@ -2,9 +2,9 @@ from typing import Annotated, Literal
 
 from pydantic import Field, StrictBool, StrictInt, StringConstraints
 
-from src.roommate.connections import UtcTimestamp
+from src.roommate.connections import ContactRef, Identifier, UtcTimestamp
 from src.roommate.models import RoommateModel, RoommateProfile, RoommateSearchCriteria
-from src.roommate.policy import ProfileState
+from src.roommate.policy import ContactKind, ProfileState
 from src.roommate.views import DiscoveryItem
 
 OperationKey = Annotated[str, StringConstraints(strict=True, min_length=16, max_length=128)]
@@ -50,3 +50,36 @@ class OwnProfileView(RoommateModel):
 
 class BookmarkInput(RoommateModel):
     selected: StrictBool
+
+
+class OperationInput(RoommateModel):
+    operation_key: OperationKey
+
+
+class SendInput(OperationInput):
+    recipient_id: Identifier
+    intro: RoommateProfile
+    contact: ContactRef
+    consent: StrictBool
+
+
+class AcceptInput(OperationInput):
+    contact: ContactRef
+    consent: StrictBool
+
+
+class ContactUpdate(OperationInput):
+    kind: ContactKind
+    value: Annotated[str, StringConstraints(strict=True, max_length=128)] | None
+    expected_version: StrictInt | None = Field(default=None, ge=1)
+
+
+class ContactView(RoommateModel):
+    kind: ContactKind
+    value: str
+
+
+class ContactLeaseView(RoommateModel):
+    request_id: Identifier
+    expires_at: UtcTimestamp
+    contact: ContactView
