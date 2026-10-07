@@ -72,3 +72,21 @@ nằm trên hệ thống của ZaloPay và có thể trùng hoặc lẫn với �
   (key riêng, callback có URL công khai, chính sách lưu trữ theo quy định).
 - Payment chưa nối vào đặt vé: `confirm_booking` chưa yêu cầu đã thanh toán.
 - Merchant dùng chung có thể bị giới hạn hoặc thu hồi key bất kỳ lúc nào; khi đó chuyển về `mock`.
+
+## Cập nhật 2026-10-07: tester đánh dấu đã thanh toán (Draft, chưa code)
+
+Thiết kế thanh toán đa dịch vụ ([payment-design.md](../review/payment-design.md) D5, §7) cần demo trọn luồng vé và
+chuyển đồ, trong khi chưa xác minh được cách thanh toán xong một đơn ZaloPay sandbox (xem Hệ quả). Vì vậy thêm một
+**ngoại lệ hẹp** cho quy tắc 8, quyết định 07/10/2026:
+
+- Đơn vẫn được tạo thật trên ZaloPay sandbox và hiện QR như bình thường; "Kiểm tra thanh toán" vẫn tra cổng.
+- Cạnh QR có nút **"Đã thanh toán"** để nhóm test. Nút này **không gọi ZaloPay** và không dùng
+  `simulate_payment_result`; app chỉ ghi đơn thanh toán là đã trả với `paid_via = tester_marked`.
+- Rào chắn:
+  - chỉ hiện khi bật một cờ cấu hình riêng (đề xuất `PAYMENT_TESTER_CONFIRM_ENABLED`), **mặc định tắt** trong code;
+    môi trường demo và test của nhóm bật cờ này;
+  - ghi người bấm và thời điểm;
+  - mọi nơi hiển thị gắn nhãn **"đánh dấu bởi tester"**, không trình bày như ZaloPay đã xác nhận;
+  - **không bao giờ bật trên môi trường production**; cấu hình production phải từ chối cờ này.
+- Thanh toán ZaloPay xác nhận thật (`paid_via = zalopay_verified`) vẫn là đường chuẩn; quy tắc 8 giữ nguyên với
+  mọi đường còn lại.

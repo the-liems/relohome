@@ -229,7 +229,7 @@ Nguồn: `Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts`, `packages/co
 | `cancel_move_order` | ID/tracking, approval, điều kiện/chi phí hủy | Nút yêu cầu hủy chỉ điền yêu cầu chat; cần phương án phê duyệt riêng. **Có UI qua graph** |
 | `rate_move_driver` | Đơn hoàn thành, approval, rating flag | Chưa có commit kind/flow graph/UI đánh giá. **Chưa nối; mặc định tắt** |
 
-Chuyển đồ hiện dùng **CASH**. Chi phí dự kiến là báo giá/ước tính; không thu ZaloPay cho đơn AhaMove để tránh thu trùng. API webhook `/ready` còn yêu cầu DB migration Moving và webhook secret đúng, ngoài API key.
+Chuyển đồ hiện dùng **CASH**. Chi phí dự kiến là báo giá/ước tính; không thu ZaloPay cho đơn AhaMove để tránh thu trùng. Thiết kế mới (Draft, chưa code) đưa vé và chuyển đồ qua đơn thanh toán ZaloPay sandbox riêng từng dịch vụ: xem [payment-design.md](../docs/review/payment-design.md). API webhook `/ready` còn yêu cầu DB migration Moving và webhook secret đúng, ngoài API key.
 
 ### Flight — 7 tool
 

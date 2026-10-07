@@ -121,6 +121,8 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
 
 Moving đang CASH. Thanh toán ZaloPay là demo riêng, **chưa phải thanh toán đơn
 AhaMove hay vé máy bay**. Không tự nối hai khoản để tránh thu tiền hai lần.
+Đây là hành vi của code hiện tại. Thiết kế thanh toán đa dịch vụ (Draft, chưa code) nằm ở
+[payment-design.md](../review/payment-design.md).
 
 ## An toàn và phục hồi
 

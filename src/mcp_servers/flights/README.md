@@ -299,7 +299,7 @@ trong `MultiServerMCPClient`.
 | Tool | Loại | Mô tả |
 |---|---|---|
 | `search_airports(query, limit)` | chỉ đọc | Tra mã IATA, không phân biệt dấu: "Đà Nẵng" → DAD, "sài gòn" → SGN |
-| `search_flights(request)` | chỉ đọc | Tìm chuyến **một chiều** (khứ hồi thì gọi 2 lần). Có thể lọc bay thẳng, sắp xếp theo `price`, `departure_time` hoặc `duration` |
+| `search_flights(request)` | chỉ đọc | Tìm chuyến **một chiều** (khứ hồi thì gọi 2 lần). Có thể lọc bay thẳng, sắp xếp theo `price`, `departure_time` hoặc `duration`. Đề xuất chế độ khứ hồi: xem mục *Đề xuất: tìm và đặt vé khứ hồi* |
 | `get_offer(offer_id)` | chỉ đọc | Chi tiết offer kèm hành lý và điều kiện đổi/hoàn |
 | `hold_booking(request)` | ghi | **Bước 1/2**: giữ chỗ và tạo PNR, trạng thái `HELD` |
 | `confirm_booking(booking_ref)` | ghi, có hệ quả | **Bước 2/2**: xuất vé (giả lập). Gọi lại nhiều lần không xuất trùng vé |
@@ -361,6 +361,23 @@ Test không gọi mạng. Phần SerpApi được test bằng `httpx.MockTranspo
 | `Ngày bay … đã qua` | Ví dụ cũ có ngày trong quá khứ | Đổi `departure_date` thành ngày trong tương lai |
 | `Offer … đã hết hạn` / booking `EXPIRED` | Quá 30 phút (offer) hoặc 15 phút (giữ chỗ) | Tìm lại hoặc giữ chỗ lại; thời hạn chỉnh bằng `FLIGHT_OFFER_TTL_MINUTES` / `FLIGHT_HOLD_MINUTES` |
 | Muốn xóa sạch dữ liệu test | | Xóa file `data/flights.db`; server tự tạo lại khi chạy |
+
+## Đề xuất: tìm và đặt vé khứ hồi (Draft, chưa code)
+
+Theo thiết kế thanh toán đa dịch vụ ([payment-design.md](../../../docs/review/payment-design.md) §8.2–8.4), quyết
+định 07/10/2026. Khứ hồi dùng **chế độ khứ hồi của SerpApi** thay cho hai lần tìm một chiều.
+
+| Thành phần | Thay đổi đề xuất |
+|---|---|
+| `FlightSearchRequest` | Thêm `trip_type` (`one_way` mặc định, `round_trip`) và `return_date` (bắt buộc khi `round_trip`, không trước `departure_date`) |
+| Provider SerpApi | Khứ hồi gửi `type=1` + `return_date`; kết quả là danh sách **chiều đi**, mỗi chuyến có `departure_token`. Server giữ token, chỉ trả `offer_id` |
+| Tool mới `search_return_flights(outbound_offer_id)` | Chỉ đọc. Gọi SerpApi với `departure_token` của chuyến đi đã chọn; trả **offer hành trình** gồm hai chặng, tổng giá, hạn. Lọc chuyến về cất cánh trước giờ hạ cánh chuyến đi cộng khoảng cách tối thiểu (`ROUND_TRIP_MIN_GAP_MINUTES`) |
+| `get_offer` | Đọc được offer hành trình hai chặng |
+| `hold_booking`, `confirm_booking`, `cancel_booking` | Nhận offer hành trình: một booking mô phỏng có hai chặng, hạn giữ 15 phút |
+| Provider mock | Hỗ trợ cùng contract để test không cần SerpApi key |
+
+Cần kiểm khi code: giá ở danh sách chiều đi của SerpApi là giá một chiều hay giá khứ hồi gộp (tài liệu SerpApi chưa
+ghi rõ); ghi kết quả vào mục này.
 
 ## Giới hạn và hướng mở rộng
 
