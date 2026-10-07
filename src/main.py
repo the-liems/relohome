@@ -9,6 +9,7 @@ from src.agents.wiring import AgentService
 from src.api.moving_quotes import router as moving_quote_router
 from src.api.roommate_access import router as roommate_access_router
 from src.api.roommate_discovery import router as roommate_discovery_router
+from src.api.roommate_profiles import router as roommate_profiles_router
 from src.api.routes import router
 from src.api.sandbox_payments import router as sandbox_payment_router
 from src.api.web_actions import router as web_actions_router
@@ -57,6 +58,7 @@ app.include_router(web_actions_router, prefix="/api/v1")
 app.include_router(moving_quote_router, prefix="/api/v1")
 app.include_router(roommate_access_router, prefix="/api/v1")
 app.include_router(roommate_discovery_router, prefix="/api/v1")
+app.include_router(roommate_profiles_router, prefix="/api/v1")
 
 
 @app.middleware("http")
