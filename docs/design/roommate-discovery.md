@@ -1,9 +1,9 @@
-# Roommate Discovery — Technical design foundation
+# Roommate Discovery — Technical design và backend checkpoint
 
 - Ngày: 2026-10-07, Asia/Saigon.
 - Baseline: [product spec v1.0](../ideas/roommate-service.md), [implementation plan](../../tasks/plan.md).
-- Task thực hiện: **RM-01 — Mô hình hồ sơ và tiêu chí**.
-- Trạng thái: đã triển khai domain models và focused tests; service chưa được nối vào runtime/API/Agent/frontend. G1 vẫn cần RM-02, RM-03 và review trước migration RM-04.
+- Task thực hiện: **RM-01–31 — backend, API, browser gateway và Agent**.
+- Trạng thái: backend đã nối runtime, giữ `ROOMMATE_ENABLED=false` mặc định. Frontend RM-32–41 chưa triển khai theo xác nhận của chủ sản phẩm. Các mục RM-01 dưới đây là lịch sử foundation; trạng thái mới nhất ở mục 8.
 
 ## 1. Baseline và phạm vi thay đổi
 
@@ -76,7 +76,7 @@ Các model là giá trị domain dùng Pydantic v2, `extra="forbid"`, `frozen=Tr
 
 Baseline plan chọn repository relational với SQLite riêng cho **một host**, vì application Python hiện dùng SQLite runtime, không có ORM/driver PostgreSQL active. Model không import RuntimeDatabase, Frontend store hoặc Housing models.
 
-Đây là quyết định chuẩn bị triển khai, **chưa tạo database hoặc schema**. RM-02/03 cần chốt transaction/UoW, pair constraints, clock và projection rồi review G1 trước migration RM-04. Nếu deployment cần nhiều replica/HA, phải chọn PostgreSQL adapter và locking/transaction design trước RM-04; không dùng SQLite file riêng từng host để giả định coordination.
+Ở checkpoint RM-01 đây là quyết định chuẩn bị, chưa tạo schema. RM-04 hiện đã triển khai SQLite riêng cho một host. Deployment nhiều replica/HA cần adapter relational và locking được thiết kế riêng; không dùng file SQLite riêng từng host để giả định coordination.
 
 Không cần sửa các service hiện có để hoàn tất RM-01. Ownership từ session/trusted actor, schema physical, contact vault và request lifecycle sẽ làm ở đúng task phụ thuộc, không thêm trước vào profile content.
 
@@ -120,7 +120,7 @@ RM-02: 69 tests (53 RM-01 + 16 mới) pass; commit `98a53e6`. RM-03 bổ sung pr
 
 ## 6. Normalization RM-08
 
-AreaCatalog chỉ nhận canonical IDs/membership từ adapter Location (API `/v1/areas/search` hiện có) hoặc snapshot server đã xuất từ nguồn đó. Không tin city/area do LLM tự đoán; IDs không có trong catalog bị từ chối. `city:hcm/hanoi/danang` đã dùng trong Housing là lựa chọn toàn thành phố. Adapter runtime phải nạp membership trước khi dùng vùng chi tiết; không gọi geocode cho từng hồ sơ.
+AreaCatalog nhận canonical IDs/membership từ **snapshot JSON server đã xuất từ Location**, cấu hình qua `ROOMMATE_AREA_CATALOG`. Runtime hiện không tự gọi `/v1/areas/search`. Không tin city/area do LLM tự đoán; IDs không có trong catalog bị từ chối. Mặc định chỉ có `city:hcm/hanoi/danang` là lựa chọn toàn thành phố. Phải nạp snapshot trước khi dùng vùng chi tiết; không geocode cho từng hồ sơ.
 
 Ngân sách VND/người/tháng: chỉ comparable khi hai bên khai cùng fee_basis, overlap bao gồm endpoint (khoảng bằng một mức hợp lệ). Move-in flexible đáp ứng mọi ngày đã khai, không thay thế unknown. Quiet hours là local wall-clock, minute resolution, tỷ lệ phút yên tĩnh mong muốn được bên kia đáp ứng; cho phép qua nửa đêm.
 
@@ -140,3 +140,30 @@ Chỉ preference đã đặt được tính. Unknown hoặc ngân sách khác/m�
 | Sạch sẽ (10), giao tiếp (5) | Cùng lựa chọn: 1; lệch một bậc trong ba hành vi: 0,5; lệch hai bậc: 0. |
 
 Ví dụ: muốn thuê tối đa 4 triệu rent_only, candidate tối thiểu 5 triệu rent_only → 0,75; khác fee_basis → unknown. Muốn 7/10, candidate 22/10 → 0,5. Yên tĩnh 22–06 so với 02–06 → 0,5. Đây là thước đo đáp ứng yêu cầu, không phải xác suất hòa hợp. Hard filter đã loại trường hợp must không đáp ứng trước khi xếp hạng.
+
+## 8. Checkpoint RM-04–31: backend/API/Agent hoàn tất
+
+### Runtime và boundaries
+
+- State riêng `ROOMMATE_STATE_DIR/roommate.sqlite3`; FK/WAL/busy timeout; writes `BEGIN IMMEDIATE`, rollback DDL/mutations cùng transaction. Connection riêng mỗi context; không dùng DB Housing/Auth/Agent checkpoint để lưu Roommate.
+- Contact ciphertext Fernet, khóa file riêng; channel/version thuộc từng owner. Idempotency `(actor, operation key, fingerprint)` trả safe IDs, không plaintext contact. Unordered pair reservation + quota và cooldown trong transaction.
+- API `/api/v1/roommate/*` qua browser gateway `/web/api/roommate/*`: token server, actor từ session tin cậy; strict schema không cho body chọn actor/role. Availability công khai, dữ liệu người thật cần 18+/terms. No-store trên private JSON/media/lỗi.
+- Media JPEG/PNG bounded, metadata stripped, lưu private BLOB, moderator duyệt trước gắn public; không dùng public asset URL để bỏ qua authorization.
+- Read-time check hết hạn, contact version, block/restrict/delete cả hai bên. Accept và đổi contact/block serialize bằng transaction; rollback không để lộ một nửa grant. Contact đọc riêng, không có trong discovery/history/Agent.
+- Canonical area snapshot do server cấu hình; không triển khai network adapter Location mới. Default whole-city; không tạo tọa độ hoặc sửa Housing.
+
+### Ranking/lifecycle/Agent
+
+- Score chỉ hiển thị khi comparable vùng/ngân sách, >=4 applied factors known, >=2 lifestyle known, coverage >=80%. Missing giữ weight với neutral 0,5. Làm tròn half-up để hiển thị, threshold label dùng raw; partial group không đánh giá người dựa trên lifestyle thiếu.
+- TTL 30 ngày profile, 7 ngày pending và grant; edit không gia hạn. Hệ quả pause/expire/resolve/delete/restrict và hướng cooldown giữ theo spec. Underage declaration pause/cancel/revoke/redact; khôi phục eligibility không tự publish hoặc consent.
+- Roommate capability read-only/cheap, budget LLM/provider=0; output chỉ entry/availability/ID refs và criteria có cấu trúc. Planner không tạo dependency vào Housing/Moving; không có commit kinds hay tool publish/send/accept cho Agent.
+- Intake LLM chỉ trích xuất `roommate_criteria` có schema; không suy ra tuổi/consent/contact. Self facts tách khỏi preferences; hard chỉ khi người dùng nói rõ. LLM planner có grounding cho namespace mới.
+- Domain result cache TTL 60 giây là ID handles; hydrate profile mới qua API kiểm tra lại quyền, không coi lịch sử/cache là snapshot công khai. Prompt/history projection whitelist Roommate, không đổi projection domain cũ.
+
+### Evidence và quyết định phát hành
+
+169 focused tests pass; full project 503 passed / 29 failed / 80 skipped. 29 lỗi giống baseline, chưa đạt gate hồi quy toàn project. Ruff/format/compileall đạt cho module Roommate mới. Test ASGI dùng API/gateway/DB thật; provider startup/NLU là offline DI, chưa xác nhận live LLM hay browser.
+
+Discovery trước đây 2N+3 SELECT (block/restrict từng candidate), nay gom exclusions cùng search transaction: 4 SELECT với 10/100/1.000 candidates. Bảng thứ tự/score và quyền không thay đổi; fixture có block hai chiều + restriction. Sắp xếp toàn eligible set trước phân trang; chưa tuyên bố SLA/scale nhiều host.
+
+G1–G6 backend đã có evidence; G7–G9 còn pending frontend/browser/full regression/release. Feature off mặc định. Chi tiết test mapping/29 lỗi/tài liệu bàn giao tại [checkpoint](../integration/roommate-backend-checkpoint.md), cấu hình/backup/rollback tại [runbook](../runbooks/roommate.md).
