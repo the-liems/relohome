@@ -19,6 +19,18 @@ class SqlSafety:
             is not None
         )
 
+    def discovery_exclusions(self, actor: str) -> frozenset[str]:
+        """Read both block directions and moderation in the current search transaction."""
+        return frozenset(
+            row[0]
+            for row in self.db.execute(
+                "SELECT target FROM blocks WHERE actor=? "
+                "UNION SELECT actor FROM blocks WHERE target=? "
+                "UNION SELECT actor FROM restrictions WHERE restricted=1",
+                (actor, actor),
+            )
+        )
+
     def block(self, actor: str, target: str, selected: bool) -> None:
         require_transaction(self.db)
         if selected:

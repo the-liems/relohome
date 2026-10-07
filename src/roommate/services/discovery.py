@@ -20,16 +20,16 @@ class DiscoveryService:
         with self.ctx.transaction():
             self.access.require(actor)
             now = self.ctx.clock.now()
+            excluded = self.ctx.safety.discovery_exclusions(actor.id)
             records = [
                 record
                 for record in self.ctx.profiles.active(criteria.city.value, now)
-                if eligible(
+                if record.owner_id not in excluded
+                and eligible(
                     actor.id,
                     criteria,
                     record,
                     now,
-                    blocked=self.ctx.safety.blocked(actor.id, record.owner_id),
-                    restricted=self.ctx.safety.restricted(record.owner_id),
                 ).passed
             ]
             ordered = ranked(criteria, records)
