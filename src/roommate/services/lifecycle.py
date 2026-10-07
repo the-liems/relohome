@@ -1,5 +1,7 @@
 from src.roommate.access import RoommateContext
+from src.roommate.connections import IntroSnapshot
 from src.roommate.eligibility import mutual_failures
+from src.roommate.models import ProfileFacts
 from src.roommate.policy import GrantState, ProfileState, RequestState
 
 
@@ -49,3 +51,18 @@ def reconcile_profiles(context: RoommateContext) -> None:
                 record.model_copy(update={"state": ProfileState.EXPIRED, "version": record.version + 1}), record.version
             )
             purge_connections(context, record.owner_id, incoming_only=True)
+
+
+def redact_intros(context: RoommateContext, owner: str) -> None:
+    # Permanent erasure from historical snapshots; repost/restore never rehydrates them.
+    for record in context.connections.for_actor(owner):
+        if record.sender_id == owner:
+            context.connections.save(
+                record.model_copy(
+                    update={
+                        "intro": IntroSnapshot(
+                            display_name="Unavailable", facts=ProfileFacts(), reviewed_at=context.clock.now()
+                        )
+                    }
+                )
+            )

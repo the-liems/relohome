@@ -7,7 +7,12 @@ from src.roommate.policy import PROFILE_TTL, NeedKind, ProfileState
 from src.roommate.ports import Actor, ProfileRecord
 from src.roommate.profile_repository import VersionConflictError
 from src.roommate.services.access import AccessService
-from src.roommate.services.lifecycle import cancel_changed_hard_conditions, purge_connections, reconcile_profiles
+from src.roommate.services.lifecycle import (
+    cancel_changed_hard_conditions,
+    purge_connections,
+    reconcile_profiles,
+    redact_intros,
+)
 
 
 def validate_text(*values: str | None) -> None:
@@ -99,6 +104,7 @@ class ProfileService:
                 }[action]
                 purge_connections(self.ctx, actor.id, incoming_only=action == "pause", revoke=action == "delete")
                 if action == "delete":
+                    redact_intros(self.ctx, actor.id)
                     updates.update(content=RoommateProfile(), avatar_id=None)
                     self.ctx.profiles.save_intro(actor.id, RoommateProfile())
                     self.ctx.storage.connection.execute(
