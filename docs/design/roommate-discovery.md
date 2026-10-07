@@ -106,4 +106,14 @@ Các lỗi khác trong full suite gồm MCP subprocess bị WinError 5 và asser
 
 LangSmith tracing từ cấu hình local có thử gửi telemetry nhưng network bị chặn; không dùng kết quả đó làm test evidence. Lệnh test tiếp theo cần đặt `LANGCHAIN_TRACING_V2=false`, `LANGSMITH_TRACING=false`, `LANGCHAIN_TRACING=false` ở process test, không sửa `.env` của người dùng.
 
-**Kết luận:** model và test tập trung RM-01 đã hoàn tất; gate hồi quy toàn project chưa đạt. Dừng ở RM-01, chưa triển khai RM-02 hoặc sửa mock/service legacy. CP-01/G1 chưa đánh dấu vì còn RM-02/03 và review thiết kế.
+**Kết luận tại checkpoint RM-01:** model hoàn tất; gate hồi quy toàn project chưa đạt. Ngày 2026-10-07 chủ sản phẩm đã yêu cầu tiếp tục toàn bộ backend/API/Agent; lỗi baseline được giữ lại trong báo cáo, không sửa nghiệp vụ legacy.
+
+## 5. Contract foundation RM-02/03 và review G1
+
+Request và grant có state riêng. IntroSnapshot là whitelist đã review: tên, giới thiệu, facts, thời điểm review; không copy preferences hoặc contact. ContactConsent gắn actor, người nhận, channel ID/version và xác nhận rõ ràng. Clock UTC nhận timezone-aware datetime, deadline dùng `now >= expires_at`.
+
+Actor chỉ được composition/API tạo từ danh tính tin cậy, không có role do body chọn. ProfileRecord giữ owner/version/state/deadline; PublicProfile chỉ có ID tham chiếu, tên, intro, facts và avatar ID. OwnerProfile yêu cầu owner. Projection không thay thế read-time authorization/expiry/block trong service.
+
+Repository boundaries độc lập LangGraph: hồ sơ có optimistic version; transaction UoW nguyên tử cho write. SQLite một host là baseline đã duyệt; không cần Docker cho module này. G1: migration chỉ tạo DB Roommate riêng, không đụng tài khoản/Housing; foreign keys nội bộ, operation `(actor, key)`, unordered pair reservation riêng, quota dựa request history. Contact vault dùng Fernet với khóa riêng, không có plaintext contact trong record/prompt. Backup bắt buộc giữ cả DB và khóa, không đóng gói vào zip data công khai.
+
+RM-02: 69 tests (53 RM-01 + 16 mới) pass; commit `98a53e6`. RM-03 bổ sung projection/ownership tests; gate chạy trước migration.
