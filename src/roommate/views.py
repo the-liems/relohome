@@ -25,6 +25,19 @@ class OwnerProfile(RoommateModel):
     content: RoommateProfile
 
 
+class PublishedCompatibility(RoommateModel):
+    score: int | None = None
+    label: str | None = None
+    positives: tuple[str, ...] = ()
+    differences: tuple[str, ...] = ()
+    missing: tuple[str, ...] = ()
+
+
+class DiscoveryItem(RoommateModel):
+    profile: PublicProfile
+    compatibility: PublishedCompatibility
+
+
 def public_profile(record: ProfileRecord) -> PublicProfile:
     # Callers must enforce current expiry, viewer eligibility and block before this projection.
     if record.state is not ProfileState.ACTIVE:
