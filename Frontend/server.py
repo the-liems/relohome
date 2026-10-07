@@ -23,6 +23,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from Frontend.roommate_gateway import attach_roommate_gateway
 from Frontend.store import Store, password_hash
 from src.agents.intake import redact_pii
 from src.models.moving_options import MovingOptions
@@ -498,6 +499,8 @@ def create_app(database=None, transport=None):
     async def unsave(listing_id: str, request: Request):
         app.state.store.write("DELETE FROM saved WHERE owner=? AND id=?", (user(request)["id"], listing_id))
         return {"ok": True}
+
+    attach_roommate_gateway(app, user)
 
     @app.get("/{path:path}")
     async def static(path: str):
