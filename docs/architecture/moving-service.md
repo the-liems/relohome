@@ -2,9 +2,9 @@
 
 Status: current implementation plus labeled future orchestrator integration.
 
-![Stateful multi-service proposal](agentic-multi-service-v4.png)
+![Stateful multi-service proposal](images/architecture-v4.png)
 
-![Detailed workflow proposal](agentic-workflow-detailed.png)
+![Detailed workflow proposal](images/architecture-baseline.png)
 
 The diagrams are design references, not executable requirements. The implemented
 Moving boundary is:

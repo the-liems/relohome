@@ -27,6 +27,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+.thumbnail
 
 # Data (never commit large data)
 data/
