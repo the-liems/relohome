@@ -34,7 +34,7 @@ async def test_one_exact_poi_requires_pin_confirmation_but_confirmed_coordinates
         attempt=1, agent=AgentName.RELOCATION, inputs={"mode": "quote"},
         budget=AgentBudget(max_llm_calls=0, max_provider_calls=2),
     )
-    execution = MovingExecution(SimpleNamespace(location=location), req, Invocation(max_calls=0))
+    execution = MovingExecution(SimpleNamespace(location=location, moving=None), req, Invocation(max_calls=0))
     assert await execution.point("Bách Khoa", None) is None
     question = execution.location_question("from_address", "Bách Khoa")
     assert question.choices[0].label == "Bách Khoa · Trường đại học · Hà Nội"

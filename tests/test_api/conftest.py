@@ -24,7 +24,8 @@ def api_client_factory():
             patch.object(service, "close", new=AsyncMock(wraps=service.close)) as shutdown,
         ):
             async with app.router.lifespan_context(app):
-                startup.assert_awaited_once_with()
+                startup.assert_awaited_once()
+                assert set(startup.await_args.kwargs) == {"roommate_runtime"}
                 assert app.state.agent_service is service
                 async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                     yield client

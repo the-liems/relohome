@@ -394,7 +394,7 @@ def amenity_intake(*, explore, legacy_anchor=False):
         facts=[
             {"key": "city", "value": "Hà Nội", "evidence": "Hà Nội", "suggestion_key": None},
             {
-                "key": "map_categories" if explore and not legacy_anchor else "nearby_categories",
+                "key": "map_categories" if explore else "nearby_categories",
                 "value": ["supermarket"],
                 "evidence": "siêu thị",
                 "suggestion_key": None,
@@ -470,7 +470,7 @@ async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_ki
     raw = amenity_intake(explore=True, legacy_anchor=True)
     assert raw.domains == [AgentName.PROPERTY, AgentName.MAP]
     assert raw.constraints.values["map_near"] == "upstream:property"
-    assert raw.constraints.values["nearby_categories"] == ["supermarket"]
+    assert raw.constraints.values["map_categories"] == ["supermarket"]
     # Runtime passes every intake through this node before either planner sees it.
     node = make_intake(test_deps(ScriptedIntake([raw]), TemplatePlanner()))
     update = await node(

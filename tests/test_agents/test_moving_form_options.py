@@ -15,6 +15,7 @@ from src.agents.models import AgentBudget, AgentName, SessionContext
 from src.agents.planner_llm import LlmPlanner, PlanDraft
 from src.agents.planning import PlannerInput
 from src.agents.subagents.services.moving import QuoteContact
+from src.agents.subagents.services.moving_catalog import MovingCatalogCache
 from src.agents.subagents.services.moving_llm import MovingExecution
 from src.api.routes import router as chat_router
 from src.api.web_actions import router
@@ -112,7 +113,11 @@ def execution(options):
         budget=AgentBudget(max_llm_calls=0, max_provider_calls=8),
     )
     agent = SimpleNamespace(
-        moving=client, contact=QuoteContact("Quote Contact", "19001234"), clock=utcnow, source_kind="sandbox"
+        moving=client,
+        catalog_cache=MovingCatalogCache(client),
+        contact=QuoteContact("Quote Contact", "19001234"),
+        clock=utcnow,
+        source_kind="sandbox",
     )
     exe = MovingExecution(agent, req, Invocation(max_calls=0))
     exe.route = {
@@ -215,9 +220,13 @@ def test_planner_cannot_invent_or_change_structured_options(trusted):
 @pytest.mark.asyncio
 async def test_catalog_endpoint_validates_coordinates_and_drops_provider_private_fields():
     class Client:
+        calls = []
+
         async def call(self, name, args):
             assert name == "list_moving_services"
-            assert args == {"lat": 10.77, "lng": 106.7}
+            # The workspace reads the default catalog and the TRUCK catalog together.
+            assert args in ({"lat": 10.77, "lng": 106.7}, {"lat": 10.77, "lng": 106.7, "delivery_type": "TRUCK"})
+            self.calls.append(args)
             return {"services": [{**SERVICE, "provider_data": {"secret": "private-value"}}]}
 
     service = SimpleNamespace(
