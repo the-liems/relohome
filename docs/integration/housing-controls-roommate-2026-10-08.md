@@ -4,6 +4,12 @@ Theo [issue #79](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/79),
 [SPEC-020 (Draft)](../specs/SPEC-020-housing-controls-roommate-discovery.md).
 Nhánh giao: `khoa`; PR riêng vào `main`, chưa tự merge/deploy.
 
+Follow-up nghiệm thu vị trí: [issue #81](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/81).
+Device directions đã có route lỗi rõ ràng, map GPS, và đường xa qua OSRM công khai
+sau checkbox + hành động đồng ý riêng. Không dùng public làm fallback tự động cho
+agent/MCP/commute. Xem [ADR-023](../adr/ADR-023-consented-public-device-routing.md)
+và [kết quả 3 tuyến thật](../../eval/device-routing-2026-10-08.md).
+
 ## Những thay đổi trong lần này
 
 - Danh sách và chi tiết nhà trên map có nút **So sánh**. Khay giữ 2–4 căn cụ thể,
@@ -67,7 +73,9 @@ commit. Không bật `--payment-demo` để kiểm thử các thao tác này.
 - Browser tự động kiểm tra **lỗi/không cấp quyền GPS**, không bịa tọa độ để giả
   thành công. Cần người dùng thử cấp quyền thật trên máy/điện thoại để nghiệm thu
   đường từ vị trí thiết bị thực tế. HTTPS/localhost và quyền định vị OS phải bật.
-- Vùng đường hiện chỉ là các dataset OSRM cấu hình, không cam kết đường toàn quốc.
+- Vùng đường nội bộ là các dataset OSRM cấu hình. Device directions công khai có
+  opt-in đường xa, nhưng không cam kết SLA/đường toàn quốc chính xác hoặc giao thông
+  thực tế; dịch vụ do FOSSGIS vận hành có lưu log request.
 - Hồ sơ thật trống là trạng thái đúng khi chưa có người chủ động đăng. DEMO là dữ
   liệu tổng hợp, không phải bài đăng của người thật. Production không bật DEMO.
 - Đây không phải chứng nhận toàn bộ project/CI hoặc bản deploy production.

@@ -1,4 +1,5 @@
 import {
+  DeviceRouteRequestSchema, DeviceRouteResponseSchema,
   EntityRouteRequestSchema, EntityRouteResponseSchema, RouteEndpointResultSchema,
   type RouteEndpoint, type RouteEndpointResult,
 } from '@lifeflow/contracts'
@@ -9,6 +10,29 @@ import { RouteService } from './route-service.js'
 /** Resolves only explicit identifiers; never selects a search candidate on behalf of a caller. */
 export class RouteEndpointService {
   constructor(private readonly pool: QueryExecutor, private readonly routes: RouteService) {}
+
+  async calculateDevice(input: unknown) {
+    const request = DeviceRouteRequestSchema.parse(input)
+    const origin = await this.resolve(request.origin, 'origin')
+    const destination = await this.resolve(request.destination, 'destination')
+    const routeInput = {
+      profile: 'driving' as const, origin: origin.location, destination: destination.location,
+      snap_radius_m: request.snap_radius_m, steps: false,
+    }
+    const route = request.public_routing_consent
+      ? await this.routes.calculatePublicDriving(routeInput)
+      : await this.routes.calculate({ ...routeInput, city: this.routes.inferCity(destination.location) })
+    return DeviceRouteResponseSchema.parse({
+      profile: 'driving', origin, destination, route,
+      routing_provider: request.public_routing_consent ? 'public_osrm' : 'local_osrm',
+      warnings: (['origin', 'destination'] as const).flatMap((endpoint) => {
+        const accuracy = (endpoint === 'origin' ? origin : destination).location_accuracy
+        return accuracy === 'rooftop' ? [] : [{
+          endpoint, code: accuracy === 'approximate' ? 'APPROXIMATE_LOCATION' : 'UNKNOWN_LOCATION_ACCURACY',
+        }]
+      }),
+    })
+  }
 
   async calculate(input: unknown) {
     const request = EntityRouteRequestSchema.parse(input)

@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigation, RotateCw } from "lucide-react";
-import { api } from "../api";
-import { cityForPoint } from "../mapScope";
-import { locationErrorMessage, validCoordinates } from "../housingInteraction";
+import { api, ApiError } from "../api";
+import {
+  locationErrorMessage,
+  deviceRouteErrorMessage,
+  validCoordinates,
+  DEVICE_ROUTE_SNAP_M,
+  CONSENTED_ROUTE_SNAP_M,
+} from "../housingInteraction";
 import { t } from "../uiPreferences";
 import type { Data, House } from "../types";
 import { Dialog } from "./Dialog";
@@ -26,14 +31,18 @@ export function HousingDirections({
   const [routing, setRouting] = useState<Data | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
+  const [snapRadius, setSnapRadius] = useState(DEVICE_ROUTE_SNAP_M);
+  const [publicRouting, setPublicRouting] = useState(false);
+  const [publicConsent, setPublicConsent] = useState(false);
   useEffect(() => {
-    const abort = new AbortController();
     let disposed = false;
-    let routeTimer: ReturnType<typeof setTimeout> | undefined;
     let locationTimer: ReturnType<typeof setTimeout> | undefined;
     setOrigin(null);
     setRouting(null);
     setError("");
+    setErrorCode("");
+    setSnapRadius(DEVICE_ROUTE_SNAP_M);
     setBusy(true);
     const fail = (message: string) => {
       if (!disposed) {
@@ -52,10 +61,9 @@ export function HousingDirections({
       locationTimer = setTimeout(() => {
         fail(locationErrorMessage(3));
         disposed = true;
-        abort.abort();
       }, 30000);
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           clearTimeout(locationTimer);
           if (disposed) return;
           const { latitude: lat, longitude: lng, accuracy } = position.coords;
@@ -65,38 +73,6 @@ export function HousingDirections({
           }
           const point = { lat, lng, accuracy };
           setOrigin(point);
-          const city = cityForPoint([house.lng!, house.lat!]);
-          if (!city || cityForPoint([lng, lat]) !== city) {
-            fail(
-              "Vị trí của bạn và căn nhà nằm ngoài cùng vùng dữ liệu đường hiện có. Chưa thể tính tuyến đường này.",
-            );
-            return;
-          }
-          routeTimer = setTimeout(() => abort.abort(), 15000);
-          try {
-            const result = await api<Data>(
-              "/platform/routes/entities",
-              "POST",
-              {
-                city,
-                profile: "driving",
-                origin: { type: "coordinate", location: { lat, lng } },
-                destination: { type: "housing", listing_id: house.id },
-              },
-              abort.signal,
-            );
-            if (!disposed) setRouting(result);
-          } catch (e) {
-            if (!disposed)
-              fail(
-                abort.signal.aborted
-                  ? "Dịch vụ tuyến đường quá thời gian. Bạn có thể thử lại."
-                  : (e as Error).message,
-              );
-          } finally {
-            clearTimeout(routeTimer);
-            if (!disposed) setBusy(false);
-          }
         },
         (e) => {
           clearTimeout(locationTimer);
@@ -108,10 +84,55 @@ export function HousingDirections({
     return () => {
       disposed = true;
       clearTimeout(locationTimer);
-      clearTimeout(routeTimer);
-      abort.abort();
     };
   }, [house.id, house.lat, house.lng, attempt]);
+
+  useEffect(() => {
+    if (!origin) return;
+    const abort = new AbortController();
+    let disposed = false;
+    setBusy(true);
+    setError("");
+    setErrorCode("");
+    setRouting(null);
+    const timer = setTimeout(() => abort.abort(), 15000);
+    void api<Data>(
+      "/platform/routes/device",
+      "POST",
+      {
+        origin: {
+          type: "coordinate",
+          location: { lat: origin.lat, lng: origin.lng },
+        },
+        destination: { type: "housing", listing_id: house.id },
+        snap_radius_m: snapRadius,
+        public_routing_consent: publicRouting,
+      },
+      abort.signal,
+    )
+      .then((result) => {
+        if (!disposed) setRouting(result);
+      })
+      .catch((e: unknown) => {
+        if (disposed) return;
+        const code = abort.signal.aborted
+          ? "TIMEOUT"
+          : e instanceof ApiError
+            ? e.code
+            : "";
+        setErrorCode(code);
+        setError(deviceRouteErrorMessage(code));
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (!disposed) setBusy(false);
+      });
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      abort.abort();
+    };
+  }, [origin, house.id, snapRadius, publicRouting]);
   return (
     <Dialog title={t("Từ vị trí của bạn tới căn nhà")} wide onClose={onClose}>
       <p className="muted">{house.title}</p>
@@ -139,6 +160,64 @@ export function HousingDirections({
           {Math.round(origin.accuracy)} m
         </p>
       )}
+      {origin && !publicRouting && (
+        <div className="notice">
+          <p>
+            {t(
+              "Cần đường xa/liên tỉnh hoặc dữ liệu đường nội bộ chưa đủ? Có thể dùng OSRM công khai, không giới hạn theo ba thành phố.",
+            )}
+          </p>
+          <p className="small">
+            {t(
+              "OSRM công khai do FOSSGIS vận hành sẽ nhận tọa độ xuất phát và điểm đến, có lưu yêu cầu trong log. Chỉ dùng thử; không bảo đảm dịch vụ hoặc thời gian giao thông thực tế.",
+            )}
+          </p>
+          <a
+            href="https://routing.openstreetmap.de/about.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("Chính sách OSRM công khai")}
+          </a>
+          <label>
+            <input
+              type="checkbox"
+              checked={publicConsent}
+              onChange={(e) => setPublicConsent(e.target.checked)}
+            />
+            {t("Tôi đồng ý gửi hai tọa độ cho OSRM công khai để tính đường.")}
+          </label>
+          <button
+            className="secondary"
+            disabled={!publicConsent || busy}
+            onClick={() => setPublicRouting(true)}
+          >
+            {t("Tính đường xa qua OSRM công khai")}
+          </button>
+        </div>
+      )}
+      {publicRouting && (
+        <p className="notice small">
+          {t(
+            "Đang dùng OSRM công khai sau khi bạn đồng ý; hai tọa độ được gửi tới FOSSGIS, không gửi cho LLM.",
+          )}{" "}
+          <a
+            href="https://routing.openstreetmap.de/about.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("Chính sách OSRM công khai")}
+          </a>
+          {" · "}
+          <a
+            href="https://www.openstreetmap.org/fixthemap"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("Báo lỗi dữ liệu bản đồ")}
+          </a>
+        </p>
+      )}
       {routing?.route && (
         <p className="housing-route-summary">
           <strong>
@@ -148,17 +227,29 @@ export function HousingDirections({
           {t("Tuyến ô tô tham khảo · OSRM")}
         </p>
       )}
-      {routing && (
+      {routing?.route?.snap_distances_meters && (
+        <p className="muted small">
+          {t("Điểm nối vào đường cách GPS / căn nhà:")}{" "}
+          {routing.route.snap_distances_meters
+            .map((m: number) => `${Math.round(m)} m`)
+            .join(" / ")}
+          .{" "}
+          {t(
+            "Khoảng cách tuyến trên chỉ tính giữa các điểm nối đường, chưa gồm đoạn từ vị trí tới đường.",
+          )}
+        </p>
+      )}
+      {origin && (
         <MapPanel
           large
           houses={[
             {
               ...house,
-              lat: routing.destination?.location?.lat ?? house.lat,
-              lng: routing.destination?.location?.lng ?? house.lng,
+              lat: routing?.destination?.location?.lat ?? house.lat,
+              lng: routing?.destination?.location?.lng ?? house.lng,
             },
           ]}
-          routing={routing}
+          routing={routing ?? undefined}
           points={
             origin
               ? [
@@ -186,6 +277,23 @@ export function HousingDirections({
           {t("Lấy lại vị trí và thử lại")}
         </button>
       )}
+      {!busy &&
+        errorCode === "NO_ROUTE" &&
+        snapRadius === DEVICE_ROUTE_SNAP_M && (
+          <div className="notice small">
+            <p>
+              {t(
+                "Chưa có điểm nối đường trong 100 m. Nếu GPS trên map đúng, bạn có thể cho phép tìm điểm nối tối đa 500 m ở mỗi đầu; vị trí GPS không bị thay đổi.",
+              )}
+            </p>
+            <button
+              className="secondary"
+              onClick={() => setSnapRadius(CONSENTED_ROUTE_SNAP_M)}
+            >
+              {t("Đồng ý thử nối đường trong 500 m")}
+            </button>
+          </div>
+        )}
     </Dialog>
   );
 }

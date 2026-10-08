@@ -64,5 +64,18 @@ export const EntityRouteResponseSchema = z.object({
   })),
 })
 
+// Browser-only device directions. No city restriction or agent/MCP fallback;
+// external routing is selected only by the caller's explicit consent.
+export const DeviceRouteRequestSchema = z.object({
+  origin: z.object({ type: z.literal('coordinate'), location: CoordinateSchema }).strict(),
+  destination: z.object({ type: z.literal('housing'), listing_id: z.uuid() }).strict(),
+  snap_radius_m: z.number().positive().max(1_000).default(100),
+  public_routing_consent: z.boolean().default(false),
+}).strict()
+
+export const DeviceRouteResponseSchema = EntityRouteResponseSchema.omit({ city: true }).extend({
+  routing_provider: z.enum(['local_osrm', 'public_osrm']),
+})
+
 export type RouteEndpoint = z.infer<typeof RouteEndpointSchema>
 export type RouteEndpointResult = z.infer<typeof RouteEndpointResultSchema>

@@ -39,3 +39,6 @@ gốc giữ nguyên.
 Mỗi ADR dẫn tới SPEC liên quan. Tạo quyết định mới bằng
 [`_template.md`](_template.md); không viết ADR cho một thay đổi nhỏ không
 có đánh đổi đáng kể.
+
+Device-to-home long-distance routing: [ADR-023 — public routing with explicit consent](ADR-023-consented-public-device-routing.md)
+(Proposed; issue #81; browser-only trial, no automatic MCP/commute fallback).

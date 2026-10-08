@@ -32,6 +32,12 @@ OSRM offline trả lỗi, không có tuyến/segment trả `NO_ROUTE`, phản h�
 thiếu hoặc sai cấu trúc trả `INVALID_RESPONSE`. Timeout mỗi OSRM request là
 10 giây; deadline tổng mỗi MCP tool là 15 giây. Hai endpoint phải nằm trong
 bounds của city đã chọn; ngoài bounds trả `OUTSIDE_ROUTING_AREA`.
+Browser device-to-home directions có ngoại lệ opt-in riêng tại
+`POST /v1/routes/device`: người dùng đồng ý gửi tọa độ tới OSRM công khai để tính
+đường xa/liên tỉnh. Quyền riêng tư, snapping và giới hạn thử nghiệm xem
+[SPEC-020/AC-08–09](SPEC-020-housing-controls-roommate-discovery.md) và
+[ADR-023 (Proposed)](../adr/ADR-023-consented-public-device-routing.md).
+Ngoại lệ này không bật fallback công khai cho MCP hoặc bộ lọc commute Housing.
 Chưa hỗ trợ nhiều điểm dừng, bike hoặc GPS map matching.
 Graph cũ Hà Nội thiếu đường quanh Ocean Park; PBF thành phố có thể đã được cắt
 theo địa giới trong khi UI/backend chấp nhận bounding box lớn hơn. Không coi một route ở

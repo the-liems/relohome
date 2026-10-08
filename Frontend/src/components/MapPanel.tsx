@@ -69,7 +69,6 @@ export function MapPanel({
   };
   useEffect(() => {
     let disposed = false;
-    let resize: ResizeObserver | undefined;
     import("maplibre-gl")
       .then(({ Map, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
@@ -101,8 +100,6 @@ export function MapPanel({
           m.on("style.load", () => tuneBasemap(m));
           installMapScope(m, city);
           fitted.current = "";
-          resize = new ResizeObserver(() => m.resize());
-          resize.observe(container.current);
           m.on("moveend", () => {
             const c = m.getCenter();
             viewport.current = { center: [c.lng, c.lat], zoom: m.getZoom() };
@@ -251,7 +248,6 @@ export function MapPanel({
       .catch(() => setError("Không tải được bản đồ. Hãy thử lại."));
     return () => {
       disposed = true;
-      resize?.disconnect();
       map.current?.remove();
       map.current = null;
       setReady(false);

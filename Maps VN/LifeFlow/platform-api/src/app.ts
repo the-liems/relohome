@@ -9,6 +9,7 @@ import {
   ResolveLocationRequestSchema,
   RouteRequestSchema,
   EntityRouteRequestSchema,
+  DeviceRouteRequestSchema,
   SearchAreasRequestSchema,
 } from '@lifeflow/contracts'
 import {
@@ -37,7 +38,7 @@ const NearbyRequestSchema = z.object({
 
 export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const app = Fastify({ logger: true })
-  const routeService = new RouteService(config.osrmUrls)
+  const routeService = new RouteService(config.osrmUrls, config.publicDrivingOsrmUrl)
   const queries = boundedQueries(pool)
   const entityRouteService = new RouteEndpointService(queries, routeService)
   const housingService = new HousingQueryService(queries, routeService, config)
@@ -101,6 +102,10 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
 
   app.post('/v1/routes/entities', async (request) => {
     return entityRouteService.calculate(EntityRouteRequestSchema.parse(request.body))
+  })
+
+  app.post('/v1/routes/device', async (request) => {
+    return entityRouteService.calculateDevice(DeviceRouteRequestSchema.parse(request.body))
   })
 
   app.setErrorHandler((error, _request, reply) => {

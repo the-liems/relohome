@@ -2,6 +2,7 @@
 
 Status: Draft. Accountable owner: Khoa. Reviewers: Housing/Map and Roommate owners.
 Tracking: [issue #79](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/79).
+Routing follow-up: [issue #81](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/81).
 
 ## Scope and flow
 
@@ -32,6 +33,8 @@ and all backend validation remain unchanged.
 - `Frontend/src/housingInteraction.ts`: basket and coordinate validation.
 - `Frontend/src/components/HousingDirections.tsx`: transient permission lifecycle.
 - `Maps VN/LifeFlow/packages/contracts/src/route.ts`: entity route contract.
+- The same file owns the separate `DeviceRouteRequestSchema`/response for
+  `/v1/routes/device`. Device routing never enables an agent/MCP external fallback.
 - `src/roommate/models.py`, `policy.py`, `demo.py`: real eligibility and DEMO boundary.
 - [SPEC-019](SPEC-019-housing-comparison-isolation.md): comparison/choice isolation.
 
@@ -51,12 +54,24 @@ and all backend validation remain unchanged.
   labeled and never enters saved real profiles/contact/connection routes.
 - AC-07: Desktop/mobile controls are accessible, compact and do not conceal the
   compare selection, search action or permission failures.
+- AC-08: A granted coordinate with an unroutable road segment is not reported as
+  denied GPS. Keep the coordinate visible on a map; preserve typed route errors.
+  Default 100 m road snapping can increase to 500 m only through an explicit action;
+  disclose actual snap distances and do not count off-road gaps as routed distance.
+- AC-09: Public driving routing requires a distinct coordinate-sharing consent and
+  explicit calculation action. It supports long/intercity routes without local city
+  bounds, re-reads the canonical Housing destination, and discloses the provider's
+  request logging/policy. No key needed; no automatic public fallback. Config is
+  disabled by default; apply rate limits and identify demo-only reliability.
 
 ## Limits and non-goals
 
 Browser geolocation requires HTTPS/localhost and explicit browser/OS permission;
-accuracy is device-dependent. Current route coverage is the configured OSRM city
-datasets, not all Vietnam. No deployment, real transactions, generated replacement
+accuracy is device-dependent. Local route coverage is the configured OSRM city
+datasets, not all Vietnam. Public driving is an explicit opt-in extension, not an
+extension of AhaMove service availability or a live traffic/navigation guarantee.
+No deployment, real transactions, generated replacement
 profiles, fabricated location test fixtures, or accepted ADR in this change.
 
 Reference: [MDN getCurrentPosition](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition).
+Public provider: [FOSSGIS coverage, logging and usage policy](https://routing.openstreetmap.de/about.html).

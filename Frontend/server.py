@@ -234,6 +234,15 @@ def create_app(database=None, transport=None):
             ) from None
         if not response.is_success:
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
+            # Preserve only documented route outcomes so the browser can distinguish
+            # a road-snapping failure from GPS denial. Never forward arbitrary fields.
+            if platform and path in {"/routes/entities", "/routes/device"} and data.get("code") in {
+                "NO_ROUTE", "OUTSIDE_ROUTING_AREA", "OSRM_OFFLINE", "INVALID_RESPONSE", "TIMEOUT", "CANCELLED"
+            }:
+                return JSONResponse(
+                    {"detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.", "code": data["code"]},
+                    status_code=response.status_code,
+                )
             raise HTTPException(response.status_code, detail if isinstance(detail, str) else "Dữ liệu gửi chưa hợp lệ.")
         return data
 
@@ -639,7 +648,7 @@ def create_app(database=None, transport=None):
 
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):
-        if resource not in {"housing/map", "routes/entities", "housing/search", "places/map"}:
+        if resource not in {"housing/map", "routes/entities", "routes/device", "housing/search", "places/map"}:
             raise HTTPException(404)
         return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
 

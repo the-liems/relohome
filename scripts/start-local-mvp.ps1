@@ -50,7 +50,9 @@ try {
             try {
                 $health = Invoke-RestMethod -Uri $url -TimeoutSec 3
                 if ($health.status -ne $service.Expected) { throw 'Unexpected response' }
-                if ($service.Name -eq 'ui' -and $health.service -ne 'siu-web') { throw 'Unexpected service' }
+                # main's SQLite readiness contract is {status:ok}; older local builds
+                # additionally identify service. Do not require the obsolete field.
+                if ($service.Name -eq 'ui' -and $health.service -and $health.service -ne 'siu-web') { throw 'Unexpected service' }
             } catch { throw ('Port ' + $service.Port + ' is occupied but service readiness failed. Check that terminal; no process was killed.') }
             Write-Host ($service.Name + ': already running (restart its terminal after code changes).')
             continue
@@ -68,7 +70,7 @@ try {
             try {
                 $health = Invoke-RestMethod -Uri $url -TimeoutSec 2
                 $ready = $health.status -eq $service.Expected
-                if ($service.Name -eq 'ui') { $ready = $ready -and $health.service -eq 'siu-web' }
+                if ($service.Name -eq 'ui' -and $health.service) { $ready = $ready -and $health.service -eq 'siu-web' }
             } catch { $ready = $false }
             if (-not $ready) { Start-Sleep -Milliseconds 300 }
         } while (-not $ready -and (Get-Date) -lt $deadline)

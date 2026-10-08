@@ -916,5 +916,20 @@
   "Đã thêm": "Added",
   "Chọn thêm một căn để so sánh": "Add one more home to compare",
   "So sánh {0} căn": "Compare {0} homes",
-  "Bỏ so sánh: {0}": "Remove from comparison: {0}"
+  "Bỏ so sánh: {0}": "Remove from comparison: {0}",
+  "Đã lấy được vị trí, nhưng chưa tìm được đường ô tô nối hai điểm trong phạm vi cho phép. Kiểm tra điểm GPS trên bản đồ; vị trí laptop hoặc dữ liệu đường có thể chưa đủ chính xác.": "Your location was obtained, but no driving route connects both points within the permitted snapping range. Check the GPS point on the map; laptop positioning or road data may be insufficient.",
+  "Vị trí của bạn hoặc căn nhà nằm ngoài vùng dữ liệu đường hiện có.": "Your location or the home is outside the current local routing coverage.",
+  "Dịch vụ chỉ đường hiện không kết nối được. Vị trí đã lấy được; hãy thử lại sau.": "The routing service is unavailable. Your location was obtained; retry later.",
+  "Chưa tính được tuyến đường. Vị trí đã lấy được; bạn có thể thử lại.": "The route could not be calculated. Your location was obtained; you can retry.",
+  "Cần đường xa/liên tỉnh hoặc dữ liệu đường nội bộ chưa đủ? Có thể dùng OSRM công khai, không giới hạn theo ba thành phố.": "Need a long-distance or intercity route, or more complete road data? Public OSRM is not limited to our three local city datasets.",
+  "OSRM công khai do FOSSGIS vận hành sẽ nhận tọa độ xuất phát và điểm đến, có lưu yêu cầu trong log. Chỉ dùng thử; không bảo đảm dịch vụ hoặc thời gian giao thông thực tế.": "FOSSGIS public OSRM receives both endpoint coordinates and logs requests. Demo use only; no service guarantee or live-traffic estimates.",
+  "Chính sách OSRM công khai": "Public OSRM policy",
+  "Tôi đồng ý gửi hai tọa độ cho OSRM công khai để tính đường.": "I agree to send both coordinates to public OSRM to calculate this route.",
+  "Tính đường xa qua OSRM công khai": "Calculate a long-distance route using public OSRM",
+  "Đang dùng OSRM công khai sau khi bạn đồng ý; hai tọa độ được gửi tới FOSSGIS, không gửi cho LLM.": "Using public OSRM with your consent; both coordinates are sent to FOSSGIS, not to the LLM.",
+  "Báo lỗi dữ liệu bản đồ": "Report a map data issue",
+  "Điểm nối vào đường cách GPS / căn nhà:": "Road connection distance from GPS / home:",
+  "Khoảng cách tuyến trên chỉ tính giữa các điểm nối đường, chưa gồm đoạn từ vị trí tới đường.": "The route distance is between road connection points and excludes the off-road segments.",
+  "Chưa có điểm nối đường trong 100 m. Nếu GPS trên map đúng, bạn có thể cho phép tìm điểm nối tối đa 500 m ở mỗi đầu; vị trí GPS không bị thay đổi.": "No road connection within 100 m. If your GPS point is correct, allow a connection within 500 m at each end. Your GPS coordinate is unchanged.",
+  "Đồng ý thử nối đường trong 500 m": "Allow road connection within 500 m"
 }
