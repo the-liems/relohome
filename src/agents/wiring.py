@@ -111,6 +111,7 @@ class AgentService:
     writes_enabled: bool = False
     sandbox_payment_client: Any = None
     checkout: Any = None  # src.checkout.service.CheckoutService khi bật thanh toán của app
+    viewing: Any = None  # src.checkout.viewing.ViewingService khi bật chọn nhiều căn để hẹn xem
 
     @classmethod
     async def open(cls, services: ServiceSettings | None = None, *, roommate_runtime=None):
@@ -213,7 +214,10 @@ class AgentService:
             tx._receipts = DurableModels(db, "receipts", Receipt)
             tx._holds = DurableModels(db, "holds", PendingPayment)
             tx.intent_store = db
+            checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
+            viewing = build_viewing(services, registry, db, checkout) if services.housing_viewing_enabled else None
             deps = GraphDeps(
+                housing_selector=viewing.selector if viewing else None,
                 intake=components.intake,
                 planner=components.planner,
                 agents=AgentRegistry(agents),
@@ -226,10 +230,10 @@ class AgentService:
                     max_replans=services.agent_max_attempts,
                     agent_transport_retries=services.agent_max_attempts - 1,
                     app_payment=services.app_payment_demo_enabled,
+                    housing_viewing=services.housing_viewing_enabled,
                 ),
                 usage=SqliteUsageMeter(db),
             )
-            checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
             path = str(Path(services.agent_state_dir).resolve() / "checkpoints.sqlite3")
             saver = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(path))
             saver.serde = checkpoint_serde()
@@ -247,6 +251,7 @@ class AgentService:
                 if services.agent_sandbox_payments_enabled
                 else None,
                 checkout=checkout,
+                viewing=viewing,
             )
         except BaseException:
             await stack.aclose()
@@ -288,6 +293,18 @@ class AgentService:
             mode=services.agent_subagents,
             payment_simulation=services.agent_subagents == "fake" or services.payment_simulation_enabled,
         )
+
+
+def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, checkout=None):
+    """Chọn nhiều căn để hẹn xem; dùng chung kho giao dịch với thanh toán của app nếu có."""
+    from src.checkout.store import CheckoutStore
+    from src.checkout.viewing import ViewingService, ViewingSettings
+
+    return ViewingService(
+        store=checkout.store if checkout is not None else CheckoutStore(db.connection),
+        settings=ViewingSettings.from_services(services),
+        location=registry.location.read_client(),
+    )
 
 
 def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii):

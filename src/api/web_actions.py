@@ -144,6 +144,11 @@ async def housing_detail(listing_id: str, service: Service):
 
 @router.post("/chat/{thread_id}/action")
 async def result_action(thread_id: str, body: ResultAction, service: Service, user_id: UserId = "anonymous"):
+    return await choose_result(thread_id, body, service, user_id)
+
+
+async def choose_result(thread_id: str, body: ResultAction, service, user_id: str, *, plan_choice: bool = False):
+    """`plan_choice=True`: đặt căn của kế hoạch (dùng khi chốt nhà), bỏ qua chế độ chọn nhiều căn."""
     async with _lock(service, thread_id):
         state, pending = await _owned(service, thread_id, user_id)
         if pending:
@@ -213,6 +218,11 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
                 or chosen.get("service_name")
                 or "phương án"
             )
+            if result.agent == AgentName.PROPERTY and getattr(service, "viewing", None) and not plan_choice:
+                # Chọn để hẹn xem, chưa phải căn của kế hoạch (housing-viewing-design V3).
+                from src.api.viewings import select_for_viewing
+
+                return await select_for_viewing(service, thread_id, user_id, state, body.task_id, chosen, update)
             text = f"Tôi chọn {label} (ID: {body.entity_id})."
             intake.user_confirmed_facts[f"selected:{result.agent.value}"] = ConfirmedFact(
                 value=body.entity_id,

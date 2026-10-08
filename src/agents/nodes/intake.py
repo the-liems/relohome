@@ -151,6 +151,30 @@ def continue_referenced_goal(result: IntakeResult, previous: IntakeResult | None
     return result
 
 
+def chat_housing_selection(deps: GraphDeps, state: WorkflowState, facts: dict, result: IntakeResult) -> list | None:
+    """Chọn căn qua chat khi bật hẹn xem: căn vào tập chọn, chưa là căn của kế hoạch (housing-viewing-design V3)."""
+    selector = deps.housing_selector
+    chosen = facts.get("selected:property")
+    before = (state.get("intake") or None) and state["intake"].user_confirmed_facts.get("selected:property")
+    if not deps.settings.housing_viewing or selector is None or chosen is None:
+        return None
+    if before is not None and before.value == chosen.value:
+        return None  # căn của kế hoạch đã chốt từ trước, không phải lựa chọn mới
+    facts.pop("selected:property")
+    for task_id, task_result in (state.get("task_results") or {}).items():
+        if task_result.agent != AgentName.PROPERTY or task_result.data.get("comparison"):
+            continue
+        row = next((c for c in task_result.data.get("candidates") or [] if c.get("id") == chosen.value), None)
+        if row is None:
+            continue
+        try:
+            return selector(state.get("user_id", ""), state.get("thread_id", ""), task_id, row)
+        except ValueError as exc:  # đủ số căn, đã chốt căn khác
+            result.conflicts.append(str(exc))
+            return None
+    return None
+
+
 def remembered_home(previous: IntakeResult | None, state: WorkflowState) -> IntakeResult | None:
     """Expose a previously verified home to Intake without restoring unrelated old constraints."""
     if previous is None or "selected:property" in previous.user_confirmed_facts:
@@ -577,6 +601,7 @@ def make_intake(deps: GraphDeps):
             if choice["field"] == "near":
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)
+        viewing_selection = chat_housing_selection(deps, state, facts, result)
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
@@ -601,6 +626,8 @@ def make_intake(deps: GraphDeps):
             "planner_questions": [],
             "housing_location": housing_pin,
         }
+        if viewing_selection is not None:
+            update["housing_selection"] = viewing_selection
         if result.kind == RequestKind.NEW_GOAL:
             # Do not display a previous goal's results when a new goal needs input.
             update.update(plan=None, cost_summary=None)

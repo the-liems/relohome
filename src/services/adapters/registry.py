@@ -120,6 +120,24 @@ class ServiceSettings(BaseSettings):
     payment_tester_confirm_enabled: bool = False
     payment_tester_user_ids: str = ""  # ID tài khoản gateway, phân tách bằng dấu phẩy
     payment_reconcile_grace_seconds: int = Field(default=180, ge=30, le=3600)
+    # Chọn nhiều căn, hẹn xem và chốt (docs/review/housing-viewing-design.md). Mọi ngưỡng là cấu hình.
+    housing_viewing_enabled: bool = False
+    housing_max_selected: int = Field(default=3, ge=1, le=10)
+    housing_viewing_slot_minutes: int = Field(default=30, ge=5, le=240)
+    housing_viewing_day_start: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    housing_viewing_day_end: str = Field(default="20:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    housing_viewing_window_days: int = Field(default=14, ge=1, le=60)
+    housing_viewing_lead_minutes: int = Field(default=120, ge=0, le=7 * 24 * 60)
+    housing_viewing_travel_buffer_minutes: int = Field(default=15, ge=0, le=240)
+    housing_viewing_min_gap_minutes: int = Field(default=60, ge=0, le=24 * 60)
+    housing_viewing_daily_soft_limit: int = Field(default=4, ge=1, le=48)
+    housing_viewing_route_profile: Literal["driving", "motorcycle", "walking"] = "motorcycle"
+    # Thành phố có dữ liệu đường (contract calculate_route_between_entities); thử theo thứ tự này.
+    housing_viewing_route_cities: str = "hcm,hanoi,danang"
+    housing_viewing_route_cache_seconds: int = Field(default=1800, ge=0, le=86400)
+    housing_same_place_meters: int = Field(default=50, ge=1, le=1000)
+    housing_deposit_suggested_months: float = Field(default=1, ge=0, le=12)
+    app_timezone: str = "Asia/Ho_Chi_Minh"
 
 
 def _secret(value: SecretStr) -> str | None:

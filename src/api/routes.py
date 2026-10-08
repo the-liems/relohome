@@ -311,6 +311,7 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "selections": _selections(values),
         "progress": plan_progress(values),
         "checkout": service.checkout.thread_view(user_id, thread_id, values) if service.checkout else None,
+        "viewing": service.viewing.thread_view(user_id, thread_id, values) if service.viewing else None,
     }
 
 
@@ -374,6 +375,8 @@ async def delete_thread(thread_id: str, service: Service, user_id: UserId = "ano
             )
         await service.graph.checkpointer.adelete_thread(thread_id)
         await service.deps.session.forget_thread(user_id, thread_id)
+        if service.viewing is not None:
+            service.viewing.delete_thread(user_id, thread_id)
     service.locks.pop(thread_id, None)
     return {"thread_id": thread_id, "deleted": True}
 
@@ -393,6 +396,7 @@ async def agent_status(service: Service):
         "agent": "LifeFlow agent graph",
         "mode": service.mode,
         "app_payment": service.checkout is not None,
+        "housing_viewing": service.viewing is not None,
         "domains": [d.value for d in service.deps.agents.names()],
         "domain_agents": {
             d.value: {

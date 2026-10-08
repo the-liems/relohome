@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 from src.checkout.models import FulfilmentJob, PaymentAttempt, ServiceTransaction
@@ -23,6 +24,12 @@ CREATE TABLE IF NOT EXISTS checkout_attempts (
     data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS checkout_attempt_tx ON checkout_attempts(transaction_id);
+CREATE TABLE IF NOT EXISTS checkout_decisions (
+    decision_key TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL,
+    data TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS checkout_jobs (
     job_id TEXT PRIMARY KEY,
     transaction_id TEXT NOT NULL UNIQUE,
@@ -86,6 +93,7 @@ class CheckoutStore:
             self.db.execute("DELETE FROM checkout_attempts WHERE transaction_id=?", (tx_id,))
             self.db.execute("DELETE FROM checkout_jobs WHERE transaction_id=?", (tx_id,))
         self.db.execute("DELETE FROM checkout_transactions WHERE user_id=? AND thread_id=?", (user_id, thread_id))
+        self.delete_decisions(user_id, thread_id)
 
     # --- lần thanh toán ---
 
@@ -140,3 +148,31 @@ class CheckoutStore:
     def pending_jobs(self) -> list[FulfilmentJob]:
         rows = self.db.execute("SELECT data FROM checkout_jobs WHERE status='pending' ORDER BY rowid").fetchall()
         return [FulfilmentJob.model_validate_json(r[0]) for r in rows]
+
+    def delete_tx(self, transaction_id: str) -> None:
+        """Chỉ dùng cho giao dịch không có lần thanh toán (nhà: tự báo, không thu tiền)."""
+        if self.attempts_for(transaction_id):
+            raise ValueError("Transactions with payment attempts are kept")
+        self.db.execute("DELETE FROM checkout_transactions WHERE transaction_id=?", (transaction_id,))
+
+    # --- quyết định chốt nhà (chống trùng, ghi ý định trước) ---
+
+    def insert_decision(self, decision: dict) -> bool:
+        cursor = self.db.execute(
+            "INSERT OR IGNORE INTO checkout_decisions VALUES(?,?,?,?)",
+            (decision["decision_key"], decision["user_id"], decision["thread_id"], json.dumps(decision)),
+        )
+        return cursor.rowcount == 1
+
+    def get_decision(self, decision_key: str) -> dict | None:
+        row = self.db.execute("SELECT data FROM checkout_decisions WHERE decision_key=?", (decision_key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def put_decision(self, decision: dict) -> None:
+        self.db.execute(
+            "UPDATE checkout_decisions SET data=? WHERE decision_key=?",
+            (json.dumps(decision), decision["decision_key"]),
+        )
+
+    def delete_decisions(self, user_id: str, thread_id: str) -> None:
+        self.db.execute("DELETE FROM checkout_decisions WHERE user_id=? AND thread_id=?", (user_id, thread_id))

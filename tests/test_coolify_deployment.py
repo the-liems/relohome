@@ -231,6 +231,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotEqual(backend["APP_ENV"], "production")
         self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
         self.assertEqual(backend["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
+        self.assertEqual(backend["HOUSING_VIEWING_ENABLED"], "true")
         # Simulated booking tools stay on the internal network.
         flights = self.compose["services"]["flights-mcp"]
         self.assertNotIn("ports", flights)
