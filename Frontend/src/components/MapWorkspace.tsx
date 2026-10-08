@@ -54,6 +54,7 @@ import {
 } from "../mapStyle";
 import { HouseImage, amenities as AMENITY_LABELS } from "./Housing";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
+import { ContentSkeleton } from "./UiStates";
 
 const PRICES = [
   0, 3_000_000, 5_000_000, 7_000_000, 10_000_000, 15_000_000, 20_000_000,
@@ -284,7 +285,7 @@ export function MapWorkspace({
             type: "circle",
             source: "ws-choices",
             paint: {
-              "circle-color": "#6d28d9",
+              "circle-color": MAP_THEME.primary,
               "circle-radius": 11,
               "circle-stroke-width": 3,
               "circle-stroke-color": "#fff",
@@ -639,7 +640,11 @@ export function MapWorkspace({
         className={"ws-list " + (sheet ? "open" : "")}
         aria-label={uiText("Nhà trong vùng bản đồ")}
       >
-        <button className="ws-sheet-toggle" onClick={() => setSheet(!sheet)}>
+        <button
+          className="ws-sheet-toggle"
+          aria-expanded={sheet}
+          onClick={() => setSheet(!sheet)}
+        >
           {listing
             ? formatUi("{0} căn trong vùng này", [count ?? 0])
             : uiText("Danh sách nhà")}
@@ -789,7 +794,14 @@ export function MapWorkspace({
               {uiText(" căn")}
             </button>
           )}
-          {loading && <p className="muted small">{uiText("Đang tải…")}</p>}
+          {loading &&
+            (rows.length === 0 ? (
+              <ContentSkeleton label={uiText("Đang tải…")} rows={2} />
+            ) : (
+              <p className="muted small" role="status">
+                {uiText("Đang tải…")}
+              </p>
+            ))}
         </div>
         <p className="ws-list-foot muted small">
           {uiText(
@@ -933,14 +945,18 @@ export function MapWorkspace({
           </div>
         </div>
         <div ref={container} className="ws-canvas" />
-        {mapError && <div className="map-error">{mapError}</div>}
+        {mapError && (
+          <div className="map-error" role="status">
+            {mapError}
+          </div>
+        )}
         <WorkspaceChat
           {...chat}
           text={chat.fromResult ? summary : chat.text}
           placeholder={uiText(
-            "Hỏi SIU: căn dưới 10 triệu ở khu này, đổi sang Hà Đông…",
+            "Hỏi ReloHome: căn dưới 10 triệu ở khu này, đổi sang Hà Đông…",
           )}
-          caption={uiText('SIU hiểu "khu này" là vùng bản đồ đang xem.')}
+          caption={uiText('ReloHome hiểu "khu này" là vùng bản đồ đang xem.')}
           onSendText={(t, x) => send(t, x)}
           onChoose={choose}
         />

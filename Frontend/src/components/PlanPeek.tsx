@@ -8,6 +8,7 @@ import type { Data, Thread } from "../types";
 import { ConfirmedTotal, describePlanItem } from "./PlanProgress";
 import { Approval } from "./Forms";
 import { PendingPayment, Receipts } from "./Transactions";
+import { TabList } from "./TabList";
 
 function statusOf(item: Data) {
   if (item.task_status === "stale")
@@ -147,13 +148,13 @@ export function PlanPeek({
                 <h3>{uiText("Kế hoạch của bạn")}</h3>
                 <p>
                   {busy
-                    ? uiText("SIU đang cập nhật yêu cầu…")
+                    ? uiText("ReloHome đang cập nhật yêu cầu…")
                     : items.length
                       ? formatUi("{0} mục tiêu · {1} phương án đã chọn", [
                           items.length,
                           chosen,
                         ])
-                      : uiText("Cùng SIU sắp xếp từng bước")}
+                      : uiText("Cùng ReloHome sắp xếp từng bước")}
                 </p>
               </div>
               <button
@@ -164,10 +165,9 @@ export function PlanPeek({
                 <X size={17} />
               </button>
             </header>
-            <div
+            <TabList
               className="plan-panel-tabs"
-              role="tablist"
-              aria-label={uiText("Nội dung kế hoạch")}
+              label={uiText("Nội dung kế hoạch")}
             >
               {[
                 ["progress", "Tiến trình"],
@@ -186,7 +186,7 @@ export function PlanPeek({
                   {key === "pending" && pending && <i />}
                 </button>
               ))}
-            </div>
+            </TabList>
             <div
               className="plan-panel-content"
               id={panelId + "content"}
@@ -270,7 +270,7 @@ export function PlanPeek({
                       </strong>
                       <p>
                         {uiText(
-                          "Nhắn điều bạn muốn làm. Các bước sẽ xuất hiện ở đây khi SIU lập kế hoạch.",
+                          "Nhắn điều bạn muốn làm. Các bước sẽ xuất hiện ở đây khi ReloHome lập kế hoạch.",
                         )}
                       </p>
                     </div>
@@ -321,7 +321,7 @@ export function PlanPeek({
                     <>
                       <h4>
                         {questions.length
-                          ? uiText("SIU cần bạn bổ sung")
+                          ? uiText("ReloHome cần bạn bổ sung")
                           : uiText("Không có xác nhận đang chờ")}
                       </h4>
                       <p className="muted">

@@ -5383,6 +5383,10 @@ input[type="checkbox"] {
   background: var(--ui-soft);
   color: var(--ui-accent);
 }
+.plan-badge.stale {
+  background: var(--ui-warning-soft);
+  color: var(--ui-warning);
+}
 .content-page .plan-strip {
   margin-bottom: 16px;
 }

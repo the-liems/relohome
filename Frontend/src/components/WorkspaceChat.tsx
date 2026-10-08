@@ -77,7 +77,7 @@ export function WorkspaceChat({
         aria-controls={panelId}
       >
         <MessageCircle size={17} />
-        {uiText(" Chat với SIU")}
+        {uiText(" Chat với ReloHome")}
         {busy && <span className="spinner small" />}
       </button>
     );
@@ -86,7 +86,7 @@ export function WorkspaceChat({
       id={panelId}
       className="ws-dock ws-dock-compact"
       role="region"
-      aria-label={uiText("Trò chuyện với SIU AI")}
+      aria-label={uiText("Trò chuyện với ReloHome")}
     >
       <form
         className="ws-dock-input"
@@ -101,7 +101,7 @@ export function WorkspaceChat({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
-          aria-label={uiText("Tin nhắn cho SIU AI")}
+          aria-label={uiText("Tin nhắn cho ReloHome")}
           aria-describedby={caption ? panelId + "caption" : undefined}
           maxLength={5000}
         />
@@ -131,7 +131,7 @@ export function WorkspaceChat({
       )}
       {busy && (
         <span className="ws-dock-accessible-caption" role="status">
-          {uiText("SIU đang xử lý yêu cầu của bạn…")}
+          {uiText("ReloHome đang xử lý yêu cầu của bạn…")}
         </span>
       )}
       {((!busy && (questions.length > 0 || suggestions.length > 0)) ||

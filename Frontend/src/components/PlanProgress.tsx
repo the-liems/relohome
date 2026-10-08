@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { money } from "../api";
 import type { Data } from "../types";
+import { UsersRound } from "lucide-react";
+import { rt as roommateText } from "../roommate/text";
 
 // Horizontal plan strip. Items are only the goals the user has asked for (tasks of the current plan,
 // computed by the backend `state.progress`); goals that do not depend on each other share a column
@@ -46,6 +48,11 @@ export function describePlanItem(item: Data): {
   detail: string;
 } {
   const i = item.inputs || {};
+  if (item.agent === "roommate") return {
+    icon: UsersRound,
+    title: roommateText("Tìm người ở cùng", "Find a roommate"),
+    detail: roommateText("Xem hồ sơ và tự quyết định kết nối", "Explore profiles and choose who to connect with"),
+  };
   if (item.agent === "property")
     return {
       icon: House,
@@ -124,6 +131,7 @@ const STATE: Record<string, { label: string; icon: any }> = {
   confirmed: { label: "Đã chốt", icon: Check },
   reviewed: { label: "Đã xem xét", icon: Eye },
   waiting: { label: "Chưa có kết quả", icon: null },
+  stale: { label: "Cần báo giá lại", icon: null },
 };
 
 const OPEN_KEY = "siu-plan-strip-open";
@@ -195,7 +203,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
               <div className="plan-column">
                 {column.map((item) => {
                   const d = describePlanItem(item),
-                    s = STATE[item.state] || STATE.waiting;
+                    s = item.task_status === "stale" ? STATE.stale : STATE[item.state] || STATE.waiting;
                   return (
                     <article
                       key={item.task_id}
@@ -216,7 +224,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
                           </small>
                         )}
                       </span>
-                      <span className={"plan-badge " + item.state}>
+                      <span className={"plan-badge " + (item.task_status === "stale" ? "stale" : item.state)}>
                         {s.icon && <s.icon size={12} />} {uiText(s.label)}
                       </span>
                     </article>
@@ -233,7 +241,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
 
 // What the user has confirmed so far (a chosen option, not a payment) and its price.
 export function ConfirmedTotal({ progress }: { progress?: Data }) {
-  const chosen = (progress?.items || []).filter((i: Data) => i.chosen);
+  const chosen = (progress?.items || []).filter((i: Data) => i.state === "confirmed" && i.chosen);
   const totals = progress?.totals || {};
   if (!chosen.length)
     return (

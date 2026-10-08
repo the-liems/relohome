@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, History, Search } from "lucide-react";
 import { api, dateTime } from "../api";
 import type { Message, Thread } from "../types";
+import { ContentSkeleton } from "./UiStates";
 
 const LABELS: Record<string, string> = {
   ANSWER: "Có phản hồi",
@@ -129,7 +130,7 @@ export function RequestHistory({ threads }: { threads: Thread[] }) {
         </p>
       )}
       {loading ? (
-        <p className="loading-history">{uiText("Đang đọc lịch sử đã lưu…")}</p>
+        <ContentSkeleton label={uiText("Đang đọc lịch sử đã lưu…")} />
       ) : visible.length ? (
         <div className="request-history-list">
           {visible.slice(0, limit).map((call) => (
@@ -140,7 +141,7 @@ export function RequestHistory({ threads }: { threads: Thread[] }) {
                   {dateTime(call.message.created)}
                 </span>
                 <span className={"request-status " + call.status}>
-                  {LABELS[call.status] || call.status}
+                  {uiText(LABELS[call.status] || call.status)}
                 </span>
               </div>
               <h4>
@@ -156,6 +157,7 @@ export function RequestHistory({ threads }: { threads: Thread[] }) {
               <div className="request-history-actions">
                 <button
                   className="text-button"
+                  aria-expanded={expanded === call.id}
                   onClick={() =>
                     setExpanded(expanded === call.id ? null : call.id)
                   }
@@ -183,7 +185,9 @@ export function RequestHistory({ threads }: { threads: Thread[] }) {
           <p className="muted">
             {calls.length
               ? uiText("Thử đổi từ khóa hoặc trạng thái lọc.")
-              : uiText("Các yêu cầu bạn gửi cho SIU sẽ xuất hiện tại đây.")}
+              : uiText(
+                  "Các yêu cầu bạn gửi cho ReloHome sẽ xuất hiện tại đây.",
+                )}
           </p>
         </div>
       )}

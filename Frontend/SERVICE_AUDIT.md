@@ -1,5 +1,35 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
+## Production UI — lượt mới nhất 07/10/2026
+
+**124 browser cases: 120 pass + 4 live opt-in skip trong lượt full**;
+**8/8 gateway/UI contract pass**, build qua. Axe và keyboard qua các màn
+đại diện; responsive navigation/account/Moving/Flight ở 320/768/1024/1440
+qua, welcome các viewport thấp vẫn đủ thao tác. Không che launcher kế hoạch,
+dialog giữ/return focus; theme không tạo contrast lỗi tạm thời.
+
+Hồi quy chữ dính sau redesign đã sửa: input có icon dùng padding riêng,
+không viền kép; Moving giữ A/B và căn đã chọn, thêm navigation trong form,
+giải thích catalog cần ghim A. Chat không che Về hội thoại ở mobile/tablet,
+nhãn bước xuống dòng; Flight timeline, housing/chat/history qua kiểm tra
+vị trí chữ/icon thực tế. Hai ca mới chạy trên desktop/mobile, 4/4 qua.
+
+Static baseline: 279 backend/helper file không đổi; api/send/mutate và
+decision/quote/action expressions không thêm/bớt/đổi. Endpoint/schema,
+payload/price/expiry/auth/permission/camera/OSRM/helpers giữ nguyên.
+
+Build thật 8503: landing/login 4 breakpoint, light VI → dark EN giữ input,
+axe zero trong phạm vi quét, không pageerror/console error (401 session guest
+là expected). Không tạo QA account, submit auth/profile/chat/quote/order/
+payment hoặc sửa database ở lượt live. 6 health endpoint 200; read thật
+housing/search/detail, POI và AhaMove catalog qua. Location còn gợi ý sai
+tên query; giữ logic/data, không hợp thức hóa bằng dữ liệu giả.
+
+Xem [audit/design/finish gate](PRODUCTION_UI_AUDIT.md). Artifact local:
+logs/local/frontend-production/, Frontend/test-results/.
+
+Các mục dưới là lịch sử những lượt trước.
+
 ## Landing, Cẩm nang và gói xe — lượt mới nhất 07/10/2026
 
 Landing công khai tại `/`, CTA vào `/ai` theo auth/session hiện có. Mục
@@ -13,11 +43,11 @@ chưa xác định loại vận chuyển không hiện trong lựa chọn mới.
 chỉ hiện nếu catalog có. Catalog backend không sửa, gói đã chọn giữ ID cũ.
 Giữ addon, COD, quote typed PR #53 và
 quy trình xác nhận. Chỉ khi người dùng chọn tự chọn xe mà chưa chọn gói,
-frontend nhắc chọn gói hoặc quay về SIU gợi ý. Không sửa backend hay data.
+frontend nhắc chọn gói hoặc quay về ReloHome gợi ý. Không sửa backend hay data.
 
 Guide có SVG từng loại xe, mở bằng hover/focus/click, có nút đóng, VI/EN,
 sáng/tối. Hover chỉ xem, không chọn xe hoặc gọi quote; mở lại loại đang
-chọn không xóa addon/COD/ghi chú. SIU gợi ý giải thích bước so sánh báo giá,
+chọn không xóa addon/COD/ghi chú. ReloHome gợi ý giải thích bước so sánh báo giá,
 không hứa tự đặt xe hoặc phương án tối ưu chưa được kiểm chứng.
 
 Rà lại theo phản hồi chọn Van: danh sách/tiêu đề theo loại đã bấm, không
@@ -185,7 +215,7 @@ Các thông tin credentials, provider và dữ liệu trong các gạch đầu d
 | `/plans`, `/plans/:planId` — URL cũ | `/plans` chuyển tới `/account`; `/plans/:planId` mở đúng chat và panel kế hoạch | Không còn trang Kế hoạch riêng |
 | `/account` | Lịch sử từng yêu cầu/phản hồi, tìm/lọc/mở chat; hồ sơ, bảo mật, sở thích, nhà đã lưu, đăng xuất | Không phải log từng tool/LLM; chưa đổi/khôi phục mật khẩu; sở thích không tự áp dụng thay yêu cầu mới |
 
-Map/AhaMove/Flight có workspace theo kết quả và tương tác qua chat. Trong workspace, mặc định chỉ hiện nút Chat với SIU; mở thanh nhập nhỏ và thu gọn bằng mũi tên xuống, không còn khối tóm tắt/Xem đầy đủ. Bố cục hiện tại không có sidebar trái; kế hoạch nằm bên phải, tài khoản và Lịch sử nằm trên header. Đã sửa mở chi tiết nhà lưu từ map khi căn không nằm trong card chat ban đầu; bản lưu thiếu ngữ cảnh kết quả chỉ xem chi tiết, chọn phương án qua map/kết quả dịch vụ.
+Map/AhaMove/Flight có workspace theo kết quả và tương tác qua chat. Trong workspace, mặc định chỉ hiện nút Chat với ReloHome; mở thanh nhập nhỏ và thu gọn bằng mũi tên xuống, không còn khối tóm tắt/Xem đầy đủ. Bố cục hiện tại không có sidebar trái; kế hoạch nằm bên phải, tài khoản và Lịch sử nằm trên header. Đã sửa mở chi tiết nhà lưu từ map khi căn không nằm trong card chat ban đầu; bản lưu thiếu ngữ cảnh kết quả chỉ xem chi tiết, chọn phương án qua map/kết quả dịch vụ.
 
 ## Đối chiếu 34 tool
 
@@ -306,12 +336,12 @@ Nguồn: `src/mcp_servers/payments/tools.py`, `server.py`, engine/gateway và `s
 ```powershell
 # Từ gốc repo, chỉ gọi tool đọc và health; lưu trạng thái không chứa key vào data/
 .venv/Scripts/python.exe Frontend/scripts/check-services.py
-
+```
 .venv/Scripts/python.exe -m pytest Frontend/tests tests/test_agents/test_payment_flow.py tests/test_agents/test_approval.py tests/test_agents/test_map_backend.py tests/test_agents/test_commit_adapter.py -q
 
 cd Frontend
 npm run build
 npm run test:e2e
-```
+
 
 Script lưu báo cáo runtime tại `data/frontend-service-audit.json` (ignored); kết quả chỉ đúng thời điểm chạy. Không tự tạo đơn, thanh toán, import dữ liệu hay gọi LLM.

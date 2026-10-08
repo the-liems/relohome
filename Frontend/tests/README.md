@@ -1,8 +1,33 @@
-# Kiểm thử frontend SIU AI
+# Kiểm thử frontend ReloHome
 
 Cập nhật **07/10/2026**. Hướng dẫn này dùng cho trang giới thiệu, chat, panel kế hoạch bên phải, lịch sử và tài khoản hiện tại. Xem [README ứng dụng](../README.md) để chạy hệ thống.
 
 ## Kết quả mới nhất
+
+**Production UI 07/10: 124 ca browser, 120 pass + 4 live opt-in skip trong
+lượt full; 8/8 Python contract qua, build qua.** Sau chỉnh nhãn navigation
+cuối, nhóm layout chạy lại 4/4 qua. Các số 110/106
+bên dưới là lượt trước khi thêm ca production.
+
+Bổ sung @axe-core/playwright (dev-only): axe WCAG 2/2.1 A/AA ở màn đại
+diện, keyboard modal/tab/Flight, menu Escape, scope/readonly request và
+responsive 320/768/1024/1440. Existing contract assertions giữ nguyên;
+locator account dùng role tab và hãng bay exact để tránh trùng tên với
+button mở chi tiết native mới. Không tắt rule axe để cho test qua.
+
+Bổ sung nhóm layout regression: đo vị trí chữ/icon ở Moving/chat/history,
+timeline Flight không chồng nhau; các mục Moving và căn chọn ở B vẫn dùng
+được, chọn điểm A tải catalog cũ, chuyển mục giữ dữ liệu và không gửi lượt
+Agent. Kiểm tra 320/768/1024/1440/1920 tùy màn, API giả lập, không đặt thật.
+
+Chạy nhóm UI audit riêng (từ repo root):
+
+```powershell
+npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 2 --grep production
+npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 2 --grep 'layout regression'
+```
+
+Kết quả/giới hạn chi tiết ở [audit](../PRODUCTION_UI_AUDIT.md).
 
 Browser hiện có **110 ca**: full ngày 07/10 **105 pass**, **4 live opt-in skip**,
 **1 ca lỗi Chrome `ERR_NETWORK_IO_SUSPENDED` khi goto**. Chạy lại đúng ca
@@ -17,7 +42,7 @@ kiểm tra icon xe máy, guide hover/touch/focus, chọn trực tiếp gói/cỡ
 thẻ, không có bộ lọc tải trọng/Gói khác, ECO/POOL/mua hộ phân loại đúng,
 không đổi service_id/pin/payload, clear addon/COD khi đổi gói, giữ lựa chọn
 khi tải lại catalog. Mở hướng dẫn loại đang chọn không xóa dữ liệu; chế độ
-SIU gợi ý chỉ gửi khi xác nhận. Test không gửi theme/locale/nhóm UI vào Agent payload.
+ReloHome gợi ý chỉ gửi khi xác nhận. Test không gửi theme/locale/nhóm UI vào Agent payload.
 
 Ca Van mới xác nhận: chuyển từ tải sang Van chỉ có Van 500/750/1000,
 radio không lớn hơn 18 px và thẻ chưa chọn không quá 65 px; gói 1000kg vẫn
@@ -119,7 +144,7 @@ npm run test:e2e -- --grep 'map-only selected home|late selected-home|missing se
 | Picker Moving | ID/alias không lặp; giữ ngày/giờ khi tìm trực tiếp trong ô A |
 | Tìm A/B | Cả hai ô tự tìm gợi ý, điền địa chỉ đã chọn và gửi đúng hai tọa độ; không có ô/nút tìm riêng |
 | Workspace nhà | Danh sách theo viewport, bộ lọc, sort và `map_view` từ chat |
-| Map → chat | Mặc định chỉ hiện nút Chat với SIU; mở thanh nhập nhỏ, bỏ Xem đầy đủ, giữ bản nháp khi thu gọn/mở lại; chọn căn trở lại chat |
+| Map → chat | Mặc định chỉ hiện nút Chat với ReloHome; mở thanh nhập nhỏ, bỏ Xem đầy đủ, giữ bản nháp khi thu gọn/mở lại; chọn căn trở lại chat |
 | Chuyến bay | Workspace, sắp xếp và chọn chuyến |
 | Chi tiết chuyến bay | Hiển thị `origin/destination` thật của provider; giữ kết quả mới nhất khi response cũ về chậm, không mở lại panel đã đóng |
 | Lỗi chọn phương án | Chat workspace tự mở hiển thị lỗi, giữ workspace để người dùng thử lại |

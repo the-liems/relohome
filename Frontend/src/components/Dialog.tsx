@@ -32,6 +32,24 @@ export function Dialog({
       ref={ref}
       className={"dialog " + (wide ? "dialog-wide" : "")}
       aria-label={title}
+      aria-modal="true"
+      onKeyDown={(event) => {
+        if (event.key !== "Tab" || event.defaultPrevented) return;
+        const controls = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+          ) || [],
+        ).filter((el) => el.getClientRects().length > 0);
+        const first = controls[0],
+          last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
       onCancel={(e) => {
         e.preventDefault();
         close.current();

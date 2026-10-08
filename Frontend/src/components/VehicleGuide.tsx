@@ -6,8 +6,8 @@ export const vehicleGuides: Record<
   { title: string; text: string; example: string }
 > = {
   auto: {
-    title: "Để SIU gợi ý",
-    text: "Bạn chưa cần chọn một gói xe cụ thể. Sau khi bấm Xác nhận và lấy báo giá, SIU so sánh một số gói chuyển đồ trong danh mục AhaMove tại điểm A để bạn chọn. Không tự đặt xe.",
+    title: "Để ReloHome gợi ý",
+    text: "Bạn chưa cần chọn một gói xe cụ thể. Sau khi bấm Xác nhận và lấy báo giá, ReloHome so sánh một số gói chuyển đồ trong danh mục AhaMove tại điểm A để bạn chọn. Không tự đặt xe.",
     example: "Phù hợp khi bạn muốn xem các phương án trước khi quyết định.",
   },
   truck: {

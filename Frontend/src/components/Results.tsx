@@ -21,6 +21,7 @@ import { HousingCard, Comparison } from "./Housing";
 import { MapPanel } from "./MapPanel";
 import { Dialog } from "./Dialog";
 import { priceExpired, usePriceExpiry } from "../priceExpiry";
+import { RoommateResult } from "../roommate/RoommateResult";
 
 export interface ResultProps {
   payload: Payload;
@@ -44,7 +45,7 @@ export function Results(props: ResultProps) {
   return (
     <>
       {components.map((c) => (
-        <Result key={c.id} c={c} {...props} />
+        c.type === "roommate" ? <RoommateResult key={c.id} data={c.data || {}} /> : <Result key={c.id} c={c} {...props} />
       ))}
     </>
   );
