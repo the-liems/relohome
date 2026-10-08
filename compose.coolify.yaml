@@ -58,6 +58,8 @@ services:
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+      # Encrypts flight booker profiles. Empty: a key file is created in web-data.
+      SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
@@ -76,7 +78,9 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/backend:${RELEASE_TAG}
     environment:
-      APP_ENV: production
+      # Team test phase: "staging" allows the tester payment control below. Set
+      # "production" (and remove the tester variables) before outside users try it.
+      APP_ENV: staging
       OPENAI_API_KEY: ${OPENAI_API_KEY:?}
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       # One Coolify setting selects the model for all seven agents.
@@ -112,6 +116,12 @@ services:
       PAYMENT_DB_PATH: /app/data/payments.db
       PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
       PAYMENT_SIMULATION_ENABLED: "false"
+      # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
+      # tickets, no AhaMove order. The tester "paid" control works only for the
+      # gateway account IDs listed here; empty means nobody sees it.
+      APP_PAYMENT_DEMO_ENABLED: "true"
+      PAYMENT_TESTER_CONFIRM_ENABLED: "true"
+      PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
     volumes: [agent-data:/app/data]
@@ -126,7 +136,9 @@ services:
     environment:
       FLIGHT_SEARCH_PROVIDER: serpapi
       FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
-      FLIGHT_SIMULATION_ENABLED: "false"
+      # Simulated hold/ticket for in-app checkout; never a real airline booking.
+      # Reachable only on the internal network (no public route).
+      FLIGHT_SIMULATION_ENABLED: "true"
     volumes: [flights-data:/app/data]
 
   postgis:

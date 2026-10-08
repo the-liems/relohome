@@ -154,6 +154,31 @@ Database names and role names have configurable defaults in Compose. Generate
 independent internal secrets with `openssl rand -hex 32`. Runtime writes remain
 disabled in this staging definition.
 
+### In-app payment for the team test phase
+
+The backend runs with `APP_ENV=staging` and in-app checkout on
+([payment-design](../../../docs/review/payment-design.md)): ZaloPay **sandbox**
+orders, simulated flight hold/ticket on the internal `flights-mcp`, and Moving
+recorded as approved without an AhaMove order. Optional values:
+
+| Variables | Purpose |
+| --- | --- |
+| `PAYMENT_TESTER_USER_IDS` | Comma-separated gateway account IDs allowed to use the "paid (tester)" control. Empty means nobody sees it |
+| `SIU_TRAVELER_KEY` | Fernet key for flight booker profiles. Empty creates a key file in `web-data`; losing it makes saved profiles unreadable |
+
+Testers register on the site first. Read their IDs from the web container, then
+set the list and restart the backend:
+
+```sh
+docker exec <web-container> python -c "import sqlite3; print(sqlite3.connect('/app/data/siu-web.sqlite3').execute(\"select id from users where email in ('a@example.com')\").fetchall())"
+```
+
+The control also requires an awaiting, unexpired payment owned by that account,
+and its result is labelled "marked by tester", separate from the gateway status.
+Before outside users try the site, set `APP_ENV: production`, remove
+`PAYMENT_TESTER_CONFIRM_ENABLED` and `PAYMENT_TESTER_USER_IDS`; the backend
+refuses to start if the tester control is enabled in production.
+
 Application images do not contain routing files or Location data. Prepare them
 before merging:
 

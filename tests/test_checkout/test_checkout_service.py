@@ -428,3 +428,14 @@ async def test_passenger_age_is_checked_before_hold(env):
         await service.pay(USER, summary["transaction_id"], summary["payload_hash"], "request-key-0009", young)
     assert exc.value.code == "passenger_age" and "Van An" not in exc.value.message.title()
     assert not [c for c in flight.calls if c[0] == "hold_booking"] and not payment.calls
+
+
+@pytest.mark.asyncio
+async def test_tester_control_hidden_without_allowlist(env):
+    service, *_ = env
+    _, attempt = await pay_flight(service)
+    service.settings.tester_user_ids = frozenset()
+    assert service.thread_view(USER, THREAD, flight_values())["tester"] is False
+    with pytest.raises(CheckoutError) as exc:
+        await service.tester_paid(USER, attempt["attempt_id"])
+    assert exc.value.status == 403
