@@ -1,4 +1,9 @@
-# Ảnh trang giới thiệu SIU AI
+# Ảnh trang giới thiệu ReloHome
+
+`relohome-hero-home.png` được tạo ngày 08/10/2026 cho bìa toàn màn hình.
+Ảnh nhà có hồ koi và khoảng tối ở bên trái để đặt tiêu đề; đây là hình minh họa,
+không phải một tin nhà thật. Ảnh được lưu trong project, không gọi dịch vụ ảnh
+khi trang chạy. `siu-home-hero.png` vẫn được giữ cho những phần khác đang dùng.
 
 `siu-home-hero.png` được tạo bằng **imagegen built-in**, ngày 07/10/2026.
 Ảnh minh họa kiến trúc, không phải ảnh một căn đang cho thuê. Frontend sử dụng

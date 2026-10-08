@@ -1,20 +1,80 @@
-# SIU AI — Frontend
+# ReloHome — Frontend
+
+Trang bìa `/` dùng ảnh nhà và hồ koi toàn khung tại
+`public/images/relohome-hero-home.png` (08/10/2026). Lớp phủ giữ chữ/CTA dễ đọc
+ở sáng, tối và màn hình nhỏ; các link vào chat, dịch vụ và cẩm nang giữ nguyên.
 
 Cập nhật **07/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
 
+## Production UI audit — đợt mới nhất
+
+Tên sản phẩm hiện tại là **ReloHome** (đổi ngày 07/10/2026): đồng nhất trên
+trang giới thiệu, đăng nhập, header, chat, dịch vụ, tài khoản, nhãn VI/EN và
+tiêu đề tab trình duyệt. Từ 08/10, biểu tượng robot đã được bỏ khỏi
+landing, đăng nhập, chat và favicon; liên kết chat dùng chữ `RH`, favicon là nhà.
+Tên cấu hình `SIU_*`, header API, khóa lưu nháp/tùy chọn và đường dẫn asset
+giữ nguyên để tương thích hệ thống và dữ liệu đã lưu.
+
+Lượt đổi tên: build qua, **24/24** ca landing/appearance/production/layout
+qua trên desktop và mobile. Bản build được kiểm tra riêng ở 320/768/1024/
+1440 px: tên và tiêu đề ReloHome, nhãn EN, không tràn ngang, không lỗi JS.
+Kết quả full bên dưới thuộc đợt audit trước.
+
+Đã audit/triển khai theo skill `frontend-ui-engineering`:
+[vấn đề, design contract, kế hoạch, file thay đổi và bằng chứng](PRODUCTION_UI_AUDIT.md).
+
+- Theme chung có token spacing/type/radius/color; xanh rừng/trắng trung tính,
+  panel vuông gọn, ít bóng, dòng kết quả thay card lồng nhau. Ảnh nhà/hồ koi
+  vẫn dùng ở trang đầu. Entry/login/chat/housing/map/Moving/Flight/plan/account
+  dùng cùng control, typography, trạng thái và focus ring.
+- Header/tabs/panes thích nghi 320/768/1024/1440; mobile giữ target 44 px.
+  Input/giá/giờ và hành động chính dễ đọc; desktop có panel cạnh map, mobile
+  dùng sheet hiện có. Welcome vẫn hiện đủ thao tác ở các màn thấp.
+- Tab có Arrow/Home/End và Enter/Space; dialog trap focus/return focus;
+  Flight không còn div chỉ bấm chuột. Search có nhãn, thêm skeleton,
+  trạng thái không có kết quả, contrast/focus/hover/disabled thống nhất.
+- Hiệu ứng nhẹ theo yêu cầu mới: feedback nút, underline nav, ảnh koi zoom
+  khi hover và section/message vào vị trí khi cuộn/hiển thị. Không fade chữ
+  hay giấu nội dung; giảm chuyển động tắt hiệu ứng, không đổi request/dữ liệu.
+- Sửa chữ/icon và viền kép ở ô địa chỉ/chat/history; Moving có navigation
+  Địa điểm/Lịch chuyển/Hàng hóa/Chọn xe/Giao nhận. Khi chưa ghim A, có hướng
+  dẫn quay về chọn điểm lấy; B vẫn giữ căn đã chọn. Mobile/tablet không để
+  chat che nút Về hội thoại; các nhãn dài xuống dòng, không cắt thao tác.
+- Không sửa endpoint/schema/payload, auth, giá, tìm kiếm/recommendation,
+  backend/database hay API helpers. Không thêm fetch hoặc optimistic dữ
+  liệu mới; giữ form/draft/callback và tất cả guard trước giao dịch.
+
+**Kết quả mới nhất:** **120 pass + 4 live opt-in skip / 124 browser cases**,
+**8/8 gateway/UI contract pass**, build qua. Axe zero violations trong các
+màn/tag WCAG 2/2.1 A/AA đã kiểm tra; keyboard + responsive qua. Baseline
+279 file và call/payload expressions giữ nguyên. Build thật 8503 và các
+read endpoint qua; không submit auth/business request hay đổi DB khi live.
+Sau chỉnh nhãn navigation cuối, nhóm layout regression chạy lại 4/4 qua.
+
+CSS mới: `src/product-theme.css` là entry, import `src/ui/tokens.css`,
+`foundation.css`, `workspaces.css`, `pages.css` **sau** CSS layout cũ và
+landing. Bổ sung/style mới tại đúng nhóm này; tránh thêm override rời rạc.
+`src/ui/motion.css` là lớp interaction cuối; `useUiMotion` chỉ quan sát viewport
+trang giới thiệu, không fetch hoặc sửa nội dung.
+`TabList`/`UiStates` chỉ trình bày. `@axe-core/playwright` ở devDependencies,
+không dùng trong ứng dụng.
+
+Các mục tiếp theo là lịch sử các đợt trước, số liệu cũ không phải lượt mới.
+
 ## Trang giới thiệu, Cẩm nang và bộ chọn AhaMove — bản mới nhất 07/10/2026
 
-- **`/`** là trang giới thiệu công khai, tone xanh rừng/kem, giữ logo robot AI.
-  Nút **Bắt đầu cùng SIU** mở **`/ai`**; dùng session/đăng nhập hiện có.
+- **`/`** là trang giới thiệu công khai, tone xanh rừng/kem, không có logo robot.
+  Nút **Bắt đầu cùng ReloHome** mở **`/ai`**; dùng session/đăng nhập hiện có.
   Chat, hội thoại đã lưu, account và các route cũ vẫn mở trực tiếp được.
 - Nội dung dựa trên chức năng đang có: tìm nhà, tiện ích/đường đi, chuyển đồ
   AhaMove và chuyến bay; có phần cách sử dụng và CTA vào chatbot. Header có
   sáng/tối, VI/EN và menu gọn trên điện thoại.
-- **Ghép trọ** và **Cẩm nang** được giới thiệu ở trạng thái **đang chuẩn bị /
-  sắp ra mắt**. Ba nhóm chủ đề: chọn khu vực, chuẩn bị chuyển nhà, sống chung.
-  Đây là giới thiệu định hướng; chưa có tìm người ở ghép hay kho bài viết.
-- Ảnh nhà mới có **hồ cá koi**, lưu local tại
-  `public/images/siu-home-hero.png`. Là minh họa, không phải tin nhà.
+- **Ở ghép** có luồng tìm hồ sơ, tương thích và yêu cầu liên hệ theo consent;
+  runtime mặc định tắt cho đến khi hoàn tất các điều kiện phát hành.
+  **Cẩm nang** có trang nội dung biên tập tại `/guides`.
+- Ảnh bìa nhà có **hồ cá koi**, lưu local tại
+  `public/images/relohome-hero-home.png`. `siu-home-hero.png` vẫn được CSS
+  dùng tại các vùng nhỏ hơn. Đây là ảnh minh họa, không phải tin nhà.
   [Prompt và cách tạo ảnh](public/images/README.md) bằng imagegen built-in.
 - Moving dùng **loại xe → chọn trực tiếp thẻ gói**. Đã bỏ bộ lọc tải trọng
   và dropdown gói trùng bước theo yêu cầu. Thẻ ghi tên/cỡ xe, mô tả giới hạn
@@ -35,7 +95,7 @@ Cập nhật **07/10/2026**. React + TypeScript + Vite trong thư mục `Fronten
   Bán tải/ba gác chỉ hiện khi catalog tại điểm A có. Không sửa catalog server,
   xóa dữ liệu hay thêm giá/gói giả. Gói đã chọn trước đây vẫn giữ theo ID để
   không âm thầm đổi lựa chọn khi mở lại form.
-- **Để SIU gợi ý**: chưa chốt service_id; sau khi bấm lấy báo giá, SIU so
+- **Để ReloHome gợi ý**: chưa chốt service_id; sau khi bấm lấy báo giá, ReloHome so
   sánh một số gói chuyển đồ tại điểm A để người dùng chọn. Không tự đặt xe,
   không hứa chọn rẻ nhất hay kiểm tra đầy đủ kích thước chỉ bằng loại xe.
 - `service_id`, addon, COD và payload typed quote giữ hợp đồng PR #53.
@@ -71,7 +131,7 @@ Các số liệu ở mục bên dưới là kết quả của từng đợt trư
 
 ## Giao diện sản phẩm, sáng/tối và Việt/Anh — 07/10/2026
 
-### Trang đầu và logo AI — cập nhật cùng ngày
+### Trang đầu và logo AI — lịch sử 07/10/2026
 
 Đã thu gọn riêng trang chào: giảm khoảng cách, card dịch vụ chuyển thành
 icon cạnh nội dung, hai câu “Thử bắt đầu với” nằm cạnh nhau trên desktop
@@ -79,9 +139,8 @@ và xếp dọc trên mobile. Laptop thấp dùng tiêu đề một hàng; đi�
 giữ tên/icon dịch vụ, thu gọn phần mô tả để gợi ý và ô nhập hiện ngay.
 Không tắt cuộn của các hội thoại hay cắt nội dung khi viewport quá nhỏ.
 
-Giữ **robot AI** theo yêu cầu, đổi palette sang xanh/mint; header dùng
-khuôn mặt gọn, favicon cùng tone. Ảnh/gradient của robot có token riêng
-cho sáng/tối. Tên SIU AI và các luồng dịch vụ không đổi.
+Đợt 07/10 từng dùng robot AI xanh/mint. Ngày 08/10 biểu tượng này được gỡ
+khỏi giao diện và favicon theo yêu cầu mới; các luồng dịch vụ giữ nguyên.
 
 **6/6 ca có mục tiêu qua**: welcome mới, login/welcome hiện có và appearance
 trên desktop/mobile. Ca layout kiểm tra đủ 4 dịch vụ, 2 gợi ý, thông báo,
@@ -102,7 +161,7 @@ Chi tiết phạm vi, bằng chứng và xác nhận không đổi nghiệp vụ
 [báo cáo runtime](RUNTIME_CHECK_2026-10-07.md).
 
 - Bảng màu xanh rừng, nền trắng ngà/xám xanh, đường viền nhẹ; giảm gradient,
-  bóng và trang trí. Giữ tên SIU AI và robot màu xanh/mint theo yêu cầu mới.
+  bóng và trang trí. Giữ tên ReloHome; biểu tượng robot đã bỏ ngày 08/10.
   Header, chat, nhà ở/map, Moving, Flight, kế hoạch và account giữ bố cục
   chức năng hiện có, cải thiện màu/chữ/khung trên desktop và mobile.
 - Nút **VI / EN** và **mặt trăng/mặt trời** ở header và trang đăng nhập.
@@ -175,7 +234,7 @@ kết quả mới nhất hay xác nhận end-to-end provider thật.
 - Đã bỏ trang Kế hoạch riêng và tab **Các kế hoạch**. Hội thoại cũ được mở lại từ **Lịch sử** hoặc **Tài khoản → Lịch sử yêu cầu**.
 - **Nút tài khoản** ở header: avatar, tên, khung chữ nhật bo góc cùng kiểu nút Lịch sử; không có icon hình người phía sau.
 - **Tiện ích trên map tự hiển thị khi zoom đủ gần** (zoom ≥ 14), không cần tick công tắc.
-- **Chat trong workspace mặc định thu gọn** thành nút “Chat với SIU”. Bấm để mở thanh nhập nhỏ, bấm mũi tên xuống để ẩn lại; giữ nội dung đang gõ. Đã bỏ khối tóm tắt phản hồi và nút “Xem đầy đủ”; hội thoại đầy đủ vẫn xem tại chat chính. Câu hỏi cần chọn và lỗi gửi vẫn có phần hiển thị ngắn khi mở thanh chat.
+- **Chat trong workspace mặc định thu gọn** thành nút “Chat với ReloHome”. Bấm để mở thanh nhập nhỏ, bấm mũi tên xuống để ẩn lại; giữ nội dung đang gõ. Đã bỏ khối tóm tắt phản hồi và nút “Xem đầy đủ”; hội thoại đầy đủ vẫn xem tại chat chính. Câu hỏi cần chọn và lỗi gửi vẫn có phần hiển thị ngắn khi mở thanh chat.
 - **Moving có form dịch vụ đầy đủ hơn**: hai ô A/B tự tìm/ghim map, ngày giờ, kiện hàng, gói xe và dịch vụ thêm theo danh mục AhaMove, khai giá/COD, ghi chú, mã khuyến mãi và yêu cầu giao nhận. Form/báo giá thu gọn được trên mobile.
 - **Map có thể kéo và thu nhỏ xem toàn Việt Nam**; phạm vi hiển thị tách khỏi vùng dữ liệu OSRM hiện có ở TP.HCM, Hà Nội, Đà Nẵng.
 - Đợt bổ sung Moving nối thêm trường qua gateway → Agent → báo giá/báo giá lại theo cho phép của người dùng. Giữ luồng chọn phương án → phê duyệt riêng → transaction, CASH và các write flags hiện có; không đổi `.env`, data, migration hoặc service TypeScript.
@@ -281,9 +340,9 @@ trong đợt này. Xem [báo cáo mới](../docs/integration/vietnam-map-moving-
 
 1. Đăng nhập, bắt đầu tại `/ai`; nhập yêu cầu hoặc chọn một trong bốn nhóm: Tìm nhà, Tìm chuyến bay, Chuyển đồ, Đường đi.
 2. Agent hỏi bổ sung hoặc trả kết quả. Form tìm kiếm vẫn gửi yêu cầu tới graph, cần LLM để xử lý đầy đủ.
-3. Kết quả nhà, chuyến bay hoặc báo giá chuyển đồ mở workspace tương ứng. Nhấn **Chat với SIU** để mở thanh chat nhỏ; mũi tên xuống thu gọn lại.
+3. Kết quả nhà, chuyến bay hoặc báo giá chuyển đồ mở workspace tương ứng. Nhấn **Chat với ReloHome** để mở thanh chat nhỏ; mũi tên xuống thu gọn lại.
 4. Chọn phương án để trở lại chat và tiếp tục các dịch vụ khác.
-5. Nút **Lịch sử** trên header tìm theo tiêu đề, mở lại hội thoại; có tạo mới, xóa từng hội thoại và xóa tất cả/làm mới SIU.
+5. Nút **Lịch sử** trên header tìm theo tiêu đề, mở lại hội thoại; có tạo mới, xóa từng hội thoại và xóa tất cả/làm mới ReloHome.
 
 Lịch sử lưu ở máy chủ. Xóa hội thoại không đồng nghĩa hủy đơn đã đặt. Luồng xóa tất cả giữ hội thoại đang chờ thanh toán khi backend yêu cầu; hồ sơ, sở thích và nhà đã lưu được giữ.
 
@@ -398,7 +457,7 @@ Xem [runbook POI](../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
 
 ### Map Việt Nam và hai ô A/B Moving — 04/10/2026
 
-Map SIU đã mở rộng từ ba khung thành phố sang khung Việt Nam: `[101, 7]` →
+Map ReloHome đã mở rộng từ ba khung thành phố sang khung Việt Nam: `[101, 7]` →
 `[118, 24.5]`. Có thể kéo/thu nhỏ giữa các vùng, fit đồng thời các điểm khác thành
 phố, chọn điểm ngoài ba vùng OSRM; không thêm nút đổi thành phố. Đây là khung
 camera chữ nhật, không phải polygon biên giới; có thể thấy một phần các nước
@@ -436,10 +495,10 @@ Hướng dẫn, danh sách tình huống và cách đọc kết quả: [tests/RE
 # Từ Frontend/
 npm run build
 npm run test:e2e -- --workers=1
-
+```
 # Từ gốc repo — gateway, hợp đồng UI và graph/action
 .venv/Scripts/python.exe -m pytest Frontend/tests -q
-```
+
 
 Playwright dùng Chrome đã cài, tự chạy Vite ở 5174; dừng dev server đang chiếm cổng này trước khi test. Fixture API chỉ có trong test. Các test Python dùng mock/graph, không thay thế kiểm tra provider thật.
 

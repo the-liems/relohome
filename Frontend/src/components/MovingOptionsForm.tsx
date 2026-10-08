@@ -45,11 +45,13 @@ export function MovingOptionsForm({
   onChange,
   pickup,
   onValidationChange,
+  onRequestPickup,
 }: {
   value: Data;
   onChange: (value: Data) => void;
   pickup?: Data | null;
   onValidationChange: (issue: string) => void;
+  onRequestPickup?: () => void;
 }) {
   const [services, setServices] = useState<Data[]>([]),
     [loading, setLoading] = useState(false),
@@ -129,7 +131,7 @@ export function MovingOptionsForm({
     let issue = "";
     if (family && !value.service_id)
       issue =
-        "Hãy chọn gói dịch vụ cụ thể hoặc để SIU gợi ý trước khi lấy báo giá.";
+        "Hãy chọn gói dịch vụ cụ thể hoặc để ReloHome gợi ý trước khi lấy báo giá.";
     if (value.service_id) {
       if (!pickup) issue = "Hãy ghim lại điểm A để kiểm tra gói xe đã chọn.";
       else if (loading) issue = "Danh mục gói xe đang tải, hãy chờ một chút.";
@@ -209,7 +211,7 @@ export function MovingOptionsForm({
   }
   return (
     <>
-      <section className="mv-form-section">
+      <section className="mv-form-section" data-moving-section="cargo">
         <div className="mv-section-title">
           <Package size={18} />
           <div>
@@ -319,7 +321,7 @@ export function MovingOptionsForm({
           </label>
         </div>
       </section>
-      <section className="mv-form-section">
+      <section className="mv-form-section" data-moving-section="vehicle">
         <div className="mv-section-title">
           <Truck size={18} />
           <div>
@@ -328,11 +330,23 @@ export function MovingOptionsForm({
           </div>
         </div>
         {!pickup && (
-          <p className="mv-inline-note">
-            {uiText(
-              "Ghim điểm A trên map để xem các gói xe và tùy chọn tại khu vực của bạn.",
+          <div className="mv-catalog-pending" role="status">
+            <strong>{uiText("Chọn điểm lấy để hiển thị gói xe")}</strong>
+            <p>
+              {uiText(
+                "Ghim điểm A trên map để xem các gói xe và tùy chọn tại khu vực của bạn.",
+              )}
+            </p>
+            {onRequestPickup && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={onRequestPickup}
+              >
+                {uiText("Chọn điểm lấy đồ A")}
+              </button>
             )}
-          </p>
+          </div>
         )}
         {loading && (
           <p className="muted" role="status">
@@ -387,7 +401,7 @@ export function MovingOptionsForm({
             }}
           >
             <Sparkles size={19} />
-            <strong>{uiText("Để SIU gợi ý")}</strong>
+            <strong>{uiText("Để ReloHome gợi ý")}</strong>
           </button>
           {vehicleFamilies
             .filter((f) => services.some((s) => vehicleFamily(s) === f.id))
@@ -427,7 +441,7 @@ export function MovingOptionsForm({
         {!activeFamily && !value.service_id && (
           <p className="mv-inline-note">
             {uiText(
-              "Sau khi bấm lấy báo giá, SIU so sánh các gói chuyển đồ tại điểm A để bạn chọn. Chưa đặt xe. Bạn cũng có thể tự chọn loại xe bên trên.",
+              "Sau khi bấm lấy báo giá, ReloHome so sánh các gói chuyển đồ tại điểm A để bạn chọn. Chưa đặt xe. Bạn cũng có thể tự chọn loại xe bên trên.",
             )}
           </p>
         )}
@@ -655,7 +669,7 @@ export function MovingOptionsForm({
           </small>
         )}
       </section>
-      <section className="mv-form-section">
+      <section className="mv-form-section" data-moving-section="delivery">
         <div className="mv-section-title">
           <ShieldCheck size={18} />
           <div>

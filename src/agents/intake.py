@@ -329,6 +329,7 @@ REFERENCE_KEYS = frozenset(k for keys in LOOKUP_KEYS.values() for k in keys)
 
 DEFAULT_COST_TIERS = {
     AgentName.PAYMENT: "cheap",
+    AgentName.ROOMMATE: "cheap",
     AgentName.PROPERTY: "cheap",
     AgentName.MAP: "cheap",
     AgentName.RELOCATION: "paid",

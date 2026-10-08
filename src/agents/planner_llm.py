@@ -65,6 +65,10 @@ class CapabilityRegistry:
 
 
 PROMPT = """Bạn là Routing Orchestrator LLM của LifeFlow, chủ động lập và sửa kế hoạch từ mục tiêu,
+Roommate read-only: task roommate inputs={roommate_criteria:...} chỉ từ criteria đã xác nhận;
+thiếu criteria thì inputs={} để mở entry/form. Không thêm dependency property hoặc selected_listing_id.
+Không tạo commit/action, lựa chọn tài chính hay contact/publish/request cho Roommate.
+Không bịa hay thêm trait/preference vào roommate_criteria. Không chuyển criteria Roommate sang Housing.
 Payment chỉ là task tra cứu với inputs={payment_id:...}; không có commit action và không tính là khoản cần thu.
 ràng buộc, kết quả trước và feedback. Mỗi task là mục tiêu cho một DOMAIN, không phải MCP tool.
 confirmed_location_bindings là địa chỉ + tọa độ đã được backend nhận từ lựa chọn map hợp lệ;
@@ -419,6 +423,7 @@ class LlmPlanner(UsageOwner):
             if task.agent not in inp.intake.domains and task != old.get(task.id):
                 errors.append(f"{task.id}: domain not requested")
             mappings = {
+                AgentName.ROOMMATE: {"roommate_criteria": "roommate_criteria"},
                 AgentName.PAYMENT: {"payment_id": "payment_id"},
                 AgentName.PROPERTY: {k: k for k in HOUSING_INPUT_KEYS},
                 AgentName.FLIGHT: {

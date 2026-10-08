@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useId,
   type ReactNode,
 } from "react";
 import {
@@ -45,6 +46,8 @@ import {
   Clock,
   ArrowDown,
   Trash2,
+  UsersRound,
+  BookOpen,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import { mergePlaceCandidates } from "./placeCandidates";
@@ -56,7 +59,6 @@ import type {
   Thread,
   User,
 } from "./types";
-import { Robot } from "./components/Robot";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
 import { HousingCard, HousingDetail } from "./components/Housing";
 import { Approval, TaskForm } from "./components/Forms";
@@ -75,6 +77,11 @@ import { PlanPeek } from "./components/PlanPeek";
 import { RequestHistory } from "./components/RequestHistory";
 import { LandingPage } from "./components/LandingPage";
 import { AppearanceControls, useUiPreferences } from "./uiPreferences";
+import { ContentSkeleton, EmptyState } from "./components/UiStates";
+import { TabList } from "./components/TabList";
+import { RoommateGuest, RoommateWorkspace } from "./roommate/Workspace";
+import { rt as roommateText } from "./roommate/text";
+import { GuidesPage } from "./guides/GuidesPage";
 
 interface AppContext {
   user: User;
@@ -202,19 +209,23 @@ export default function App() {
       kept.length
         ? `Đã xóa ${result.deleted} cuộc trò chuyện. Giữ lại ${kept.length}: ${kept[0].detail}`
         : result.memory_forgotten
-          ? "Đã xóa toàn bộ trò chuyện và làm mới những gì SIU ghi nhớ."
-          : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của SIU, hãy thử lại sau.",
+          ? "Đã xóa toàn bộ trò chuyện và làm mới những gì ReloHome ghi nhớ."
+          : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của ReloHome, hãy thử lại sau.",
     );
   }
   if (location.pathname === "/")
     return <LandingPage signedIn={Boolean(user)} />;
+  if (location.pathname === "/guides" && !user)
+    return <GuidesPage standalone />;
   if (loading)
     return (
       <div className="boot">
-        <Robot />
-        <p>{uiText("Đang mở không gian của bạn…")}</p>
+        <span className="boot-progress" aria-hidden="true" />
+        <p role="status">{uiText("Đang mở không gian của bạn…")}</p>
       </div>
     );
+  if (!user && location.pathname.startsWith("/roommate") && new URLSearchParams(location.search).get("signin") !== "1")
+    return <RoommateGuest />;
   if (!user)
     return (
       <Login
@@ -244,6 +255,8 @@ export default function App() {
         <Routes>
           <WebRoute path="/ai" element={<Chat />} />
           <WebRoute path="/ai/:threadId" element={<Chat />} />
+          <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
+          <WebRoute path="/guides" element={<GuidesPage />} />
           <WebRoute
             path="/plans"
             element={<Navigate to="/account" replace />}
@@ -269,6 +282,7 @@ export default function App() {
             path="*"
             element={
               <Empty
+                headingLevel={1}
                 icon={<Compass />}
                 title={uiText("Không tìm thấy trang")}
                 text={uiText(
@@ -326,32 +340,17 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
     <main className="login-page">
       <AppearanceControls className="login-appearance" />
       <section className="login-story">
-        <Link className="brand" to="/ai">
-          <span className="brand-symbol">
-            <Sparkles size={22} />
-          </span>
-          SIU AI
+        <Link className="brand" to="/" aria-label={uiText("Trang giới thiệu")}>
+          ReloHome
           <span className="brand-dot" />
         </Link>
-        <div className="login-visual">
-          <span className="orbit orbit-one">
-            <House size={26} />
-          </span>
-          <span className="orbit orbit-two">
-            <Plane size={26} />
-          </span>
-          <Robot />
-          <span className="orbit orbit-three">
-            <MapPin size={25} />
-          </span>
-        </div>
         <span className="eyebrow">
           {uiText("MỘT KHỞI ĐẦU MỚI, DỄ DÀNG HƠN")}
         </span>
         <h1>
           {uiText("Cuộc sống có nhiều việc.")}
           <br />
-          <em>{uiText("Cùng SIU, từng bước một.")}</em>
+          <em>{uiText("Cùng ReloHome, từng bước một.")}</em>
         </h1>
         <p>
           {uiText(
@@ -373,7 +372,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           </span>
           <h2>
             {register
-              ? uiText("Bắt đầu cùng SIU AI")
+              ? uiText("Bắt đầu cùng ReloHome")
               : uiText("Chào bạn quay lại")}
           </h2>
           <p>
@@ -390,7 +389,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
                 <input
                   name="name"
                   autoComplete="name"
-                  placeholder={uiText("Bạn muốn SIU gọi là gì?")}
+                  placeholder={uiText("Bạn muốn ReloHome gọi là gì?")}
                   required
                   maxLength={80}
                 />
@@ -435,7 +434,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           <p className="auth-switch">
             {register
               ? uiText("Đã có tài khoản?")
-              : uiText("Lần đầu đến với SIU?")}{" "}
+              : uiText("Lần đầu đến với ReloHome?")}{" "}
             <button
               className="text-button"
               onClick={() => {
@@ -465,34 +464,34 @@ function Shell({ children }: { children: ReactNode }) {
   const active = threads.find((t) => location.pathname === "/ai/" + t.id);
   return (
     <div className="app-shell chat-only-shell">
+      <a href="#app-main" className="app-skip">
+        {uiText("Đến nội dung chính")}
+      </a>
       <div className="main-shell">
         <header className="chat-header">
           {isChat ? (
             <div className="chat-brand">
               <Link
-                className="robot-avatar"
+                className="chat-home-link"
                 to="/ai"
                 aria-label={uiText("Về chat")}
               >
-                <Robot compact />
+                RH
               </Link>
               <div>
-                <h2>
+                <p className="chat-title">
                   {active?.title ||
                     uiText("Một cuộc trò chuyện, nhiều điều được giải quyết")}
-                </h2>
+                </p>
                 <p>
-                  SIU AI <span>·</span>
+                  ReloHome <span>·</span>
                   {uiText(" Cùng bạn sắp xếp cuộc sống")}
                 </p>
               </div>
             </div>
           ) : (
             <Link className="brand" to="/ai">
-              <span className="brand-symbol">
-                <Sparkles size={22} />
-              </span>
-              SIU AI
+              ReloHome
               <span className="brand-dot" />
             </Link>
           )}
@@ -539,9 +538,13 @@ function Shell({ children }: { children: ReactNode }) {
                 </Link>
               </>
             ) : (
-              <Link className="secondary" to="/ai">
+              <Link
+                className="secondary"
+                to="/ai"
+                aria-label={uiText("Về chat")}
+              >
                 <MessageCircle size={16} />
-                {uiText("Về chat")}
+                <span>{uiText("Về chat")}</span>
               </Link>
             )}
             <Link
@@ -560,7 +563,11 @@ function Shell({ children }: { children: ReactNode }) {
             </Link>
           </div>
         </header>
-        <main className={isChat ? "page-main chat-main" : "page-main"}>
+        <main
+          id="app-main"
+          tabIndex={-1}
+          className={isChat ? "page-main chat-main" : "page-main"}
+        >
           {children}
         </main>
       </div>
@@ -593,7 +600,7 @@ function DeleteThreadDialog({
       <p>
         <strong>{thread.title}</strong>
         {uiText(
-          " và những gì SIU ghi nhớ từ cuộc trò chuyện này sẽ bị xóa, không khôi phục được.",
+          " và những gì ReloHome ghi nhớ từ cuộc trò chuyện này sẽ bị xóa, không khôi phục được.",
         )}
       </p>
       <p className="muted small">
@@ -609,14 +616,14 @@ function ResetThreadsDialog({ onClose }: { onClose: () => void }) {
   const { resetThreads } = useApp();
   return (
     <ConfirmDialog
-      title={uiText("Xóa tất cả và làm mới SIU?")}
+      title={uiText("Xóa tất cả và làm mới ReloHome?")}
       action={uiText("Xóa tất cả")}
       onConfirm={resetThreads}
       onClose={onClose}
     >
       <p>
         {uiText(
-          "Mọi cuộc trò chuyện sẽ bị xóa và SIU quên các sở thích đã ghi nhớ từ trò chuyện. Bạn bắt đầu lại từ đầu.",
+          "Mọi cuộc trò chuyện sẽ bị xóa và ReloHome quên các sở thích đã ghi nhớ từ trò chuyện. Bạn bắt đầu lại từ đầu.",
         )}
       </p>
       <p className="muted small">
@@ -644,6 +651,7 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
       <div className="search-row">
         <Search size={17} />
         <input
+          aria-label={uiText("Tìm theo tiêu đề…")}
           placeholder={uiText("Tìm theo tiêu đề…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -681,13 +689,25 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
             </div>
           ))}
       </div>
+      {threads.length > 0 &&
+        !threads.some((t) =>
+          t.title
+            .toLocaleLowerCase("vi")
+            .includes(query.toLocaleLowerCase("vi")),
+        ) && (
+          <EmptyState
+            icon={<Search size={24} />}
+            title={uiText("Không có yêu cầu phù hợp")}
+            text={uiText("Thử đổi từ khóa hoặc trạng thái lọc.")}
+          />
+        )}
       {threads.length ? (
         <button
           className="text-button danger"
           onClick={() => setResetting(true)}
         >
           <Trash2 size={14} />
-          {uiText(" Xóa tất cả và làm mới SIU")}
+          {uiText(" Xóa tất cả và làm mới ReloHome")}
         </button>
       ) : (
         <p className="muted">
@@ -840,8 +860,8 @@ function Chat() {
             .reverse()
             .find((m) => m.role === "assistant");
           const hasQuotes =
-            reply?.content.response?.kind === "ANSWER" &&
-            (reply.content.ui?.components || []).some(
+            ["ANSWER", "PARTIAL"].includes(reply?.content.response?.kind || "") &&
+            (reply?.content.ui?.components || []).some(
               (c: Component) =>
                 c.type === "relocation" &&
                 c.data?.quotes?.length &&
@@ -1100,6 +1120,9 @@ function Chat() {
   }
   return (
     <div className={"chat-page" + (workspace ? " map-mode" : "")}>
+      {thread?.messages?.length ? (
+        <h1 className="sr-only">{thread.title}</h1>
+      ) : null}
       <PlanPeek
         key={threadId || "new"}
         progress={thread?.state?.progress}
@@ -1191,10 +1214,7 @@ function Chat() {
             }}
           >
             {loading && (
-              <div className="loading-history">
-                <span className="spinner" />
-                <span>{uiText("Đang tải hội thoại…")}</span>
-              </div>
+              <ContentSkeleton label={uiText("Đang tải hội thoại…")} rows={2} />
             )}
             {!loading && !thread?.messages?.length && (
               <section className="welcome">
@@ -1218,12 +1238,13 @@ function Chat() {
                     "Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.",
                   )}
                   <br className="desktop-only" />
-                  {uiText(" Kể SIU nghe, mình sẽ cùng bạn bắt đầu.")}
+                  {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
-                <div className="quick-grid">
+                <div className="quick-grid" role="group" aria-label={roommateText("Chức năng ReloHome", "ReloHome services")}>
                   {quick.map((q) => (
                     <button
                       className="quick-card"
+                      aria-label={`${uiText(q.title)} ${uiText(q.subtitle)}`}
                       key={q.kind}
                       onClick={() =>
                         q.kind === "relocation"
@@ -1245,6 +1266,18 @@ function Chat() {
                       <ArrowUpRight size={17} className="quick-arrow" />
                     </button>
                   ))}
+                  <Link className="quick-card" to="/roommate" aria-label={roommateText("Ở ghép", "Roommates")}>
+                    <span className="service-icon mint"><UsersRound size={24} aria-hidden="true" /></span>
+                    <strong>{roommateText("Ở ghép", "Roommates")}</strong>
+                    <span>{roommateText("Tìm người cùng chia sẻ chỗ ở", "Find someone to share a home")}</span>
+                    <ArrowUpRight size={17} className="quick-arrow" aria-hidden="true" />
+                  </Link>
+                  <Link className="quick-card" to="/guides" aria-label={roommateText("Cẩm nang", "Guides")}>
+                    <span className="service-icon mint"><BookOpen size={24} aria-hidden="true" /></span>
+                    <strong>{roommateText("Cẩm nang", "Guides")}</strong>
+                    <span>{roommateText("Kinh nghiệm thuê nhà và sống chung", "Tips for renting and living together")}</span>
+                    <ArrowUpRight size={17} className="quick-arrow" aria-hidden="true" />
+                  </Link>
                 </div>
                 <div className="starter">
                   <span className="muted small">
@@ -1297,11 +1330,6 @@ function Chat() {
                 key={m.id}
                 id={"message-" + m.id}
               >
-                {m.role === "assistant" && (
-                  <span className="message-avatar">
-                    <Robot />
-                  </span>
-                )}
                 <div className="message-content">
                   {m.role === "user" ? (
                     <div className="user-bubble">{m.content.text}</div>
@@ -1317,7 +1345,7 @@ function Chat() {
                           }
                         >
                           <div className="assistant-label">
-                            SIU AI <Sparkles size={12} />
+                            ReloHome <Sparkles size={12} />
                           </div>
                           <p className="prose">{m.content.response.text}</p>
                           {m.content.response.kind === "PARTIAL" && (
@@ -1444,15 +1472,12 @@ function Chat() {
             )}
             {busy && (
               <div className="thinking" role="status">
-                <span className="message-avatar">
-                  <Robot />
-                </span>
                 <span>
                   <i />
                   <i />
                   <i />
                 </span>
-                <small>{uiText("SIU đang xử lý yêu cầu của bạn…")}</small>
+                <small>{uiText("ReloHome đang xử lý yêu cầu của bạn…")}</small>
               </div>
             )}
             {error && (
@@ -1572,9 +1597,9 @@ function Chat() {
                 onChange={(e) => setDraft(e.target.value)}
                 rows={1}
                 placeholder={uiText(
-                  "Nhắn cho SIU AI… cùng bắt đầu một điều mới",
+                  "Nhắn cho ReloHome… cùng bắt đầu một điều mới",
                 )}
-                aria-label={uiText("Tin nhắn cho SIU AI")}
+                aria-label={uiText("Tin nhắn cho ReloHome")}
                 maxLength={5000}
                 onKeyDown={(e) => {
                   if (
@@ -1598,7 +1623,7 @@ function Chat() {
             <div className="composer-caption">
               <span>
                 {uiText(
-                  "SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.",
+                  "ReloHome có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.",
                 )}
               </span>
               <span className="desktop-only">
@@ -1664,6 +1689,7 @@ function LegacyPlanRedirect() {
 }
 
 function Account({ onLogout }: { onLogout: () => void }) {
+  const accountId = useId();
   const { user, setUser, saved, threads, save, notify } = useApp();
   const [resetting, setResetting] = useState(false),
     [openSaved, setOpenSaved] = useState<Saved | null>(null);
@@ -1714,7 +1740,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
           <div>
             <span className="eyebrow">
               <UserRound size={13} />
-              {uiText(" TÀI KHOẢN SIU AI")}
+              {uiText(" TÀI KHOẢN ReloHome")}
             </span>
             <h1>{uiText("Tài khoản của tôi")}</h1>
             <p>
@@ -1739,6 +1765,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             {uiText("Đăng xuất")}
           </button>
         </div>
+        <p><Link className="text-button" to="/roommate">{roommateText("Tìm người ở cùng", "Find a roommate")} <ArrowRight size={16} aria-hidden="true" /></Link></p>
         <div className="profile-banner">
           <span className="avatar avatar-large">
             {user.name.slice(0, 1).toUpperCase()}
@@ -1769,8 +1796,15 @@ function Account({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
       </section>
-      <div className="tabs account-tabs">
+      <TabList
+        className="tabs account-tabs"
+        label={uiText("Nội dung tài khoản")}
+      >
         <button
+          role="tab"
+          id={accountId + "history"}
+          aria-selected={tab === "history"}
+          aria-controls={accountId + "panel"}
           className={tab === "history" ? "active" : ""}
           onClick={() => changeTab("history")}
         >
@@ -1778,6 +1812,10 @@ function Account({ onLogout }: { onLogout: () => void }) {
           {uiText(" Lịch sử yêu cầu")}
         </button>
         <button
+          role="tab"
+          id={accountId + "security"}
+          aria-selected={tab === "security"}
+          aria-controls={accountId + "panel"}
           className={tab === "security" ? "active" : ""}
           onClick={() => changeTab("security")}
         >
@@ -1785,6 +1823,10 @@ function Account({ onLogout }: { onLogout: () => void }) {
           {uiText(" Đăng nhập & bảo mật")}
         </button>
         <button
+          role="tab"
+          id={accountId + "profile"}
+          aria-selected={tab === "profile"}
+          aria-controls={accountId + "panel"}
           className={tab === "profile" ? "active" : ""}
           onClick={() => changeTab("profile")}
         >
@@ -1792,6 +1834,10 @@ function Account({ onLogout }: { onLogout: () => void }) {
           {uiText(" Hồ sơ")}
         </button>
         <button
+          role="tab"
+          id={accountId + "preferences"}
+          aria-selected={tab === "preferences"}
+          aria-controls={accountId + "panel"}
           className={tab === "preferences" ? "active" : ""}
           onClick={() => changeTab("preferences")}
         >
@@ -1799,216 +1845,227 @@ function Account({ onLogout }: { onLogout: () => void }) {
           {uiText(" Sở thích AI")}
         </button>
         <button
+          role="tab"
+          id={accountId + "saved"}
+          aria-selected={tab === "saved"}
+          aria-controls={accountId + "panel"}
           className={tab === "saved" ? "active" : ""}
           onClick={() => changeTab("saved")}
         >
           <Heart size={17} />
           {uiText(" Đã lưu")} <span className="count">{saved.length}</span>
         </button>
-      </div>
-      {tab === "history" ? (
-        <RequestHistory threads={threads} />
-      ) : tab === "security" ? (
-        <section className="surface account-security">
-          <ShieldCheck size={26} />
-          <h3>{uiText(" Đăng nhập & bảo mật")}</h3>
-          <label>
-            {uiText("Email đăng nhập")}
-            <input value={user.email} disabled />
-          </label>
-          <p className="muted">
-            {uiText(
-              "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
-            )}
-          </p>
-          <p className="muted">
-            {uiText(
-              "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
-            )}
-          </p>
-          <p className="muted small">
-            {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
-          </p>
-        </section>
-      ) : tab !== "saved" ? (
-        <div className="account-grid">
-          <section className="surface">
-            <h3>
-              {tab === "profile"
-                ? uiText("Thông tin cá nhân")
-                : uiText("Những điều bạn ưu tiên")}
-            </h3>
-            <form
-              key={tab + user.name + JSON.stringify(user.preferences)}
-              onSubmit={submit}
-              onChange={() => setDirty(true)}
-            >
-              {tab === "profile" ? (
-                <>
-                  <label>
-                    {uiText("Tên hiển thị")}
-                    <input
-                      name="name"
-                      required
-                      defaultValue={user.name}
-                      maxLength={80}
-                    />
-                  </label>
-                  <label>
-                    {uiText("Email đăng nhập")}
-                    <input value={user.email} disabled />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <p className="muted">
-                    {uiText(
-                      "Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi nào áp dụng; yêu cầu mới trong chat được ưu tiên.",
-                    )}
-                  </p>
-                  <div className="form-grid">
-                    <label>
-                      {uiText("Thành phố")}
-                      <select
-                        name="city"
-                        defaultValue={user.preferences.city || ""}
-                      >
-                        <option value="">{uiText("Chưa chọn")}</option>
-                        <option value="Hà Nội">{uiText("Hà Nội ")}</option>
-                        <option value="Đà Nẵng">{uiText("Đà Nẵng")}</option>
-                        <option value="Thành phố Hồ Chí Minh">
-                          {uiText("Thành phố Hồ Chí Minh")}
-                        </option>
-                      </select>
-                    </label>
-                    <label>
-                      {uiText("Ngân sách thuê · VND/tháng")}
-                      <input
-                        name="budget"
-                        type="number"
-                        min="0"
-                        defaultValue={user.preferences.budget || ""}
-                        placeholder={uiText("Ví dụ: 5000000")}
-                      />
-                    </label>
-                    <label>
-                      {uiText("Loại nhà")}
-                      <input
-                        name="room_type"
-                        defaultValue={user.preferences.room_type || ""}
-                        placeholder={uiText("Căn hộ, phòng trọ…")}
-                      />
-                    </label>
-                    <label>
-                      {uiText("Phương tiện")}
-                      <select
-                        name="transport"
-                        defaultValue={user.preferences.transport || ""}
-                      >
-                        <option value="">{uiText("Chưa chọn")}</option>
-                        <option value="Đi bộ">{uiText("Đi bộ")}</option>
-                        <option value="Xe máy">{uiText("Xe máy")}</option>
-                        <option value="Ô tô">{uiText("Ô tô")}</option>
-                      </select>
-                    </label>
-                  </div>
-                  <label>
-                    {uiText("Tiện nghi quan tâm")}
-                    <input
-                      name="amenities"
-                      defaultValue={user.preferences.amenities || ""}
-                      placeholder={uiText("Ví dụ: có chỗ để xe")}
-                      maxLength={300}
-                    />
-                  </label>
-                </>
+      </TabList>
+      <section
+        id={accountId + "panel"}
+        role="tabpanel"
+        aria-labelledby={accountId + tab}
+        tabIndex={0}
+      >
+        {tab === "history" ? (
+          <RequestHistory threads={threads} />
+        ) : tab === "security" ? (
+          <section className="surface account-security">
+            <ShieldCheck size={26} />
+            <h3>{uiText(" Đăng nhập & bảo mật")}</h3>
+            <label>
+              {uiText("Email đăng nhập")}
+              <input value={user.email} disabled />
+            </label>
+            <p className="muted">
+              {uiText(
+                "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
               )}
-              {error && (
-                <p className="notice error" role="alert">
-                  {uiText(error)}
+            </p>
+            <p className="muted">
+              {uiText(
+                "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
+              )}
+            </p>
+            <p className="muted small">
+              {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
+            </p>
+          </section>
+        ) : tab !== "saved" ? (
+          <div className="account-grid">
+            <section className="surface">
+              <h3>
+                {tab === "profile"
+                  ? uiText("Thông tin cá nhân")
+                  : uiText("Những điều bạn ưu tiên")}
+              </h3>
+              <form
+                key={tab + user.name + JSON.stringify(user.preferences)}
+                onSubmit={submit}
+                onChange={() => setDirty(true)}
+              >
+                {tab === "profile" ? (
+                  <>
+                    <label>
+                      {uiText("Tên hiển thị")}
+                      <input
+                        name="name"
+                        required
+                        defaultValue={user.name}
+                        maxLength={80}
+                      />
+                    </label>
+                    <label>
+                      {uiText("Email đăng nhập")}
+                      <input value={user.email} disabled />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <p className="muted">
+                      {uiText(
+                        "Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi nào áp dụng; yêu cầu mới trong chat được ưu tiên.",
+                      )}
+                    </p>
+                    <div className="form-grid">
+                      <label>
+                        {uiText("Thành phố")}
+                        <select
+                          name="city"
+                          defaultValue={user.preferences.city || ""}
+                        >
+                          <option value="">{uiText("Chưa chọn")}</option>
+                          <option value="Hà Nội">{uiText("Hà Nội ")}</option>
+                          <option value="Đà Nẵng">{uiText("Đà Nẵng")}</option>
+                          <option value="Thành phố Hồ Chí Minh">
+                            {uiText("Thành phố Hồ Chí Minh")}
+                          </option>
+                        </select>
+                      </label>
+                      <label>
+                        {uiText("Ngân sách thuê · VND/tháng")}
+                        <input
+                          name="budget"
+                          type="number"
+                          min="0"
+                          defaultValue={user.preferences.budget || ""}
+                          placeholder={uiText("Ví dụ: 5000000")}
+                        />
+                      </label>
+                      <label>
+                        {uiText("Loại nhà")}
+                        <input
+                          name="room_type"
+                          defaultValue={user.preferences.room_type || ""}
+                          placeholder={uiText("Căn hộ, phòng trọ…")}
+                        />
+                      </label>
+                      <label>
+                        {uiText("Phương tiện")}
+                        <select
+                          name="transport"
+                          defaultValue={user.preferences.transport || ""}
+                        >
+                          <option value="">{uiText("Chưa chọn")}</option>
+                          <option value="Đi bộ">{uiText("Đi bộ")}</option>
+                          <option value="Xe máy">{uiText("Xe máy")}</option>
+                          <option value="Ô tô">{uiText("Ô tô")}</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label>
+                      {uiText("Tiện nghi quan tâm")}
+                      <input
+                        name="amenities"
+                        defaultValue={user.preferences.amenities || ""}
+                        placeholder={uiText("Ví dụ: có chỗ để xe")}
+                        maxLength={300}
+                      />
+                    </label>
+                  </>
+                )}
+                {error && (
+                  <p className="notice error" role="alert">
+                    {uiText(error)}
+                  </p>
+                )}
+                <div className="form-actions">
+                  <button
+                    type="reset"
+                    className="secondary"
+                    onClick={() => setDirty(false)}
+                  >
+                    {uiText("Hủy thay đổi")}
+                  </button>
+                  <button className="primary" disabled={busy || !dirty}>
+                    {uiText("Lưu thay đổi")}
+                  </button>
+                </div>
+              </form>
+            </section>
+            <section className="surface recent-activity">
+              <h3>{uiText("Hội thoại gần đây")}</h3>
+              {threads.slice(0, 5).map((t) => (
+                <Link key={t.id} to={"/ai/" + t.id}>
+                  <span className="service-icon blue">
+                    <MessageCircle size={17} />
+                  </span>
+                  <span>
+                    <strong>{t.title}</strong>
+                    <small>{dateTime(t.updated)}</small>
+                  </span>
+                  <ChevronRight size={15} />
+                </Link>
+              ))}
+              {!threads.length && (
+                <p className="muted">
+                  {uiText(
+                    "Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng ReloHome.",
+                  )}
                 </p>
               )}
-              <div className="form-actions">
+              {threads.length > 0 && (
                 <button
-                  type="reset"
-                  className="secondary"
-                  onClick={() => setDirty(false)}
+                  className="text-button danger"
+                  onClick={() => setResetting(true)}
                 >
-                  {uiText("Hủy thay đổi")}
+                  <Trash2 size={14} />
+                  {uiText(" Xóa tất cả trò chuyện và làm mới ReloHome")}
                 </button>
-                <button className="primary" disabled={busy || !dirty}>
-                  {uiText("Lưu thay đổi")}
-                </button>
-              </div>
-            </form>
-          </section>
-          <section className="surface recent-activity">
-            <h3>{uiText("Hội thoại gần đây")}</h3>
-            {threads.slice(0, 5).map((t) => (
-              <Link key={t.id} to={"/ai/" + t.id}>
-                <span className="service-icon blue">
-                  <MessageCircle size={17} />
-                </span>
-                <span>
-                  <strong>{t.title}</strong>
-                  <small>{dateTime(t.updated)}</small>
-                </span>
-                <ChevronRight size={15} />
-              </Link>
+              )}
+            </section>
+          </div>
+        ) : saved.length ? (
+          <div className="saved-grid">
+            {saved.map((s) => (
+              <HousingCard
+                key={s.id}
+                house={s.house}
+                saved
+                onSave={() => void save(s.house, s.thread_id)}
+                onOpen={() =>
+                  s.thread_id
+                    ? window.location.assign(
+                        "/ai/" +
+                          s.thread_id +
+                          "?panel=house&house=" +
+                          encodeURIComponent(s.id),
+                      )
+                    : setOpenSaved(s)
+                }
+              />
             ))}
-            {!threads.length && (
-              <p className="muted">
-                {uiText(
-                  "Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng SIU.",
-                )}
-              </p>
+          </div>
+        ) : (
+          <Empty
+            icon={<Heart />}
+            title={uiText("Giữ lại những nơi bạn thích")}
+            text={uiText(
+              "Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây.",
             )}
-            {threads.length > 0 && (
-              <button
-                className="text-button danger"
-                onClick={() => setResetting(true)}
-              >
-                <Trash2 size={14} />
-                {uiText(" Xóa tất cả trò chuyện và làm mới SIU")}
-              </button>
-            )}
-          </section>
-        </div>
-      ) : saved.length ? (
-        <div className="saved-grid">
-          {saved.map((s) => (
-            <HousingCard
-              key={s.id}
-              house={s.house}
-              saved
-              onSave={() => void save(s.house, s.thread_id)}
-              onOpen={() =>
-                s.thread_id
-                  ? window.location.assign(
-                      "/ai/" +
-                        s.thread_id +
-                        "?panel=house&house=" +
-                        encodeURIComponent(s.id),
-                    )
-                  : setOpenSaved(s)
-              }
-            />
-          ))}
-        </div>
-      ) : (
-        <Empty
-          icon={<Heart />}
-          title={uiText("Giữ lại những nơi bạn thích")}
-          text={uiText(
-            "Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây.",
-          )}
-        >
-          <Link className="secondary" to="/ai">
-            {uiText("Tìm nhà cùng SIU ")}
-            <ArrowRight size={15} />
-          </Link>
-        </Empty>
-      )}
+          >
+            <Link className="secondary" to="/ai">
+              {uiText("Tìm nhà cùng ReloHome ")}
+              <ArrowRight size={15} />
+            </Link>
+          </Empty>
+        )}
+      </section>
       {resetting && <ResetThreadsDialog onClose={() => setResetting(false)} />}
       {openSaved && (
         <HousingDetail
@@ -2030,16 +2087,19 @@ function Empty({
   title,
   text,
   children,
+  headingLevel = 2,
 }: {
   icon: ReactNode;
   title: string;
   text: string;
   children?: ReactNode;
+  headingLevel?: 1 | 2;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   return (
     <div className="empty-state">
       <span className="empty-icon">{icon}</span>
-      <h2>{title}</h2>
+      <Heading>{title}</Heading>
       <p>{text}</p>
       {children}
     </div>

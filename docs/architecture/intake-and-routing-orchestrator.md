@@ -8,8 +8,8 @@ Phần bên dưới giữ lại phân tích ban đầu; không dùng làm trạn
 
 ## Đọc đúng hai sơ đồ hiện có
 
-Hai hình [kiến trúc v4](agentic-multi-service-v4.png) và
-[workflow chi tiết](agentic-workflow-detailed.png) là bản gợi ý. Trong **bản
+Hai hình [kiến trúc v4](images/architecture-v4.png) và
+[workflow chi tiết](images/architecture-baseline.png) là bản gợi ý. Trong **bản
 gốc**, `Context & Session Resolver` lấy lịch sử/sở thích; `Lead Orchestrator /
 Planner` trích mục tiêu, chia task, dựng DAG và replan. `Executor / Dynamic
 Router` nhận plan đó, tìm task có dependency đã thỏa, chọn domain agent, xếp

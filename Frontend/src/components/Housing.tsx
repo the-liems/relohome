@@ -325,9 +325,11 @@ export function Comparison({
         <table>
           <thead>
             <tr>
-              <th>{uiText("Tiêu chí")}</th>
+              <th scope="col">{uiText("Tiêu chí")}</th>
               {houses.map((h) => (
-                <th key={h.id}>{h.title}</th>
+                <th scope="col" key={h.id}>
+                  {h.title}
+                </th>
               ))}
             </tr>
           </thead>
@@ -363,14 +365,16 @@ export function Comparison({
               ],
             ].map(([label, fn]) => (
               <tr key={String(label)}>
-                <th>{String(label)}</th>
+                <th scope="row">{uiText(String(label))}</th>
                 {houses.map((h) => (
                   <td key={h.id}>{(fn as (h: House) => string)(h)}</td>
                 ))}
               </tr>
             ))}
             <tr>
-              <th />
+              <th scope="row">
+                <span className="sr-only">{uiText("Thao tác")}</span>
+              </th>
               <>
                 {houses.map((h) => (
                   <td key={h.id}>

@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F7F9F8;color:#18251F;font-family:'Be Vietnam Pro',system-ui,sans-serif}
+a{color:#256348;text-decoration:underline}a:hover{color:#18251F}
+*{box-sizing:border-box}
+button,input,textarea{font-family:inherit}
+:focus-visible{outline:2px solid #256348;outline-offset:2px}
+@keyframes lm-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes lm-pulse{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes lm-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="height:100vh;display:flex;flex-direction:column;background:#F7F9F8;color:#18251F;font-family:'Be Vietnam Pro',system-ui,sans-serif;overflow:hidden;position:relative;font-variant-numeric:tabular-nums">
+<div aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ liveText }}</div>
+
+<header style="flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:8px 16px;min-height:60px;background:#fff;border-bottom:1px solid #DCE4DE">
+  <span style="flex:0 0 auto;font-weight:700;letter-spacing:.14em;font-size:15px">THE LIEMS</span>
+  <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+    <span style="flex:1;min-width:0;font-size:14px;line-height:20px;color:#58665E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ planTitle }}</span>
+  </sc-if>
+  <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}"><span style="flex:1"></span></sc-if>
+  <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px">
+    <div role="group" aria-label="Language" style="display:flex;border:1px solid #7B8B80;border-radius:999px;padding:2px;background:#fff">
+      <button onClick="{{ setVi }}" aria-pressed="{{ isVi }}" style="{{ viStyle }}">VI</button>
+      <button onClick="{{ setEn }}" aria-pressed="{{ isEn }}" style="{{ enStyle }}">EN</button>
+    </div>
+    <sc-if value="{{ showPlanBtn }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toggleRail }}" aria-expanded="{{ railOpen }}" style="min-height:36px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.planShort }}</button>
+    </sc-if>
+    <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ restart }}" style="min-height:36px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F1F4F2">{{ t.newPlan }}</button>
+    </sc-if>
+  </div>
+</header>
+
+<sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+  <main style="flex:1;min-height:0;overflow-y:auto;display:flex;justify-content:center;padding:64px 16px 48px">
+    <div style="width:100%;max-width:760px;display:flex;flex-direction:column;gap:32px;animation:lm-in .24s ease-out">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <h1 style="{{ heroStyle }}">{{ t.startTitle }}</h1>
+        <p style="margin:0;font-size:16px;line-height:24px;color:#58665E;max-width:62ch;text-wrap:pretty">{{ t.startSub }}</p>
+      </div>
+      <form onSubmit="{{ submitStart }}" style="display:flex;flex-direction:column;gap:8px">
+        <label for="lm-composer" style="font-size:14px;line-height:20px;font-weight:600">{{ t.composerLabel }}</label>
+        <div style="display:flex;align-items:flex-end;gap:8px;padding:12px 12px 12px 16px;border-radius:16px;border:1px solid #7B8B80;background:#fff">
+          <textarea id="lm-composer" rows="2" value="{{ startText }}" onChange="{{ onStartText }}" onKeyDown="{{ onStartKey }}" placeholder="{{ t.composerPh }}" style="flex:1;min-width:0;border:0;outline:none;resize:none;background:none;font-size:16px;line-height:24px;color:#18251F"></textarea>
+          <button type="submit" style="flex:0 0 auto;min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#2B3A33">{{ t.send }}</button>
+        </div>
+      </form>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:14px;line-height:20px;font-weight:600">{{ t.examplesLabel }}</span>
+        <sc-for list="{{ examples }}" as="ex" hint-placeholder-count="3">
+          <button onClick="{{ ex.onClick }}" style="display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;padding:12px 16px;border-radius:12px;border:1px solid #DCE4DE;background:#fff;color:#18251F;font-size:15px;line-height:22px;text-align:left;cursor:pointer" style-hover="border-color:#7B8B80">
+            <span>“{{ ex.text }}”</span><span aria-hidden="true" style="color:#58665E">→</span>
+          </button>
+        </sc-for>
+        <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.exampleNote }} {{ t.consent }}</span>
+      </div>
+    </div>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+<div style="{{ bodyStyle }}">
+  <main style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:16px">
+
+    <sc-if value="{{ isHousing }}" hint-placeholder-val="{{ false }}">
+    <div onScroll="{{ onBrowse }}" style="{{ stageStyle }}">
+      <div style="flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px">
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+          <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600">{{ t.hTitle }}</h1>
+          <span style="font-size:14px;line-height:20px;color:#58665E">{{ hMeta }}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <div role="group" aria-label="{{ t.sortLabel }}" style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ sorts }}" as="so" hint-placeholder-count="3"><button onClick="{{ so.onClick }}" aria-pressed="{{ so.on }}" style="{{ so.style }}">{{ so.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ canCompare }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ openCompare }}" style="margin-left:auto;min-height:36px;padding:0 16px;border-radius:999px;border:1px solid #256348;background:#E5F3E9;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ compareBtn }}</button>
+          </sc-if>
+        </div>
+      </div>
+      <div style="{{ splitStyle }}">
+        <section aria-label="{{ t.hTitle }}" onScroll="{{ onBrowse }}" style="{{ listStyle }}">
+          <sc-if value="{{ hLoading }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ skeletons }}" as="sk" hint-placeholder-count="3">
+              <div style="height:168px;border-radius:16px;border:1px solid #DCE4DE;background:#fff;animation:lm-pulse 1.4s ease-in-out infinite"></div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ noMatch }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px;border-radius:16px;border:1px dashed #7B8B80;background:#fff;font-size:16px;line-height:24px">{{ t.noMatch }}</div>
+          </sc-if>
+          <sc-for list="{{ homes }}" as="h" hint-placeholder-count="3">
+            <article onMouseEnter="{{ h.onEnter }}" onMouseLeave="{{ h.onLeave }}" style="{{ h.cardStyle }}">
+              <button onClick="{{ h.onOpen }}" aria-label="{{ h.openLabel }}" style="position:relative;aspect-ratio:4/3;width:100%;border-radius:12px;border:0;padding:0;cursor:pointer;background:repeating-linear-gradient(135deg,#EEF2EF 0 10px,#E4EAE6 10px 20px);display:flex;align-items:center;justify-content:center;color:#58665E;font-size:13px">
+                <span>{{ t.photo }}</span>
+                <sc-if value="{{ h.hasRank }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:8px;top:8px;font-size:12px;line-height:18px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fff;color:#18251F">{{ h.rank }}</span></sc-if>
+              </button>
+              <div style="min-width:0;display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                  <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600"><button onClick="{{ h.onOpen }}" style="border:0;background:none;padding:0;margin:0;font:inherit;color:#18251F;text-align:left;cursor:pointer" style-hover="color:#256348;text-decoration:underline">{{ h.name }}</button></h2>
+                  <sc-if value="{{ h.selected }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;font-size:13px;line-height:20px;font-weight:600;padding:2px 10px;border-radius:999px;background:#E5F3E9;color:#18251F">{{ t.selectedLbl }}</span></sc-if>
+                </div>
+                <span style="font-size:14px;line-height:20px;color:#58665E">{{ h.loc }}</span>
+                <span style="font-size:16px;line-height:24px;font-weight:600">{{ h.rent }}</span>
+                <span style="font-size:14px;line-height:20px;color:#58665E">{{ h.facts }}</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-if value="{{ h.inBudget }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;line-height:20px;padding:2px 10px;border-radius:999px;background:#E8F4EC;color:#216744">✓ {{ t.underBudget }}</span></sc-if>
+                  <span style="font-size:13px;line-height:20px;padding:2px 10px;border-radius:999px;background:#F1F4F2;color:#58665E">{{ t.pets }}</span>
+                </div>
+                <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.source }}</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                  <button onClick="{{ h.onCompare }}" aria-pressed="{{ h.comparing }}" style="{{ h.cmpStyle }}">{{ h.cmpLabel }}</button>
+                  <button onClick="{{ h.onSelect }}" style="{{ h.selStyle }}">{{ h.selLabel }}</button>
+                </div>
+              </div>
+            </article>
+          </sc-for>
+          <span style="font-size:13px;line-height:20px;color:#58665E;padding:0 4px">{{ t.selectNote }}</span>
+        </section>
+        <section aria-label="{{ t.mapLabel }}" onPointerDown="{{ onBrowse }}" style="{{ mapStyle }}">
+          <span style="position:absolute;left:12px;top:12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#58665E">{{ t.mapLabel }}</span>
+          <span style="position:absolute;left:20%;top:16%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">NGHĨA ĐÔ</span>
+          <span style="position:absolute;left:38%;top:74%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">CẦU GIẤY</span>
+          <span style="position:absolute;left:72%;top:46%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">DỊCH VỌNG</span>
+          <sc-for list="{{ homes }}" as="p" hint-placeholder-count="4">
+            <button onClick="{{ p.onOpen }}" onMouseEnter="{{ p.onEnter }}" onMouseLeave="{{ p.onLeave }}" aria-label="{{ p.openLabel }}" style="{{ p.pinStyle }}">{{ p.pinText }}</button>
+          </sc-for>
+          <div style="position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:4px">
+            <button aria-label="{{ t.zoomIn }}" style="width:44px;height:44px;border-radius:12px;border:1px solid #7B8B80;background:#fff;font-size:22px;line-height:1;color:#18251F;cursor:pointer">+</button>
+            <button aria-label="{{ t.zoomOut }}" style="width:44px;height:44px;border-radius:12px;border:1px solid #7B8B80;background:#fff;font-size:22px;line-height:1;color:#18251F;cursor:pointer">−</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isMoving }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ stageStyle }}">
+      <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:4px">
+        <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600">{{ t.mTitle }}</h1>
+        <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.mProvider }} · {{ t.schedule }}</span>
+      </div>
+      <div style="{{ splitStyle }}">
+        <section aria-label="{{ t.mTitle }}" style="{{ listStyle }}">
+          <div style="{{ aCardStyle }}">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="width:28px;height:28px;border-radius:999px;background:#18251F;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">A</span>
+              <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.pickup }}</h2>
+              <sc-if value="{{ needPickup }}" hint-placeholder-val="{{ true }}"><span style="margin-left:auto;font-size:13px;line-height:20px;font-weight:600;padding:2px 10px;border-radius:999px;background:#FFF3D8;color:#815A12">{{ t.st_needs }}</span></sc-if>
+            </div>
+            <sc-if value="{{ needPickup }}" hint-placeholder-val="{{ true }}">
+              <form onSubmit="{{ submitPickup }}" style="display:flex;flex-direction:column;gap:8px">
+                <label for="lm-pick" style="font-size:14px;line-height:20px;font-weight:600">{{ t.pickupQ }}</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-for list="{{ pickChips }}" as="pc" hint-placeholder-count="2"><button type="button" onClick="{{ pc.onClick }}" style="min-height:36px;padding:0 14px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;cursor:pointer" style-hover="background:#F1F4F2">{{ pc.label }}</button></sc-for>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <input id="lm-pick" value="{{ pickupDraft }}" onChange="{{ onPickupDraft }}" placeholder="{{ t.pickupPh }}" style="flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #7B8B80;font-size:16px;color:#18251F;background:#fff">
+                  <button type="submit" style="min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                </div>
+              </form>
+            </sc-if>
+            <sc-if value="{{ hasPickup }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><span style="font-size:16px;line-height:24px">{{ pickup }}</span><button onClick="{{ clearPickup }}" style="flex:0 0 auto;border:0;background:none;padding:0;color:#256348;text-decoration:underline;font-size:14px;font-weight:600;cursor:pointer">{{ t.change }}</button></div>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:16px;border:1px solid #DCE4DE;background:#fff">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:28px;height:28px;border-radius:999px;background:#256348;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">B</span>
+              <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.dropoff }}</h2>
+            </div>
+            <sc-if value="{{ hasDest }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+              <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;line-height:24px;font-weight:600">{{ homeName }}</span><span style="font-size:14px;line-height:20px;color:#58665E">{{ homeAddr }}</span></span>
+              <button onClick="{{ destChange }}" style="flex:0 0 auto;border:0;background:none;padding:0;color:#256348;text-decoration:underline;font-size:14px;font-weight:600;cursor:pointer">{{ destBtn }}</button>
+            </div>
+            </sc-if>
+            <sc-if value="{{ needDrop }}" hint-placeholder-val="{{ false }}">
+              <form onSubmit="{{ submitDrop }}" style="display:flex;flex-direction:column;gap:8px">
+                <label for="lm-drop" style="font-size:14px;line-height:20px;font-weight:600">{{ t.askDrop }}</label>
+                <button type="button" onClick="{{ pickDropOnMap }}" style="align-self:flex-start;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;cursor:pointer" style-hover="background:#F1F4F2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"></path></svg>{{ t.onMap }}</button>
+                <div style="display:flex;gap:8px">
+                  <input id="lm-drop" value="{{ dropDraft }}" onChange="{{ onDropDraft }}" placeholder="{{ t.pickupPh }}" style="flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #7B8B80;font-size:16px;color:#18251F;background:#fff">
+                  <button type="submit" style="min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                </div>
+              </form>
+            </sc-if>
+            <sc-if value="{{ waitHome }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;line-height:20px;color:#58665E">{{ t.waitHome }}</span><button onClick="{{ toHousing }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.goHousing }}</button></div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ showStale }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="padding:12px 16px;border-radius:12px;background:#FFF3D8;color:#815A12;font-size:14px;line-height:20px">{{ t.staleNote }}</div>
+          </sc-if>
+          <sc-if value="{{ quotesLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#315E93"><span style="width:16px;height:16px;border-radius:999px;border:2px solid #C7D7EC;border-top-color:#315E93;animation:lm-spin .8s linear infinite"></span>{{ t.sQuote }}</div>
+            <sc-for list="{{ skeletons }}" as="sk" hint-placeholder-count="3"><div style="height:120px;border-radius:16px;border:1px solid #DCE4DE;background:#fff;animation:lm-pulse 1.4s ease-in-out infinite"></div></sc-for>
+          </sc-if>
+          <sc-if value="{{ quotesReady }}" hint-placeholder-val="{{ false }}">
+            <fieldset style="margin:0;padding:0;border:0;display:flex;flex-direction:column;gap:12px">
+              <legend style="font-size:18px;line-height:26px;font-weight:600;margin-bottom:12px">{{ t.quotesTitle }}</legend>
+              <sc-for list="{{ moves }}" as="mv" hint-placeholder-count="3">
+                <button onClick="{{ mv.onClick }}" role="radio" aria-checked="{{ mv.on }}" style="{{ mv.style }}">
+                  <span style="{{ mv.radio }}"></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;text-align:left">
+                    <span style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span style="font-size:16px;line-height:24px;font-weight:600;color:#18251F">{{ mv.name }}</span><span style="font-size:16px;line-height:24px;font-weight:600;color:#18251F">{{ mv.priceText }}</span></span>
+                    <span style="font-size:14px;line-height:20px;color:#58665E">{{ mv.fee }}</span>
+                    <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.incl }}</span>
+                    <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.qSource }}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </fieldset>
+            <span style="font-size:13px;line-height:20px;color:#58665E;padding:0 4px">{{ t.quoteNote }}</span>
+          </sc-if>
+        </section>
+        <section aria-label="{{ t.mapLabel }}" onClick="{{ movingMapClick }}" style="{{ movingMapStyle }}">
+          <span style="position:absolute;left:12px;top:12px;right:12px;font-size:13px;line-height:18px;color:#58665E">{{ mapHint }}</span>
+          <span style="position:absolute;left:20%;top:16%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">NGHĨA ĐÔ</span>
+          <span style="position:absolute;left:38%;top:74%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">CẦU GIẤY</span>
+          <sc-if value="{{ hasPickup }}" hint-placeholder-val="{{ false }}">
+            <svg width="100%" height="100%" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none"><line x1="22%" y1="34%" x2="{{ bx }}" y2="{{ by }}" stroke="#256348" stroke-width="2.5" stroke-dasharray="8 7" stroke-linecap="round"></line></svg>
+            <span style="position:absolute;left:22%;top:34%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:999px;background:#18251F;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff">A</span>
+          </sc-if>
+          <span style="{{ bPinStyle }}">B</span>
+        </section>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isFlight }}" hint-placeholder-val="{{ false }}">
+    <div onScroll="{{ onBrowse }}" style="{{ scrollStageStyle }}">
+      <div style="max-width:880px;width:100%;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600">{{ t.tTitle }}</h1>
+          <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.tRoute }} · {{ flightCount }}</span>
+        </div>
+        <sc-if value="{{ flightsLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#315E93"><span style="width:16px;height:16px;border-radius:999px;border:2px solid #C7D7EC;border-top-color:#315E93;animation:lm-spin .8s linear infinite"></span>{{ t.sFlight }}</div>
+          <sc-for list="{{ skeletons }}" as="sk" hint-placeholder-count="3"><div style="height:160px;border-radius:16px;border:1px solid #DCE4DE;background:#fff;animation:lm-pulse 1.4s ease-in-out infinite"></div></sc-for>
+        </sc-if>
+        <sc-for list="{{ flights }}" as="fl" hint-placeholder-count="3">
+          <article style="{{ fl.style }}">
+            <div style="flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ fl.air }}</h2>
+                <sc-if value="{{ fl.on }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;line-height:20px;font-weight:600;padding:2px 10px;border-radius:999px;background:#E5F3E9;color:#18251F">{{ t.selectedLbl }}</span></sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <span style="display:flex;flex-direction:column"><span style="font-size:24px;line-height:32px;font-weight:600">{{ fl.dep }}</span><span style="font-size:13px;line-height:18px;color:#58665E">SGN · GMT+7</span></span>
+                <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;line-height:18px;color:#58665E"><span>{{ fl.dur }}</span><span style="width:100%;height:1px;background:#7B8B80"></span><span>{{ t.nonstop }}</span></span>
+                <span style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:24px;line-height:32px;font-weight:600">{{ fl.arr }}</span><span style="font-size:13px;line-height:18px;color:#58665E">HAN · GMT+7</span></span>
+              </div>
+              <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.pax }}</span>
+              <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.terms }}</span>
+            </div>
+            <div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:200px;margin-left:auto">
+              <span style="font-size:20px;line-height:28px;font-weight:600">{{ fl.priceText }}</span>
+              <span style="font-size:13px;line-height:20px;color:#58665E;text-align:right">{{ t.priced }}</span>
+              <button onClick="{{ fl.onClick }}" style="{{ fl.btnStyle }}">{{ fl.btnLabel }}</button>
+            </div>
+          </article>
+        </sc-for>
+        <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.flightNote }}</span>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ scrollStageStyle }}">
+      <div style="max-width:760px;width:100%;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h1 style="{{ pageTitleStyle }}">{{ t.rTitle }}</h1>
+          <span style="font-size:16px;line-height:24px;color:#58665E">{{ t.rSub }}</span>
+        </div>
+        <sc-if value="{{ showHomeSection }}" hint-placeholder-val="{{ true }}">
+        <section style="display:flex;flex-direction:column;gap:8px;padding:24px;border-radius:16px;border:1px solid #DCE4DE;background:#fff">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ homeSectionLabel }}</h2><span style="{{ homeBadgeStyle }}">{{ homeBadge }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span style="font-size:16px;line-height:24px;font-weight:600">{{ homeName }}</span><span style="font-size:16px;line-height:24px;font-weight:600">{{ homeRent }}</span></div>
+          <sc-if value="{{ showNoPay }}" hint-placeholder-val="{{ true }}">
+            <span style="font-size:14px;line-height:20px;color:#58665E">{{ homeAddr }}</span>
+            <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.noPay }}</span>
+          </sc-if>
+        </section>
+        </sc-if>
+        <sc-for list="{{ approvals }}" as="ap" hint-placeholder-count="2">
+          <section aria-label="{{ ap.label }}" style="{{ ap.style }}">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+              <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ ap.label }}</h2>
+              <span style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;line-height:20px;font-weight:600;padding:2px 10px;border-radius:999px;border:1px solid #7B8B80;color:#58665E">{{ t.simulated }}</span><span style="{{ ap.badgeStyle }}">{{ ap.badge }}</span></span>
+            </div>
+            <sc-if value="{{ ap.has }}" hint-placeholder-val="{{ true }}">
+              <dl style="margin:0;display:grid;grid-template-columns:minmax(110px,max-content) minmax(0,1fr);gap:8px 16px;font-size:14px;line-height:20px">
+                <sc-for list="{{ ap.facts }}" as="fa" hint-placeholder-count="4"><dt style="color:#58665E">{{ fa.k }}</dt><dd style="margin:0;color:#18251F">{{ fa.v }}</dd></sc-for>
+              </dl>
+              <div style="display:flex;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #DCE4DE;flex-wrap:wrap"><span style="font-size:16px;line-height:24px;font-weight:600">{{ t.total }}</span><span style="font-size:20px;line-height:28px;font-weight:600">{{ ap.priceText }}</span></div>
+              <sc-if value="{{ ap.idle }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ ap.onApprove }}" style="align-self:flex-start;min-height:48px;padding:0 24px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:#2B3A33">{{ ap.cta }}</button>
+              </sc-if>
+              <sc-if value="{{ ap.busy }}" hint-placeholder-val="{{ false }}">
+                <span role="status" style="display:flex;align-items:center;gap:8px;min-height:48px;font-size:15px;color:#315E93"><span style="width:16px;height:16px;border-radius:999px;border:2px solid #C7D7EC;border-top-color:#315E93;animation:lm-spin .8s linear infinite"></span>{{ t.bookingNow }}</span>
+              </sc-if>
+              <sc-if value="{{ ap.done }}" hint-placeholder-val="{{ false }}">
+                <span role="status" style="display:flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;background:#E8F4EC;font-size:15px;font-weight:600;color:#216744">✓ {{ ap.doneText }}</span>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ ap.missing }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;line-height:20px;color:#58665E">{{ t.notChosen }}</span><button onClick="{{ ap.onGo }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.chooseNow }}</button></div>
+            </sc-if>
+          </section>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ showSlim }}" hint-placeholder-val="{{ false }}">
+  <nav aria-label="{{ t.planTitle }}" style="flex:0 0 64px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;background:#fff;border:1px solid #DCE4DE;border-radius:16px">
+    <sc-for list="{{ rail }}" as="r" hint-placeholder-count="4">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <button onClick="{{ r.onClick }}" aria-label="{{ r.aria }}" aria-current="{{ r.current }}" title="{{ r.aria }}" style="{{ r.slimStyle }}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ r.icon }}"></path></svg>
+          <span style="{{ r.dotStyle }}"></span>
+        </button>
+        <sc-if value="{{ r.hasDep }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:2px;height:12px;background:#256348"></span></sc-if>
+      </div>
+    </sc-for>
+    <span style="flex:1"></span>
+    <button onClick="{{ toggleRail }}" aria-expanded="{{ railOpen }}" aria-label="{{ t.viewPlan }}" title="{{ t.viewPlan }}" style="width:44px;height:44px;border-radius:12px;border:1px solid #7B8B80;background:#fff;color:#18251F;cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z M15 4v16 M9 9l-2 3 2 3"></path></svg>
+    </button>
+  </nav>
+  </sc-if>
+  <sc-if value="{{ railOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ toggleRail }}" style="position:absolute;inset:0;z-index:19;background:rgba(24,37,31,.12)"></div>
+  </sc-if>
+  <aside aria-label="{{ t.planTitle }}" style="{{ railStyle }}">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.planTitle }}</h2>
+      <button onClick="{{ toggleRail }}" aria-label="{{ t.close }}" style="width:44px;height:44px;border-radius:999px;border:0;background:#F1F4F2;color:#18251F;font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button onClick="{{ c.onEdit }}" aria-expanded="{{ c.editing }}" style="flex-shrink:0;display:flex;justify-content:space-between;gap:8px;align-items:center;min-height:40px;padding:8px 14px;border-radius:20px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;line-height:20px;text-align:left;cursor:pointer" style-hover="background:#F1F4F2">
+            <span><span style="color:#58665E">{{ c.label }}: </span><span style="font-weight:600">{{ c.value }}</span></span>
+            <span aria-hidden="true" style="color:#58665E;font-size:13px">✎</span>
+          </button>
+          <sc-if value="{{ c.editing }}" hint-placeholder-val="{{ false }}">
+            <form onSubmit="{{ saveChip }}" style="display:flex;gap:8px;animation:lm-in .18s ease-out">
+              <label for="lm-chip" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ c.label }}</label>
+              <input id="lm-chip" value="{{ chipDraft }}" onChange="{{ onChipDraft }}" style="flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #7B8B80;font-size:16px;color:#18251F">
+              <button type="submit" style="min-height:44px;padding:0 16px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+            </form>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid #DCE4DE;padding-top:16px">
+      <sc-for list="{{ rail }}" as="r" hint-placeholder-count="4">
+        <li style="display:flex;flex-direction:column">
+          <button onClick="{{ r.onClick }}" aria-current="{{ r.current }}" style="{{ r.style }}">
+            <span style="{{ r.iconWrap }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ r.icon }}"></path></svg></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;text-align:left">
+              <span style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:15px;line-height:22px;font-weight:600;color:#18251F">{{ r.label }}</span><span style="{{ r.badgeStyle }}">{{ r.badge }}</span></span>
+              <span style="font-size:14px;line-height:20px;color:#58665E;text-wrap:pretty">{{ r.detail }}</span>
+            </span>
+          </button>
+          <sc-if value="{{ r.hasDep }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:12px;align-items:stretch;padding:0 12px">
+              <span style="width:36px;display:flex;justify-content:center"><span style="width:2px;min-height:28px;background:#256348"></span></span>
+              <span style="font-size:13px;line-height:18px;color:#256348;padding:4px 0">{{ t.depNote }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ r.hasParallel }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:13px;line-height:18px;color:#58665E;padding:0 12px 8px 60px">{{ t.parallelNote }}</span>
+          </sc-if>
+        </li>
+      </sc-for>
+    </ol>
+    <sc-if value="{{ showStale }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="padding:12px 16px;border-radius:12px;background:#FFF3D8;color:#815A12;font-size:14px;line-height:20px">{{ t.staleNote }}</div>
+    </sc-if>
+    <section style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #DCE4DE;padding-top:16px">
+      <h3 style="margin:0;font-size:15px;line-height:22px;font-weight:600">{{ t.costTitle }}</h3>
+      <sc-for list="{{ costRows }}" as="cr" hint-placeholder-count="3">
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:20px"><span style="color:#58665E">{{ cr.k }}</span><span style="font-weight:600;text-align:right">{{ cr.v }}</span></div>
+      </sc-for>
+      <span style="font-size:13px;line-height:18px;color:#58665E">{{ t.costNote }}</span>
+    </section>
+    <button onClick="{{ toReview }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#2B3A33">{{ t.reviewBtn }}</button>
+  </aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDetail }}" style="position:absolute;inset:0;z-index:30;background:rgba(24,37,31,.32)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="lm-detail-title" style="{{ dialogStyle }}">
+    <div style="flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px">
+      <h2 id="lm-detail-title" style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ detail.name }}</h2>
+      <button ref="{{ dialogCloseRef }}" onClick="{{ closeDetail }}" aria-label="{{ t.close }}" style="flex:0 0 auto;width:44px;height:44px;border-radius:999px;border:0;background:#F1F4F2;font-size:22px;line-height:1;cursor:pointer;color:#18251F">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 24px 24px;display:flex;flex-direction:column;gap:16px">
+      <div style="aspect-ratio:4/3;border-radius:12px;background:repeating-linear-gradient(135deg,#EEF2EF 0 10px,#E4EAE6 10px 20px);display:flex;align-items:center;justify-content:center;color:#58665E;font-size:14px">{{ t.photo }}</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:20px;line-height:28px;font-weight:600">{{ detail.rent }}</span>
+        <span style="font-size:14px;line-height:20px;color:#58665E">{{ detail.addr }}</span>
+      </div>
+      <dl style="margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ detail.specs }}" as="sp" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;border:1px solid #DCE4DE"><dt style="font-size:13px;line-height:18px;color:#58665E">{{ sp.k }}</dt><dd style="margin:0;font-size:16px;line-height:24px;font-weight:600">{{ sp.v }}</dd></div></sc-for>
+      </dl>
+      <p style="margin:0;font-size:16px;line-height:24px;max-width:62ch;text-wrap:pretty">{{ detail.desc }}</p>
+      <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.pets }} · {{ t.source }}</span>
+    </div>
+    <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;padding:16px 24px;border-top:1px solid #DCE4DE">
+      <button onClick="{{ detail.onCompare }}" aria-pressed="{{ detail.comparing }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ detail.cmpLabel }}</button>
+      <button onClick="{{ detail.onSelect }}" style="flex:1;min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#2B3A33">{{ detail.selLabel }}</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ compareOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeCompare }}" style="position:absolute;inset:0;z-index:30;background:rgba(24,37,31,.32)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="lm-cmp-title" style="{{ dialogStyle }}">
+    <div style="flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px">
+      <h2 id="lm-cmp-title" style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ compareBtn }}</h2>
+      <button onClick="{{ closeCompare }}" aria-label="{{ t.close }}" style="width:44px;height:44px;border-radius:999px;border:0;background:#F1F4F2;font-size:22px;line-height:1;cursor:pointer;color:#18251F">×</button>
+    </div>
+    <div role="region" aria-label="{{ compareBtn }}" tabindex="0" style="overflow-x:auto;padding:0 24px 24px">
+      <table style="border-collapse:collapse;width:100%;min-width:480px;font-size:14px;line-height:20px">
+        <thead><tr><th style="text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid #DCE4DE;color:#58665E;font-weight:500"></th><sc-for list="{{ cmpHomes }}" as="ch" hint-placeholder-count="2"><th scope="col" style="text-align:left;padding:8px 12px;border-bottom:1px solid #DCE4DE;font-weight:600">{{ ch.name }}</th></sc-for></tr></thead>
+        <tbody>
+          <sc-for list="{{ cmpRows }}" as="row" hint-placeholder-count="5">
+            <tr><th scope="row" style="text-align:left;padding:10px 12px 10px 0;border-bottom:1px solid #DCE4DE;color:#58665E;font-weight:500">{{ row.k }}</th><sc-for list="{{ row.vals }}" as="v" hint-placeholder-count="2"><td style="{{ row.tdStyle }}">{{ v }}</td></sc-for></tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePicker }}" style="position:absolute;inset:0;z-index:30;background:rgba(24,37,31,.32)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="lm-pick-title" style="{{ pickerDialogStyle }}">
+    <div style="flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 id="lm-pick-title" style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ pickerTitle }}</h2>
+        <span style="font-size:14px;line-height:20px;color:#58665E">{{ t.pickerHelp }}</span>
+      </div>
+      <button ref="{{ pickerCloseRef }}" onClick="{{ closePicker }}" aria-label="{{ t.close }}" style="flex:0 0 auto;width:44px;height:44px;border-radius:999px;border:0;background:#F1F4F2;font-size:22px;line-height:1;cursor:pointer;color:#18251F">×</button>
+    </div>
+    <div tabindex="0" role="application" aria-label="{{ t.pickerAria }}" onPointerDown="{{ pDown }}" onPointerMove="{{ pMove }}" onPointerUp="{{ pUp }}" onPointerCancel="{{ pUp }}" onKeyDown="{{ pKey }}" style="{{ pickerMapStyle }}">
+      <div style="{{ pickerWorldStyle }}">
+        <span style="position:absolute;left:30%;top:22%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">NGHĨA ĐÔ</span>
+        <span style="position:absolute;left:44%;top:70%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">CẦU GIẤY</span>
+        <span style="position:absolute;left:66%;top:46%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">DỊCH VỌNG</span>
+        <span style="position:absolute;left:12%;top:50%;font-size:12px;letter-spacing:.12em;color:#7B8B80;font-weight:600">MAI DỊCH</span>
+        <span style="position:absolute;left:6%;top:30%;width:88%;height:10px;border-radius:5px;background:#E2E8E4;transform:rotate(-8deg)"></span>
+        <span style="position:absolute;left:52%;top:4%;width:10px;height:92%;border-radius:5px;background:#E2E8E4"></span>
+        <span style="position:absolute;left:4%;top:64%;width:92%;height:10px;border-radius:5px;background:#E2E8E4;transform:rotate(4deg)"></span>
+      </div>
+      <div aria-hidden="true" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);pointer-events:none;display:flex;flex-direction:column;align-items:center">
+        <svg width="40" height="48" viewBox="0 0 24 28" style="{{ pinLiftStyle }}"><path d="M12 27s-9-8-9-15a9 9 0 0 1 18 0c0 7-9 15-9 15z" fill="#18251F" stroke="#fff" stroke-width="1.5"></path><circle cx="12" cy="11.5" r="3.5" fill="#fff"></circle></svg>
+      </div>
+      <span aria-hidden="true" style="position:absolute;left:50%;top:50%;width:10px;height:4px;border-radius:50%;background:rgba(24,37,31,.35);transform:translate(-50%,-50%);pointer-events:none"></span>
+      <button onClick="{{ pickCurrent }}" onPointerDown="{{ stop }}" style="position:absolute;right:12px;bottom:12px;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3 M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path></svg>{{ t.useLoc }}</button>
+    </div>
+    <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:12px;padding:16px 24px 24px;border-top:1px solid #DCE4DE">
+      <div aria-live="polite" style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:13px;line-height:18px;color:#58665E">{{ t.pinnedAt }}</span>
+        <span style="font-size:16px;line-height:24px;font-weight:600">{{ pickerAddr }}</span>
+        <span style="font-size:13px;line-height:18px;color:#58665E">{{ t.approxAddr }}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onClick="{{ closePicker }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.cancel }}</button>
+        <button onClick="{{ confirmPicker }}" style="flex:1;min-height:44px;padding:0 20px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#2B3A33">{{ t.usePin }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showBackdrop }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ blur }}" style="position:absolute;inset:0;z-index:24;background:rgba(24,37,31,.06)"></div>
+</sc-if>
+
+<sc-if value="{{ showDock }}" hint-placeholder-val="{{ false }}">
+<div style="{{ dockStyle }}">
+  <sc-if value="{{ hasReply }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="pointer-events:auto;width:100%;max-width:600px;background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:12px 12px 12px 16px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 12px 32px rgb(24 37 31 / 12%);animation:lm-in .18s ease-out">
+      <span style="flex:1;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="font-size:15px;line-height:22px;text-wrap:pretty">{{ reply }}</span>
+        <sc-if value="{{ hasReplyAction }}" hint-placeholder-val="{{ false }}"><button onClick="{{ replyAction }}" style="display:flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"></path></svg>{{ t.onMap }}</button></sc-if>
+      </span>
+      <button onClick="{{ closeReply }}" aria-label="{{ t.close }}" style="flex:0 0 auto;width:32px;height:32px;border-radius:999px;border:0;background:#F1F4F2;color:#18251F;cursor:pointer;font-size:16px;line-height:1">×</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isPrompt }}" hint-placeholder-val="{{ false }}">
+    <form onSubmit="{{ send }}" style="pointer-events:auto;width:100%;max-width:600px;min-height:56px;padding:6px 6px 6px 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;box-shadow:0 12px 32px rgb(24 37 31 / 12%);display:flex;align-items:center;gap:8px;animation:lm-in .16s ease-out">
+      <label for="lm-chat" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ t.msgLabel }}</label>
+      <input id="lm-chat" ref="{{ inputRef }}" value="{{ text }}" onChange="{{ onText }}" placeholder="{{ promptHint }}" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:16px;color:#18251F">
+      <button type="submit" style="flex:0 0 auto;min-height:44px;padding:0 18px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.send }}</button>
+    </form>
+  </sc-if>
+  <sc-if value="{{ isCompact }}" hint-placeholder-val="{{ true }}">
+    <button onClick="{{ focus }}" aria-label="{{ t.msgLabel }}" style="pointer-events:auto;height:48px;width:{{ entryW }};max-width:100%;padding:0 {{ entryPad }};border-radius:999px;border:1px solid #7B8B80;background:#fff;box-shadow:0 12px 32px rgb(24 37 31 / 12%);display:flex;align-items:center;justify-content:{{ entryJustify }};gap:10px;cursor:text;color:#58665E;font-size:14px;overflow:hidden;transition:width .18s ease,padding .18s ease" style-hover="background:#F7F9F8">
+      <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;width:16px;height:16px;border-radius:999px;border:2px solid #C7D7EC;border-top-color:#315E93;animation:lm-spin .8s linear infinite"></span></sc-if>
+      <sc-if value="{{ notBusy }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18251F" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg></sc-if>
+      <sc-if value="{{ isPill }}" hint-placeholder-val="{{ true }}">
+        <span style="flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pillText }}</span>
+        <span aria-hidden="true" style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid #DCE4DE;border-radius:6px;padding:0 6px">/</span>
+      </sc-if>
+    </button>
+  </sc-if>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;entryMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;adaptive&quot;,&quot;pill&quot;,&quot;bubble&quot;,&quot;prompt&quot;],&quot;default&quot;:&quot;adaptive&quot;,&quot;tsType&quot;:&quot;'adaptive'|'pill'|'bubble'|'prompt'&quot;,&quot;section&quot;:&quot;Chat entry&quot;},&quot;startAt&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;start&quot;,&quot;housing&quot;,&quot;moving&quot;,&quot;flight&quot;,&quot;review&quot;],&quot;default&quot;:&quot;start&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Preview&quot;}}">
+class Component extends DCLogic {
+  S = {
+    newPlan: ['Kế hoạch mới', 'New plan'],
+    startTitle: ['Lên kế hoạch chuyển nhà', 'Plan your move'],
+    startSub: ['Bạn chuyển đến đâu, khi nào? Kể trong một câu, THE LIEMS dựng kế hoạch nhà ở, chuyển đồ và chuyến bay.', 'Where are you moving, and when? Say it in one sentence and THE LIEMS builds your housing, moving and travel plan.'],
+    composerLabel: ['Mô tả việc chuyển nhà', 'Describe your move'],
+    composerPh: ['VD: Chuyển từ TP.HCM ra Cầu Giấy, Hà Nội ngày 10/10, nhà dưới 7 triệu', 'e.g. Moving from Ho Chi Minh City to Cau Giay, Hanoi on 10 Oct, rent under 7 million'],
+    send: ['Gửi', 'Send'], save: ['Lưu', 'Save'], close: ['Đóng', 'Close'], change: ['Đổi', 'Change'],
+    examplesLabel: ['Ví dụ', 'Examples'],
+    exampleNote: ['Đây là ví dụ, không phải lựa chọn của bạn.', 'These are examples, not decisions made for you.'],
+    consent: ['Bạn luôn duyệt riêng từng khoản thanh toán.', 'You approve each payment separately.'],
+    planTitle: ['Kế hoạch của bạn', 'Your move'], viewPlan: ['Xem kế hoạch', 'View plan'], hidePlan: ['Ẩn kế hoạch', 'Hide plan'],
+    from: ['Từ', 'From'], to: ['Đến', 'To'], date: ['Ngày chuyển', 'Move date'], budget: ['Ngân sách nhà', 'Housing budget'],
+    housing: ['Nhà ở', 'Housing'], moving: ['Chuyển đồ', 'Moving'], travel: ['Chuyến bay', 'Travel'], review: ['Duyệt & đặt', 'Review & book'],
+    st_not: ['Chưa bắt đầu', 'Not started'], st_search: ['Đang tìm', 'Searching'], st_quote: ['Đang lấy báo giá', 'Getting quote'], st_ready: ['Có lựa chọn', 'Options ready'],
+    st_sel: ['Đã chọn', 'Selected'], st_needs: ['Cần địa chỉ của bạn', 'Needs your address'], st_await: ['Chờ duyệt', 'Awaiting approval'], st_booking: ['Đang đặt', 'Booking'],
+    st_conf: ['Đã xác nhận', 'Confirmed'], st_stale: ['Cần báo giá lại', 'Quote needed'],
+    depNote: ['Địa chỉ nhà đã chọn là điểm giao đồ', 'The selected home is the delivery address'],
+    parallelNote: ['Tìm song song, không phụ thuộc nhà ở', 'Searched in parallel, independent of housing'],
+    movingWait: ['Chờ bạn chọn nhà', 'Waits for a selected home'], movingNeeds: ['Thiếu điểm lấy đồ', 'Pickup address missing'], pickOne: ['Chọn một phương án', 'Choose an option'],
+    costTitle: ['Chi phí dự kiến', 'Cost estimate'], oneTime: ['Một lần (ước tính)', 'One-time (estimate)'], monthly: ['Thuê hàng tháng', 'Monthly rent'],
+    deposit: ['Tiền cọc', 'Deposit'], unknown: ['Chưa rõ', 'Unknown'], paid: ['Đã đặt', 'Booked'],
+    costNote: ['Ước tính, chưa phải số tiền đã trả.', 'Estimates, not amounts paid.'], reviewBtn: ['Xem lại kế hoạch', 'Review plan'],
+    staleNote: ['Bạn đã đổi nhà. Báo giá chuyển đồ cũ không còn hợp lệ, đang lấy báo giá mới.', 'You changed the home. The old moving quote is no longer valid; getting a new one.'],
+    hTitle: ['Chọn nhà', 'Find your next home'], sortLabel: ['Sắp xếp', 'Sort'],
+    sortAi: ['Đề xuất', 'Recommended'], sortPrice: ['Giá thấp nhất', 'Lowest price'], sortArea: ['Rộng nhất', 'Largest'],
+    compare: ['So sánh', 'Compare'], comparing: ['Đang so sánh ✓', 'Comparing ✓'],
+    select: ['Chọn căn này', 'Select this home'], selectedLbl: ['Đã chọn', 'Selected'],
+    underBudget: ['Trong ngân sách', 'Within budget'], pets: ['Thú cưng: tin đăng chưa nêu', 'Pet policy: not provided'],
+    source: ['Nguồn: Chợ Tốt · Dữ liệu mẫu', 'Source: Chợ Tốt · Sample data'], photo: ['Ảnh căn nhà', 'Home photo'],
+    noMatch: ['Không có nhà nào khớp. Hãy đổi ngân sách hoặc khu vực.', 'No homes matched these filters. Change your budget or search area.'],
+    mapLabel: ['Bản đồ minh hoạ', 'Illustrative map'], zoomIn: ['Phóng to', 'Zoom in'], zoomOut: ['Thu nhỏ', 'Zoom out'],
+    selectNote: ['Chọn nhà không phải là ký hợp đồng thuê.', 'Selecting a home does not sign a lease.'],
+    mTitle: ['Chuyển đồ', 'Moving'], mProvider: ['AhaMove · báo giá trực tiếp', 'AhaMove · live quote'],
+    schedule: ['10 thg 10, 2026 · 08:00 (GMT+7)', '10 Oct 2026 · 08:00 (GMT+7)'],
+    pickup: ['Điểm lấy đồ', 'Pickup'], pickupQ: ['Bạn lấy đồ ở đâu?', 'Where should we pick up your things?'], useLoc: ['Dùng vị trí hiện tại', 'Use current location'],
+    pickupPh: ['Số nhà, đường, phường/quận', 'Street address, ward, district'], dropoff: ['Điểm giao đồ', 'Delivery'], changeHome: ['Đổi nhà', 'Change home'],
+    quotesTitle: ['Phương án', 'Options'], incl: ['Gồm bốc xếp 1 tầng · Không gồm đóng gói, tháo lắp', 'Includes loading, 1 floor · Excludes packing, disassembly'],
+    qSource: ['AhaMove · hết hạn 23:40 (GMT+7)', 'AhaMove · expires 23:40 (GMT+7)'],
+    quoteNote: ['Chọn phương án không đặt xe. Bạn duyệt riêng ở bước cuối.', 'Choosing an option does not book it. You approve it separately.'],
+    mapAB: ['Tuyến A → B minh hoạ, không phải lộ trình tài xế', 'Illustrative A → B line, not the driver route'], mapB: ['B là nhà bạn đã chọn', 'B is your selected home'],
+    tTitle: ['Chuyến bay', 'Travel'], tRoute: ['TP.HCM (SGN) → Hà Nội (HAN) · 10 thg 10, 2026', 'Ho Chi Minh City (SGN) → Hanoi (HAN) · 10 Oct 2026'],
+    nonstop: ['Bay thẳng', 'Nonstop'], pax: ['1 người lớn · xách tay 7 kg · ký gửi: chưa rõ', '1 adult · 7 kg carry-on · checked bag: not provided'],
+    terms: ['Đổi/hủy: hãng chưa cung cấp điều kiện', 'Change/cancel terms: not provided by airline'],
+    priced: ['Giá lúc 23:31 · hết hạn 00:01 (GMT+7)', 'Priced 23:31 · expires 00:01 (GMT+7)'],
+    selectFlight: ['Chọn chuyến này', 'Select this flight'], flightNote: ['Chọn chuyến không phải là mua vé.', 'Selecting a flight does not buy a ticket.'],
+    rTitle: ['Xem lại kế hoạch', 'Review your plan'], rSub: ['Mỗi khoản thanh toán cần bạn duyệt riêng.', 'Each paid action needs its own approval.'],
+    noPay: ['Không thanh toán qua THE LIEMS · chưa ký hợp đồng thuê', 'No payment through THE LIEMS · lease not signed'],
+    simulated: ['Mô phỏng', 'Simulated'], total: ['Tổng', 'Total'],
+    bookingNow: ['Đang đặt với nhà cung cấp…', 'Booking with the provider…'],
+    notChosen: ['Chưa chọn phương án.', 'No option chosen yet.'], chooseNow: ['Chọn ngay', 'Choose now'],
+    f_service: ['Dịch vụ', 'Service'], f_route: ['Tuyến', 'Route'], f_when: ['Thời gian', 'When'], f_incl: ['Bao gồm', 'Includes'], f_fee: ['Chi tiết phí', 'Fees'],
+    f_pay: ['Thanh toán', 'Payment'], f_exp: ['Báo giá hết hạn', 'Quote expires'], f_pax: ['Hành khách', 'Passengers'], f_terms: ['Đổi/hủy', 'Change/cancel'],
+    cash: ['Tiền mặt cho tài xế', 'Cash to driver'], card: ['Thẻ (mô phỏng)', 'Card (simulated)'],
+    sHousing: ['Đang tìm nhà ở Cầu Giấy…', 'Searching homes in Cau Giay…'], sPrep: ['Đang chuẩn bị chuyển đồ…', 'Preparing moving…'],
+    sQuote: ['Đang lấy báo giá AhaMove…', 'Getting AhaMove quotes…'], sFlight: ['Đang tìm chuyến bay SGN → HAN…', 'Searching SGN → HAN flights…'],
+    askPickup: ['Bạn lấy đồ ở đâu? Trả lời ở thẻ Điểm lấy đồ hoặc nhắn tại đây.', 'Where should we pick up your things? Answer in the Pickup card or here.'],
+    rPrice: ['Đã xếp theo giá thấp nhất.', 'Sorted by lowest price.'], rArea: ['Đã xếp theo diện tích lớn nhất.', 'Sorted by largest area.'],
+    rDefault: ['Đã ghi nhận. Kế hoạch sẽ cập nhật khi có kết quả mới.', 'Noted. The plan updates when new results arrive.'],
+    msgLabel: ['Nhắn cho THE LIEMS', 'Message THE LIEMS'],
+    hint_housing: ['Nhắn: rẻ hơn, rộng hơn, gần chỗ làm…', 'Ask: cheaper, bigger, closer to work…'], hint_moving: ['Nhắn: đổi giờ lấy hàng, đổi điểm giao…', 'Ask: change pickup time or address…'],
+    hint_flight: ['Nhắn: bay buổi sáng, hãng khác…', 'Ask: morning flight, other airline…'], hint_review: ['Hỏi về kế hoạch này…', 'Ask about this plan…'],
+    areaK: ['Diện tích', 'Area'], bedK: ['Phòng ngủ', 'Bedrooms'], bathK: ['Phòng tắm', 'Bathrooms'], rentK: ['Giá thuê', 'Rent'], locK: ['Vị trí', 'Location'], petK: ['Thú cưng', 'Pets'],
+    desc: ['Phòng sạch, đủ nội thất cơ bản, giờ giấc tự do, có chỗ để xe máy. Đi bộ ra trục Xuân Thủy khoảng 5 phút.', 'Clean room with basic furniture, flexible hours and motorbike parking. About a 5-minute walk to Xuan Thuy street.'],
+    notProvided: ['Chưa nêu', 'Not provided'],
+    planShort: ['Kế hoạch', 'Plan'], onMap: ['Chọn trên bản đồ', 'Pick on map'], cancel: ['Hủy', 'Cancel'],
+    pickTitleA: ['Ghim điểm lấy đồ', 'Pin pickup location'], pickTitleB: ['Ghim điểm giao đồ', 'Pin delivery location'],
+    pickerHelp: ['Kéo bản đồ để đặt ghim đúng chỗ.', 'Drag the map to place the pin.'],
+    pickerAria: ['Bản đồ chọn vị trí. Dùng phím mũi tên để di chuyển.', 'Location map. Use arrow keys to move.'],
+    pinnedAt: ['Vị trí đã ghim', 'Pinned location'], approxAddr: ['Địa chỉ gần đúng, tài xế sẽ gọi xác nhận.', 'Approximate address; the driver will call to confirm.'],
+    usePin: ['Dùng vị trí này', 'Use this location'], tapToPin: ['Chạm bản đồ để ghim điểm lấy đồ', 'Tap the map to pin the pickup'], provided: ['Bạn cung cấp', 'You provided'], yourHome: ['Nhà của bạn', 'Your home'],
+    askDrop: ['Bạn chuyển đồ tới đâu?', 'Where are we delivering to?'],
+    waitHome: ['Chờ bạn chọn nhà ở bước Nhà ở.', 'Waiting for you to select a home.'], goHousing: ['Đến bước Nhà ở', 'Go to Housing'],
+    rUnknown: ['Mình chưa hiểu. Thử: “thêm tìm nhà”, “bỏ chuyến bay”, “rẻ hơn”, hoặc “tôi đã thuê nhà ở …”.', 'I didn’t get that. Try “add housing”, “no flight”, “cheaper”, or “I already rented at …”.']
+  };
+  TYPES = { 'Phòng trọ': 'Room', 'Studio': 'Studio', 'Căn hộ': 'Apartment' };
+  HOMES = [
+    { id: 'h1', name: 'Phòng trọ Doãn Kế Thiện, full đồ', type: 'Phòng trọ', price: 6200000, area: 30, pn: 0, wc: 1, addr: 'Phố Doãn Kế Thiện, Mai Dịch, Cầu Giấy, Hà Nội', x: 40, y: 46 },
+    { id: 'h2', name: 'Phòng trọ Hồ Tùng Mậu, full đồ', type: 'Phòng trọ', price: 4500000, area: 25, pn: 0, wc: 1, addr: 'Hồ Tùng Mậu, Mai Dịch, Cầu Giấy, Hà Nội', x: 26, y: 62 },
+    { id: 'h3', name: 'Studio Trần Quốc Hoàn', type: 'Studio', price: 5400000, area: 32, pn: 1, wc: 1, addr: 'Trần Quốc Hoàn, Dịch Vọng Hậu, Cầu Giấy, Hà Nội', x: 60, y: 34 },
+    { id: 'h4', name: 'Căn hộ mini Xuân Thủy', type: 'Căn hộ', price: 6000000, area: 35, pn: 1, wc: 1, addr: 'Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội', x: 68, y: 64 },
+    { id: 'h5', name: 'Studio Hoàng Quốc Việt', type: 'Studio', price: 5600000, area: 28, pn: 1, wc: 1, addr: 'Hoàng Quốc Việt, Nghĩa Đô, Cầu Giấy, Hà Nội', x: 50, y: 24 },
+    { id: 'h6', name: 'Phòng trọ Phạm Văn Đồng', type: 'Phòng trọ', price: 4400000, area: 22, pn: 0, wc: 1, addr: 'Phạm Văn Đồng, Mai Dịch, Cầu Giấy, Hà Nội', x: 16, y: 36 }
+  ];
+  MOVES = [
+    { id: 'm1', name: 'Xe tải nhỏ 500 kg', price: 132000, a: 100000, b: 32000 },
+    { id: 'm2', name: 'Tiêu chuẩn 750 kg', price: 155000, a: 120000, b: 35000 },
+    { id: 'm3', name: 'Tiêu chuẩn 1000 kg', price: 178000, a: 138000, b: 40000 }
+  ];
+  FLIGHTS = [
+    { id: 'f2', air: 'Vietravel Airlines', dep: '21:00', arr: '23:10', dur: '2g 10p', price: 1150000 },
+    { id: 'f1', air: 'Vietnam Airlines', dep: '22:00', arr: '00:10', dur: '2g 10p', price: 1290181 },
+    { id: 'f3', air: 'Vietjet Air', dep: '06:15', arr: '08:25', dur: '2g 10p', price: 1385000 },
+    { id: 'f4', air: 'Bamboo Airways', dep: '13:40', arr: '15:50', dur: '2g 10p', price: 1520000 }
+  ];
+  ICONS = {
+    housing: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+    moving: 'M2 6h12v10H2z M14 10h4l3 3v3h-7 M6 19a2 2 0 1 0 0-.01 M17 19a2 2 0 1 0 0-.01',
+    travel: 'M10.5 13.5L3 11l1.5-1.5 7.5 1 5-5a2 2 0 0 1 3 3l-5 5 1 7.5L14.5 22l-2.5-7.5-3.5 3.5V21L7 19.5 5 17.5 3 16h3l3.5-3.5',
+    review: 'M9 11l3 3 8-8 M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'
+  };
+  DEFAULT_TEXT = 'Chuyển từ TP.HCM ra Cầu Giấy, Hà Nội ngày 10/10, nhà dưới 7 triệu';
+
+  state = {
+    lang: 'vi', step: 'start', startText: '', planTitle: '', loading: false, status: '', flightsReady: false,
+    sort: 'ai', hoverId: null, detailId: null, homeId: null, cmp: [], compareOpen: false,
+    pickup: null, pickupDraft: '', quotesLoading: false, quotesReady: false, moveId: null, flightId: null, stale: false,
+    appr: { move: 'idle', flight: 'idle' },
+    cons: { from: 'TP.HCM', to: 'Cầu Giấy, Hà Nội', date: '10/10/2026', budget: 7000000 }, editKey: null, chipDraft: '',
+    focused: false, text: '', reply: null, browsing: false, railOpen: false, live: '',
+    steps: ['housing', 'moving', 'flight'], knownHome: null, dropDraft: '', picker: null, pox: 0, poy: 0, pdrag: false, replyAct: null,
+    w: typeof window !== 'undefined' ? window.innerWidth : 1280
+  };
+  inputRef = React.createRef();
+  dialogCloseRef = React.createRef();
+  pickerCloseRef = React.createRef();
+  STREETS = ['Hoàng Quốc Việt', 'Trần Thái Tông', 'Xuân Thủy', 'Hồ Tùng Mậu', 'Nguyễn Phong Sắc', 'Duy Tân', 'Phạm Văn Đồng', 'Trần Quốc Hoàn', 'Doãn Kế Thiện'];
+  WARDS = ['Nghĩa Đô', 'Dịch Vọng', 'Dịch Vọng Hậu', 'Mai Dịch', 'Quan Hoa'];
+  openPicker(target) { this.setState({ picker: target, pox: 0, poy: 0, focused: false, reply: null, replyAct: null }); setTimeout(() => this.pickerCloseRef.current && this.pickerCloseRef.current.focus(), 0); }
+  pickAddr(ox, oy) {
+    const gx = Math.round(ox / 70), gy = Math.round(oy / 70);
+    const st = this.STREETS[Math.abs(gx * 3 + gy * 5) % this.STREETS.length];
+    const wd = this.WARDS[Math.abs(gx + gy * 2) % this.WARDS.length];
+    const no = 8 + Math.abs(gx * 17 + gy * 11) % 160;
+    return `${no} ${st}, ${wd}, Cầu Giấy`;
+  }
+  timers = [];
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+
+  componentDidMount() {
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    window.addEventListener('resize', this.onResize);
+    this.kd = e => {
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && this.state.step !== 'start') { e.preventDefault(); this.focus(); }
+      if (e.key === 'Escape') {
+        if (this.state.picker) this.setState({ picker: null });
+        else if (this.state.detailId) this.closeDetail();
+        else if (this.state.compareOpen) this.setState({ compareOpen: false });
+        else this.blur();
+      }
+    };
+    window.addEventListener('keydown', this.kd);
+    const s = this.props.startAt ?? 'start';
+    if (s !== 'start') {
+      const seed = { planTitle: this.DEFAULT_TEXT, flightsReady: true, step: s };
+      if (s !== 'housing') seed.homeId = 'h1';
+      if (s === 'flight' || s === 'review') Object.assign(seed, { pickup: '12 Hoàng Quốc Việt, Cầu Giấy', quotesReady: true, moveId: 'm2' });
+      if (s === 'review') seed.flightId = 'f1';
+      this.setState(seed);
+    }
+  }
+  componentDidUpdate(pp, ps) {
+    if (this.state.detailId && !ps.detailId) setTimeout(() => this.dialogCloseRef.current && this.dialogCloseRef.current.focus(), 0);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.kd); this.timers.forEach(clearTimeout); clearTimeout(this.rt); }
+
+  T(k) { const v = this.S[k]; return v ? v[this.state.lang === 'en' ? 1 : 0] : k; }
+  loc() { return this.state.lang === 'en' ? 'en-US' : 'vi-VN'; }
+  vnd(n) { return n.toLocaleString(this.loc()) + ' ₫'; }
+  rent(n) { return this.vnd(n) + (this.state.lang === 'en' ? '/month' : '/tháng'); }
+  live(msg) { this.setState({ live: msg }); }
+  setReply(text, sticky, act) { this.setState({ reply: text, replyAct: act || null }); clearTimeout(this.rt); if (!sticky) this.rt = setTimeout(() => this.setState({ reply: null }), 7000); }
+  focus = () => { this.setState({ focused: true }, () => setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 0)); };
+  blur = () => { this.inputRef.current && this.inputRef.current.blur(); this.setState({ focused: false }); };
+  closeDetail = () => { const id = this.state.detailId; this.setState({ detailId: null }); };
+
+  parse(text) {
+    const l = text.toLowerCase(), has = (...ws) => ws.some(x => l.includes(x));
+    const haveHome = has('đã thuê', 'đã có nhà', 'already rented', 'already have a', 'i rented', 'đã chọn nhà');
+    let known = null;
+    if (haveHome) { const m = text.match(/(?:\sở|\stại|\sat|\sin)\s+([^,.;]+(?:,\s*[^,.;]+)?)/i); known = m ? m[1].replace(/\s+(cần|need|và|and)\b.*$/i, '').trim() : null; }
+    const wantHome = !haveHome && has('tìm nhà', 'tìm phòng', 'thuê', 'nhà dưới', 'phòng', 'find a home', 'find a room', 'rent', 'housing', 'apartment', 'căn hộ', 'studio');
+    const wantMove = has('chuyển đồ', 'dọn', 'chuyển nhà', 'moving', 'move my', 'movers', 'xe tải', 'ahamove', 'chuyển từ', 'move from');
+    const wantFly = has('bay', 'vé', 'flight', 'ticket', 'từ tp', 'từ hồ chí minh', 'from ho chi minh', 'sgn');
+    let steps = [];
+    if (wantHome) steps.push('housing'); if (wantMove) steps.push('moving'); if (wantFly) steps.push('flight');
+    if (!steps.length) steps = ['housing', 'moving', 'flight'];
+    const bm = l.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr\b|million|m\b)/);
+    return { steps, known, budget: bm ? parseFloat(bm[1].replace(',', '.')) * 1e6 : 7000000 };
+  }
+  begin(text) {
+    const t = (text || this.state.startText).trim() || this.DEFAULT_TEXT;
+    const p = this.parse(t), first = p.steps[0];
+    this.setState(s => ({ steps: p.steps, knownHome: p.known, planTitle: t, cons: { ...s.cons, budget: p.budget }, browsing: false }));
+    if (p.steps.includes('housing')) this.startHousing();
+    if (p.steps.includes('flight')) this.later(() => this.setState({ flightsReady: true }), first === 'flight' ? 1600 : 3200);
+    this.goStep(first);
+  }
+  startHousing() { this.setState({ loading: true, status: 'sHousing' }); this.live(this.T('sHousing')); this.later(() => this.setState({ loading: false, status: '' }), 1500); }
+  goStep(s) {
+    this.setState({ step: s, browsing: false, detailId: null, focused: false, railOpen: false }, () => {
+      const st = this.state, dest = st.homeId || st.knownHome;
+      if (s === 'moving' && !dest && !st.steps.includes('housing')) this.setReply(this.T('askDrop'), true, 'drop');
+      else if (s === 'moving' && dest && !st.pickup) this.setReply(this.T('askPickup'), true, 'pickup');
+      else if (st.reply) this.setState({ reply: null });
+    });
+  }
+  next(cur) { const o = [...this.state.steps, 'review']; return o[o.indexOf(cur) + 1] || 'review'; }
+  setSteps(fn) { const order = ['housing', 'moving', 'flight']; this.setState(s => { const set = fn(new Set(s.steps)); return { steps: order.filter(k => set.has(k)) }; }); }
+  addStep(k) {
+    if (this.state.steps.includes(k)) return this.goStep(k);
+    this.setSteps(x => x.add(k));
+    if (k === 'housing') { this.setState({ knownHome: null }); this.startHousing(); }
+    if (k === 'flight' && !this.state.flightsReady) this.later(() => this.setState({ flightsReady: true }), 1600);
+    this.goStep(k);
+  }
+  removeStep(k) {
+    const cur = this.state.step;
+    this.setSteps(x => { x.delete(k); return x; });
+    if (k === 'housing') this.setState({ homeId: null });
+    if (cur === k || (k === 'flight' && cur === 'flight')) this.later(() => this.goStep(this.state.steps[0] || 'review'), 0);
+  }
+  setKnown(addr) {
+    this.setState({ knownHome: addr, homeId: null, dropDraft: '', reply: null });
+    this.setSteps(x => { x.delete('housing'); return x; });
+    if (this.state.pickup) this.requote();
+    else if (this.state.step === 'moving') this.setReply(this.T('askPickup'), true, 'pickup');
+  }
+  selectHome(id) {
+    const changed = !!this.state.homeId && this.state.homeId !== id;
+    const patch = { homeId: id, detailId: null, loading: true, status: 'sPrep' };
+    if (changed && this.state.appr.move !== 'done') Object.assign(patch, { moveId: null, quotesReady: false, stale: !!this.state.moveId || this.state.quotesReady, appr: { ...this.state.appr, move: 'idle' } });
+    this.setState(patch);
+    this.later(() => {
+      this.setState({ loading: false, status: '' });
+      this.goStep(this.next('housing'));
+      if (changed && this.state.pickup) this.requote();
+    }, 700);
+  }
+  requote() {
+    this.setState({ quotesLoading: true, quotesReady: false });
+    this.live(this.T('sQuote'));
+    this.later(() => this.setState({ quotesLoading: false, quotesReady: true, stale: false }), 1300);
+  }
+  setPickup(addr) { this.setState({ pickup: addr, pickupDraft: '', reply: null }); this.requote(); }
+  selectMove(id) { this.setState({ moveId: id }); this.later(() => this.goStep(this.next('moving')), 600); }
+  selectFlight(id) { this.setState({ flightId: id }); this.later(() => this.goStep(this.next('flight')), 600); }
+  approve(k) {
+    this.setState(s => ({ appr: { ...s.appr, [k]: 'busy' } }));
+    this.live(this.T('bookingNow'));
+    this.later(() => { this.setState(s => ({ appr: { ...s.appr, [k]: 'done' } })); this.live(this.T('st_conf')); }, 1400);
+  }
+  confirmPicker() {
+    const st = this.state, a = this.pickAddr(st.pox, st.poy), tgt = st.picker;
+    this.setState({ picker: null, pdrag: false });
+    if (tgt === 'drop') this.setKnown(a); else this.setPickup(a);
+  }
+  toggleCmp(id) { this.setState(s => ({ cmp: s.cmp.includes(id) ? s.cmp.filter(x => x !== id) : [...s.cmp, id].slice(-3) })); }
+  send = e => {
+    e.preventDefault();
+    const t = this.state.text.trim();
+    if (!t) return;
+    const l = t.toLowerCase();
+    this.setState({ text: '', focused: false });
+    this.inputRef.current && this.inputRef.current.blur();
+    const has = (...ws) => ws.some(x => l.includes(x));
+    const st = this.state, dest = st.homeId || st.knownHome;
+    if (has('bản đồ', 'ghim', 'on the map', 'on map', 'pin')) this.openPicker(!dest && !st.steps.includes('housing') ? 'drop' : 'pickup');
+    else if (has('bỏ chuyến bay', 'không cần vé', 'không cần bay', 'no flight', 'remove flight')) this.removeStep('flight');
+    else if (has('bỏ chuyển đồ', 'không cần chuyển đồ', 'no moving', 'remove moving')) this.removeStep('moving');
+    else if (has('bỏ tìm nhà', 'không cần tìm nhà', 'no housing')) this.removeStep('housing');
+    else if (has('đã thuê', 'đã có nhà', 'already rented', 'already have')) { const p = this.parse(t); if (p.known) { this.setKnown(p.known); if (!this.state.steps.includes('moving')) this.addStep('moving'); else this.goStep('moving'); } else this.setReply(this.T('askDrop'), true); }
+    else if (has('thêm tìm nhà', 'cần tìm nhà', 'add housing', 'find a home')) this.addStep('housing');
+    else if (has('thêm chuyển đồ', 'cần chuyển đồ', 'add moving')) this.addStep('moving');
+    else if (has('thêm vé', 'thêm chuyến bay', 'cần vé', 'add flight')) this.addStep('flight');
+    else if (has('rẻ', 'cheap', 'giá')) { this.setState({ sort: 'price' }); if (st.steps.includes('housing')) this.goStep('housing'); }
+    else if (has('rộng', 'big', 'large')) { this.setState({ sort: 'area' }); if (st.steps.includes('housing')) this.goStep('housing'); }
+    else if (has('bay', 'vé', 'flight')) this.addStep('flight');
+    else if (has('chuyển đồ', 'xe', 'mov')) this.addStep('moving');
+    else if (st.step === 'moving' && !dest && !st.steps.includes('housing')) this.setKnown(t);
+    else if (st.step === 'moving' && dest && !st.pickup) this.setPickup(t);
+    else this.setReply(this.T('rUnknown'));
+  };
+
+  badge(kind) {
+    const m = {
+      not: 'background:transparent;color:#58665E;border:1px dashed #7B8B80', neutral: 'background:#F1F4F2;color:#18251F',
+      info: 'background:#EAF1FA;color:#315E93', att: 'background:#FFF3D8;color:#815A12', ok: 'background:#E8F4EC;color:#216744', sel: 'background:#E5F3E9;color:#18251F'
+    }[kind];
+    return `flex:0 0 auto;font-size:13px;line-height:20px;font-weight:600;padding:1px 10px;border-radius:999px;${m}`;
+  }
+  apprStatus(k) { return { idle: ['st_await', 'att'], busy: ['st_booking', 'info'], done: ['st_conf', 'ok'] }[this.state.appr[k]]; }
+
+  renderVals() {
+    const st = this.state, T = k => this.T(k), en = st.lang === 'en';
+    const t = {}; Object.keys(this.S).forEach(k => { t[k] = T(k); });
+    const w = st.w, wide = w >= 1200, mobile = w < 768, pad = wide ? 32 : mobile ? 16 : 24;
+    const mainW = !mobile ? Math.min(w, 1440) - pad * 2 - 88 : w - pad * 2;
+    const has = k => st.steps.includes(k);
+    const split = mainW >= 860;
+    const home = this.HOMES.find(h => h.id === st.homeId);
+    const known = st.knownHome;
+    const dest = home || (known ? { name: known, addr: known, x: 62, y: 48 } : null);
+    const move = this.MOVES.find(m => m.id === st.moveId);
+    const flight = this.FLIGHTS.find(f => f.id === st.flightId);
+    const isStart = st.step === 'start';
+    const hLoading = st.loading && st.step === 'housing' && st.status === 'sHousing';
+
+    let homes = this.HOMES.filter(h => h.price <= st.cons.budget);
+    if (st.sort === 'price') homes = [...homes].sort((a, b) => a.price - b.price);
+    if (st.sort === 'area') homes = [...homes].sort((a, b) => b.area - a.area);
+    const typeName = ty => en ? this.TYPES[ty] : ty;
+    const pinM = n => (n / 1e6).toLocaleString(this.loc(), { maximumFractionDigits: 1 }) + (en ? 'M' : ' tr');
+
+    const homeCards = hLoading ? [] : homes.map((h, i) => {
+      const sel = h.id === st.homeId, hov = h.id === st.hoverId, cmp = st.cmp.includes(h.id);
+      return {
+        id: h.id, name: h.name, selected: sel, comparing: cmp, inBudget: h.price <= st.cons.budget,
+        hasRank: st.sort === 'ai' && i < 3, rank: (en ? 'Pick #' : 'Đề xuất #') + (i + 1),
+        loc: h.addr.split(',').slice(1).join(',').trim(), rent: this.rent(h.price),
+        facts: `${typeName(h.type)} · ${h.area} m² · ${h.pn} ${en ? 'bd' : 'PN'} · ${h.wc} ${en ? 'ba' : 'WC'}`,
+        openLabel: (en ? 'View details: ' : 'Xem chi tiết: ') + h.name,
+        onEnter: () => this.setState({ hoverId: h.id }), onLeave: () => this.setState({ hoverId: null }),
+        onOpen: () => this.setState({ detailId: h.id }), onSelect: () => this.selectHome(h.id), onCompare: () => this.toggleCmp(h.id),
+        cmpLabel: cmp ? T('comparing') : T('compare'),
+        cmpStyle: `min-height:44px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid ${cmp ? '#256348' : '#7B8B80'};background:${cmp ? '#E5F3E9' : '#fff'};color:#18251F`,
+        selLabel: sel ? T('selectedLbl') + ' ✓' : T('select'),
+        selStyle: `min-height:44px;padding:0 18px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;${sel ? 'border:1px solid #256348;background:#E5F3E9;color:#18251F' : 'border:1px solid #18251F;background:#18251F;color:#fff'}`,
+        cardStyle: `display:grid;grid-template-columns:${mobile ? 'minmax(0,1fr)' : '136px minmax(0,1fr)'};gap:16px;align-items:start;padding:16px;background:#fff;border-radius:16px;border:1px solid ${hov && !sel ? '#7B8B80' : '#DCE4DE'};${sel ? 'outline:2px solid #256348;outline-offset:-1px;' : ''}transition:border-color .15s;animation:lm-in .2s ease-out`,
+        pinText: (sel ? '✓ ' : '') + pinM(h.price),
+        pinStyle: `position:absolute;left:${h.x}%;top:${h.y}%;transform:translate(-50%,-50%);z-index:${hov || sel ? 3 : 1};min-height:36px;padding:0 12px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s;${sel ? 'background:#256348;color:#fff;border:2px solid #fff' : hov ? 'background:#18251F;color:#fff;border:2px solid #fff' : 'background:#fff;color:#18251F;border:1px solid #7B8B80'}`
+      };
+    });
+
+    // rail
+    const mvStatus = !dest ? (has('housing') ? ['st_not', 'not', T('movingWait')] : ['st_needs', 'att', T('askDrop')])
+      : !st.pickup ? ['st_needs', 'att', T('movingNeeds')]
+      : st.quotesLoading ? ['st_quote', 'info', T('sQuote')]
+      : st.stale ? ['st_stale', 'att', T('staleNote')]
+      : !move ? ['st_ready', 'neutral', T('pickOne')]
+      : [...this.apprStatus('move'), move.name + ' · ' + this.vnd(move.price)];
+    const tvStatus = !st.flightsReady ? ['st_search', 'info', T('sFlight')]
+      : !flight ? ['st_ready', 'neutral', this.FLIGHTS.length + (en ? ' flights SGN → HAN' : ' chuyến SGN → HAN')]
+      : [...this.apprStatus('flight'), flight.air + ' ' + flight.dep + ' · ' + this.vnd(flight.price)];
+    const paidKeys = [has('moving') && 'move', has('flight') && 'flight'].filter(Boolean);
+    const doneN = paidKeys.filter(k => st.appr[k] === 'done').length;
+    const allChosen = (!has('moving') || move) && (!has('flight') || flight);
+    const rvStatus = paidKeys.length && doneN === paidKeys.length ? ['st_conf', 'ok'] : allChosen ? ['st_await', 'att'] : ['st_not', 'not'];
+    const hsStatus = hLoading ? ['st_search', 'info', T('sHousing')] : home ? ['st_sel', 'sel', home.name + ' · ' + this.rent(home.price)] : ['st_ready', 'neutral', homes.length + (en ? ' options' : ' lựa chọn')];
+    const railDefs = [
+      has('housing') && { key: 'housing', s: hsStatus, hasDep: has('moving') },
+      has('moving') && { key: 'moving', s: mvStatus },
+      has('flight') && { key: 'travel', step: 'flight', s: tvStatus, hasParallel: has('housing') || has('moving') },
+      paidKeys.length && { key: 'review', s: [...rvStatus, doneN + (en ? ` of ${paidKeys.length} paid actions booked` : `/${paidKeys.length} khoản đã đặt`)] }
+    ].filter(Boolean);
+    const dotC = { not: 'background:#fff;border:2px solid #7B8B80', neutral: 'background:#58665E', info: 'background:#315E93', att: 'background:#815A12', ok: 'background:#216744', sel: 'background:#256348' };
+    const rail = railDefs.map(d => {
+      const target = d.step || d.key, on = st.step === target;
+      return {
+        label: T(d.key), badge: T(d.s[0]), detail: d.s[2], icon: this.ICONS[d.key], aria: T(d.key) + ': ' + T(d.s[0]),
+        slimStyle: `position:relative;width:44px;height:44px;border-radius:12px;border:1px solid ${on ? '#18251F' : 'transparent'};background:${on ? '#F1F4F2' : 'transparent'};color:#18251F;cursor:pointer;display:flex;align-items:center;justify-content:center`,
+        dotStyle: `position:absolute;top:5px;right:5px;width:10px;height:10px;border-radius:999px;box-shadow:0 0 0 2px #fff;${dotC[d.s[1]]}`,
+        hasDep: !!d.hasDep, hasParallel: !!d.hasParallel, current: on ? 'step' : undefined,
+        onClick: () => this.goStep(target),
+        badgeStyle: this.badge(d.s[1]),
+        style: `display:flex;gap:12px;align-items:flex-start;width:100%;padding:12px;border-radius:12px;border:1px solid ${on ? '#7B8B80' : 'transparent'};background:${on ? '#F7F9F8' : 'transparent'};cursor:pointer;font-family:inherit`,
+        iconWrap: `flex:0 0 auto;width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:1px solid ${on ? '#18251F' : '#DCE4DE'};background:#fff;color:#18251F`
+      };
+    });
+    const oneTime = (move ? move.price : 0) + (flight ? flight.price : 0);
+    const costRows = [
+      has('moving') && { k: T('moving'), v: move ? this.vnd(move.price) : '—' },
+      has('flight') && { k: T('travel'), v: flight ? this.vnd(flight.price) : '—' },
+      paidKeys.length && { k: T('oneTime'), v: oneTime ? this.vnd(oneTime) : '—' },
+      has('housing') && { k: T('monthly'), v: home ? this.rent(home.price) : '—' },
+      has('housing') && { k: T('deposit'), v: T('unknown') }
+    ].filter(Boolean);
+    const chipDefs = [['from', st.cons.from], ['to', st.cons.to], ['date', en ? '10 Oct 2026' : '10 thg 10, 2026'], has('housing') && ['budget', (en ? 'up to ' : 'tối đa ') + this.rent(st.cons.budget)]].filter(Boolean);
+    const chips = chipDefs.map(([k, v]) => ({
+      label: T(k), value: v, editing: st.editKey === k,
+      onEdit: () => this.setState(s => s.editKey === k ? { editKey: null } : { editKey: k, chipDraft: k === 'budget' ? String(s.cons.budget / 1e6) : k === 'date' ? s.cons.date : s.cons[k] })
+    }));
+    const saveChip = e => {
+      e.preventDefault();
+      const k = st.editKey, v = st.chipDraft.trim();
+      if (!k || !v) return this.setState({ editKey: null });
+      let val = v;
+      if (k === 'budget') { const n = parseFloat(v.replace(/[^\d.,]/g, '').replace(',', '.')); val = isNaN(n) ? st.cons.budget : (n < 1000 ? n * 1e6 : n); }
+      this.setState(s => ({ cons: { ...s.cons, [k]: val }, editKey: null }));
+    };
+
+    const summaryLine = rail.map(r => r.label + ': ' + r.badge).join(' · ');
+
+    // layout styles
+    const bodyStyle = `flex:1;min-height:0;width:100%;max-width:1440px;margin:0 auto;display:flex;gap:24px;padding:${pad}px;position:relative`;
+    const railStyle = st.railOpen
+      ? (mobile
+        ? `position:absolute;left:${pad}px;right:${pad}px;top:${pad}px;max-height:calc(100% - ${pad * 2}px);overflow-y:auto;z-index:20;background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:16px;display:grid;align-content:start;gap:16px;box-shadow:0 12px 32px rgb(24 37 31 / 12%);animation:lm-in .2s ease-out`
+        : `position:absolute;top:${pad}px;bottom:${pad}px;right:${pad + 76}px;width:min(360px,calc(100% - ${pad * 2 + 76}px));overflow-y:auto;z-index:20;background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:24px;display:grid;align-content:start;gap:16px;box-shadow:0 12px 32px rgb(24 37 31 / 12%);animation:lm-in .2s ease-out`)
+      : 'display:none';
+    const stageStyle = split ? 'flex:1;min-height:0;display:flex;flex-direction:column;gap:16px' : 'flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-bottom:96px';
+    const scrollStageStyle = 'flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:96px';
+    const splitStyle = split ? 'flex:1;min-height:0;display:grid;grid-template-columns:minmax(380px,480px) minmax(0,1fr);gap:16px' : 'display:flex;flex-direction:column;gap:16px';
+    const listStyle = split ? 'min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:2px 4px 96px 2px' : 'order:2;display:flex;flex-direction:column;gap:12px';
+    const mapStyle = `position:relative;overflow:hidden;border-radius:16px;border:1px solid #DCE4DE;background:repeating-linear-gradient(0deg,#E6ECE8 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,#E6ECE8 0 1px,transparent 1px 56px),radial-gradient(circle at 80% 16%,#DDEBF2 0 64px,transparent 65px),#F1F5F2;${split ? 'min-height:0' : 'order:1;flex:0 0 260px'}`;
+
+    const dH = this.HOMES.find(h => h.id === st.detailId);
+    const detail = dH ? {
+      name: dH.name, addr: dH.addr, rent: this.rent(dH.price), desc: T('desc'),
+      specs: [{ k: T('areaK'), v: dH.area + ' m²' }, { k: T('bedK'), v: String(dH.pn) }, { k: T('bathK'), v: String(dH.wc) }],
+      comparing: st.cmp.includes(dH.id), cmpLabel: st.cmp.includes(dH.id) ? T('comparing') : T('compare'),
+      onCompare: () => this.toggleCmp(dH.id),
+      selLabel: dH.id === st.homeId ? T('selectedLbl') + ' ✓' : T('select'), onSelect: () => this.selectHome(dH.id)
+    } : { specs: [] };
+    const dialogStyle = mobile
+      ? 'position:absolute;left:0;right:0;bottom:0;max-height:90%;z-index:31;background:#fff;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;animation:lm-in .2s ease-out'
+      : 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100% - 48px));max-height:calc(100% - 48px);z-index:31;background:#fff;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 32px rgb(24 37 31 / 12%)';
+
+    const cmpList = this.HOMES.filter(h => st.cmp.includes(h.id));
+    const cmpRows = [
+      [T('rentK'), h => this.rent(h.price)], [T('areaK'), h => h.area + ' m²'], [T('bedK'), h => String(h.pn)],
+      [T('bathK'), h => String(h.wc)], [T('locK'), h => h.addr.split(',').slice(0, 2).join(',')], [T('petK'), () => T('notProvided')]
+    ].map(([k, f]) => ({ k, vals: cmpList.map(f), tdStyle: 'padding:10px 12px;border-bottom:1px solid #DCE4DE;vertical-align:top' }));
+
+    const bx = dest ? dest.x : 60, by = dest ? dest.y : 50;
+    const moves = this.MOVES.map(m => {
+      const on = m.id === st.moveId;
+      return {
+        name: m.name, on, priceText: this.vnd(m.price),
+        fee: (en ? `Distance 5.08 km ${this.vnd(m.a)} + handling ${this.vnd(m.b)}` : `Cước 5,08 km ${this.vnd(m.a)} + bốc xếp ${this.vnd(m.b)}`),
+        onClick: () => this.selectMove(m.id),
+        style: `width:100%;display:flex;align-items:flex-start;gap:12px;padding:16px;border-radius:16px;border:1px solid ${on ? '#256348' : '#DCE4DE'};${on ? 'outline:1px solid #256348;' : ''}background:${on ? '#E5F3E9' : '#fff'};cursor:pointer;font-family:inherit;animation:lm-in .2s ease-out`,
+        radio: `flex:0 0 auto;margin-top:2px;width:20px;height:20px;border-radius:999px;border:${on ? '6px solid #256348' : '2px solid #7B8B80'};background:#fff`
+      };
+    });
+
+    const flightsLoading = st.step === 'flight' && !st.flightsReady;
+    const flights = !st.flightsReady ? [] : this.FLIGHTS.map(f => {
+      const on = f.id === st.flightId;
+      return {
+        air: f.air, dep: f.dep, arr: f.arr, dur: en ? f.dur.replace('g', 'h ').replace('p', 'm') : f.dur, on, priceText: this.vnd(f.price),
+        onClick: () => this.selectFlight(f.id),
+        btnLabel: on ? T('selectedLbl') + ' ✓' : T('selectFlight'),
+        btnStyle: `min-height:44px;padding:0 20px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;${on ? 'border:1px solid #256348;background:#E5F3E9;color:#18251F' : 'border:1px solid #18251F;background:#18251F;color:#fff'}`,
+        style: `display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-start;padding:24px;border-radius:16px;border:1px solid #DCE4DE;${on ? 'outline:2px solid #256348;outline-offset:-1px;' : ''}background:#fff;animation:lm-in .2s ease-out`
+      };
+    });
+
+    const mkAp = (k, labelKey, item, facts, ctaKey, doneText, goKey) => {
+      const [bk, bc] = item ? this.apprStatus(k) : ['st_not', 'not'];
+      return {
+        label: T(labelKey), has: !!item, missing: !item, facts, priceText: item ? this.vnd(item.price) : '',
+        badge: T(bk), badgeStyle: this.badge(bc),
+        idle: st.appr[k] === 'idle', busy: st.appr[k] === 'busy', done: st.appr[k] === 'done',
+        cta: item ? (en ? (ctaKey === 'move' ? 'Book moving service for ' : 'Buy flight ticket for ') : (ctaKey === 'move' ? 'Đặt dịch vụ chuyển đồ với ' : 'Mua vé máy bay với ')) + this.vnd(item.price) : '',
+        doneText, onApprove: () => this.approve(k), onGo: () => this.goStep(goKey),
+        style: `display:flex;flex-direction:column;gap:16px;padding:24px;border-radius:16px;background:#fff;border:1px solid ${st.appr[k] === 'done' ? '#216744' : item && st.appr[k] === 'idle' ? '#7B8B80' : '#DCE4DE'}`
+      };
+    };
+    const approvals = [
+      mkAp('move', 'moving', move, move ? [
+        { k: T('f_service'), v: 'AhaMove · ' + move.name },
+        { k: T('f_route'), v: (st.pickup || '—') + ' → ' + (dest ? dest.addr : '—') },
+        { k: T('f_when'), v: T('schedule') },
+        { k: T('f_incl'), v: T('incl') },
+        { k: T('f_fee'), v: en ? `Distance ${this.vnd(move.a)} + handling ${this.vnd(move.b)}` : `Cước ${this.vnd(move.a)} + bốc xếp ${this.vnd(move.b)}` },
+        { k: T('f_pay'), v: T('cash') },
+        { k: T('f_exp'), v: '23:40 (GMT+7)' }
+      ] : [], 'move', en ? 'Confirmed · Ref AHM-48213' : 'Đã xác nhận · Mã AHM-48213', 'moving'),
+      mkAp('flight', 'travel', flight, flight ? [
+        { k: T('f_service'), v: flight.air + ' · ' + T('nonstop') },
+        { k: T('f_route'), v: 'SGN ' + flight.dep + ' → HAN ' + flight.arr + ' (GMT+7)' },
+        { k: T('f_when'), v: en ? '10 Oct 2026' : '10 thg 10, 2026' },
+        { k: T('f_pax'), v: T('pax') },
+        { k: T('f_terms'), v: T('terms') },
+        { k: T('f_pay'), v: T('card') },
+        { k: T('f_exp'), v: '00:01 (GMT+7)' }
+      ] : [], 'flight', en ? 'Confirmed (simulated) · Ref VN7Q2K' : 'Đã xác nhận (mô phỏng) · Mã VN7Q2K', 'flight')
+    ].filter((a, i) => i === 0 ? has('moving') : has('flight'));
+
+    const busy = st.loading || st.quotesLoading || flightsLoading;
+    const statusText = st.status ? T(st.status) : st.quotesLoading ? T('sQuote') : flightsLoading ? T('sFlight') : '';
+    const idleHint = isStart ? '' : T('hint_' + (st.step === 'flight' ? 'flight' : st.step));
+    const rule = this.props.entryMode ?? 'adaptive';
+    const questionOnScreen = st.step === 'moving' && (!st.pickup || !dest);
+    let mode;
+    if (isStart) mode = 'none';
+    else if (st.focused || rule === 'prompt') mode = 'prompt';
+    else if (rule === 'pill' || rule === 'bubble') mode = rule;
+    else if (busy) mode = 'pill';
+    else if (st.detailId || st.compareOpen || st.browsing || questionOnScreen) mode = 'bubble';
+    else mode = 'pill';
+    const showDock = mode !== 'none' && !(mobile && (st.detailId || st.compareOpen)) && !st.railOpen && !st.picker;
+    const edge = (w - Math.min(w, 1440)) / 2 + pad;
+    const dockRight = !mobile ? edge + 88 : pad;
+    const dockLeft = edge;
+    const dockStyle = `position:absolute;left:${dockLeft}px;right:${dockRight}px;bottom:16px;z-index:26;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none`;
+
+    const pill = (on) => `min-height:32px;padding:0 12px;border-radius:999px;border:0;font-size:13px;font-weight:600;cursor:pointer;${on ? 'background:#18251F;color:#fff' : 'background:transparent;color:#18251F'}`;
+
+    return {
+      t, liveText: st.live,
+      isStart, isWork: !isStart, isHousing: st.step === 'housing', isMoving: st.step === 'moving', isFlight: st.step === 'flight', isReview: st.step === 'review',
+      isVi: !en, isEn: en, viStyle: pill(!en), enStyle: pill(en),
+      setVi: () => this.setState({ lang: 'vi' }), setEn: () => this.setState({ lang: 'en' }),
+      planTitle: st.planTitle,
+      restart: () => { this.timers.forEach(clearTimeout); this.setState({ step: 'start', startText: '', homeId: null, pickup: null, quotesReady: false, quotesLoading: false, moveId: null, flightId: null, flightsReady: false, appr: { move: 'idle', flight: 'idle' }, reply: null, sort: 'ai', loading: false, status: '', cmp: [], stale: false, railOpen: false, steps: ['housing', 'moving', 'flight'], knownHome: null }); },
+      heroStyle: `margin:0;font-size:${mobile ? 32 : 48}px;line-height:${mobile ? 40 : 56}px;font-weight:600;letter-spacing:-.01em;text-wrap:balance`,
+      pageTitleStyle: `margin:0;font-size:${mobile ? 26 : 32}px;line-height:${mobile ? 34 : 40}px;font-weight:600`,
+      startText: st.startText, onStartText: e => this.setState({ startText: e.target.value }),
+      onStartKey: e => { if (e.key === 'Enter' && !e.shiftKey && !(e.nativeEvent && e.nativeEvent.isComposing)) { e.preventDefault(); this.begin(); } },
+      submitStart: e => { e.preventDefault(); this.begin(); },
+      examples: (en ? ['Moving from Ho Chi Minh City to Cau Giay, Hanoi on 10 Oct, rent under 7 million'] : [this.DEFAULT_TEXT]).map(x => ({ text: x, onClick: () => this.begin(x) })),
+      bodyStyle, railStyle, stageStyle, scrollStageStyle, splitStyle, listStyle, mapStyle,
+      showSummary: !wide, railOpen: st.railOpen, toggleRail: () => this.setState(s => ({ railOpen: !s.railOpen })),
+      railToggleLabel: st.railOpen ? T('hidePlan') : T('viewPlan'), summaryLine,
+      rail, chips, chipDraft: st.chipDraft, onChipDraft: e => this.setState({ chipDraft: e.target.value }), saveChip,
+      costRows, toReview: () => this.goStep('review'),
+      hLoading, skeletons: [1, 2, 3], homes: homeCards, noMatch: !hLoading && homes.length === 0,
+      hMeta: hLoading ? T('sHousing') : (en ? `${homes.length} homes · sample data · updated 23:30, 1 Oct` : `${homes.length} nhà · dữ liệu mẫu · cập nhật 23:30, 1 thg 10`),
+      sorts: [['ai', 'sortAi'], ['price', 'sortPrice'], ['area', 'sortArea']].map(([k, l]) => ({ label: T(l), on: st.sort === k, onClick: () => this.setState({ sort: k }), style: `min-height:36px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid ${st.sort === k ? '#256348' : '#7B8B80'};background:${st.sort === k ? '#E5F3E9' : '#fff'};color:#18251F` })),
+      canCompare: st.cmp.length >= 2, compareBtn: en ? `Compare ${st.cmp.length} homes` : `So sánh ${st.cmp.length} căn`,
+      openCompare: () => this.setState({ compareOpen: true }), closeCompare: () => this.setState({ compareOpen: false }),
+      compareOpen: st.compareOpen, cmpHomes: cmpList.map(h => ({ name: h.name })), cmpRows,
+      onBrowse: () => { if (!st.browsing) this.setState({ browsing: true }); },
+      detailOpen: !!dH, detail, dialogStyle, closeDetail: this.closeDetail, dialogCloseRef: this.dialogCloseRef,
+      needPickup: !st.pickup, hasPickup: !!st.pickup, pickup: st.pickup,
+      aCardStyle: `display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:#fff;border:1px solid ${st.pickup || !dest ? '#DCE4DE' : '#815A12'}`,
+      pickChips: [{ label: T('onMap'), onClick: () => this.openPicker('pickup') }, ...[[T('useLoc'), en ? 'Current location · 88 Tran Thai Tong, Cau Giay' : 'Vị trí hiện tại · 88 Trần Thái Tông, Cầu Giấy'], ['12 Hoàng Quốc Việt, Cầu Giấy', '12 Hoàng Quốc Việt, Cầu Giấy']].map(([l, v]) => ({ label: l, onClick: () => this.setPickup(v) }))],
+      pickDropOnMap: () => this.openPicker('drop'),
+      movingMapClick: () => { if (!st.pickup && dest) this.openPicker('pickup'); else if (!dest && !has('housing')) this.openPicker('drop'); },
+      movingMapStyle: mapStyle + ((!st.pickup && dest) || (!dest && !has('housing')) ? ';cursor:crosshair' : ''),
+      hasReplyAction: !!st.replyAct, replyAction: () => this.openPicker(st.replyAct),
+      pickerOpen: !!st.picker, pickerTitle: st.picker === 'drop' ? T('pickTitleB') : T('pickTitleA'), pickerCloseRef: this.pickerCloseRef,
+      pickerDialogStyle: dialogStyle, pickerAddr: this.pickAddr(st.pox, st.poy),
+      pickerMapStyle: `position:relative;flex:1 1 auto;min-height:160px;height:${mobile ? 300 : 360}px;overflow:hidden;touch-action:none;cursor:${st.pdrag ? 'grabbing' : 'grab'};background:#F1F5F2;outline-offset:-2px`,
+      pickerWorldStyle: `position:absolute;left:-50%;top:-50%;width:200%;height:200%;transform:translate(${st.pox}px,${st.poy}px);background:repeating-linear-gradient(0deg,#E6ECE8 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,#E6ECE8 0 1px,transparent 1px 56px),radial-gradient(circle at 70% 30%,#DDEBF2 0 80px,transparent 81px),#F1F5F2`,
+      pinLiftStyle: `transition:transform .12s ease;transform:translateY(${st.pdrag ? -8 : 0}px)`,
+      pDown: e => { e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); this.pd = { x: e.clientX, y: e.clientY, ox: st.pox, oy: st.poy }; this.setState({ pdrag: true }); },
+      pMove: e => { if (!this.pd) return; this.setState({ pox: this.pd.ox + e.clientX - this.pd.x, poy: this.pd.oy + e.clientY - this.pd.y }); },
+      pUp: () => { this.pd = null; this.setState({ pdrag: false }); },
+      pKey: e => { const d = { ArrowLeft: [24, 0], ArrowRight: [-24, 0], ArrowUp: [0, 24], ArrowDown: [0, -24] }[e.key]; if (d) { e.preventDefault(); this.setState(s => ({ pox: s.pox + d[0], poy: s.poy + d[1] })); } if (e.key === 'Enter') this.confirmPicker(); },
+      pickCurrent: e => { e.stopPropagation(); this.setState({ pox: -140, poy: 70 }); },
+      stop: e => e.stopPropagation(),
+      closePicker: () => this.setState({ picker: null, pdrag: false }),
+      confirmPicker: () => this.confirmPicker(),
+      pickupDraft: st.pickupDraft, onPickupDraft: e => this.setState({ pickupDraft: e.target.value }),
+      submitPickup: e => { e.preventDefault(); if (st.pickupDraft.trim()) this.setPickup(st.pickupDraft.trim()); },
+      clearPickup: () => this.setState({ pickup: null, quotesReady: false, moveId: null }),
+      homeName: home ? home.name : known || '', homeAddr: home ? home.addr : known ? T('provided') : '', homeRent: home ? this.rent(home.price) : '',
+      homeBadge: home ? T('st_sel') : T('provided'), homeBadgeStyle: this.badge(home ? 'sel' : 'neutral'),
+      showHomeSection: !!dest, homeSectionLabel: home ? T('housing') : T('yourHome'), showNoPay: !!home,
+      hasDest: !!dest, needDrop: !dest && !has('housing'), waitHome: !dest && has('housing'),
+      destBtn: home ? T('changeHome') : T('change'), destChange: () => home ? this.goStep('housing') : this.setState({ knownHome: null }),
+      dropDraft: st.dropDraft, onDropDraft: e => this.setState({ dropDraft: e.target.value }),
+      submitDrop: e => { e.preventDefault(); if (st.dropDraft.trim()) this.setKnown(st.dropDraft.trim()); },
+      showSlim: !mobile, showPlanBtn: mobile && !isStart,
+      toHousing: () => this.goStep('housing'),
+      showStale: st.stale, quotesLoading: st.quotesLoading, quotesReady: st.quotesReady && !st.quotesLoading, moves,
+      bx: bx + '%', by: by + '%',
+      bPinStyle: `position:absolute;left:${bx}%;top:${by}%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:999px;background:#256348;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff`,
+      mapHint: st.pickup ? T('mapAB') : dest ? T('tapToPin') : T('mapB'),
+      flightsLoading, flights, flightCount: st.flightsReady ? this.FLIGHTS.length + (en ? ' flights · lowest price first' : ' chuyến · giá thấp nhất trước') : T('st_search'),
+      approvals,
+      showDock, dockStyle, isPrompt: mode === 'prompt', isCompact: mode === 'pill' || mode === 'bubble', isPill: mode === 'pill',
+      entryW: mode === 'pill' ? '340px' : '48px', entryPad: mode === 'pill' ? '16px' : '0', entryJustify: mode === 'pill' ? 'flex-start' : 'center',
+      busy, notBusy: !busy, pillText: busy ? statusText : idleHint, promptHint: idleHint || T('msgLabel'),
+      showBackdrop: st.focused && !isStart && rule !== 'prompt',
+      hasReply: !!st.reply && showDock, reply: st.reply, closeReply: () => this.setState({ reply: null, replyAct: null }),
+      text: st.text, onText: e => this.setState({ text: e.target.value }),
+      inputRef: this.inputRef, focus: this.focus, blur: this.blur, send: this.send
+    };
+  }
+}
+</script>
+</body>
+</html>

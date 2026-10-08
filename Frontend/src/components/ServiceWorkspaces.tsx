@@ -20,6 +20,7 @@ import { api, dateTime, money } from "../api";
 import type { Data } from "../types";
 import { BASEMAP_STYLE_URL, MAP_THEME, tuneBasemap } from "../mapStyle";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
+import { ContentSkeleton } from "./UiStates";
 import { mergePlaceCandidates } from "../placeCandidates";
 import {
   cityForPoint,
@@ -200,9 +201,17 @@ export function FlightWorkspace({
                 key={o.id}
                 className={"svc-card " + (selectedId === o.id ? "chosen" : "")}
               >
-                <div className="svc-card-main" onClick={() => void open(o)}>
+                <button
+                  type="button"
+                  className="svc-card-main"
+                  onClick={() => void open(o)}
+                  aria-label={formatUi("Xem chuyến bay {0} lúc {1}", [
+                    o.carrier,
+                    hm(o.depart_at),
+                  ])}
+                >
                   <strong className="svc-carrier">{o.carrier}</strong>
-                  <div className="svc-timeline">
+                  <span className="svc-timeline">
                     <span>
                       <strong>{hm(o.depart_at)}</strong>
                       <small>{data.origin}</small>
@@ -226,9 +235,9 @@ export function FlightWorkspace({
                       <strong>{hm(o.arrive_at)}</strong>
                       <small>{data.destination}</small>
                     </span>
-                  </div>
+                  </span>
                   <small className="muted">{localDateTime(o.depart_at)}</small>
-                </div>
+                </button>
                 <div className="svc-card-end">
                   <strong className="price">{money(o.fare_vnd)}</strong>
                   <small className="muted">
@@ -284,7 +293,7 @@ export function FlightWorkspace({
                 )
               : chat.text
           }
-          placeholder={uiText("Hỏi SIU: đổi ngày bay, thêm hành khách…")}
+          placeholder={uiText("Hỏi ReloHome: đổi ngày bay, thêm hành khách…")}
           onSendText={chat.onSend}
         />
       </section>
@@ -306,7 +315,10 @@ export function FlightWorkspace({
               {money(detail.fare_vnd ?? detail.total_price)}
             </strong>
             {detail.loading && (
-              <p className="muted">{uiText("Đang tải hành trình…")}</p>
+              <ContentSkeleton
+                label={uiText("Đang tải hành trình…")}
+                rows={2}
+              />
             )}
             {detail.error && <p className="notice error">{detail.error}</p>}
             {(detail.segments || []).map((s: Data, i: number) => (
@@ -620,7 +632,7 @@ export function MovingWorkspace({
                 )
               : chat.text
           }
-          placeholder={uiText("Hỏi SIU: đổi giờ lấy hàng, đổi điểm giao…")}
+          placeholder={uiText("Hỏi ReloHome: đổi giờ lấy hàng, đổi điểm giao…")}
           onSendText={chat.onSend}
         />
       </section>
@@ -772,6 +784,24 @@ export function MovingRequestWorkspace({
   const [options, setOptions] = useState<Data>(known.moving_options || {}),
     [optionsIssue, setOptionsIssue] = useState(""),
     [sheetOpen, setSheetOpen] = useState(true);
+  const requestBody = useRef<HTMLDivElement>(null);
+  function goToSection(name: string) {
+    const body = requestBody.current;
+    const target = body?.querySelector<HTMLElement>(
+      `[data-moving-section="${name}"]`,
+    );
+    if (!body || !target) return;
+    body.scrollTo({
+      top:
+        body.scrollTop +
+        target.getBoundingClientRect().top -
+        body.getBoundingClientRect().top -
+        8,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }
   const [active, setActive] = useState<EndpointField>(
     asked.to_address && !asked.from_address ? "to_address" : "from_address",
   );
@@ -1113,190 +1143,220 @@ export function MovingRequestWorkspace({
           </div>
         </header>
         <MovingSteps stage={0} />
-        <div className="ws-list-body mv-request">
-          {(Object.keys(ENDPOINTS) as EndpointField[]).map((field) => {
-            const meta = ENDPOINTS[field],
-              e = ends[field],
-              home = field === "to_address" && useHouse && house;
-            return (
-              <section
-                key={field}
-                className={
-                  "mv-endpoint " +
-                  (active === field ? "active " : "") +
-                  (asked[field] ? "asked" : "")
-                }
-                onClick={() => setActive(field)}
-              >
-                <i className={"mv-dot " + meta.tag.toLowerCase()}>{meta.tag}</i>
-                <span>
-                  <strong>
-                    {uiText("Chọn điểm ")}
-                    {meta.tag} · {uiText(meta.label)}
-                  </strong>
-                  {asked[field] && (
-                    <small className="mv-asked">{asked[field].text}</small>
-                  )}
-                  <div className="mv-location-input">
-                    <Search size={16} aria-hidden="true" />
-                    <input
-                      aria-label={uiText(meta.input)}
-                      value={
-                        home
-                          ? house.address || house.title
-                          : e.address || e.pin?.label || ""
-                      }
-                      onFocus={(ev) => {
-                        const value = ev.currentTarget.value;
-                        setActive(field);
-                        if (!e.pin && !home)
-                          setDrafts((x) => ({ ...x, [field]: value }));
-                      }}
-                      onChange={(ev) => type(field, ev.target.value)}
-                      onKeyDown={(ev) => {
-                        if (ev.key === "Enter") {
-                          ev.preventDefault();
-                          void search(field, ev.currentTarget.value);
-                        }
-                      }}
-                      placeholder={uiText(
-                        `Tìm địa chỉ hoặc chọn điểm ${meta.tag} trên bản đồ`,
-                      )}
-                      maxLength={300}
-                      autoComplete="off"
-                    />
-                  </div>
-                  {field === "to_address" && homeLoading && (
-                    <small role="status">
-                      {uiText("Đang lấy địa chỉ căn đã chọn…")}
-                    </small>
-                  )}
-                  {field === "to_address" && homeIssue && (
-                    <small role="status">{homeIssue}</small>
-                  )}
-                  {field === "to_address" && house && (
+        <nav
+          className="mv-section-nav"
+          aria-label={uiText("Các mục thông tin chuyển đồ")}
+        >
+          {[
+            ["locations", "Địa điểm"],
+            ["schedule", "Lịch chuyển"],
+            ["cargo", "Hàng hóa"],
+            ["vehicle", "Chọn xe"],
+            ["delivery", "Giao nhận"],
+          ].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => goToSection(key)}>
+              {uiText(label)}
+            </button>
+          ))}
+        </nav>
+        <div className="ws-list-body mv-request" ref={requestBody}>
+          <div className="mv-location-sections" data-moving-section="locations">
+            {(Object.keys(ENDPOINTS) as EndpointField[]).map((field) => {
+              const meta = ENDPOINTS[field],
+                e = ends[field],
+                home = field === "to_address" && useHouse && house;
+              return (
+                <section
+                  key={field}
+                  className={
+                    "mv-endpoint " +
+                    (active === field ? "active " : "") +
+                    (asked[field] ? "asked" : "")
+                  }
+                  onClick={() => setActive(field)}
+                  aria-label={uiText(meta.label)}
+                >
+                  <i className={"mv-dot " + meta.tag.toLowerCase()}>
+                    {meta.tag}
+                  </i>
+                  <span>
                     <button
                       type="button"
-                      className={"mv-selected-home" + (home ? " selected" : "")}
-                      aria-label={formatUi("Giao tới phòng đã chọn ({0})", [
-                        house.title,
-                      ])}
-                      aria-pressed={Boolean(home)}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        destinationTouched.current = true;
-                        if (!home)
-                          setEnds((x) => ({
-                            ...x,
-                            to_address: { address: "", pin: null },
-                          }));
-                        setUseHouse(true);
-                        setActive("to_address");
-                        if (housePoint && map.current)
-                          focusMapPoint(
-                            map.current,
-                            [housePoint.lng, housePoint.lat],
-                            16,
-                          );
-                      }}
+                      className="mv-endpoint-heading"
+                      onClick={() => setActive(field)}
+                      aria-pressed={active === field}
                     >
-                      <Home size={18} aria-hidden="true" />
-                      <span>
-                        <small>
-                          {uiText("Phòng đã chọn: ")}
-                          <b>{house.title}</b>
-                        </small>
-                        <span>
-                          {house.address ||
-                            uiText("Địa chỉ đang được cập nhật")}
-                        </span>
-                        <small>
-                          {home
-                            ? uiText(
-                                "Đang dùng làm điểm B · Kiểm tra pin trên bản đồ",
-                              )
-                            : uiText("Dùng căn này làm điểm giao")}
-                        </small>
-                      </span>
-                      {home && <Check size={16} aria-hidden="true" />}
+                      {uiText("Chọn điểm ")}
+                      {meta.tag} · {uiText(meta.label)}
                     </button>
-                  )}
-                  {searching === field && (
-                    <small className="muted" role="status">
-                      {uiText("Đang tìm địa điểm…")}
-                    </small>
-                  )}
-                  {active === field && !e.pin && shown.length > 0 && (
-                    <div
-                      className="mv-suggestions"
-                      role="group"
-                      aria-label={
-                        uiText("Gợi ý ") + uiText(meta.label).toLowerCase()
-                      }
-                    >
-                      {shown.slice(0, 8).map((c) => (
-                        <button
-                          key={c.id + c.lat}
-                          type="button"
-                          className="place"
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            pin(field, c);
+                    {asked[field] && (
+                      <small className="mv-asked">{asked[field].text}</small>
+                    )}
+                    <div className="mv-location-input">
+                      <Search size={16} aria-hidden="true" />
+                      <input
+                        aria-label={uiText(meta.input)}
+                        value={
+                          home
+                            ? house.address || house.title
+                            : e.address || e.pin?.label || ""
+                        }
+                        onFocus={(ev) => {
+                          const value = ev.currentTarget.value;
+                          setActive(field);
+                          if (!e.pin && !home)
+                            setDrafts((x) => ({ ...x, [field]: value }));
+                        }}
+                        onChange={(ev) => type(field, ev.target.value)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === "Enter") {
+                            ev.preventDefault();
+                            void search(field, ev.currentTarget.value);
+                          }
+                        }}
+                        placeholder={uiText(
+                          `Tìm địa chỉ hoặc chọn điểm ${meta.tag} trên bản đồ`,
+                        )}
+                        maxLength={300}
+                        autoComplete="off"
+                      />
+                    </div>
+                    {field === "to_address" && homeLoading && (
+                      <small role="status">
+                        {uiText("Đang lấy địa chỉ căn đã chọn…")}
+                      </small>
+                    )}
+                    {field === "to_address" && homeIssue && (
+                      <small role="status">{homeIssue}</small>
+                    )}
+                    {field === "to_address" && house && (
+                      <button
+                        type="button"
+                        className={
+                          "mv-selected-home" + (home ? " selected" : "")
+                        }
+                        aria-label={formatUi("Giao tới phòng đã chọn ({0})", [
+                          house.title,
+                        ])}
+                        aria-pressed={Boolean(home)}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          destinationTouched.current = true;
+                          if (!home)
                             setEnds((x) => ({
                               ...x,
-                              [field]: {
-                                ...x[field],
-                                address: found[field]?.some(
-                                  (p) => p.id === c.id,
-                                )
-                                  ? c.label
-                                  : x[field].address.trim() || c.label,
-                              },
+                              to_address: { address: "", pin: null },
                             }));
-                            if (map.current)
-                              focusMapPoint(map.current, [c.lng, c.lat], 17);
-                          }}
-                        >
+                          setUseHouse(true);
+                          setActive("to_address");
+                          if (housePoint && map.current)
+                            focusMapPoint(
+                              map.current,
+                              [housePoint.lng, housePoint.lat],
+                              16,
+                            );
+                        }}
+                      >
+                        <Home size={18} aria-hidden="true" />
+                        <span>
+                          <small>
+                            {uiText("Phòng đã chọn: ")}
+                            <b>{house.title}</b>
+                          </small>
                           <span>
-                            <strong>{c.label}</strong>
-                            {c.category && <small>{c.category}</small>}
+                            {house.address ||
+                              uiText("Địa chỉ đang được cập nhật")}
                           </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <small className={e.pin ? "ok" : "muted"}>
-                    {e.pin
-                      ? formatUi("Đã ghim: {0}", [e.pin.label])
-                      : uiText("Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.")}
-                  </small>
-                  {e.pin && (
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        if (field === "from_address")
-                          setOptions((x) => ({
+                          <small>
+                            {home
+                              ? uiText(
+                                  "Đang dùng làm điểm B · Kiểm tra pin trên bản đồ",
+                                )
+                              : uiText("Dùng căn này làm điểm giao")}
+                          </small>
+                        </span>
+                        {home && <Check size={16} aria-hidden="true" />}
+                      </button>
+                    )}
+                    {searching === field && (
+                      <small className="muted" role="status">
+                        {uiText("Đang tìm địa điểm…")}
+                      </small>
+                    )}
+                    {active === field && !e.pin && shown.length > 0 && (
+                      <div
+                        className="mv-suggestions"
+                        role="group"
+                        aria-label={
+                          uiText("Gợi ý ") + uiText(meta.label).toLowerCase()
+                        }
+                      >
+                        {shown.slice(0, 8).map((c) => (
+                          <button
+                            key={c.id + c.lat}
+                            type="button"
+                            className="place"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              pin(field, c);
+                              setEnds((x) => ({
+                                ...x,
+                                [field]: {
+                                  ...x[field],
+                                  address: found[field]?.some(
+                                    (p) => p.id === c.id,
+                                  )
+                                    ? c.label
+                                    : x[field].address.trim() || c.label,
+                                },
+                              }));
+                              if (map.current)
+                                focusMapPoint(map.current, [c.lng, c.lat], 17);
+                            }}
+                          >
+                            <span>
+                              <strong>{c.label}</strong>
+                              {c.category && <small>{c.category}</small>}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <small className={e.pin ? "ok" : "muted"}>
+                      {e.pin
+                        ? formatUi("Đã ghim: {0}", [e.pin.label])
+                        : uiText(
+                            "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.",
+                          )}
+                    </small>
+                    {e.pin && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          if (field === "from_address")
+                            setOptions((x) => ({
+                              ...x,
+                              service_id: undefined,
+                              requests: [],
+                              cod: undefined,
+                            }));
+                          setEnds((x) => ({
                             ...x,
-                            service_id: undefined,
-                            requests: [],
-                            cod: undefined,
+                            [field]: { ...x[field], pin: null },
                           }));
-                        setEnds((x) => ({
-                          ...x,
-                          [field]: { ...x[field], pin: null },
-                        }));
-                      }}
-                    >
-                      {uiText("Bỏ ghim")}
-                    </button>
-                  )}
-                </span>
-              </section>
-            );
-          })}
-          <div className="form-grid mv-when">
+                        }}
+                      >
+                        {uiText("Bỏ ghim")}
+                      </button>
+                    )}
+                  </span>
+                </section>
+              );
+            })}
+          </div>
+          <div className="form-grid mv-when" data-moving-section="schedule">
             <label>
               {uiText("Ngày chuyển")}
               <input
@@ -1325,6 +1385,12 @@ export function MovingRequestWorkspace({
             onChange={setOptions}
             pickup={ends.from_address.pin}
             onValidationChange={setOptionsIssue}
+            onRequestPickup={() => {
+              goToSection("locations");
+              requestBody.current
+                ?.querySelector<HTMLInputElement>(".mv-location-input input")
+                ?.focus({ preventScroll: true });
+            }}
           />
         </div>
         <div className="mv-confirm">
@@ -1370,7 +1436,7 @@ export function MovingRequestWorkspace({
             chat.fromResult
               ? chat.text
               : uiText(
-                  "Điền thông tin chuyến chuyển đồ hoặc nhắn cho SIU, rồi bấm “Xác nhận và lấy báo giá”.",
+                  "Điền thông tin chuyến chuyển đồ hoặc nhắn cho ReloHome, rồi bấm “Xác nhận và lấy báo giá”.",
                 )
           }
           placeholder={uiText("Hoặc nhắn yêu cầu chuyển đồ…")}

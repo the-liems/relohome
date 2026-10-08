@@ -132,12 +132,7 @@ export function PendingPayment({
           onClose={() => setQr(false)}
         >
           <img
-            style={{
-              width: "100%",
-              maxWidth: 320,
-              display: "block",
-              margin: "auto",
-            }}
+            className="qr-image"
             src={`/web/api/threads/${encodeURIComponent(threadId)}/payment/qr.svg`}
             alt={uiText("Mã QR thanh toán từ nhà cung cấp")}
           />

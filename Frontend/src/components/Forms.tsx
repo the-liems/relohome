@@ -69,13 +69,16 @@ export function TaskForm({
     }
   }
   return (
-    <Dialog title={uiText(title[kind]) || uiText("Bổ sung yêu cầu")} onClose={onClose}>
+    <Dialog
+      title={uiText(title[kind]) || uiText("Bổ sung yêu cầu")}
+      onClose={onClose}
+    >
       <form onSubmit={submit} className="task-form">
         {kind === "property" && (
           <>
             <p className="muted">
               {uiText(
-                "Điền những tiêu chí bạn cần. Bạn cũng có thể nhắn trực tiếp cho SIU AI.",
+                "Điền những tiêu chí bạn cần. Bạn cũng có thể nhắn trực tiếp cho ReloHome.",
               )}
             </p>
             <div className="form-grid">

@@ -58,16 +58,6 @@
   letter-spacing: -0.8px;
   white-space: nowrap;
 }
-.landing-brand-mark {
-  width: 43px;
-  height: 43px;
-  display: grid;
-  place-items: center;
-}
-.landing-brand-mark .robot {
-  width: 43px;
-  height: 43px;
-}
 .landing-brand-ai {
   font-weight: 500;
 }
@@ -656,10 +646,6 @@
   font-size: 15px;
   color: var(--landing-ink);
 }
-.landing-footer-brand .robot {
-  width: 32px;
-  height: 32px;
-}
 .landing-footer p {
   margin: 0;
   flex: 1;
@@ -720,11 +706,6 @@
   .landing-brand,
   .landing-brand-ai {
     font-size: 19px;
-  }
-  .landing-brand-mark,
-  .landing-brand-mark .robot {
-    width: 34px;
-    height: 34px;
   }
   .landing-nav-cta {
     display: none;

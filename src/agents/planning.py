@@ -146,6 +146,8 @@ def validate_plan(
         if len(deps) != len(task.depends_on) or not deps <= id_set or task.id in deps:
             errors.append(f"{task.id}: depends_on trùng, trỏ tới task không có hoặc trỏ tới chính nó")
         capability = registry.capability(task.agent)
+        if task.agent == AgentName.ROOMMATE and task.depends_on:
+            errors.append(f"{task.id}: Roommate discovery must be independent")
         if task.agent in {AgentName.MAP, AgentName.RELOCATION}:
             selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
             selected_id = task.inputs.get("selected_listing_id")
@@ -201,7 +203,14 @@ def validate_plan(
 
 # --- TemplatePlanner (§6.2, §7.5 nguyên tắc 2) ---
 
-DOMAIN_ORDER = (AgentName.PROPERTY, AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION, AgentName.PAYMENT)
+DOMAIN_ORDER = (
+    AgentName.PROPERTY,
+    AgentName.MAP,
+    AgentName.FLIGHT,
+    AgentName.RELOCATION,
+    AgentName.PAYMENT,
+    AgentName.ROOMMATE,
+)
 DEFAULT_MAP_CATEGORIES = ["hospital", "marketplace", "pharmacy"]
 PII_REQUIRED: dict[CommitActionKind, list[str]] = {
     CommitActionKind.FLIGHT_BOOKING: ["passengers", "contact"],
@@ -337,6 +346,8 @@ class TemplatePlanner:
             adults = values.get("passengers") or values.get("household_size") or 1
             inputs["passengers"] = {"adults": int(adults)}
             return inputs, "destination" not in inputs
+        if domain == AgentName.ROOMMATE:
+            return {"roommate_criteria": values["roommate_criteria"]} if values.get("roommate_criteria") else {}, False
         if domain == AgentName.PAYMENT:
             return {"payment_id": values["payment_id"]}, False
         if domain == AgentName.RELOCATION:

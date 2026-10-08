@@ -64,7 +64,8 @@ class WorkflowState(TypedDict, total=False):
     dispatch: list[str]
     dispatch_llm_budgets: dict[str, int]
     planner_questions: list[Question]  # domain Planner hoãn vì input chưa dùng được (needs_input)
-    goal_tasks: dict[str, dict]  # task của mục tiêu hiện tại qua các lượt, cho dải tiến trình (progress.record_goal)
+    goal_tasks: dict[str, dict]  # các bước trong cuộc trò chuyện, cho bảng kế hoạch (progress.record_goal)
+    goal_selections: dict[str, str]  # option ID đã chọn theo task; độc lập với intake của lượt hiện tại
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None

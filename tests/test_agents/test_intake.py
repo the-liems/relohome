@@ -5,7 +5,8 @@ from datetime import timedelta
 from src.agents.common import utcnow
 from src.agents.deps import GraphSettings
 from src.agents.intake import ground_facts, resolve_missing
-from src.agents.models import AgentName, MemoryValue, Plan, RequestKind, SessionContext, Task
+from src.agents.models import AgentName, MemoryValue, Plan, RequestKind, SessionContext, Task, TaskResult, TaskStatus
+from src.agents.nodes.intake import continue_referenced_goal, remembered_home
 from tests.test_agents.helpers import fact, intake_result
 
 TIERS = {AgentName.PROPERTY: "cheap", AgentName.MAP: "cheap", AgentName.FLIGHT: "paid", AgentName.RELOCATION: "paid"}
@@ -78,6 +79,26 @@ def test_no_prefill_for_paid_domain():
     out = resolve(intake_result(domains=[AgentName.FLIGHT]), session=session)
     assert "flight.origin" in out.blocking_missing
     assert out.prefilled == {}
+
+
+def test_confirmed_home_remains_referable_after_an_unrelated_flight_goal():
+    previous = intake_result(RequestKind.REFINE, [AgentName.FLIGHT])
+    home = TaskResult(
+        task_id="home", agent=AgentName.PROPERTY, plan_version=1, status="done", fetched_at=utcnow(),
+        data={"candidates": [{"id": "h1", "title": "Căn đã chọn"}]},
+    )
+    state = {
+        "goal_selections": {"home": "h1"},
+        "task_results": {"home": home},
+        "task_status": {"home": TaskStatus.DONE},
+    }
+    restored = remembered_home(previous, state)
+    assert restored.user_confirmed_facts["selected:property"].value == "h1"
+    moving = intake_result(RequestKind.NEW_GOAL, [AgentName.RELOCATION],
+                           values={"to_address": "selected:property"})
+    assert continue_referenced_goal(moving, restored).kind == RequestKind.REFINE
+    state["task_status"]["home"] = TaskStatus.STALE
+    assert "selected:property" not in remembered_home(previous, state).user_confirmed_facts
 
 
 def test_expired_or_stopped_memory_not_prefilled():

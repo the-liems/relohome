@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -19,34 +19,50 @@ import {
   X,
 } from "lucide-react";
 import { AppearanceControls, t, useUiPreferences } from "../uiPreferences";
-import { Robot } from "./Robot";
+import { useUiMotion } from "../useUiMotion";
 
 const services = [
   {
     icon: House,
+    href: "/ai",
     title: "Tìm nơi ở phù hợp",
     text: "Lọc theo khu vực, ngân sách và tiện nghi. Xem vị trí, so sánh và lưu những căn bạn quan tâm.",
   },
   {
     icon: Compass,
+    href: "/ai",
     title: "Hiểu khu vực trước khi chọn",
     text: "Khám phá tiện ích xung quanh và xem khoảng cách, tuyến đường để cân nhắc nhịp sống hằng ngày.",
   },
   {
     icon: Truck,
+    href: "/ai",
     title: "Chuẩn bị chuyến chuyển đồ",
     text: "Chọn điểm lấy, điểm giao, gói xe và tùy chọn từ AhaMove. Xem báo giá trước khi quyết định.",
   },
   {
     icon: Plane,
+    href: "/ai",
     title: "Sắp xếp hành trình",
     text: "Tìm và so sánh chuyến bay theo nhu cầu. Các lựa chọn cùng xuất hiện trong kế hoạch của bạn.",
+  },
+  {
+    icon: UsersRound,
+    href: "/roommate",
+    title: "Tìm người ở cùng",
+    text: "Khám phá hồ sơ đang tìm người ở cùng và tự chọn người phù hợp với nhu cầu, thói quen của bạn.",
+  },
+  {
+    icon: BookOpen,
+    href: "/guides",
+    title: "Cẩm nang thuê và sống",
+    text: "Đọc kinh nghiệm về tìm nhà, chi phí, hợp đồng, an toàn và chia sẻ không gian sống.",
   },
 ];
 const steps = [
   {
     number: "01",
-    title: "Kể SIU điều bạn cần",
+    title: "Kể ReloHome điều bạn cần",
     text: "Một nơi ở mới, ngân sách, khu vực hay lịch chuyển. Bắt đầu bằng cách trò chuyện tự nhiên.",
   },
   {
@@ -56,7 +72,7 @@ const steps = [
   },
   {
     number: "03",
-    title: "Bạn chọn. SIU theo dõi.",
+    title: "Bạn chọn. ReloHome theo dõi.",
     text: "Theo dõi tiến trình và chi phí trong cùng hội thoại. Mỗi giao dịch vẫn cần bạn xem lại và xác nhận.",
   },
 ];
@@ -79,10 +95,12 @@ const guideTopics = [
 ];
 
 export function LandingPage({ signedIn }: { signedIn: boolean }) {
+  const motionRoot = useUiMotion();
   useUiPreferences();
   const [menu, setMenu] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   return (
-    <div className="landing-page">
+    <div className="landing-page" ref={motionRoot}>
       <a className="landing-skip" href="#landing-main">
         {t("Đến nội dung chính")}
       </a>
@@ -91,13 +109,10 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
           <Link
             to="/"
             className="landing-brand"
-            aria-label={t("Trang giới thiệu SIU AI")}
+            aria-label={t("Trang giới thiệu ReloHome")}
           >
-            <span className="landing-brand-mark">
-              <Robot compact />
-            </span>
             <span>
-              SIU<span className="landing-brand-ai"> AI</span>
+              ReloHome
               <small>{t("Cùng bạn bắt đầu cuộc sống mới")}</small>
             </span>
           </Link>
@@ -105,10 +120,16 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             id="landing-navigation"
             className={"landing-nav " + (menu ? "open" : "")}
             aria-label={t("Điều hướng giới thiệu")}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setMenu(false);
+                menuButton.current?.focus();
+              }
+            }}
           >
             {[
               ["#services", "Dịch vụ"],
-              ["#journey", "Cách SIU đồng hành"],
+              ["#journey", "Cách ReloHome đồng hành"],
               ["#next", "Ghép trọ"],
               ["#guide", "Cẩm nang"],
             ].map(([href, label]) => (
@@ -120,10 +141,11 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
           <div className="landing-nav-actions">
             <AppearanceControls />
             <Link className="landing-nav-cta" to={signedIn ? "/ai" : "/login"}>
-              {t(signedIn ? "Vào không gian SIU" : "Đăng nhập")}
+              {t(signedIn ? "Vào không gian ReloHome" : "Đăng nhập")}
               <ArrowUpRight size={15} />
             </Link>
             <button
+              ref={menuButton}
               className="landing-menu-button"
               type="button"
               aria-label={t(menu ? "Đóng điều hướng" : "Mở điều hướng")}
@@ -137,74 +159,54 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
         </div>
       </header>
       <main id="landing-main">
-        <section
-          className="landing-hero landing-container"
-          aria-labelledby="landing-title"
-        >
-          <div className="landing-hero-copy">
-            <span className="landing-kicker">
-              <span />
-              {t("TRỢ LÝ CHO MỘT KHỞI ĐẦU MỚI")}
-            </span>
-            <h1 id="landing-title">
-              {t("Tìm nơi ở mới.")}
-              <br />
-              <em>{t("Sắp xếp cuộc sống mới.")}</em>
-            </h1>
-            <p>
-              {t(
-                "Từ tìm nhà, khám phá khu vực đến chuẩn bị chuyển đồ và hành trình. SIU AI giúp bạn kết nối những lựa chọn trong một cuộc trò chuyện.",
-              )}
-            </p>
-            <div className="landing-hero-actions">
-              <Link className="landing-primary" to="/ai">
-                {t("Bắt đầu cùng SIU")}
-                <ArrowRight size={19} />
-              </Link>
-              <a className="landing-text-link" href="#journey">
-                {t("Khám phá cách hoạt động")}
-                <ChevronDown size={16} />
-              </a>
-            </div>
-            <div className="landing-hero-trust">
-              <ShieldCheck size={17} />
-              <span>{t("Lựa chọn của bạn. Xác nhận của bạn.")}</span>
-            </div>
-            <div className="landing-scope">
-              <span>{t("Hà Nội")}</span>
-              <i />
-              <span>{t("Đà Nẵng")}</span>
-              <i />
-              <span>TP.HCM</span>
-            </div>
+        <section className="landing-hero" aria-labelledby="landing-title">
+          <div className="landing-hero-media" aria-hidden="true">
+            <img
+              src="/images/relohome-hero-home.png"
+              alt=""
+              width={1792}
+              height={1024}
+              fetchPriority="high"
+            />
           </div>
-          <div className="landing-hero-visual">
-            <div className="landing-image-frame">
-              <img
-                src="/images/siu-home-hero.png"
-                alt={t("Minh họa ngôi nhà hiện đại với sân vườn và hồ cá koi")}
-                width={1254}
-                height={1254}
-                fetchPriority="high"
-              />
-            </div>
-            <div className="landing-float landing-float-home">
-              <House size={19} />
-              <span>
-                <strong>{t("Nơi ở phù hợp")}</strong>
-                <small>{t("Bắt đầu từ nhu cầu của bạn")}</small>
+          <div className="landing-hero-inner landing-container">
+            <div className="landing-hero-copy">
+              <span className="landing-kicker">
+                <span />
+                {t("TRỢ LÝ CHO MỘT KHỞI ĐẦU MỚI")}
               </span>
+              <h1 id="landing-title">
+                {t("Tìm nơi ở mới.")}
+                <br />
+                <em>{t("Tìm đúng nơi. An tâm từng bước.")}</em>
+              </h1>
+              <p>
+                {t(
+                  "Tìm nhà, khám phá đường đi, chuyển đồ, tìm chuyến bay, tìm người ở cùng và đọc cẩm nang. ReloHome gom những bước quan trọng vào một nơi để bạn dễ chọn điều phù hợp.",
+                )}
+              </p>
+              <div className="landing-hero-actions">
+                <Link className="landing-primary" to="/ai">
+                  {t("Bắt đầu cùng ReloHome")}
+                  <ArrowRight size={19} />
+                </Link>
+                <a className="landing-text-link" href="#journey">
+                  {t("Khám phá cách hoạt động")}
+                  <ChevronDown size={16} />
+                </a>
+              </div>
+              <div className="landing-hero-trust">
+                <ShieldCheck size={17} />
+                <span>{t("Lựa chọn của bạn. Xác nhận của bạn.")}</span>
+              </div>
+              <div className="landing-scope">
+                <span>{t("Hà Nội")}</span>
+                <i />
+                <span>{t("Đà Nẵng")}</span>
+                <i />
+                <span>TP.HCM</span>
+              </div>
             </div>
-            <div className="landing-float landing-float-ai">
-              <Robot compact />
-              <span>
-                <strong>SIU AI</strong>
-                <small>{t("Cùng sắp xếp từng bước")}</small>
-              </span>
-            </div>
-            <span className="landing-image-caption">
-              {t("Hình minh họa · không phải tin nhà đang cho thuê")}
-            </span>
           </div>
         </section>
         <div className="landing-service-strip">
@@ -225,7 +227,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
           <div className="landing-section-heading">
             <div>
               <span className="landing-kicker">
-                01 / {t("NHỮNG ĐIỀU SIU GIÚP BẠN")}
+                01 / {t("NHỮNG ĐIỀU ReloHome GIÚP BẠN")}
               </span>
               <h2 id="landing-services-title">
                 {t("Nhiều việc cần lo.")}
@@ -235,7 +237,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             </div>
             <p>
               {t(
-                "Bạn không cần giữ từng lựa chọn ở một nơi khác nhau. Cùng SIU tìm hiểu, so sánh và xây dựng kế hoạch cho bước chuyển tiếp của mình.",
+                "Bạn không cần giữ từng lựa chọn ở một nơi khác nhau. Cùng ReloHome tìm hiểu, so sánh và xây dựng kế hoạch cho bước chuyển tiếp của mình.",
               )}
             </p>
           </div>
@@ -247,10 +249,10 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
                 </span>
                 <h3>{t(s.title)}</h3>
                 <p>{t(s.text)}</p>
-                <a href="#journey">
-                  {t("Tìm hiểu hành trình")}
+                <Link to={s.href}>
+                  {t(s.href === "/roommate" ? "Khám phá hồ sơ" : s.href === "/guides" ? "Mở cẩm nang" : "Bắt đầu trò chuyện")}
                   <ArrowUpRight size={16} />
-                </a>
+                </Link>
               </article>
             ))}
           </div>
@@ -264,7 +266,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             <div className="landing-section-heading">
               <div>
                 <span className="landing-kicker">
-                  02 / {t("CÁCH SIU ĐỒNG HÀNH")}
+                  02 / {t("CÁCH ReloHome ĐỒNG HÀNH")}
                 </span>
                 <h2 id="landing-journey-title">
                   {t("Từ một nhu cầu,")}
@@ -274,7 +276,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
               </div>
               <p>
                 {t(
-                  "SIU giữ các bước, lựa chọn và chi phí trong cùng hội thoại. Bạn luôn có thể xem lại, bổ sung thông tin hoặc thay đổi phương án.",
+                  "ReloHome giữ các bước, lựa chọn và chi phí trong cùng hội thoại. Bạn luôn có thể xem lại, bổ sung thông tin hoặc thay đổi phương án.",
                 )}
               </p>
             </div>
@@ -297,7 +299,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
               <div>
                 <span className="landing-story-label">
                   <Sparkles size={16} />
-                  SIU AI
+                  ReloHome
                 </span>
                 <ul>
                   <li>
@@ -352,10 +354,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             </div>
           </div>
           <div>
-            <span className="landing-status">
-              <i />
-              {t("ĐANG CHUẨN BỊ")}
-            </span>
+            <span className="landing-status landing-status-live"><i />{t("ĐANG HOẠT ĐỘNG")}</span>
             <h2 id="landing-next-title">
               {t("Một nơi ở tốt.")}
               <br />
@@ -363,14 +362,13 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             </h2>
             <p>
               {t(
-                "SIU đang chuẩn bị mở rộng sang tìm người ở ghép: cùng khu vực, nhu cầu và những ưu tiên trong sinh hoạt. Định hướng là giúp bạn có thêm thông tin trước khi cùng chia sẻ một không gian.",
+                "Xem những hồ sơ đang chủ động tìm người ở cùng. ReloHome sắp xếp theo tiêu chí và mức độ tương thích để bạn tham khảo; bạn luôn là người xem hồ sơ và quyết định có gửi yêu cầu liên hệ hay không.",
               )}
             </p>
             <p className="landing-future-note">
-              {t(
-                "Ghép trọ chưa mở sử dụng. Tính năng sẽ được bổ sung cùng phần Cẩm nang trong giai đoạn tiếp theo.",
-              )}
+              {t("Không tự động ghép đôi. Thông tin liên hệ chỉ được chia sẻ khi cả hai bên đồng ý.")}
             </p>
+            <Link className="landing-inline-cta" to="/roommate">{t("Khám phá người đang tìm bạn ở cùng")}<ArrowRight size={17} /></Link>
           </div>
         </section>
         <section
@@ -390,10 +388,10 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
               </h2>
             </div>
             <div>
-              <span className="landing-status">{t("SẮP RA MẮT")}</span>
+              <Link className="landing-status landing-status-live" to="/guides"><i />{t("ĐANG HOẠT ĐỘNG")}<ArrowUpRight size={14} /></Link>
               <p>
                 {t(
-                  "Những chủ đề đang được chuẩn bị cho Cẩm nang. Nội dung đầy đủ sẽ được cập nhật khi chuyên mục mở sử dụng.",
+                  "Đọc cẩm nang do ReloHome biên soạn về tiền điện, hợp đồng, đặt cọc, xem phòng, an toàn và những chủ đề thiết thực khi thuê nhà.",
                 )}
               </p>
             </div>
@@ -406,15 +404,10 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
                   <span>0{i + 1}</span>
                 </span>
                 <div>
-                  <span className="landing-guide-tag">
-                    {t("Chủ đề dự kiến")}
-                  </span>
+                  <span className="landing-guide-tag">{t("Bài viết tuyển chọn")}</span>
                   <h3>{t(s.title)}</h3>
                   <p>{t(s.text)}</p>
-                  <span className="landing-guide-soon">
-                    <BookOpen size={15} />
-                    {t("Nội dung đang được chuẩn bị")}
-                  </span>
+                  <Link className="landing-guide-soon" to="/guides"><BookOpen size={15} />{t("Đọc trong Cẩm nang")}<ArrowUpRight size={14} /></Link>
                 </div>
               </article>
             ))}
@@ -422,29 +415,30 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
         </section>
         <section className="landing-final landing-container">
           <div>
-            <span className="landing-kicker">SIU AI</span>
+            <span className="landing-kicker">ReloHome</span>
             <h2>{t("Bạn đang nghĩ đến một khởi đầu mới?")}</h2>
             <p>
-              {t("Kể SIU điều bạn muốn làm. Cùng bắt đầu từ bước đầu tiên.")}
+              {t(
+                "Kể ReloHome điều bạn muốn làm. Cùng bắt đầu từ bước đầu tiên.",
+              )}
             </p>
           </div>
           <Link className="landing-primary" to="/ai">
-            {t("Trò chuyện với SIU")}
+            {t("Trò chuyện với ReloHome")}
             <ArrowRight size={19} />
           </Link>
         </section>
       </main>
       <footer className="landing-footer landing-container">
         <span className="landing-footer-brand">
-          <Robot compact />
-          <strong>SIU AI</strong>
+          <strong>ReloHome</strong>
         </span>
         <p>{t("Tìm nơi ở. Sắp xếp hành trình. Bắt đầu cuộc sống mới.")}</p>
         <Link to="/ai">
           {t("Vào chatbot")}
           <ArrowUpRight size={15} />
         </Link>
-        <span>© {new Date().getFullYear()} SIU AI</span>
+        <span>© {new Date().getFullYear()} ReloHome</span>
       </footer>
     </div>
   );
