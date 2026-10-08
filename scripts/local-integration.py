@@ -29,8 +29,6 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         # existing account moderation privileges automatically.
         env.setdefault("ROOMMATE_ENABLED", "true")
         env.setdefault("ROOMMATE_MODERATORS", "local-roommate-moderator")
-        if component == "ui":
-            env.setdefault("SIU_WEB_LOCAL_HEALTHCHECK", "true")
     env.update(
         AGENT_SUBAGENTS="live",
         AGENT_ALLOW_SIMULATED_TRANSACTIONS="false",

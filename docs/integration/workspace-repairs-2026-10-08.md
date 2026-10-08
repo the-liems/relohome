@@ -135,3 +135,8 @@ cũ, restart đúng service của project trước khi thử bản sửa mới.
 Probe gateway `/health` trong lần sửa này chỉ dành cho local runner: opt-in
 `SIU_WEB_LOCAL_HEALTHCHECK=true`, client loopback, không production. Đây là
 process probe, không thay readiness DB/build của production ở issue #67.
+
+Cập nhật 09/10: khi ghép `main`, `/health` dùng readiness SQLite của `main`
+(container healthcheck; Traefik giữ đường này khỏi domain công khai). Đã bỏ
+probe local, biến `SIU_WEB_LOCAL_HEALTHCHECK` và test riêng của nó; readiness
+được kiểm ở `Frontend/tests/test_gateway.py`.
