@@ -1,5 +1,10 @@
 # Kế hoạch xử lý chất lượng địa điểm, tiện ích và phòng trọ
 
+> Ngày 2026-10-05 đã áp dụng lô đầu: chuẩn hóa 590 địa chỉ, đổi 347 tọa độ
+> source / 340 tọa độ PostGIS; giữ đủ 38.930 tin. 7.311 khóa còn chờ API/quota.
+> Kết quả hiện tại, kiểm chứng và hướng dẫn chạy tiếp ở
+> [báo cáo geocode housing](housing-geocode-batch-2026-10-05.md).
+
 Ngày khảo sát: **04/10/2026**. Code: **`b7cd0c7`**, sau khi nhận nhánh `khoa`.
 
 ## 0. Phạm vi triển khai đã chốt với người dùng
@@ -634,3 +639,235 @@ Chứng cứ cục bộ (ignored, không thêm vào data bàn giao):
 `Frontend/test-results/`. Nếu muốn cải thiện độ chính xác housing, cần
 đối chiếu địa chỉ/cổng thật từ nguồn trước khi cập nhật tọa độ; không rải
 pin giả hoặc xóa các tin khác nhau chỉ để map bớt chồng.
+
+## 12. Đề xuất sửa địa chỉ và geocode housing — 05/10/2026
+
+**Trạng thái: kế hoạch, chưa áp dụng.** Lượt này đọc file nguồn và tài liệu
+provider; không gọi API geocoding, dùng key trả phí, sửa data hay backend.
+
+### 12.1. Địa chỉ có, nhưng chưa đủ để coi là địa chỉ thật đã xác minh
+
+Đánh giá offline **toàn bộ 38.930 record JSONL nguồn**. Số bên dưới khác
+scope 38.222 tin active của mục 11; không lấy số nguồn làm số tin đang hiển thị.
+
+| Nội dung trong nguồn | Số record |
+|---|---:|
+| Có `address_raw` | 38.930 |
+| Có số nhà trong `address_normalized.housenumber` | 10.209 |
+| Có số nhà + đường + thành phố | 10.197 |
+| Có đường nhưng chưa có số nhà | 28.340 |
+| Không có số nhà lẫn đường | 381 |
+| Số nhà có dấu `/` (cần giữ ngõ/hẻm) | 2.899 |
+| Gợi ý số nhà trong description nhưng trường số nhà còn trống | 777 |
+| Nghi số nhà nằm ở đầu trường `street` | 159 |
+
+Hai nhóm 777 và 159 là **ứng viên kiểm tra theo biểu thức**, có thể giao
+nhau, chưa được xác nhận hoặc cộng vào số địa chỉ đủ. Ví dụ `street` đang
+chứa `432 Đội Cấn`, `325 Kim Ngưu`, `123 Thụy Khuê`; cần tách số nhà khi
+có chứng cứ, đồng thời tránh nhầm tên đường dạng số như “Đường 3 Tháng 2”.
+
+Nguồn hiện có 17.392 khóa địa chỉ cấu trúc khác nhau; 8.272 khóa thuộc
+nhóm có số nhà + đường + thành phố. Đây là đếm trước chuẩn hóa, chưa phải
+số nhà thực tế hoặc số API request cần mua; tên viết tắt và tên hành chính
+khác thời điểm có thể tạo nhiều khóa cho cùng địa chỉ.
+
+Trong nguồn, 3.880 nhóm có tọa độ trùng gồm 34.439 tin. **2.609 nhóm có
+nhiều địa chỉ cấu trúc**, **783 nhóm có nhiều tên đường**, **1.225 nhóm có
+nhiều địa chỉ đã ghi số nhà**. Còn 20.728 tin gắn nhãn rooftop nằm trong
+nhóm chung tọa độ: nhãn này cần rà lại, không được mặc nhiên xem là đã đúng.
+
+Nhóm tại `(10.800452, 106.70504)` có 10 tin và 9 địa chỉ cấu trúc khác
+nhau. Có `325/29A Bạch Đằng`, `275/1/3 Bạch Đằng`, tên đường Nguyễn Cửu Vân,
+Phạm Văn Đồng, hẻm Xô Viết Nghệ Tĩnh. Đây là dấu hiệu một pin đại diện bị
+dùng cho nhiều địa chỉ, không đơn thuần nhiều phòng trong cùng tòa nhà.
+Tuy nhiên, vẫn phải xác minh từng địa chỉ trước khi quyết định pin mới.
+
+### 12.2. Lựa chọn nguồn geocoding
+
+| Hướng | Khả năng và quyết định đề xuất |
+|---|---|
+| Google Geocoding API | Có thể đổi địa chỉ thành tọa độ và trả cấp độ khớp. Chưa chọn để làm dataset dùng chung trên map OSM hiện tại, do giới hạn kết hợp dữ liệu Google với map khác và lưu trữ. Nếu chọn hướng này cần thiết kế Google Maps và cách lưu phù hợp trước. |
+| Nominatim tự vận hành / dữ liệu OSM local | Phù hợp thử offline, có truy vấn địa chỉ cấu trúc; phải kiểm tra thực tế mức phủ số nhà/ngõ/hẻm trong PBF. Thiếu địa chỉ OSM thì không thể suy ra cổng thật. Chỉ dựng dịch vụ geocoder khi pilot chứng minh cần, không mặc định thêm Docker. |
+| Provider địa chỉ Việt Nam có giấy phép phù hợp | Đưa vào pilot nếu OSM thiếu; chọn sau khi xác nhận độ phủ, quyền lưu tọa độ lâu dài, hiển thị trên map hiện tại và bàn giao dataset cho teammate. Không mặc định một API thương mại nào đáp ứng các điều kiện này. |
+| Nguồn tin + người đăng / người dùng xác nhận | Dùng bổ sung địa chỉ và cổng thực tế cho trường hợp mơ hồ, không biến “gần trường/đường” thành địa chỉ chính xác. |
+
+Google phân biệt rooftop, nội suy trên đường, tâm hình học và gần đúng;
+`partial_match` là tín hiệu phải xem lại. Geocode trả thành công không
+đồng nghĩa đã tìm đúng phòng hoặc cổng vận chuyển. Xem
+[request/response Geocoding](https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding).
+
+Điều khoản Google Geocoding hiện hành, mục 6.2, không cho dùng content
+Geocoding với map không phải Google. Mục 6.3.1 cho cache lat/lng 30 ngày;
+6.3.2 có ngoại lệ lâu dài cho chức năng trực tiếp của người dùng, dữ liệu
+phải tách theo người dùng và không dùng giữa nhiều người dùng. Vì vậy,
+không mặc định coi ngoại lệ này là quyền xây dataset housing chia sẻ/cloud.
+Xem [Service Specific Terms, mục 6](https://cloud.google.com/maps-platform/terms/maps-service-terms)
+và [Geocoding policies](https://developers.google.com/maps/documentation/geocoding/policies).
+
+Google **Address Validation API** là sản phẩm khác; danh sách phủ hiện
+tại chưa có Việt Nam. Không chọn API đó làm bước bắt buộc cho housing VN.
+Xem [coverage](https://developers.google.com/maps/documentation/address-validation/coverage).
+
+Không chạy batch hàng chục nghìn địa chỉ qua Nominatim công cộng. Chính
+sách giới hạn tối đa 1 request/giây, không khuyến khích batch lớn; các job
+dài hơn một ngày hoặc chạy định kỳ bị giới hạn 4 request/phút. Hướng phù
+hợp là instance riêng hoặc nhà cung cấp cho phép batch. Xem
+[Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/),
+[structured search](https://nominatim.org/release-docs/latest/api/Search/).
+
+### 12.3. Trình tự triển khai đề xuất
+
+1. **Chốt baseline và phạm vi.** Lấy snapshot có checksum; chọn tin active
+   thuộc TP.HCM/Hà Nội/Đà Nẵng cho đợt đầu. Tin khác vùng đưa vào báo cáo,
+   không xóa. Lưu manifest ID để nhận biết chính xác record thay đổi.
+2. **Chuẩn hóa địa chỉ offline.** Giữ nguyên `address_raw`, description và
+   source payload; tách số nhà, ngõ/hẻm, đường, phường/quận/thành phố, tòa,
+   tầng/phòng. Chuẩn hóa viết tắt với bảng alias kiểm chứng. Giữ cả tên
+   hành chính nguồn và alias hiện hành khi có mapping đã xác minh; không
+   tự đổi phường/quận theo suy đoán. Mỗi trường trích xuất có đường dẫn
+   chứng cứ; mâu thuẫn giữa description và address đưa vào review.
+3. **Phân loại khả năng sửa.** Đủ số nhà/đường hoặc tòa nhà xác định → thử
+   geocode; chỉ có đường/phường → giữ vị trí mức đường/khu vực; chỉ có
+   “gần …” hoặc nhiều địa chỉ mâu thuẫn → cần bổ sung. Cùng tọa độ nhưng
+   khác địa chỉ là ưu tiên rà; cùng địa chỉ/tòa và khác tầng/phòng vẫn giữ.
+4. **Pilot trước batch.** Lấy khoảng 300 tin, 100 mỗi thành phố, có địa chỉ
+   đủ, hẻm/ngõ, tòa nhiều phòng và địa chỉ mơ hồ. Dựng tập tham chiếu bằng
+   chứng cứ độc lập (nguồn/cổng/GPS/đối soát thủ công). Thử geocoder trên
+   khóa địa chỉ đã chuẩn hóa, không gọi lại cho từng tin cùng địa chỉ.
+   Đo độ chính xác theo loại địa chỉ, tỷ lệ không tìm được, chi phí/lần,
+   độ trễ và quyền lưu/export; chọn provider sau kết quả pilot.
+5. **Tạo patch geocode có mức tin cậy.** Giữ tối đa một tập candidate hợp
+   lệ cho từng khóa địa chỉ, không nhận kết quả đầu tiên một cách mặc
+   định. Kiểm số nhà/đường, thành phố, alias hành chính, mức định vị và
+   khoảng cách dịch chuyển. Kết quả trả cả đường/phường không được nâng
+   thành rooftop; trường hợp từ địa chỉ đủ bị trả về mức đường phải review.
+   Pin mới lệch xa hoặc khác thành phố là cờ kiểm tra, không tự ép về pin cũ.
+6. **Dry-run và kiểm chứng bản đồ/routing.** Báo cáo ID, địa chỉ và tọa độ
+   trước/sau, chứng cứ, mức tin cậy, lý do. Kiểm nhóm shared pin trước/sau
+   và các địa chỉ khác đường/khác số còn bị dồn. Dùng OSRM kiểm graph và
+   snap distance cho mẫu cổng; OSRM không chứng minh địa chỉ đúng và không
+   được dùng để chuyển tọa độ nhà sang đường gần nhất. Xem cả nhóm nhiều
+   phòng cùng tòa và các địa chỉ unresolved, không chỉ xem map bớt chồng.
+7. **Apply theo lô và xuất dữ liệu đồng nhất.** Chỉ sau khi duyệt pilot và
+   dry-run. Lưu source gốc bất biến; xuất JSONL phiên bản mới và cập nhật
+   housing anchors đúng listing/property ID. Dùng metadata trong
+   `attributes` và bảng hiện có để ghi địa chỉ/tọa độ gốc, phương pháp,
+   chứng cứ, phiên bản, ngày rà và kết quả review; không tạo nhiều bảng
+   housing sạch song song. File và DB phải cùng phiên bản, importer chạy
+   lại không khôi phục nhầm pin cũ. Đóng gói snapshot/manifest/checksum và
+   rollback theo lô cho teammate.
+
+### 12.4. Tiêu chí quyết định cập nhật
+
+- Bảo toàn số tin trong manifest, IDs, giá, diện tích, phòng ngủ và media.
+  Không gộp/xóa tin chỉ vì chung địa chỉ hay tọa độ.
+- Chỉ tự động chấp nhận khi địa chỉ đủ, candidate duy nhất hợp lệ, khớp
+  các thành phần quan trọng và đạt cấp độ định vị đã thống nhất. Trường
+  hợp verified/user-confirmed được bảo vệ; provider mới không ghi đè tự động.
+- Mục tiêu pilot đề xuất: ít nhất 95% địa chỉ ở nhóm định vị chính xác
+  được chấp nhận khớp tập tham chiếu, không có ca sai thành phố. Đây là
+  gate cần đo, không phải cam kết provider đạt 95% hoặc sửa được 95% dataset.
+- Báo cáo sai số vị trí của tập tham chiếu theo nhà/hẻm/tòa; chưa đặt một
+  ngưỡng mét chung cho mọi địa chỉ. Tâm tòa nhà không coi là cổng xe đến.
+- Địa chỉ chỉ đủ tới đường/phường giữ nhãn gần đúng và trạng thái cần bổ
+  sung; không rải pin ngẫu nhiên, nội suy số nhà thiếu bằng LLM hoặc dùng
+  reverse-geocode pin cũ để “chứng minh” địa chỉ đó đúng.
+- Review toàn bộ ca sai thành phố, địa chỉ mâu thuẫn, nhiều candidate và
+  các pin dịch chuyển bất thường; rerun patch không đổi thêm ngoài dự kiến.
+- Moving vẫn dùng cổng lấy/giao do người dùng xác nhận. Không viết pin
+  chọn cho một chuyến vào dataset housing chung. Gợi ý người dùng có thể
+  là chứng cứ review sau này, không tự áp dụng toàn hệ thống.
+
+### 12.5. Thứ tự ưu tiên và đầu ra
+
+**Ưu tiên thực hiện:** chuẩn hóa/trích xuất địa chỉ có chứng cứ và báo cáo
+khả năng geocode → pilot chọn nguồn được phép dùng với map hiện tại →
+patch có review → apply/export. Không mua hàng chục nghìn lượt Google
+trước khi biết địa chỉ có đủ thông tin và kết quả có quyền lưu/chia sẻ.
+
+Đầu ra khi triển khai sẽ gồm một JSONL housing phiên bản sạch, DB dùng
+cùng dữ liệu, manifest trước/sau, danh sách unresolved và runbook khôi
+phục. Chưa thể hứa còn bao nhiêu shared pin sau sửa; các phòng cùng tòa
+vẫn được phép chung pin. Chất lượng đo bằng đúng địa chỉ/vị trí và mức
+tin cậy, không bằng số marker tách ra.
+
+Chứng cứ phân tích offline của lượt lập kế hoạch:
+`logs/local/housing-address-profile-20261005.json` (ignored). Chưa phát
+sinh phí API hoặc tạo container geocoder. Docker đang chạy có 1 PostGIS
+và 9 OSRM trong cấu hình app; chưa có container kiểm thử dư để dừng.
+
+### 12.6. Làm rõ mục tiêu tọa độ chính xác và công cụ có thể thử
+
+Theo yêu cầu tiếp theo, ưu tiên thay pin đại diện đang dùng cho **các địa
+chỉ khác nhau** bằng vị trí khớp địa chỉ cụ thể. Không áp ràng buộc mỗi
+listing phải có lat/lng duy nhất: phòng/tầng trong cùng tòa, chung cổng hoặc
+hai tin rao cùng bất động sản có thể đúng cùng tọa độ 2D dù địa chỉ đầy đủ.
+Tin chỉ có tên đường giữ mức đường; địa chỉ đủ nhưng không tìm được điểm
+chính xác cũng phải giữ trạng thái cần xác minh, không tự đánh dấu đã sửa.
+
+Các công cụ có tài liệu API phù hợp để thử:
+
+- [VIETMAP Geocode v4](https://maps.vietmap.vn/docs/map-api/geocode-version/geocode-v4/)
+  và [Place v4](https://maps.vietmap.vn/docs/map-api/place-v4/):
+  search hỗ trợ lọc lớp ADDRESS/STREET/POI; lấy ref_id rồi gọi Place để đọc
+  tọa độ và các thành phần số nhà/đường/phường/quận/thành phố. Một lần xử
+  lý địa chỉ có thể cần nhiều request, phải tính cả bước lấy chi tiết khi
+  dự toán. Chưa chứng minh API tìm đúng các hẻm cụ thể trong dataset này.
+- [Goong Geocode v2](https://help.goong.io/kb/rest-api-v2/geocode-rest-api-v2/):
+  có API chuyển địa chỉ thành tọa độ; cần pilot và kiểm quyền batch/lưu
+  lâu dài/map khác/bàn giao trước khi chọn làm nguồn dataset chính.
+
+Đây là các ứng viên geocoder, chưa phải lựa chọn đã nghiệm thu. Các công
+cụ xuất GeoJSON hoặc chuyển hệ tọa độ chỉ xử lý hình thức dữ liệu đã có
+vị trí; chúng không tìm được địa chỉ nhà bị thiếu. OSRM của dự án tìm
+đường trên graph. `LocationService.resolve` hiện tìm POI/đơn vị hành
+chính trong catalog, không có bộ đối soát toàn bộ số nhà Việt Nam.
+
+Kiểm cấu hình tại thời điểm lập kế hoạch ban đầu: chưa có key VIETMAP, Goong hoặc Google Maps theo
+các tên biến liên quan trong `.env`; không đọc/in giá trị key. Chưa có
+request geocoding thực để so sánh chất lượng. Hướng tiếp theo là thử trên
+tập địa chỉ đủ, có chứng cứ tham chiếu và giới hạn request/chi phí, sau
+đó mới quyết định nguồn và tỷ lệ có thể sửa. Không hứa tất cả địa chỉ
+đầy đủ sẽ trở thành tọa độ chính xác ngay khi gọi API.
+
+### 12.7. Đã thử VIETMAP trên 10 địa chỉ
+
+Người dùng đã bổ sung `VIETMAP_API_KEY` và yêu cầu thử vài địa chỉ. Kết quả
+ngày 2026-10-05: 40 request, 40 HTTP 200, 4 ca khớp đủ thành phần địa chỉ
+trong 3 candidate được lấy chi tiết/ca; chưa có xác minh vị trí độc lập.
+Nhóm chung pin Bình Thạnh có candidate số nhà riêng nhưng khác phường
+so với source, giữ ở review. Không cập nhật JSONL/DB hay logic ứng dụng.
+
+Xem [báo cáo thử housing VIETMAP](housing-vietmap-pilot-2026-10-05.md)
+để biết từng địa chỉ, khoảng cách trước/sau, giới hạn và chứng cứ local.
+
+### 12.8. Công cụ chuẩn hóa và mẫu đánh giá lớn hơn
+
+Đã thêm `scripts/housing-geocode.py` để chuẩn hóa cấu trúc có bằng chứng,
+xuất bản riêng, tra cứu có cache/ngân sách/tốc độ và tạo candidate để review.
+Không ghi vào DB, source live, logic Agent hoặc giao diện. Không thêm bảng.
+
+Lần chuẩn hóa 2026-10-05 giữ đủ 38.930 tin và sửa cấu trúc địa chỉ của 432
+tin. Nhóm có số nhà/đường thuộc ba thành phố là 10.301 tin (26,46%), tương
+ứng 8.287 khóa địa chỉ sau chuẩn hóa; nhiều tin cùng địa chỉ vẫn được giữ.
+Địa chỉ gốc được lưu trong metadata; verify đối chiếu từng record ngoài các
+fields địa chỉ/metadata và checksum, bảo toàn tọa độ/giá/phòng ngủ/ID/media.
+
+Mẫu lớn: 300 khóa địa chỉ, 100/thành phố, gồm 90 có số nhà + 10 chỉ có đường.
+Không dùng focus pin cũ. Dự báo khớp có trọng số quy mô thành phố và số tin
+mỗi địa chỉ; không dùng 4/10 ca của mẫu khó đầu tiên để dự báo cả dataset.
+Chưa coi candidate khớp thành phần là vị trí đã verified hay đã cải thiện.
+
+Xem [runbook geocode housing](housing-geocode-runbook.md), kết quả local
+ở `data/housing-geocode/README.md` và `summary.json`. Hạn mức trial công bố
+60.000 transaction có thể đủ nhóm có số nhà (tối đa khoảng 33.148 request
+nếu lấy 3 candidate/khóa), nhưng số dư tài khoản chưa được đọc từ Console.
+Không tự mua lượt hoặc chạy batch toàn bộ trước khi đánh giá chất lượng.
+
+Mẫu đã hoàn tất: 1.095 request đều HTTP 200, 69/270 địa chỉ có số nhà khớp
+đủ thành phần. Dự báo có trọng số khoảng 3.055 tin (7,85% toàn source),
+khoảng bootstrap 95% 6,17–9,59%; đây là candidate khớp địa chỉ, chưa phải
+tỷ lệ vị trí verified hay đã cải thiện. 44 ca khác phường và 6 ca nhiều vị
+trí cần review. Resume không phát sinh request mới; 11 tests qua, verify
+bảo toàn đủ 38.930 tin. Xem phần mở rộng trong
+[báo cáo VIETMAP](housing-vietmap-pilot-2026-10-05.md).
