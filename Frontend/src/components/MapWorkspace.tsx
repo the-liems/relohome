@@ -208,6 +208,7 @@ export function MapWorkspace({
   const generation = useRef(0);
   const activeSearchScope =
     focus?.searchScope?.area_id &&
+    !focus.searchScope.center &&
     !(filters.administrative_area_ids || []).includes(focus.searchScope.area_id)
       ? undefined
       : focus?.searchScope;
