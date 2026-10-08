@@ -13,6 +13,7 @@ import secrets
 import sqlite3
 import time
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
@@ -24,8 +25,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from Frontend.roommate_gateway import attach_roommate_gateway
-from Frontend.store import Store, password_hash
+from Frontend.store import Store, TravelerProfiles, password_hash
 from src.agents.intake import redact_pii
+from src.mcp_servers.flights.schemas import Contact, Passenger
 from src.models.moving_options import MovingOptions
 from src.models.schemas import MovingQuoteForm
 from src.roommate.agent_projection import history_projection
@@ -60,6 +62,57 @@ class QuoteTurn(MovingQuoteForm):
     request_id: str = Field(min_length=16, max_length=80)
 
 
+class Traveler(BaseModel):
+    """Booker profile; companions are entered per booking and never stored here (payment-design D2/D3)."""
+
+    model_config = ConfigDict(extra="forbid")
+    title: Literal["MR", "MRS", "MS"]
+    last_name: str = Field(min_length=1, max_length=50)
+    first_name: str = Field(min_length=1, max_length=50)
+    date_of_birth: str = Field(min_length=10, max_length=10)
+    email: str = Field(max_length=180)
+    phone: str = Field(max_length=20)
+
+
+class Companion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["adult", "child", "infant"] = "adult"
+    title: Literal["MR", "MRS", "MS", "MSTR", "MISS"]
+    last_name: str = Field(min_length=1, max_length=50)
+    first_name: str = Field(min_length=1, max_length=50)
+    date_of_birth: str = Field(min_length=10, max_length=10)
+
+
+class PayTurn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payload_hash: str = Field(min_length=64, max_length=64)
+    request_key: str = Field(min_length=16, max_length=80)
+    companions: list[Companion] | None = Field(default=None, max_length=8)  # None: not a flight
+
+
+def ticket_people(traveler: Traveler, companions: list[Companion]) -> dict:
+    """Validate with the Flight schema before anything leaves the gateway."""
+    try:
+        born = date.fromisoformat(traveler.date_of_birth)
+    except ValueError:
+        raise HTTPException(422, "Ngày sinh người đặt chưa hợp lệ (YYYY-MM-DD).") from None
+    today = date.today()
+    if today.year - born.year - ((today.month, today.day) < (born.month, born.day)) < 12:
+        raise HTTPException(422, "Người đặt vé phải từ 12 tuổi trở lên. Hãy kiểm tra ngày sinh trong hồ sơ.")
+    try:
+        booker = Passenger(type="adult", **traveler.model_dump(exclude={"email", "phone"}))
+        others = [Passenger(**c.model_dump()) for c in companions]
+        contact = Contact(email=traveler.email.strip(), phone=traveler.phone.replace(" ", ""))
+    except ValueError:
+        raise HTTPException(
+            422, "Thông tin hành khách chưa hợp lệ. Tên không dấu cũng được, ngày sinh dạng YYYY-MM-DD."
+        ) from None
+    return {
+        "passengers": [p.model_dump(mode="json", exclude_none=True) for p in [booker, *others]],
+        "contact": contact.model_dump(mode="json"),
+    }
+
+
 def public_user(row):
     return {k: row[k] for k in ("id", "email", "name")} | {"preferences": json.loads(row["preferences"])}
 
@@ -82,6 +135,10 @@ def create_app(database=None, transport=None):
     @asynccontextmanager
     async def lifespan(app):
         app.state.store = Store(database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3")))
+        app.state.travelers = TravelerProfiles(
+            app.state.store,
+            os.getenv("SIU_TRAVELER_KEY_FILE", str(Path(app.state.store_path).parent / "siu-web-traveler.key")),
+        )
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(250, connect=10), transport=transport)
         app.state.locks = {}
         app.state.attempts = {}
@@ -90,6 +147,7 @@ def create_app(database=None, transport=None):
         app.state.store.db.close()
 
     app = FastAPI(title="SIU AI Web", lifespan=lifespan)
+    app.state.store_path = database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3"))
 
     @app.get("/health")
     async def health(request: Request):
@@ -452,6 +510,118 @@ def create_app(database=None, transport=None):
         output = io.BytesIO()
         segno.make(code, micro=False).save(output, kind="svg", scale=6, xmldecl=False)
         return Response(output.getvalue(), media_type="image/svg+xml")
+
+    # --- In-app payment (payment-design §7–§10). Typed calls straight to the Agent API: no LLM, no chat message.
+
+    async def checkout_call(method, path, owner, body=None):
+        token = os.getenv("AGENT_API_TOKEN", "")
+        if not token:
+            raise HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+        base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+        try:
+            response = await app.state.http.request(
+                method,
+                base.rstrip("/") + path,
+                headers={"Authorization": "Bearer " + token, "X-User-Id": owner},
+                json=body,
+            )
+            data = response.json()
+        except (httpx.RequestError, ValueError):
+            # The payment may exist upstream; the UI checks status instead of paying again.
+            return JSONResponse(
+                {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"},
+                status_code=502,
+            )
+        if not response.is_success:
+            detail = data.get("detail") if isinstance(data, dict) else None
+            return JSONResponse(
+                {
+                    "detail": detail if isinstance(detail, str) else "Dịch vụ chưa xử lý được yêu cầu.",
+                    "code": data.get("code") if isinstance(data, dict) else None,
+                },
+                status_code=response.status_code,
+            )
+        return data
+
+    def traveler(owner):
+        data = app.state.travelers.get(owner)
+        return Traveler.model_validate(data) if data else None
+
+    @app.get("/web/api/profile/traveler")
+    async def get_traveler(request: Request):
+        found = traveler(user(request)["id"])
+        return {"traveler": found.model_dump() if found else None}
+
+    @app.put("/web/api/profile/traveler")
+    async def put_traveler(body: Traveler, request: Request):
+        ticket_people(body, [])  # same rules as the ticket, checked before saving
+        app.state.travelers.put(user(request)["id"], body.model_dump())
+        return {"traveler": body.model_dump()}
+
+    @app.delete("/web/api/profile/traveler")
+    async def delete_traveler(request: Request):
+        app.state.travelers.delete(user(request)["id"])
+        return {"ok": True}
+
+    @app.get("/web/api/threads/{thread}/checkout")
+    async def thread_checkout(thread: str, request: Request):
+        owner = user(request)["id"]
+        owned(thread, owner)
+        return await checkout_call("GET", f"/ui/chat/{thread}/checkout", owner)
+
+    @app.post("/web/api/threads/{thread}/checkout/summary")
+    async def checkout_summary(thread: str, request: Request):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        return await checkout_call("POST", f"/ui/chat/{thread}/checkout/summary", owner, {"domain": body.get("domain")})
+
+    @app.post("/web/api/checkout/{transaction}/pay")
+    async def checkout_pay(transaction: str, body: PayTurn, request: Request):
+        owner = user(request)["id"]
+        payload = {"payload_hash": body.payload_hash, "request_key": body.request_key}
+        if body.companions is not None:
+            booker = traveler(owner)
+            if booker is None:
+                raise HTTPException(422, "Hãy điền hồ sơ người đặt vé trong Tài khoản trước khi thanh toán vé.")
+            payload["passengers"] = ticket_people(booker, body.companions)
+        return await checkout_call("POST", f"/ui/checkout/{transaction}/pay", owner, payload)
+
+    @app.post("/web/api/checkout/attempts/{attempt}/{action}")
+    async def checkout_attempt(attempt: str, action: Literal["check", "tester-paid"], request: Request):
+        return await checkout_call("POST", f"/ui/checkout/attempts/{attempt}/{action}", user(request)["id"])
+
+    @app.get("/web/api/checkout/attempts/{attempt}/qr.svg")
+    async def checkout_qr(attempt: str, request: Request):
+        data = await checkout_call("GET", f"/ui/checkout/attempts/{attempt}/qr", user(request)["id"])
+        if isinstance(data, Response):
+            return data
+        code = data.get("qr_code")
+        if not isinstance(code, str) or not 1 <= len(code) <= 4096:
+            raise HTTPException(404, "Không có mã QR cho lần thanh toán này.")
+        import segno
+
+        output = io.BytesIO()
+        segno.make(code, micro=False).save(output, kind="svg", scale=6, xmldecl=False)
+        return Response(output.getvalue(), media_type="image/svg+xml")
+
+    @app.post("/web/api/threads/{thread}/housing/{step}")
+    async def housing_step(thread: str, step: Literal["viewing", "agreement", "paid"], request: Request):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        return await checkout_call("POST", f"/ui/chat/{thread}/housing/{step}", owner, body)
+
+    @app.post("/web/api/threads/{thread}/flight/outbound")
+    async def flight_outbound(thread: str, request: Request):
+        body = await object_body(request)
+        request_id = body.pop("request_id", "")
+        return await run(
+            thread,
+            user(request)["id"],
+            request_id,
+            f"/ui/chat/{thread}/flight/outbound",
+            body,
+            "Chọn chuyến đi của vé khứ hồi",
+        )
 
     @app.get("/web/api/map/search")
     async def map_search(request: Request, text: str):

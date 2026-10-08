@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
+  CreditCard,
   ChevronRight,
   Compass,
   Heart,
@@ -74,6 +75,7 @@ import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
+import { TravelerProfileForm } from "./components/Checkout";
 import { MapWorkspace } from "./components/MapWorkspace";
 import {
   FlightWorkspace,
@@ -1197,6 +1199,28 @@ function Chat() {
     setWorkspaceTaskId(null);
     setWorkspace(null);
   }
+  // Selected services the app can take payment for and that are not finished yet (payment-design §7).
+  const payable = thread?.state?.checkout
+    ? ["flight", "relocation"].filter(
+        (d) =>
+          facts["selected:" + d] &&
+          !(thread.state.checkout.transactions || []).some(
+            (t: Data) =>
+              t.domain === d &&
+              t.option_id === facts["selected:" + d].value &&
+              ["ticketed", "approved"].includes(t.status),
+          ),
+      )
+    : [];
+  function openCheckout() {
+    setWorkspace(null);
+    setParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("panel", "plan");
+      next.set("planTab", "checkout");
+      return next;
+    });
+  }
   function choosePlace(choice: Data, field: string) {
     const place =
       choice.entity_type === "place" &&
@@ -1219,6 +1243,8 @@ function Chat() {
         writesEnabled={!!status?.writes_enabled}
         onDecision={(body) => mutate("decision", body).then(() => {})}
         onPaymentCheck={() => mutate("payment/check", {}).then(() => {})}
+        onCheckoutChanged={reload}
+        house={selectedHouse}
         busy={busy}
         onOpenService={openService}
       />
@@ -1280,6 +1306,15 @@ function Chat() {
           onSelect={(id) =>
             selectIn(latestFlight, id, "Đã chọn chuyến bay vào kế hoạch.")
           }
+          onOutbound={(id) =>
+            mutate("flight/outbound", {
+              task_id: latestFlight.c.task_id,
+              plan_version: latestFlight.version,
+              fetched_at: latestFlight.c.fetched_at,
+              offer_id: id,
+            }).then(() => {})
+          }
+          onPay={thread?.state?.checkout ? openCheckout : undefined}
           onExit={finishWorkspace}
         />
       ) : workspace === "relocation" && latestMoving ? (
@@ -1294,6 +1329,7 @@ function Chat() {
           selectedId={facts["selected:relocation"]?.value}
           chat={chatDock}
           onEdit={() => setWorkspace("relocation-form")}
+          onPay={thread?.state?.checkout ? openCheckout : undefined}
           onSelect={(id) =>
             selectIn(
               latestMoving,
@@ -1820,6 +1856,16 @@ function Chat() {
                   }
                 </button>
               )}
+              {payable.length > 0 && (
+                <button className="primary open-map" onClick={openCheckout}>
+                  <CreditCard size={15} />
+                  {payable.length > 1
+                    ? uiText(" Thanh toán")
+                    : payable[0] === "flight"
+                      ? uiText(" Thanh toán vé máy bay")
+                      : uiText(" Thanh toán chuyển đồ")}
+                </button>
+              )}
             </div>
             {selectedHouse && (
               <div className="selection-strip">
@@ -2272,6 +2318,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
                 </div>
               </form>
             </section>
+            {tab === "profile" && <TravelerProfileForm />}
             <section className="surface recent-activity">
               <h3>{uiText("Hội thoại gần đây")}</h3>
               {threads.slice(0, 5).map((t) => (

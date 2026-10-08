@@ -18,6 +18,9 @@ tiếp tục sau restart. Người dùng không muốn mock hoặc triển khai 
 - Sandbox write tắt mặc định; launcher chỉ cho AhaMove staging và ZaloPay sandbox.
   Flight chỉ tìm kiếm thật; không coi dữ liệu offer là quyền xuất vé.
 - Payment demo độc lập với Moving CASH, không tự thu tiền cho dịch vụ khác.
+  Đề xuất 07/10/2026 (Draft, chưa code): vé và chuyển đồ đi qua quy trình ZaloPay sandbox như một đơn thanh toán
+  riêng cho từng dịch vụ (mô phỏng, không có tiền tới nhà cung cấp); xem
+  [payment-design.md](../review/payment-design.md).
 - Kết quả write bất định giữ dấu chặn và đối soát, không retry tạo đơn mù.
 
 ## Alternatives
