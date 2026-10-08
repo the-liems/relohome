@@ -305,10 +305,10 @@ class LlmPlanner(UsageOwner):
                 for field in fields:
                     source_field = "map_near" if task.agent == AgentName.MAP and field == "near" else field
                     place_id = values.get(source_field + "_place_id")
-                    proposed = task.inputs.get(field)
-                    if place_id and proposed in (None, values.get(source_field)):
-                        # Typed API choice binds its canonical name and ID together;
-                        # a different endpoint text must never inherit that ID.
+                    if place_id:
+                        # Typed API choice binds its canonical name and ID together; a model-written
+                        # label cannot rename it (ADR-021, SPEC-014/AC-32). When the user changes the
+                        # endpoint, Intake drops the old ID, so a new text never inherits it.
                         task.inputs[field] = values[source_field]
                         task.inputs[field + "_place_id"] = place_id
                     else:
