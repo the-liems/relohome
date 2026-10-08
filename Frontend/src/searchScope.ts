@@ -1,8 +1,51 @@
-import type { Feature, Polygon } from "geojson";
+import type { Feature, Polygon, MultiPolygon } from "geojson";
 import type { Data } from "./types";
 
 // This is the actual query envelope, not an invented administrative boundary.
-export function searchScopeFeature(scope?: Data): Feature<Polygon> | null {
+export function searchScopeFeature(
+  scope?: Data,
+): Feature<Polygon | MultiPolygon> | null {
+  const geometry = scope?.geometry;
+  if (geometry) {
+    if (!["Polygon", "MultiPolygon"].includes(geometry.type)) return null;
+    const polygons =
+      geometry.type === "Polygon"
+        ? [geometry.coordinates]
+        : geometry.coordinates;
+    const position = (p: unknown) =>
+      Array.isArray(p) &&
+      p.length === 2 &&
+      p.every(Number.isFinite) &&
+      Math.abs(p[0]) <= 180 &&
+      Math.abs(p[1]) <= 90;
+    if (
+      Array.isArray(polygons) &&
+      polygons.length &&
+      polygons.every(
+        (polygon: unknown) =>
+          Array.isArray(polygon) &&
+          polygon.length &&
+          polygon.every(
+            (ring: unknown) =>
+              Array.isArray(ring) &&
+              ring.length >= 4 &&
+              ring.every(position) &&
+              ring[0][0] === ring[ring.length - 1][0] &&
+              ring[0][1] === ring[ring.length - 1][1],
+          ),
+      )
+    ) {
+      return {
+        type: "Feature",
+        properties: {
+          basis: "administrative_boundary",
+          area_id: scope?.area_id,
+        },
+        geometry,
+      };
+    }
+    return null;
+  }
   const center = scope?.center,
     radius = scope?.radius_m;
   if (
@@ -38,6 +81,7 @@ export function searchScopeFeature(scope?: Data): Feature<Polygon> | null {
     };
   }
   const b = scope?.bounding_box;
+  if (scope?.boundary_unavailable) return null;
   if (
     !b ||
     ![b.west, b.south, b.east, b.north].every(Number.isFinite) ||

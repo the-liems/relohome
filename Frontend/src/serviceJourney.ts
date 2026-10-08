@@ -1,4 +1,4 @@
-import type { Component, Thread } from "./types";
+import type { Component, Message, Thread } from "./types";
 
 export type ServiceTarget = { c: Component; version: number };
 
@@ -57,5 +57,48 @@ export function nextServiceTarget(
       !t.c.data?.order &&
       !hasSelection(thread, t) &&
       !reviewed.has(t.c.id),
+  );
+}
+
+/** Uses authoritative goal/progress state, not a keyword rule on user text. */
+export function pendingServiceInput(
+  thread: Thread | null,
+  agent: string,
+): boolean {
+  return (thread?.state.progress?.items || []).some(
+    (item: any) =>
+      item.agent === agent &&
+      (item.task_id.startsWith("pending:") ||
+        (thread?.state.plan?.tasks || []).some(
+          (t: any) => t.id === item.task_id,
+        )) &&
+      item.state === "waiting" &&
+      !item.chosen &&
+      ["pending", "blocked", "needs_input", "stale"].includes(item.task_status),
+  );
+}
+
+/** Fold long result narratives after choice, keeping original text accessible. */
+export function closedResultSummary(
+  message: Message,
+  thread: Thread | null,
+): string | null {
+  const components = message.content.ui?.components || [];
+  if (
+    !components.length ||
+    components.some((c) => c.data?.comparison || c.data?.order)
+  )
+    return null;
+  const selections = components.map((c) =>
+    (thread?.state.progress?.items || []).find(
+      (i: any) =>
+        i.task_id === c.task_id && i.state === "confirmed" && i.chosen,
+    ),
+  );
+  if (selections.some((i) => !i)) return null;
+  return (
+    "Đã chọn phương án: " +
+    [...new Set(selections.map((i) => i.chosen.label))].join("; ") +
+    ". Chi tiết và trạng thái được lưu trong Kế hoạch."
   );
 }

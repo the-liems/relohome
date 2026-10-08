@@ -1,5 +1,7 @@
 # Location — đọc trạng thái hiện hành
 
+Cập nhật 08/10: [Phạm vi hành chính thật, luồng workspace và Roommate DEMO](search-scope-roommate-2026-10-08.md).
+
 Runtime graph tổng thể: [bàn giao domain agents 30/09](domain-agents-2026-09-30.md).
 
 Kiểm chứng song song/phụ thuộc: [hai luồng phức tạp 30/09](complex-flows-2026-09-30.md).

@@ -26,6 +26,7 @@ import { CandidateDetail } from "./CandidateDetail";
 import { ConnectionDetail } from "./ConnectionDetail";
 import type { Access, Availability, Criteria } from "./types";
 import { rt } from "./text";
+import { DemoDiscovery } from "./DemoDiscovery";
 import "./roommate.css";
 export { RoommateGuest } from "./RoommateGuest";
 export function RoommateWorkspace() {
@@ -70,7 +71,21 @@ export function RoommateWorkspace() {
           access.reload();
         }}
       />
-      {availability.loading || access.loading ? (
+      {availability.value?.demo_enabled && (
+        <p className="rm-hint">
+          <Link to="/roommate?tab=demo">Trải nghiệm 100 hồ sơ DEMO</Link> · Hồ
+          sơ giả, không dùng để kết nối thật.
+          {params.get("tab") === "demo" && (
+            <>
+              {" "}
+              · <Link to="/roommate">Về hồ sơ thật</Link>
+            </>
+          )}
+        </p>
+      )}
+      {availability.value?.demo_enabled && params.get("tab") === "demo" ? (
+        <DemoDiscovery />
+      ) : availability.loading || access.loading ? (
         <ContentSkeleton
           label={rt("Đang mở dịch vụ…", "Opening the service…")}
         />

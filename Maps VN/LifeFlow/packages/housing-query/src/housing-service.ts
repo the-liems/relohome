@@ -19,6 +19,7 @@ import { NotFoundError, QueryValidationError, RouteServiceError } from './errors
 import { PlaceService } from './place-service.js'
 import { RouteService } from './route-service.js'
 import { checkOperation, withinOperation } from './execution.js'
+import { definitelyDisjointScope } from './spatial-scope.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
@@ -277,6 +278,9 @@ export class HousingQueryService {
 
   private async mapWithinBudget(input: unknown): Promise<HousingMapResponse> {
     const request = HousingMapRequestSchema.parse(input)
+    if (definitelyDisjointScope(request)) return HousingMapResponseSchema.parse({
+      features: [], meta: { mode: request.zoom < 13 ? 'clusters' : 'listings', returned_count: 0, truncated: false },
+    })
     const sql = createSqlBuilder()
     const conditions = candidateConditions(HousingSearchRequestSchema.parse(request), sql)
     if (request.listing_ids) conditions.push(`l.id = ANY(${sql.parameter(request.listing_ids)}::uuid[])`)
@@ -372,6 +376,7 @@ export class HousingQueryService {
     offset: number,
     listingId?: string,
   ): Promise<CandidateRow[]> {
+    if (definitelyDisjointScope(request)) return []
     const sql = createSqlBuilder()
     const conditions = candidateConditions(request, sql, listingId)
 

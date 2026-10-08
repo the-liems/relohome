@@ -9,6 +9,12 @@ dùng `Draft`, `Accepted` hoặc `Superseded`. Mã tiêu chí (`SPEC-NNN/AC-NN`)
 [SPEC-014 — Domain LLM agents](SPEC-014-domain-llm-agents.md) mô tả vòng tool
 mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
+## Shared product contracts
+
+| SPEC | Status | Scope |
+|---|---|---|
+| [SPEC-018 — Search scope and Roommate map](SPEC-018-search-scope-and-roommate-map.md) | Draft | True administrative boundaries, viewport/radius intersection, service journey and isolated synthetic Roommate playground |
+
 ## Agent
 
 | Cần tìm hiểu | SPEC | Trạng thái | Phụ trách |

@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     roommate_state_dir: Path = Path("logs/private-roommate")
     roommate_area_catalog: Path | None = None
     roommate_moderators: str = ""
+    roommate_demo_enabled: bool = False
+    roommate_demo_dataset: Path | None = None
     agent_api_token: SecretStr = SecretStr("")
 
 

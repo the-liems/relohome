@@ -16,7 +16,7 @@ class Actor(RoommateModel):
 
     @model_validator(mode="after")
     def identified(self) -> Self:
-        if self.id == "anonymous":
+        if self.id == "anonymous" or self.id.startswith("demo_"):
             raise ValueError("A trusted authenticated actor is required")
         return self
 

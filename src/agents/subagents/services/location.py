@@ -374,6 +374,7 @@ class LocationSubagent:
         area: dict[str, Any] = {}
         area_name = None
         city_scope = None
+        administrative_scope: dict | None = None
         scope_bbox: dict | None = None
         if inp.get("bounding_box"):
             # Khung bản đồ người dùng đang xem (API đã kiểm biên); thay cho thành phố / địa danh.
@@ -404,26 +405,51 @@ class LocationSubagent:
             area = {"center": place["location"], "radius_m": search_radius}
             area_name = (place.get("parent") or {}).get("name") or place.get("name")
         elif inp.get("city"):
-            areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
+            areas = (
+                (await tools.call("search_areas", {"text": inp["city"], "limit": 5, "include_geometry": True})) or {}
+            ).get("results") or []
             found = pick_city_area(areas)
             if found is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
+            administrative_scope = found
         elif inp.get("district"):
             # A district alone is a valid scope only after Location resolves it uniquely.
-            areas = ((await tools.call("search_areas", {"text": inp["district"], "limit": 5})) or {}).get(
-                "results"
-            ) or []
+            areas = (
+                (await tools.call("search_areas", {"text": inp["district"], "limit": 5, "include_geometry": True}))
+                or {}
+            ).get("results") or []
             found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
             if found is None:
                 return self._choose(req, tools, "district", inp["district"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
+            administrative_scope = found
         if city_scope:
             area["administrative_area_ids"] = [city_scope["area_id"]]
+
+        # Resolve the user's named sub-area inside the city, using the current dataset's
+        # actual unit/name. Never infer an old district from admin_level or from a ward.
+        if inp.get("district") and not area.get("bounding_box"):
+            arguments = {"text": inp["district"], "limit": 5, "include_geometry": True}
+            if scope_bbox:
+                arguments["bounding_box"] = scope_bbox
+            areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
+            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            if found is not None:
+                administrative_scope = found
+                # administrative_area_ids uses OR, not AND: keep only the narrowest scope.
+                area["administrative_area_ids"] = [found["area_id"]]
+                if not area.get("center"):
+                    area_name = found.get("name")
+                scope_bbox = found.get("bounding_box")
+            elif not area.get("center"):
+                # Legacy addresses remain searchable, but cannot supply a real polygon.
+                administrative_scope = None
+                area_name = inp["district"]
 
         def request(filters: dict[str, Any]) -> dict[str, Any]:
             body: dict[str, Any] = {
@@ -440,7 +466,7 @@ class LocationSubagent:
             for key in HOUSING_NUMERIC_FILTERS:
                 if filters.get(key) is not None:
                     body[key] = filters[key]
-            if filters.get("district"):
+            if filters.get("district") and not administrative_scope:
                 body["district"] = filters["district"]
             room = ROOM_TYPES.get(str(filters.get("room_type", "")).lower())
             if room:
@@ -491,7 +517,11 @@ class LocationSubagent:
                     recurrence="monthly",
                 )
             )
-        viewport = await self._viewport(tools, area, search_request, candidates, scope_bbox)
+        viewport = (
+            scope_bbox
+            if administrative_scope and not area.get("center")
+            else await self._viewport(tools, area, search_request, candidates, scope_bbox)
+        )
         search_envelope = area.get("bounding_box") or (viewport if search_request.get("district") else scope_bbox)
         data = {
             "area_name": area_name,
@@ -515,7 +545,18 @@ class LocationSubagent:
                     "radius_m": area.get("radius_m"),
                     "bounding_box": search_envelope,
                     "label": area_name,
-                    "boundary_kind": "search_envelope_not_administrative_polygon",
+                    "geometry": administrative_scope.get("geometry")
+                    if administrative_scope and not area.get("center")
+                    else None,
+                    "area_id": administrative_scope.get("area_id") if administrative_scope else None,
+                    "boundary_kind": "search_radius"
+                    if area.get("center")
+                    else "administrative_polygon"
+                    if administrative_scope
+                    else "search_envelope_not_administrative_polygon",
+                    "boundary_unavailable": bool(
+                        inp.get("district") and not administrative_scope and not area.get("center")
+                    ),
                 },
             },
         }
