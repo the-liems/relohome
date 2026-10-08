@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta
+from time import perf_counter
 
 from jsonschema import Draft202012Validator
 from openai import APIError, AsyncOpenAI
@@ -28,6 +29,10 @@ inputs là ràng buộc đã xác nhận: giữ ngân sách, ngày, số ngườ
 Tool có field dùng đúng giá trị field trong task, không phải tên địa điểm do bạn tự bịa. Tọa độ/ID/giá chỉ từ tool.
 Có thể search trực tiếp nếu rõ yêu cầu (tool tự resolve phần chưa chuẩn bị), hoặc resolve trước để kiểm vị trí/sân bay.
 Search đã bao gồm resolve an toàn; không cần resolve riêng chỉ để gọi lại search cùng mục tiêu.
+Với yêu cầu đơn giản chỉ liệt kê nhà/chuyến theo bộ lọc đã xác nhận, chọn search_housing_and_return hoặc
+search_flights_and_return để lấy dữ kiện và trả ngay; không cần một lượt finish chỉ để lặp lại kết quả.
+Hai tool này KHÔNG đánh giá phù hợp hay xếp hạng theo ưu tiên. Khi cần so sánh, đọc chi tiết, kiểm tra
+yêu cầu tùy chỉnh hoặc quyết định bước tiếp theo, dùng search bình thường rồi inspect/finish/request_replan.
 search_housing.limit là số kết quả cần xem (tối đa giới hạn tool); null dùng mặc định. Khi user nêu số lượng,
 chọn đúng số đó trong giới hạn task; tool tự đọc trang nếu cần. Không lấy thêm chỉ vì còn trang.
 Không lặp thao tác đã làm. Đừng đọc tất cả chi tiết nếu không có lý do. Còn ít budget thì tìm kết quả và finish.
@@ -105,6 +110,8 @@ class ReadLlmAgent:
         )
         session = DomainToolSession(req, self.adapter)
         trace, decisions = [], []
+        started = perf_counter()
+        timing = {"llm_ms": 0, "tool_ms": 0}
         history = [
             {
                 "role": "user",
@@ -135,12 +142,13 @@ class ReadLlmAgent:
             result.usage = run.usage.model_copy()
             result.data["agent_trace"] = {
                 "implementation": "llm-tool-loop",
-                "policy": "mission-driven-v2",
+                "policy": "mission-driven-v3-facts-completion",
                 "domain": domain.value,
                 "tools": trace,
                 "decisions": decisions,
                 "model": self.model,
                 "cached_calls": session.tools.cached_calls,
+                "timing": {**timing, "total_ms": round((perf_counter() - started) * 1000)},
             }
             return result
 
@@ -159,6 +167,7 @@ class ReadLlmAgent:
                         t for t in available if t["name"] not in {"resolve_location", "search_areas", "search_airports"}
                     ]
                 run.reserve()
+                call_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
                     reply = await self.llm_client.responses.create(
                         model=provider_model(self.api_key, self.model),
@@ -172,6 +181,7 @@ class ReadLlmAgent:
                         **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
                         **({"temperature": 0} if self.model.startswith(("gpt-4.1", "gpt-4o")) else {}),
                     )
+                timing["llm_ms"] += round((perf_counter() - call_started) * 1000)
                 if reply.usage:
                     run.usage.tokens_in += reply.usage.input_tokens
                     run.usage.tokens_out += reply.usage.output_tokens
@@ -186,8 +196,10 @@ class ReadLlmAgent:
                     raise ValueError("Invalid or unobserved tool argument")
                 trace.append(call.name)
                 decisions.append({"tool": call.name, **{k: args[k] for k in ("field", "id", "limit") if k in args}})
+                call_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
                     output, terminal = await session.execute(call.name, args)
+                timing["tool_ms"] += round((perf_counter() - call_started) * 1000)
                 if terminal:
                     return finish()
                 history.append(
@@ -230,10 +242,12 @@ class ReadLlmAgent:
             )
             failure.data["agent_trace"] = {
                 "implementation": "llm-tool-loop",
-                "policy": "mission-driven-v2",
+                "policy": "mission-driven-v3-facts-completion",
                 "domain": domain.value,
                 "tools": trace,
                 "decisions": decisions,
                 "model": self.model,
+                "failure_code": exc.code if isinstance(exc, ToolCallError) else type(exc).__name__,
+                "timing": {**timing, "total_ms": round((perf_counter() - started) * 1000)},
             }
             return failure

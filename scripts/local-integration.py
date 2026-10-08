@@ -1,11 +1,12 @@
 """Run one local component with ignored integration configuration; no deployment.
 
-Usage: .venv/Scripts/python scripts/local-integration.py location|platform|moving|moving-api|api|migrate|ui
+Usage: .venv/Scripts/python scripts/local-integration.py location|platform|moving|moving-api|api|migrate|ui|check
 Keep each long-running component in its own terminal. Ctrl+C stops that component.
 """
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +48,7 @@ def environment(component, sandbox_writes=False):
     # Children must not re-load the broad root .env after scoped credentials are removed.
     env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
     env["PYTHONPATH"] = str(ROOT)
+    env["PYTHONIOENCODING"] = "utf-8"
     if component in {"location", "platform", "moving", "moving-api"}:
         allowed = {
             "PATH",
@@ -74,7 +76,7 @@ def environment(component, sandbox_writes=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "api", "migrate", "ui"])
+    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "api", "migrate", "ui", "check"])
     parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
@@ -88,6 +90,7 @@ def main():
         "moving": ["node", "moving-mcp-server/dist/http-server.js"],
         "moving-api": ["node", "moving-api/dist/server.js"],
         "migrate": ["node", "platform-api/dist/migrate.js"],
+        "check": ["node", "scripts/check-local-schema.mjs"],
         "api": [
             sys.executable,
             "-m",
@@ -113,10 +116,16 @@ def main():
             "1",
         ],
     }
+    command = commands[args.component]
+    if command[0] == "node":
+        if shutil.which("node") is None:
+            parser.error("Node.js is not on PATH. Install Node.js 24+ and reopen the terminal.")
+        if not (MAPS / command[1]).is_file():
+            parser.error("Missing LifeFlow build. In 'Maps VN/LifeFlow', run npm ci and npm run build.")
     sys.exit(
         subprocess.call(
-            commands[args.component],
-            env=environment(args.component, args.sandbox_writes),
+            command,
+            env=environment("platform" if args.component == "check" else args.component, args.sandbox_writes),
             cwd=ROOT if args.component in {"api", "ui"} else MAPS,
         )
     )

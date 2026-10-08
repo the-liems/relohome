@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -42,6 +43,19 @@ class MovingLocations(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pickup: ConfirmedLocation | None = None
     destination: ConfirmedLocation | None = None
+
+
+class MovingQuoteForm(BaseModel):
+    """Explicit quote intent; no contacts, approval or model-authored coordinates."""
+
+    model_config = ConfigDict(extra="forbid")
+    plan_version: int = Field(ge=0, strict=True)
+    pickup: ConfirmedLocation
+    destination: ConfirmedLocation
+    move_date: date
+    move_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    moving_options: MovingOptions = Field(default_factory=MovingOptions)
+    destination_listing_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class BoundingBox(BaseModel):

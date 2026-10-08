@@ -59,7 +59,7 @@ export function MovingOptionsForm({
     }
     setLoading(true);
     api<Data>(
-      `/moving/services?lat=${pickup.lat}&lng=${pickup.lng}`,
+      `/moving/services?lat=${pickup.lat}&lng=${pickup.lng}&refresh=${retry > 0}`,
       "GET",
       undefined,
       abort.signal,
@@ -289,6 +289,16 @@ export function MovingOptionsForm({
               <RefreshCw size={14} /> Tải lại danh mục
             </button>
           </div>
+        )}
+        {received && !error && services.length > 0 && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={loading}
+            onClick={() => setRetry((r) => r + 1)}
+          >
+            <RefreshCw size={14} /> Tải lại danh mục
+          </button>
         )}
         <label>
           Gói dịch vụ

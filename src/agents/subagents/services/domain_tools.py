@@ -212,6 +212,20 @@ class DomainToolSession:
                         "Read only the backend-owned payment in the task. Provider status is authoritative.",
                     )
                 )
+            # The model, not a keyword classifier, chooses whether a facts-only
+            # retrieval is sufficient. Keep the inspect -> assess path available.
+            if domain in {AgentName.PROPERTY, AgentName.FLIGHT}:
+                search = next(t for t in available if t["name"] in {"search_housing", "search_flights"})
+                combined = copy.deepcopy(search)
+                combined["name"] += "_and_return"
+                combined["description"] = (
+                    "Search and return provider facts immediately, without a second LLM assessment. "
+                    "Use for a straightforward list with the confirmed filters. Resolves endpoints safely; "
+                    "ambiguity still asks the user. NOT for comparing, ranking by preferences, verifying custom "
+                    "requirements, or planning further reads. Those need the normal search then inspect/finish. "
+                    + search["description"]
+                )
+                available.append(combined)
         elif domain in {AgentName.PROPERTY, AgentName.FLIGHT}:
             ids = self.ids - self.read_ids
             if ids:
@@ -238,6 +252,9 @@ class DomainToolSession:
         schema = next((t["parameters"] for t in self.available() if t["name"] == name), None)
         if schema is None or not Draft202012Validator(schema).is_valid(args):
             raise ValueError("Operation is not available or arguments are ungrounded")
+        return_facts = name in {"search_housing_and_return", "search_flights_and_return"}
+        if return_facts:
+            name = name.removesuffix("_and_return")
         if name == "ask_user":
             if self.result is None:
                 self.result = AgentTaskResult(
@@ -338,7 +355,15 @@ class DomainToolSession:
                 self.merge_page(page)
             if len(self.rows) < requested_limit and self.result.data.get("next_cursor"):
                 self.result.data.setdefault("pagination_issue", {"status": "limited", "code": "pagination_page_cap"})
-        return result_context(self.result), self.result.status != "done"
+        if return_facts and self.result.status == "done":
+            # Do not manufacture model assessment, reorder options or upgrade
+            # missing evidence simply because retrieval has finished.
+            self.result.data["agent_completion"] = {
+                "mode": "provider_facts",
+                "model_assessed": False,
+                "scope": "confirmed_search_filters_only",
+            }
+        return result_context(self.result), return_facts or self.result.status != "done"
 
     async def prepare(self, name, field):
         text = self.req.inputs[field]

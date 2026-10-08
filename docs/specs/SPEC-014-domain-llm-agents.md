@@ -44,6 +44,7 @@ không thay MCP contract của teammate.
 | SPEC-014/AC-31 | LLM chọn số kết quả Housing trong giới hạn `limit` đã xác nhận; composite search resolve an toàn và phân trang tối đa ba trang trong provider budget, không đổi hard filters. Mơ hồ phải hỏi; lỗi trang sau giữ trang trước và báo hạn chế. |
 | SPEC-014/AC-32 | Chọn địa điểm đã được API xác minh gắn tên chuẩn và ID vào cùng fact/input, không sinh conflict vì nhãn hiển thị khác tên query. Map quanh căn đã chọn không được nhận anchor tìm nhà cũ thay cho căn đó. |
 | SPEC-014/AC-33 | Assessment limited của task optional từ lượt trước không làm hạ mức đáp ứng của task mới đã xong. Task required được tái dùng vẫn phải kiểm hạn chế; khi không có task mới, không che hạn chế của kết quả đang dùng. |
+| SPEC-014/AC-34 | Housing/Flight có thao tác search-and-return để LLM chọn khi chỉ cần dữ kiện theo bộ lọc đã xác nhận. Không có bộ phân loại keyword chọn hộ tool. Dữ kiện dùng cùng adapter và giữ nguồn, hard filters, ambiguity, missing_fields; `agent_completion.model_assessed=false` không phải assessment/xếp hạng. Normal search/details/finish/replan vẫn có cho nhiệm vụ cần đánh giá. |
 
 ## Kiểm chứng
 
@@ -58,6 +59,13 @@ skip nếu chưa có giao dịch thật, không tự tạo dữ liệu thay th�
 Test live opt-in bằng `RUN_LIVE_INTEGRATION=1` và
 `RUN_LIVE_API_URL=http://127.0.0.1:18000/api/v1`.
 Các test phụ thuộc API/LLM/MCP thật; không coi skip hoặc lỗi mạng là pass.
+
+`scripts/measure-read-latency.py`: `--live-llm` opt-in chạy đúng năm lượt đọc thật;
+`--catalog` đối chiếu catalog Flight với MCP thật, không gọi LLM;
+`--ui-report` kiểm thao tác UI trên các thread đo riêng, không gửi chat.
+[Bằng chứng 05/10](../../eval/read-latency-2026-10-05.md) kiểm AC-02/03/05/34
+trên các ca liệt kê đơn giản, đa lượt và task độc lập song song; không chứng minh
+toàn bộ các AC hoặc mọi tình huống đánh giá phức tạp.
 
 ## Giới hạn rõ ràng
 

@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from Frontend.store import Store, password_hash
 from src.agents.intake import redact_pii
 from src.models.moving_options import MovingOptions
+from src.models.schemas import MovingQuoteForm
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
@@ -51,6 +52,10 @@ class Turn(BaseModel):
     moving_options: MovingOptions | None = None
     map_view: dict | None = None  # validated again by the Agent API
     place_choice: dict | None = None
+
+
+class QuoteTurn(MovingQuoteForm):
+    request_id: str = Field(min_length=16, max_length=80)
 
 
 def public_user(row):
@@ -82,6 +87,11 @@ def create_app(database=None, transport=None):
         app.state.store.db.close()
 
     app = FastAPI(title="SIU AI Web", lifespan=lifespan)
+
+    @app.get("/health")
+    async def health():
+        """Public process readiness for the local launcher; no login or upstream LLM call."""
+        return {"status": "ok", "service": "siu-web"}
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
@@ -375,6 +385,17 @@ def create_app(database=None, transport=None):
             "Xem thêm kết quả" if body.get("kind") == "more" else "Chọn phương án vào kế hoạch",
         )
 
+    @app.post("/web/api/threads/{thread}/moving/quote")
+    async def moving_quote(thread: str, body: QuoteTurn, request: Request):
+        return await run(
+            thread,
+            user(request)["id"],
+            body.request_id,
+            f"/ui/chat/{thread}/moving/quote",
+            body.model_dump(mode="json", exclude={"request_id"}),
+            f"Báo giá chuyển đồ từ form ngày {body.move_date.isoformat()} lúc {body.move_time}. Chưa đặt đơn.",
+        )
+
     @app.post("/web/api/threads/{thread}/decision")
     async def decision(thread: str, request: Request):
         body = await object_body(request)
@@ -435,8 +456,8 @@ def create_app(database=None, transport=None):
         return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
 
     @app.get("/web/api/moving/services")
-    async def moving_services(request: Request, lat: float, lng: float):
-        params = str(httpx.QueryParams({"lat": lat, "lng": lng}))
+    async def moving_services(request: Request, lat: float, lng: float, refresh: bool = False):
+        params = str(httpx.QueryParams({"lat": lat, "lng": lng, "refresh": refresh}))
         return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
 
     @app.post("/web/api/platform/{resource:path}")

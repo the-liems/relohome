@@ -28,6 +28,9 @@ Bảng đánh số thống nhất giữa các nhánh: `docs/architecture/agent-g
 | Vì sao Intake/Planner/Moving dùng LLM-first nhưng quyền thực thi vẫn kiểm bằng code? | [018 - LLM-first components](ADR-018-llm-first-agent-components.md) | Accepted trên `khoa`; chưa ghép graph |
 
 Runtime local mới: [ADR-019 — integrated MVP](ADR-019-local-integrated-mvp.md).
+
+Typed form Moving: [ADR-022 — confirmed quote intent](ADR-022-confirmed-moving-form-intent.md)
+(Proposed, issue #52; không thay Planner LLM cho hội thoại).
 ADR-018 đã được nối vào graph trong nhánh `mvp`; dòng trạng thái `khoa` ở trên là mốc trước tích hợp.
 
 ADR-003, 004, 008, 011 có mục cập nhật 2026-09-29 cho khớp với agent graph (ADR-016); quyết định
