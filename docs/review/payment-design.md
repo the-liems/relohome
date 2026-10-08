@@ -1,6 +1,7 @@
 # Thiết kế thanh toán đa dịch vụ (đề xuất)
 
-Trạng thái: **Draft v4, chưa triển khai.** Cập nhật: 08/10/2026 (đã xử lý nhận xét review PR #69).
+Trạng thái: **v4, đang triển khai trên nhánh `payment-design` (chưa merge).** Cập nhật: 08/10/2026. Chỗ code khác
+thiết kế ghi ở mục 8.2 và 14.
 Nền đối chiếu: `origin/QuangDung` tại `374d38c`, cùng `docs/product.md`, SPEC-004 / SPEC-016 / SPEC-017 trên `main`
 `6519b62`.
 
@@ -267,12 +268,16 @@ sequenceDiagram
 | Đã chọn chuyến đi, sau đó "về ngày 15" hoặc "về chuyến tối" | Bổ sung chặng về, lấy danh sách chiều về cho chuyến đi đã chọn |
 | "vé một chiều" hoặc không nhắc chiều về | `one_way` |
 
-**Planner:** `flight_out` (tìm khứ hồi, trả chiều đi) → `flight_return` (phụ thuộc chuyến đi **đã chọn**, trả chiều
-về). Thanh kế hoạch hiện "Chuyến đi" → "Chuyến về". Lựa chọn lưu trong `goal_selections` theo task; cần cho phép hai
-lựa chọn Flight cùng lúc khi `flight_return` phụ thuộc `flight_out` (mục 5).
+**Planner (đã làm, khác bản đề xuất):** khứ hồi là **một** task Flight (`trip_type=round_trip`), không tách
+`flight_out` → `flight_return`. Chọn chuyến đi là thao tác UI có kiểu `POST /ui/chat/{thread_id}/flight/outbound`
+(0 LLM): app gọi `search_return_flights`, ghi danh sách chiều về vào cùng kết quả (`return_options`). Lựa chọn cuối
+`selected:flight` là offer hành trình (đi + về), nên `goal_selections` vẫn một lựa chọn Flight mỗi task. Lý do: không
+phải sửa `record_selections` để giữ hai lựa chọn cùng lĩnh vực, không thêm một lượt planner LLM giữa hai chiều (L1).
+Đổi chuyến đi thì bỏ lựa chọn chiều về và lựa chọn của task. "Duyệt" là bước xác nhận ở màn thanh toán.
 
-**Giá:** `price_scope = itinerary` là giá của hành trình provider trả sau khi chọn đủ hai chiều. Giá ở danh sách chiều
-đi ghi đúng loại SerpAPI trả (kiểm khi code); không tự cộng hai giá hiển thị thành tổng.
+**Giá (đã kiểm bằng SerpAPI thật 08/10/2026):** với `type=1`, giá ở mỗi chuyến đi là **giá khứ hồi thấp nhất có chuyến
+đi đó** (`price_scope=round_trip_from`, UI ghi "từ"); gọi lại với `departure_token` thì giá mỗi chuyến về là **tổng cả
+hành trình** (`price_scope=round_trip`). Chỉ offer hành trình được thanh toán; không cộng hai giá hiển thị.
 
 **Đổi và lỗi:**
 
@@ -414,7 +419,12 @@ stateDiagram-v2
   mới xong một phần; không nói giá vé đã được hãng xác minh.
 - Dữ liệu cá nhân không vào prompt LLM (D15, D16 hiện có).
 
-## 14. Thay đổi dự kiến theo file (chưa làm)
+## 14. Thay đổi theo file
+
+Đã làm trên nhánh `payment-design` (chưa push). Khác bảng dưới: giao dịch, lần thanh toán và công việc hoàn tất nằm ở
+module riêng `src/checkout/` (bảng `checkout_*` trong runtime SQLite, API `src/api/checkout.py`) thay vì sửa
+`nodes/confirm.py`, `nodes/transaction.py`, `commit.py`; agent không gọi thanh toán, người dùng bấm "Thanh toán" trên
+UI. Bật bằng `APP_PAYMENT_DEMO_ENABLED` (launcher `--payment-demo`). Chưa làm: MCP dài hạn (L6).
 
 | Tầng | File (trên `QuangDung`) | Việc |
 |---|---|---|

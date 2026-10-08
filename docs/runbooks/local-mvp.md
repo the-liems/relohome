@@ -119,10 +119,23 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
   đổi địa chỉ hoặc COD không thuộc form sửa liên hệ, phải đánh giá lại giá/đơn.
 - ZaloPay sandbox độc lập vẫn có API backend và trang Streamlit cũ; frontend React chưa có form demo riêng. UI mới đọc yêu cầu thanh toán từ workflow và kiểm tra kết quả từ provider.
 
-Moving đang CASH. Thanh toán ZaloPay là demo riêng, **chưa phải thanh toán đơn
-AhaMove hay vé máy bay**. Không tự nối hai khoản để tránh thu tiền hai lần.
-Đây là hành vi của code hiện tại. Thiết kế thanh toán đa dịch vụ (Draft, chưa code) nằm ở
-[payment-design.md](../review/payment-design.md).
+### Thanh toán trong app (nhánh `payment-design`)
+
+Chạy `api` với `--payment-demo` (thay cho `--sandbox-writes`) và đặt danh sách tài khoản tester (id trong bảng
+`users` của `data/siu-web.sqlite3`, cách nhau dấu phẩy):
+
+```bash
+PAYMENT_TESTER_USER_IDS=<id1>,<id2> .venv/bin/python scripts/local-integration.py api --payment-demo
+```
+
+Cờ bật `APP_PAYMENT_DEMO_ENABLED`, đặt vé mô phỏng (`FLIGHT_SIMULATION_ENABLED`) và nút "Đã thanh toán (tester)".
+Thu tiền qua ZaloPay sandbox; không tạo đơn AhaMove, chuyển đồ chỉ ghi "đã duyệt". Vé máy bay cần hồ sơ người đặt ở
+Tài khoản → Hồ sơ (lưu mã hóa, khóa ở `data/siu-web-traveler.key` hoặc `SIU_TRAVELER_KEY`). Khi chọn xong phương án,
+chat hiện nút "Thanh toán"; tab Thanh toán trong Kế hoạch có tổng tiền, lịch xem nhà, thỏa thuận và báo đã trả chủ
+nhà. Thiết kế: [payment-design.md](../review/payment-design.md).
+
+Không có `--payment-demo`: Moving vẫn CASH qua form xác nhận như trước; thanh toán ZaloPay là demo riêng, không nối
+với đơn AhaMove hay vé máy bay.
 
 ## An toàn và phục hồi
 
