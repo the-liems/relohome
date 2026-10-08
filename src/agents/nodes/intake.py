@@ -474,6 +474,13 @@ def make_intake(deps: GraphDeps):
                 result.conflicts.append("Bạn muốn tìm ở khu vực nào? Mình chưa nhận được vùng bản đồ đang xem.")
         elif named_area:
             values.pop("bounding_box", None)
+        # Vé khứ hồi: ngày về trước ngày đi là mâu thuẫn; hỏi lại, không tự sửa (payment-design D12).
+        if values.get("return_date") and values.get("flight_date") and values["return_date"] < values["flight_date"]:
+            result.conflicts.append(
+                f"Ngày về ({values['return_date']}) đang trước ngày đi ({values['flight_date']}). Bạn muốn bay về ngày nào?"
+            )
+            values.pop("return_date", None)
+            facts.pop("return_date", None)
         # Ứng viên địa điểm người dùng bấm chọn trên bản đồ: API đã đối chiếu với Location.
         for key in PLACE_CHOICE_FIELDS:
             if key in result.user_confirmed_facts and not (choice and choice["field"] == key):

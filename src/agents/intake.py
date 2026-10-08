@@ -197,6 +197,8 @@ FACT_LABELS = {
     "origin": "nơi đi",
     "destination": "nơi đến",
     "flight_date": "ngày bay",
+    "return_date": "ngày bay về",
+    "trip_type": "loại vé (một chiều/khứ hồi)",
     "passengers": "số hành khách",
     "from_address": "điểm lấy đồ",
     "to_address": "điểm giao đồ",
@@ -379,6 +381,10 @@ def missing_for(
         ):
             missing.append("map.selected:property")
         return missing
+    if domain == AgentName.FLIGHT and values.get("trip_type") == "round_trip" and not _has(values, "return_date"):
+        # Khứ hồi cần ngày về trước khi tìm (chế độ khứ hồi của SerpApi); các field khác kiểm như thường.
+        base = [m for m in missing_for(domain, {**values, "trip_type": "one_way"}, sources, facts)]
+        return [*base, "flight.return_date"]
     if domain == AgentName.MAP and _has(values, "map_near"):
         return []
     if domain == AgentName.MAP and "selected:property" in facts and not _has(values, "near"):

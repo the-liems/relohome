@@ -219,6 +219,8 @@ FLIGHT = AgentCapability(
             "origin": _STR,
             "destination": _STR,
             "date": _DATE,
+            "trip_type": {"type": "string", "enum": ["one_way", "round_trip"]},
+            "return_date": _DATE,
             "passengers": {
                 "type": "object",
                 "properties": {"adults": {"type": "integer", "minimum": 1}, "children": _INT, "infants": _INT},
@@ -255,7 +257,7 @@ FLIGHT = AgentCapability(
     stale_ttl_s=15 * 60,
     cost_tier="paid",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=4),
-    constraint_keys=["origin", "destination", "flight_date", "passengers"],
+    constraint_keys=["origin", "destination", "flight_date", "trip_type", "return_date", "passengers"],
     hint_keys=["preferred_airline"],
     commit_kinds=[CommitActionKind.FLIGHT_BOOKING, CommitActionKind.CANCEL_ORDER],
 )

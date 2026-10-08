@@ -80,7 +80,9 @@ approval, giá, toạ độ, ID hoặc thông tin còn thiếu. Không thay đ�
 Không tạo task với placeholder. Chỉ làm các domain được yêu cầu hoặc task cũ cần giữ.
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
-Map key: flight_date -> flight.date. 'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
+Map key: flight_date -> flight.date, trip_type -> flight.trip_type, return_date -> flight.return_date.
+Vé khứ hồi là MỘT task flight có trip_type='round_trip' và return_date; người dùng chọn chiều đi rồi chiều về trên giao diện.
+'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
 'Xem/tìm tiện ích quanh địa danh, căn đã chọn hoặc các căn tìm được' là task Map nearby, KHÔNG tìm lại nhà thay nó.
 Nếu chỉ yêu cầu Map khám phá trong lượt mới thì nearby_categories/nearby_radius_m không đổi bộ lọc Housing đã xong.
 Map hỗ trợ cả route và nearby. Orchestrator giao mục tiêu/domain, không quy định thứ tự gọi MCP bên trong subagent.
@@ -430,6 +432,8 @@ class LlmPlanner(UsageOwner):
                     "origin": "origin",
                     "destination": "destination",
                     "flight_date": "date",
+                    "trip_type": "trip_type",
+                    "return_date": "return_date",
                     "passengers": "passengers",
                 },
                 AgentName.MAP: (
