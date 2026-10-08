@@ -22,11 +22,17 @@ def option_ids(result: TaskResult | None) -> set[str]:
     return ids
 
 
+# Round trip: the payable choice is an itinerary in `return_options` (payment-design §8.2).
+OPTION_KEYS = {
+    AgentName.PROPERTY: ("candidates",),
+    AgentName.FLIGHT: ("offers", "return_options"),
+    AgentName.RELOCATION: ("quotes",),
+}
+
+
 def selected_option(result: TaskResult, option_id: str) -> dict[str, Any]:
-    key = {AgentName.PROPERTY: "candidates", AgentName.FLIGHT: "offers", AgentName.RELOCATION: "quotes"}.get(
-        result.agent
-    )
-    collections = [result.data.get(key, [])] if key else result.data.values()
+    keys = OPTION_KEYS.get(result.agent)
+    collections = [result.data.get(key, []) for key in keys] if keys else result.data.values()
     for items in collections:
         if isinstance(items, list):
             for item in items:
