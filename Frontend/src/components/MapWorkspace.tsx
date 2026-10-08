@@ -104,6 +104,7 @@ export function MapWorkspace({
   areaName,
   saved,
   selectedId,
+  selectedIds,
   readOnly = false,
   chat,
   onSave,
@@ -117,6 +118,8 @@ export function MapWorkspace({
   areaName?: string;
   saved: Set<string>;
   selectedId?: string;
+  // Homes chosen for viewing (several); the plan home stays `selectedId`.
+  selectedIds?: string[];
   readOnly?: boolean;
   chat: ChatDockProps;
   onSave: (h: House) => void;
@@ -659,7 +662,9 @@ export function MapWorkspace({
       features: stacks.map((s) => {
         const ids = s.houses.map((h) => h.id);
         const state =
-          ids.includes(detail?.id || "") || ids.includes(selectedId || "")
+          ids.includes(detail?.id || "") ||
+          ids.includes(selectedId || "") ||
+          ids.some((id) => selectedIds?.includes(id))
             ? "selected"
             : ids.includes(hovered || "")
               ? "hover"
@@ -707,6 +712,7 @@ export function MapWorkspace({
     hovered,
     detail?.id,
     selectedId,
+    selectedIds?.join(","),
     JSON.stringify(choices),
     pois,
     roomMarkers,
@@ -772,15 +778,15 @@ export function MapWorkspace({
         : listing
           ? `Mình đã khoanh vùng ${area}: ${countLabel} căn phù hợp đang hiện ở danh sách bên trái. Bấm "Chọn căn này" khi bạn ưng một căn.`
           : `Mình đã khoanh vùng ${area} trên bản đồ: có ${countLabel} căn phù hợp. Phóng to vào khu bạn quan tâm, hoặc nói thêm ngân sách, số phòng ngủ để mình lọc.`;
+  const isChosen = (id: string) =>
+    selectedId === id || Boolean(selectedIds?.includes(id));
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={
-        readOnly || chat.busy || selecting !== null || selectedId === h.id
-      }
+      disabled={readOnly || chat.busy || selecting !== null || isChosen(h.id)}
       onClick={() => void choose_house(h).catch(() => {})}
     >
-      {selectedId === h.id ? (
+      {isChosen(h.id) ? (
         <>
           <Check size={14} />
           {uiText(" Đã chọn")}
@@ -906,7 +912,7 @@ export function MapWorkspace({
                 className={
                   "ws-card " +
                   (detail?.id === h.id ? "active" : "") +
-                  (selectedId === h.id ? " chosen" : "")
+                  (isChosen(h.id) ? " chosen" : "")
                 }
                 onMouseEnter={() => setHovered(h.id)}
                 onMouseLeave={() => setHovered(null)}

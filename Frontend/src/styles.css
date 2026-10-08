@@ -5873,3 +5873,39 @@ input[type="checkbox"] {
 .traveler-profile .form-grid {
   margin-top: 8px;
 }
+
+/* Choose several homes, schedule viewings, decide one (housing-viewing-design) */
+.viewing-panel {
+  display: grid;
+  gap: 12px;
+}
+.viewing-item header .muted {
+  margin-left: auto;
+  text-align: right;
+}
+.viewing-picker,
+.viewing-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.viewing-picker select {
+  min-width: 0;
+  flex: 1 1 120px;
+}
+.viewing-decide {
+  display: grid;
+  gap: 12px;
+}
+.viewing-others {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  padding: 10px;
+}
+.viewing-other {
+  display: grid;
+  gap: 4px;
+}

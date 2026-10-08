@@ -616,6 +616,24 @@ def create_app(database=None, transport=None):
         owned(thread, owner)
         return await checkout_call("POST", f"/ui/chat/{thread}/housing/{step}", owner, body)
 
+    # --- Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
+
+    @app.get("/web/api/threads/{thread}/viewings")
+    async def thread_viewings(thread: str, request: Request):
+        owner = user(request)["id"]
+        owned(thread, owner)
+        return await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
+
+    @app.post("/web/api/threads/{thread}/viewings/{step}")
+    async def viewing_step(
+        thread: str,
+        step: Literal["unselect", "schedule", "cancel", "visit", "decide", "reopen", "paid", "moving-mode"],
+        request: Request,
+    ):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        return await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
+
     @app.post("/web/api/threads/{thread}/flight/outbound")
     async def flight_outbound(thread: str, request: Request):
         body = await object_body(request)

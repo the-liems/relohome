@@ -990,12 +990,15 @@ export function CheckoutPanel({
   checkout,
   facts,
   house,
+  hideHousing = false,
   onChanged,
 }: {
   threadId: string;
   checkout?: Data;
   facts: Data;
   house?: Data;
+  // Housing steps live in the "Xem nhà" tab when several homes can be viewed.
+  hideHousing?: boolean;
   onChanged: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState<"flight" | "relocation" | null>(null);
@@ -1057,57 +1060,61 @@ export function CheckoutPanel({
           </div>
         )}
       </dl>
-      {services.map(([label, domain, Icon]) => {
-        const tx = byDomain(domain);
-        const chosen = facts["selected:" + domain]?.value;
-        if (!chosen && !tx) return null;
-        const outcome = tx?.attempt?.outcome;
-        const status =
-          outcome && !DONE.has(tx?.status) && tx?.status !== "paid_unfulfilled"
-            ? OUTCOME[outcome]
-            : TX_STATUS[tx?.status || "selected"];
-        return (
-          <section className="checkout-card" key={domain}>
-            <header>
-              <Icon size={17} />
-              <strong>{uiText(label)}</strong>
-              <span className="muted small">{uiText(status || "")}</span>
-            </header>
-            {tx?.title && <p className="small">{tx.title}</p>}
-            {domain === "property" ? (
-              <HousingSteps
-                threadId={threadId}
-                tx={tx}
-                slots={checkout.viewing_slots || []}
-                house={house}
-                onChanged={onChanged}
-              />
-            ) : (
-              <>
-                {tx?.price_vnd != null && (
-                  <p className="price">{money(tx.price_vnd)}</p>
-                )}
-                {(tx?.reminders || []).map((r: string, i: number) => (
-                  <p key={i} className="notice amber small">
-                    {r}
-                  </p>
-                ))}
-                <button
-                  className={DONE.has(tx?.status) ? "secondary" : "primary"}
-                  onClick={() => setOpen(domain)}
-                >
-                  <CreditCard size={14} />
-                  {DONE.has(tx?.status)
-                    ? uiText(" Xem thanh toán")
-                    : outcome && !["not_paid", "cancelled"].includes(outcome)
-                      ? uiText(" Tiếp tục thanh toán")
-                      : uiText(" Thanh toán")}
-                </button>
-              </>
-            )}
-          </section>
-        );
-      })}
+      {services
+        .filter(([, domain]) => !(hideHousing && domain === "property"))
+        .map(([label, domain, Icon]) => {
+          const tx = byDomain(domain);
+          const chosen = facts["selected:" + domain]?.value;
+          if (!chosen && !tx) return null;
+          const outcome = tx?.attempt?.outcome;
+          const status =
+            outcome &&
+            !DONE.has(tx?.status) &&
+            tx?.status !== "paid_unfulfilled"
+              ? OUTCOME[outcome]
+              : TX_STATUS[tx?.status || "selected"];
+          return (
+            <section className="checkout-card" key={domain}>
+              <header>
+                <Icon size={17} />
+                <strong>{uiText(label)}</strong>
+                <span className="muted small">{uiText(status || "")}</span>
+              </header>
+              {tx?.title && <p className="small">{tx.title}</p>}
+              {domain === "property" ? (
+                <HousingSteps
+                  threadId={threadId}
+                  tx={tx}
+                  slots={checkout.viewing_slots || []}
+                  house={house}
+                  onChanged={onChanged}
+                />
+              ) : (
+                <>
+                  {tx?.price_vnd != null && (
+                    <p className="price">{money(tx.price_vnd)}</p>
+                  )}
+                  {(tx?.reminders || []).map((r: string, i: number) => (
+                    <p key={i} className="notice amber small">
+                      {r}
+                    </p>
+                  ))}
+                  <button
+                    className={DONE.has(tx?.status) ? "secondary" : "primary"}
+                    onClick={() => setOpen(domain)}
+                  >
+                    <CreditCard size={14} />
+                    {DONE.has(tx?.status)
+                      ? uiText(" Xem thanh toán")
+                      : outcome && !["not_paid", "cancelled"].includes(outcome)
+                        ? uiText(" Tiếp tục thanh toán")
+                        : uiText(" Thanh toán")}
+                  </button>
+                </>
+              )}
+            </section>
+          );
+        })}
       {!txs.length &&
         !["flight", "relocation", "property"].some(
           (d) => facts["selected:" + d],
