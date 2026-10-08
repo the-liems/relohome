@@ -136,6 +136,10 @@ def describe_result(
             f"Thanh toán sandbox {payment.get('payment_id')}: {payment.get('status')} — {vnd(payment.get('amount'))}. Trạng thái do ZaloPay trả về, không đồng nghĩa dịch vụ đã được đặt."
         )
     if agent == AgentName.PROPERTY:
+        if comparison := data.get("comparison"):
+            return [
+                f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh. Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
+            ]
         if data.get("search_radius_m"):
             lines.append(
                 f"Phạm vi tìm nhà: {data['search_radius_m']} m đường thẳng quanh địa điểm"
@@ -422,16 +426,25 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             result = results.get(task.id)
             assessment = result.data.get("agent_assessment", {}) if result and result.status == "done" else {}
             if (
+                result
+                and result.data.get("comparison")
+                and assessment.get("kind") == "model_assessment_not_provider_fact"
+            ):
+                lines.append("So sánh theo dữ kiện đã đọc: " + str(assessment.get("reason", ""))[:1200])
+                if assessment.get("next_step"):
+                    lines.append(str(assessment["next_step"])[:400])
+            if (
                 assessment.get("kind") == "model_assessment_not_provider_fact"
                 and assessment.get("satisfaction") == "limited"
             ):
                 limited[task.id] = assessment
                 explanation = str(assessment.get("reason", ""))[:400]
                 next_step = str(assessment.get("next_step", ""))[:300]
-                notes.append(
-                    f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
-                    + " ".join(p for p in (explanation, next_step) if p)
-                )
+                if not result.data.get("comparison"):
+                    notes.append(
+                        f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
+                        + " ".join(p for p in (explanation, next_step) if p)
+                    )
         if limited:
             data["limited_tasks"] = limited
             if kind == "ANSWER":
@@ -507,6 +520,13 @@ def make_respond(deps: GraphDeps):
             "goal_tasks": record_goal(state),
             "goal_selections": record_selections(state),
         }
+        for result in (state.get("task_results") or {}).values():
+            if result.agent == AgentName.PROPERTY and result.status == "done" and not result.data.get("comparison"):
+                if (result.data.get("execution") or {}).get("request_id") == state.get("request_id"):
+                    update["last_housing_search_options"] = [
+                        {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
+                        for c in result.data.get("candidates", [])
+                    ][:20]
         try:
             updates = memory_updates(state)
             if updates:

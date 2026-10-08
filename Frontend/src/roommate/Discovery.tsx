@@ -82,8 +82,8 @@ export function Discovery({
           </h2>
           <p className="rm-hint">
             {rt(
-              "Bắt đầu với thành phố. Thêm ưu tiên để kết quả rõ hơn.",
-              "Start with a city. Add preferences for clearer results.",
+              "Chỉ cần chọn thành phố để tìm. Hai mục bên dưới là tùy chọn; bạn không cần đăng hồ sơ công khai.",
+              "Only a city is needed to search. The sections below are optional; no public profile is required.",
             )}
           </p>
           <SelectField
@@ -233,8 +233,8 @@ export function Discovery({
             text={
               result
                 ? rt(
-                    "Có thể chưa có người đang tìm hoặc điều kiện bắt buộc chưa được đáp ứng. Bạn tự điều chỉnh tiêu chí nếu muốn.",
-                    "There may be no active seekers, or required conditions are not met. You can choose to adjust your criteria.",
+                    "Chưa có hồ sơ công khai còn hiệu lực đáp ứng tiêu chí. Dữ liệu nhà cho thuê không phải hồ sơ người ở ghép; hệ thống không tự tạo người giả. Bạn có thể đổi tiêu chí hoặc vào Hồ sơ của tôi để chủ động đăng nhu cầu.",
+                    "No active public profiles meet these criteria. Housing listings are not roommate profiles; we never generate people. Change criteria or publish your own needs from My profile.",
                   )
                 : rt(
                     "Chọn tiêu chí và bấm tìm. Bạn không cần đăng hồ sơ công khai để xem kết quả.",

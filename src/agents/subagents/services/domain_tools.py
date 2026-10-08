@@ -170,8 +170,10 @@ class DomainToolSession:
             if domain == AgentName.PROPERTY:
                 available.append(
                     function(
-                        "search_housing",
-                        "Search with unchanged hard filters; resolves unprepared scope safely. limit is the requested result count, null uses task/default. Reads bounded pages mechanically; ambiguity stops for user selection. PostGIS filters, not the LLM.",
+                        "compare_housing" if req.inputs.get("housing_mode") == "compare" else "search_housing",
+                        "Read the confirmed 2–4 listing IDs, preserving their order; return factual comparison and unknown costs, never select a home."
+                        if req.inputs.get("housing_mode") == "compare"
+                        else "Search with unchanged hard filters; resolves unprepared scope safely. limit is the requested result count, null uses task/default. Reads bounded pages mechanically; ambiguity stops for user selection. PostGIS filters, not the LLM.",
                         {
                             "limit": {
                                 "type": ["integer", "null"],
@@ -214,7 +216,7 @@ class DomainToolSession:
                 )
             # The model, not a keyword classifier, chooses whether a facts-only
             # retrieval is sufficient. Keep the inspect -> assess path available.
-            if domain in {AgentName.PROPERTY, AgentName.FLIGHT}:
+            if domain in {AgentName.PROPERTY, AgentName.FLIGHT} and req.inputs.get("housing_mode") != "compare":
                 search = next(t for t in available if t["name"] in {"search_housing", "search_flights"})
                 combined = copy.deepcopy(search)
                 combined["name"] += "_and_return"
@@ -333,6 +335,8 @@ class DomainToolSession:
                 }
         else:
             self.result = result
+        if domain == AgentName.PROPERTY and inputs.get("housing_mode") == "compare" and result.status == "done":
+            self.read_ids.update(self.ids)  # compare_housing has already re-read these details.
         if domain == AgentName.PROPERTY and not cursor and requested_limit is not None and self.result.status == "done":
             # A model-selected target count, not keyword parsing of user language.
             # No extra semantic decision between pages with identical hard filters.

@@ -366,6 +366,8 @@ class LocationSubagent:
 
     async def _property(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
+        if inp.get("housing_mode") == "compare":
+            return await self._comparison(req, tools)
         limit = int(inp.get("limit") or 5)
         search_radius = int(inp.get("search_radius_m") or DEFAULT_RADIUS_M)
         soft = inp.get("soft_filters") or {}
@@ -489,6 +491,8 @@ class LocationSubagent:
                     recurrence="monthly",
                 )
             )
+        viewport = await self._viewport(tools, area, search_request, candidates, scope_bbox)
+        search_envelope = area.get("bounding_box") or (viewport if search_request.get("district") else scope_bbox)
         data = {
             "area_name": area_name,
             "distance_basis": "straight_line" if area.get("center") else "administrative_or_viewport",
@@ -505,7 +509,14 @@ class LocationSubagent:
             "map_context": {
                 "scope": "returned_candidates",
                 "listing_ids": [c["id"] for c in candidates],
-                "viewport": await self._viewport(tools, area, search_request, candidates, scope_bbox),
+                "viewport": viewport,
+                "search_scope": {
+                    "center": area.get("center"),
+                    "radius_m": area.get("radius_m"),
+                    "bounding_box": search_envelope,
+                    "label": area_name,
+                    "boundary_kind": "search_envelope_not_administrative_polygon",
+                },
             },
         }
         if relaxed:
@@ -519,6 +530,56 @@ class LocationSubagent:
             missing_fields=missing,
             source_refs=[c["id"] for c in candidates],
             summary=f"{len(candidates)} tin phù hợp" if candidates else "Chưa có tin phù hợp",
+        )
+
+    async def _comparison(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
+        """Re-read explicit listings, never replace them with new search results."""
+        candidates, rows, quotes, missing = [], [], [], []
+        for identifier in req.inputs["listing_ids"]:
+            raw = await tools.call("get_housing", {"listing_id": identifier})
+            if raw.get("listing_id") != identifier:
+                return failed_result(
+                    req, "invalid_input", "Không đọc được đúng căn cần so sánh.", False, SOURCE, "live"
+                )
+            candidate, unknown = to_candidate(raw, req.inputs.get("must_have", []))
+            candidates.append(candidate)
+            rent = candidate["price_vnd"] if not candidate["price_unverified"] else None
+            deposit = candidate["deposit_vnd"]
+            area = candidate["area_m2"]
+            rows.append(
+                {
+                    **candidate,
+                    "rent_vnd": rent,
+                    "rent_per_m2_vnd": round(rent / area)
+                    if rent is not None and isinstance(area, (int, float)) and area > 0
+                    else None,
+                    "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
+                    "cost_basis": "rent_plus_deposit_only_not_final_total",
+                    "unknown_cost_fields": ["electricity", "water", "service_fees"],
+                }
+            )
+            missing += [f"candidates[{len(candidates) - 1}].{key}" for key in unknown]
+            if rent is not None:
+                quotes.append(
+                    Quote(option_id=identifier, label=candidate["title"], amount_vnd=rent, recurrence="monthly")
+                )
+        return self._result(
+            req,
+            tools,
+            status="done",
+            source_refs=list(req.inputs["listing_ids"]),
+            missing_fields=missing,
+            quotes=quotes,
+            data={
+                "candidates": candidates,
+                "comparison": {"rows": rows, "scope": "requested_listings_only", "fees_verified": False},
+                "map_context": {
+                    "scope": "returned_candidates",
+                    "listing_ids": list(req.inputs["listing_ids"]),
+                    "viewport": bbox_of_points(candidates),
+                },
+            },
+            summary=f"Đã đọc lại {len(candidates)} căn để so sánh; chưa chọn hay liên hệ chủ nhà.",
         )
 
     async def _viewport(

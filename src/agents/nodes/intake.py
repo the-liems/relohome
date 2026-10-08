@@ -110,6 +110,10 @@ def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
                 id=task.id,
                 agent=task.agent,
                 options=options,
+                comparison_options=[
+                    {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
+                    for c in (result.data.get("candidates", []) if result and task.agent == AgentName.PROPERTY else [])
+                ][:20],
                 selected=summary.selected.get(task.id) if summary else None,
             )
         )
@@ -188,6 +192,7 @@ def make_intake(deps: GraphDeps):
                     session=state.get("session"),
                     previous=previous,
                     plan_outline=plan_outline(state),
+                    last_housing_search_options=state.get("last_housing_search_options") or [],
                     decision=state.get("user_decision"),
                     pending_questions=last_response.questions if last_response else [],
                     last_suggestions=last_response.suggestions if last_response else [],
@@ -293,6 +298,11 @@ def make_intake(deps: GraphDeps):
         selectors = operation_selector_keys(
             c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
         ) | {"moving_mode"}
+        if AgentName.PROPERTY in result.domains and result.constraints.values.get("housing_mode") == "compare":
+            # The read-only comparison set can change without changing the chosen
+            # home or authorizing a transaction. LlmIntake already validates each
+            # ID against observed options and requires current user evidence.
+            selectors |= {"listing_ids"}
         # Strip a model-authored Housing reference before conflict detection, not just before geocoding:
         # Housing `near` is a place; an entity reference there would be geocoded as text.
         if entity_reference(result.constraints.values.get("near")):

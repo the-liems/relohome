@@ -23,6 +23,14 @@ def environment(component, sandbox_writes=False):
         **{k: v for k, v in dotenv_values(ROOT / ".env").items() if v is not None},
         **{k: v for k, v in dotenv_values(ROOT / "data/integration.env").items() if v is not None},
     }
+    if component in {"api", "ui"} and env.get("APP_ENV", "development") != "production":
+        # Local-only opt-out default. Runtime still requires the trusted token,
+        # and explicit ROOMMATE_ENABLED=false is respected. Do not grant any
+        # existing account moderation privileges automatically.
+        env.setdefault("ROOMMATE_ENABLED", "true")
+        env.setdefault("ROOMMATE_MODERATORS", "local-roommate-moderator")
+        if component == "ui":
+            env.setdefault("SIU_WEB_LOCAL_HEALTHCHECK", "true")
     env.update(
         AGENT_SUBAGENTS="live",
         AGENT_ALLOW_SIMULATED_TRANSACTIONS="false",

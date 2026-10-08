@@ -51,6 +51,9 @@ DOMAIN_PROMPTS = {
 không dùng trí nhớ của bạn để lấy tọa độ. search_areas là địa giới, resolve_location là địa danh.
 Nhà được truy vấn bằng PostGIS; bạn không duyệt cả database bằng LLM. Có thể lấy trang tiếp nếu trang hiện tại chưa đủ.
 Phân biệt phòng riêng, ở ghép, dorm và căn hộ theo dữ kiện nguồn; không suy từ giá. Chỉ so sánh trong phần đã đọc.
+Task housing_mode='compare': dùng compare_housing đọc đúng listing_ids. Trả reason có tên căn, ưu/nhược
+theo tiêu chí user và các dữ kiện chưa biết. Không gọi search_housing_and_return cho nhiệm vụ so sánh;
+không tự chọn nhà. Thiếu điện/nước/cọc không coi là 0; tiền thuê+cọc là dòng tiền đầu vào chưa gồm phí thiếu.
 Khoảng cách bán kính là đường thẳng, không phải thời gian đi học. Yêu cầu đường đi/thời gian chưa có dữ kiện thì
 báo hạn chế cho Orchestrator, không tự khẳng định đáp ứng. Giá có quality flag không được gọi là giá đã xác minh.""",
     AgentName.FLIGHT: """Chuyên môn Flight: phân giải sân bay bằng catalog thật, ngày và hành khách giữ đúng task.

@@ -8,6 +8,15 @@ This log includes work identifiable from repository evidence. It does not infer 
 | 2026-09-30 | Commit `93a7eff` / [PR #14](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/14) | Changed CI to the team-44 self-hosted runner; includes branch work from September 28–29. | Merged into `main` |
 | 2026-09-30 | Documentation review | Documented the relocation product, current baseline, proposed architecture, and open decisions. | Prepared for review |
 
+## 2026-10-08 — Workspace repairs
+
+- [Issue #70](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/70):
+  repair route preview, quote continuity, multi-service navigation and sourced
+  housing comparison. Preserve teammate UI and real-data safety checks.
+- [Handoff](docs/integration/workspace-repairs-2026-10-08.md) and
+  [verification](eval/workspace-repairs-2026-10-08.md) record real browser/provider
+  results and CI limitations. Delivery/review state remains in GitHub.
+
 ## 2026-09-29 — Location/Map
 
 - Triển khai contract housing accuracy/method/deposit và tool định tuyến theo thực thể,
