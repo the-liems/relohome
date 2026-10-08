@@ -6,6 +6,7 @@ from src.config import Settings
 from src.roommate.access import RoommateContext
 from src.roommate.clock import Clock, SystemClock
 from src.roommate.contact_vault import ContactVault
+from src.roommate.demo import DemoDataset
 from src.roommate.location_catalog import AreaCatalog
 from src.roommate.storage import Storage
 
@@ -19,10 +20,12 @@ class RoommateRuntime:
         moderators: frozenset[str],
         token: str,
         clock: Clock | None = None,
+        demo: DemoDataset | None = None,
     ):
         self.path, self.vault, self.catalog, self.moderators, self.token = path, vault, catalog, moderators, token
         self.clock = clock or SystemClock()
         self.closed = False
+        self.demo = demo
 
     @classmethod
     def open(cls, settings: Settings):
@@ -47,7 +50,15 @@ class RoommateRuntime:
             if settings.roommate_area_catalog
             else {}
         )
-        return cls(path, vault, AreaCatalog(membership), moderators, token)
+        demo = None
+        if settings.roommate_demo_enabled:
+            if settings.app_env == "production" or settings.roommate_demo_dataset is None:
+                raise ValueError("Roommate demo requires an explicit dataset and a non-production environment")
+            demo_path = settings.roommate_demo_dataset.resolve()
+            if demo_path.is_relative_to(root / "Frontend" / "public"):
+                raise ValueError("Demo dataset must not be a public frontend asset")
+            demo = DemoDataset.load(demo_path)
+        return cls(path, vault, AreaCatalog(membership), moderators, token, demo=demo)
 
     @contextmanager
     def context(self):

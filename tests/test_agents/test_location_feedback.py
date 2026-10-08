@@ -39,7 +39,7 @@ async def test_new_housing_fields_and_monthly_vnd_filter():
     assert result.data["has_more"] is True
     body = client.calls[-1][1]
     assert body["currency"] == "VND" and body["price_period"] == "month" and body["amenities"] == ["air_conditioning"]
-    assert client.calls[0] == ("search_areas", {"text": "Quận 10", "limit": 5})
+    assert client.calls[0] == ("search_areas", {"text": "Quận 10", "limit": 5, "include_geometry": True})
 
 
 @pytest.mark.asyncio

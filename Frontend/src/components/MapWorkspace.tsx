@@ -56,6 +56,9 @@ import {
 import { HouseImage, amenities as AMENITY_LABELS } from "./Housing";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
 import { ContentSkeleton } from "./UiStates";
+import { roommate } from "../roommate/client";
+import type { Availability } from "../roommate/types";
+import "./roommateMap.css";
 
 const PRICES = [
   0, 3_000_000, 5_000_000, 7_000_000, 10_000_000, 15_000_000, 20_000_000,
@@ -76,12 +79,19 @@ const CHIP_LABELS: Record<string, string> = {
   min_bathrooms: "WC từ",
   amenities: "Tiện nghi",
   min_price: "Giá từ",
-  administrative_area_ids: "Thành phố",
+  administrative_area_ids: "Phạm vi hành chính",
 };
 const PLACE_FIELDS = ["near", "route_from", "route_to"];
 // POIs are only loaded close enough for them to be readable and the request to stay small.
 const POI_MIN_ZOOM = 14;
 type BBox = { west: number; south: number; east: number; north: number };
+type RoomMarker = {
+  listing_id: string;
+  profile_id: string;
+  display_name: string;
+  source_kind: "real" | "demo";
+  label: string;
+};
 
 export function MapWorkspace({
   focus,
@@ -130,17 +140,88 @@ export function MapWorkspace({
     [sheet, setSheet] = useState(false),
     [selecting, setSelecting] = useState<string | null>(null);
   const [pois, setPois] = useState<Data | null>(null);
+  const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [includeDemo, setIncludeDemo] = useState(false);
+  const [roomMapError, setRoomMapError] = useState("");
+  useEffect(() => {
+    const abort = new AbortController();
+    roommate<Availability>("/availability", "GET", undefined, abort.signal)
+      .then((a) => {
+        if (!abort.signal.aborted) {
+          setDemoAvailable(Boolean(a.demo_enabled));
+          setIncludeDemo(Boolean(a.demo_enabled));
+        }
+      })
+      .catch(() => {});
+    return () => abort.abort();
+  }, []);
+  const roomIds = JSON.stringify(
+    [
+      ...new Set(
+        [...markers, ...rows, ...(detail ? [detail] : [])].map((h) => h.id),
+      ),
+    ].sort(),
+  );
+  useEffect(() => {
+    const abort = new AbortController();
+    setRoomMarkers([]);
+    setRoomMapError("");
+    const ids: string[] = JSON.parse(roomIds);
+    if (!ids.length) return;
+    const load = () =>
+      roommate<{ items: RoomMarker[] }>(
+        "/map/rooms",
+        "POST",
+        {
+          listing_ids: ids.slice(0, 250),
+          include_demo: includeDemo,
+        },
+        abort.signal,
+      )
+        .then((data) => {
+          if (!abort.signal.aborted) {
+            setRoomMarkers(data.items);
+            setRoomMapError("");
+          }
+        })
+        .catch(() => {
+          if (!abort.signal.aborted) {
+            setRoomMarkers([]);
+            setRoomMapError(
+              "Chưa đọc được nhu cầu ghép trọ. Không ảnh hưởng danh sách nhà.",
+            );
+          }
+        });
+    void load();
+    const timer = setInterval(() => void load(), 30000);
+    const visible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      abort.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [roomIds, includeDemo]);
   const generation = useRef(0);
+  const activeSearchScope =
+    focus?.searchScope?.area_id &&
+    !focus.searchScope.center &&
+    !(filters.administrative_area_ids || []).includes(focus.searchScope.area_id)
+      ? undefined
+      : focus?.searchScope;
 
   useEffect(() => {
     if (!ready || !map.current) return;
     const m = map.current,
-      feature = searchScopeFeature(focus?.searchScope);
+      feature = searchScopeFeature(activeSearchScope);
     (m.getSource("ws-search-scope") as GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
       features: feature ? [feature] : [],
     });
-    const center = focus?.searchScope?.center;
+    const center = activeSearchScope?.center;
     let marker: import("maplibre-gl").Marker | undefined;
     let cancelled = false;
     if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
@@ -163,7 +244,7 @@ export function MapWorkspace({
       cancelled = true;
       marker?.remove();
     };
-  }, [ready, focus?.key]);
+  }, [ready, focus?.key, activeSearchScope]);
 
   // Chat answers replace the area filters and move the map to the area the agent resolved.
   useEffect(() => {
@@ -204,8 +285,10 @@ export function MapWorkspace({
             "Chưa tải được một phần bản đồ. Danh sách vẫn dùng được.",
           ),
         );
-        m.on("load", () => {
-          if (disposed) return;
+        // Provider data must not wait for every external basemap tile to finish.
+        // The style is sufficient to register our sources and report the viewport.
+        m.on("style.load", () => {
+          if (disposed || m.getSource("ws-search-scope")) return;
           tuneBasemap(m);
           registerMapImages(m);
           m.addSource("ws-search-scope", {
@@ -307,11 +390,12 @@ export function MapWorkspace({
               filter: filter as any,
               layout: {
                 "icon-image": [
-                  "match",
-                  ["get", "state"],
-                  "selected",
+                  "case",
+                  ["get", "roommate"],
+                  PILL.roommate,
+                  ["==", ["get", "state"], "selected"],
                   PILL.selected,
-                  "hover",
+                  ["==", ["get", "state"], "hover"],
                   PILL.hover,
                   PILL.normal,
                 ],
@@ -327,9 +411,10 @@ export function MapWorkspace({
               },
               paint: {
                 "text-color": [
-                  "match",
-                  ["get", "state"],
-                  "selected",
+                  "case",
+                  ["get", "roommate"],
+                  "#713f12",
+                  ["==", ["get", "state"], "selected"],
                   "#ffffff",
                   MAP_THEME.housingMarker.text,
                 ],
@@ -573,17 +658,25 @@ export function MapWorkspace({
             : ids.includes(hovered || "")
               ? "hover"
               : "normal";
+        const roomProfiles = roomMarkers.filter((p) =>
+          ids.includes(p.listing_id),
+        );
+        const realRoom = roomProfiles.some((p) => p.source_kind === "real");
         return {
           type: "Feature",
           geometry: { type: "Point", coordinates: [s.lng, s.lat] },
           properties: {
             key: s.key,
             state,
+            roommate: roomProfiles.length > 0,
             rank: -s.houses.length,
             label:
-              s.houses.length > 1
+              (roomProfiles.length
+                ? `${realRoom ? "Ghép trọ" : "DEMO"} (${new Set(roomProfiles.map((p) => p.listing_id)).size} phòng) · `
+                : "") +
+              (s.houses.length > 1
                 ? `${s.houses.length} căn`
-                : shortPrice(s.houses[0]),
+                : shortPrice(s.houses[0])),
           },
         };
       }),
@@ -610,6 +703,7 @@ export function MapWorkspace({
     selectedId,
     JSON.stringify(choices),
     pois,
+    roomMarkers,
   ]);
 
   async function openDetail(h: House) {
@@ -1008,20 +1102,43 @@ export function MapWorkspace({
               )}
             </span>
           </div>
+          {searchScopeFeature(activeSearchScope) && (
+            <div className="search-scope-legend" role="note">
+              <MapPin size={14} color="#dc2626" />
+              {activeSearchScope?.geometry
+                ? `${uiText("Ranh giới theo dữ liệu hiện tại")}: ${activeSearchScope.label || ""}`
+                : activeSearchScope?.center
+                  ? uiText(
+                      "Ghim đỏ: điểm tìm kiếm · vòng nét đứt: bán kính tìm, không phải khoảng cách đi đường",
+                    )
+                  : uiText(
+                      "Nét đứt: khung khu vực tìm kiếm, không phải ranh giới hành chính chính xác",
+                    )}
+            </div>
+          )}
+          {focus?.searchScope?.boundary_unavailable && (
+            <div className="search-scope-legend" role="note">
+              Chưa có ranh giới đúng đơn vị hành chính này trong dữ liệu. Map
+              chỉ đưa tới các căn tìm được; không giả lập đường bao.
+            </div>
+          )}
+          <div className="ws-roommate-legend" role="note">
+            <span style={{ color: "#a16207" }}>●</span> Vàng: có nhu cầu ghép
+            trọ công khai.
+            {demoAvailable && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={includeDemo}
+                  onChange={(e) => setIncludeDemo(e.target.checked)}
+                />
+                Hiện phòng DEMO — liên kết minh họa, không phải người thật
+              </label>
+            )}
+            {roomMapError && <small role="status">{roomMapError}</small>}
+          </div>
         </div>
         <div ref={container} className="ws-canvas" />
-        {searchScopeFeature(focus?.searchScope) && (
-          <div className="search-scope-legend" role="note">
-            <MapPin size={14} color="#dc2626" />
-            {focus?.searchScope?.center
-              ? uiText(
-                  "Ghim đỏ: điểm tìm kiếm · vòng nét đứt: bán kính tìm, không phải khoảng cách đi đường",
-                )
-              : uiText(
-                  "Nét đứt: khung khu vực tìm kiếm, không phải ranh giới hành chính chính xác",
-                )}
-          </div>
-        )}
         {mapError && (
           <div className="map-error" role="status">
             {mapError}
@@ -1075,6 +1192,26 @@ export function MapWorkspace({
           </div>
           <div className="ws-detail-body">
             <h3>{detail.title}</h3>
+            {roomMarkers
+              .filter((p) => p.listing_id === detail.id)
+              .map((p) => (
+                <div className="ws-roommate-badge" key={p.profile_id}>
+                  <strong>{p.label}</strong>
+                  <p>{p.display_name}</p>
+                  <a
+                    href={
+                      p.source_kind === "demo"
+                        ? "/roommate?tab=demo"
+                        : "/roommate/profiles/" +
+                          encodeURIComponent(p.profile_id)
+                    }
+                  >
+                    {p.source_kind === "demo"
+                      ? "Xem hồ sơ DEMO (không kết nối)"
+                      : "Xem nhu cầu ở ghép"}
+                  </a>
+                </div>
+              ))}
             <strong className="price">{housePrice(detail)}</strong>
             <p className="muted address">
               <MapPin size={14} />

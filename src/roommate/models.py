@@ -143,6 +143,19 @@ class ProfileFacts(RoommateModel):
         return self
 
 
+class RoomPublication(RoommateModel):
+    """Optional, explicit disclosure of a room; never inferred from chat or bookmarks."""
+
+    listing_id: Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=200)]
+    public_location_consent: StrictBool
+
+    @model_validator(mode="after")
+    def explicit_consent(self) -> Self:
+        if not self.public_location_consent:
+            raise ValueError("Publishing a room requires explicit location consent")
+        return self
+
+
 class RoommateProfile(RoommateModel):
     """Draft-capable content, not a public DTO, ownership record or consent."""
 
@@ -154,6 +167,13 @@ class RoommateProfile(RoommateModel):
     ) = None
     facts: ProfileFacts = Field(default_factory=ProfileFacts)
     preferences: RoommatePreferences = Field(default_factory=RoommatePreferences)
+    room: RoomPublication | None = None
+
+    @model_validator(mode="after")
+    def room_requires_having_room(self) -> Self:
+        if self.room and (self.facts.need is None or self.facts.need.kind is not NeedKind.HAS_ROOM):
+            raise ValueError("Only a has_room profile can publish a room on the map")
+        return self
 
 
 class RoommateSearchCriteria(RoommateModel):

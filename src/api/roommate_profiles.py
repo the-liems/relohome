@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 
 from src.api.roommate_access import Context, TrustedActor, perform
+from src.api.web_actions import explored_listing
 from src.roommate.api_models import BookmarkInput, OwnProfileView, ProfileAction, ProfileUpdate
 from src.roommate.models import RoommateProfile, RoommateSearchCriteria
 from src.roommate.services.access import AccessService
@@ -9,6 +10,16 @@ from src.roommate.services.profiles import ProfileService, validate_complete
 from src.roommate.views import PublicProfile
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
+
+
+async def validate_room(content: RoommateProfile, request: Request):
+    if not content.room:
+        return
+    service = getattr(request.app.state, "agent_service", None)
+    if service is None:
+        raise HTTPException(503, {"code": "service_unavailable"})
+    if await explored_listing(service, content.room.listing_id) is None:
+        raise HTTPException(422, {"code": "room_listing_unavailable"})
 
 
 def own_view(record):
@@ -30,7 +41,9 @@ def own_profile(actor: TrustedActor, ctx: Context):
 
 
 @router.put("/me/profile", response_model=OwnProfileView)
-def update_profile(body: ProfileUpdate, actor: TrustedActor, ctx: Context):
+async def update_profile(body: ProfileUpdate, actor: TrustedActor, ctx: Context, request: Request):
+    perform(AccessService(ctx).require, actor)
+    await validate_room(body.content, request)
     return own_view(perform(ProfileService(ctx).save, actor, body.content, body.expected_version))
 
 
@@ -45,7 +58,11 @@ def preview(body: RoommateProfile, actor: TrustedActor, ctx: Context):
 
 
 @router.post("/me/profile/actions", response_model=OwnProfileView)
-def profile_action(body: ProfileAction, actor: TrustedActor, ctx: Context):
+async def profile_action(body: ProfileAction, actor: TrustedActor, ctx: Context, request: Request):
+    perform(AccessService(ctx).require, actor)
+    record = ctx.profiles.get(actor.id)
+    if record and body.action in ("publish", "resume", "reconfirm"):
+        await validate_room(record.content, request)
     return own_view(perform(ProfileService(ctx).transition, actor, body.action, body.expected_version, body.reviewed))
 
 
