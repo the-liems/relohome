@@ -180,8 +180,13 @@ before merging:
    docker run --rm -i -v <routing-volume>:/data alpine:3 sh -c 'tar -xzf - -C /data && cd /data && sha256sum -c SHA256SUMS' < routing.tar.gz
    ```
 
-5. Verify that all nine datasets load with the OSRM image digest in
-   `compose.coolify.yaml` before the full deployment. OSRM graph formats depend
+5. Verify that all nine datasets load with their service's OSRM image digest in
+   `compose.coolify.yaml` before the full deployment. The `project-data-2026-10-05`
+   snapshot has mixed graph formats: driving uses the v26.9.0 image pinned in
+   `x-osrm-driving`, while walking and motorcycle use the v6.0.0 image in
+   `x-osrm`. This matches `config/local-routing.compose.yaml`; do not replace
+   those pins with one common image. The driving image has no `wget`, so its
+   HTTP health check uses Bash's TCP support. OSRM graph formats depend
    on the version that built them; a checksum alone does not prove compatibility.
    If necessary, rebuild incompatible graphs with that image. Reproducible graph
    preparation and publishing are tracked separately in #77.
