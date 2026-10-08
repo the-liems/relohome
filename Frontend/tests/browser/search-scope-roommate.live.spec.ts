@@ -64,28 +64,6 @@ print(json.dumps({'token':store.create_session(row['owner'])}))
 test("DEMO is browseable without granting real consent; map links are labeled and disconnected", async ({
   page,
 }) => {
-  await signIn(page);
-  await page.goto("/roommate?tab=demo");
-  await expect(
-    page.getByRole("heading", {
-      name: "100 hồ sơ DEMO — không phải người thật",
-    }),
-  ).toBeVisible();
-  await expect(page.locator(".rm-candidate-list > li")).toHaveCount(12);
-  await expect(
-    page.getByText("34 hồ sơ DEMO còn hiệu lực tại Hà Nội", { exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Sau", exact: true }).click();
-  await expect(page.getByText("13–24 / 34", { exact: true })).toBeVisible();
-  const access = await (
-    await page.request.get("/web/api/roommate/access")
-  ).json();
-  expect(access.eligible).toBe(false);
-  const real = await page.request.post("/web/api/roommate/search", {
-    headers: { "X-SIU-Request": "1" },
-    data: { criteria: { city: "hanoi" } },
-  });
-  expect(real.status()).toBe(403);
   const datasetPath = execFileSync(
     "../.venv/Scripts/python.exe",
     [
@@ -95,6 +73,44 @@ test("DEMO is browseable without granting real consent; map links are labeled an
     { encoding: "utf8" },
   ).trim();
   const dataset = JSON.parse(readFileSync("../" + datasetPath, "utf-8"));
+  const hanoiCount = dataset.profiles.filter(
+    (profile: any) => profile.content.facts.city === "hanoi",
+  ).length;
+  const mappedCount = dataset.profiles.filter(
+    (profile: any) => profile.content.room,
+  ).length;
+  await signIn(page);
+  await page.goto("/roommate?tab=demo");
+  await expect(
+    page.getByRole("heading", {
+      name: "Hồ sơ DEMO — không phải người thật",
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".rm-candidate-list > li")).toHaveCount(
+    Math.min(hanoiCount, 12),
+  );
+  await expect(
+    page.getByText(`${hanoiCount} hồ sơ DEMO còn hiệu lực tại Hà Nội`, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  if (hanoiCount > 12) {
+    await page.getByRole("button", { name: "Sau", exact: true }).click();
+    await expect(
+      page.getByText(`13–${Math.min(24, hanoiCount)} / ${hanoiCount}`, {
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+  const access = await (
+    await page.request.get("/web/api/roommate/access")
+  ).json();
+  expect(access.eligible).toBe(false);
+  const real = await page.request.post("/web/api/roommate/search", {
+    headers: { "X-SIU-Request": "1" },
+    data: { criteria: { city: "hanoi" } },
+  });
+  expect(real.status()).toBe(403);
   const ids = [
     ...new Set(
       dataset.profiles
@@ -113,7 +129,7 @@ test("DEMO is browseable without granting real consent; map links are labeled an
   const shown = await request(true);
   expect(shown.ok()).toBeTruthy();
   const markers = (await shown.json()).items;
-  expect(markers).toHaveLength(60);
+  expect(markers).toHaveLength(mappedCount);
   expect(
     markers.every(
       (p: any) =>
@@ -128,7 +144,7 @@ test("DEMO is browseable without granting real consent; map links are labeled an
   console.log(
     JSON.stringify({
       case: "demo_isolation",
-      people: 100,
+      people: dataset.profiles.length,
       mapped_demo_profiles: markers.length,
       real_consent_granted: false,
     }),

@@ -20,16 +20,16 @@ from src.roommate.ranking import ranked
 class DemoDataset(RoommateModel):
     source_kind: Literal["demo"] = "demo"
     generated_at: datetime
-    profiles: tuple[ProfileRecord, ...] = Field(min_length=100, max_length=100)
+    profiles: tuple[ProfileRecord, ...] = Field(min_length=30, max_length=100)
 
     @model_validator(mode="after")
     def synthetic_only(self) -> Self:
         ids = [p.owner_id for p in self.profiles]
-        if len(set(ids)) != 100 or any(
+        if len(set(ids)) != len(ids) or any(
             not p.owner_id.startswith("demo_") or not (p.content.display_name or "").startswith("DEMO ")
             for p in self.profiles
         ):
-            raise ValueError("Demo data must contain 100 distinct, explicitly labeled synthetic people")
+            raise ValueError("Demo data must contain distinct, explicitly labeled synthetic people")
         return self
 
     @classmethod
@@ -45,7 +45,7 @@ class DemoDataset(RoommateModel):
         return {
             "source_kind": "demo",
             "connections_enabled": False,
-            "notice": "100 người giả để trải nghiệm; liên kết nhà chỉ minh họa, không xác nhận người đang ở đó.",
+            "notice": f"{len(self.profiles)} hồ sơ giả để trải nghiệm; liên kết nhà chỉ minh họa, không xác nhận người đang ở đó.",
             "items": [
                 {
                     **item.model_dump(mode="json"),

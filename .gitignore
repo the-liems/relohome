@@ -31,6 +31,9 @@ Thumbs.db
 
 # Data (never commit large data)
 data/
+!/data/
+/data/*
+!/data/roommate-demo-30.json
 *.db
 *.sqlite3
 

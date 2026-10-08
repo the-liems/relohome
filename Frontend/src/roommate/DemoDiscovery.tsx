@@ -45,7 +45,7 @@ export function DemoDiscovery() {
   }, [city, offset]);
   return (
     <section className="rm-results">
-      <h2>100 hồ sơ DEMO — không phải người thật</h2>
+      <h2>Hồ sơ DEMO — không phải người thật</h2>
       <p className="rm-hint">
         Dữ liệu tách riêng khỏi hồ sơ thật. Không thể kết nối hay lấy liên hệ.
         Những phòng gắn với người DEMO chỉ là minh họa, không chứng minh có
