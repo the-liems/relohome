@@ -23,10 +23,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from Frontend.roommate_gateway import attach_roommate_gateway
 from Frontend.store import Store, password_hash
 from src.agents.intake import redact_pii
 from src.models.moving_options import MovingOptions
 from src.models.schemas import MovingQuoteForm
+from src.roommate.agent_projection import history_projection
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
@@ -63,6 +65,7 @@ def public_user(row):
 
 
 def presentation(payload, state):
+    payload = history_projection(payload)
     results = ((payload.get("response") or {}).get("data") or {}).get("results", {})
     payload["ui"] = {
         "version": 1,
@@ -138,8 +141,8 @@ def create_app(database=None, transport=None):
         row = owned(thread, owner)
         return {
             **row,
-            "state": json.loads(row["state"]),
-            "messages": app.state.store.history(thread),
+            "state": history_projection(json.loads(row["state"])),
+            "messages": history_projection(app.state.store.history(thread)),
             "runs": app.state.store.all(
                 "SELECT id,status FROM runs WHERE thread=? AND owner=? AND status IN ('running','unknown')",
                 (thread, owner),
@@ -503,6 +506,8 @@ def create_app(database=None, transport=None):
     async def unsave(listing_id: str, request: Request):
         app.state.store.write("DELETE FROM saved WHERE owner=? AND id=?", (user(request)["id"], listing_id))
         return {"ok": True}
+
+    attach_roommate_gateway(app, user)
 
     @app.get("/{path:path}")
     async def static(path: str):

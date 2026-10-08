@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
   BedDouble,
@@ -53,7 +54,7 @@ export function HouseImage({ house }: { house: House }) {
   ) : (
     <div className="house-placeholder">
       <HouseIcon size={30} />
-      <span>Chưa có ảnh</span>
+      <span>{uiText("Chưa có ảnh")}</span>
     </div>
   );
 }
@@ -91,14 +92,14 @@ export function HousingCard({
           <button
             className={"icon-button heart " + (saved ? "saved" : "")}
             onClick={onSave}
-            aria-label={saved ? "Bỏ lưu nhà" : "Lưu nhà"}
+            aria-label={saved ? uiText("Bỏ lưu nhà") : uiText("Lưu nhà")}
           >
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button>
         </div>
         <p className="muted address">
           <MapPin size={13} />
-          {house.address || "Chưa có địa chỉ"}
+          {house.address || uiText("Chưa có địa chỉ")}
         </p>
         <strong className="price">{housePrice(house)}</strong>
         <div className="house-stats">
@@ -125,11 +126,11 @@ export function HousingCard({
           {selected && (
             <span className="tag selected-tag">
               <Check size={12} />
-              Đã chọn
+              {uiText("Đã chọn")}
             </span>
           )}
           {house.location_accuracy !== "rooftop" && (
-            <span className="tag amber">Vị trí gần đúng</span>
+            <span className="tag amber">{uiText("Vị trí gần đúng")}</span>
           )}
           {(house.amenities || []).slice(0, 2).map((a: string) => (
             <span className="tag" key={a}>
@@ -139,7 +140,8 @@ export function HousingCard({
         </div>
         <div className="house-actions">
           <button className="text-button" onClick={onOpen}>
-            Xem chi tiết <ArrowUpRight size={14} />
+            {uiText("Xem chi tiết ")}
+            <ArrowUpRight size={14} />
           </button>
           {onCompare && (
             <label className="compare-label">
@@ -148,7 +150,7 @@ export function HousingCard({
                 checked={compare || false}
                 onChange={onCompare}
               />
-              So sánh
+              {uiText("So sánh")}
             </label>
           )}
         </div>
@@ -199,7 +201,7 @@ export function HousingDetail({
     detail.source?.url || detail.source?.source_url || detail.source_url,
   );
   return (
-    <Dialog title="Chi tiết nhà" onClose={onClose}>
+    <Dialog title={uiText("Chi tiết nhà")} onClose={onClose}>
       <div className="detail-photo">
         <HouseImage house={detail} />
       </div>
@@ -207,7 +209,7 @@ export function HousingDetail({
         <h2>{detail.title}</h2>
         <button
           className={"icon-button " + (saved ? "saved" : "")}
-          aria-label={saved ? "Bỏ lưu" : "Lưu nhà"}
+          aria-label={saved ? uiText("Bỏ lưu") : uiText("Lưu nhà")}
           onClick={onSave}
         >
           <Heart size={21} fill={saved ? "currentColor" : "none"} />
@@ -220,12 +222,13 @@ export function HousingDetail({
       </p>
       {loading && (
         <p role="status" className="muted">
-          Đang cập nhật thông tin…
+          {uiText("Đang cập nhật thông tin…")}
         </p>
       )}
       {error && (
         <p role="alert" className="notice amber">
-          {error} Đang hiển thị thông tin đã tra cứu.
+          {uiText(error)}
+          {uiText(" Đang hiển thị thông tin đã tra cứu.")}
         </p>
       )}
       <dl className="detail-grid">
@@ -240,13 +243,14 @@ export function HousingDetail({
         ].map(([k, v]) => (
           <div key={k}>
             <dt>{k}</dt>
-            <dd>{v ?? "Chưa có dữ liệu"}</dd>
+            <dd>{v ?? uiText("Chưa có dữ liệu")}</dd>
           </div>
         ))}
       </dl>
-      <h3>Về căn nhà</h3>
+      <h3>{uiText("Về căn nhà")}</h3>
       <p className="prose">
-        {detail.description || "Nguồn tin chưa cung cấp mô tả chi tiết."}
+        {detail.description ||
+          uiText("Nguồn tin chưa cung cấp mô tả chi tiết.")}
       </p>
       <div className="tags">
         {(detail.amenities || []).map((a: string) => (
@@ -257,9 +261,9 @@ export function HousingDetail({
       </div>
       <p className="notice">
         {detail.location_accuracy === "rooftop"
-          ? "Vị trí theo tin nhà."
-          : "Vị trí chỉ gần đúng theo nguồn tin."}{" "}
-        Cần xác nhận điểm xe dừng khi chuyển đồ.
+          ? uiText("Vị trí theo tin nhà.")
+          : uiText("Vị trí chỉ gần đúng theo nguồn tin.")}{" "}
+        {uiText("Cần xác nhận điểm xe dừng khi chuyển đồ.")}
       </p>
       {source && (
         <a
@@ -268,7 +272,8 @@ export function HousingDetail({
           target="_blank"
           rel="noreferrer"
         >
-          Mở nguồn tin <ExternalLink size={14} />
+          {uiText("Mở nguồn tin ")}
+          <ExternalLink size={14} />
         </a>
       )}
       {onAsk && onSelect && (
@@ -278,7 +283,7 @@ export function HousingDetail({
             onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
           >
             <MessageCircle size={16} />
-            Hỏi AI
+            {uiText("Hỏi AI")}
           </button>
           <button
             className="primary"
@@ -288,10 +293,10 @@ export function HousingDetail({
             {selected ? (
               <>
                 <Check size={16} />
-                Đã chọn
+                {uiText("Đã chọn")}
               </>
             ) : (
-              "Chọn căn này"
+              uiText("Chọn căn này")
             )}
           </button>
         </div>
@@ -309,18 +314,22 @@ export function Comparison({
   onOpen: (h: House) => void;
 }) {
   return (
-    <Dialog title="So sánh các căn đã chọn" wide onClose={onClose}>
+    <Dialog title={uiText("So sánh các căn đã chọn")} wide onClose={onClose}>
       <p className="muted">
-        <GitCompareArrows size={16} /> Thông tin từ những kết quả đã tải. Giá và
-        tình trạng trống cần được xác minh với nguồn tin.
+        <GitCompareArrows size={16} />
+        {uiText(
+          " Thông tin từ những kết quả đã tải. Giá và tình trạng trống cần được xác minh với nguồn tin.",
+        )}
       </p>
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>Tiêu chí</th>
+              <th scope="col">{uiText("Tiêu chí")}</th>
               {houses.map((h) => (
-                <th key={h.id}>{h.title}</th>
+                <th scope="col" key={h.id}>
+                  {h.title}
+                </th>
               ))}
             </tr>
           </thead>
@@ -356,19 +365,21 @@ export function Comparison({
               ],
             ].map(([label, fn]) => (
               <tr key={String(label)}>
-                <th>{String(label)}</th>
+                <th scope="row">{uiText(String(label))}</th>
                 {houses.map((h) => (
                   <td key={h.id}>{(fn as (h: House) => string)(h)}</td>
                 ))}
               </tr>
             ))}
             <tr>
-              <th />
+              <th scope="row">
+                <span className="sr-only">{uiText("Thao tác")}</span>
+              </th>
               <>
                 {houses.map((h) => (
                   <td key={h.id}>
                     <button className="secondary" onClick={() => onOpen(h)}>
-                      Xem chi tiết
+                      {uiText("Xem chi tiết ")}
                     </button>
                   </td>
                 ))}

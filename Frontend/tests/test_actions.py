@@ -88,6 +88,7 @@ async def test_selection_is_grounded_owned_and_persisted_in_graph(monkeypatch):
         assert response.status_code == 200, response.text
         state = (await service.graph.aget_state(config)).values
         assert state["intake"].user_confirmed_facts["selected:property"].value == "b"
+        assert state["goal_selections"] == {"t1": "b"}
         assert state["cost_summary"].total_monthly_vnd == 5000000
         assert state["cost_summary"].selected["t1"] == "b"
         assert state["task_status"]["t2"] == TaskStatus.STALE

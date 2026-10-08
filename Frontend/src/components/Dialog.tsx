@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
@@ -31,6 +32,24 @@ export function Dialog({
       ref={ref}
       className={"dialog " + (wide ? "dialog-wide" : "")}
       aria-label={title}
+      aria-modal="true"
+      onKeyDown={(event) => {
+        if (event.key !== "Tab" || event.defaultPrevented) return;
+        const controls = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+          ) || [],
+        ).filter((el) => el.getClientRects().length > 0);
+        const first = controls[0],
+          last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
       onCancel={(e) => {
         e.preventDefault();
         close.current();
@@ -41,7 +60,11 @@ export function Dialog({
     >
       <div className="dialog-head">
         <h2>{title}</h2>
-        <button className="icon-button" aria-label="Đóng" onClick={onClose}>
+        <button
+          className="icon-button"
+          aria-label={uiText("Đóng")}
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
       </div>
@@ -71,12 +94,12 @@ export function ConfirmDialog({
       <div className="confirm-body">{children}</div>
       {error && (
         <p className="notice error" role="alert">
-          {error}
+          {uiText(error)}
         </p>
       )}
       <div className="form-actions">
         <button className="secondary" disabled={busy} onClick={onClose}>
-          Hủy
+          {uiText("Hủy")}
         </button>
         <button
           className="primary danger"

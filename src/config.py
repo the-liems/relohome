@@ -1,7 +1,8 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +31,13 @@ class Settings(BaseSettings):
 
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
+
+    # Isolated Roommate service: off until the complete release gates pass.
+    roommate_enabled: bool = False
+    roommate_state_dir: Path = Path("logs/private-roommate")
+    roommate_area_catalog: Path | None = None
+    roommate_moderators: str = ""
+    agent_api_token: SecretStr = SecretStr("")
 
 
 @lru_cache

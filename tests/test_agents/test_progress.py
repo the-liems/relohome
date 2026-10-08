@@ -1,5 +1,7 @@
 """Dải tiến trình: mục tiêu từ plan, quan hệ trước/sau, trạng thái đã xem/đã chốt và tổng tiền đã chốt."""
 
+from datetime import timedelta
+
 from src.agents.common import utcnow
 from src.agents.models import (
     AgentName,
@@ -14,7 +16,7 @@ from src.agents.models import (
     TaskResult,
     TaskStatus,
 )
-from src.agents.progress import plan_progress
+from src.agents.progress import plan_progress, record_goal, record_selections
 
 
 def result(task_id, agent, data, quotes=()):
@@ -99,8 +101,6 @@ def test_no_plan_has_no_goals():
 
 
 def test_goal_keeps_earlier_goals_and_requested_but_unplanned_domains():
-    from src.agents.progress import record_goal
-
     turn1 = state({}, {"home": TaskStatus.DONE, "fly": TaskStatus.DONE})
     turn1["intake"].kind = RequestKind.NEW_GOAL
     turn1["plan"] = Plan(version=1, tasks=[t for t in turn1["plan"].tasks if t.id in {"home", "fly"}])
@@ -120,9 +120,62 @@ def test_goal_keeps_earlier_goals_and_requested_but_unplanned_domains():
     assert moving["state"] == "waiting" and moving["after"] == ["home"] and moving["level"] == 1
     assert moving["inputs"] == {"to_address": "selected:property", "move_date": "2026-10-05"}
 
-    # A new goal starts a fresh strip.
+    # A new request starts fresh execution, while the plan panel remembers this thread's completed steps.
     turn3 = state({}, {})
     turn3["intake"].kind = RequestKind.NEW_GOAL
     turn3["plan"] = Plan(version=1, tasks=[t for t in turn3["plan"].tasks if t.id == "fly"])
     turn3["goal_tasks"] = turn2["goal_tasks"]
-    assert set(record_goal(turn3)) == {"fly", "pending:property", "pending:relocation"}
+    assert set(record_goal(turn3)) == {"home", "fly", "pending:property", "pending:relocation"}
+
+
+def test_plan_remembers_housing_and_moving_choices_when_flight_is_classified_new_goal():
+    first = state({"selected:property": "h2", "selected:relocation": "m1"},
+                  {"home": TaskStatus.DONE, "move": TaskStatus.DONE})
+    first["intake"].kind = RequestKind.NEW_GOAL
+    first["plan"] = Plan(version=1, tasks=[
+        Task(id="home", agent=AgentName.PROPERTY, inputs={"city": "Hà Nội"}),
+        Task(id="move", agent=AgentName.RELOCATION, inputs={"mode": "quote"}),
+    ])
+    first["task_results"]["move"] = result("move", AgentName.RELOCATION,
+                                           {"quotes": [{"option_id": "m1", "vehicle": "Xe van"}]},
+                                           [Quote(option_id="m1", label="Xe van", amount_vnd=300_000,
+                                                  recurrence="one_time")])
+    first["goal_tasks"] = record_goal(first)
+    first["goal_selections"] = record_selections(first)
+
+    flight = state({}, {"home": TaskStatus.DONE, "move": TaskStatus.DONE, "fly": TaskStatus.DONE})
+    flight["intake"].kind = RequestKind.NEW_GOAL
+    flight["intake"].intent = Intent(name="flight", domains=[AgentName.FLIGHT])
+    flight["plan"] = Plan(version=2, tasks=[Task(id="fly", agent=AgentName.FLIGHT,
+                                                  inputs={"origin": "SGN", "destination": "HAN"})])
+    flight["task_results"]["move"] = first["task_results"]["move"]
+    flight["goal_tasks"] = first["goal_tasks"]
+    flight["goal_selections"] = first["goal_selections"]
+    flight["goal_tasks"] = record_goal(flight)
+    flight["goal_selections"] = record_selections(flight)
+
+    progress = plan_progress(flight)
+    items = {item["task_id"]: item for item in progress["items"]}
+    assert set(items) == {"home", "move", "fly"}
+    assert items["home"]["chosen"]["label"] == "Căn B"
+    assert items["move"]["chosen"]["label"] == "Xe van"
+    assert progress["totals"]["monthly_vnd"] == 4_000_000
+    assert progress["totals"]["one_time_vnd"] == 300_000
+
+
+def test_expired_moving_quote_keeps_vehicle_choice_without_counting_old_price():
+    values = state({"selected:relocation": "m1"}, {"move": TaskStatus.DONE})
+    values["plan"] = Plan(version=2, tasks=[Task(id="move", agent=AgentName.RELOCATION, inputs={"mode": "quote"})])
+    values["task_results"]["move"] = result(
+        "move", AgentName.RELOCATION,
+        {"quotes": [{"option_id": "m1"}], "expires_at": (utcnow() - timedelta(minutes=1)).isoformat()},
+        [Quote(option_id="m1", label="Xe van", amount_vnd=300_000, recurrence="one_time")],
+    )
+    progress = plan_progress(values)
+    moving = progress["items"][0]
+    assert moving["chosen"]["label"] == "Xe van"
+    assert moving["task_status"] == "stale"
+    assert moving["state"] != "confirmed"
+    assert moving["chosen"]["amount_vnd"] is None
+    assert progress["totals"]["one_time_vnd"] == 0
+    assert progress["totals"]["confirmed"] == 0

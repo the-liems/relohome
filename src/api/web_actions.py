@@ -13,6 +13,7 @@ from src.agents.graph import run_config
 from src.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, TaskStatus, active_commits
 from src.agents.nodes.change_impact import selection_impact
 from src.agents.nodes.cost_summary import make_cost_summary
+from src.agents.progress import select_plan_option
 from src.agents.subagents.services.location import to_candidate
 from src.agents.suggestions import next_step_suggestions
 from src.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
@@ -218,6 +219,7 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             )
             update.update(intake=intake, messages=[HumanMessage(text)])
             update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
+            update["goal_selections"] = select_plan_option(state, body.task_id, body.entity_id, affected)
             # Downstream choices become stale; the choice just made in this domain stays.
             for agent in {plan.task(tid).agent for tid in affected - {body.task_id}} - {result.agent}:
                 intake.user_confirmed_facts.pop(f"selected:{agent.value}", None)

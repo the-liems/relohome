@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -109,7 +109,7 @@ class AgentService:
     sandbox_payment_client: Any = None
 
     @classmethod
-    async def open(cls, services: ServiceSettings | None = None):
+    async def open(cls, services: ServiceSettings | None = None, *, roommate_runtime=None):
         """Application entrypoint: real LLMs + configured services + durable local stores."""
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -149,6 +149,10 @@ class AgentService:
             stack.push_async_callback(components.close)
             registry = ServiceRegistry.from_settings(services)
             agents = live_agents(registry)
+            if roommate_runtime is not None:
+                from src.agents.subagents.services.roommate import RoommateSubagent
+
+                agents[AgentName.ROOMMATE] = RoommateSubagent(roommate_runtime)
             if components.moving:
                 agents[AgentName.RELOCATION] = components.moving
             # Flight teammate only supplies simulated booking; never advertise it as real.
@@ -247,7 +251,12 @@ class AgentService:
 
     @classmethod
     def create(
-        cls, intake: Intake | None = None, planner: Planner | None = None, services: ServiceSettings | None = None
+        cls,
+        intake: Intake | None = None,
+        planner: Planner | None = None,
+        services: ServiceSettings | None = None,
+        *,
+        roommate_runtime=None,
     ) -> AgentService:
         services = services or ServiceSettings()
         intake = intake or PassThroughIntake()
@@ -258,6 +267,12 @@ class AgentService:
             base = default_deps()
             approvals, pii = base.approvals, base.pii
             deps = GraphDeps(**{**base.__dict__, "intake": intake, "planner": planner})
+        if roommate_runtime is not None:
+            from src.agents.subagents.services.roommate import RoommateSubagent
+
+            agents = {name: deps.agents.get(name) for name in deps.agents.names()}
+            agents[AgentName.ROOMMATE] = RoommateSubagent(roommate_runtime)
+            deps = replace(deps, agents=AgentRegistry(agents))
         return cls(
             deps=deps,
             graph=build_graph(deps, default_checkpointer()),

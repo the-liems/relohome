@@ -11,6 +11,7 @@ langchain-openai>=0.3.0
 langgraph>=1.0  # interrupt, Command, input_schema (agent-graph.md §11)
 langgraph-checkpoint-sqlite>=3,<4
 cryptography>=44
+Pillow>=12.3,<13  # bounded private Roommate image decoding and metadata stripping
 
 # Database (uncomment as needed)
 # sqlalchemy>=2.0.0

@@ -19,6 +19,7 @@ class AgentName(StrEnum):
     FLIGHT = "flight"  # Flight / Travel
     MAP = "map"  # Map & Nearby Utility
     PAYMENT = "payment"  # Owned status reads only; writes remain controlled
+    ROOMMATE = "roommate"  # Read-only people discovery; consent uses the private API.
     # Contract & Policy của sơ đồ v4 đã bỏ khỏi phạm vi (2026-09-28)
 
 
