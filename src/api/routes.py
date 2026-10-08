@@ -308,6 +308,7 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "pending": pending,
         "selections": _selections(values),
         "progress": plan_progress(values),
+        "checkout": service.checkout.thread_view(user_id, thread_id, values) if service.checkout else None,
     }
 
 
@@ -376,6 +377,11 @@ async def delete_thread(thread_id: str, service: Service, user_id: UserId = "ano
                 status_code=409,
                 detail="Hội thoại đang có thanh toán chờ xử lý. Hãy hủy hoặc hoàn tất thanh toán trước khi xóa.",
             )
+        if service.checkout is not None and service.checkout.has_open_attempt(user_id, thread_id):
+            raise HTTPException(
+                status_code=409,
+                detail="Hội thoại có lần thanh toán đang chờ hoặc đang đối soát. Hãy hoàn tất trước khi xóa.",
+            )
         await service.graph.checkpointer.adelete_thread(thread_id)
         await service.deps.session.forget_thread(user_id, thread_id)
     service.locks.pop(thread_id, None)
@@ -396,6 +402,7 @@ async def agent_status(service: Service):
         "status": "ready",
         "agent": "LifeFlow agent graph",
         "mode": service.mode,
+        "app_payment": service.checkout is not None,
         "domains": [d.value for d in service.deps.agents.names()],
         "domain_agents": {
             d.value: {

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.agents.wiring import AgentService
+from src.api.checkout import router as checkout_router
 from src.api.moving_quotes import router as moving_quote_router
 from src.api.roommate_access import router as roommate_access_router
 from src.api.roommate_connections import router as roommate_connections_router
@@ -30,9 +31,14 @@ async def lifespan(app: FastAPI):
     try:
         service = await AgentService.open(roommate_runtime=roommate)
         app.state.agent_service = service
+        if service.checkout is not None:
+            # Chạy tiếp công việc hoàn tất còn dở sau khi khởi động lại (payment-design §7.4).
+            await service.checkout.start()
         yield
     finally:
         if service:
+            if service.checkout is not None:
+                await service.checkout.stop()
             await service.close()
         if roommate:
             roommate.close()
@@ -59,6 +65,7 @@ app.include_router(router, prefix="/api/v1")
 app.include_router(sandbox_payment_router, prefix="/api/v1")
 app.include_router(web_actions_router, prefix="/api/v1")
 app.include_router(moving_quote_router, prefix="/api/v1")
+app.include_router(checkout_router, prefix="/api/v1")
 app.include_router(roommate_access_router, prefix="/api/v1")
 app.include_router(roommate_discovery_router, prefix="/api/v1")
 app.include_router(roommate_profiles_router, prefix="/api/v1")

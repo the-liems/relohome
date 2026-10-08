@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAPS = ROOT / "Maps VN" / "LifeFlow"
 
 
-def environment(component, sandbox_writes=False):
+def environment(component, sandbox_writes=False, payment_demo=False):
     env = {
         **os.environ,
         **{k: v for k, v in dotenv_values(ROOT / ".env").items() if v is not None},
@@ -44,6 +44,15 @@ def environment(component, sandbox_writes=False):
         LANGCHAIN_TRACING_V2="false",
         LANGSMITH_TRACING="false",
     )
+    if payment_demo:
+        # Thanh toán của app (docs/review/payment-design.md): ZaloPay sandbox thu tiền, vé giữ chỗ/xuất vé mô phỏng,
+        # chuyển đồ chỉ ghi "đã duyệt". Không bật ghi AhaMove; không bao giờ dùng cho production.
+        env.update(
+            APP_PAYMENT_DEMO_ENABLED="true",
+            FLIGHT_SIMULATION_ENABLED="true",
+            PAYMENT_TESTER_CONFIRM_ENABLED=env.get("PAYMENT_TESTER_CONFIRM_ENABLED", "true"),
+            APP_ENV="development",
+        )
     # Children must not re-load the broad root .env after scoped credentials are removed.
     env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
     env["PYTHONPATH"] = str(ROOT)
@@ -78,6 +87,11 @@ def main():
     parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
+    )
+    parser.add_argument(
+        "--payment-demo",
+        action="store_true",
+        help="App checkout demo: ZaloPay sandbox payments, simulated flight tickets, tester 'paid' control",
     )
     args = parser.parse_args()
     if args.port is not None and (args.component not in {"api", "ui"} or not 1 <= args.port <= 65535):
@@ -116,7 +130,7 @@ def main():
     sys.exit(
         subprocess.call(
             commands[args.component],
-            env=environment(args.component, args.sandbox_writes),
+            env=environment(args.component, args.sandbox_writes, args.payment_demo),
             cwd=ROOT if args.component in {"api", "ui"} else MAPS,
         )
     )

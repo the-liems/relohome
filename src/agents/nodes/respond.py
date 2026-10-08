@@ -59,6 +59,7 @@ QUESTION_TEXT = {
     "flight.origin": "Bạn bay từ thành phố nào?",
     "flight.destination": "Bạn bay tới đâu?",
     "flight.flight_date": "Bạn muốn bay ngày nào?",
+    "flight.return_date": "Bạn muốn bay về ngày nào?",
     "map.near": "Bạn muốn xem tiện ích quanh địa điểm nào?",
 }
 HINT_FOR = {"flight.origin": "origin", "relocation.from_address": "current_address"}
@@ -168,8 +169,15 @@ def describe_result(
             )
             lines.append(f"Quanh {(titles or {}).get(key, key)}: {names or 'chưa có dữ liệu'}")
     elif agent == AgentName.FLIGHT:
+        if data.get("trip_type") == "round_trip":
+            lines.append(
+                f"Vé khứ hồi, về ngày {data.get('return_date')}. Chiều đi (giá khứ hồi thấp nhất, giá tham khảo):"
+            )
         for offer in data.get("offers", [])[:5]:
-            lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {vnd(offer.get('fare_vnd'))}")
+            prefix = "từ " if offer.get("kind") == "round_trip_outbound" else ""
+            lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {prefix}{vnd(offer.get('fare_vnd'))}")
+        if data.get("trip_type") == "round_trip":
+            lines.append("Chọn chuyến đi trên giao diện để xem chiều về và giá cả hành trình.")
         if data.get("booking"):
             booking = data["booking"]
             lines.append(f"Đặt chỗ {booking.get('pnr') or booking.get('booking_id')}: {booking.get('status')}")
@@ -314,7 +322,10 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     if intake and intake.unavailable_commit_requested:
         data["unavailable_actions"] = [action.value for action in intake.unavailable_commit_requested]
         notes.append(
-            "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
+            'Để đặt và thanh toán, bấm "Thanh toán" trên vé hoặc báo giá chuyển đồ đã chọn (qua ReloHome, '
+            "ZaloPay sandbox; vé là mô phỏng). Mình không tự đặt hay trả tiền qua chat."
+            if deps.settings.app_payment
+            else "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
             "mình chỉ tra cứu thông tin/báo giá, chưa thực hiện giao dịch nào."
         )
     if intake and intake.prefilled and has_results:
