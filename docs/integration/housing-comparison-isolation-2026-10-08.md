@@ -75,6 +75,7 @@ $env:RUN_WORKSPACE_REPAIRS_LIVE='1'
 .venv/Scripts/python.exe -m pytest tests/test_llm_agents/test_workspace_repairs_live.py::test_comparison_reports_actual_prices_outside_a_requested_band -q -s
 cd Frontend
 npm run build
+npx playwright test --config=playwright.contracts.config.ts
 $env:RUN_HOUSING_COMPARISON_BROWSER='1'
 $env:ROOM_SCOPE_RESUME_RUN='issue75-browser-<unique-run>'
 npx playwright test --config=playwright.search-scope.config.ts housing-comparison.live.spec.ts scope-contracts.spec.ts
@@ -90,6 +91,17 @@ trên để không can thiệp hội thoại người dùng.
 ## CI và giới hạn
 
 Các kiểm tra feature đã qua không có nghĩa toàn bộ CI của repository xanh.
+So sánh **đúng clean publication base/head**, cùng env và private basetemp:
+
+| Revision | Pass | Fail | Skip |
+|---|---:|---:|---:|
+| PR #74 base `5f622d2` | 527 | 30 | 87 |
+| Delta #75 | 534 | 30 | 89 |
+
+Danh sách 30 failure IDs trùng hoàn toàn; thêm 7 pure contracts đã qua, hai
+live opt-in mới không tự chạy trong CI. Không tuyên bố toàn bộ CI xanh.
+Frontend clean publication `npm ci`/TypeScript/Vite đã build; pure contracts dùng
+config riêng không khởi động gateway. Config live cần `.venv`/env/backend local.
 Suite local tích hợp còn có lỗi baseline và lỗi hook redaction riêng Windows;
 Windows default pytest temp còn có permission errors, nên CI-like so sánh phải
 dùng `--basetemp` mới trong `logs/` private và tắt tự load `.env` bằng
