@@ -14,6 +14,7 @@ from src.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, Ta
 from src.agents.nodes.change_impact import selection_impact
 from src.agents.nodes.cost_summary import make_cost_summary
 from src.agents.progress import select_plan_option
+from src.agents.selections import option_is_expired
 from src.agents.subagents.services.location import to_candidate
 from src.agents.suggestions import next_step_suggestions
 from src.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
@@ -194,16 +195,8 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
                     update["task_results"] = {body.task_id: result}
             if not chosen:
                 raise HTTPException(409, "Lựa chọn không thuộc nhóm kết quả hiện tại.")
-            expiry = chosen.get("expires_at") or result.data.get("expires_at")
-            if expiry:
-                try:
-                    deadline = datetime.fromisoformat(str(expiry))
-                except ValueError:
-                    deadline = None
-                if deadline is None or deadline.tzinfo is None or deadline <= utcnow():
-                    raise HTTPException(409, "Lựa chọn đã hết hạn hoặc chưa xác minh được thời hạn. Hãy tìm lại.")
-            elif result.agent in {AgentName.FLIGHT, AgentName.RELOCATION}:
-                raise HTTPException(409, "Báo giá thiếu thời hạn. Hãy tìm lại.")
+            if option_is_expired(result, body.entity_id):
+                raise HTTPException(409, "Lựa chọn đã hết hạn hoặc chưa xác minh được thời hạn. Hãy tìm lại.")
             label = (
                 chosen.get("title")
                 or chosen.get("carrier")

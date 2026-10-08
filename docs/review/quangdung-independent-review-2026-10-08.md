@@ -175,3 +175,20 @@ is open from QuangDung to main at the reviewed head;
 [issue #65](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65) remains open.
 No issue comments, PR reviews, merges, pushes or application fixes were submitted
 as part of this independent review.
+
+## Follow-up implementation (2026-10-08)
+
+At the user's subsequent request, QuangDung `374d38c` was integrated into the
+active workspace on `fix/quangdung-review-20261008`, preserving local changes in
+a checkpoint commit first. R1–R4 are now addressed locally; the original findings
+above describe the reviewed baseline, not the current working tree.
+
+Shared selection/freshness checks now guard progress totals, UI selections,
+remembered homes and selection actions. Roommate quiet hours enforce minute
+precision. Lint and both frontend/TypeScript workspace builds pass. The final
+targeted suites have 214 unique passing tests; real Housing → UI selection →
+Flight multi-turn and Map → Moving staging quote/requote flows also passed.
+This is not a full CI/release certification and Roommate remains disabled locally.
+
+See [implementation and verification handoff](../integration/quangdung-review-fixes-2026-10-08.md)
+for exact scope, measurements, exclusions and remaining release gates.

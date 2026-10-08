@@ -39,6 +39,7 @@ from src.agents.models import (
     active_commits,
     error_record,
 )
+from src.agents.selections import selection_is_current
 from src.agents.state import WorkflowState
 from src.agents.subagents.capabilities import operation_selector_keys
 
@@ -138,14 +139,12 @@ def remembered_home(previous: IntakeResult | None, state: WorkflowState) -> Inta
     if previous is None or "selected:property" in previous.user_confirmed_facts:
         return previous
     results = state.get("task_results") or {}
-    statuses = state.get("task_status") or {}
     for task_id, option_id in reversed(list((state.get("goal_selections") or {}).items())):
         result = results.get(task_id)
         if (
             result is None
             or result.agent != AgentName.PROPERTY
-            or result.status != "done"
-            or statuses.get(task_id) == TaskStatus.STALE
+            or not selection_is_current(state, task_id, option_id)
             or not any(c.get("id") == option_id for c in result.data.get("candidates", []))
         ):
             continue
