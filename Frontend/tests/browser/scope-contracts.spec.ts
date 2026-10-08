@@ -5,8 +5,78 @@ import { filtersFromSearch, mapRequest } from "../../src/mapWorkspace";
 import {
   closedResultSummary,
   pendingServiceInput,
+  serviceTargets,
+  canSelectServiceResult,
+  navigationProgress,
 } from "../../src/serviceJourney";
 import type { Message, Thread } from "../../src/types";
+
+test("comparison is not a service target; search/map identity survives even legacy reused IDs", () => {
+  const thread = {
+    state: {
+      plan: {
+        version: 2,
+        tasks: [
+          {
+            id: "search",
+            agent: "property",
+            inputs: { housing_mode: "compare" },
+          },
+        ],
+      },
+      task_status: { search: "done" },
+      progress: { items: [{ task_id: "search" }] },
+    },
+    messages: [
+      {
+        content: {
+          ui: {
+            components: [
+              {
+                id: "map",
+                type: "property",
+                task_id: "search",
+                data: { search_request: { min_price_vnd: 5 } },
+              },
+            ],
+          },
+        },
+      },
+      {
+        content: {
+          ui: {
+            components: [
+              {
+                id: "table",
+                type: "property",
+                task_id: "search",
+                data: { comparison: { rows: [] } },
+              },
+            ],
+          },
+        },
+      },
+    ],
+  } as unknown as Thread;
+  const targets = serviceTargets(thread);
+  expect(targets.map((t) => t.c.id)).toEqual(["map"]);
+  expect(targets[0].c.data.search_request).toEqual({ min_price_vnd: 5 });
+  expect(canSelectServiceResult(thread, targets[0])).toBe(false);
+  thread.messages[0].content.ui!.components[0].data.search_request.max_price = 7;
+  thread.state.progress.items = [];
+  expect(navigationProgress(thread).items[0]).toMatchObject({
+    task_id: "search",
+    historical_search: true,
+    chosen: null,
+    inputs: { max_price_vnd: 7 },
+  });
+  thread.state.plan.tasks[0].inputs.housing_mode = "search";
+  expect(canSelectServiceResult(thread, targets[0])).toBe(true);
+  thread.state.progress.items = [{ task_id: "search" }];
+  thread.state.plan.tasks = [];
+  expect(serviceTargets(thread).map((t) => t.c.id)).toEqual(["map"]);
+  expect(canSelectServiceResult(thread, targets[0])).toBe(false);
+});
 
 test("preserves provider geometry holes; missing administrative boundary is never an envelope", () => {
   const outer = [

@@ -33,6 +33,13 @@ export function HousingComparison({ data }: { data: Data }) {
       aria-label={t("So sánh các căn nhà")}
     >
       <h3>{t("So sánh các căn nhà")}</h3>
+      {!!data.comparison?.price_outside_requested_range_ids?.length && (
+        <p role="status">
+          {t(
+            "Có căn nằm ngoài khoảng giá bạn yêu cầu. Bảng này không thay đổi nhà đã chọn hoặc bộ lọc tìm nhà.",
+          )}
+        </p>
+      )}
       <div className="comparison-scroll">
         <table>
           <thead>
@@ -62,6 +69,20 @@ export function HousingComparison({ data }: { data: Data }) {
           "Chỉ so sánh các căn được yêu cầu. Thuê tháng đầu + cọc không phải tổng chi phí: chưa xác minh tiền điện, nước và phí dịch vụ. Thiếu dữ liệu không có nghĩa là miễn phí.",
         )}
       </p>
+      {data.agent_assessment?.kind === "model_assessment_not_provider_fact" && (
+        <details>
+          <summary>{t("Nhận xét và giới hạn so sánh")}</summary>
+          <p>{data.agent_assessment.reason}</p>
+          {data.agent_assessment.next_step && (
+            <p>{data.agent_assessment.next_step}</p>
+          )}
+          <p className="muted small">
+            {t(
+              "Đánh giá của AI dựa trên dữ kiện đã đọc, không phải xác nhận từ chủ nhà.",
+            )}
+          </p>
+        </details>
+      )}
     </section>
   );
 }

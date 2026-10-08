@@ -17,6 +17,7 @@ export function serviceTargets(thread: Thread | null): ServiceTarget[] {
       if (active.size && !active.has(c.task_id)) continue;
       if (!["property", "flight", "relocation", "map"].includes(c.type))
         continue;
+      if (c.type === "property" && c.data?.comparison) continue;
       const status = thread.state.task_status?.[c.task_id];
       if (status && status !== "done") continue;
       latest.set(c.task_id, {
@@ -32,6 +33,60 @@ export function serviceTargets(thread: Thread | null): ServiceTarget[] {
   return [...latest.values()].sort(
     (a, b) => (order.get(a.c.task_id) ?? 0) - (order.get(b.c.task_id) ?? 0),
   );
+}
+
+/** Historical search is viewable, but an analysis task cannot accept a choice. */
+export function canSelectServiceResult(
+  thread: Thread | null,
+  target: ServiceTarget,
+): boolean {
+  const task = thread?.state.plan?.tasks?.find(
+    (t: any) => t.id === target.c.task_id,
+  );
+  return (
+    !!task &&
+    !target.c.data?.comparison &&
+    !(task.agent === "property" && task.inputs?.housing_mode === "compare") &&
+    thread?.state.task_status?.[task.id] === "done"
+  );
+}
+
+/** Legacy comparisons overwrote backend search IDs. Offer the actual saved map
+ * for browsing only; never reconstruct a valid quote or a confirmed cost. */
+export function navigationProgress(thread: Thread | null) {
+  const progress = thread?.state.progress || { items: [], totals: {} };
+  const items = (progress.items || []).filter(
+    (i: any) => i.inputs?.housing_mode !== "compare",
+  );
+  for (const target of serviceTargets(thread)) {
+    const task = thread?.state.plan?.tasks?.find(
+      (t: any) => t.id === target.c.task_id,
+    );
+    if (
+      target.c.type !== "property" ||
+      task?.inputs?.housing_mode !== "compare" ||
+      items.some((i: any) => i.task_id === target.c.task_id)
+    )
+      continue;
+    const request = target.c.data.search_request;
+    if (!request) continue;
+    items.push({
+      task_id: target.c.task_id,
+      agent: "property",
+      historical_search: true,
+      inputs: {
+        city: target.c.data.area_name,
+        district: request.district,
+        max_price_vnd: request.max_price,
+      },
+      state: "reviewed",
+      task_status: "done",
+      chosen: null,
+      after: [],
+      level: 0,
+    });
+  }
+  return { ...progress, items };
 }
 
 export function hasSelection(

@@ -11,6 +11,7 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
 | SPEC | Status | Scope |
 |---|---|---|
+| [SPEC-019 — Housing comparison isolation](SPEC-019-housing-comparison-isolation.md) | Draft | Read-only comparison separate from search, choice, map navigation and costs |
 | [SPEC-018 — Search scope and Roommate map](SPEC-018-search-scope-and-roommate-map.md) | Draft | True administrative boundaries, viewport/radius intersection, service journey and isolated synthetic Roommate playground |
 
 | SPEC | Status | Scope |

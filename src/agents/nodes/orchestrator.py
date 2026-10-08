@@ -114,6 +114,15 @@ def make_orchestrator(deps: GraphDeps):
                     session=state.get("session"),
                     previous_plan=previous if reuse else None,
                     previous_results={k: v for k, v in (state.get("task_results") or {}).items()} if reuse else {},
+                    reserved_task_ids=list(
+                        dict.fromkeys(
+                            [
+                                *(state.get("goal_tasks") or {}),
+                                *(state.get("task_results") or {}),
+                                *((t.id for t in previous.tasks) if previous else ()),
+                            ]
+                        )
+                    ),
                     validation=validation,
                     change_context=change,
                     available_agents=deps.agents.names(),
