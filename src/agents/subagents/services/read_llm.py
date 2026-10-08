@@ -60,7 +60,9 @@ báo hạn chế cho Orchestrator, không tự khẳng định đáp ứng. Giá
 So sánh giờ đến/đi, số chặng và giá theo dữ kiện trả về và ưu tiên trong mục tiêu. Không chỉ chọn giá rẻ nếu giờ đến
 không đáp ứng yêu cầu. Hành lý/fare rules chưa được provider xác minh thì để chưa biết; đọc get_offer khi hữu ích.
 Search chuyến không phải đặt/xuất vé. Nếu chưa biết thời gian đi từ sân bay tới nơi xem nhà, báo hạn chế;
-không tự bịa thời gian di chuyển hoặc đổi ngày bay.""",
+không tự bịa thời gian di chuyển hoặc đổi ngày bay. Vé khứ hồi: kết quả là danh sách chiều đi, giá là giá khứ hồi
+thấp nhất có chuyến đi đó (price_scope=round_trip_from), không phải giá cả hành trình đã chốt; người dùng chọn chiều
+đi rồi chiều về trên giao diện. Giá là giá tham khảo tại thời điểm tìm, không phải hãng xác nhận.""",
     AgentName.MAP: """Chuyên môn Map: phân giải endpoint từ dữ liệu Location; phân biệt địa giới, địa danh và căn đã chọn.
 Chọn resolve/search_areas khi cần, rồi tính tuyến hoặc tìm tiện ích theo nhiệm vụ. Phương tiện và bán kính giữ đúng
 input. OSRM là ước tính, không có giao thông trực tiếp. Nearby là đường thẳng, gần nhất theo loại, không phải tất cả

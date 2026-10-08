@@ -52,7 +52,9 @@ MOVING_WRITE_TOOLS = frozenset(
         "cancel_move_order",
     }
 )
-FLIGHT_READ_TOOLS = frozenset({"search_airports", "search_flights", "get_offer", "get_booking"})
+FLIGHT_READ_TOOLS = frozenset(
+    {"search_airports", "search_flights", "search_return_flights", "get_offer", "get_booking"}
+)
 FLIGHT_WRITE_TOOLS = frozenset({"get_offer", "get_booking", "hold_booking", "confirm_booking", "cancel_booking"})
 PAYMENT_WRITE_TOOLS = frozenset({"create_payment", "get_payment", "cancel_payment", "refund_payment"})
 PAYMENT_SIMULATION_TOOLS = frozenset({"simulate_payment_result"})  # chỉ có ở Payment mock
@@ -108,6 +110,14 @@ class ServiceSettings(BaseSettings):
     # Nút "giả lập đã thanh toán" cho demo. Chỉ bật khi Payment MCP chạy PAYMENT_PROVIDER=mock
     # (server chỉ có tool `simulate_payment_result` ở chế độ mock; `/health` trả "simulation": true).
     payment_simulation_enabled: bool = False
+
+    # Thanh toán đa dịch vụ của app (docs/review/payment-design.md): vé và chuyển đồ đi qua ZaloPay sandbox,
+    # vé giữ chỗ/xuất vé mô phỏng trên Flight MCP, chuyển đồ chỉ ghi "đã duyệt". Không tạo đơn AhaMove.
+    app_payment_demo_enabled: bool = False
+    # Nút "Đã thanh toán" cho tester (ADR-015 mục cập nhật 2026-10-07). Không bao giờ bật trên production.
+    payment_tester_confirm_enabled: bool = False
+    payment_tester_user_ids: str = ""  # ID tài khoản gateway, phân tách bằng dấu phẩy
+    payment_reconcile_grace_seconds: int = Field(default=180, ge=30, le=3600)
 
 
 def _secret(value: SecretStr) -> str | None:

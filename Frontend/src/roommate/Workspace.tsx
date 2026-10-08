@@ -73,7 +73,7 @@ export function RoommateWorkspace() {
       />
       {availability.value?.demo_enabled && (
         <p className="rm-hint">
-          <Link to="/roommate?tab=demo">Trải nghiệm 100 hồ sơ DEMO</Link> · Hồ
+          <Link to="/roommate?tab=demo">Trải nghiệm hồ sơ DEMO</Link> · Hồ
           sơ giả, không dùng để kết nối thật.
           {params.get("tab") === "demo" && (
             <>

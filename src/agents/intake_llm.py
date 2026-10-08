@@ -51,6 +51,8 @@ VALUE_KEYS = (
         "nearby_categories",
         "map_categories",
         "flight_date",
+        "return_date",
+        "trip_type",
         "move_date",
         "move_time",
         "roommate_criteria",
@@ -115,7 +117,9 @@ Các căn của lần tìm nhà gần nhất còn trong last_housing_search_opti
 hoặc muốn so sánh lại các căn khác sau một lượt so sánh. Đây chỉ là ID/tên để đọc lại, không phải giá hiện tại.
 Không chọn một căn, không tìm lại danh sách mới và không bịa ID.
 Điền housing_comparison_evidence bằng nguyên văn lời yêu cầu so sánh của lượt hiện tại,
-kể cả khi chưa biết listing_ids. Không đổi yêu cầu so sánh thành search chỉ vì user nêu vùng/giá mới.
+kể cả khi chưa biết listing_ids. Nếu user nêu một khu vực MỚI và yêu cầu so sánh các căn rẻ nhất ở đó,
+dùng housing_mode='search_compare', khu vực và limit 2–4: tìm tin mới trước rồi so sánh chính các tin vừa tìm.
+Không lấy listing_ids của khu vực cũ. Nếu user chỉ nêu giá/vùng để lọc lại CÁC CĂN ĐÃ XEM thì giữ compare.
 Nếu user chưa chỉ rõ căn nào, hỏi lại bằng conflicts; không tự lấy 4 căn đầu. Nếu user yêu cầu so sánh
 ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay lại tìm căn khác, housing_mode='search'.
 Yêu cầu 'so sánh 3 căn rẻ ở khu X, tầm A–B' KHÔNG có nghĩa lấy 3 căn đầu của danh sách cũ.
@@ -206,10 +210,14 @@ Số phòng ngủ KHÔNG phải room_type hoặc household_size. Không tự ch�
 khi người dùng chỉ nói chung "tìm phòng có 2 phòng ngủ".
 Nếu có cả quận và thành phố: district là tên quận, city là thành phố; không dùng near cho quận.
 has_motorbike, budget_vnd (một lần), nearby_categories, nearby_radius_m, map_categories, map_radius_m, search_radius_m, origin, destination,
-flight_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
+flight_date, trip_type, return_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
 volume, order_id, tracking_number, move_month. value đúng kiểu: số tiền/số người/bán kính là integer,
 has_pet/has_motorbike và commit:* là boolean; must_have/nearby_categories/map_categories là array string;
 các key còn lại là string. Không mã hóa value thành chuỗi JSON.
+Vé khứ hồi: có cả chiều đi và chiều về giữa hai nơi (ví dụ "khứ hồi", "đi 10 về 15", "bay vào rồi bay về lại")
+=> trip_type='round_trip', flight_date là ngày đi, return_date là ngày về (ngày tương đối tính theo ngày đi).
+Chỉ nói khứ hồi mà chưa có ngày về: trip_type='round_trip', KHÔNG tạo return_date (graph sẽ hỏi).
+"Một chiều" hoặc không nhắc chiều về thì không tạo trip_type, hoặc trip_type='one_way'.
 Ngày rõ đổi YYYY-MM-DD dựa today giờ Việt Nam; ngày/tháng thiếu năm lấy lần tới gần nhất.
 Ngày tương đối (mai, mốt, thứ bảy này, chủ nhật tuần sau) tra trong calendar (ngày đầu là hôm nay), không tự tính;
 'thứ X này' là ngày thứ X gần nhất từ hôm nay trở đi, 'tuần sau' là tuần kế tiếp.
@@ -285,7 +293,9 @@ def valid_value(key: str, value) -> bool:
     if key in {"must_have", "nearby_categories", "map_categories"}:
         allowed = AMENITIES if key == "must_have" else CATEGORIES
         return isinstance(value, list) and all(isinstance(v, str) and v in allowed for v in value)
-    if key in {"flight_date", "move_date"}:
+    if key == "trip_type":
+        return value in {"one_way", "round_trip"}
+    if key in {"flight_date", "return_date", "move_date"}:
         try:
             return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
         except ValueError:
@@ -481,7 +491,7 @@ class LlmIntake(UsageOwner):
                 )
                 if f.key in facts and facts[f.key].value == value:
                     continue  # Identical duplicate is harmless; keep the first grounded evidence.
-                if f.key in {"flight_date", "move_date"} and valid_value(f.key, value):
+                if f.key in {"flight_date", "return_date", "move_date"} and valid_value(f.key, value):
                     f = f.model_copy(update={"evidence": explicit_date_evidence(value, f.evidence, user_text)})
                 # Models sometimes echo already-confirmed fields from history.
                 # Ignore unchanged echoes; the graph carries the original grounded
@@ -543,6 +553,16 @@ class LlmIntake(UsageOwner):
             if draft.kind != "unsupported"
             else []
         )
+        if (
+            AgentName.PROPERTY in domains
+            and AgentName.MAP in domains
+            and "nearby_categories" in facts
+            and "map_categories" not in facts
+            and draft.map_origin == "housing_results"
+        ):
+            # An amenity constraint on homes is handled by Housing itself.
+            domains.remove(AgentName.MAP)
+            facts.pop("map_near", None)
         # A nearby Map request is a valid domain task. Do not silently turn
         # exploration around an already chosen home into a new Housing search.
         kind = RequestKind(draft.kind) if domains else RequestKind.UNSUPPORTED

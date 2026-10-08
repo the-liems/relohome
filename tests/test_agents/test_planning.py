@@ -165,4 +165,4 @@ async def test_relocation_waits_for_room_choice_s4():
     )
     plan = await planned(intake)
     relocation = next(t for t in plan.tasks if t.agent == AgentName.RELOCATION)
-    assert relocation.inputs["selected_listing_id"] == "lst_002" and relocation.depends_on == ["t1"]
+    assert relocation.inputs["selected_listing_id"] == "lst_002" and relocation.depends_on == []

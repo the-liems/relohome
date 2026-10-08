@@ -9,6 +9,7 @@ import { ConfirmedTotal, describePlanItem } from "./PlanProgress";
 import { Approval } from "./Forms";
 import { PendingPayment, Receipts } from "./Transactions";
 import { TabList } from "./TabList";
+import { CheckoutPanel } from "./Checkout";
 
 function statusOf(item: Data) {
   if (item.historical_search)
@@ -38,6 +39,8 @@ export function PlanPeek({
   writesEnabled = false,
   onDecision,
   onPaymentCheck,
+  onCheckoutChanged,
+  house,
   busy = false,
   onOpenService,
 }: {
@@ -47,12 +50,14 @@ export function PlanPeek({
   writesEnabled?: boolean;
   onDecision: (body: Data) => Promise<void>;
   onPaymentCheck: () => Promise<void>;
+  onCheckoutChanged?: () => Promise<void>;
+  house?: Data;
   busy?: boolean;
   onOpenService?: (taskId: string, agent: string) => void;
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
-  const [tab, setTab] = useState("progress");
+  const [tab, setTab] = useState(params.get("planTab") || "progress");
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
   const panelId = useId();
@@ -77,6 +82,7 @@ export function PlanPeek({
   useEffect(() => {
     if (params.get("panel") === "plan") {
       setOpen(true);
+      if (params.get("planTab")) setTab(params.get("planTab")!);
     }
   }, [params.toString()]);
 
@@ -101,7 +107,8 @@ export function PlanPeek({
         close();
     }
     function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      // A dialog opened from the panel (checkout) closes first.
+      if (event.key === "Escape" && !document.querySelector("dialog[open]")) {
         event.stopPropagation();
         close();
       }
@@ -176,6 +183,7 @@ export function PlanPeek({
               {[
                 ["progress", "Tiến trình"],
                 ["cost", "Chi phí"],
+                ...(state.checkout ? [["checkout", "Thanh toán"]] : []),
                 ["pending", "Cần phản hồi"],
               ].map(([key, label]) => (
                 <button
@@ -322,6 +330,19 @@ export function PlanPeek({
                       {uiText("Chưa có biên nhận dịch vụ.")}
                     </p>
                   )}
+                </div>
+              )}
+              {tab === "checkout" && threadId && (
+                <div className="plan-panel-section">
+                  <CheckoutPanel
+                    threadId={threadId}
+                    checkout={state.checkout}
+                    facts={state.intake?.user_confirmed_facts || {}}
+                    house={house}
+                    onChanged={async () => {
+                      await onCheckoutChanged?.();
+                    }}
+                  />
                 </div>
               )}
               {tab === "pending" && (

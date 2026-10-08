@@ -9,6 +9,11 @@ CabinClass = Literal["economy", "premium_economy", "business", "first"]
 PassengerType = Literal["adult", "child", "infant"]
 BookingStatus = Literal["HELD", "TICKETED", "CANCELLED", "EXPIRED"]
 SortBy = Literal["price", "departure_time", "duration"]
+TripType = Literal["one_way", "round_trip"]
+# one_way: giá một chiều; round_trip_from: giá khứ hồi thấp nhất có chuyến đi này (SerpApi trả ở danh sách
+# chiều đi); round_trip: giá cả hành trình đi + về. Không cộng hay chia các loại giá này với nhau.
+PriceScope = Literal["one_way", "round_trip_from", "round_trip"]
+OfferKind = Literal["one_way", "round_trip_outbound", "round_trip"]
 
 MAX_PASSENGERS = 9
 _IATA_PATTERN = r"^[A-Za-z]{3}$"
@@ -78,7 +83,7 @@ class PassengerCount(BaseModel):
 
 
 class FlightSearchRequest(BaseModel):
-    """Yêu cầu tìm chuyến bay một chiều nội địa Việt Nam."""
+    """Yêu cầu tìm chuyến bay nội địa Việt Nam: một chiều, hoặc khứ hồi (trả danh sách chiều đi trước)."""
 
     origin: str = Field(pattern=_IATA_PATTERN, description="Mã IATA điểm đi, ví dụ HAN")
     destination: str = Field(pattern=_IATA_PATTERN, description="Mã IATA điểm đến, ví dụ SGN")
@@ -88,6 +93,8 @@ class FlightSearchRequest(BaseModel):
     nonstop_only: bool = Field(default=False, description="Chỉ lấy chuyến bay thẳng")
     sort_by: SortBy = "price"
     max_results: int = Field(default=5, ge=1, le=20)
+    trip_type: TripType = Field(default="one_way", description="one_way hoặc round_trip (cần return_date)")
+    return_date: date | None = Field(default=None, description="Ngày bay chiều về YYYY-MM-DD, chỉ cho round_trip")
 
     @field_validator("origin", "destination")
     @classmethod
@@ -98,6 +105,13 @@ class FlightSearchRequest(BaseModel):
     def check_route(self) -> "FlightSearchRequest":
         if self.origin == self.destination:
             raise ValueError("Điểm đi và điểm đến phải khác nhau")
+        if self.trip_type == "round_trip":
+            if self.return_date is None:
+                raise ValueError("Vé khứ hồi cần ngày về (return_date)")
+            if self.return_date < self.departure_date:
+                raise ValueError("Ngày về không được trước ngày đi")
+        elif self.return_date is not None:
+            raise ValueError("return_date chỉ dùng cho trip_type=round_trip")
         return self
 
 
@@ -121,11 +135,16 @@ class FlightOffer(BaseModel):
     total_duration_minutes: int
     cabin_class: CabinClass
     passengers: PassengerCount
-    total_price: int = Field(description="Tổng giá cho tất cả hành khách (VND)")
+    total_price: int = Field(description="Tổng giá cho tất cả hành khách (VND), theo price_scope")
     price_per_adult: int | None = None
     currency: str = "VND"
     seats_left: int | None = None
     expires_at: datetime = Field(description="Sau thời điểm này phải tìm lại")
+    kind: OfferKind = Field(
+        default="one_way", description="one_way, round_trip_outbound (chọn để xem chiều về) hoặc round_trip"
+    )
+    price_scope: PriceScope = "one_way"
+    return_segments: list[Segment] = Field(default_factory=list, description="Chặng về của offer khứ hồi")
 
 
 class SearchFlightsResult(BaseModel):
@@ -169,6 +188,11 @@ class HoldBookingRequest(BaseModel):
     offer_id: str
     passengers: list[Passenger] = Field(min_length=1, max_length=MAX_PASSENGERS)
     contact: Contact
+    passenger_ref: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Tham chiếu vô danh tới kho dữ liệu cá nhân của bên gọi. Có thì booking chỉ lưu tham chiếu này",
+    )
 
 
 class Booking(BaseModel):
@@ -176,8 +200,11 @@ class Booking(BaseModel):
     pnr: str = Field(description="Mã đặt chỗ 6 ký tự")
     status: BookingStatus
     offer: FlightOffer
-    passengers: list[Passenger]
-    contact: Contact
+    # Booking lưu không có dữ liệu cá nhân khi bên gọi đưa passenger_ref; chỉ giữ số khách theo loại.
+    passengers: list[Passenger] = Field(default_factory=list)
+    contact: Contact | None = None
+    passenger_ref: str | None = None
+    passenger_counts: PassengerCount | None = None
     total_price: int
     currency: str
     hold_expires_at: datetime | None = Field(description="Hạn giữ chỗ khi status = HELD")

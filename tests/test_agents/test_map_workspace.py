@@ -188,7 +188,9 @@ class FakeHousing:
 async def test_partial_ranking_keeps_every_observed_option():
     agent = ReadLlmAgent("sk-test-local", "test-model", FakeHousing())
     agent.llm_client = SimpleNamespace(
-        responses=FakeResponses([call("search_housing", {}), call("finish", {"option_ids": ["c"]})])
+        responses=FakeResponses([call("search_housing", {"limit": None}), call("finish", {
+            "option_ids": ["c"], "satisfaction": "fulfilled", "reason": "Results returned", "next_step": "Compare options",
+        })])
     )
     req = AgentTaskRequest(
         request_id="r",

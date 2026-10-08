@@ -46,7 +46,9 @@ packing or handling needs.
 - Letting the LLM register accounts, request tokens, inspect credentials or call
   arbitrary provider URLs.
 - Automatic provider recommendation or invented availability.
-- Payment-gateway implementation.
+- Payment-gateway implementation. (Proposed 2026-10-07, Draft, not implemented: the application, not this
+  Moving service, routes a moving quote through a ZaloPay sandbox payment order and then records the move as
+  approved without creating an AhaMove order. See [payment-design.md](../review/payment-design.md) §9.)
 - Enabling production before AhaMove UAT and an explicit configuration change.
 - Refactoring the existing Housing/Map MCP server in this capability.
 

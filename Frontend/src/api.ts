@@ -3,6 +3,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code = "",
   ) {
     super(message);
   }
@@ -27,6 +28,7 @@ export async function api<T = any>(
       typeof data.detail === "string"
         ? data.detail
         : "Không thể hoàn thành yêu cầu. Vui lòng thử lại.",
+      typeof data.code === "string" ? data.code : "",
     );
   return data;
 }

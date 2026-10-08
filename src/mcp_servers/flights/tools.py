@@ -7,6 +7,7 @@ from pydantic import Field
 
 from src.mcp_servers.flights.booking_engine import BookingEngine
 from src.mcp_servers.flights.catalog import fare_rules_for, find_airports, load_airlines, load_airports
+from src.mcp_servers.flights.errors import InvalidRequestError
 from src.mcp_servers.flights.schemas import (
     Airline,
     Airport,
@@ -18,6 +19,7 @@ from src.mcp_servers.flights.schemas import (
     SearchFlightsResult,
 )
 from src.mcp_servers.flights.search import FlightSearchProvider, create_search_provider, sort_and_limit, validate_search
+from src.mcp_servers.flights.search.base import returns_after_arrival
 from src.mcp_servers.flights.settings import FlightSettings, get_flight_settings, now_vn
 from src.mcp_servers.flights.storage import FlightDatabase, OfferCache
 
@@ -30,6 +32,7 @@ class FlightServices:
     offers: OfferCache
     bookings: BookingEngine
     clock: Callable[[], datetime] = field(default=now_vn)
+    round_trip_min_gap_minutes: int = 120
 
 
 def build_services(settings: FlightSettings | None = None) -> FlightServices:
@@ -40,6 +43,7 @@ def build_services(settings: FlightSettings | None = None) -> FlightServices:
         provider=create_search_provider(settings, db),
         offers=OfferCache(db),
         bookings=BookingEngine(db, hold_minutes=settings.hold_minutes),
+        round_trip_min_gap_minutes=settings.round_trip_min_gap_minutes,
     )
 
 
@@ -60,18 +64,54 @@ class FlightTools:
         return find_airports(query, limit)
 
     async def search_flights(self, request: FlightSearchRequest) -> SearchFlightsResult:
-        """Tìm chuyến bay MỘT CHIỀU nội địa Việt Nam. Khứ hồi thì gọi 2 lần (chiều đi và chiều về).
+        """Tìm chuyến bay nội địa Việt Nam.
 
-        Kết quả là danh sách offer kèm giá tổng (VND) cho toàn bộ hành khách. Offer có hạn
-        (expires_at); dùng offer_id cho get_offer hoặc hold_booking.
+        Một chiều (mặc định): offer `one_way` có giá tổng cho toàn bộ hành khách.
+        Khứ hồi (`trip_type=round_trip` + `return_date`): trả danh sách CHIỀU ĐI (`round_trip_outbound`);
+        giá là giá khứ hồi thấp nhất có chuyến đi đó (`price_scope=round_trip_from`). Chọn một chuyến đi rồi gọi
+        `search_return_flights` để lấy các hành trình đầy đủ. Offer có hạn (expires_at).
         """
         validate_search(request, self._s.clock().date())
         offers = sort_and_limit(await self._s.provider.search(request), request)
         self._s.offers.put_many(offers)
+        request_json = request.model_dump_json()
+        for offer in offers:
+            token = self._s.provider.return_token(offer.offer_id) if offer.kind == "round_trip_outbound" else None
+            if token:
+                self._s.offers.put_return_token(offer, token, request_json)
         if not offers:
             message = "Không có chuyến phù hợp. Thử ngày khác, bỏ nonstop_only hoặc đổi hạng ghế."
+        elif request.trip_type == "round_trip":
+            message = (
+                f"Tìm thấy {len(offers)} chuyến đi (nguồn: {self._s.provider.name}). Chọn chuyến đi để xem chiều về."
+            )
         else:
             message = f"Tìm thấy {len(offers)} chuyến (nguồn: {self._s.provider.name})."
+        return SearchFlightsResult(source=self._s.provider.name, offers=offers, message=message)
+
+    async def search_return_flights(
+        self,
+        outbound_offer_id: Annotated[str, Field(min_length=1, description="offer_id chiều đi (round_trip_outbound)")],
+        max_results: Annotated[int, Field(ge=1, le=20)] = 10,
+    ) -> SearchFlightsResult:
+        """Lấy CHIỀU VỀ cho một chuyến đi khứ hồi đã chọn. Mỗi offer trả về là cả hành trình (đi + về),
+        `price_scope=round_trip`, giá do nguồn trả (không cộng giá hai chiều). Bỏ chuyến về cất cánh trước giờ
+        hạ cánh chuyến đi cộng khoảng cách tối thiểu."""
+        outbound = self._s.offers.get(outbound_offer_id)
+        if outbound.kind != "round_trip_outbound":
+            raise InvalidRequestError("Offer này không phải chuyến đi của vé khứ hồi.")
+        token, request_json = self._s.offers.get_return_token(outbound_offer_id)
+        request = FlightSearchRequest.model_validate_json(request_json)
+        found = await self._s.provider.search_returns(outbound, token, request)
+        offers = returns_after_arrival(outbound, found, self._s.round_trip_min_gap_minutes)
+        offers = sorted(offers, key=lambda o: (o.total_price, o.return_segments[0].departure_time))[:max_results]
+        self._s.offers.put_many(offers)
+        if offers:
+            message = f"Tìm thấy {len(offers)} hành trình khứ hồi cho chuyến đi đã chọn."
+        elif found:
+            message = "Không còn chuyến về sau giờ hạ cánh chuyến đi (cộng khoảng cách tối thiểu). Hãy đổi ngày về."
+        else:
+            message = "Không có chuyến về phù hợp. Thử ngày về khác."
         return SearchFlightsResult(source=self._s.provider.name, offers=offers, message=message)
 
     async def get_offer(self, offer_id: Annotated[str, Field(min_length=1)]) -> OfferDetail:

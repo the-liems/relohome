@@ -2,10 +2,13 @@
 
 import hashlib
 import json
+import os
 import secrets
 import sqlite3
 import time
 from pathlib import Path
+
+from cryptography.fernet import Fernet, InvalidToken
 
 
 def password_hash(password, salt):
@@ -38,6 +41,9 @@ class Store:
             CREATE TABLE IF NOT EXISTS runs (
                 id TEXT PRIMARY KEY, owner TEXT NOT NULL, thread TEXT NOT NULL,
                 fingerprint TEXT NOT NULL, status TEXT NOT NULL, result TEXT
+            );
+            CREATE TABLE IF NOT EXISTS traveler_profiles (
+                owner TEXT PRIMARY KEY, data BLOB NOT NULL, updated REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS saved (
                 owner TEXT NOT NULL, id TEXT NOT NULL, thread TEXT NOT NULL,
@@ -104,3 +110,36 @@ class Store:
             "SELECT u.* FROM sessions s JOIN users u ON u.id=s.owner WHERE s.token=? AND s.expires>?",
             (hashlib.sha256(token.encode()).hexdigest(), time.time()),
         )
+
+
+class TravelerProfiles:
+    """Booker details for flight tickets (payment-design D2): encrypted at rest, owner-scoped, never in messages."""
+
+    def __init__(self, store, key_path):
+        self.store = store
+        key = os.getenv("SIU_TRAVELER_KEY", "").encode()
+        if not key:
+            path = Path(key_path)
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(Fernet.generate_key())
+            key = path.read_bytes().strip()
+        self.fernet = Fernet(key)
+
+    def get(self, owner):
+        row = self.store.one("SELECT data FROM traveler_profiles WHERE owner=?", (owner,))
+        if not row:
+            return None
+        try:
+            return json.loads(self.fernet.decrypt(row["data"]))
+        except InvalidToken:
+            return None
+
+    def put(self, owner, data):
+        token = self.fernet.encrypt(json.dumps(data, ensure_ascii=False).encode())
+        self.store.write("INSERT OR REPLACE INTO traveler_profiles VALUES (?,?,?)", (owner, token, time.time()))
+
+    def delete(self, owner):
+        self.store.write("DELETE FROM traveler_profiles WHERE owner=?", (owner,))

@@ -532,6 +532,11 @@ Không có flight booking thật đang bật; simulation booking không được
 MVP giao dịch. Payment chat không được tự thu/hoàn tiền. Tool write trong server,
 API sandbox và chức năng mà user hiện có thể dùng là ba phạm vi khác nhau.
 
+> Đề xuất 07/10/2026 (Draft, chưa code): [payment-design.md](../review/payment-design.md) thay phạm vi trên cho
+> bản demo. Vé một chiều và khứ hồi (tìm thật qua SerpAPI) được giữ chỗ và xuất vé **mô phỏng**; vé và chuyển đồ
+> đi qua đơn thanh toán ZaloPay sandbox riêng cho từng dịch vụ; chuyển đồ trả xong chỉ ghi "đã duyệt", không tạo
+> đơn AhaMove; nhà có lịch xem và thỏa thuận do người dùng báo. Đoạn trên vẫn đúng với code hiện tại.
+
 Ownership/approval/expiry/exact material inputs vẫn do backend kiểm. Ghi nhầm
 giá mới hoặc quote đã thay vào approval cũ phải bị chặn. Không mặc định có dung
 sai giá hoặc hủy miễn phí; trạng thái không rõ cần đối soát, không tự retry để tạo

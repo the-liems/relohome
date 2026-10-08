@@ -181,7 +181,14 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
                 result.agent
             )
             rows = result.data.get(key, []) if key else []
+            if result.agent == AgentName.FLIGHT:
+                # Vé khứ hồi: lựa chọn cuối là hành trình (đi + về); chuyến đi chọn bằng /flight/outbound.
+                rows = [*rows, *(result.data.get("return_options") or [])]
             chosen = next((r for r in rows if (r.get("id") or r.get("option_id")) == body.entity_id), None)
+            if chosen and chosen.get("kind") == "round_trip_outbound":
+                raise HTTPException(
+                    409, "Đây là chuyến đi của vé khứ hồi. Hãy chọn chuyến đi để xem chiều về, rồi chọn chiều về."
+                )
             if not chosen and result.agent == AgentName.PROPERTY:
                 # A listing explored on the map workspace: re-read it from Location and add it to
                 # this housing result, so selection, plan outline and later tasks see a real option.
@@ -325,3 +332,145 @@ def append_housing_candidate(result, candidate: dict, missing: list[str]) -> Non
                 recurrence="monthly",
             )
         )
+
+
+class OutboundAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: str = Field(min_length=1, max_length=128)
+    plan_version: int
+    fetched_at: datetime
+    offer_id: str = Field(min_length=1, max_length=200)
+
+
+def _leg(segment_list: list[dict], direction: str, carrier: str | None) -> dict:
+    first, last = segment_list[0], segment_list[-1]
+    return {
+        "direction": direction,
+        "carrier": first.get("airline_name") or carrier,
+        "origin": first.get("origin"),
+        "destination": last.get("destination"),
+        "depart_at": first.get("departure_time"),
+        "arrive_at": last.get("arrival_time"),
+        "flight_numbers": [s.get("flight_number") for s in segment_list],
+        "stops": len(segment_list) - 1,
+    }
+
+
+@router.post("/chat/{thread_id}/flight/outbound")
+async def flight_outbound(thread_id: str, body: OutboundAction, service: Service, user_id: UserId = "anonymous"):
+    """Vé khứ hồi: người dùng duyệt chiều đi, app lấy chiều về cho đúng chuyến đó (0 LLM, payment-design §8.2)."""
+    async with _lock(service, thread_id):
+        state, pending = await _owned(service, thread_id, user_id)
+        if pending:
+            raise HTTPException(409, "Hãy đổi hoặc từ chối phương án đang chờ trước khi thay lựa chọn.")
+        plan = state.get("plan")
+        result = (state.get("task_results") or {}).get(body.task_id)
+        if (
+            not plan
+            or plan.version != body.plan_version
+            or not plan.task(body.task_id)
+            or not result
+            or result.agent != AgentName.FLIGHT
+            or result.status != "done"
+            or body.fetched_at.tzinfo is None
+            or result.fetched_at != body.fetched_at
+        ):
+            raise HTTPException(409, "Nhóm kết quả đã thay đổi. Hãy sử dụng kết quả mới nhất.")
+        if result.data.get("trip_type") != "round_trip":
+            raise HTTPException(409, "Kết quả này không phải vé khứ hồi.")
+        outbound = next((o for o in result.data.get("offers", []) if o.get("id") == body.offer_id), None)
+        if outbound is None or outbound.get("kind") != "round_trip_outbound":
+            raise HTTPException(409, "Chuyến đi không thuộc nhóm kết quả hiện tại.")
+        try:
+            deadline = datetime.fromisoformat(str(outbound.get("expires_at")))
+        except ValueError:
+            deadline = None
+        if deadline is None or deadline.tzinfo is None or deadline <= utcnow():
+            raise HTTPException(409, "Giá tham khảo của chuyến đi đã hết hạn. Hãy tìm lại.")
+        try:
+            raw = await client_for(service, AgentName.FLIGHT).call(
+                "search_return_flights", {"outbound_offer_id": body.offer_id}
+            )
+        except ToolCallError as exc:
+            if exc.transport or exc.retryable:
+                raise HTTPException(502, "Chưa tải được chiều về. Hãy thử lại.") from None
+            raise HTTPException(409, "Chuyến đi đã hết hạn hoặc không còn chiều về. Hãy tìm lại.") from None
+        rows, quotes = [], []
+        for offer in (raw or {}).get("offers", []):
+            if offer.get("source") != "serpapi" or offer.get("kind") != "round_trip":
+                continue
+            out_leg = _leg(offer.get("segments") or [{}], "out", outbound.get("carrier"))
+            back_leg = _leg(offer.get("return_segments") or [{}], "return", None)
+            row = {
+                "id": offer["offer_id"],
+                "kind": "round_trip",
+                "price_scope": "round_trip",
+                "carrier": back_leg["carrier"],
+                "fare_vnd": offer.get("total_price"),
+                "depart_at": back_leg["depart_at"],
+                "arrive_at": back_leg["arrive_at"],
+                "stops": back_leg["stops"],
+                "expires_at": offer.get("expires_at"),
+                "outbound_id": body.offer_id,
+                "legs": [out_leg, back_leg],
+                "baggage_kg": None,
+            }
+            rows.append(row)
+            if row["fare_vnd"] is not None:
+                quotes.append(
+                    Quote(
+                        option_id=row["id"],
+                        label=f"Khứ hồi {out_leg['carrier']} / {back_leg['carrier']}",
+                        amount_vnd=int(row["fare_vnd"]),
+                        recurrence="one_time",
+                    )
+                )
+        result = result.model_copy(deep=True)
+        old_ids = {r.get("id") for r in result.data.get("return_options") or []}
+        result.quotes = [q for q in result.quotes if q.option_id not in old_ids] + quotes
+        result.data.update(
+            outbound_offer_id=body.offer_id, return_options=rows, return_message=(raw or {}).get("message")
+        )
+        result.source_refs = list(dict.fromkeys([*result.source_refs, *(r["id"] for r in rows)]))
+        result.fetched_at = utcnow()
+        intake = state["intake"].model_copy(deep=True)
+        update: dict = {"task_results": {body.task_id: result}, "intake": intake}
+        chosen = intake.user_confirmed_facts.get("selected:flight")
+        if chosen is not None and str(chosen.value) not in {r["id"] for r in rows}:
+            # Đổi chuyến đi: lựa chọn chiều về cũ và các lần duyệt liên quan hết hiệu lực.
+            intake.user_confirmed_facts.pop("selected:flight", None)
+            selections = dict(state.get("goal_selections") or {})
+            selections.pop(body.task_id, None)
+            update["goal_selections"] = selections
+        label = f"{outbound.get('carrier')} {str(outbound.get('depart_at'))[11:16]}"
+        text = (
+            f"Đã chọn chuyến đi {label}. Chọn một chuyến về để có giá cả hành trình."
+            if rows
+            else f"Đã chọn chuyến đi {label}. {(raw or {}).get('message') or 'Chưa có chuyến về phù hợp.'}"
+        )
+        update["messages"] = [HumanMessage(f"Tôi chọn chuyến đi {label} (ID: {body.offer_id}).")]
+        response = AgentResponse(
+            kind="ANSWER",
+            text=text,
+            data={
+                "results": {
+                    body.task_id: {
+                        "agent": "flight",
+                        "data": result.data,
+                        "source": result.source,
+                        "source_kind": result.source_kind,
+                        "source_refs": result.source_refs,
+                        "fetched_at": result.fetched_at.isoformat(),
+                    }
+                }
+            },
+        )
+        merged = {
+            **state,
+            **update,
+            "task_results": {**state.get("task_results", {}), **update["task_results"]},
+        }
+        summary = await make_cost_summary(service.deps)(merged)
+        update.update(cost_summary=summary["cost_summary"], response=response)
+        await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
+        return _to_response(thread_id, {"response": response}, service)

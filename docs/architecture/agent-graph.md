@@ -1,5 +1,10 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
+> Đề xuất 07/10/2026 (Draft, chưa code): thanh toán đa dịch vụ theo
+> [payment-design.md](../review/payment-design.md). Thay Q21 (chuyển đồ qua thanh toán điện tử của app, bỏ luồng
+> staging tiền mặt) và mở rộng Q25 (nhà có lịch xem, thỏa thuận, mức cọc nhập tay; app vẫn không thu tiền nhà).
+> Mỗi lần thanh toán gắn một đơn thanh toán của một dịch vụ; vé khứ hồi là hai chặng, thanh toán chung một lần.
+
 > Cập nhật 03/10/2026: domain agent nhận goal/user_request và tự chọn preparation,
 > search, details, pagination, ask/finish/replan trong tool namespace giới hạn.
 > Map nearby vẫn hỗ trợ khám phá độc lập; bộ lọc Housing không bị thay bởi câu hỏi Map.
@@ -2067,11 +2072,11 @@ Layout thực tế sau khi implement (thêm `wiring.py`, `llm.py`, `subagents/se
 | Q18 | Luồng huỷ thứ đã đặt khi người dùng đổi ý (§6.8 bước 7): có hỗ trợ huỷ không, phí huỷ trình bày thế nào, huỷ và đặt lại có gộp trong một lần xác nhận không? | `change_impact`, `confirm`, `TransactionPort.compensate`. |
 | Q19 | Khi đặt (S2) mà kết quả tìm có nhiều lựa chọn tương đương: `cost_summary` tự chọn phương án xếp hạng đầu để người dùng xác nhận, hay bắt buộc người dùng chọn trước (thêm một lượt)? | `cost_summary`, S4, Q7. |
 | Q20 | ~~Nhà cung cấp và model LLM?~~ **Đã chốt 2026-09-29:** tạm thời mọi agent (node của graph và subagent của service) dùng **OpenAI**; chọn model theo độ nặng của việc (bảng tầng model ở §7.5). | `StructuredLLM`, `llm_models`. |
-| Q21 | ~~Đặt xe AhaMove thanh toán thế nào?~~ **Đã chốt 2026-09-29:** `payment_method = CASH`, người gửi trả tiền mặt cho tài xế; `moving_booking` không qua Payment MCP (`requires_payment = False`). `confirm` ghi rõ "giá ước tính X, trả tiền mặt cho tài xế". `BALANCE` / thu tiền qua ZaloPay để sau MVP. | Bảng thực thi §6.9. |
+| Q21 | ~~Đặt xe AhaMove thanh toán thế nào?~~ **Đã chốt 2026-09-29:** `payment_method = CASH`, người gửi trả tiền mặt cho tài xế; `moving_booking` không qua Payment MCP (`requires_payment = False`). `confirm` ghi rõ "giá ước tính X, trả tiền mặt cho tài xế". `BALANCE` / thu tiền qua ZaloPay để sau MVP. **Đề xuất 07–08/10 (Draft, chưa code):** bỏ luồng đặt xe staging trả tiền mặt; mọi lần chốt xe đi qua thanh toán điện tử của app theo quy trình ZaloPay sandbox; app chỉ thu và giữ tiền, trả xong ghi "đã duyệt", không tạo đơn AhaMove. `payment_method` giữ đúng giá trị của AhaMove, cách app thu tiền là field riêng `checkout_mode` ([payment-design.md](../review/payment-design.md) D6, D17, §9). | Bảng thực thi §6.9. |
 | Q22 | ~~Cầu nối approval sang backend Moving?~~ **Đã chốt 2026-09-29:** sau khi `check_approval` qua, `transaction` gọi endpoint nội bộ của Moving (credential ghi) để ghi bản ghi approval cho đúng action (`approval_id`, `approved_by`, payload theo cách Moving tính hash, hạn), rồi mới gọi `create_move_order`. Việc cần làm phía Moving: thêm endpoint ghi approval (chủ service: Khoa). Contract graph đang gọi (`src/services/adapters/moving_approval.py`): `POST MOVING_APPROVAL_URL` + Bearer, body `{approval_id (UUID), action_type: create/update/cancel, payload, approved_by, expires_at}`, trả 200/201; endpoint gọi `MovingService.registerApproval`. Chưa có endpoint thì `transaction` từ chối đặt xe với lỗi rõ ràng. | `commit.py`, §6.9. |
 | Q23 | ~~Trùng số ADR giữa các nhánh~~ **Đã chốt 2026-09-29:** bảng đánh số lại ở §12.1; nhánh `khoa` giữ ADR-001…006, nhánh `QuangDung` và `Doan/api` đánh số tiếp. | `docs/adr/`. |
 | Q24 | Flight và Payment MCP (nhánh `Doan/api`) hiện nhận mọi request, không kiểm header `Authorization: Bearer <token>` như Location / Moving. Ai gọi được tới cổng `8765` / `8766` đều gọi được `confirm_booking`, `create_payment`. Chủ service bổ sung kiểm token trước khi đăng ký vào registry, tốt nhất tách hai token: chỉ-đọc (subagent) và ghi (`transaction`). | Registry, §6.3.5. |
-| Q25 | ~~Đặt cọc phòng làm thế nào?~~ **Đã chốt 2026-09-29:** MVP **không có** đặt cọc. Phòng chỉ dừng ở tìm kiếm / xem chi tiết; không có commit action `deposit`, không gợi ý đặt cọc. | §6.9, S9. |
+| Q25 | ~~Đặt cọc phòng làm thế nào?~~ **Đã chốt 2026-09-29:** MVP **không có** đặt cọc. Phòng chỉ dừng ở tìm kiếm / xem chi tiết; không có commit action `deposit`, không gợi ý đặt cọc. **Đề xuất 07–08/10 (Draft, chưa code):** thêm đặt lịch xem, báo kết quả và thỏa thuận; người dùng nhập mức cọc thực tế (gợi ý 1 tháng tiền thuê, tạm thời, sau này chủ nhà xác nhận); đã thỏa thuận không có nghĩa đã trả, việc trả cho chủ nhà là một bước báo riêng "chưa xác minh"; tiền trả thẳng cho chủ nhà ngoài app, vẫn không có commit action `deposit` ([payment-design.md](../review/payment-design.md) D7, §10). | §6.9, S9. |
 
 ### 12.1. Đánh số lại ADR (Q23)
 

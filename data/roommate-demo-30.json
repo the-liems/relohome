@@ -1,0 +1,1830 @@
+{
+  "source_kind": "demo",
+  "generated_at": "2026-10-08T15:11:50.811287Z",
+  "profiles": [
+    {
+      "owner_id": "demo_person_001",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Minh 001",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "outdoors_only",
+            "has_pets": true,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "39ff68d3-7acf-5c56-a59b-93bc51d81775",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_002",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Linh 002",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "2b6ee83b-5261-56c3-9e7e-56ec65649fba",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_003",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Khang 003",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "a82db3cd-06e3-5117-9f3d-5335c623a0eb",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_004",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Mai 004",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_005",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Huy 005",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_006",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Lan 006",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "206cbecb-8e20-5038-9195-24ff48118331",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_007",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Nam 007",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "outdoors_only",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "fe9c0289-5e45-540e-9247-edd30e5f479f",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_008",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Thảo 008",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": true,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "0eef8fc7-1aab-5de4-ba02-4deb8d7d157f",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_009",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Quân 009",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_010",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Hà 010",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_011",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Đạt 011",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "6f005091-c8e5-51cd-8f6f-28ad06ee5d8a",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_012",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Ngọc 012",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "66bf8d56-71cf-5954-836e-495a88973dfa",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_013",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Phúc 013",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "outdoors_only",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "0944ee95-b9ae-5717-8534-3735a78b7959",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_014",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO An 014",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_015",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Long 015",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": true,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_016",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Trang 016",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "0d7102a8-5041-5e6f-9687-18e1b2c4e700",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_017",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Tùng 017",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "f1726a1b-1915-5528-9713-b79ba6bdcb68",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_018",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Vy 018",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "a87df6bd-af55-5899-b27e-2ae25c944949",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_019",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Duy 019",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "outdoors_only",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_020",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Hương 020",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_021",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Bình 021",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "13debb68-beee-599d-a61a-324c1f556813",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_022",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Trâm 022",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": true,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "03deaf71-7688-504c-90ba-b73353eca6c4",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_023",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Kiên 023",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "3f939c41-19cc-5b98-b93a-457cded9d4d6",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_024",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Nhi 024",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_025",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Sơn 025",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "outdoors_only",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_026",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Tâm 026",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 1000000,
+            "max_vnd": 3000000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "5254816a-09ec-5f53-b7fb-27f295e72a6a",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_027",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Thành 027",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 1350000,
+            "max_vnd": 3450000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": true
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "4657e296-5b15-50d3-b1d5-a1870820ef64",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_028",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Quỳnh 028",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Đang có phòng minh họa và muốn tìm bạn ở cùng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "hanoi",
+          "area_ids": [
+            "city:hanoi"
+          ],
+          "budget": {
+            "min_vnd": 1700000,
+            "max_vnd": 3900000,
+            "fee_basis": "including_fees"
+          },
+          "need": {
+            "kind": "has_room",
+            "willing_to_move": false
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "22:30:00",
+              "end": "06:30:00"
+            },
+            "cleanliness": "daily",
+            "sociability": "mostly_private"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": {
+          "listing_id": "cc9bc792-f537-588f-bb8c-a8b606318e60",
+          "public_location_consent": true
+        }
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_029",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO Khải 029",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Sinh hoạt linh hoạt, tôn trọng không gian riêng.",
+        "facts": {
+          "city": "hcm",
+          "area_ids": [
+            "city:hcm"
+          ],
+          "budget": {
+            "min_vnd": 2050000,
+            "max_vnd": 4350000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "male",
+            "smoking": "non_smoker",
+            "has_pets": true,
+            "quiet_hours": {
+              "start": "23:00:00",
+              "end": "07:00:00"
+            },
+            "cleanliness": "several_times_week",
+            "sociability": "balanced"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    },
+    {
+      "owner_id": "demo_person_030",
+      "version": 1,
+      "state": "active",
+      "content": {
+        "display_name": "DEMO My 030",
+        "introduction": "Hồ sơ thử nghiệm, không phải người thật. Muốn tìm bạn cùng thuê phòng. Ưu tiên không gian yên tĩnh, giờ giấc ổn định.",
+        "facts": {
+          "city": "danang",
+          "area_ids": [
+            "city:danang"
+          ],
+          "budget": {
+            "min_vnd": 2400000,
+            "max_vnd": 4800000,
+            "fee_basis": "rent_only"
+          },
+          "need": {
+            "kind": "looking_together",
+            "willing_to_move": null
+          },
+          "move_in": {
+            "kind": "flexible",
+            "start": null,
+            "end": null
+          },
+          "self_traits": {
+            "gender": "female",
+            "smoking": "non_smoker",
+            "has_pets": false,
+            "quiet_hours": {
+              "start": "00:00:00",
+              "end": "08:00:00"
+            },
+            "cleanliness": "weekly",
+            "sociability": "often_shared"
+          }
+        },
+        "preferences": {
+          "areas": null,
+          "budget": null,
+          "move_in": null,
+          "smoking": {
+            "value": "outdoors_only",
+            "strength": "soft"
+          },
+          "pets_allowed": null,
+          "quiet_hours": null,
+          "cleanliness": null,
+          "sociability": null,
+          "gender": null
+        },
+        "room": null
+      },
+      "updated_at": "2026-10-08T15:11:50.811287Z",
+      "confirmed_at": "2026-10-08T15:11:50.811287Z",
+      "expires_at": "2029-10-07T15:11:50.811287Z",
+      "avatar_id": null
+    }
+  ]
+}

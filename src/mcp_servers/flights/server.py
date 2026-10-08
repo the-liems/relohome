@@ -45,6 +45,7 @@ def create_server(services: FlightServices | None = None, host: str = "127.0.0.1
 
     mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)
+    mcp.add_tool(tools.search_return_flights, title="Tìm chiều về (khứ hồi)", annotations=SEARCH)
     mcp.add_tool(tools.get_offer, title="Chi tiết offer", annotations=READ_ONLY)
     if simulation:
         mcp.add_tool(tools.hold_booking, title="Giữ chỗ", annotations=HOLD)

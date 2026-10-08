@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field, replace
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +108,7 @@ class AgentService:
     # LLM domain fanout shares this local lock so budgets cannot be oversubscribed.
     writes_enabled: bool = False
     sandbox_payment_client: Any = None
+    checkout: Any = None  # src.checkout.service.CheckoutService khi bật thanh toán của app
 
     @classmethod
     async def open(cls, services: ServiceSettings | None = None, *, roommate_runtime=None):
@@ -221,9 +223,11 @@ class AgentService:
                     max_task_attempts=services.agent_max_attempts,
                     max_replans=services.agent_max_attempts,
                     agent_transport_retries=services.agent_max_attempts - 1,
+                    app_payment=services.app_payment_demo_enabled,
                 ),
                 usage=SqliteUsageMeter(db),
             )
+            checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
             path = str(Path(services.agent_state_dir).resolve() / "checkpoints.sqlite3")
             saver = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(path))
             saver.serde = checkpoint_serde()
@@ -240,6 +244,7 @@ class AgentService:
                 sandbox_payment_client=registry.payment.write_client()
                 if services.agent_sandbox_payments_enabled
                 else None,
+                checkout=checkout,
             )
         except BaseException:
             await stack.aclose()
@@ -281,3 +286,44 @@ class AgentService:
             mode=services.agent_subagents,
             payment_simulation=services.agent_subagents == "fake" or services.payment_simulation_enabled,
         )
+
+
+def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii):
+    """Thanh toán của app: chỉ ZaloPay sandbox chính thức và đặt vé mô phỏng; production không có nút tester."""
+    from src.checkout.service import CheckoutService, CheckoutSettings
+    from src.checkout.store import CheckoutStore
+    from src.config import get_settings
+    from src.mcp_servers.payments.settings import PaymentSettings
+
+    payment_settings = PaymentSettings()
+    if (
+        not services.payment_mcp_stdio
+        or services.payment_mcp_url
+        or payment_settings.provider != "zalopay"
+        or payment_settings.zalopay_endpoint.rstrip("/") != "https://sb-openapi.zalopay.vn/v2"
+    ):
+        raise ValueError("App payment demo requires the local ZaloPay MCP with the official sandbox endpoint")
+    production = get_settings().app_env == "production"
+    if production and services.payment_tester_confirm_enabled:
+        raise ValueError("The tester payment control is never enabled in production")
+    contact = (
+        QuoteContact(services.moving_quote_contact_name, services.moving_quote_contact_mobile)
+        if services.moving_quote_contact_name and services.moving_quote_contact_mobile
+        else None
+    )
+    key = (Path(services.agent_state_dir).resolve() / "pii.key").read_bytes()
+    return CheckoutService(
+        store=CheckoutStore(db.connection),
+        pii=pii,
+        secret=key,
+        flight=registry.flight.write_client(),
+        payment=registry.payment.write_client(),
+        moving=registry.moving.read_client(),
+        moving_contact=contact,
+        settings=CheckoutSettings(
+            tester_confirm_enabled=services.payment_tester_confirm_enabled,
+            tester_user_ids=frozenset(x.strip() for x in services.payment_tester_user_ids.split(",") if x.strip()),
+            production=production,
+            reconcile_grace=timedelta(seconds=services.payment_reconcile_grace_seconds),
+        ),
+    )

@@ -2,7 +2,7 @@ import { formatUi } from "../uiPreferences";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
-  Banknote,
+  CreditCard,
   Box,
   Check,
   ChevronDown,
@@ -718,12 +718,12 @@ export function MovingOptionsForm({
         </label>
       </section>
       <section className="mv-payment-tile">
-        <Banknote size={22} />
+        <CreditCard size={22} />
         <div>
-          <strong>{uiText("Thanh toán tiền mặt")}</strong>
+          <strong>{uiText("Thanh toán trong app")}</strong>
           <p>
             {uiText(
-              "Trả tài xế theo phí hãng xác nhận. Chưa thu tiền ở bước báo giá.",
+              "Sau khi chọn gói xe, thanh toán qua ZaloPay sandbox. Bản demo không tạo đơn AhaMove; chưa thu tiền ở bước báo giá.",
             )}
           </p>
         </div>
@@ -732,7 +732,7 @@ export function MovingOptionsForm({
       <p className="mv-contact-hint">
         <Box size={15} />
         {uiText(
-          " Sau khi chọn báo giá, bạn điền tên/SĐT người gửi và người nhận ở bước xác nhận riêng.",
+          " Bản demo không cần tên/SĐT người gửi, người nhận: không có đơn thật nào được tạo.",
         )}
       </p>
     </>

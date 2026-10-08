@@ -35,8 +35,10 @@ class MovingOptions(FormModel):
     service_id: str | None = Field(default=None, min_length=1, max_length=150)
     requests: list[MovingRequestOption] = Field(default_factory=list, max_length=50)
     packages: list[MovingPackage] = Field(default_factory=list, max_length=100)
-    # Retain the existing cash-only transaction policy; wallet payments are not introduced here.
+    # Phương thức hợp lệ của AhaMove, gửi trong yêu cầu báo giá. Cách app thu tiền là field riêng `checkout_mode`
+    # (payment-design D17) và không bao giờ đi vào yêu cầu gửi AhaMove.
     payment_method: Literal["CASH"] = "CASH"
+    checkout_mode: Literal["app_payment"] = "app_payment"
     promo_code: str | None = Field(default=None, min_length=1, max_length=100)
     remarks: str | None = Field(default=None, max_length=1000)
     item_value: int | None = Field(default=None, ge=0)

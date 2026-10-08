@@ -14,6 +14,7 @@ from src.agents.models import (
     Intent,
     RequestKind,
     TaskResult,
+    TaskStatus,
 )
 from src.agents.wiring import AgentService
 from src.api.routes import router
@@ -49,6 +50,9 @@ async def test_state_exposes_the_chosen_home_from_provider_results():
                     data={"candidates": [{"id": "other", "title": "Căn khác"}, home]},
                 )
             },
+            "task_status": {"t1": TaskStatus.DONE},
+            "goal_tasks": {"t1": {"agent": AgentName.PROPERTY.value, "inputs": {}, "depends_on": []}},
+            "goal_selections": {"t1": "map-1"},
         },
         as_node="respond",
     )

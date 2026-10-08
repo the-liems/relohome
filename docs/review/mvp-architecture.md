@@ -464,6 +464,10 @@ Thanh ngang ở đầu khung chat (và đầu trang chi tiết Kế hoạch), đ
 Chỉ hiện những mục tiêu người dùng đã nêu; chưa nhắc tới thì chưa có ô. Thanh toán không hiện trên dải (đang tắt);
 thay vào đó là **tổng tiền đã chốt**.
 
+> Đề xuất 07/10/2026 (Draft, chưa code): [payment-design.md](payment-design.md) §12 thêm trạng thái thanh toán và
+> lịch xem nhà vào dải, và tách tổng thành đã thanh toán qua app (mô phỏng), chờ thanh toán, trả trực tiếp cho chủ
+> nhà, hằng tháng.
+
 Planner chỉ giữ task cần cho lượt đang xử lý, nên plan hiện tại không đủ làm lịch sử. Node `respond` gọi
 `progress.record_goal` mỗi lượt để ghi `goal_tasks` (state của thread): mọi task của mục tiêu hiện tại qua các lượt,
 cộng domain người dùng đã yêu cầu nhưng chưa lập task vì thiếu thông tin (ô `pending:<domain>`, giữ những gì người

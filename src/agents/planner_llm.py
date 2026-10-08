@@ -69,6 +69,8 @@ PROMPT = """Bạn là Routing Orchestrator LLM của LifeFlow, chủ động l�
 Housing housing_mode='compare': task property đọc listing_ids đã xác nhận (2–4 căn), không tìm căn mới,
 không thêm task search phụ thuộc chỉ để đọc lại cùng căn. Giữ near và bộ lọc làm ngữ cảnh so sánh, không
 tự chọn nhà cho user. housing_mode='search' dùng truy vấn như bình thường, không dùng shortlist cũ để chặn tìm mới.
+housing_mode='search_compare' tìm tin ở khu vực mới rồi so sánh tối đa 2–4 tin có giá thấp nhất trong trang dữ liệu
+đọc được; không gán listing_ids cũ và không tách thành task compare phụ thuộc.
 So sánh là task phân tích riêng, KHÔNG sửa task tìm nhà thành compare hoặc dùng lại ID task search.
 Tạo ID riêng cho compare; giữ nguyên search cũ nếu cần context, hoặc bỏ khỏi plan hiện tại (lịch sử vẫn giữ).
 Ngân sách/vùng dùng để so sánh không thay bộ lọc search cũ, căn đã chọn hay điểm giao Moving.
@@ -88,7 +90,9 @@ approval, giá, toạ độ, ID hoặc thông tin còn thiếu. Không thay đ�
 Không tạo task với placeholder. Chỉ làm các domain được yêu cầu hoặc task cũ cần giữ.
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
-Map key: flight_date -> flight.date. 'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
+Map key: flight_date -> flight.date, trip_type -> flight.trip_type, return_date -> flight.return_date.
+Vé khứ hồi là MỘT task flight có trip_type='round_trip' và return_date; người dùng chọn chiều đi rồi chiều về trên giao diện.
+'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
 'Xem/tìm tiện ích quanh địa danh, căn đã chọn hoặc các căn tìm được' là task Map nearby, KHÔNG tìm lại nhà thay nó.
 Nếu chỉ yêu cầu Map khám phá trong lượt mới thì nearby_categories/nearby_radius_m không đổi bộ lọc Housing đã xong.
 Map hỗ trợ cả route và nearby. Orchestrator giao mục tiêu/domain, không quy định thứ tự gọi MCP bên trong subagent.
@@ -301,9 +305,10 @@ class LlmPlanner(UsageOwner):
                 for field in fields:
                     source_field = "map_near" if task.agent == AgentName.MAP and field == "near" else field
                     place_id = values.get(source_field + "_place_id")
-                    if place_id:
+                    proposed = task.inputs.get(field)
+                    if place_id and proposed in (None, values.get(source_field)):
                         # Typed API choice binds its canonical name and ID together;
-                        # neither depends on the model repeating a display label.
+                        # a different endpoint text must never inherit that ID.
                         task.inputs[field] = values[source_field]
                         task.inputs[field + "_place_id"] = place_id
                     else:
@@ -463,6 +468,8 @@ class LlmPlanner(UsageOwner):
                     "origin": "origin",
                     "destination": "destination",
                     "flight_date": "date",
+                    "trip_type": "trip_type",
+                    "return_date": "return_date",
                     "passengers": "passengers",
                 },
                 AgentName.MAP: (

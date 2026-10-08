@@ -31,3 +31,12 @@ This log includes work identifiable from repository evidence. It does not infer 
 ## Information still needed for a full team worklog
 
 The [team roster](README.md#team) is known, but dates and outcomes of work not visible in Git, issue/PR links, and any time tracking the team wants to report are still needed. The author strings in Git have not been mapped to members.
+
+## 2026-10-08 — Workspace repairs
+
+- [Issue #70](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/70):
+  repair route preview, quote continuity, multi-service navigation and sourced
+  housing comparison, preserving teammate UI and real-data guards.
+- [Handoff](docs/integration/workspace-repairs-2026-10-08.md) and
+  [verification](eval/workspace-repairs-2026-10-08.md) record evidence and limits.
+  Delivery/review state remains in GitHub.

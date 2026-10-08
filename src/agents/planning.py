@@ -354,6 +354,9 @@ class TemplatePlanner:
             _put(inputs, "origin", values.get("origin"))
             _put(inputs, "destination", values.get("destination"))
             _put(inputs, "date", values.get("flight_date"))
+            if values.get("trip_type") == "round_trip":
+                inputs["trip_type"] = "round_trip"
+                _put(inputs, "return_date", values.get("return_date"))
             adults = values.get("passengers") or values.get("household_size") or 1
             inputs["passengers"] = {"adults": int(adults)}
             return inputs, "destination" not in inputs

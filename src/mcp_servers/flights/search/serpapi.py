@@ -14,6 +14,7 @@ from src.mcp_servers.flights.storage import SearchCache
 
 SERPAPI_URL = "https://serpapi.com/search"
 TRAVEL_CLASS = {"economy": 1, "premium_economy": 2, "business": 3, "first": 4}
+ROUND_TRIP = 1
 ONE_WAY = 2
 NONSTOP = 1
 ANY_STOPS = 0
@@ -29,12 +30,12 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 def build_params(request: FlightSearchRequest) -> dict[str, Any]:
     """Tham số Google Flights API của SerpApi (chưa gồm api_key)."""
     pax = request.passengers
-    return {
+    params = {
         "engine": "google_flights",
         "departure_id": request.origin,
         "arrival_id": request.destination,
         "outbound_date": request.departure_date.isoformat(),
-        "type": ONE_WAY,
+        "type": ROUND_TRIP if request.trip_type == "round_trip" else ONE_WAY,
         "travel_class": TRAVEL_CLASS[request.cabin_class],
         "adults": pax.adults,
         "children": pax.children,
@@ -44,6 +45,9 @@ def build_params(request: FlightSearchRequest) -> dict[str, Any]:
         "hl": "vi",
         "gl": "vn",
     }
+    if request.trip_type == "round_trip" and request.return_date is not None:
+        params["return_date"] = request.return_date.isoformat()
+    return params
 
 
 def parse_segment(raw: dict[str, Any]) -> Segment:
@@ -64,28 +68,80 @@ def parse_segment(raw: dict[str, Any]) -> Segment:
     )
 
 
-def parse_offers(data: dict[str, Any], request: FlightSearchRequest, expires_at: datetime) -> list[FlightOffer]:
-    """Gộp best_flights + other_flights thành FlightOffer; bỏ qua lịch trình thiếu giá hoặc thiếu dữ liệu."""
-    offers = []
+def _items(data: dict[str, Any]) -> list[tuple[list[Segment], int, int, dict[str, Any]]]:
+    rows = []
     for item in [*data.get("best_flights", []), *data.get("other_flights", [])]:
         try:
             segments = [parse_segment(raw) for raw in item["flights"]]
             price = int(item["price"])
         except (KeyError, TypeError, ValueError, IndexError, AttributeError):
             continue
+        duration = int(item.get("total_duration") or sum(s.duration_minutes for s in segments))
+        rows.append((segments, price, duration, item))
+    return rows
+
+
+def parse_offers(
+    data: dict[str, Any], request: FlightSearchRequest, expires_at: datetime, tokens: dict[str, str] | None = None
+) -> list[FlightOffer]:
+    """Gộp best_flights + other_flights thành FlightOffer; bỏ qua lịch trình thiếu giá hoặc thiếu dữ liệu.
+
+    Khứ hồi: SerpApi trả danh sách chiều đi, giá là giá khứ hồi thấp nhất có chuyến đi đó (kiểm bằng lần gọi thật
+    08/10/2026), kèm `departure_token` để lấy chiều về; token ghi vào `tokens`. Chuyến đi thiếu token thì bỏ.
+    """
+    round_trip = request.trip_type == "round_trip"
+    offers = []
+    for segments, price, duration, item in _items(data):
+        token = item.get("departure_token") if round_trip else None
+        if round_trip and not token:
+            continue
+        id_parts = [*(s.flight_number for s in segments), segments[0].departure_time]
+        if round_trip:
+            id_parts.append(request.return_date)
+        offer = FlightOffer(
+            offer_id=make_offer_id("off_serp_rto" if round_trip else "off_serp", *id_parts, request.passengers),
+            source="serpapi",
+            segments=segments,
+            stops=len(segments) - 1,
+            total_duration_minutes=duration,
+            cabin_class=request.cabin_class,
+            passengers=request.passengers,
+            total_price=price,
+            expires_at=expires_at,
+            kind="round_trip_outbound" if round_trip else "one_way",
+            price_scope="round_trip_from" if round_trip else "one_way",
+        )
+        if token and tokens is not None:
+            tokens[offer.offer_id] = token
+        offers.append(offer)
+    return offers
+
+
+def parse_returns(data: dict[str, Any], outbound: FlightOffer, expires_at: datetime) -> list[FlightOffer]:
+    """Chiều về cho chuyến đi đã chọn; giá là giá cả hành trình (đi + về) do SerpApi trả, không tự cộng."""
+    offers = []
+    for segments, price, duration, _ in _items(data):
         offers.append(
             FlightOffer(
                 offer_id=make_offer_id(
-                    "off_serp", *(s.flight_number for s in segments), segments[0].departure_time, request.passengers
+                    "off_serp_rt",
+                    *(s.flight_number for s in outbound.segments),
+                    outbound.segments[0].departure_time,
+                    *(s.flight_number for s in segments),
+                    segments[0].departure_time,
+                    outbound.passengers,
                 ),
                 source="serpapi",
-                segments=segments,
-                stops=len(segments) - 1,
-                total_duration_minutes=int(item.get("total_duration") or sum(s.duration_minutes for s in segments)),
-                cabin_class=request.cabin_class,
-                passengers=request.passengers,
+                segments=outbound.segments,
+                return_segments=segments,
+                stops=max(outbound.stops, len(segments) - 1),
+                total_duration_minutes=outbound.total_duration_minutes + duration,
+                cabin_class=outbound.cabin_class,
+                passengers=outbound.passengers,
                 total_price=price,
-                expires_at=expires_at,
+                expires_at=min(expires_at, outbound.expires_at),
+                kind="round_trip",
+                price_scope="round_trip",
             )
         )
     return offers
@@ -103,16 +159,29 @@ class SerpApiFlightSearch:
         self._offer_ttl = timedelta(minutes=settings.offer_ttl_minutes)
         self._cache = cache
         self._client = client
+        self._tokens: dict[str, str] = {}
 
     async def search(self, request: FlightSearchRequest) -> list[FlightOffer]:
-        params = build_params(request)
+        data = await self._cached(build_params(request))
+        return parse_offers(data, request, now_vn() + self._offer_ttl, self._tokens)
+
+    def return_token(self, offer_id: str) -> str | None:
+        return self._tokens.get(offer_id)
+
+    async def search_returns(
+        self, outbound: FlightOffer, token: str, request: FlightSearchRequest
+    ) -> list[FlightOffer]:
+        data = await self._cached({**build_params(request), "departure_token": token})
+        return parse_returns(data, outbound, now_vn() + self._offer_ttl)
+
+    async def _cached(self, params: dict[str, Any]) -> dict[str, Any]:
         cache_key = json.dumps(params, sort_keys=True)
         data = self._cache.get(cache_key) if self._cache else None
         if data is None:
             data = await self._fetch(params)
             if self._cache:
                 self._cache.put(cache_key, data)
-        return parse_offers(data, request, now_vn() + self._offer_ttl)
+        return data
 
     async def _fetch(self, params: dict[str, Any]) -> dict[str, Any]:
         # Không đưa str(exc) vào message: URL lỗi của httpx có chứa api_key.
