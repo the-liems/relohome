@@ -34,6 +34,8 @@ data/
 !/data/
 /data/*
 !/data/roommate-demo-30.json
+!/data/project-data-quangdung-20261008.zip
+!/data/project-data-quangdung-20261008.zip.sha256
 *.db
 *.sqlite3
 
