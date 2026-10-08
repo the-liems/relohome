@@ -1,12 +1,16 @@
 """resolve_missing và kiểm dữ kiện (agent-graph.md §6.1)."""
 
+from dataclasses import replace
 from datetime import timedelta
 
+import pytest
+from langchain_core.messages import HumanMessage
+
 from src.agents.common import utcnow
-from src.agents.deps import GraphSettings
-from src.agents.intake import ground_facts, resolve_missing
+from src.agents.deps import GraphSettings, default_deps
+from src.agents.intake import FixedIntake, ground_facts, resolve_missing
 from src.agents.models import AgentName, MemoryValue, Plan, RequestKind, SessionContext, Task, TaskResult, TaskStatus
-from src.agents.nodes.intake import continue_referenced_goal, remembered_home
+from src.agents.nodes.intake import continue_referenced_goal, make_intake, remembered_home
 from tests.test_agents.helpers import fact, intake_result
 
 TIERS = {AgentName.PROPERTY: "cheap", AgentName.MAP: "cheap", AgentName.FLIGHT: "paid", AgentName.RELOCATION: "paid"}
@@ -27,6 +31,62 @@ def memory(value, days_ago=1, **kw):
 def test_blocks_only_when_no_task_can_run():
     out = resolve(intake_result(domains=[AgentName.PROPERTY]))
     assert out.blocking_missing == ["property.city|near|district"]
+
+
+@pytest.mark.asyncio
+async def test_new_named_city_replaces_old_housing_city_when_model_only_extracts_landmark():
+    previous = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                             values={"city": "Thành phố Hồ Chí Minh", "near": "Gò Vấp"},
+                             facts={"city": fact("Thành phố Hồ Chí Minh", "TP.HCM"),
+                                    "near": fact("Gò Vấp", "Gò Vấp")})
+    current = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                            values={"near": "đại học bách khoa hà nội"},
+                            facts={"near": fact("đại học bách khoa hà nội", "đại học bách khoa hà nội")})
+    deps = replace(default_deps(), intake=FixedIntake(current))
+    state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage("Tìm nhà gần đại học bách khoa hà nội")],
+             "intake": previous, "session": SessionContext()}
+    result = (await make_intake(deps)(state))["intake"]
+    assert result.constraints.values["city"] == "Hà Nội"
+    assert result.constraints.values["near"] == "đại học bách khoa hà nội"
+    assert not result.conflicts
+
+
+@pytest.mark.asyncio
+async def test_new_district_does_not_inherit_unrelated_old_city_or_landmark():
+    previous = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                             values={"city": "Thành phố Hồ Chí Minh", "near": "Gò Vấp"},
+                             facts={"city": fact("Thành phố Hồ Chí Minh", "TP.HCM"),
+                                    "near": fact("Gò Vấp", "Gò Vấp")})
+    current = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                            values={"district": "Cầu Giấy"},
+                            facts={"district": fact("Cầu Giấy", "Cầu Giấy")})
+    deps = replace(default_deps(), intake=FixedIntake(current))
+    state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage("Tìm nhà ở Cầu Giấy")],
+             "intake": previous, "session": SessionContext()}
+    result = (await make_intake(deps)(state))["intake"]
+    assert result.constraints.values["district"] == "Cầu Giấy"
+    assert "city" not in result.constraints.values
+    assert "near" not in result.constraints.values
+
+
+@pytest.mark.asyncio
+async def test_compare_cheapest_in_new_area_searches_before_comparing():
+    previous = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                             values={"city": "Thành phố Hồ Chí Minh"},
+                             facts={"city": fact("Thành phố Hồ Chí Minh", "TP.HCM")})
+    request = "Hãy so sánh 3-4 căn giá rẻ nhất ở Cầu Giấy"
+    current = intake_result(RequestKind.REFINE, [AgentName.PROPERTY],
+                            values={"housing_mode": "compare", "district": "Cầu Giấy"},
+                            facts={"housing_mode": fact("compare", "so sánh"),
+                                   "district": fact("Cầu Giấy", "Cầu Giấy")},
+                            conflicts=["Bạn muốn so sánh căn đã xem nào?"])
+    deps = replace(default_deps(), intake=FixedIntake(current))
+    state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage(request)],
+             "intake": previous, "session": SessionContext()}
+    result = (await make_intake(deps)(state))["intake"]
+    assert result.constraints.values["housing_mode"] == "search_compare"
+    assert result.constraints.values["limit"] == 4
+    assert not result.blocking_missing and not result.conflicts
 
 
 def test_asks_only_root_task_when_dependent_can_derive():

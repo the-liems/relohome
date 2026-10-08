@@ -117,7 +117,9 @@ Các căn của lần tìm nhà gần nhất còn trong last_housing_search_opti
 hoặc muốn so sánh lại các căn khác sau một lượt so sánh. Đây chỉ là ID/tên để đọc lại, không phải giá hiện tại.
 Không chọn một căn, không tìm lại danh sách mới và không bịa ID.
 Điền housing_comparison_evidence bằng nguyên văn lời yêu cầu so sánh của lượt hiện tại,
-kể cả khi chưa biết listing_ids. Không đổi yêu cầu so sánh thành search chỉ vì user nêu vùng/giá mới.
+kể cả khi chưa biết listing_ids. Nếu user nêu một khu vực MỚI và yêu cầu so sánh các căn rẻ nhất ở đó,
+dùng housing_mode='search_compare', khu vực và limit 2–4: tìm tin mới trước rồi so sánh chính các tin vừa tìm.
+Không lấy listing_ids của khu vực cũ. Nếu user chỉ nêu giá/vùng để lọc lại CÁC CĂN ĐÃ XEM thì giữ compare.
 Nếu user chưa chỉ rõ căn nào, hỏi lại bằng conflicts; không tự lấy 4 căn đầu. Nếu user yêu cầu so sánh
 ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay lại tìm căn khác, housing_mode='search'.
 Yêu cầu 'so sánh 3 căn rẻ ở khu X, tầm A–B' KHÔNG có nghĩa lấy 3 căn đầu của danh sách cũ.
@@ -551,6 +553,16 @@ class LlmIntake(UsageOwner):
             if draft.kind != "unsupported"
             else []
         )
+        if (
+            AgentName.PROPERTY in domains
+            and AgentName.MAP in domains
+            and "nearby_categories" in facts
+            and "map_categories" not in facts
+            and draft.map_origin == "housing_results"
+        ):
+            # An amenity constraint on homes is handled by Housing itself.
+            domains.remove(AgentName.MAP)
+            facts.pop("map_near", None)
         # A nearby Map request is a valid domain task. Do not silently turn
         # exploration around an already chosen home into a new Housing search.
         kind = RequestKind(draft.kind) if domains else RequestKind.UNSUPPORTED

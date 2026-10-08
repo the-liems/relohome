@@ -37,7 +37,6 @@ from src.agents.models import (
     OutcomeCode,
     RequestKind,
     TaskOutline,
-    TaskStatus,
     active_commits,
     error_record,
 )
@@ -46,6 +45,18 @@ from src.agents.state import WorkflowState
 from src.agents.subagents.capabilities import operation_selector_keys
 
 logger = logging.getLogger(__name__)
+
+EXPLICIT_HOUSING_CITIES = (
+    (re.compile(r"(?<!\w)(Hà Nội|Ha Noi)(?!\w)", re.IGNORECASE), "Hà Nội"),
+    (re.compile(r"(?<!\w)(TP\.?\s*HCM|TP\.?\s*Hồ Chí Minh|Thành phố Hồ Chí Minh)(?!\w)", re.IGNORECASE), "Thành phố Hồ Chí Minh"),
+    (re.compile(r"(?<!\w)(Đà Nẵng|Da Nang)(?!\w)", re.IGNORECASE), "Đà Nẵng"),
+)
+
+
+def stated_housing_city(text: str) -> tuple[str, str] | None:
+    """Use only a city actually named in this turn; never derive it from a district."""
+    matches = [(match.group(0), city) for pattern, city in EXPLICIT_HOUSING_CITIES if (match := pattern.search(text))]
+    return matches[0] if len(matches) == 1 else None
 
 
 def explicitly_changed_fact(key: str, text: str) -> bool:
@@ -244,6 +255,35 @@ def make_intake(deps: GraphDeps):
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
         latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
+        fresh_housing_scope = (
+            AgentName.PROPERTY in result.domains
+            and any(key in result.user_confirmed_facts for key in SEARCH_SCOPE_KEYS)
+        )
+        fresh_comparison_search = (
+            fresh_housing_scope
+            and result.constraints.values.get("housing_mode") == "compare"
+            and not result.user_confirmed_facts.get("listing_ids")
+            and re.search(r"so sánh", latest_text, re.IGNORECASE)
+            and re.search(r"rẻ nhất|thấp nhất", latest_text, re.IGNORECASE)
+        )
+        if fresh_comparison_search:
+            # A new area plus a superlative requests fresh results. Previously
+            # viewed IDs cannot stand in for homes in that new area.
+            amount = re.search(r"\b([2-4])\s*[-–]\s*([2-4])\b|\b([2-4])\s*căn\b", latest_text)
+            count = int(amount.group(2) or amount.group(3)) if amount else 4
+            result.constraints.values.update(housing_mode="search_compare", limit=count)
+            result.user_confirmed_facts["housing_mode"] = ConfirmedFact(
+                value="search_compare", evidence="so sánh", stated_at=now
+            )
+            result.user_confirmed_facts["limit"] = ConfirmedFact(
+                value=count, evidence=amount.group(0) if amount else "so sánh", stated_at=now
+            )
+            result.conflicts = [c for c in result.conflicts if "so sánh" not in c.casefold()]
+        explicit_city = stated_housing_city(latest_text) if fresh_housing_scope else None
+        if explicit_city and "city" not in result.user_confirmed_facts:
+            evidence, city = explicit_city
+            result.user_confirmed_facts["city"] = ConfirmedFact(value=city, evidence=evidence, stated_at=now)
+            result.constraints.values["city"] = city
         if (
             previous is not None
             and result.domains == [AgentName.PROPERTY]
@@ -311,6 +351,11 @@ def make_intake(deps: GraphDeps):
         selectors = operation_selector_keys(
             c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
         ) | {"moving_mode"}
+        if fresh_housing_scope:
+            # A new named scope replaces the old city's authority. An explicitly
+            # named city may overwrite it; otherwise Location resolves the scope.
+            for key in ("city", *SEARCH_SCOPE_KEYS):
+                previous_facts.pop(key, None)
         if AgentName.PROPERTY in result.domains and result.constraints.values.get("housing_mode") == "compare":
             # The read-only comparison set can change without changing the chosen
             # home or authorizing a transaction. LlmIntake already validates each
@@ -385,6 +430,9 @@ def make_intake(deps: GraphDeps):
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        if fresh_housing_scope and "city" not in result.user_confirmed_facts:
+            values.pop("city", None)
+            facts.pop("city", None)
         if (
             AgentName.PROPERTY in result.domains
             and is_housing_comparison(AgentName.PROPERTY, values)
@@ -451,17 +499,6 @@ def make_intake(deps: GraphDeps):
                 else:
                     values.pop(key, None)
                     facts.pop(key, None)
-        if previous and "district" in result.user_confirmed_facts and not values.get("city"):
-            # Retain a city's real administrative identity when switching away from a landmark.
-            # Never infer it from the district spelling or invent a geographic alias.
-            prior_property = [
-                r
-                for tid, r in (state.get("task_results") or {}).items()
-                if r.agent == AgentName.PROPERTY and (state.get("task_status") or {}).get(tid) == TaskStatus.DONE
-            ]
-            cities = {c["city"] for r in prior_property for c in r.data.get("candidates", []) if c.get("city")}
-            if len(cities) == 1:
-                values["city"] = next(iter(cities))
         housing_pin = state.get("housing_location")
         if (
             housing_pin

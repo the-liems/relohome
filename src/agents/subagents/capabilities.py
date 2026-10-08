@@ -33,7 +33,7 @@ PROPERTY = AgentCapability(
     input_schema={
         "type": "object",
         "properties": {
-            "housing_mode": {"enum": ["search", "compare"]},
+            "housing_mode": {"enum": ["search", "compare", "search_compare"]},
             "listing_ids": {"type": "array", "items": _STR, "minItems": 2, "maxItems": 4, "uniqueItems": True},
             "city": _STR,
             "district": _STR,

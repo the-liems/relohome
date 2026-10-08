@@ -140,7 +140,12 @@ def describe_result(
     if agent == AgentName.PROPERTY:
         if comparison := data.get("comparison"):
             return [
-                f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh. Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
+                (
+                    f"Đã tìm {len(comparison.get('rows', []))} căn trong khu vực mới để so sánh"
+                    + (" (còn trang kết quả khác)." if comparison.get("has_more") else ".")
+                    if comparison.get("scope") == "new_search_results_only"
+                    else f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh."
+                ) + " Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
             ]
         if data.get("search_radius_m"):
             lines.append(

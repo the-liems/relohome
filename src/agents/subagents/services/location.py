@@ -368,7 +368,9 @@ class LocationSubagent:
         inp = req.inputs
         if inp.get("housing_mode") == "compare":
             return await self._comparison(req, tools)
+        search_compare = inp.get("housing_mode") == "search_compare"
         limit = int(inp.get("limit") or 5)
+        query_limit = 20 if search_compare else limit
         search_radius = int(inp.get("search_radius_m") or DEFAULT_RADIUS_M)
         soft = inp.get("soft_filters") or {}
         area: dict[str, Any] = {}
@@ -456,7 +458,7 @@ class LocationSubagent:
                 "listing_type": "rent",
                 "currency": "VND",
                 "price_period": "month",
-                "pagination": {"limit": limit, "cursor": inp.get("cursor")},
+                "pagination": {"limit": query_limit, "cursor": inp.get("cursor")},
                 **area,
             }
             if filters.get("max_price_vnd") is not None:
@@ -497,7 +499,14 @@ class LocationSubagent:
         must_have = list(search_request.get("amenities") or [])
         candidates, missing, quotes = [], [], []
         excluded = 0
-        for r in rank_listings(results):
+        ordered = (
+            sorted(results, key=lambda r: (
+                bool(any(str(f).startswith("price_") for f in r.get("quality_flags", []))),
+                (r.get("price") or {}).get("amount") or float("inf"),
+            ))
+            if search_compare else rank_listings(results)
+        )
+        for r in ordered:
             if len(candidates) >= limit:
                 break
             candidate, unknown = to_candidate(r, must_have)
@@ -562,6 +571,27 @@ class LocationSubagent:
         }
         if relaxed:
             data["relaxed_filters"] = relaxed
+        if search_compare:
+            rows = []
+            for candidate in candidates:
+                rent = candidate["price_vnd"] if not candidate["price_unverified"] else None
+                area_m2 = candidate["area_m2"]
+                deposit = candidate["deposit_vnd"]
+                rows.append({
+                    **candidate,
+                    "rent_vnd": rent,
+                    "rent_per_m2_vnd": round(rent / area_m2)
+                    if rent is not None and isinstance(area_m2, (int, float)) and area_m2 > 0 else None,
+                    "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
+                    "cost_basis": "rent_plus_deposit_only_not_final_total",
+                    "unknown_cost_fields": ["electricity", "water", "service_fees"],
+                })
+            data["comparison"] = {
+                "rows": rows,
+                "scope": "new_search_results_only",
+                "fees_verified": False,
+                "has_more": data["has_more"],
+            }
         return self._result(
             req,
             tools,
@@ -667,12 +697,18 @@ class LocationSubagent:
         return bbox_of_points(candidates) or scope_bbox
 
     def _not_found(self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str) -> AgentTaskResult:
+        question = (
+            f'Mình chưa có tọa độ đáng tin cậy cho "{text}". Bạn có thể ghim địa điểm trên bản đồ '
+            'hoặc yêu cầu tìm theo quận/thành phố thay thế.'
+            if field == "near"
+            else f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?'
+        )
         return self._result(
             req,
             tools,
             status="needs_input",
             questions=[
-                Question(field=field, text=f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?')
+                Question(field=field, text=question)
             ],
         )
 

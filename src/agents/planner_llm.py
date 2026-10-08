@@ -69,6 +69,8 @@ PROMPT = """Bạn là Routing Orchestrator LLM của LifeFlow, chủ động l�
 Housing housing_mode='compare': task property đọc listing_ids đã xác nhận (2–4 căn), không tìm căn mới,
 không thêm task search phụ thuộc chỉ để đọc lại cùng căn. Giữ near và bộ lọc làm ngữ cảnh so sánh, không
 tự chọn nhà cho user. housing_mode='search' dùng truy vấn như bình thường, không dùng shortlist cũ để chặn tìm mới.
+housing_mode='search_compare' tìm tin ở khu vực mới rồi so sánh tối đa 2–4 tin có giá thấp nhất trong trang dữ liệu
+đọc được; không gán listing_ids cũ và không tách thành task compare phụ thuộc.
 So sánh là task phân tích riêng, KHÔNG sửa task tìm nhà thành compare hoặc dùng lại ID task search.
 Tạo ID riêng cho compare; giữ nguyên search cũ nếu cần context, hoặc bỏ khỏi plan hiện tại (lịch sử vẫn giữ).
 Ngân sách/vùng dùng để so sánh không thay bộ lọc search cũ, căn đã chọn hay điểm giao Moving.
@@ -303,9 +305,10 @@ class LlmPlanner(UsageOwner):
                 for field in fields:
                     source_field = "map_near" if task.agent == AgentName.MAP and field == "near" else field
                     place_id = values.get(source_field + "_place_id")
-                    if place_id:
+                    proposed = task.inputs.get(field)
+                    if place_id and proposed in (None, values.get(source_field)):
                         # Typed API choice binds its canonical name and ID together;
-                        # neither depends on the model repeating a display label.
+                        # a different endpoint text must never inherit that ID.
                         task.inputs[field] = values[source_field]
                         task.inputs[field + "_place_id"] = place_id
                     else:

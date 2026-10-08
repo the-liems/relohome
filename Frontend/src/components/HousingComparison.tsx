@@ -65,9 +65,13 @@ export function HousingComparison({ data }: { data: Data }) {
         </table>
       </div>
       <p className="muted small">
-        {t(
-          "Chỉ so sánh các căn được yêu cầu. Thuê tháng đầu + cọc không phải tổng chi phí: chưa xác minh tiền điện, nước và phí dịch vụ. Thiếu dữ liệu không có nghĩa là miễn phí.",
-        )}
+        {data.comparison?.scope === "new_search_results_only"
+          ? t(
+              "So sánh các căn vừa tìm được trong trang kết quả này. Nếu còn trang khác, đây chưa chắc là các căn rẻ nhất toàn khu vực. Thuê tháng đầu + cọc chưa gồm điện, nước và phí dịch vụ.",
+            )
+          : t(
+              "Chỉ so sánh các căn được yêu cầu. Thuê tháng đầu + cọc không phải tổng chi phí: chưa xác minh tiền điện, nước và phí dịch vụ. Thiếu dữ liệu không có nghĩa là miễn phí.",
+            )}
       </p>
       {data.agent_assessment?.kind === "model_assessment_not_provider_fact" && (
         <details>

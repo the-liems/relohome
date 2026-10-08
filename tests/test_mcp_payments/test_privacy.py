@@ -24,6 +24,7 @@ ALLOWED_CREATE_FIELDS = {
     "app_trans_id",
     "app_user",
     "app_time",
+    "expire_duration_seconds",
     "amount",
     "item",
     "embed_data",
