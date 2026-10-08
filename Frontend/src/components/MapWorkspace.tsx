@@ -22,6 +22,7 @@ import {
 import { api, compactPrice, housePrice, safeUrl } from "../api";
 import type { Data, House } from "../types";
 import { mergePlaceCandidates } from "../placeCandidates";
+import { searchScopeFeature } from "../searchScope";
 import {
   cityForBox,
   scopedMapOptions,
@@ -88,18 +89,20 @@ export function MapWorkspace({
   areaName,
   saved,
   selectedId,
+  readOnly = false,
   chat,
   onSave,
   onSelect,
   onExit,
 }: {
   // Viewport + filters from the latest housing answer; `key` changes when a new answer arrives.
-  focus: { key: string; viewport?: BBox | null } | null;
+  focus: { key: string; viewport?: BBox | null; searchScope?: Data } | null;
   initialFilters: Data;
   // Human name of the administrative scope the agent resolved (chip label instead of its ID).
   areaName?: string;
   saved: Set<string>;
   selectedId?: string;
+  readOnly?: boolean;
   chat: ChatDockProps;
   onSave: (h: House) => void;
   // Any listing (chat result or explored on the map) can be chosen; the backend re-reads it.
@@ -128,6 +131,39 @@ export function MapWorkspace({
     [selecting, setSelecting] = useState<string | null>(null);
   const [pois, setPois] = useState<Data | null>(null);
   const generation = useRef(0);
+
+  useEffect(() => {
+    if (!ready || !map.current) return;
+    const m = map.current,
+      feature = searchScopeFeature(focus?.searchScope);
+    (m.getSource("ws-search-scope") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: feature ? [feature] : [],
+    });
+    const center = focus?.searchScope?.center;
+    let marker: import("maplibre-gl").Marker | undefined;
+    let cancelled = false;
+    if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+      void import("maplibre-gl").then(({ Marker }) => {
+        if (cancelled) return;
+        marker = new Marker({ color: "#dc2626" })
+          .setLngLat([center.lng, center.lat])
+          .addTo(m);
+        marker
+          .getElement()
+          .setAttribute(
+            "aria-label",
+            focus?.searchScope?.label || uiText("Địa điểm tìm kiếm"),
+          );
+        marker.getElement().title =
+          focus?.searchScope?.label || uiText("Địa điểm tìm kiếm");
+      });
+    }
+    return () => {
+      cancelled = true;
+      marker?.remove();
+    };
+  }, [ready, focus?.key]);
 
   // Chat answers replace the area filters and move the map to the area the agent resolved.
   useEffect(() => {
@@ -172,6 +208,26 @@ export function MapWorkspace({
           if (disposed) return;
           tuneBasemap(m);
           registerMapImages(m);
+          m.addSource("ws-search-scope", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+          m.addLayer({
+            id: "ws-search-scope-fill",
+            type: "fill",
+            source: "ws-search-scope",
+            paint: { "fill-color": "#dc2626", "fill-opacity": 0.06 },
+          });
+          m.addLayer({
+            id: "ws-search-scope-line",
+            type: "line",
+            source: "ws-search-scope",
+            paint: {
+              "line-color": "#dc2626",
+              "line-width": 2,
+              "line-dasharray": [3, 2],
+            },
+          });
           for (const id of ["ws-clusters", "ws-listings", "ws-choices"])
             m.addSource(id, {
               type: "geojson",
@@ -619,7 +675,9 @@ export function MapWorkspace({
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={chat.busy || selecting !== null || selectedId === h.id}
+      disabled={
+        readOnly || chat.busy || selecting !== null || selectedId === h.id
+      }
       onClick={() => void choose_house(h).catch(() => {})}
     >
       {selectedId === h.id ? (
@@ -650,6 +708,13 @@ export function MapWorkspace({
             : uiText("Danh sách nhà")}
         </button>
         <header className="ws-list-head">
+          {readOnly && (
+            <p className="muted small">
+              {uiText(
+                "Phương án đã lưu. Muốn đổi căn, hãy yêu cầu trong chat để cập nhật kế hoạch.",
+              )}
+            </p>
+          )}
           <div>
             <span className="eyebrow">{uiText("NHÀ Ở QUANH ĐÂY")}</span>
             <h2>
@@ -945,6 +1010,18 @@ export function MapWorkspace({
           </div>
         </div>
         <div ref={container} className="ws-canvas" />
+        {searchScopeFeature(focus?.searchScope) && (
+          <div className="search-scope-legend" role="note">
+            <MapPin size={14} color="#dc2626" />
+            {focus?.searchScope?.center
+              ? uiText(
+                  "Ghim đỏ: điểm tìm kiếm · vòng nét đứt: bán kính tìm, không phải khoảng cách đi đường",
+                )
+              : uiText(
+                  "Nét đứt: khung khu vực tìm kiếm, không phải ranh giới hành chính chính xác",
+                )}
+          </div>
+        )}
         {mapError && (
           <div className="map-error" role="status">
             {mapError}

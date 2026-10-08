@@ -51,6 +51,11 @@ import {
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import { mergePlaceCandidates } from "./placeCandidates";
+import {
+  hasSelection,
+  nextServiceTarget,
+  serviceTargets,
+} from "./serviceJourney";
 import type {
   Component,
   Data,
@@ -61,6 +66,7 @@ import type {
 } from "./types";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
 import { HousingCard, HousingDetail } from "./components/Housing";
+import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
@@ -224,7 +230,11 @@ export default function App() {
         <p role="status">{uiText("Đang mở không gian của bạn…")}</p>
       </div>
     );
-  if (!user && location.pathname.startsWith("/roommate") && new URLSearchParams(location.search).get("signin") !== "1")
+  if (
+    !user &&
+    location.pathname.startsWith("/roommate") &&
+    new URLSearchParams(location.search).get("signin") !== "1"
+  )
     return <RoommateGuest />;
   if (!user)
     return (
@@ -741,6 +751,9 @@ function Chat() {
     threadId?: string;
     formKey: string;
   } | null>(null);
+  const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
+  const reviewedServices = useRef(new Set<string>());
+  const manualWorkspaceReply = useRef<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     nearBottom = useRef(true),
@@ -752,6 +765,8 @@ function Chat() {
     const version = ++generation.current;
     setError("");
     setContext(null);
+    setWorkspaceTaskId(null);
+    reviewedServices.current.clear();
     setDraft(
       sessionStorage.getItem(
         "siu-draft-" + user.id + "-" + (threadId || "new"),
@@ -794,7 +809,7 @@ function Chat() {
   async function reload() {
     if (threadId) {
       setThread(await api<Thread>("/threads/" + threadId));
-      await refresh();
+      void refresh().catch(() => {});
     }
   }
   async function send(text: string, extra: Data = {}) {
@@ -860,7 +875,9 @@ function Chat() {
             .reverse()
             .find((m) => m.role === "assistant");
           const hasQuotes =
-            ["ANSWER", "PARTIAL"].includes(reply?.content.response?.kind || "") &&
+            ["ANSWER", "PARTIAL"].includes(
+              reply?.content.response?.kind || "",
+            ) &&
             (reply?.content.ui?.components || []).some(
               (c: Component) =>
                 c.type === "relocation" &&
@@ -874,7 +891,8 @@ function Chat() {
           // A clarification/error keeps the same mounted form and its confirmed pins.
         }
       }
-      await refresh();
+      // The updated thread is authoritative; sidebar refresh is not part of quote latency.
+      void refresh().catch(() => {});
     } catch (e) {
       setError((e as Error).message);
       setDraft(text);
@@ -900,8 +918,14 @@ function Chat() {
         "POST",
         { request_id: requestId(), ...body },
       );
+      if (path === "action" && body.kind === "select") {
+        manualWorkspaceReply.current =
+          [...next.messages].reverse().find((m) => m.role === "assistant")
+            ?.id || null;
+      }
       if (currentThread.current === threadId) setThread(next);
-      await refresh();
+      void refresh().catch(() => {});
+      return next;
     } catch (e) {
       setError((e as Error).message);
       throw e;
@@ -1005,25 +1029,26 @@ function Chat() {
     saved.find((s) => s.id === params.get("house") && s.thread_id === threadId)
       ?.house) as HouseData | undefined;
   const unavailable = (kind: string) => !status?.domains?.includes(kind);
+  const journey = serviceTargets(thread);
+  const activeTarget = journey.find((t) => t.c.task_id === workspaceTaskId);
   // Each service result opens its own workspace (map for housing, flights, moving quotes).
   // Choosing an option there returns to the chat so the user can continue with other services.
   const latestOf = (type: string, field: string) =>
     [...allComponents]
       .reverse()
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
-  const latestProperty = [...allComponents]
-    .reverse()
-    .find(({ c }) => c.type === "property");
-  const latestFlight = latestOf("flight", "offers"),
+  const latestProperty =
+    (activeTarget?.c.type === "property" ? activeTarget : undefined) ||
+    [...allComponents].reverse().find(({ c }) => c.type === "property");
+  const latestFlight =
+      (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
+      latestOf("flight", "offers"),
     // Once an order exists the quotes are history; tracking stays in the chat card.
-    latestMoving = [latestOf("relocation", "quotes")].find(
-      (x) => x && !x.c.data?.order,
-    );
-  const latestService = [...allComponents]
-    .reverse()
-    .find(
-      (x) => x === latestProperty || x === latestFlight || x === latestMoving,
-    );
+    latestMoving = [
+      (activeTarget?.c.type === "relocation" ? activeTarget : undefined) ||
+        latestOf("relocation", "quotes"),
+    ].find((x) => x && !x.c.data?.order);
+  const latestService = nextServiceTarget(thread, reviewedServices.current);
   const lastAssistant = [...(thread?.messages || [])]
     .reverse()
     .find((m) => m.role === "assistant");
@@ -1064,6 +1089,7 @@ function Chat() {
   );
   // The newest message decides: a confirmation request, a service result, or plain chat.
   useEffect(() => {
+    if (manualWorkspaceReply.current === lastAssistant?.id) return;
     if (movingSubmission) {
       if (
         threadId === movingSubmission.threadId ||
@@ -1076,9 +1102,12 @@ function Chat() {
     setWorkspace(
       movingQuestions.length
         ? "relocation-form"
-        : lastHasService
+        : lastHasService && !latestService?.c.data?.comparison
           ? (latestService?.c.type ?? null)
           : null,
+    );
+    setWorkspaceTaskId(
+      movingQuestions.length ? null : latestService?.c.task_id || null,
     );
     // Only a new server reply or navigation auto-opens a workspace. A local
     // submit/exit state change must not override the user's explicit workspace choice.
@@ -1099,7 +1128,7 @@ function Chat() {
     id: string,
     message: string,
   ) {
-    await mutate("action", {
+    const next = await mutate("action", {
       kind: "select",
       task_id: target.c.task_id,
       plan_version: target.version,
@@ -1107,7 +1136,50 @@ function Chat() {
       entity_id: id,
     });
     notify(message);
-    setWorkspace(null);
+    reviewedServices.current.add(target.c.id);
+    const remaining = nextServiceTarget(
+      next || thread,
+      reviewedServices.current,
+    );
+    setWorkspaceTaskId(remaining?.c.task_id || null);
+    setWorkspace(
+      remaining?.c.type || (movingQuestions.length ? "relocation-form" : null),
+    );
+  }
+  function openService(taskId: string, agent: string) {
+    if (agent === "roommate") {
+      navigate("/roommate");
+      return;
+    }
+    const target = journey.find((t) => t.c.task_id === taskId);
+    if (target) {
+      if (target.c.data?.comparison) {
+        setWorkspace(null);
+        requestAnimationFrame(() =>
+          document
+            .getElementById("comparison-" + target.c.id)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+        );
+        return;
+      }
+      setWorkspaceTaskId(taskId);
+      setWorkspace(target.c.type);
+    } else if (agent === "relocation") {
+      setWorkspaceTaskId(taskId);
+      setWorkspace("relocation-form");
+    } else {
+      setWorkspace(null);
+      notify(
+        "Dịch vụ này chưa có kết quả. Bạn có thể bổ sung thông tin trong chat.",
+      );
+    }
+  }
+  function finishWorkspace() {
+    const target = activeTarget || journey.find((t) => t.c.type === workspace);
+    if (target) reviewedServices.current.add(target.c.id);
+    const remaining = nextServiceTarget(thread, reviewedServices.current);
+    setWorkspaceTaskId(remaining?.c.task_id || null);
+    setWorkspace(remaining?.c.type || null);
   }
   function choosePlace(choice: Data, field: string) {
     const place =
@@ -1129,10 +1201,35 @@ function Chat() {
         threadId={thread?.id}
         thread={thread}
         writesEnabled={!!status?.writes_enabled}
-        onDecision={(body) => mutate("decision", body)}
-        onPaymentCheck={() => mutate("payment/check", {})}
+        onDecision={(body) => mutate("decision", body).then(() => {})}
+        onPaymentCheck={() => mutate("payment/check", {}).then(() => {})}
         busy={busy}
+        onOpenService={openService}
       />
+      {(thread?.state.progress?.items || []).length > 1 && (
+        <nav
+          className="service-journey"
+          aria-label={uiText("Dịch vụ trong kế hoạch")}
+        >
+          {(thread?.state.progress?.items || []).map((item: Data) => (
+            <button
+              key={item.task_id}
+              className={workspaceTaskId === item.task_id ? "active" : ""}
+              disabled={busy}
+              aria-current={
+                workspaceTaskId === item.task_id ? "step" : undefined
+              }
+              onClick={() => openService(item.task_id, item.agent)}
+            >
+              {item.chosen && <Check size={14} />}
+              {uiText(domainLabels[item.agent] || item.agent)}
+              {!journey.some((t) => t.c.task_id === item.task_id) && (
+                <small>{uiText("Chờ thông tin/kết quả")}</small>
+              )}
+            </button>
+          ))}
+        </nav>
+      )}
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
           key={movingSubmission?.formKey || lastAssistant?.id || "new"}
@@ -1155,16 +1252,28 @@ function Chat() {
         />
       ) : workspace === "flight" && latestFlight ? (
         <FlightWorkspace
+          readOnly={
+            !thread?.state.plan?.tasks?.some(
+              (t: Data) => t.id === latestFlight.c.task_id,
+            )
+          }
+          key={latestFlight.c.id}
           data={latestFlight.c.data}
           selectedId={facts["selected:flight"]?.value}
           chat={chatDock}
           onSelect={(id) =>
             selectIn(latestFlight, id, "Đã chọn chuyến bay vào kế hoạch.")
           }
-          onExit={() => setWorkspace(null)}
+          onExit={finishWorkspace}
         />
       ) : workspace === "relocation" && latestMoving ? (
         <MovingWorkspace
+          readOnly={
+            !thread?.state.plan?.tasks?.some(
+              (t: Data) => t.id === latestMoving.c.task_id,
+            )
+          }
+          key={latestMoving.c.id}
           data={latestMoving.c.data}
           selectedId={facts["selected:relocation"]?.value}
           chat={chatDock}
@@ -1176,13 +1285,52 @@ function Chat() {
               "Đã chọn phương án chuyển đồ. Nhắn yêu cầu đặt khi bạn sẵn sàng.",
             )
           }
-          onExit={() => setWorkspace(null)}
+          onExit={finishWorkspace}
         />
+      ) : workspace === "map" && activeTarget ? (
+        <section className="service-map-result" key={activeTarget.c.id}>
+          <button className="secondary" onClick={finishWorkspace}>
+            {uiText("Tiếp tục kế hoạch")}
+          </button>
+          <Results
+            payload={{
+              status: "done",
+              ui: {
+                version: 1,
+                plan_version: activeTarget.version,
+                components: [activeTarget.c],
+              },
+            }}
+            selected={facts}
+            saved={savedIds}
+            busy={busy}
+            writes={!!status?.writes_enabled}
+            onOpen={openHouse}
+            onSave={(h) => void save(h, thread!.id)}
+            onAction={(c, v, kind, id) =>
+              mutate("action", {
+                kind,
+                task_id: c.task_id,
+                plan_version: v,
+                fetched_at: c.fetched_at,
+                entity_id: id,
+              }).then(() => {})
+            }
+            onPrompt={setDraft}
+            onFilter={() => setForm("property")}
+          />
+        </section>
       ) : workspace === "property" && latestProperty ? (
         <MapWorkspace
+          readOnly={
+            !thread?.state.plan?.tasks?.some(
+              (t: Data) => t.id === latestProperty.c.task_id,
+            )
+          }
           focus={{
             key: latestProperty.c.id,
             viewport: latestProperty.c.data?.map_context?.viewport,
+            searchScope: latestProperty.c.data?.map_context?.search_scope,
           }}
           initialFilters={filtersFromSearch(
             latestProperty.c.data?.search_request,
@@ -1240,7 +1388,14 @@ function Chat() {
                   <br className="desktop-only" />
                   {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
-                <div className="quick-grid" role="group" aria-label={roommateText("Chức năng ReloHome", "ReloHome services")}>
+                <div
+                  className="quick-grid"
+                  role="group"
+                  aria-label={roommateText(
+                    "Chức năng ReloHome",
+                    "ReloHome services",
+                  )}
+                >
                   {quick.map((q) => (
                     <button
                       className="quick-card"
@@ -1266,17 +1421,47 @@ function Chat() {
                       <ArrowUpRight size={17} className="quick-arrow" />
                     </button>
                   ))}
-                  <Link className="quick-card" to="/roommate" aria-label={roommateText("Ở ghép", "Roommates")}>
-                    <span className="service-icon mint"><UsersRound size={24} aria-hidden="true" /></span>
+                  <Link
+                    className="quick-card"
+                    to="/roommate"
+                    aria-label={roommateText("Ở ghép", "Roommates")}
+                  >
+                    <span className="service-icon mint">
+                      <UsersRound size={24} aria-hidden="true" />
+                    </span>
                     <strong>{roommateText("Ở ghép", "Roommates")}</strong>
-                    <span>{roommateText("Tìm người cùng chia sẻ chỗ ở", "Find someone to share a home")}</span>
-                    <ArrowUpRight size={17} className="quick-arrow" aria-hidden="true" />
+                    <span>
+                      {roommateText(
+                        "Tìm người cùng chia sẻ chỗ ở",
+                        "Find someone to share a home",
+                      )}
+                    </span>
+                    <ArrowUpRight
+                      size={17}
+                      className="quick-arrow"
+                      aria-hidden="true"
+                    />
                   </Link>
-                  <Link className="quick-card" to="/guides" aria-label={roommateText("Cẩm nang", "Guides")}>
-                    <span className="service-icon mint"><BookOpen size={24} aria-hidden="true" /></span>
+                  <Link
+                    className="quick-card"
+                    to="/guides"
+                    aria-label={roommateText("Cẩm nang", "Guides")}
+                  >
+                    <span className="service-icon mint">
+                      <BookOpen size={24} aria-hidden="true" />
+                    </span>
                     <strong>{roommateText("Cẩm nang", "Guides")}</strong>
-                    <span>{roommateText("Kinh nghiệm thuê nhà và sống chung", "Tips for renting and living together")}</span>
-                    <ArrowUpRight size={17} className="quick-arrow" aria-hidden="true" />
+                    <span>
+                      {roommateText(
+                        "Kinh nghiệm thuê nhà và sống chung",
+                        "Tips for renting and living together",
+                      )}
+                    </span>
+                    <ArrowUpRight
+                      size={17}
+                      className="quick-arrow"
+                      aria-hidden="true"
+                    />
                   </Link>
                 </div>
                 <div className="starter">
@@ -1355,8 +1540,70 @@ function Chat() {
                           )}
                         </div>
                       )}
+                      {(m.content.ui?.components || [])
+                        .filter((c) => c.data?.comparison)
+                        .map((c) => (
+                          <div key={c.id} id={"comparison-" + c.id}>
+                            <HousingComparison data={c.data} />
+                          </div>
+                        ))}
+                      <div className="chat-service-summaries">
+                        {(m.content.ui?.components || [])
+                          .filter((c) =>
+                            [
+                              "property",
+                              "flight",
+                              "relocation",
+                              "map",
+                            ].includes(c.type),
+                          )
+                          .map((c) => {
+                            const target = journey.find(
+                              (t) => t.c.task_id === c.task_id,
+                            );
+                            const chosen =
+                              target && hasSelection(thread, target);
+                            return (
+                              <div key={c.id} className="chat-service-summary">
+                                <span>
+                                  {chosen
+                                    ? uiText("Đã chọn")
+                                    : uiText("Có kết quả")}
+                                  : {uiText(domainLabels[c.type] || c.type)}
+                                </span>
+                                {!chosen && target && (
+                                  <button
+                                    className="text-button"
+                                    onClick={() =>
+                                      openService(c.task_id, c.type)
+                                    }
+                                  >
+                                    {uiText("Xem phương án")}{" "}
+                                    <ChevronRight size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </div>
                       <Results
-                        payload={m.content}
+                        payload={{
+                          ...m.content,
+                          ui: m.content.ui
+                            ? {
+                                ...m.content.ui,
+                                components: m.content.ui.components.filter(
+                                  (c) =>
+                                    ![
+                                      "property",
+                                      "flight",
+                                      "relocation",
+                                      "map",
+                                    ].includes(c.type),
+                                ),
+                              }
+                            : undefined,
+                        }}
                         selected={facts}
                         saved={savedIds}
                         busy={busy}
@@ -1370,7 +1617,7 @@ function Chat() {
                             plan_version: v,
                             fetched_at: c.fetched_at,
                             entity_id: id,
-                          })
+                          }).then(() => {})
                         }
                         onPrompt={(s) => {
                           setDraft(s);
@@ -1459,7 +1706,7 @@ function Chat() {
                 pending={pending}
                 enabled={!!status?.writes_enabled}
                 busy={busy}
-                onDecision={(body) => mutate("decision", body)}
+                onDecision={(body) => mutate("decision", body).then(() => {})}
               />
             )}
             {pending?.type === "payment_required" && thread && (
@@ -1467,7 +1714,7 @@ function Chat() {
                 pending={pending}
                 threadId={thread.id}
                 busy={busy}
-                onCheck={() => mutate("payment/check", {})}
+                onCheck={() => mutate("payment/check", {}).then(() => {})}
               />
             )}
             {busy && (
@@ -1765,7 +2012,12 @@ function Account({ onLogout }: { onLogout: () => void }) {
             {uiText("Đăng xuất")}
           </button>
         </div>
-        <p><Link className="text-button" to="/roommate">{roommateText("Tìm người ở cùng", "Find a roommate")} <ArrowRight size={16} aria-hidden="true" /></Link></p>
+        <p>
+          <Link className="text-button" to="/roommate">
+            {roommateText("Tìm người ở cùng", "Find a roommate")}{" "}
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </p>
         <div className="profile-banner">
           <span className="avatar avatar-large">
             {user.name.slice(0, 1).toUpperCase()}

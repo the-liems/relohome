@@ -66,6 +66,7 @@ class WorkflowState(TypedDict, total=False):
     planner_questions: list[Question]  # domain Planner hoãn vì input chưa dùng được (needs_input)
     goal_tasks: dict[str, dict]  # các bước trong cuộc trò chuyện, cho bảng kế hoạch (progress.record_goal)
     goal_selections: dict[str, str]  # option ID đã chọn theo task; độc lập với intake của lượt hiện tại
+    last_housing_search_options: list[dict]  # IDs/labels only; prices/details are re-read before comparing.
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None

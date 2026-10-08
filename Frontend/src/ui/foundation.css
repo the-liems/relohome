@@ -99,12 +99,19 @@ textarea::placeholder {
   font-weight: 600;
 }
 .primary:hover:not(:disabled),
-.ws-chat-show:hover,
 .ws-select-small:hover:not(:disabled) {
   background: var(--ui-accent);
   border-color: var(--ui-accent);
   color: var(--ui-on-accent);
   transform: none;
+  box-shadow: none;
+}
+.ws-chat-show:hover {
+  /* Preserve workspace positioning: removing translateX moves the hit target
+     away from the pointer and repeatedly toggles :hover. */
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-on-accent);
   box-shadow: none;
 }
 .secondary,

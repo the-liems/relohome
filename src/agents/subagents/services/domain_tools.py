@@ -170,8 +170,10 @@ class DomainToolSession:
             if domain == AgentName.PROPERTY:
                 available.append(
                     function(
-                        "search_housing",
-                        "Search with unchanged hard filters; resolves unprepared scope safely. limit is the requested result count, null uses task/default. Reads bounded pages mechanically; ambiguity stops for user selection. PostGIS filters, not the LLM.",
+                        "compare_housing" if req.inputs.get("housing_mode") == "compare" else "search_housing",
+                        "Read the confirmed 2–4 listing IDs, preserving their order; return factual comparison and unknown costs, never select a home."
+                        if req.inputs.get("housing_mode") == "compare"
+                        else "Search with unchanged hard filters; resolves unprepared scope safely. limit is the requested result count, null uses task/default. Reads bounded pages mechanically; ambiguity stops for user selection. PostGIS filters, not the LLM.",
                         {
                             "limit": {
                                 "type": ["integer", "null"],
@@ -212,6 +214,20 @@ class DomainToolSession:
                         "Read only the backend-owned payment in the task. Provider status is authoritative.",
                     )
                 )
+            # The model, not a keyword classifier, chooses whether a facts-only
+            # retrieval is sufficient. Keep the inspect -> assess path available.
+            if domain in {AgentName.PROPERTY, AgentName.FLIGHT} and req.inputs.get("housing_mode") != "compare":
+                search = next(t for t in available if t["name"] in {"search_housing", "search_flights"})
+                combined = copy.deepcopy(search)
+                combined["name"] += "_and_return"
+                combined["description"] = (
+                    "Search and return provider facts immediately, without a second LLM assessment. "
+                    "Use for a straightforward list with the confirmed filters. Resolves endpoints safely; "
+                    "ambiguity still asks the user. NOT for comparing, ranking by preferences, verifying custom "
+                    "requirements, or planning further reads. Those need the normal search then inspect/finish. "
+                    + search["description"]
+                )
+                available.append(combined)
         elif domain in {AgentName.PROPERTY, AgentName.FLIGHT}:
             ids = self.ids - self.read_ids
             if ids:
@@ -238,6 +254,9 @@ class DomainToolSession:
         schema = next((t["parameters"] for t in self.available() if t["name"] == name), None)
         if schema is None or not Draft202012Validator(schema).is_valid(args):
             raise ValueError("Operation is not available or arguments are ungrounded")
+        return_facts = name in {"search_housing_and_return", "search_flights_and_return"}
+        if return_facts:
+            name = name.removesuffix("_and_return")
         if name == "ask_user":
             if self.result is None:
                 self.result = AgentTaskResult(
@@ -316,6 +335,8 @@ class DomainToolSession:
                 }
         else:
             self.result = result
+        if domain == AgentName.PROPERTY and inputs.get("housing_mode") == "compare" and result.status == "done":
+            self.read_ids.update(self.ids)  # compare_housing has already re-read these details.
         if domain == AgentName.PROPERTY and not cursor and requested_limit is not None and self.result.status == "done":
             # A model-selected target count, not keyword parsing of user language.
             # No extra semantic decision between pages with identical hard filters.
@@ -338,7 +359,15 @@ class DomainToolSession:
                 self.merge_page(page)
             if len(self.rows) < requested_limit and self.result.data.get("next_cursor"):
                 self.result.data.setdefault("pagination_issue", {"status": "limited", "code": "pagination_page_cap"})
-        return result_context(self.result), self.result.status != "done"
+        if return_facts and self.result.status == "done":
+            # Do not manufacture model assessment, reorder options or upgrade
+            # missing evidence simply because retrieval has finished.
+            self.result.data["agent_completion"] = {
+                "mode": "provider_facts",
+                "model_assessed": False,
+                "scope": "confirmed_search_filters_only",
+            }
+        return result_context(self.result), return_facts or self.result.status != "done"
 
     async def prepare(self, name, field):
         text = self.req.inputs[field]

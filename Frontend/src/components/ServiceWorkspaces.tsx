@@ -45,6 +45,7 @@ import {
 // Selecting an option is the same structured action as in the chat cards; the parent returns to
 // the conversation afterwards so the user can continue with other services.
 interface WorkspaceProps {
+  readOnly?: boolean;
   data: Data;
   onEdit?: () => void;
   selectedId?: string;
@@ -99,6 +100,7 @@ const FLIGHT_SORTS: Record<
 };
 
 export function FlightWorkspace({
+  readOnly = false,
   data,
   selectedId,
   chat,
@@ -246,6 +248,7 @@ export function FlightWorkspace({
                   <button
                     className="primary"
                     disabled={
+                      readOnly ||
                       chat.busy ||
                       selecting !== null ||
                       selectedId === o.id ||
@@ -350,6 +353,7 @@ export function FlightWorkspace({
 }
 
 export function MovingWorkspace({
+  readOnly = false,
   data,
   selectedId,
   chat,
@@ -371,6 +375,17 @@ export function MovingWorkspace({
     let disposed = false;
     const abort = new AbortController();
     setRouteNotice("Đang tải tuyến đường…");
+    const routePoints = [route.pickup, route.destination].filter(
+      (p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng),
+    );
+    // Fetch the route while the basemap loads. Catch immediately: a slow/unavailable
+    // map must not cause an unhandled rejection or delay provider quote controls.
+    const preview =
+      routePoints.length === 2
+        ? loadMovingRoute(routePoints[0], routePoints[1], abort.signal)
+            .then((geometry) => ({ geometry, error: null as Error | null }))
+            .catch((error: Error) => ({ geometry: null, error }))
+        : null;
     import("maplibre-gl").then(
       ({ Map, Marker, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
@@ -434,28 +449,28 @@ export function MovingWorkspace({
             setRouteNotice("Chưa đủ tọa độ để hiển thị tuyến đường.");
             return;
           }
-          void loadMovingRoute(points[0], points[1], abort.signal)
-            .then((geometry) => {
-              if (disposed) return;
-              (m.getSource("mv-line") as GeoJSONSource).setData({
-                type: "Feature",
-                properties: {},
-                geometry,
-              });
-              fitMapPoints(m, geometry.coordinates, {
-                padding: 80,
-                duration: 0,
-              });
-              setRouteNotice("Tuyến đường tham khảo · OSRM (ô tô)");
-            })
-            .catch((error: Error) => {
+          void preview!.then(({ geometry, error }) => {
+            if (error || !geometry) {
               if (!disposed && !abort.signal.aborted)
                 setRouteNotice(
-                  error.message.includes("cùng khu vực")
+                  error?.message.includes("cùng khu vực")
                     ? error.message
-                    : "Chưa tải được tuyến đường. Bạn có thể tiếp tục xem báo giá.",
+                    : "Chưa tải được tuyến đường tham khảo OSRM. Khoảng cách trên báo giá vẫn lấy từ AhaMove.",
                 );
+              return;
+            }
+            if (disposed) return;
+            (m.getSource("mv-line") as GeoJSONSource).setData({
+              type: "Feature",
+              properties: {},
+              geometry,
             });
+            fitMapPoints(m, geometry.coordinates, {
+              padding: 80,
+              duration: 0,
+            });
+            setRouteNotice("Tuyến đường tham khảo · OSRM (ô tô)");
+          });
         });
       },
     );
@@ -552,6 +567,7 @@ export function MovingWorkspace({
                 <button
                   className="ws-select-small"
                   disabled={
+                    readOnly ||
                     chat.busy ||
                     selecting !== null ||
                     selectedId === q.id ||
@@ -1294,6 +1310,7 @@ export function MovingRequestWorkspace({
                         {shown.slice(0, 8).map((c) => (
                           <button
                             key={c.id + c.lat}
+                            data-place-id={c.id}
                             type="button"
                             className="place"
                             onClick={(ev) => {

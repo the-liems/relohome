@@ -33,7 +33,7 @@ CATEGORIES = frozenset(
     "camp_site chalet resort homestay".split()
 )
 TEXT_KEYS = frozenset(
-    "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
+    "housing_mode city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
 )
 INT_KEYS = frozenset(
     "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m map_radius_m search_radius_m passengers limit".split()
@@ -45,7 +45,16 @@ VALUE_KEYS = (
     | INT_KEYS
     | NUMBER_KEYS
     | BOOL_KEYS
-    | {"must_have", "nearby_categories", "map_categories", "flight_date", "move_date", "move_time", "roommate_criteria"}
+    | {
+        "listing_ids",
+        "must_have",
+        "nearby_categories",
+        "map_categories",
+        "flight_date",
+        "move_date",
+        "move_time",
+        "roommate_criteria",
+    }
 )
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
@@ -58,7 +67,7 @@ class DraftFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
     value: str | int | float | bool | list[str] | RoommateSearchCriteria = Field(
-        description="Use a plain string for city, district, near, addresses, route endpoints, map_mode, route_profile, dates and time. Arrays ONLY for must_have and nearby_categories. Numbers for prices/counts."
+        description="Use a plain string for city, district, near, addresses, route endpoints, housing_mode, map_mode, route_profile, dates and time. Arrays for listing_ids, must_have, nearby_categories and map_categories. Numbers for prices/counts."
     )
     evidence: str = Field(
         description="Exact contiguous substring copied from latest user message, no added punctuation or JSON delimiters."
@@ -94,6 +103,15 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
+Housing có housing_mode='compare' để so sánh 2–4 căn đã thấy: listing_ids phải lấy từ option_id trong
+plan_outline.comparison_options, theo đúng các căn user nêu. options riêng dùng để CHỌN một căn;
+comparison_options dùng để SO SÁNH các căn đã đọc, kể cả sau khi đã chọn một căn. Nếu user chưa nói
+rõ các căn nào, hỏi lại. So sánh là refine của hội thoại, không tự xóa căn đã chọn hoặc các dịch vụ khác.
+Các căn của lần tìm nhà gần nhất còn trong last_housing_search_options, dùng khi user nói danh sách ban đầu
+hoặc muốn so sánh lại các căn khác sau một lượt so sánh. Đây chỉ là ID/tên để đọc lại, không phải giá hiện tại.
+Không chọn một căn, không tìm lại danh sách mới và không bịa ID.
+Nếu user chưa chỉ rõ căn nào, hỏi lại bằng conflicts; không tự lấy 4 căn đầu. Nếu user yêu cầu so sánh
+ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay lại tìm căn khác, housing_mode='search'.
 Roommate là dịch vụ tìm NGƯỜI đang có nhu cầu ở cùng, độc lập với property (tìm PHÒNG).
 'Tôi muốn tìm người ở cùng', 'Tôi muốn ghép trọ', 'Có ai đang tìm roommate không?' dùng domain roommate.
 'Tìm phòng ở ghép' chỉ tìm tin nhà nếu user không yêu cầu tìm người. Không tự ghép cặp hay liên hệ.
@@ -222,6 +240,13 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key == "listing_ids":
+        return (
+            isinstance(value, list)
+            and 2 <= len(value) <= 4
+            and all(isinstance(v, str) and v for v in value)
+            and len(set(value)) == len(value)
+        )
     if key == "roommate_criteria":
         try:
             RoommateSearchCriteria.model_validate(value)
@@ -338,6 +363,7 @@ class LlmIntake(UsageOwner):
             "verified_place_choice": inp.verified_place_choice,
             "verified_moving_locations": inp.verified_moving_locations,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
+            "last_housing_search_options": inp.last_housing_search_options,
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
             "amenities": sorted(AMENITIES),
@@ -423,7 +449,14 @@ class LlmIntake(UsageOwner):
         allowed_options = {
             f"selected:{p.agent.value}": {str(o.get("option_id")) for o in p.options} for p in inp.plan_outline or []
         }
+        observed_homes = {
+            str(o.get("option_id"))
+            for p in inp.plan_outline or []
+            if p.agent == AgentName.PROPERTY
+            for o in (p.comparison_options or p.options)
+        }
         suggestions = {s.key: s for s in inp.last_suggestions}
+        observed_homes.update(o["option_id"] for o in inp.last_housing_search_options)
         candidates = [f for f in draft.facts[:60] if f.key not in COMMIT_KEYS]
         candidates += [f for f in draft.requested_actions[:4] if f.key in COMMIT_KEYS]
         for f in candidates:
@@ -457,6 +490,8 @@ class LlmIntake(UsageOwner):
                         else isinstance(value, str) and value in allowed_options.get(f.key, set())
                     )
                 )
+                if f.key == "listing_ids":
+                    valid = valid and isinstance(value, list) and set(value) <= observed_homes
                 if (
                     not valid
                     or f.key in facts

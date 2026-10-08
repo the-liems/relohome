@@ -85,7 +85,7 @@ class MoveInWindow(RoommateModel):
 
 
 class QuietHours(RoommateModel):
-    """Local wall-clock interval, including intervals crossing midnight."""
+    """Minute-precision local interval, including intervals crossing midnight."""
 
     start: time
     end: time
@@ -94,6 +94,8 @@ class QuietHours(RoommateModel):
     def local_interval(self) -> Self:
         if self.start.tzinfo is not None or self.end.tzinfo is not None:
             raise ValueError("Quiet hours must be local times without timezone offsets")
+        if any(value.second or value.microsecond for value in (self.start, self.end)):
+            raise ValueError("Quiet hours require minute precision (HH:MM)")
         if self.start == self.end:
             raise ValueError("Quiet hours require different start and end times")
         return self

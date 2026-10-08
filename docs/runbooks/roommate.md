@@ -4,6 +4,8 @@
 
 Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai; xem [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md) về phạm vi và tests. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
 
+**Cập nhật local 08/10/2026:** `scripts/local-integration.py api|ui` (và `scripts/start-local-mvp.ps1`) tự đặt `ROOMMATE_ENABLED=true` khi môi trường không phải production và chưa cấu hình cờ. Đặt `ROOMMATE_ENABLED=false` trong cấu hình local để tắt lại. Launcher dùng ID moderator bootstrap dành riêng `local-roommate-moderator` khi chưa cấu hình danh sách; không tự cấp quyền cho tài khoản hiện có. Runtime vẫn yêu cầu gateway token, dùng DB/khóa private thật và giữ nguyên kiểm tra tuổi, điều khoản, quyền truy cập. Cần cấu hình ID moderator thật để sử dụng moderation. Khởi động bằng uvicorn trực tiếp không dùng mặc định local của launcher; production vẫn mặc định tắt.
+
 **Local ngày 07/10/2026:** chủ sản phẩm đã yêu cầu bật để sử dụng. `.env` local hiện có `ROOMMATE_ENABLED=true`, state `logs/private-roommate`; API đã restart và chat nhận intent ở ghép. Moderator bootstrap dùng ID dành riêng `local-roommate-moderator`, chưa gán quyền cho tài khoản hiện có; cần cấu hình ID moderator thật khi triển khai vận hành. Không tự khai tuổi/accept terms/đăng hồ sơ cho người dùng. Entry ở màn `/ai` mở `/roommate`.
 
 ## Cấu hình

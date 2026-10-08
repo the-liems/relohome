@@ -20,6 +20,7 @@ from src.agents.common import utcnow
 from src.agents.graph import run_config
 from src.agents.intake import redact_pii
 from src.agents.progress import plan_progress
+from src.agents.selections import selected_option, selection_is_current
 from src.agents.wiring import AgentService
 from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 
@@ -157,7 +158,8 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     else None,
                     "map_view": request.map_view.model_dump(mode="json") if request.map_view else None,
                     "moving_options": request.moving_options.model_dump(mode="json", exclude_none=True)
-                    if request.moving_options is not None else None,
+                    if request.moving_options is not None
+                    else None,
                     "place_choice": await _verified_place(service, request.place_choice)
                     if request.place_choice
                     else None,
@@ -322,38 +324,26 @@ def _selections(values: dict) -> dict:
     out: dict[str, dict] = {}
     for task_id, option_id in (values.get("goal_selections") or {}).items():
         result = results.get(task_id)
-        if result is None:
+        if not selection_is_current(values, task_id, option_id):
             continue
-        match = next(
-            (
-                item
-                for items in result.data.values()
-                if isinstance(items, list)
-                for item in items
-                if isinstance(item, dict) and option_id in (item.get("id"), item.get("option_id"))
-            ),
-            None,
-        )
-        if match is not None:
+        match = selected_option(result, option_id)
+        if match:
             out[result.agent.value] = match
+    plan = values.get("plan")
+    current_task_ids = {task.id for task in plan.tasks} if plan else set()
     for key, fact in facts.items():
         if not key.startswith("selected:"):
             continue
         domain = key.split(":", 1)[1]
-        for result in results.values():
-            if result.agent.value != domain:
+        for task_id, result in results.items():
+            if (
+                task_id not in current_task_ids
+                or result.agent.value != domain
+                or not selection_is_current(values, task_id, str(fact.value))
+            ):
                 continue
-            match = next(
-                (
-                    item
-                    for items in result.data.values()
-                    if isinstance(items, list)
-                    for item in items
-                    if isinstance(item, dict) and fact.value in (item.get("id"), item.get("option_id"))
-                ),
-                None,
-            )
-            if match is not None:
+            match = selected_option(result, str(fact.value))
+            if match:
                 out[domain] = match
                 break
     return out

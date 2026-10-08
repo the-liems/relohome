@@ -65,6 +65,9 @@ class CapabilityRegistry:
 
 
 PROMPT = """Bạn là Routing Orchestrator LLM của LifeFlow, chủ động lập và sửa kế hoạch từ mục tiêu,
+Housing housing_mode='compare': task property đọc listing_ids đã xác nhận (2–4 căn), không tìm căn mới,
+không thêm task search phụ thuộc chỉ để đọc lại cùng căn. Giữ near và bộ lọc làm ngữ cảnh so sánh, không
+tự chọn nhà cho user. housing_mode='search' dùng truy vấn như bình thường, không dùng shortlist cũ để chặn tìm mới.
 Roommate read-only: task roommate inputs={roommate_criteria:...} chỉ từ criteria đã xác nhận;
 thiếu criteria thì inputs={} để mở entry/form. Không thêm dependency property hoặc selected_listing_id.
 Không tạo commit/action, lựa chọn tài chính hay contact/publish/request cho Roommate.

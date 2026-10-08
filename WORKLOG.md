@@ -38,3 +38,11 @@
 ---
 
 <!-- Format: copy block trên cho mỗi ngày làm việc -->
+## 2026-10-08 — Workspace repairs
+
+- [Issue #70](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/70):
+  repair route preview, quote continuity, multi-service navigation and sourced
+  housing comparison, preserving teammate UI and real-data guards.
+- [Handoff](docs/integration/workspace-repairs-2026-10-08.md) and
+  [verification](eval/workspace-repairs-2026-10-08.md) record evidence and limits.
+  Delivery/review state remains in GitHub.
