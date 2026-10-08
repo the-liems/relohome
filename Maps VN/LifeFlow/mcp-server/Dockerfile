@@ -5,10 +5,10 @@ WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/housing-query/package.json packages/housing-query/package.json
-COPY platform-api/package.json platform-api/package.json
 COPY mcp-server/package.json mcp-server/package.json
 
-RUN npm ci
+RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/housing-query \
+    --workspace @lifeflow/mcp-server --include-workspace-root=false
 
 COPY packages/contracts packages/contracts
 COPY packages/housing-query packages/housing-query
@@ -17,7 +17,8 @@ COPY mcp-server mcp-server
 RUN npm run build --workspace @lifeflow/contracts \
  && npm run build --workspace @lifeflow/housing-query \
  && npm run build --workspace @lifeflow/mcp-server \
- && npm prune --omit=dev
+ && npm prune --omit=dev --workspace @lifeflow/contracts --workspace @lifeflow/housing-query \
+    --workspace @lifeflow/mcp-server --include-workspace-root=false
 
 FROM node:24-bookworm-slim AS runtime
 
@@ -41,6 +42,6 @@ USER node
 EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:' + process.env.MCP_PORT + '/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:' + process.env.MCP_PORT + '/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 
 CMD ["node", "mcp-server/dist/http-server.js"]

@@ -6,6 +6,7 @@ on:
       - 'Maps VN/Cities/**'
       - 'scripts/verify-map-data.py'
       - 'scripts/test-map-data.py'
+      - 'scripts/check-ci-runner.sh'
       - '.gitattributes'
       - '.github/workflows/map-data.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'Maps VN/Cities/**'
       - 'scripts/verify-map-data.py'
       - 'scripts/test-map-data.py'
+      - 'scripts/check-ci-runner.sh'
       - '.gitattributes'
       - '.github/workflows/map-data.yml'
   workflow_dispatch:
@@ -21,13 +23,20 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh python
       - run: python scripts/verify-map-data.py
       - run: python scripts/test-map-data.py

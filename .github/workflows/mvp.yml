@@ -5,15 +5,24 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
+
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
+      - name: Create job-local Python environment
+        run: bash scripts/setup-ci-python.sh
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh python
       - run: pip install -r requirements.txt
       - run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
       - run: python -m compileall -q src
@@ -24,5 +33,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+      - name: Verify Node.js
+        run: bash scripts/check-ci-runner.sh node22
       - run: npm ci && npm run build
         working-directory: Maps VN/LifeFlow
+      - name: Remove job-local Python environment
+        if: always()
+        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi

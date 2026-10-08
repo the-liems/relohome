@@ -1,4 +1,6 @@
-"""Graph nối với Flight MCP + Payment MCP thật (nhánh Doan/api) qua stdio, provider mock (không cần mạng).
+"""Local integration: real Flight/Payment MCP subprocesses, mock providers and temporary DBs.
+
+This is default-suite coverage: it needs no external services, network or provider credentials.
 
 Đi đủ luồng §10.2 dòng 3: tìm chuyến → xác nhận + form hành khách → giữ chỗ → tạo thanh toán →
 chờ PAID → xuất vé.
@@ -21,14 +23,22 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
     for name in ("FLIGHT_MCP_URL", "PAYMENT_MCP_URL"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("FLIGHT_SEARCH_PROVIDER", "mock")
+    monkeypatch.setenv("FLIGHT_SIMULATION_ENABLED", "true")
+    monkeypatch.setenv("FLIGHT_SERPAPI_API_KEY", "")
     monkeypatch.setenv("FLIGHT_DB_PATH", str(tmp_path / "flights.db"))
     monkeypatch.setenv("PAYMENT_PROVIDER", "mock")
     monkeypatch.setenv("PAYMENT_DB_PATH", str(tmp_path / "payments.db"))
     services = ServiceSettings(
         _env_file=None,
         agent_subagents="live",
+        agent_allow_simulated_transactions=True,
+        location_mcp_url="",
+        moving_mcp_url="",
+        flight_mcp_url="",
         flight_mcp_stdio=True,
+        payment_mcp_url="",
         payment_mcp_stdio=True,
+        payment_source_kind="demo",
         payment_simulation_enabled=True,
     )
     day = (date.today() + timedelta(days=30)).isoformat()
@@ -40,12 +50,34 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
     )
     deps, _, _ = live_deps(ScriptedIntake([intake]), TemplatePlanner(), services)
     assert deps.agents.names() == [AgentName.FLIGHT]  # Location / Moving chưa cấu hình: không đăng ký
+    assert "hold_booking" not in deps.agents.get(AgentName.FLIGHT).client.endpoint.allowed_tools
+    assert "hold_booking" in deps.transaction.flight.endpoint.allowed_tools
+    assert "simulate_payment_result" in deps.transaction.payment.endpoint.allowed_tools
+    # Observe transaction MCP dispatch while forwarding every call to the local servers.
+    # This verifies approval ordering without relying on DB initialization timing or private stores.
+    flight_calls, payment_calls = [], []
+    flight_call, payment_call = deps.transaction.flight.call, deps.transaction.payment.call
+
+    async def observe_flight_call(tool, arguments):
+        flight_calls.append(tool)
+        return await flight_call(tool, arguments)
+
+    async def observe_payment_call(tool, arguments):
+        payment_calls.append(tool)
+        return await payment_call(tool, arguments)
+
+    monkeypatch.setattr(deps.transaction.flight, "call", observe_flight_call)
+    monkeypatch.setattr(deps.transaction.payment, "call", observe_payment_call)
     s = Session(deps)
 
     out = await s.say("Đặt vé Hà Nội đi Đà Nẵng")
     confirmation = out["__interrupt__"][0].value
+    assert confirmation["type"] == "confirmation_required"
     line = confirmation["cost_summary"]["lines"][0]
     assert line["option_id"].startswith("off_") and line["amount_vnd"] > 0
+    # Searching must not create a booking or payment before approval.
+    assert flight_calls == []
+    assert payment_calls == []
 
     pii = {
         "flight_booking:t1": {
@@ -64,8 +96,12 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
     out = await s.confirm(out, pii)
     payment = out["__interrupt__"][0].value
     assert payment["type"] == "payment_required" and payment["amount_vnd"] == line["amount_vnd"]
+    assert flight_calls == ["get_offer", "hold_booking"]
+    assert payment_calls == ["create_payment"]
 
     state = await s.state()
+    assert state["pending_payment"].source_kind == "demo"
+    assert state["pending_payment"].pre_payment_receipt.status == "HELD"
     payment_ref = state["pending_payment"].payment_ref
     # Nút "giả lập đã thanh toán": transaction gọi simulate_payment_result của Payment mock
     assert await deps.transaction.simulate_payment(payment_ref, "PAID") == "PAID"

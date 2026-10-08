@@ -2,11 +2,12 @@ from starlette.testclient import TestClient
 
 from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import SERVER_NAME, create_server
+from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices
 
 
-def test_health_route_reports_provider(services: FlightServices) -> None:
-    client = TestClient(create_server(services).streamable_http_app())
+def test_health_route_reports_provider(services: FlightServices, settings: FlightSettings) -> None:
+    client = TestClient(create_server(services, settings=settings).streamable_http_app())
 
     response = client.get("/health")
 
@@ -14,16 +15,16 @@ def test_health_route_reports_provider(services: FlightServices) -> None:
     assert response.json() == {"status": "ok", "server": SERVER_NAME, "provider": "mock"}
 
 
-def test_loopback_host_only_accepts_localhost(services: FlightServices) -> None:
-    security = create_server(services).settings.transport_security
+def test_loopback_host_only_accepts_localhost(services: FlightServices, settings: FlightSettings) -> None:
+    security = create_server(services, settings=settings).settings.transport_security
 
     assert security is not None and security.enable_dns_rebinding_protection
     assert "localhost:*" in security.allowed_hosts
 
 
-def test_container_host_accepts_docker_service_name(services: FlightServices) -> None:
+def test_container_host_accepts_docker_service_name(services: FlightServices, settings: FlightSettings) -> None:
     """Trong container (host 0.0.0.0) service khác gọi bằng Host `flights-mcp:8765` phải không bị chặn."""
-    server = create_server(services, host="0.0.0.0", port=8765)
+    server = create_server(services, host="0.0.0.0", port=8765, settings=settings)
 
     assert server.settings.transport_security is None
     assert (server.settings.host, server.settings.port) == ("0.0.0.0", 8765)

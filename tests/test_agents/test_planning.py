@@ -3,7 +3,8 @@
 import pytest
 
 from src.agents.common import utcnow
-from src.agents.deps import fake_registry
+from src.agents.deps import fake_registry, test_deps
+from src.agents.intake import ScriptedIntake
 from src.agents.models import (
     AgentName,
     CommitAction,
@@ -15,7 +16,7 @@ from src.agents.models import (
     Task,
 )
 from src.agents.planning import PlannerInput, TemplatePlanner, validate_plan
-from tests.test_agents.helpers import commit_fact, fact, intake_result
+from tests.test_agents.helpers import Session, commit_fact, fact, intake_result
 
 REG = fake_registry()
 FLIGHT = Task(id="t1", agent=AgentName.FLIGHT, inputs={"origin": "HAN", "destination": "SGN", "date": "2026-11-15"})
@@ -158,11 +159,27 @@ async def test_order_lookup_and_cancel_s10():
 
 @pytest.mark.asyncio
 async def test_relocation_waits_for_room_choice_s4():
+    values = {"city": "HCM", "from_address": "12 Láng Hạ", "move_date": "2026-11-14", "move_time": "09:00"}
+    before_choice = intake_result(domains=[AgentName.PROPERTY, AgentName.RELOCATION], values=values)
     intake = intake_result(
+        RequestKind.REFINE,
         domains=[AgentName.PROPERTY, AgentName.RELOCATION],
-        values={"city": "HCM", "from_address": "12 Láng Hạ", "move_date": "2026-11-14", "move_time": "09:00"},
+        values=values,
         facts={"selected:property": fact("lst_002", "Phòng số 2")},
     )
-    plan = await planned(intake)
-    relocation = next(t for t in plan.tasks if t.agent == AgentName.RELOCATION)
+    deps = test_deps(ScriptedIntake([before_choice, intake]), TemplatePlanner())
+    session = Session(deps)
+    first = await session.say("Tìm phòng và báo giá chuyển đồ tới phòng tôi chọn")
+    assert first["response"].kind == "CLARIFY"
+    assert [t.agent for t in first["plan"].tasks] == [AgentName.PROPERTY]
+    assert "relocation.selected:property" in first["intake"].constraints.missing
+    assert deps.agents.get(AgentName.RELOCATION).requests == []
+
+    second = await session.say("Chọn phòng số 2")
+    relocation = next(t for t in second["plan"].tasks if t.agent == AgentName.RELOCATION)
+    # S4 waits for the user's choice, not another search: Moving re-fetches the confirmed ID itself.
     assert relocation.inputs["selected_listing_id"] == "lst_002" and relocation.depends_on == []
+    requests = deps.agents.get(AgentName.RELOCATION).requests
+    assert len(requests) == 1 and requests[0].inputs["selected_listing_id"] == "lst_002"
+    assert requests[0].upstream == {}
+    assert len(deps.agents.get(AgentName.PROPERTY).requests) == 1

@@ -13,6 +13,8 @@
 | [Gate announcements](references/gate-announcements.md) | Official Gate 1 and G2 requirements | Official-channel origin and UTC+7 confirmed by @ai-dnn; applies until further official notices |
 | [Roadmap](roadmap.md) | Gate 1 and G2 deadlines and required deliverables | Based on confirmed official announcements; submission and passing status need evidence |
 | [Architecture](../ARCHITECTURE.md) | Implemented system and proposed expansion | Local MVP integration overview |
+| [Coolify delivery plan](architecture/infrastructure.md) | Integrated application environments, ARM64/GHCR publishing, complete candidates, and main-dispatched promotion of stable releases | Planned delivery contract; shared-runner exposure recorded, delivery verification pending |
+| [Coolify scaling and migration options](architecture/migration-options.md) | Host resizing/relocation, multi-server qualification, portability, and cutover/recovery gates | Future alternatives; no migration target selected |
 | [Architecture diagrams](architecture_diagram.md) | Pre-integration baseline and proposed flows | Snapshot dated 2026-09-30 |
 | [Project organization](project-organization.md) | Proposed documentation and work conventions | Proposed convention |
 | [GitHub work in progress](work-in-progress.md) | Issue and PR map for service branches and integration gaps | Snapshot dated 2026-09-30; open and merged work labeled |

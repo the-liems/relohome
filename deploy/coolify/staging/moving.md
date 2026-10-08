@@ -20,7 +20,8 @@ Workflow publish dưới `ghcr.io/<owner>/<repo>/moving-{mcp,api,migrate}:<commi
 ## Runtime configuration
 
 Hai app cùng cần `AHAMOVE_ENV=staging`, `AHAMOVE_API_KEY`, `AHAMOVE_MOBILE`
-hoặc `AHAMOVE_USER_TOKEN`, và `MOVING_DATABASE_URL` dùng role `moving_app`.
+hoặc `AHAMOVE_USER_TOKEN`, và `MOVING_DATABASE_URL` dùng role runtime riêng
+(`moving_app` trong instance riêng; tên theo environment nếu dùng chung cluster).
 DB URL này ưu tiên hơn `DATABASE_URL` của backend Python. Password trong URL
 cần percent-encode nếu có ký tự đặc biệt. Dùng secret storage của infra.
 
@@ -34,8 +35,10 @@ API cần `AHAMOVE_WEBHOOK_AUTH_MODE` và `AHAMOVE_WEBHOOK_SECRET` thống nhấ
 AhaMove. Gửi đúng header `apikey` / `Authorization` theo mode. Không dùng MCP
 token làm webhook secret. HTTP callback cần HTTPS ingress ổn định do infra cấp.
 
-Migration job chỉ nhận `MOVING_DATABASE_ADMIN_URL`, `MOVING_DB_APP_USER=moving_app`
-và `MOVING_DB_APP_PASSWORD`. Runtime app không nhận credential admin.
+Migration job chỉ nhận `MOVING_DATABASE_ADMIN_URL`, `MOVING_DB_APP_USER`
+và `MOVING_DB_APP_PASSWORD`. `MOVING_DB_APP_USER` mặc định là `moving_app` cho
+instance riêng; khi dùng chung cluster, chọn role riêng như `moving_app_staging`
+và dùng đúng role đó trong runtime URL. Runtime app không nhận credential admin.
 Job dùng lại migration canonical `008_moving_service.sql` và bổ sung audit table,
 không tạo dữ liệu mẫu, không cần PostGIS. Runtime được giới hạn các bảng Moving
 và INSERT vào audit. Không chạy đồng thời migrator LifeFlow cũ và Moving migrator.
@@ -53,8 +56,21 @@ operator có chủ đích sau UAT approval, không tự bật cùng release.
 
 ## Deploy sequence
 
-1. Chuẩn bị PostgreSQL thật, secret storage và network riêng. Có thể dùng Postgres
-   chung của đội với schema `moving` + `audit`, không bắt buộc thêm DB server riêng.
+1. Chuẩn bị PostgreSQL, secret storage và network cho staging. Mỗi environment có
+   database/roles/credentials riêng; không dùng chung database hoặc schema `moving`
+   và `audit` với production. Postgres chung của đội chỉ phù hợp nếu tách database,
+   đặt tên role riêng theo environment và xác minh cả role migration lẫn runtime
+   của staging không thể kết nối hay sửa dữ liệu/roles của production. Migrator
+   hiện tại tạo/đổi password role, nên không cấp quyền admin toàn cluster nếu
+   cluster chứa production. Nếu chưa chứng minh được giới hạn quyền này, dùng
+   PostgreSQL instance riêng cho environment (có thể trên cùng host). Đây là
+   đường triển khai hiện tại: admin chỉ quản lý instance của environment đó.
+   Shared cluster chưa được hỗ trợ bởi handoff này nếu chưa có thiết kế quyền
+   được kiểm thử cho cả CREATE ROLE và ALTER ROLE; chỉ tạo sẵn runtime role
+   không đủ vì migrator luôn ALTER ROLE để đặt password. Không bỏ quyền cần
+   thiết rồi kỳ vọng migration vẫn chạy, và không mở rộng quyền staging sang
+   production để tránh lỗi quyền.
+   Xác minh database đích trong cả hai URL trước khi chạy migration.
 2. Backup trước thay đổi schema có dữ liệu; chạy image migration đúng release.
 3. Chỉ khi job exit 0 mới deploy hai app bằng digest đã chọn.
 4. Health check container: GET `/ready` trên port tương ứng, interval 15s,

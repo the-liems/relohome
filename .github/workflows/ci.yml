@@ -5,10 +5,22 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   lint-and-test:
-    runs-on: [self-hosted, team-44]
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -19,44 +31,64 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - name: Set up Node.js for deployment selector tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Create job-local Python environment
+        run: bash scripts/setup-ci-python.sh
+
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh python node
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/deploy-coolify.py
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: python -m pytest tests/ Frontend/tests/ -v --tb=short
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
 
+      - name: Remove job-local Python environment
+        if: always()
+        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi
+
   mcp-images:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    env:
+      MCP_IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh docker mcp
 
       - name: Build Docker image of every MCP server
         run: make mcp-build
 
       - name: Smoke test every MCP server container
+        run: bash scripts/smoke-mcp-containers.sh
+
+      - name: Remove only this job's containers and images
+        if: always()
         run: |
+          # Fallback if cancellation interrupted the smoke script's EXIT trap.
+          docker ps -aq --filter "label=lifeflow.ci.mcp=$MCP_IMAGE_TAG" | xargs -r docker rm -fv
           for dockerfile in src/mcp_servers/*/Dockerfile; do
             server=$(basename "$(dirname "$dockerfile")")
-            port=$(awk '/^EXPOSE/ {print $2; exit}' "$dockerfile")
-            docker run -d --name "$server-mcp" -p "$port:$port" "$server-mcp:latest"
-            for i in $(seq 1 30); do
-              [ "$(docker inspect -f '{{.State.Health.Status}}' "$server-mcp")" = healthy ] && break
-              sleep 2
-            done
-            curl --fail --silent "http://localhost:$port/health"
-            echo
-            docker rm -f "$server-mcp"
+            docker image rm "$server-mcp:$MCP_IMAGE_TAG" || true
           done
 
   lifeflow-typescript:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
 
     defaults:
       run:
@@ -72,6 +104,10 @@ jobs:
           cache: npm
           cache-dependency-path: Maps VN/LifeFlow/package-lock.json
 
+      - name: Verify runner tools
+        working-directory: .
+        run: bash scripts/check-ci-runner.sh node
+
       - name: Install dependencies
         run: npm ci
 
@@ -80,3 +116,59 @@ jobs:
 
       - name: Run portable workspace tests
         run: npm run test:ci
+
+  application-images:
+    needs: [lint-and-test, mcp-images, lifeflow-typescript]
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {service: web, context: '.', dockerfile: 'Frontend/Dockerfile', target: ''}
+          - {service: backend, context: '.', dockerfile: 'Dockerfile', target: ''}
+          - {service: platform, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/platform-api/Dockerfile', target: 'platform'}
+          - {service: location, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/mcp-server/Dockerfile', target: ''}
+          - {service: location-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/platform-api/Dockerfile', target: 'location-migrate'}
+          - {service: flights-mcp, context: ., dockerfile: src/mcp_servers/flights/Dockerfile, target: ''}
+          - {service: moving-api, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-api}
+          - {service: moving-mcp, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-mcp}
+          - {service: moving-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-migrate}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image prefix and isolate registry credentials
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}/$SERVICE:$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-docker.XXXXXX")" >> "$GITHUB_ENV"
+        env:
+          SERVICE: ${{ matrix.service }}
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ARM64 image
+        run: |
+          options=()
+          if [ -n "$BUILD_TARGET" ]; then options+=(--target "$BUILD_TARGET"); fi
+          if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$GITHUB_SHA"); fi
+          docker build --pull --platform linux/arm64 "${options[@]}" \
+            --file "$DOCKERFILE" --tag "$IMAGE" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" "$BUILD_CONTEXT"
+        env:
+          BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          BUILD_TARGET: ${{ matrix.target }}
+      - name: Push image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker push "$IMAGE"
+      - name: Remove this job's image tag and registry credentials
+        if: always()
+        run: |
+          if [ -n "${IMAGE:-}" ]; then docker image rm "$IMAGE" || true; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

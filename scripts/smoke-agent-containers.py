@@ -1,16 +1,16 @@
 """Build-independent smoke of real images. No model/provider data is simulated.
 
 Run after building both images. Credentials are fresh local service tokens, never printed.
-Containers use random loopback ports and are removed; no production DB/volume is touched.
+HTTP probes run inside the container, supporting containerized runners without
+publishing host ports. Containers are removed; no production DB/volume is touched.
 """
 
 import json
 import os
 import secrets
+import signal
 import subprocess
 import time
-import urllib.error
-import urllib.request
 from uuid import uuid4
 
 
@@ -18,30 +18,58 @@ def docker(*args, env=None):
     return subprocess.check_output(["docker", *args], env=env, text=True).strip()
 
 
-def get(url, token=None):
-    headers = {"Authorization": "Bearer " + token} if token else {}
+HTTP_PROBE = """
+import json, os, socket, sys, urllib.error, urllib.request
+ip = socket.gethostbyname(socket.gethostname())
+url = "http://" + ip + ":8000" + sys.argv[1]
+headers = {"Authorization": "Bearer " + os.environ[sys.argv[2]]} if len(sys.argv) > 2 else {}
+try:
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=5) as response:
+        print(json.dumps([response.status, json.load(response)]))
+except urllib.error.HTTPError as exc:
+    print(json.dumps([exc.code, json.load(exc)]))
+"""
+
+
+def get(container, path, token_key=None):
+    # Reuse the container's environment, never put credentials in command args.
+    args = ["exec", container, "python", "-c", HTTP_PROBE, path]
+    if token_key:
+        args.append(token_key)
+    return json.loads(docker(*args))
+
+
+def remove(container):
+    result = subprocess.run(["docker", "rm", "-fv", container], capture_output=True, text=True)
+    if result.returncode and "No such container" not in result.stderr:
+        result.check_returncode()
+
+
+def diagnose(container):
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=5) as response:
-            return response.status, json.load(response)
-    except urllib.error.HTTPError as exc:
-        return exc.code, json.load(exc)
+        print(docker("logs", "--tail", "100", container))
+    except subprocess.CalledProcessError:
+        pass
 
 
 def main():
+    def terminate(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, terminate)
     for service in ("intake", "orchestrator"):
         token = secrets.token_urlsafe(32)
         key = f"{service.upper()}_API_TOKEN"
         env = {**os.environ, key: token}
         name = f"lifeflow-{service}-smoke-{uuid4().hex[:8]}"
-        started = False
         try:
             docker(
                 "run",
                 "-d",
                 "--name",
                 name,
-                "-p",
-                "127.0.0.1::8000",
+                "--label",
+                f"lifeflow.ci.agents={os.environ.get('AGENT_IMAGE_TAG', 'local')}",
                 "-e",
                 key,
                 "--read-only",
@@ -51,33 +79,33 @@ def main():
                 "/app/data:uid=10001,gid=10001",
                 "--cap-drop=ALL",
                 "--security-opt=no-new-privileges:true",
-                f"lifeflow-{service}:local",
+                f"lifeflow-{service}:{os.environ.get('AGENT_IMAGE_TAG', 'local')}",
                 env=env,
             )
-            started = True
-            port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["8000/tcp"][0]["HostPort"]
-            base = "http://127.0.0.1:" + port
             for _ in range(40):
                 try:
-                    if get(base + "/health")[0] == 200:
+                    if get(name, "/health")[0] == 200:
                         break
-                except (OSError, ValueError):
+                except (OSError, ValueError, subprocess.CalledProcessError):
                     pass
                 time.sleep(0.5)
-            assert get(base + "/health")[0] == 200
-            status, readiness = get(base + "/ready")
+            assert get(name, "/health")[0] == 200
+            status, readiness = get(name, "/ready")
             if service == "intake":
                 assert status == 503 and readiness["error"]["code"] == "NOT_READY"
             else:
                 assert status == 200 and readiness["execution"] == "disconnected"
-                assert get(base + "/v1/capabilities")[0] == 401
-                status, capabilities = get(base + "/v1/capabilities", token)
+                assert get(name, "/v1/capabilities")[0] == 401
+                status, capabilities = get(name, "/v1/capabilities", key)
                 assert status == 200 and len(capabilities["registry"]["tools"]) == 13
             assert docker("exec", name, "id", "-u") == "10001"
             print(f"PASS {service}: real image, non-root, HTTP liveness/readiness, isolated configuration")
+        except BaseException:
+            diagnose(name)
+            raise
         finally:
-            if started:
-                subprocess.run(["docker", "rm", "-f", name], check=True, capture_output=True)
+            # docker run can create a container before returning an error.
+            remove(name)
 
 
 if __name__ == "__main__":

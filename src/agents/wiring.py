@@ -55,7 +55,9 @@ def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
         agents[AgentName.RELOCATION] = MovingSubagent(moving, location, contact, registry.moving.source_kind)
     flight = registry.flight.read_client()
     if flight is not None:
-        agents[AgentName.FLIGHT] = FlightSubagent(flight)
+        agents[AgentName.FLIGHT] = FlightSubagent(
+            flight, allow_simulation=registry.settings.agent_allow_simulated_transactions
+        )
     return agents
 
 

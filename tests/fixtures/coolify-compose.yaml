@@ -1,0 +1,30 @@
+# Minimal stack for testing deployment behavior independently of application services.
+services:
+  app:
+    image: ${IMAGE_PREFIX}/app:${RELEASE_TAG}
+    environment:
+      API_TOKEN: ${API_TOKEN:?}
+      DB_PASSWORD: ${DB_PASSWORD:?Set the database password}
+      AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
+      AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
+      AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
+      OPTIONAL: ${OPTIONAL:-default}
+    labels:
+      custom.label: preserve-me
+    networks: [internal]
+    configs: [settings]
+    secrets: [api_key]
+  db:
+    image: postgres:16-bookworm
+    volumes: [db-data:/var/lib/postgresql/data]
+volumes:
+  db-data: {}
+networks:
+  internal:
+    internal: true
+configs:
+  settings:
+    external: true
+secrets:
+  api_key:
+    external: true

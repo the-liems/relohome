@@ -7,7 +7,6 @@ from mcp.types import CallToolResult, TextContent
 from pydantic import SecretStr
 
 from src.agents.common import utcnow
-from src.agents.contracts import UpstreamResult
 from src.agents.deps import GraphSettings, test_deps
 from src.agents.intake import ScriptedIntake, redact_pii
 from src.agents.models import AgentName, CommitActionKind, Receipt, RequestKind, SessionContext
@@ -17,7 +16,7 @@ from src.agents.subagents.services.moving import VN_TZ, MovingSubagent, QuoteCon
 from src.services.adapters.mcp import ToolCallError, unwrap
 from src.services.adapters.registry import ServiceRegistry, ServiceSettings
 from tests.test_agents.helpers import Session, commit_fact, intake_result
-from tests.test_agents.test_service_subagents import FakeToolClient, moving_client
+from tests.test_agents.test_service_subagents import FakeToolClient, listing, moving_client
 
 MOVE = {"from_address": "12 Láng Hạ", "to_address": "45 Kim Mã", "move_date": "2026-11-14", "move_time": "09:00"}
 
@@ -67,31 +66,47 @@ def test_order_time_requires_explicit_future_time():
 
 
 @pytest.mark.asyncio
-async def test_moving_asks_when_address_only_matches_a_district_or_time_missing():
+@pytest.mark.parametrize(
+    ("district_only", "move_time", "expected_fields"),
+    [(True, None, {"from_address", "move_time"}), (True, "09:00", {"from_address"}), (False, None, {"move_time"})],
+)
+async def test_moving_asks_when_address_only_matches_a_district_or_time_missing(
+    district_only, move_time, expected_fields
+):
+    home = listing(2, 5_000_000) | {"location_accuracy": "rooftop"}
     geo = FakeToolClient(
         {
+            "get_housing": home,
             "resolve_location": {
                 "ambiguous": False,
-                "results": [{"entity_type": "administrative_area", "location": {"lat": 21.0, "lng": 105.8}}],
-            }
+                "results": [
+                    {
+                        "entity_type": "administrative_area" if district_only else "place",
+                        "location": {"lat": 21.0, "lng": 105.8},
+                    }
+                ],
+            },
         }
     )
-    agent = MovingSubagent(moving_client(), geo, QuoteContact("LifeFlow", "19001234"))
-    upstream = {
-        "t1": UpstreamResult(
-            task_id="t1",
-            agent=AgentName.PROPERTY,
-            data={"candidates": [{"id": "l", "address": "x", "lat": 10.7, "lng": 106.6}]},
-        )
-    }
+    client = moving_client()
+    agent = MovingSubagent(
+        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+    )
     req = sample_request(
         AgentName.RELOCATION,
-        {"mode": "quote", "from_address": "Quận Đống Đa", "move_date": "2026-11-14", "selected_listing_id": "l"},
-        upstream,
+        {
+            "mode": "quote",
+            "from_address": "Quận Đống Đa" if district_only else "12 Láng Hạ",
+            "move_date": "2026-11-14",
+            **({"move_time": move_time} if move_time else {}),
+            "selected_listing_id": home["listing_id"],
+        },
     )
     result = await agent.run(req)
     assert result.status == "needs_input"
-    assert {q.field for q in result.questions} == {"move_time", "from_address"}
+    assert {q.field for q in result.questions} == expected_fields
+    assert geo.calls[0] == ("get_housing", {"listing_id": home["listing_id"]})
+    assert client.calls == []  # No provider discovery or estimate until route and time are explicit.
 
 
 def test_structured_mcp_error_uses_server_retryable():

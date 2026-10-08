@@ -14,6 +14,10 @@ Tài liệu liên quan:
 > Điều kiện hành lý, phí đổi và phí hủy trong `catalog_data/airlines.json` là số liệu mẫu, không
 > phải quy định chính thức của hãng.
 
+Mặc định server chỉ cung cấp `search_airports`, `search_flights` và `get_offer`.
+Để thử luồng đặt vé giả lập, đặt `FLIGHT_SIMULATION_ENABLED=true` rõ ràng; chọn nguồn
+`mock` không tự bật các tool booking. Chế độ này không cấp quyền đặt vé thật hay thanh toán thật.
+
 ## Bắt đầu nhanh (3 phút, không cần API key)
 
 ```bash
@@ -21,7 +25,7 @@ Tài liệu liên quan:
 source .venv/bin/activate
 pip install -r requirements.txt
 pytest tests/test_mcp_flights -q          # kiểm tra cài đặt
-python - <<'EOF'
+FLIGHT_SEARCH_PROVIDER=mock python - <<'EOF'  # ví dụ offline, không cần SerpApi key
 import asyncio
 from mcp.shared.memory import create_connected_server_and_client_session
 from src.mcp_servers.flights import create_server
@@ -50,8 +54,11 @@ Mở <http://localhost:8501>. Giao diện gọi server qua MCP stdio giống age
 - Công tắc **🌐 Dùng API thật** ở sidebar đổi giữa `mock` và `serpapi` (không cần sửa `.env`).
 - **Kiểm tra ngay**: handshake MCP, liệt kê tool/resource; ở chế độ thật còn kiểm tra API key
   và số lượt còn lại qua `serpapi.com/account.json` (không tốn lượt).
-- Các tab Tìm chuyến → Đặt vé → Tra cứu/Hủy chạy đủ luồng; mỗi lần gọi đều có request/response
-  JSON và độ trễ, tab **Nhật ký API** tải được toàn bộ log dạng JSON.
+- Tab Tìm chuyến dùng được trong cả hai chế độ. Để chạy đủ luồng Đặt vé → Tra cứu/Hủy
+  giả lập, cần bật `FLIGHT_SIMULATION_ENABLED=true` trong shell hoặc `.env`; công tắc nguồn
+  dữ liệu không bật simulation. Ví dụ: `FLIGHT_SIMULATION_ENABLED=true make ui`.
+- Mỗi lần gọi đều có request/response JSON và độ trễ, tab **Nhật ký API** tải được toàn bộ
+  log dạng JSON.
 
 ## Vì sao chọn nguồn dữ liệu này
 
@@ -64,8 +71,8 @@ Mở <http://localhost:8501>. Giao diện gọi server qua MCP stdio giống age
 
 Vì vậy server tách làm hai phần:
 
-- **Tìm chuyến**: `mock` (mặc định, offline, dùng cho test/CI/demo) hoặc `serpapi` (dữ liệu thật).
-- **Đặt vé**: engine giả lập lưu trong SQLite (`booking_engine.py`).
+- **Tìm chuyến**: `serpapi` (mặc định, dữ liệu thật) hoặc `mock` (offline, dùng cho test/CI/demo).
+- **Đặt vé**: engine giả lập lưu trong SQLite (`booking_engine.py`), chỉ đăng ký khi bật simulation.
 
 ## Cấu trúc
 
@@ -108,7 +115,8 @@ pip install -r requirements.txt    # đã có mcp[cli] và langchain-mcp-adapter
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
-| `FLIGHT_SEARCH_PROVIDER` | `mock` | `mock` hoặc `serpapi` |
+| `FLIGHT_SEARCH_PROVIDER` | `serpapi` | `mock` hoặc `serpapi` |
+| `FLIGHT_SIMULATION_ENABLED` | `false` | Bật rõ ràng để cung cấp tool booking, resource booking và prompt đặt vé giả lập |
 | `FLIGHT_SERPAPI_API_KEY` | trống | Key tại <https://serpapi.com/manage-api-key> (bắt buộc khi dùng `serpapi`) |
 | `FLIGHT_DB_PATH` | `./data/flights.db` | File SQLite lưu offer, cache và booking (`data/` đã có trong `.gitignore`) |
 | `FLIGHT_SEARCH_CACHE_TTL` | `3600` | Số giây cache kết quả SerpApi, giúp tiết kiệm lượt gọi |
@@ -295,6 +303,16 @@ trong `MultiServerMCPClient`.
 `FLIGHT_MCP_HOST=0.0.0.0` trên máy public (xem ADR-013).
 
 ## Tool, resource, prompt
+
+Ba tool tìm kiếm/offer đầu tiên và resources `flights://airports`, `flights://airlines`
+luôn có. `hold_booking`, `confirm_booking`, `get_booking`, `cancel_booking`, resource
+`flights://bookings/{booking_ref}` và prompt `plan_domestic_trip` chỉ có khi
+`FLIGHT_SIMULATION_ENABLED=true`. Trong chế độ mặc định, client không thể gọi các tool,
+resource hay prompt booking này. Ví dụ chạy demo offline:
+
+```bash
+FLIGHT_SEARCH_PROVIDER=mock FLIGHT_SIMULATION_ENABLED=true python -m src.mcp_servers.flights
+```
 
 | Tool | Loại | Mô tả |
 |---|---|---|

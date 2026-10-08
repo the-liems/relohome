@@ -63,6 +63,20 @@ async def test_moving_catalog_and_structured_options_use_authenticated_gateway(t
 
 
 @pytest.mark.asyncio
+async def test_health_reports_store_readiness(tmp_path):
+    app = create_app(tmp_path / "web.db")
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        ready = await client.get("/health")
+        assert (ready.status_code, ready.json()) == (200, {"status": "ok"})
+        app.state.store.db.close()
+        failed = await client.get("/health")
+        assert (failed.status_code, failed.json()) == (503, {"status": "not_ready"})
+
+
+@pytest.mark.asyncio
 async def test_session_history_ownership_idempotency_saved_and_restart(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_API_TOKEN", "private-server-token")
     database = tmp_path / "web.db"

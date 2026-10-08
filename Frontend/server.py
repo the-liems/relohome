@@ -173,6 +173,15 @@ def create_app(database=None, transport=None):
             raise HTTPException(404, "Not Found")
         return {"status": "ok", "service": "siu-web"}
 
+    @app.get("/health")
+    async def health():
+        # Readiness of what this process owns; the proxy keeps this path off the public domain.
+        try:
+            app.state.store.db.execute("SELECT 1 FROM sqlite_master LIMIT 1")
+        except sqlite3.Error:
+            return JSONResponse({"status": "not_ready"}, status_code=503)
+        return {"status": "ok"}
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
         return JSONResponse({"detail": "Vui lòng kiểm tra các trường đã nhập."}, status_code=422)

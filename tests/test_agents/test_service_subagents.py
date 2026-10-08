@@ -5,18 +5,20 @@ nhánh Doan/api).
 """
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import pytest
 
+from src.agents.common import utcnow
 from src.agents.contracts import UpstreamResult
-from src.agents.models import AgentName
-from src.agents.subagents.base import AgentTransportError
+from src.agents.models import AgentName, Constraints, Task, TaskStatus
+from src.agents.subagents.base import AgentPolicy, AgentTransportError, run_with_policy
 from src.agents.subagents.conformance import check_conformance, sample_request
 from src.agents.subagents.fake import FakeAgent
 from src.agents.subagents.services.flight import FlightSubagent
 from src.agents.subagents.services.location import LocationSubagent
-from src.agents.subagents.services.moving import MovingSubagent, QuoteContact
+from src.agents.subagents.services.moving import VN_TZ, MovingSubagent, QuoteContact
 from src.services.adapters.mcp import ToolCallError
 
 
@@ -158,17 +160,29 @@ def moving_client(total=250_000):
 
 
 @pytest.mark.asyncio
-async def test_moving_quote_to_selected_room():
+@pytest.mark.parametrize("with_upstream", [False, True])
+async def test_moving_quote_to_selected_room(with_upstream):
     client = moving_client()
+    home = listing(2, 5_000_000) | {
+        "address": {"raw": "45 Thành Thái", "city": "TP.HCM"},
+        "location": {"lat": 10.77, "lng": 106.66},
+        "location_accuracy": "rooftop",
+    }
     geo = FakeToolClient(
-        {"resolve_location": {"results": [{"name": "12 Láng Hạ", "location": {"lat": 21.0, "lng": 105.8}}]}}
+        {
+            "get_housing": home,
+            "resolve_location": {"results": [{"name": "12 Láng Hạ", "location": {"lat": 21.0, "lng": 105.8}}]},
+        }
     )
-    agent = MovingSubagent(client, geo, QuoteContact("LifeFlow", "19001234"))
+    agent = MovingSubagent(
+        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+    )
     upstream = {
         "t1": UpstreamResult(
             task_id="t1",
             agent=AgentName.PROPERTY,
-            data={"candidates": [{"id": "lst_2", "address": "45 Thành Thái", "lat": 10.77, "lng": 106.66}]},
+            # A previous search result must not override the current selected-room detail.
+            data={"candidates": [{"id": home["listing_id"], "address": "Old address", "lat": 10.7, "lng": 106.6}]},
         )
     }
     req = sample_request(
@@ -178,17 +192,49 @@ async def test_moving_quote_to_selected_room():
             "from_address": "12 Láng Hạ",
             "move_date": "2026-11-14",
             "move_time": "09:00",
-            "selected_listing_id": "lst_2",
+            "selected_listing_id": home["listing_id"],
         },
-        upstream,
+        upstream if with_upstream else {},
     )
     result = await agent.run(req)
     assert result.status == "done"
     assert result.quotes[0].option_id == "q1:SGN-TRUCK-500" and result.quotes[0].amount_vnd == 250_000
     assert result.data["to_address"] == "45 Thành Thái"
+    assert geo.calls[0] == ("get_housing", {"listing_id": home["listing_id"]})
     draft = client.calls[1][1]["draft"]
     assert draft["payment_method"] == "CASH" and draft["pickup"]["mobile"] == "19001234"
+    assert draft["destinations"][0]["coordinate"] == home["location"]
     assert await check_conformance(agent, [req]) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("accuracy", ["approximate", "unknown", None])
+async def test_moving_selected_room_requires_precise_current_location(accuracy):
+    home = listing(2, 5_000_000) | {"location_accuracy": accuracy}
+    client = moving_client()
+    geo = FakeToolClient(
+        {
+            "get_housing": home,
+            "resolve_location": {"results": [{"location": {"lat": 21.0, "lng": 105.8}}]},
+        }
+    )
+    agent = MovingSubagent(
+        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+    )
+    result = await agent.run(
+        sample_request(
+            AgentName.RELOCATION,
+            {
+                "mode": "quote",
+                "from_address": "12 Láng Hạ",
+                "selected_listing_id": home["listing_id"],
+                "move_date": "2026-11-14",
+                "move_time": "09:00",
+            },
+        )
+    )
+    assert result.status == "needs_input" and [q.field for q in result.questions] == ["to_address"]
+    assert client.calls == []
 
 
 @pytest.mark.asyncio
@@ -234,14 +280,18 @@ FLIGHTS = {
 
 
 @pytest.mark.asyncio
-async def test_flight_destination_from_room_city():
+@pytest.mark.parametrize(
+    "source,allow_simulation,source_kind",
+    [("mock", True, "demo"), ("serpapi", False, "live"), ("serpapi", True, "live")],
+)
+async def test_flight_destination_from_room_city(source, allow_simulation, source_kind):
     client = FakeToolClient(
         {
             "search_airports": lambda a: [{"code": {"Hà Nội": "HAN", "TP.HCM": "SGN"}[a["query"]]}],
-            "search_flights": FLIGHTS,
+            "search_flights": {**FLIGHTS, "source": source},
         }
     )
-    agent = FlightSubagent(client)
+    agent = FlightSubagent(client, allow_simulation=allow_simulation)
     upstream = {
         "t1": UpstreamResult(
             task_id="t1", agent=AgentName.PROPERTY, data={"candidates": [{"id": "x", "city": "TP.HCM"}]}
@@ -251,7 +301,8 @@ async def test_flight_destination_from_room_city():
     result = await agent.run(req)
     body = client.calls[-1][1]["request"]
     assert (body["origin"], body["destination"]) == ("HAN", "SGN")
-    assert result.source_kind == "demo" and result.quotes[0].amount_vnd == 1_650_000
+    assert result.status == "done" and result.source_kind == source_kind
+    assert result.quotes[0].amount_vnd == 1_650_000
     assert await check_conformance(agent, [req]) == []
 
 
@@ -260,9 +311,47 @@ async def test_first_call_transport_error_is_retryable_by_wrapper():
     def down(args):
         raise ToolCallError("unavailable", "down", retryable=True, transport=True)
 
-    agent = FlightSubagent(FakeToolClient({"search_flights": down}))
+    client = FakeToolClient({"search_airports": down, "search_flights": FLIGHTS})
+    agent = FlightSubagent(client)
+    inputs = {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"}
     with pytest.raises(AgentTransportError):
-        await agent.run(sample_request(AgentName.FLIGHT, {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"}))
+        await agent.run(sample_request(AgentName.FLIGHT, inputs))
+    client.calls.clear()
+    out = await run_with_policy(
+        agent,
+        {
+            "task": Task(id="t1", agent=AgentName.FLIGHT, inputs=inputs),
+            "plan_version": 1,
+            "attempt": 1,
+            "request_id": "r1",
+            "thread_id": "th1",
+            "constraints": Constraints(),
+            "hints": {},
+            "upstream": {},
+        },
+        policy=AgentPolicy(transport_retries=1),
+        clock=utcnow,
+    )
+    assert [tool for tool, _ in client.calls] == ["search_airports", "search_airports"]
+    assert out["task_status"]["t1"] == TaskStatus.FAILED
+    assert out["task_results"]["t1"].error_code == "provider_unavailable"
+    assert out["task_results"]["t1"].retryable is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source,allow_simulation", [("mock", False), ("unknown", True)])
+async def test_flight_rejects_unapproved_simulated_or_unknown_source(source, allow_simulation):
+    client = FakeToolClient(
+        {
+            "search_airports": lambda a: [{"code": a["query"]}],
+            "search_flights": {**FLIGHTS, "source": source},
+        }
+    )
+    result = await FlightSubagent(client, allow_simulation=allow_simulation).run(
+        sample_request(AgentName.FLIGHT, {"origin": "HAN", "destination": "SGN", "date": "2026-11-15"})
+    )
+    assert result.status == "failed" and result.error.code == "provider_unavailable"
+    assert result.quotes == []
 
 
 @pytest.mark.asyncio

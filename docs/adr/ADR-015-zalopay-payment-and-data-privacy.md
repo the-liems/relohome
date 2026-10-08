@@ -36,8 +36,17 @@ nằm trên hệ thống của ZaloPay và có thể trùng hoặc lẫn với �
    | `app_trans_id` | `yymmdd_<tiền tố nhóm>_<8 hex ngẫu nhiên>`, ví dụ `260926_P044_2ad7bebc` | PNR, booking_id, tên, email, SĐT |
    | `app_user` | `HMAC-SHA256(muối cục bộ, customer_ref)` cắt 16 ký tự | Tên, email, SĐT thật |
    | `amount` | Số nguyên VND | — |
+   | `expire_duration_seconds` | `PAYMENT_EXPIRE_MINUTES × 60` (mặc định `900` giây) | Dữ liệu khách hàng |
    | `description` | Mẫu cố định `"<tiền tố> demo <mã đơn>"` | Văn bản tự do, tên khách, tuyến bay |
    | `item` / `embed_data` | `"[]"` / chỉ `redirecturl` | Mọi dữ liệu người dùng |
+
+   Làm rõ danh sách cho phép theo [#50](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/50):
+   `expire_duration_seconds` chỉ chứa thời lượng cấu hình, cùng thời lượng engine dùng để tính `expires_at`,
+   nhưng không bảo đảm cùng thời điểm hết hạn tuyệt đối. Engine tính từ `now` trước khi gọi gateway;
+   gateway gửi `app_time` lấy trước khi gửi HTTP, nhưng tài liệu ZaloPay không nêu rõ mốc bắt đầu thời hạn ở cổng.
+   Giữ trường này để yêu cầu thời hạn ở cổng thay vì dựa vào mặc định của merchant.
+   [API tạo đơn ZaloPay](https://docs.zalopay.vn/docs/specs/order-create/) cho phép `300`–`2592000` giây;
+   cấu hình hiện tại (`5`–`1440` phút) nằm trong giới hạn đó.
 
 3. **Tiền tố nhóm** `PAYMENT_ORDER_PREFIX` (mặc định `P044`, chỉ `[A-Za-z0-9]{2,8}`) nằm trong mọi mã đơn.
    Server **chỉ tra cứu mã có trong SQLite của nhóm**; mã lạ bị báo không tìm thấy mà không hỏi ZaloPay,

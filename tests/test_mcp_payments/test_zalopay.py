@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -8,7 +9,8 @@ from src.mcp_servers.payments.errors import GatewayUnavailableError, PaymentStat
 from src.mcp_servers.payments.gateways import ZaloPayGateway, create_gateway
 from src.mcp_servers.payments.gateways.zalopay import sign
 from src.mcp_servers.payments.settings import PaymentSettings
-from tests.test_mcp_payments.helpers import TEST_APP_ID, TEST_KEY1, TEST_KEY2, FakeZaloPay
+from src.mcp_servers.payments.storage import PaymentDatabase
+from tests.test_mcp_payments.helpers import TEST_APP_ID, TEST_KEY1, TEST_KEY2, FakeClock, FakeZaloPay
 
 
 def test_mac_matches_zalopay_spec() -> None:
@@ -36,6 +38,27 @@ async def test_failed_query(zalopay_engine: PaymentEngine, fake_zalopay: FakeZal
     payment = await zalopay_engine.create("bk_1", 100_000)
     fake_zalopay.query_code = 2
     assert (await zalopay_engine.get(payment.payment_id)).status == "FAILED"
+
+
+@pytest.mark.parametrize("expire_minutes", [5, 15, 60, 1440])
+@pytest.mark.asyncio
+async def test_configured_expiry_is_sent_to_zalopay_and_applied_locally(
+    db: PaymentDatabase, settings: PaymentSettings, clock: FakeClock, fake_zalopay: FakeZaloPay, expire_minutes: int
+) -> None:
+    settings = settings.model_copy(update={"expire_minutes": expire_minutes})
+    async with fake_zalopay.client() as client:
+        engine = PaymentEngine(db, ZaloPayGateway(settings, client=client), settings, clock=clock)
+        payment = await engine.create("bk_expiry", 100_000)
+
+        path, form = fake_zalopay.forms[0]
+        assert path == "create"
+        assert form["expire_duration_seconds"] == str(expire_minutes * 60)
+        assert payment.expires_at == payment.created_at + timedelta(minutes=expire_minutes)
+
+        clock.advance(expire_minutes - 1)
+        assert (await engine.get(payment.payment_id)).status == "PENDING"
+        clock.advance(1)
+        assert (await engine.get(payment.payment_id)).status == "EXPIRED"
 
 
 @pytest.mark.asyncio

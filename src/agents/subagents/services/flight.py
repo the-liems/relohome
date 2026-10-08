@@ -37,9 +37,13 @@ def booking_view(booking: dict) -> dict:
 
 
 class FlightSubagent:
-    def __init__(self, client: McpToolClient, clock: Callable[[], datetime] = utcnow):
+    def __init__(
+        self, client: McpToolClient, clock: Callable[[], datetime] = utcnow, *, allow_simulation: bool = False
+    ):
         self.capability = FLIGHT
         self.client, self.clock = client, clock
+        # Local graph demos opt in; the application runtime remains real-search only.
+        self.allow_simulation = allow_simulation
 
     async def run(self, req: AgentTaskRequest) -> AgentTaskResult:
         if (rejected := reject_unsupported(req, SOURCE, "live")) is not None:
@@ -120,7 +124,8 @@ class FlightSubagent:
             request.update(trip_type="round_trip", return_date=inp["return_date"])
         found = await tools.call("search_flights", {"request": request})
         found = found or {}
-        if found.get("source") != "serpapi":
+        source = found.get("source")
+        if source != "serpapi" and not (self.allow_simulation and source == "mock"):
             return failed_result(
                 req,
                 "provider_unavailable",

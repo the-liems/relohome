@@ -9,6 +9,8 @@ on:
       - 'Dockerfile.agents*'
       - 'compose.agents.yaml'
       - 'scripts/*agent*'
+      - 'scripts/check-ci-runner.sh'
+      - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
       - 'Maps VN/LifeFlow/packages/contracts/**'
       - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
@@ -22,28 +24,51 @@ on:
       - 'Dockerfile.agents*'
       - 'compose.agents.yaml'
       - 'scripts/*agent*'
+      - 'scripts/check-ci-runner.sh'
+      - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
       - 'Maps VN/LifeFlow/packages/contracts/**'
       - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
+
 jobs:
   contracts-and-images:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    env:
+      AGENT_IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Create job-local Python environment
+        run: bash scripts/setup-ci-python.sh
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh python docker
       - run: pip install -r requirements.txt -r requirements-agents.txt
       - run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
       - run: pytest tests/test_agent_services -q
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify Node.js
+        run: bash scripts/check-ci-runner.sh node
       - run: npm ci && npm run build --workspace=@lifeflow/contracts
         working-directory: Maps VN/LifeFlow
       - run: node scripts/export-agent-registry.mjs --check
-      - run: docker build -f Dockerfile.agents --target intake -t lifeflow-intake:local .
-      - run: docker build -f Dockerfile.agents --target orchestrator -t lifeflow-orchestrator:local .
+      - run: docker build -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
+      - run: docker build -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
       - run: python scripts/smoke-agent-containers.py
+      - name: Remove only this job's containers and images
+        if: always()
+        run: |
+          docker ps -aq --filter "label=lifeflow.ci.agents=$AGENT_IMAGE_TAG" | xargs -r docker rm -fv
+          docker image rm "lifeflow-intake:$AGENT_IMAGE_TAG" "lifeflow-orchestrator:$AGENT_IMAGE_TAG" || true
+      - name: Remove job-local Python environment
+        if: always()
+        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi
