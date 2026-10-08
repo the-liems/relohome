@@ -1,8 +1,8 @@
 # Staging deployment on Coolify
 
-GitHub Actions builds the application images, pushes them to GHCR, saves the
-release's Compose definition in Coolify, and submits a restart request for the existing
-staging Service. Coolify handles rollout completion and container health.
+**CI** builds the application images and pushes them to GHCR. The separate
+**Deploy staging** workflow saves the selected release's Compose definition in
+Coolify and submits a restart request for the existing staging Service. Coolify handles rollout completion and container health.
 No GitHub App or deploy key is needed.
 
 ## Files and release flow
@@ -10,6 +10,8 @@ No GitHub App or deploy key is needed.
 - `.github/workflows/ci.yml` contains an explicit matrix of nine ARM64 images.
   Each entry names its Dockerfile, build context and target. Builds use normal
   `docker build` and `docker push` commands; they need no runtime credentials.
+- `.github/workflows/deploy-staging.yml` deploys a successful main CI run,
+  automatically after CI completes or manually by CI run ID. It never builds images.
 - `compose.coolify.yaml` is the image-only source of truth for services,
   environment references, health checks, networks and volumes.
 - `scripts/deploy-coolify.py` replaces only `${IMAGE_PREFIX}` and `${RELEASE_TAG}`,
@@ -37,7 +39,8 @@ or deploying. Main-branch runs publish after those checks pass. Images use
 `ghcr.io/ai20k-build-phase-cohort-4/p-044/<service>:<commit>-<run-id>`.
 Rerunning failed jobs keeps the same tag so images from successful matrix jobs
 remain available. Start a new workflow run for a new release; retain deployed
-image tags for rollback.
+image tags for rollback. Deployment uses the source CI run's commit and run ID,
+not the deployment workflow's own SHA or run ID.
 
 PostGIS uses the separately published `postgis:16-3.5-alpine` tag. It is not built
 by this workflow. Database tags remain mutable by choice: republishing PostGIS
@@ -90,7 +93,8 @@ variables later does not rename an existing database or rotate its password.
 ## Configure GitHub
 
 Configure these repository Actions settings before merging the workflow:
-successful `main` builds automatically run staging CD.
+successful `main` builds automatically trigger **Deploy staging** while that
+workflow is enabled.
 
 | Setting | Location | Value |
 | --- | --- | --- |
@@ -118,10 +122,11 @@ credential separately authorizes image pulls. Never place either in Compose.
 GitHub uses its built-in `GITHUB_TOKEN` for publishing.
 
 Complete the one-time resource setup, runtime variables and data preparation in
-Coolify before merging. Every successful main-branch run updates Compose and
-requests deployment, including manual **CI → Run workflow → main** runs.
-The `coolify-staging-<release-tag>` artifact contains `coolify-release.yaml` with
-release tags and runtime variable references, not secret values.
+Coolify before the first deployment. Successful main-branch **CI** runs trigger
+**Deploy staging**, including manual **CI → Run workflow → main** builds.
+The deployment run's `coolify-staging-<release-tag>` artifact contains
+`coolify-release.yaml` with release tags and runtime variable references, not
+secret values.
 
 ## Configure runtime values and data
 
@@ -218,9 +223,12 @@ changes.
 ## Automatic deployment
 
 Once the GitHub settings, Coolify resource, runtime values and data are ready,
-merge the workflow. The resulting main-branch run deploys after checks and all
-nine image pushes succeed. Subsequent pushes and manual CI runs on `main` use
-the same deployment flow.
+merge the workflows. **CI** tests, builds and publishes all nine application
+images. Its successful completion on `main` triggers **Deploy staging** through
+`workflow_run`. Failed CI runs and PR runs cannot deploy. The deploy workflow
+checks the source run's workflow, repository, branch, event and successful status
+before selecting its `<commit>-<ci-run-id>` image tag. It loads Compose from that
+exact commit while running deployment tooling from its own workflow revision.
 
 CD uses `POST /services/{uuid}/restart?latest=true` for both initial deployment
 and subsequent releases. Current Coolify pulls images, then recreates every
@@ -229,8 +237,18 @@ Compose does not force another pull during container creation. Expect staging
 downtime on every release;
 this is not a zero-downtime production rollout strategy.
 
-CD saves and verifies the full Compose definition, then checks required variable
-values and the AhaMove credential combination before restarting the Service.
+Before contacting Coolify, CD checks the registry manifest of every distinct
+image in the selected Compose definition using `docker manifest inspect`.
+Missing tags, registry authorization failures and inspection timeouts stop the
+job before changing the Service. It uses the job's `GITHUB_TOKEN` with
+`packages: read` for GHCR; this repository must have Actions pull access to each
+private package. The check does not pull layers, start containers or verify
+application health. Image retention and Coolify's own pull credentials still
+matter: availability can change after this check.
+
+CD then saves and verifies the full Compose definition and checks required
+variable values before restarting the Service. It validates the AhaMove credential
+combination only when a service in that definition uses AhaMove auth variables.
 AhaMove accepts a nonblank user token or both a nonblank API key and mobile
 number; the check uses resolved Coolify values and does not contact AhaMove.
 If a value is missing, the new definition
@@ -245,16 +263,65 @@ not automatically reported back to this GitHub job. Compose/Docker health checks
 remain enabled for every long-running service. The `web` check confirms the
 gateway's SQLite store is readable; it does not call other services.
 
-Submission jobs are serialized for staging. Immediately before updating Coolify,
-the job checks that the release commit still equals main's HEAD. Older runs are
-skipped; a failed branch lookup fails the job without changing Coolify. The
-concurrency lock is released after submission; it does not cover the subsequent rollout in Coolify.
+Automatic and manual submissions share one staging concurrency group with
+`queue: max` and `cancel-in-progress: false`. Up to 100 runs can wait; new arrivals
+do not replace a pending rollback. GitHub cancels additional runs if the queue
+is full. Queue order follows when runs start waiting, not commit order.
+
+During initial release selection, automatic runs check that the source CI commit
+equals main's current HEAD. Older automatic releases exit before checkout,
+fetching Compose or setting up Python. A failed branch lookup fails without
+changing Coolify. Manual submissions intentionally allow an older successful
+main CI release. The check is a snapshot at selection time, not a lock on main.
+The concurrency lock ends after submission and does not cover the subsequent
+rollout in Coolify.
 
 Before relying on automatic CD, verify these operations on the configured
 staging instance: first deployment, a second deployment over the
 running stack, and rollback using a retained Compose artifact. Check each
 rollout in Coolify. Unit tests cover API submission, not a live rollout.
 Also confirm that `curl -sk https://staging.c4-app-044.io.vn/health` and `/docs` return 418.
+
+## Pause, resume and deploy manually
+
+Once this workflow is merged into `main`, GitHub lists **CI** and **Deploy staging**
+separately under Actions. To pause new deployments:
+
+1. Open **Actions → Deploy staging → ⋯ → Disable workflow**.
+2. CI continues testing, building and publishing images.
+3. To resume, open the same workflow and select **Enable workflow**.
+
+The equivalent CLI commands, run from this repository, are:
+
+```sh
+gh workflow disable deploy-staging.yml
+gh workflow enable deploy-staging.yml
+```
+
+Disabling prevents new triggers; cancel any already queued or running deployment
+runs separately. If a restart was already submitted to Coolify, GitHub cannot
+undo it. Manage that rollout in Coolify.
+
+To deploy an existing release after resuming, or retry deployment without rebuilding:
+
+1. Find a successful **CI** run on `main`. Copy the numeric ID from its URL,
+   for example `123456789` from `/actions/runs/123456789`.
+2. Open **Actions → Deploy staging → Run workflow** and select branch **main**.
+3. Enter that ID as **ci_run_id** and run the workflow.
+
+```sh
+gh workflow run deploy-staging.yml --ref main -f ci_run_id=123456789
+```
+
+The ID must identify this repository's successful main **CI** run, not a deployment
+run or another workflow. All nine published images must still exist in GHCR.
+Re-enabling the workflow does not itself deploy releases built while it was
+paused; select a run manually or wait for a new successful main CI run.
+
+Manual selection can redeploy an older release and its original Compose file.
+New automatic releases can subsequently replace it; coordinate a rollback with
+incoming main builds. To hold an older release, disable the deployment workflow
+after its manual submission and check for already queued deployment runs.
 
 ## Infrastructure changes and rollback
 
@@ -268,8 +335,9 @@ Keep service and volume identities stable. A volume rename does not migrate its
 data. Server provisioning, DNS, host files, data relocation and PostgreSQL major
 upgrades require separate provisioning or migration work.
 
-To roll back, save a retained release's `coolify-release.yaml` to the same Service
-and deploy it. Retain its GHCR images and back up persistent volumes. Redeploying
+To roll back, manually run **Deploy staging** with a retained successful CI run
+ID, or save a retained `coolify-release.yaml` to the same Service and deploy it
+in Coolify. Retain its GHCR images and back up persistent volumes. Redeploying
 old images does not reverse schema migrations or restore old volume contents.
 
 The workflow automates staging only. Production will promote selected release

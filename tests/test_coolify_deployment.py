@@ -34,7 +34,7 @@ ENV = {"COOLIFY_URL": "https://coolify.example.test",
 
 
 class DeploymentTests(unittest.TestCase):
-    def invoke(self, responses, **settings):
+    def invoke(self, responses, image_error=None, compose_text=None, **settings):
         requests = []
 
         def respond(request, **kwargs):
@@ -46,10 +46,13 @@ class DeploymentTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "compose.yaml"
+            source = Path(directory) / "source.yaml"
+            source.write_text(compose_text if compose_text is not None else COMPOSE.read_text())
             with patch.dict(os.environ, ENV | settings, clear=True), \
                     patch.object(DEPLOY, "urlopen", side_effect=respond), \
+                    patch.object(DEPLOY.subprocess, "run", side_effect=image_error), \
                     patch("sys.stdout", new_callable=io.StringIO):
-                DEPLOY.deploy(COMPOSE, output)
+                DEPLOY.deploy(source, output)
         return requests
 
     @staticmethod
@@ -98,6 +101,39 @@ class DeploymentTests(unittest.TestCase):
         variables[-1].update(value="{{environment.AHAMOVE_USER_TOKEN}}", real_value="")
         with self.assertRaisesRegex(RuntimeError, "Set AHAMOVE_USER_TOKEN or both AHAMOVE_API_KEY"):
             self.invoke(iter([self.saved(), {}, self.saved(), variables]))
+
+    def test_missing_or_unreadable_image_stops_before_any_coolify_request(self):
+        for error in (subprocess.CalledProcessError(1, "docker", stderr=b"private-registry-response"),
+                      subprocess.TimeoutExpired("docker", 30), FileNotFoundError("docker")):
+            with self.subTest(error=type(error).__name__), self.assertRaisesRegex(RuntimeError, "Cannot read image manifest"):
+                self.invoke(iter([]), image_error=error)
+
+    def test_every_distinct_image_is_checked_before_coolify(self):
+        calls = []
+
+        def inspect(command, **kwargs):
+            calls.append((command, kwargs))
+
+        self.invoke(iter([self.saved(), {}, self.saved(), self.variables(), {}]), image_error=inspect)
+        self.assertEqual([command for command, _ in calls], [
+            ["docker", "manifest", "inspect", ENV["IMAGE_PREFIX"] + "/app:" + TAG],
+            ["docker", "manifest", "inspect", "postgres:16-bookworm"],
+        ])
+        self.assertTrue(all(kwargs["check"] and kwargs["timeout"] == 30 for _, kwargs in calls))
+
+    def test_older_compose_without_ahamove_does_not_require_its_credentials(self):
+        definition = yaml.safe_load(COMPOSE.read_text())
+        environment = definition["services"]["app"]["environment"]
+        for key in list(environment):
+            if key.startswith("AHAMOVE_"):
+                del environment[key]
+        # An unused extension must not impose credentials on the actual services.
+        definition["x-unused"] = {"AHAMOVE_USER_TOKEN": "${AHAMOVE_USER_TOKEN:-}"}
+        source = yaml.safe_dump(definition)
+        saved = {"docker_compose_raw": DEPLOY.render(source, ENV["IMAGE_PREFIX"], TAG)}
+        variables = [item for item in self.variables() if not item["key"].startswith("AHAMOVE_")]
+        requests = self.invoke(iter([saved, {}, saved, variables, {}]), compose_text=source)
+        self.assertTrue(requests[-1][0].full_url.endswith("/restart?latest=true"))
 
     def test_rejected_restart_request_fails_the_job(self):
         error = HTTPError("https://coolify.example.test", 503, "Unavailable", {}, io.BytesIO())
@@ -188,28 +224,98 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn(f"(`{path}`)", rule)
         self.assertIn("traefik.http.routers.p044-internal.service=noop@internal", labels)
 
-    def test_superseded_release_guard_and_lookup_failure(self):
-        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/ci.yml").read_text())
-        steps = workflow["jobs"]["deploy-staging"]["steps"]
-        guard = next(step["run"] for step in steps if step.get("id") == "current")
-        with tempfile.TemporaryDirectory() as directory:
-            directory = Path(directory)
-            git = directory / "git"
-            git.write_text('#!/bin/sh\n[ "$FAIL_LOOKUP" = true ] && exit 1\nprintf "%s\\trefs/heads/main\\n" "$REMOTE_SHA"\n')
-            git.chmod(0o755)
-            for head, fail, expected in ((SHA, "false", "true"), ("b" * 40, "false", "false"),
-                                         ("", "true", None), ("", "false", None)):
-                with self.subTest(head=head, fail=fail):
-                    output = directory / "output"
-                    output.write_text("")
-                    result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", guard],
-                                            env=os.environ | {"PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                                                              "GITHUB_SHA": SHA, "REMOTE_SHA": head,
-                                                              "FAIL_LOOKUP": fail, "GITHUB_OUTPUT": str(output)},
-                                            capture_output=True, text=True)
-                    if expected is None:
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertEqual(output.read_text(), "")
-                    else:
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertEqual(output.read_text(), f"deploy={expected}\n")
+
+
+class ReleaseSelectionTests(unittest.TestCase):
+    """Execute the workflow's selector against GitHub API responses without network access."""
+
+    @classmethod
+    def setUpClass(cls):
+        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-staging.yml").read_text())
+        cls.script = next(step["with"]["script"] for step in workflow["jobs"]["deploy-staging"]["steps"]
+                          if step.get("id") == "release")
+
+    def select(self, run_id="123", trigger="workflow_dispatch", main_sha=SHA, branch_error=False, **changes):
+        repository = "AI20K-Build-Phase-Cohort-4/P-044"
+        run = {"id": 123, "head_sha": SHA, "path": ".github/workflows/ci.yml",
+               "repository": {"full_name": repository}, "head_repository": {"full_name": repository},
+               "head_branch": "main", "event": "push", "status": "completed", "conclusion": "success"} | changes
+        harness = """
+            const fs = require('node:fs');
+            const {script, run, trigger, main_sha, branch_error} = JSON.parse(fs.readFileSync(0, 'utf8'));
+            const outputs = {}, requests = [];
+            const github = {rest: {actions: {getWorkflowRun: async args => {
+              requests.push(args); return {data: run};
+            }}, repos: {getBranch: async args => {
+              requests.push(args);
+              if (branch_error) throw new Error('Branch lookup failed');
+              return {data: {commit: {sha: main_sha}}};
+            }}}};
+            const context = {eventName: trigger, repo: {owner: 'AI20K-Build-Phase-Cohort-4', repo: 'P-044'}};
+            const core = {setOutput: (key, value) => outputs[key] = value, info: () => {}};
+            const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+            (async () => {
+              let error = null;
+              try { await new AsyncFunction('github', 'context', 'core', script)(github, context, core); }
+              catch (e) { error = e.message; }
+              process.stdout.write(JSON.stringify({outputs, requests, error}));
+            })();
+        """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": self.script, "run": run,
+                                                                                "trigger": trigger, "main_sha": main_sha,
+                                                                                "branch_error": branch_error}),
+                                env=os.environ | {"CI_RUN_ID": run_id}, text=True, capture_output=True, check=True)
+        return json.loads(result.stdout)
+
+    def test_selects_the_source_ci_tag_for_push_and_manual_ci(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event=event):
+                result = self.select(event=event)
+                self.assertIsNone(result["error"])
+                self.assertEqual(result["outputs"], {"deploy": "true", "sha": SHA, "tag": SHA + "-123"})
+                self.assertEqual(result["requests"][0]["run_id"], 123)
+
+    def test_rejects_unpublished_or_untrusted_runs(self):
+        for changes in ({"path": ".github/workflows/moving.yml"}, {"head_branch": "develop"},
+                        {"event": "pull_request"}, {"event": "pull_request_target"},
+                        {"status": "in_progress"}, {"conclusion": "failure"}, {"conclusion": "cancelled"},
+                        {"repository": {"full_name": "someone/P-044"}},
+                        {"head_repository": {"full_name": "someone/P-044"}},
+                        {"head_repository": None}, {"head_sha": "main"}):
+            with self.subTest(changes=changes):
+                result = self.select(**changes)
+                self.assertIn("successful, completed main CI run", result["error"])
+                self.assertEqual(result["outputs"], {})
+
+    def test_rejects_invalid_ids_before_api_access(self):
+        for run_id in ("", "0", "-1", "1.2", "123/attempts/1", "9007199254740992"):
+            with self.subTest(run_id=run_id):
+                result = self.select(run_id=run_id)
+                self.assertIn("numeric CI run ID", result["error"])
+                self.assertEqual(result["requests"], [])
+                self.assertEqual(result["outputs"], {})
+
+
+    def test_superseded_automatic_release_skips_before_setup(self):
+        result = self.select(trigger="workflow_run", main_sha="b" * 40)
+        self.assertIsNone(result["error"])
+        self.assertEqual(result["outputs"], {"deploy": "false"})
+
+    def test_current_automatic_release_can_deploy(self):
+        result = self.select(trigger="workflow_run")
+        self.assertIsNone(result["error"])
+        self.assertEqual(result["outputs"], {"deploy": "true", "sha": SHA, "tag": SHA + "-123"})
+        self.assertEqual(result["requests"][-1]["branch"], "main")
+
+    def test_automatic_branch_lookup_failure_stops_release(self):
+        for settings in ({"branch_error": True}, {"main_sha": ""}):
+            with self.subTest(settings=settings):
+                result = self.select(trigger="workflow_run", **settings)
+                self.assertIsNotNone(result["error"])
+                self.assertEqual(result["outputs"], {})
+
+    def test_manual_older_release_does_not_need_current_main(self):
+        result = self.select(main_sha="b" * 40, branch_error=True)
+        self.assertIsNone(result["error"])
+        self.assertEqual(result["outputs"]["deploy"], "true")
+        self.assertEqual(len(result["requests"]), 1)

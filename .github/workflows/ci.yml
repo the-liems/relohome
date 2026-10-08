@@ -31,11 +31,16 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - name: Set up Node.js for deployment selector tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Create job-local Python environment
         run: bash scripts/setup-ci-python.sh
 
       - name: Verify runner tools
-        run: bash scripts/check-ci-runner.sh python
+        run: bash scripts/check-ci-runner.sh python node
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -167,53 +172,3 @@ jobs:
         run: |
           if [ -n "${IMAGE:-}" ]; then docker image rm "$IMAGE" || true; fi
           if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi
-
-  deploy-staging:
-    name: Submit staging deployment
-    needs: application-images
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, team-44]
-    timeout-minutes: 10
-    concurrency:
-      group: coolify-staging
-      cancel-in-progress: false
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: bash scripts/setup-ci-python.sh
-      - run: pip install PyYAML==6.0.3
-      - name: Set release image prefix
-        run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-      - name: Skip superseded releases
-        id: current
-        run: |
-          head=$(git ls-remote --exit-code origin refs/heads/main | cut -f1)
-          if [ -z "$head" ]; then echo "Cannot determine main HEAD" >&2; exit 1; fi
-          if [ "$head" = "$GITHUB_SHA" ]; then
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping release: main has moved past $GITHUB_SHA"
-          fi
-      - name: Update Compose and submit deployment
-        if: steps.current.outputs.deploy == 'true'
-        run: python scripts/deploy-coolify.py --output coolify-release.yaml
-        env:
-          COOLIFY_URL: ${{ vars.COOLIFY_URL || 'https://coolify.c4-app-044.io.vn' }}
-          COOLIFY_SERVICE_UUID: ${{ vars.COOLIFY_SERVICE_UUID }}
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-          COOLIFY_CA_CERT: ${{ secrets.COOLIFY_CA_CERT }}
-      - name: Save the release Compose definition
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coolify-staging-${{ env.RELEASE_TAG }}
-          path: coolify-release.yaml
-          if-no-files-found: ignore
-      - name: Remove job-local Python environment
-        if: always()
-        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi

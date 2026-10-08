@@ -10,6 +10,7 @@ import json
 import os
 import re
 import ssl
+import subprocess
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -46,6 +47,13 @@ def deploy(compose_path, output):
     definition = yaml.safe_load(content)
     if not token:
         raise ValueError("Set the Coolify API token")
+    # Inspect registry metadata without pulling layers or changing the Coolify resource.
+    for image in sorted({service["image"] for service in definition["services"].values()}):
+        try:
+            subprocess.run(["docker", "manifest", "inspect", image], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            raise RuntimeError(f"Cannot read image manifest for {image}; check the tag and registry access") from None
     context = ssl.create_default_context()
     if os.environ.get("COOLIFY_CA_CERT"):
         context.load_verify_locations(cadata=os.environ["COOLIFY_CA_CERT"])
@@ -84,7 +92,11 @@ def deploy(compose_path, output):
     # Moving accepts either auth form; Compose cannot express this either/or requirement.
     user_token, api_key, mobile = ((values.get(key) or "").strip() for key in
                                    ("AHAMOVE_USER_TOKEN", "AHAMOVE_API_KEY", "AHAMOVE_MOBILE"))
-    if not user_token and not (api_key and mobile):
+    auth_keys = {"AHAMOVE_USER_TOKEN", "AHAMOVE_API_KEY", "AHAMOVE_MOBILE"}
+    uses_ahamove = any(key.split("=", 1)[0] in auth_keys
+                       for service in definition["services"].values()
+                       for key in (service.get("environment") or {}))
+    if uses_ahamove and not user_token and not (api_key and mobile):
         raise RuntimeError("Set AHAMOVE_USER_TOKEN or both AHAMOVE_API_KEY and AHAMOVE_MOBILE before deployment")
     # /start rejects running services; restart also handles the first deployment.
     request("/services/" + resource + "/restart?latest=true", "POST")
