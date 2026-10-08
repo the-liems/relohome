@@ -14,9 +14,11 @@ import { emptyCriteria, type City, type Criteria, type Page } from "./types";
 export function Discovery({
   initial,
   initialOffset = 0,
+  demoAvailable = false,
 }: {
   initial?: Criteria;
   initialOffset?: number;
+  demoAvailable?: boolean;
 }) {
   const stored = useResource<Criteria>(initial ? null : "/me/criteria");
   const [criteria, setCriteria] = useState(initial || emptyCriteria()),
@@ -25,14 +27,22 @@ export function Discovery({
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null);
   const request = useRef<AbortController | null>(null),
-    edited = useRef(false);
+    edited = useRef(false),
+    initialized = useRef(false);
+  useEffect(
+    () => () => {
+      initialized.current = false;
+      request.current?.abort();
+    },
+    [],
+  );
   useEffect(() => {
-    if (stored.value && !edited.current) setCriteria(stored.value);
-  }, [stored.value]);
-  useEffect(() => () => request.current?.abort(), []);
-  useEffect(() => {
-    if (initial) void search(initial, initialOffset);
-  }, [initial, initialOffset]);
+    if (initialized.current || (!initial && stored.loading)) return;
+    initialized.current = true;
+    const next = initial || (!edited.current && stored.value) || criteria;
+    setCriteria(next);
+    void search(next, initialOffset);
+  }, [initial, initialOffset, stored.loading, stored.value]);
   function change(next: Criteria) {
     edited.current = true;
     setCriteria(next);
@@ -65,6 +75,9 @@ export function Discovery({
       if (!controller.signal.aborted) setBusy(false);
     }
   }
+  const preferenceCount = Object.values(criteria.preferences).filter(
+    Boolean,
+  ).length;
   return (
     <div className="rm-discovery">
       <aside
@@ -82,8 +95,8 @@ export function Discovery({
           </h2>
           <p className="rm-hint">
             {rt(
-              "Chỉ cần chọn thành phố để tìm. Hai mục bên dưới là tùy chọn; bạn không cần đăng hồ sơ công khai.",
-              "Only a city is needed to search. The sections below are optional; no public profile is required.",
+              "Danh sách tự tải theo thành phố. Không cần điền hết thông tin hoặc đăng hồ sơ để xem.",
+              "Profiles load by city. No full form or public profile is needed to browse.",
             )}
           </p>
           <SelectField
@@ -91,8 +104,9 @@ export function Discovery({
             required
             value={criteria.city}
             choices={["hcm", "hanoi", "danang"].map((c) => [c, cityName(c)])}
-            change={(v) =>
-              change({
+            change={(v) => {
+              if (!v) return;
+              const next = {
                 ...criteria,
                 city: v as City,
                 self_facts: {
@@ -101,11 +115,23 @@ export function Discovery({
                   area_ids: [],
                 },
                 preferences: { ...criteria.preferences, areas: null },
-              })
-            }
+              };
+              change(next);
+              void search(next);
+            }}
           />
+          <div className="rm-quick-search">
+            <button className="primary full" disabled={busy || stored.loading}>
+              <Search size={17} aria-hidden="true" />
+              {busy
+                ? rt("Đang tìm…", "Searching…")
+                : rt("Tìm người phù hợp", "Find people")}
+            </button>
+          </div>
           <details className="rm-disclosure">
-            <summary>{rt("Thông tin của bạn", "About you")}</summary>
+            <summary>
+              {rt("Thông tin của bạn · tùy chọn", "About you · optional")}
+            </summary>
             <p className="rm-hint">
               {rt(
                 "Dùng để kiểm tra điều kiện hai chiều. Không đăng công khai.",
@@ -120,7 +146,8 @@ export function Discovery({
           </details>
           <details className="rm-disclosure">
             <summary>
-              {rt("Ưu tiên với người ở cùng", "Roommate preferences")}
+              {rt("Lọc nâng cao · tùy chọn", "Advanced filters · optional")}
+              {preferenceCount > 0 && ` (${preferenceCount})`}
             </summary>
             <PreferencesForm
               city={criteria.city}
@@ -128,14 +155,19 @@ export function Discovery({
               change={(preferences) => change({ ...criteria, preferences })}
             />
           </details>
-          <div className="rm-filter-footer">
-            <button className="primary full" disabled={busy || stored.loading}>
-              <Search size={17} aria-hidden="true" />
-              {busy
-                ? rt("Đang tìm…", "Searching…")
-                : rt("Tìm người phù hợp", "Find people")}
+          {preferenceCount > 0 && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                const next = { ...criteria, preferences: {} };
+                change(next);
+                void search(next);
+              }}
+            >
+              {rt("Bỏ bộ lọc nâng cao", "Clear advanced filters")}
             </button>
-          </div>
+          )}
         </form>
       </aside>
       <section
@@ -233,8 +265,8 @@ export function Discovery({
             text={
               result
                 ? rt(
-                    "Chưa có hồ sơ công khai còn hiệu lực đáp ứng tiêu chí. Dữ liệu nhà cho thuê không phải hồ sơ người ở ghép; hệ thống không tự tạo người giả. Bạn có thể đổi tiêu chí hoặc vào Hồ sơ của tôi để chủ động đăng nhu cầu.",
-                    "No active public profiles meet these criteria. Housing listings are not roommate profiles; we never generate people. Change criteria or publish your own needs from My profile.",
+                    "Chưa có hồ sơ thật công khai phù hợp tại đây. Thử thành phố khác, đổi bộ lọc hoặc chủ động đăng nhu cầu.",
+                    "No active real profiles match here. Try another city, change filters, or publish your own needs.",
                   )
                 : rt(
                     "Chọn tiêu chí và bấm tìm. Bạn không cần đăng hồ sơ công khai để xem kết quả.",
@@ -242,6 +274,21 @@ export function Discovery({
                   )
             }
           />
+        )}
+        {result?.total === 0 && (
+          <div className="rm-empty-actions">
+            {demoAvailable && (
+              <Link className="secondary" to="/roommate?tab=demo">
+                {rt(
+                  "Xem hồ sơ DEMO (không kết nối)",
+                  "Explore DEMO profiles (no connections)",
+                )}
+              </Link>
+            )}
+            <Link className="text-button" to="/roommate?tab=profile">
+              {rt("Đăng nhu cầu của tôi", "Publish my needs")}
+            </Link>
+          </div>
         )}
         {searched && result && <SaveCriteria criteria={searched} />}
       </section>

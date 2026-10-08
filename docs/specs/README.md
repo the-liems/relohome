@@ -16,6 +16,7 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
 | SPEC | Status | Scope |
 |---|---|---|
+| [SPEC-020 — Housing controls and Roommate discovery](SPEC-020-housing-controls-roommate-discovery.md) | Draft | Explicit comparison, consented device directions and clearer separate real/DEMO discovery |
 | [SPEC-016 — Interactive housing search](SPEC-016-housing-search.md) | Draft; desktop list/map and automatic viewport search confirmed | Housing interaction, custom requirements, explicit home choice, and current implementation gaps |
 | [SPEC-008 — Domain MCP tool catalogue](SPEC-008-service-tools.md) | Draft | Proposed tool inputs/outputs, booking lifecycles, approval, and recovery |
 | [SPEC-015 — Maps and location experience](SPEC-015-maps-and-location-experience.md) | Draft | Customer flow, geographic evidence, cross-service selection rules, and acceptance criteria |

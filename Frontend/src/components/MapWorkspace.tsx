@@ -8,7 +8,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
+  GitCompareArrows,
   Heart,
   House as HouseIcon,
   Layers,
@@ -33,7 +33,6 @@ import {
 import {
   MAP_WORKSPACE,
   SORTS,
-  directionsUrl,
   formatAddress,
   listMode,
   mapRequest,
@@ -53,7 +52,13 @@ import {
   registerMapImages,
   tuneBasemap,
 } from "../mapStyle";
-import { HouseImage, amenities as AMENITY_LABELS } from "./Housing";
+import { HouseImage, Comparison, amenities as AMENITY_LABELS } from "./Housing";
+import { HousingDirections } from "./HousingDirections";
+import {
+  MAX_COMPARISON_HOMES,
+  toggleComparison,
+  validCoordinates,
+} from "../housingInteraction";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
 import { ContentSkeleton } from "./UiStates";
 import { roommate } from "../roommate/client";
@@ -144,6 +149,9 @@ export function MapWorkspace({
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [includeDemo, setIncludeDemo] = useState(false);
   const [roomMapError, setRoomMapError] = useState("");
+  const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [directions, setDirections] = useState<House | null>(null);
   useEffect(() => {
     const abort = new AbortController();
     roommate<Availability>("/availability", "GET", undefined, abort.signal)
@@ -256,8 +264,7 @@ export function MapWorkspace({
   }, [focus?.key, ready]);
 
   useEffect(() => {
-    let disposed = false,
-      resize: ResizeObserver | undefined;
+    let disposed = false;
     import("maplibre-gl")
       .then(({ Map, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
@@ -274,8 +281,8 @@ export function MapWorkspace({
         m.on("style.load", () => tuneBasemap(m));
         installMapScope(m, city);
         if (box) fitMapBox(m, box, { padding: 48, duration: 0 });
-        resize = new ResizeObserver(() => m.resize());
-        resize.observe(container.current);
+        // installMapScope already owns the guarded ResizeObserver. Redundant
+        // resize() calls can interrupt camera movement as the sidebar changes.
         m.addControl(
           new NavigationControl({ showCompass: false }),
           "bottom-left",
@@ -491,7 +498,6 @@ export function MapWorkspace({
       .catch(() => setMapError("Không tải được bản đồ. Hãy thử lại."));
     return () => {
       disposed = true;
-      resize?.disconnect();
       map.current?.remove();
       map.current = null;
       setReady(false);
@@ -786,6 +792,40 @@ export function MapWorkspace({
       )}
     </button>
   );
+  const compareButton = (h: House) => {
+    const checked = comparisonHomes.some((home) => home.id === h.id);
+    return (
+      <button
+        type="button"
+        className={"ws-compare-toggle " + (checked ? "active" : "")}
+        aria-pressed={checked}
+        aria-label={formatUi("{0}: {1}", [
+          checked ? uiText("Bỏ so sánh") : uiText("Thêm so sánh"),
+          h.title,
+        ])}
+        disabled={!checked && comparisonHomes.length >= MAX_COMPARISON_HOMES}
+        onClick={() =>
+          setComparisonHomes((homes) => toggleComparison(homes, h))
+        }
+      >
+        {checked ? <Check size={15} /> : <GitCompareArrows size={15} />}
+        {checked ? uiText("Đã thêm") : uiText("So sánh")}
+      </button>
+    );
+  };
+  const directionsButton = (h: House, iconOnly = false) => (
+    <button
+      type="button"
+      className={iconOnly ? "icon-button outlined ws-dir" : "secondary"}
+      disabled={!validCoordinates(h.lat, h.lng)}
+      onClick={() => setDirections(h)}
+      aria-label={uiText("Chỉ đường từ vị trí của bạn")}
+      title={uiText("Chỉ đường từ vị trí của bạn")}
+    >
+      <Navigation size={15} />
+      {!iconOnly && uiText("Chỉ đường")}
+    </button>
+  );
   return (
     <div className={"map-workspace " + (listOpen ? "" : "list-closed")}>
       <aside
@@ -921,19 +961,9 @@ export function MapWorkspace({
                   </p>
                   <div className="ws-card-actions">
                     {selectButton(h)}
-                    {directionsUrl(h) && (
-                      <a
-                        className="icon-button outlined ws-dir"
-                        href={directionsUrl(h)}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={uiText(" Chỉ đường")}
-                        title={uiText(" Chỉ đường")}
-                      >
-                        <Navigation size={14} />
-                      </a>
-                    )}
+                    {directionsButton(h, true)}
                   </div>
+                  {compareButton(h)}
                 </div>
               </article>
             ))}
@@ -962,6 +992,53 @@ export function MapWorkspace({
               </p>
             ))}
         </div>
+        {comparisonHomes.length > 0 && (
+          <section
+            className="ws-comparison-tray"
+            aria-label={uiText("Các căn đang so sánh")}
+          >
+            <div className="ws-comparison-heading">
+              <strong>
+                <GitCompareArrows size={16} />
+                {comparisonHomes.length}/4 {uiText("căn")}
+              </strong>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setComparisonHomes([])}
+              >
+                {uiText("Bỏ tất cả")}
+              </button>
+            </div>
+            <ul>
+              {comparisonHomes.map((h) => (
+                <li key={h.id}>
+                  <span title={h.title}>{h.title}</span>
+                  <button
+                    className="icon-button"
+                    aria-label={formatUi("Bỏ so sánh: {0}", [h.title])}
+                    onClick={() =>
+                      setComparisonHomes((homes) =>
+                        homes.filter((home) => home.id !== h.id),
+                      )
+                    }
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              className="primary full"
+              disabled={comparisonHomes.length < 2}
+              onClick={() => setComparing(true)}
+            >
+              {comparisonHomes.length < 2
+                ? uiText("Chọn thêm một căn để so sánh")
+                : formatUi("So sánh {0} căn", [comparisonHomes.length])}
+            </button>
+          </section>
+        )}
         <p className="ws-list-foot muted small">
           {uiText(
             "Dữ liệu theo vùng bản đồ hiện tại, không phải toàn thị trường.",
@@ -1295,32 +1372,28 @@ export function MapWorkspace({
             )}
           </div>
           <div className="ws-detail-actions">
-            {directionsUrl(detail) && (
-              <a
-                className="secondary"
-                href={directionsUrl(detail)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Navigation size={15} />
-                {uiText(" Chỉ đường")}
-              </a>
-            )}
+            {directionsButton(detail)}
             {selectButton(detail, true)}
-            {safeUrl(detail.source?.source_url || detail.source_url) && (
-              <a
-                className="icon-button outlined"
-                href={detail.source?.source_url || detail.source_url}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={uiText("Xem tin gốc")}
-                title={uiText("Xem tin gốc")}
-              >
-                <ExternalLink size={16} />
-              </a>
-            )}
+            {compareButton(detail)}
           </div>
         </aside>
+      )}
+      {comparing && (
+        <Comparison
+          houses={comparisonHomes}
+          refresh
+          onClose={() => setComparing(false)}
+          onOpen={(h) => {
+            setComparing(false);
+            void openDetail(h);
+          }}
+        />
+      )}
+      {directions && (
+        <HousingDirections
+          house={directions}
+          onClose={() => setDirections(null)}
+        />
       )}
     </div>
   );

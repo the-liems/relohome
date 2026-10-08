@@ -21,6 +21,7 @@ import { HousingCard, Comparison } from "./Housing";
 import { MapPanel } from "./MapPanel";
 import { Dialog } from "./Dialog";
 import { priceExpired, usePriceExpiry } from "../priceExpiry";
+import { MAX_COMPARISON_HOMES } from "../housingInteraction";
 import { RoommateResult } from "../roommate/RoommateResult";
 
 export interface ResultProps {
@@ -44,9 +45,13 @@ export function Results(props: ResultProps) {
   const components = props.payload.ui?.components || [];
   return (
     <>
-      {components.map((c) => (
-        c.type === "roommate" ? <RoommateResult key={c.id} data={c.data || {}} /> : <Result key={c.id} c={c} {...props} />
-      ))}
+      {components.map((c) =>
+        c.type === "roommate" ? (
+          <RoommateResult key={c.id} data={c.data || {}} />
+        ) : (
+          <Result key={c.id} c={c} {...props} />
+        ),
+      )}
     </>
   );
 }
@@ -199,7 +204,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                         setCompare((old) =>
                           old.includes(h.id)
                             ? old.filter((x) => x !== h.id)
-                            : old.length < 3
+                            : old.length < MAX_COMPARISON_HOMES
                               ? [...old, h.id]
                               : old,
                         )

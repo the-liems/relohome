@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { roommate } from "./client";
 import { ProfileSummary, CompatibilityReasons } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
-import { cityName } from "./text";
+import { cityName, rt } from "./text";
+import { Link } from "react-router-dom";
 import { emptyCriteria, type City, type Page } from "./types";
 
 type DemoPage = Page & {
@@ -45,14 +46,20 @@ export function DemoDiscovery() {
   }, [city, offset]);
   return (
     <section className="rm-results">
-      <h2>Hồ sơ DEMO — không phải người thật</h2>
+      <h2>
+        {rt(
+          "Hồ sơ DEMO — không phải người thật",
+          "DEMO profiles — not real people",
+        )}
+      </h2>
       <p className="rm-hint">
-        Dữ liệu tách riêng khỏi hồ sơ thật. Không thể kết nối hay lấy liên hệ.
-        Những phòng gắn với người DEMO chỉ là minh họa, không chứng minh có
-        người đang ở đó. Ngân sách và thông tin sinh hoạt cũng là giả lập.
+        {rt(
+          "Dữ liệu thử tách riêng, không thể kết nối hoặc lấy liên hệ. Phòng liên kết chỉ để minh họa bản đồ, không xác nhận người đang ở đó.",
+          "Separate sample profiles: no connections or contacts. Linked rooms only illustrate the map, not actual occupancy.",
+        )}
       </p>
       <label>
-        Thành phố{" "}
+        {rt("Thành phố", "City")}{" "}
         <select
           value={city}
           onChange={(e) => {
@@ -88,6 +95,17 @@ export function DemoDiscovery() {
               </li>
             ))}
           </ul>
+          {page?.total === 0 && (
+            <p className="notice">
+              {rt(
+                "Chưa có hồ sơ DEMO phù hợp/còn hiệu lực tại thành phố này. Kiểm tra file dữ liệu được cấu hình; không tự sinh người thay thế.",
+                "No valid DEMO profiles in this city. Check the configured dataset; profiles are never fabricated as a fallback.",
+              )}
+            </p>
+          )}
+          <Link className="text-button" to="/roommate">
+            {rt("Về hồ sơ thật", "Back to real profiles")}
+          </Link>
           <nav className="rm-pagination" aria-label="Phân trang DEMO">
             <button
               disabled={offset === 0}

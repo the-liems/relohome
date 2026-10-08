@@ -95,30 +95,42 @@ export function PreferencesForm({
           change={(v) => set("move_in", v)}
         />
       </Strength>
-      {enums.map(([key, label, kind]) => (
-        <Strength key={key} value={value[key]} change={(v) => strength(key, v)}>
-          <SelectField
-            label={label}
-            value={value[key]?.value == null ? "" : String(value[key]?.value)}
-            choices={options(kind)}
-            change={(v) =>
-              set(
-                key,
-                v === "" ? null : key === "pets_allowed" ? v === "true" : v,
-              )
-            }
+      <details className="rm-disclosure">
+        <summary>
+          {rt(
+            "Sinh hoạt và thói quen · tùy chọn",
+            "Lifestyle preferences · optional",
+          )}
+        </summary>
+        {enums.map(([key, label, kind]) => (
+          <Strength
+            key={key}
+            value={value[key]}
+            change={(v) => strength(key, v)}
+          >
+            <SelectField
+              label={label}
+              value={value[key]?.value == null ? "" : String(value[key]?.value)}
+              choices={options(kind)}
+              change={(v) =>
+                set(
+                  key,
+                  v === "" ? null : key === "pets_allowed" ? v === "true" : v,
+                )
+              }
+            />
+          </Strength>
+        ))}
+        <Strength
+          value={value.quiet_hours}
+          change={(v) => strength("quiet_hours", v)}
+        >
+          <QuietFields
+            value={value.quiet_hours?.value}
+            change={(v) => set("quiet_hours", v)}
           />
         </Strength>
-      ))}
-      <Strength
-        value={value.quiet_hours}
-        change={(v) => strength("quiet_hours", v)}
-      >
-        <QuietFields
-          value={value.quiet_hours?.value}
-          change={(v) => set("quiet_hours", v)}
-        />
-      </Strength>
+      </details>
     </div>
   );
 }

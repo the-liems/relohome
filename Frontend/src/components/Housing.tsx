@@ -308,11 +308,46 @@ export function Comparison({
   houses,
   onClose,
   onOpen,
+  refresh = false,
 }: {
   houses: House[];
   onClose: () => void;
   onOpen: (h: House) => void;
+  refresh?: boolean;
 }) {
+  const [loaded, setLoaded] = useState(houses);
+  const [loading, setLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState<string[]>([]);
+  const ids = houses.map((h) => h.id).join("|");
+  useEffect(() => {
+    const abort = new AbortController();
+    setLoaded(houses);
+    setUnavailable([]);
+    if (!refresh) return;
+    setLoading(true);
+    // Independent read-only detail requests; no Intake/Planner or selection call.
+    Promise.all(
+      houses.map(async (h) => {
+        try {
+          const detail = await api<House>(
+            "/housing/" + encodeURIComponent(h.id),
+            "GET",
+            undefined,
+            AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]),
+          );
+          return { house: { ...h, ...detail }, failed: false };
+        } catch {
+          return { house: h, failed: true };
+        }
+      }),
+    ).then((results) => {
+      if (abort.signal.aborted) return;
+      setLoaded(results.map((r) => r.house));
+      setUnavailable(results.filter((r) => r.failed).map((r) => r.house.id));
+      setLoading(false);
+    });
+    return () => abort.abort();
+  }, [ids, refresh]);
   return (
     <Dialog title={uiText("So sánh các căn đã chọn")} wide onClose={onClose}>
       <p className="muted">
@@ -321,12 +356,22 @@ export function Comparison({
           " Thông tin từ những kết quả đã tải. Giá và tình trạng trống cần được xác minh với nguồn tin.",
         )}
       </p>
+      {loading && (
+        <p role="status">{uiText("Đang đọc lại chi tiết các căn…")}</p>
+      )}
+      {unavailable.length > 0 && (
+        <p className="notice amber" role="alert">
+          {uiText(
+            "Một số tin chưa đọc lại được; bảng đang giữ dữ liệu đã tải, không coi đó là dữ liệu mới xác minh.",
+          )}
+        </p>
+      )}
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
               <th scope="col">{uiText("Tiêu chí")}</th>
-              {houses.map((h) => (
+              {loaded.map((h) => (
                 <th scope="col" key={h.id}>
                   {h.title}
                 </th>
@@ -342,6 +387,8 @@ export function Comparison({
                   h.area_m2 != null ? h.area_m2 + " m²" : "Chưa có dữ liệu",
               ],
               ["Phòng ngủ", (h: House) => h.bedrooms ?? "Chưa có dữ liệu"],
+              ["Phòng tắm", (h: House) => h.bathrooms ?? "Chưa có dữ liệu"],
+              ["Địa chỉ", (h: House) => h.address || "Chưa có dữ liệu"],
               [
                 "Tiền cọc",
                 (h: House) =>
@@ -366,8 +413,10 @@ export function Comparison({
             ].map(([label, fn]) => (
               <tr key={String(label)}>
                 <th scope="row">{uiText(String(label))}</th>
-                {houses.map((h) => (
-                  <td key={h.id}>{(fn as (h: House) => string)(h)}</td>
+                {loaded.map((h) => (
+                  <td key={h.id}>
+                    {uiText(String((fn as (h: House) => unknown)(h)))}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -376,7 +425,7 @@ export function Comparison({
                 <span className="sr-only">{uiText("Thao tác")}</span>
               </th>
               <>
-                {houses.map((h) => (
+                {loaded.map((h) => (
                   <td key={h.id}>
                     <button className="secondary" onClick={() => onOpen(h)}>
                       {uiText("Xem chi tiết ")}
@@ -388,6 +437,11 @@ export function Comparison({
           </tbody>
         </table>
       </div>
+      <p className="notice small">
+        {uiText(
+          "Thiếu thông tin không có nghĩa là miễn phí. So sánh không thay căn đã chọn và không đặt/thuê nhà.",
+        )}
+      </p>
     </Dialog>
   );
 }

@@ -181,24 +181,30 @@ export function FactsForm({
           />
         )}
       </div>
-      <AreaFields
-        city={fixedCity || value.city}
-        value={value.area_ids}
-        change={(area_ids) =>
-          change({ ...value, city: fixedCity || value.city, area_ids })
-        }
-        required={required}
-      />
-      <BudgetFields
-        value={value.budget}
-        change={(budget) => change({ ...value, budget })}
-        required={required}
-      />
-      <MoveInFields
-        value={value.move_in}
-        change={(move_in) => change({ ...value, move_in })}
-        required={required}
-      />
+      <fieldset className="rm-form-group">
+        <legend>{rt("Khu vực và ngân sách", "Area and budget")}</legend>
+        <AreaFields
+          city={fixedCity || value.city}
+          value={value.area_ids}
+          change={(area_ids) =>
+            change({ ...value, city: fixedCity || value.city, area_ids })
+          }
+          required={required}
+        />
+        <BudgetFields
+          value={value.budget}
+          change={(budget) => change({ ...value, budget })}
+          required={required}
+        />
+      </fieldset>
+      <fieldset className="rm-form-group">
+        <legend>{rt("Thời điểm vào ở", "Move-in timing")}</legend>
+        <MoveInFields
+          value={value.move_in}
+          change={(move_in) => change({ ...value, move_in })}
+          required={required}
+        />
+      </fieldset>
       <details className="rm-disclosure">
         <summary>
           {rt(
