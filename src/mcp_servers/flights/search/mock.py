@@ -60,8 +60,80 @@ class MockFlightSearch:
     def __init__(self, settings: FlightSettings, clock: Callable[[], datetime] = now_vn) -> None:
         self._offer_ttl = timedelta(minutes=settings.offer_ttl_minutes)
         self._clock = clock
+        self._tokens: dict[str, str] = {}
 
     async def search(self, request: FlightSearchRequest) -> list[FlightOffer]:
+        one_way = self._one_way(request.model_copy(update={"trip_type": "one_way", "return_date": None}))
+        if request.trip_type != "round_trip":
+            return one_way
+        returns = self._one_way(self._reverse(request))
+        if not returns:
+            return []
+        cheapest_return = min(o.total_price for o in returns)
+        outbound = []
+        for o in one_way:
+            offer = o.model_copy(
+                update={
+                    "offer_id": "off_mock_rto_" + o.offer_id.removeprefix("off_mock_"),
+                    "kind": "round_trip_outbound",
+                    "price_scope": "round_trip_from",
+                    "total_price": o.total_price + cheapest_return,
+                    "price_per_adult": None,
+                }
+            )
+            self._tokens[offer.offer_id] = "mock:" + o.offer_id
+            outbound.append(offer)
+        return outbound
+
+    def return_token(self, offer_id: str) -> str | None:
+        return self._tokens.get(offer_id)
+
+    async def search_returns(
+        self, outbound: FlightOffer, token: str, request: FlightSearchRequest
+    ) -> list[FlightOffer]:
+        """Mock: giá hành trình = giá một chiều đi + giá một chiều về (dữ liệu giả lập, không phải giá thật)."""
+        base = token.removeprefix("mock:")
+        going = next(
+            (
+                o
+                for o in self._one_way(request.model_copy(update={"trip_type": "one_way", "return_date": None}))
+                if o.offer_id == base
+            ),
+            None,
+        )
+        if going is None:
+            return []
+        return [
+            FlightOffer(
+                offer_id=make_offer_id("off_mock_rt", outbound.offer_id, back.offer_id),
+                source="mock",
+                segments=outbound.segments,
+                return_segments=back.segments,
+                stops=0,
+                total_duration_minutes=outbound.total_duration_minutes + back.total_duration_minutes,
+                cabin_class=outbound.cabin_class,
+                passengers=outbound.passengers,
+                total_price=going.total_price + back.total_price,
+                expires_at=min(outbound.expires_at, back.expires_at),
+                kind="round_trip",
+                price_scope="round_trip",
+            )
+            for back in self._one_way(self._reverse(request))
+        ]
+
+    @staticmethod
+    def _reverse(request: FlightSearchRequest) -> FlightSearchRequest:
+        return request.model_copy(
+            update={
+                "origin": request.destination,
+                "destination": request.origin,
+                "departure_date": request.return_date,
+                "trip_type": "one_way",
+                "return_date": None,
+            }
+        )
+
+    def _one_way(self, request: FlightSearchRequest) -> list[FlightOffer]:
         route = frozenset((request.origin, request.destination))
         if not route & HUBS:
             return []

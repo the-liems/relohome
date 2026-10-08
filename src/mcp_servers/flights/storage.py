@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS bookings (
     data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_dedupe ON bookings (dedupe_key, status);
+CREATE TABLE IF NOT EXISTS offer_tokens (
+    offer_id TEXT PRIMARY KEY,
+    token TEXT NOT NULL,
+    request TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
 """
 
 
@@ -68,6 +74,23 @@ class OfferCache:
         with self._db.conn as conn:
             conn.execute("DELETE FROM offers WHERE expires_at < ?", (self._clock().isoformat(),))
             conn.executemany("INSERT OR REPLACE INTO offers VALUES (?, ?, ?)", rows)
+
+    def put_return_token(self, offer: FlightOffer, token: str, request_json: str) -> None:
+        """Mã lấy chiều về của một chuyến đi khứ hồi; chỉ server giữ, không trả cho client."""
+        with self._db.conn as conn:
+            conn.execute("DELETE FROM offer_tokens WHERE expires_at < ?", (self._clock().isoformat(),))
+            conn.execute(
+                "INSERT OR REPLACE INTO offer_tokens VALUES (?, ?, ?, ?)",
+                (offer.offer_id, token, request_json, offer.expires_at.isoformat()),
+            )
+
+    def get_return_token(self, offer_id: str) -> tuple[str, str]:
+        row = self._db.conn.execute(
+            "SELECT token, request FROM offer_tokens WHERE offer_id = ?", (offer_id,)
+        ).fetchone()
+        if row is None:
+            raise OfferNotFoundError(f"Offer '{offer_id}' không có chiều về. Hãy tìm vé khứ hồi lại.")
+        return row[0], row[1]
 
     def get(self, offer_id: str) -> FlightOffer:
         row = self._db.conn.execute("SELECT data FROM offers WHERE offer_id = ?", (offer_id,)).fetchone()

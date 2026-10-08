@@ -40,7 +40,9 @@ def validate_passengers(offer: FlightOffer, passengers: list[Passenger]) -> None
             )
 
 
-def _dedupe_key(offer_id: str, passengers: list[Passenger]) -> str:
+def _dedupe_key(offer_id: str, passengers: list[Passenger], passenger_ref: str | None = None) -> str:
+    if passenger_ref:
+        return hashlib.sha256(f"{offer_id}#ref:{passenger_ref}".encode()).hexdigest()
     names = sorted(f"{p.last_name}|{p.first_name}|{p.date_of_birth}" for p in passengers)
     return hashlib.sha256("#".join([offer_id, *names]).encode()).hexdigest()
 
@@ -60,18 +62,22 @@ class BookingEngine:
     def hold(self, offer: FlightOffer, request: HoldBookingRequest) -> Booking:
         """Tạo booking HELD. Gọi lại với cùng offer và hành khách sẽ trả booking cũ (không giữ chỗ trùng)."""
         validate_passengers(offer, request.passengers)
-        dedupe_key = _dedupe_key(offer.offer_id, request.passengers)
+        dedupe_key = _dedupe_key(offer.offer_id, request.passengers, request.passenger_ref)
         existing = self._find_active_hold(dedupe_key)
         if existing is not None:
             return existing
         now = self._clock()
+        # Có passenger_ref: chỉ kiểm hành khách trong bộ nhớ rồi bỏ; booking lưu tham chiếu, không lưu tên/liên hệ.
+        anonymous = bool(request.passenger_ref)
         booking = Booking(
             booking_id=f"bk_{secrets.token_hex(6)}",
             pnr=self._new_pnr(),
             status="HELD",
             offer=offer,
-            passengers=request.passengers,
-            contact=request.contact,
+            passengers=[] if anonymous else request.passengers,
+            contact=None if anonymous else request.contact,
+            passenger_ref=request.passenger_ref,
+            passenger_counts=offer.passengers,
             total_price=offer.total_price,
             currency=offer.currency,
             hold_expires_at=now + self._hold,
@@ -96,7 +102,8 @@ class BookingEngine:
                 "Hãy tìm chuyến và giữ chỗ lại."
             )
         prefix = self._ticket_prefix(booking)
-        tickets = [f"{prefix}-{secrets.randbelow(10**10):010d}" for _ in booking.passengers]
+        count = len(booking.passengers) or (booking.passenger_counts.total if booking.passenger_counts else 0)
+        tickets = [f"{prefix}-{secrets.randbelow(10**10):010d}" for _ in range(count)]
         updated = booking.model_copy(
             update={
                 "status": "TICKETED",
@@ -176,7 +183,8 @@ class BookingEngine:
         rules = fare_rules_for(booking.offer.segments[0].airline_code, booking.offer.cabin_class)
         if not rules.refundable or rules.cancel_fee is None:
             return booking.total_price, 0, "Hạng vé không hoàn tiền."
-        fee = min(booking.total_price, rules.cancel_fee * len(booking.passengers))
+        count = len(booking.passengers) or (booking.passenger_counts.total if booking.passenger_counts else 1)
+        fee = min(booking.total_price, rules.cancel_fee * count)
         return fee, booking.total_price - fee, f"Phí hủy {rules.cancel_fee:,} VND/khách."
 
     @staticmethod
