@@ -2,7 +2,8 @@
 
 Owner: Khoa. Issue: [#75](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/75).
 Yêu cầu: [SPEC-019 (Draft)](../specs/SPEC-019-housing-comparison-isolation.md).
-PR nối tiếp PR #74, không bao gồm ancestry riêng của nhánh integration local.
+[PR #76](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/76) nối tiếp PR #74,
+không bao gồm ancestry riêng của nhánh integration local.
 Không tự merge/deploy; review bởi Housing/Maps/UI và graph/backend.
 
 ## Lỗi gốc, không chỉ presentation
