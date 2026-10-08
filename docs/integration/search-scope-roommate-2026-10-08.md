@@ -1,6 +1,7 @@
 # Bàn giao — search scope, luồng dịch vụ và Roommate DEMO (08/10/2026)
 
 Issue: [#73](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/73).
+PR: [#74](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/74) (Draft, chờ review/dependency).
 Requirements: [SPEC-018](../specs/SPEC-018-search-scope-and-roommate-map.md), Draft.
 PR nối tiếp trên `fix/70-workspace-repairs` (#71); #71 đang dựa trên QuangDung.
 #42 chưa merge tại lúc kiểm tra; không đổi base sang main trước khi dependency sẵn sàng.
