@@ -1,6 +1,10 @@
 # SPEC-017 — Travel and flight booking
 
 - Status: Draft
+- Update 2026-10-09: an in-app checkout demo (simulated hold and ticket, ZaloPay
+  sandbox payment) is implemented behind `APP_PAYMENT_DEMO_ENABLED` per
+  [payment design](../review/payment-design.md); see *Simulated booking path* below.
+  Search stays live through SerpApi. Real ticketing remains unavailable.
 - Owner: unassigned; ownership to be agreed in #32
 - Reviewers: Flight/Travel, AI system, frontend/UX, Payment, Moving, security
 - Requirements review: [#32](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/32)
@@ -38,6 +42,34 @@ the draft requirements are based.
 | Domain agent | [SPEC-014](SPEC-014-domain-llm-agents.md) and [domain tools](../../src/agents/subagents/services/domain_tools.py) define grounded search and offer inspection. Static fare rules are not verified provider facts. [Application wiring](../../src/agents/wiring.py) removes flight commit capabilities and rejects simulated transactions. |
 | Standalone Flight MCP | The [service documentation](../../src/mcp_servers/flights/README.md) defines domestic one-way search, passenger validation, and a simulated hold → ticket → cancellation lifecycle. [Server registration](../../src/mcp_servers/flights/server.py) exposes booking/status/cancellation tools only when `FLIGHT_SIMULATION_ENABLED` is explicitly enabled; it defaults to false. It cannot issue real tickets; catalog baggage/change/cancellation terms are sample data. |
 | Transaction adapter | [McpTransaction](../../src/services/adapters/commit.py) contains hold → payment → issuance and cancellation logic. Its `_holds` and `_receipts` caches are process-local dictionaries; the adapter alone does not preserve their hold/payment linkage across restart. Paid-but-failed issuance raises an uncertain outcome requiring manual refund follow-up. Its existence does not establish an enabled application booking flow, durable recovery, or a completed provider payment/ticket lifecycle. |
+
+### Simulated booking path (update 2026-10-09)
+
+The table above was reviewed against `main` at `1a4ca11`. Since then the
+[payment design](../review/payment-design.md) has been implemented on the
+integration branch (PR #69, #80). With `APP_PAYMENT_DEMO_ENABLED` and
+`FLIGHT_SIMULATION_ENABLED`:
+
+- Each service is its own transaction. The customer opens a payment summary from
+  the UI (not from a chat approval), confirms it, and pays a ZaloPay **sandbox**
+  order. The summary shows the reference price and the time it was captured;
+  prices are not re-verified with an airline.
+- Flight checkout re-reads the stored offer, places a simulated 15-minute hold,
+  creates the sandbox order (15-minute expiry) and, once paid, a durable
+  fulfilment job issues a simulated ticket at most once. Hold, payment and ticket
+  are shown as separate states and labeled simulated (AC-18).
+- **Round trip** uses SerpApi's round-trip mode as one flight task
+  (`trip_type=round_trip`, `return_date`). Outbound prices are the cheapest round
+  trip that includes that outbound flight (`price_scope=round_trip_from`) and
+  cannot be paid. Choosing an outbound flight is a typed UI action that loads the
+  return flights for it (`search_return_flights`, no LLM call); each return option
+  is an itinerary whose price is the provider's total (`price_scope=round_trip`).
+  The application never sums or splits leg prices.
+- Domestic only: no ID card or passport, checked baggage or seat selection. The
+  booker comes from an encrypted account profile; companions are entered in the
+  payment form.
+
+Without the flag the application keeps the unavailable-booking behavior of AC-08.
 
 Domestic flights, passenger schemas, simulated holds, and cancellation preview
 already have service contracts. Review must decide their use in the application
@@ -160,7 +192,8 @@ charge; check both states and apply the agreed recovery path.
 Rail, bus, international/multi-city search, airport-transfer booking, seat
 selection, ancillary purchases, and ticket modification require explicit review.
 A round trip is not an atomic booking contract merely because two one-way
-searches are possible. Production ticket issuance and payment require provider
+searches are possible; the demo books it only as one provider itinerary offer
+(see *Simulated booking path*). Production ticket issuance and payment require provider
 capability evidence and approved integration decisions. This spec does not enable
 simulated transactions in the current application.
 
@@ -183,11 +216,11 @@ defines the current unavailable-booking behavior.
 | SPEC-017/AC-05 | Search, selection, plan acceptance, hold, payment, and ticket issuance are distinct. Selecting an offer creates no charge, hold, or ticket. |
 | SPEC-017/AC-06 | Housing and flight searches can run independently when route/date are known. Changing housing within the same destination city preserves valid independent flight work; changing the flight date invalidates affected work. |
 | SPEC-017/AC-07 | Moving between workspaces preserves the active journey and choices. Comparison, detail, and enabled passenger/status views work with keyboard input and readable narrow layouts. |
-| SPEC-017/AC-08 | A booking request in the current application explains that ticket booking is unavailable, creates no payment/hold/ticket, and allows valid independent read tasks to continue. |
+| SPEC-017/AC-08 | Without the checkout demo flag, a booking request explains that ticket booking is unavailable, creates no payment/hold/ticket, and allows valid independent read tasks to continue. With the flag, the agent points to the in-app payment summary, which runs the labeled simulated path: simulated hold, ZaloPay sandbox order, then a simulated ticket. No real ticket is created. |
 | SPEC-017/AC-09 | Before live booking, a booking-capable provider confirms and re-prices the exact selected itinerary; reading a cached SerpApi offer is insufficient. An unavailable offer returns to comparison without hold/charge or silent substitution; changed price/terms trigger AC-10. The form validates passenger/contact data against the Flight schema before commitment. An explicitly agreed simulation path labels its own checks as simulated and makes no live availability claim. |
 | SPEC-017/AC-10 | An enabled booking requires valid action-specific approval. Changing itinerary, date, passenger mix, material terms, or amount requires review and renewed approval, even when the total is unchanged. |
 | SPEC-017/AC-11 | A hold displays its reference and expiry as a hold. An expired hold cannot be represented as ticketed or silently replaced while a related payment is pending or paid. |
-| SPEC-017/AC-12 | With separate payment, ticket issuance waits for the verified paid state and references that payment. Provider-owned payment does not also trigger separate collection. |
+| SPEC-017/AC-12 | With separate payment, ticket issuance waits for the verified paid state and references that payment. Provider-owned payment does not also trigger separate collection. In test environments only, an authorized tester may mark an unexpired sandbox attempt as paid: it is recorded as `paid_simulated` (not `paid_verified`), labeled "marked by tester", requires a server-side flag, a tester allow-list and ownership, and is refused when `APP_ENV=production` ([ADR-015](../adr/ADR-015-zalopay-payment-and-data-privacy.md)). Fulfilment runs at most once per transaction, whichever confirmation arrives first. |
 | SPEC-017/AC-13 | Pending/failed payment does not become a ticket confirmation. Paid-but-unfulfilled or uncertain issuance preserves both outcomes and exposes an explicit recovery/manual-follow-up path. |
 | SPEC-017/AC-14 | Duplicate approval/submission or resumed execution does not duplicate a charge or booking. A restart preserves the action and references needed to reconcile an uncertain outcome before retrying. |
 | SPEC-017/AC-15 | User B cannot read or mutate user A's booking/payment by supplying its reference. Passenger/contact data is excluded from model context and public logs. |
@@ -196,6 +229,11 @@ defines the current unavailable-booking behavior.
 | SPEC-017/AC-18 | Live search plus simulated issuance is explicitly labeled per action. A simulated PNR/ticket is never described as a real provider booking. |
 | SPEC-017/AC-19 | Provider timeout/error is distinguished from no matching flights. Uncertain external writes are reconciled before retry; search failure does not fall back to fabricated live offers. |
 | SPEC-017/AC-20 | Arrival conflicts show the facts and missing evidence. Without an airport-transfer duration, the system does not claim arrival at the selected home by a requested time. |
+| SPEC-017/AC-21 | "Round trip" and equivalent phrasing produce one flight task with `trip_type=round_trip`; a missing return date is asked for before the round-trip search. |
+| SPEC-017/AC-22 | Outbound offers are labeled as "from" round-trip prices and cannot be selected for payment. The payment summary appears only for an itinerary offer and shows both legs, the itinerary reference price and its capture time. A failed hold creates no payment order. |
+| SPEC-017/AC-23 | A return date before the departure date is rejected with a question. A same-day return lists only flights departing after the outbound arrival plus a configured minimum gap (`FLIGHT_ROUND_TRIP_MIN_GAP_MINUTES`, default 120). Changing the outbound flight clears the selected return flight and its selection. |
+| SPEC-017/AC-24 | An expired attempt or a payment-creation timeout moves to reconciliation; the gateway is queried at least once after the deadline (with a grace period), and a new attempt is allowed only when the previous one is confirmed unpaid. A payment verified after the hold expired is kept and shown as paid but not fulfilled. |
+| SPEC-017/AC-25 | Passenger and contact data stay in the encrypted personal-data store (30-minute retention); transactions, simulated bookings, hashes and logs hold only a reference. Passenger ages are checked against the ticket type at the flight date before any hold. |
 
 ### Review scenarios
 
@@ -205,7 +243,7 @@ current application's unavailable-booking behavior.
 
 | ID | Trigger | Expected result | Acceptance criteria |
 |---|---|---|---|
-| TRV-01 | After choosing an offer in the current app, the customer asks to book it. | Explain that booking is unavailable; preserve the selection and permit independent read tasks. Create no hold, payment, or ticket. | AC-05, AC-08 |
+| TRV-01 | After choosing an offer, the customer asks to book it. | Without the demo flag: explain that booking is unavailable and create no hold, payment, or ticket. With it: point to the in-app payment summary and run the labeled simulated path. Either way, preserve the selection and permit independent read tasks. | AC-05, AC-08, AC-18 |
 | TRV-02 | A search returns five price-sorted offers; the customer requests nonstop economy travel or the earliest departure. | Apply supported filters and provider ordering on a new search, or disclose unsupported propagation. If sorting existing cards only, identify that subset and do not claim it includes every flight or the global earliest departure. | AC-02, AC-03 |
 | TRV-03 | A booking-capable provider reports the selected itinerary unavailable, or quotes changed terms. | Unavailability returns to comparison without a hold, charge, or substituted itinerary. Changed terms require a new decision. A search-only or simulated result cannot pass live revalidation. | AC-09, AC-10, AC-18 |
 | TRV-04 | A hold expires while payment remains pending. | Keep hold and payment states separate; reconcile both and apply the agreed recovery path. Do not issue against the expired hold, silently replace it, or collect twice. | AC-11, AC-12, AC-14 |
@@ -229,8 +267,9 @@ Relevant decisions: [ADR-012 — flight data source](../adr/ADR-012-flight-data-
 
 Review in #32 must record accepted, deferred, and unresolved requirements:
 
-- Confirm domestic flights as the initial supported passenger mode/geography;
-  decide round-trip treatment and any broader modes separately.
+- Confirm domestic flights as the initial supported passenger mode/geography.
+  Round trip is decided for the demo (SerpApi round-trip mode, one itinerary
+  payment; AC-21–AC-23); broader modes remain separate decisions.
 - Agree how the existing `nonstop_only`, `cabin_class`, `sort_by`, and `max_results`
   contract reaches the application. Record the current dropped-filter and
   five-cheapest-subset gaps, required coverage disclosure, and when ordering changes

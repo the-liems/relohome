@@ -500,7 +500,7 @@ SPEC-016, SPEC-017 và `docs/product.md` chỉ có trên `main`. Nội dung sử
 
 ## Phụ lục A. Nội dung soạn sẵn cho các tài liệu trên `main`
 
-Viết bằng tiếng Anh cho khớp ngôn ngữ của các file đó. Áp dụng sau khi PR #42 merge.
+Viết bằng tiếng Anh cho khớp ngôn ngữ của các file đó. **Đã áp dụng trên nhánh `khoa` ngày 09/10**, có chỉnh theo code: khứ hồi là một task cộng thao tác chọn chuyến đi (mục 8.2), duyệt là bước xác nhận ở màn thanh toán. Nội dung dưới đây giữ lại làm bản gốc.
 
 ### A.1. `docs/specs/SPEC-017-travel-and-flight-booking.md`
 

@@ -44,8 +44,8 @@ The customer should be able to discover suitable homes, inspect sourced informat
 | Compare homes | Proposed: inspect options and trade-offs; a dedicated side-by-side view is still a design decision. |
 | Shortlist homes | Open: decide whether temporary or persistent saved homes are needed; do not equate a shortlist with the chosen relocation destination. |
 | Choose a home | Core proposal: explicit choice for the relocation plan, separate from browsing and any lease commitment. |
-| Contact advertiser / arrange viewing | Open scope extension; not committed by this draft. |
-| Sign a lease, pay a deposit, book housing | Outside this proposal. |
+| Contact advertiser / arrange viewing | Draft, implemented behind the checkout demo flag (2026-10-09): after choosing a home the user schedules a viewing and later reports its result. Until a landlord availability screen exists, test mode opens the full calendar (30-minute slots, 08:00–20:00, next 14 days) and the user confirms the slot. The app does not contact the landlord. Landlord-side contact and availability are proposed in [the housing platform upgrade](../ideas/housing-platform-upgrade.md). |
+| Sign a lease, pay a deposit, book housing | Outside the app. The user and landlord agree on the lease and deposit directly and are responsible for them. The user enters the agreed deposit (prefilled with one month's rent as a suggestion) and monthly rent; for now this is self-reported. Agreeing is not paying: the user separately reports a payment to the landlord, labeled as not verified by the app. The app never collects housing money ([payment design](../review/payment-design.md) §10). |
 
 ### Custom requirements in an AI-driven experience
 
@@ -179,6 +179,8 @@ The proposed service operations and their input/output semantics are listed in t
 | SPEC-016/AC-10 | Empty results, retrieval failures, and assessment failures have distinguishable states and allow continued interaction. |
 | SPEC-016/AC-11 | Card/marker focus and opening details do not change the chosen home; only an explicit home choice updates the plan and affected downstream steps. Eligible viewport-only listings can be chosen through provider validation, bound search/listing provenance, and a renewed choice if relevant displayed facts changed. Missing monthly VND price or address prevents choice with a specific explanation, while inspection and the previous choice remain available. |
 | SPEC-016/AC-12 | Partial results or incomplete assessment do not appear as complete coverage of all matches. |
+| SPEC-016/AC-13 | After choosing a home, the user can schedule a viewing; in test mode every slot in the default window is open, past slots are rejected, and the confirmed viewing is labeled as a test schedule. |
+| SPEC-016/AC-14 | Reporting an agreement records the amounts due to the landlord, not a payment; declining it records "not taking this home". Only a separate "paid to landlord" report moves the amounts to paid, labeled as self-reported and unverified. |
 
 ## Scope-review scenarios
 
@@ -203,6 +205,6 @@ These scenarios guide design discussion; they do not claim tested implementation
 - Whether approximate listings enter viewport results by stored point or area intersection; geometry support and marker precision treatment.
 - Ordering policy, result limits, pagination, and wide-area markers or clusters.
 - Shared versus contextual prompt placement; popup, panel, or workspace; mobile layout and accessible interaction. An Airbnb-like view is only a design reference.
-- Dedicated comparison, saved shortlists, move-in availability filtering, contact/viewing extensions, and persistence beyond the current conversation.
+- Dedicated comparison, saved shortlists, move-in availability filtering, landlord-confirmed viewing availability, and persistence beyond the current conversation.
 - Refresh latency target, debounce timing, and display of pending assessments.
 - Extensions to existing service schemas for search identity, assessment dependencies, and selection provenance; implementation owners and scheduling in the linked follow-ups.
