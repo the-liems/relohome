@@ -1,0 +1,16 @@
+**
+!requirements.txt
+!src/
+!src/**
+!config/
+!config/**
+**/node_modules
+**/dist
+**/__pycache__
+**/.env*
+**/tests
+**/*.key
+**/*.pem
+**/*.crt
+**/*.sqlite*
+**/*.db

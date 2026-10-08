@@ -1,0 +1,260 @@
+# Image-only Coolify definition. CD replaces IMAGE_PREFIX and RELEASE_TAG.
+# All other variable references are resolved by Coolify. Only web gets a domain.
+x-app: &app
+  init: true
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  stop_grace_period: 35s
+
+x-location: &location-env
+  POSTGRES_HOST: postgis
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-p044_location}
+  POSTGRES_APP_USER: ${POSTGRES_APP_USER:-p044_location_app}
+  POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
+  OSRM_HCM_DRIVING_URL: http://hcm-driving:5000
+  OSRM_HCM_WALKING_URL: http://hcm-walking:5000
+  OSRM_HCM_MOTORCYCLE_URL: http://hcm-motorcycle:5000
+  OSRM_HANOI_DRIVING_URL: http://hanoi-driving:5000
+  OSRM_HANOI_WALKING_URL: http://hanoi-walking:5000
+  OSRM_HANOI_MOTORCYCLE_URL: http://hanoi-motorcycle:5000
+  OSRM_DANANG_DRIVING_URL: http://danang-driving:5000
+  OSRM_DANANG_WALKING_URL: http://danang-walking:5000
+  OSRM_DANANG_MOTORCYCLE_URL: http://danang-motorcycle:5000
+
+x-moving: &moving-env
+  AHAMOVE_ENV: staging
+  AHAMOVE_BASE_URL: https://partner-apistg.ahamove.com/v3
+  # CD requires either the user token or both API key and mobile before restart.
+  AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
+  AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
+  AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
+  AHAMOVE_WRITE_ENABLED: "false"
+  AHAMOVE_RATING_ENABLED: "false"
+  AHAMOVE_PRODUCTION_ENABLED: "false"
+  # Passwords embedded in URLs must be URL-safe (use 32 random hex bytes).
+  MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
+
+x-osrm: &osrm
+  <<: *app
+  image: ghcr.io/project-osrm/osrm-backend@sha256:729461bcc9ae9e6aafa92c0f93db9b060a32e85d5e72092c01ae4a4a9f1eb564
+  volumes: [routing-data:/data:ro]
+  healthcheck:
+    test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:5000/nearest/v1/driving/106.7,10.77"]
+    interval: 30s
+    timeout: 5s
+    start_period: 60s
+    retries: 10
+
+services:
+  web:
+    <<: *app
+    image: ${IMAGE_PREFIX}/web:${RELEASE_TAG}
+    environment:
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
+      LIFEFLOW_API_BASE_URL: http://backend:8000/api/v1
+      SIU_PLATFORM_API_URL: http://platform:4100/v1
+      SIU_WEB_DB: /app/data/siu-web.sqlite3
+      SIU_SECURE_COOKIE: "true"
+      SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+    volumes: [web-data:/app/data]
+    expose: ["8503"]
+    # Keep the health check and FastAPI's API docs off the public domain. Docker's
+    # healthcheck calls the container directly. Coolify escapes $ in labels, so the
+    # host is literal here.
+    labels:
+      - traefik.http.routers.p044-internal.rule=Host(`staging.c4-app-044.io.vn`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.p044-internal.entrypoints=https
+      - traefik.http.routers.p044-internal.tls=true
+      - traefik.http.routers.p044-internal.service=noop@internal
+    depends_on:
+      backend: {condition: service_healthy}
+      platform: {condition: service_healthy}
+
+  backend:
+    <<: *app
+    image: ${IMAGE_PREFIX}/backend:${RELEASE_TAG}
+    environment:
+      APP_ENV: production
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?}
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
+      # One Coolify setting selects the model for all seven agents.
+      AGENT_INTAKE_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_PLANNER_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_MOVING_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_HOUSING_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_MAP_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_FLIGHT_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_PAYMENT_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_SUBAGENTS: live
+      AGENT_STATE_DIR: /app/data/agent-runtime
+      AGENT_WRITES_ENABLED: "false"
+      AGENT_SANDBOX_PAYMENTS_ENABLED: "false"
+      AGENT_ALLOW_SIMULATED_TRANSACTIONS: "false"
+      LOCATION_MCP_URL: http://location:3000/mcp
+      LOCATION_MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
+      MOVING_MCP_URL: http://moving-mcp:4400/mcp
+      MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
+      MOVING_ENVIRONMENT: staging
+      MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
+      MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
+      FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
+      FLIGHT_MCP_STDIO: "false"
+      # Current PaymentSubagent requires the sandbox MCP child process.
+      PAYMENT_MCP_STDIO: "true"
+      PAYMENT_MCP_URL: ""
+      PAYMENT_PROVIDER: zalopay
+      PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
+      PAYMENT_ZALOPAY_APP_ID: ${PAYMENT_ZALOPAY_APP_ID:?}
+      PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
+      PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
+      PAYMENT_DB_PATH: /app/data/payments.db
+      PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
+      PAYMENT_SIMULATION_ENABLED: "false"
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    volumes: [agent-data:/app/data]
+    depends_on:
+      location: {condition: service_healthy}
+      moving-mcp: {condition: service_healthy}
+      flights-mcp: {condition: service_healthy}
+
+  flights-mcp:
+    <<: *app
+    image: ${IMAGE_PREFIX}/flights-mcp:${RELEASE_TAG}
+    environment:
+      FLIGHT_SEARCH_PROVIDER: serpapi
+      FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
+      FLIGHT_SIMULATION_ENABLED: "false"
+    volumes: [flights-data:/app/data]
+
+  postgis:
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    platform: linux/arm64
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-p044_location}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+    volumes: [location-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -h, "127.0.0.1", -U, "${POSTGRES_ADMIN_USER:-p044_location_admin}", -d, "${POSTGRES_DB:-p044_location}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  location-migrate:
+    <<: *app
+    image: ${IMAGE_PREFIX}/location-migrate:${RELEASE_TAG}
+    restart: "no"
+    exclude_from_hc: true
+    environment:
+      <<: *location-env
+      POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+      POSTGRES_INGEST_USER: ${POSTGRES_INGEST_USER:-p044_location_ingest}
+      POSTGRES_INGEST_PASSWORD: ${POSTGRES_INGEST_PASSWORD:?}
+    depends_on:
+      postgis: {condition: service_healthy}
+
+  platform:
+    <<: *app
+    image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
+    environment: *location-env
+    depends_on:
+      location-migrate: {condition: service_completed_successfully}
+
+  location:
+    <<: *app
+    image: ${IMAGE_PREFIX}/location:${RELEASE_TAG}
+    environment:
+      <<: *location-env
+      MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
+      MCP_ALLOWED_HOSTS: localhost,127.0.0.1,location
+      MCP_ALLOWED_ORIGIN_HOSTS: localhost,127.0.0.1
+    depends_on:
+      location-migrate: {condition: service_completed_successfully}
+
+  moving-db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MOVING_DB_NAME:-p044_moving}
+      POSTGRES_USER: ${MOVING_DB_ADMIN_USER:-p044_moving_admin}
+      POSTGRES_PASSWORD: ${MOVING_DB_ADMIN_PASSWORD:?}
+    volumes: [moving-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -h, "127.0.0.1", -U, "${MOVING_DB_ADMIN_USER:-p044_moving_admin}", -d, "${MOVING_DB_NAME:-p044_moving}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  moving-migrate:
+    <<: *app
+    image: ${IMAGE_PREFIX}/moving-migrate:${RELEASE_TAG}
+    restart: "no"
+    exclude_from_hc: true
+    environment:
+      MOVING_DATABASE_ADMIN_URL: postgresql://${MOVING_DB_ADMIN_USER:-p044_moving_admin}:${MOVING_DB_ADMIN_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
+      MOVING_DB_APP_USER: ${MOVING_DB_APP_USER:-p044_moving_app}
+      MOVING_DB_APP_PASSWORD: ${MOVING_DB_APP_PASSWORD:?}
+    depends_on:
+      moving-db: {condition: service_healthy}
+
+  moving-mcp:
+    <<: *app
+    image: ${IMAGE_PREFIX}/moving-mcp:${RELEASE_TAG}
+    environment:
+      <<: *moving-env
+      MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
+      MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
+    depends_on:
+      moving-migrate: {condition: service_completed_successfully}
+
+  moving-api:
+    <<: *app
+    image: ${IMAGE_PREFIX}/moving-api:${RELEASE_TAG}
+    environment:
+      <<: *moving-env
+      AHAMOVE_WEBHOOK_AUTH_MODE: api-key
+      AHAMOVE_WEBHOOK_SECRET: ${AHAMOVE_WEBHOOK_SECRET:?}
+    depends_on:
+      moving-migrate: {condition: service_completed_successfully}
+
+  # Routing datasets are provisioned on the server before the first full deploy.
+  hcm-driving:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hcm/driving/hcm.osrm]
+  hcm-walking:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hcm/walking/hcm.osrm]
+  hcm-motorcycle:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hcm/motorcycle/hcm.osrm]
+  hanoi-driving:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hanoi/driving/hanoi.osrm]
+  hanoi-walking:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hanoi/walking/hanoi.osrm]
+  hanoi-motorcycle:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/hanoi/motorcycle/hanoi.osrm]
+  danang-driving:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/danang/driving/danang.osrm]
+  danang-walking:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/danang/walking/danang.osrm]
+  danang-motorcycle:
+    <<: *osrm
+    command: [osrm-routed, --algorithm, mld, /data/danang/motorcycle/danang.osrm]
+
+volumes:
+  web-data:
+  agent-data:
+  flights-data:
+  location-data:
+  moving-data:
+  routing-data:

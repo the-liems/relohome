@@ -1,0 +1,12 @@
+**
+!src/
+!src/__init__.py
+!src/mcp_servers/
+!src/mcp_servers/__init__.py
+!src/mcp_servers/flights/
+!src/mcp_servers/flights/**
+**/.env*
+**/__pycache__
+**/*.db
+**/*.key
+**/*.pem

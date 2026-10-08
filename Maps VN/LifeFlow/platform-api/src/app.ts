@@ -23,7 +23,7 @@ import {
   RouteEndpointService,
   RouteServiceError,
   type DatabasePool,
-  type RuntimeConfig,
+  type ApplicationRuntimeConfig,
 } from '@lifeflow/housing-query'
 import Fastify from 'fastify'
 import { z, ZodError } from 'zod'
@@ -35,7 +35,7 @@ const NearbyRequestSchema = z.object({
   constraints: z.array(NearbyPlaceConstraintSchema).min(1).max(10),
 })
 
-export function buildApp(pool: DatabasePool, config: RuntimeConfig) {
+export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const app = Fastify({ logger: true })
   const routeService = new RouteService(config.osrmUrls)
   const queries = boundedQueries(pool)

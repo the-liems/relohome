@@ -1,7 +1,7 @@
-import { createDatabasePool, getRuntimeConfig } from '@lifeflow/housing-query'
+import { createDatabasePool, getApplicationRuntimeConfig } from '@lifeflow/housing-query'
 import { buildApp } from './app.js'
 
-const config = getRuntimeConfig()
+const config = getApplicationRuntimeConfig()
 const pool = createDatabasePool(config.databaseUrl)
 const app = buildApp(pool, config)
 

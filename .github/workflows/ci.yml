@@ -5,6 +5,13 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}
 
 defaults:
   run:
@@ -34,10 +41,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/deploy-coolify.py
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: python -m pytest tests/ Frontend/tests/ -v --tb=short
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
@@ -104,3 +111,109 @@ jobs:
 
       - name: Run portable workspace tests
         run: npm run test:ci
+
+  application-images:
+    needs: [lint-and-test, mcp-images, lifeflow-typescript]
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {service: web, context: '.', dockerfile: 'Frontend/Dockerfile', target: ''}
+          - {service: backend, context: '.', dockerfile: 'Dockerfile', target: ''}
+          - {service: platform, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/platform-api/Dockerfile', target: 'platform'}
+          - {service: location, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/mcp-server/Dockerfile', target: ''}
+          - {service: location-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/platform-api/Dockerfile', target: 'location-migrate'}
+          - {service: flights-mcp, context: ., dockerfile: src/mcp_servers/flights/Dockerfile, target: ''}
+          - {service: moving-api, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-api}
+          - {service: moving-mcp, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-mcp}
+          - {service: moving-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-migrate}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image prefix and isolate registry credentials
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}/$SERVICE:$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-docker.XXXXXX")" >> "$GITHUB_ENV"
+        env:
+          SERVICE: ${{ matrix.service }}
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ARM64 image
+        run: |
+          options=()
+          if [ -n "$BUILD_TARGET" ]; then options+=(--target "$BUILD_TARGET"); fi
+          if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$GITHUB_SHA"); fi
+          docker build --pull --platform linux/arm64 "${options[@]}" \
+            --file "$DOCKERFILE" --tag "$IMAGE" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" "$BUILD_CONTEXT"
+        env:
+          BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          BUILD_TARGET: ${{ matrix.target }}
+      - name: Push image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker push "$IMAGE"
+      - name: Remove this job's image tag and registry credentials
+        if: always()
+        run: |
+          if [ -n "${IMAGE:-}" ]; then docker image rm "$IMAGE" || true; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi
+
+  deploy-staging:
+    name: Submit staging deployment
+    needs: application-images
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 10
+    concurrency:
+      group: coolify-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: bash scripts/setup-ci-python.sh
+      - run: pip install PyYAML==6.0.3
+      - name: Set release image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Skip superseded releases
+        id: current
+        run: |
+          head=$(git ls-remote --exit-code origin refs/heads/main | cut -f1)
+          if [ -z "$head" ]; then echo "Cannot determine main HEAD" >&2; exit 1; fi
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping release: main has moved past $GITHUB_SHA"
+          fi
+      - name: Update Compose and submit deployment
+        if: steps.current.outputs.deploy == 'true'
+        run: python scripts/deploy-coolify.py --output coolify-release.yaml
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL || 'https://coolify.c4-app-044.io.vn' }}
+          COOLIFY_SERVICE_UUID: ${{ vars.COOLIFY_SERVICE_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_CA_CERT: ${{ secrets.COOLIFY_CA_CERT }}
+      - name: Save the release Compose definition
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coolify-staging-${{ env.RELEASE_TAG }}
+          path: coolify-release.yaml
+          if-no-files-found: ignore
+      - name: Remove job-local Python environment
+        if: always()
+        run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi
