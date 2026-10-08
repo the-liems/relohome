@@ -374,7 +374,12 @@ Theo thiết kế thanh toán đa dịch vụ ([payment-design.md](../../../docs
 | Tool mới `search_return_flights(outbound_offer_id)` | Chỉ đọc. Gọi SerpApi với `departure_token` của chuyến đi đã chọn; trả **offer hành trình** gồm hai chặng, tổng giá, hạn. Lọc chuyến về cất cánh trước giờ hạ cánh chuyến đi cộng khoảng cách tối thiểu (`ROUND_TRIP_MIN_GAP_MINUTES`) |
 | `get_offer` | Đọc được offer hành trình hai chặng |
 | `hold_booking`, `confirm_booking`, `cancel_booking` | Nhận offer hành trình: một booking mô phỏng có hai chặng, hạn giữ 15 phút |
+| Lưu booking (`storage.py`, `booking_engine.py`) | Chỉ lưu `passenger_ref` (tham chiếu tới kho dữ liệu cá nhân mã hóa của agent) và tóm tắt không định danh (số người theo loại). Dữ liệu hành khách chỉ dùng trong bộ nhớ để kiểm và chuẩn hóa tên, không ghi xuống bảng `bookings` như hiện nay |
 | Provider mock | Hỗ trợ cùng contract để test không cần SerpApi key |
+
+`get_offer` đọc offer đã lưu (kết quả SerpApi được cache 1 giờ), nên giá là **giá tham khảo tại thời điểm lấy**, không
+phải giá hãng vừa xác minh; giữ chỗ mô phỏng không bảo đảm còn ghế thật. Mỗi offer ghi `price_scope` (một chiều hay cả
+hành trình, số khách, loại tiền); không tự cộng hay chia giá.
 
 Cần kiểm khi code: giá ở danh sách chiều đi của SerpApi là giá một chiều hay giá khứ hồi gộp (tài liệu SerpApi chưa
 ghi rõ); ghi kết quả vào mục này.
