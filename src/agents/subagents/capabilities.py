@@ -33,6 +33,8 @@ PROPERTY = AgentCapability(
     input_schema={
         "type": "object",
         "properties": {
+            "housing_mode": {"enum": ["search", "compare"]},
+            "listing_ids": {"type": "array", "items": _STR, "minItems": 2, "maxItems": 4, "uniqueItems": True},
             "city": _STR,
             "district": _STR,
             "near": _STR,
@@ -62,10 +64,17 @@ PROPERTY = AgentCapability(
             "cursor": {"type": ["string", "null"], "maxLength": 1000},
         },
         "anyOf": [
+            {"properties": {"housing_mode": {"const": "compare"}}, "required": ["housing_mode", "listing_ids"]},
             {"required": ["city"]},
             {"required": ["near"]},
             {"required": ["district"]},
             {"required": ["bounding_box"]},
+        ],
+        "allOf": [
+            {
+                "if": {"properties": {"housing_mode": {"const": "compare"}}, "required": ["housing_mode"]},
+                "then": {"required": ["listing_ids"]},
+            }
         ],
         "additionalProperties": False,
     },

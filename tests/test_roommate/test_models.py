@@ -88,6 +88,24 @@ def test_quiet_hours_reject_ambiguous_or_zoned_local_time(values):
         QuietHours.model_validate(values)
 
 
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"start": "22:00:00", "end": "22:00:30"},
+        {"start": "22:00:30", "end": "07:00:00"},
+        {"start": "22:00:00.000001", "end": "07:00:00"},
+        {"start": "22:00:00", "end": "07:00:00.000001"},
+    ],
+)
+def test_quiet_hours_reject_subminute_values_instead_of_treating_them_as_a_full_day(values):
+    with pytest.raises(ValidationError, match="minute precision"):
+        QuietHours.model_validate(values)
+
+
+def test_quiet_hours_accept_explicit_zero_seconds_and_preserve_minute_precision():
+    assert QuietHours(start="22:00:00", end="07:00:00") == QuietHours(start="22:00", end="07:00")
+
+
 def test_housing_need_preserves_unknown_willingness_to_move():
     assert HousingNeed(kind="has_room").willing_to_move is None
     assert HousingNeed(kind="has_room", willing_to_move=False).willing_to_move is False

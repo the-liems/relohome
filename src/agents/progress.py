@@ -11,11 +11,10 @@ khác trả (`selected_listing_id`) và từ marker `selected:<domain>` trong in
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
-from src.agents.common import utcnow
 from src.agents.models import AgentName, Plan, RequestKind, TaskResult, TaskStatus
+from src.agents.selections import option_ids, option_is_expired, selected_option, selection_is_current
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
 # Lĩnh vực không hiện trên dải tiến trình. Thanh toán qua chat đang tắt; tổng tiền thay bằng tổng đã chốt.
@@ -38,42 +37,6 @@ INTERNAL_INPUTS = frozenset(
     }
 )
 ENTITY_REFERENCE_INPUTS = ("selected_listing_id", "listing_ids")
-
-
-def _option_ids(result: TaskResult | None) -> set[str]:
-    if result is None:
-        return set()
-    ids = {q.option_id for q in result.quotes}
-    for items in result.data.values():
-        if isinstance(items, list):
-            ids |= {str(i.get("id") or i.get("option_id")) for i in items if isinstance(i, dict)}
-    ids.discard("None")
-    return ids
-
-
-def _option(result: TaskResult, option_id: str) -> dict[str, Any]:
-    for items in result.data.values():
-        if isinstance(items, list):
-            for item in items:
-                if isinstance(item, dict) and option_id in (item.get("id"), item.get("option_id")):
-                    return item
-    return {}
-
-
-def _quote_expired(result: TaskResult | None) -> bool:
-    """Treat a provider's expired result-level quote as history, never a current price."""
-    if result is None or result.agent != AgentName.RELOCATION:
-        return False
-    expires_at = result.data.get("expires_at")
-    if not isinstance(expires_at, str):
-        return False
-    try:
-        deadline = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if deadline.tzinfo is None:
-        deadline = deadline.replace(tzinfo=timezone.utc)
-    return deadline <= utcnow()
 
 
 PENDING_PREFIX = "pending:"
@@ -122,7 +85,12 @@ def record_selections(state: dict) -> dict[str, str]:
     for task in plan.tasks if plan else []:
         fact = facts.get(f"selected:{task.agent.value}")
         result = results.get(task.id)
-        if not fact or not result or result.agent != task.agent or str(fact.value) not in _option_ids(result):
+        if (
+            not fact
+            or not result
+            or result.agent != task.agent
+            or not selection_is_current(state, task.id, str(fact.value))
+        ):
             continue
         # A newer verified selection for this service supersedes an older one.
         for old_id in list(saved):
@@ -159,7 +127,7 @@ def _references(tasks: dict[str, dict], results: dict[str, TaskResult]) -> dict[
         for other_id, other in tasks.items():
             if other_id == tid:
                 continue
-            if referenced & _option_ids(results.get(other_id)) or other["agent"] in domains:
+            if referenced & option_ids(results.get(other_id)) or other["agent"] in domains:
                 edges[tid].add(other_id)
     return edges
 
@@ -205,32 +173,37 @@ def plan_progress(values: dict) -> dict[str, Any]:
         if result is not None and result.agent != agent:
             result = None  # id reused by a task of another domain
         status = statuses.get(task_id, TaskStatus.PENDING) if not task_id.startswith(PENDING_PREFIX) else None
-        expired_quote = _quote_expired(result)
-        if expired_quote:
-            status = TaskStatus.STALE
         fact = facts.get(f"selected:{agent.value}") if task_id in current_task_ids else None
         selected_id = selections.get(task_id) or (str(fact.value) if fact is not None else None)
+        expired_quote = (
+            result is not None
+            and (selected_id is not None or (agent == AgentName.RELOCATION and bool(result.quotes)))
+            and option_is_expired(result, selected_id)
+        )
+        if expired_quote and status == TaskStatus.DONE:
+            status = TaskStatus.STALE
+        current = selected_id is not None and selection_is_current(values, task_id, selected_id)
         chosen = None
-        if selected_id is not None and result is not None and selected_id in _option_ids(result):
-            option = _option(result, selected_id)
+        if selected_id is not None and result is not None and selected_id in option_ids(result):
+            option = selected_option(result, selected_id)
             quote = next((q for q in result.quotes if q.option_id == selected_id), None)
             chosen = {
                 "id": selected_id,
                 "label": quote.label if quote else (option.get("title") or option.get("carrier") or selected_id),
-                "amount_vnd": quote.amount_vnd if quote and not expired_quote else None,
+                "amount_vnd": quote.amount_vnd if quote and current else None,
                 "recurrence": quote.recurrence if quote else None,
             }
-            if not expired_quote and quote is None:
+            if current and quote is None:
                 unpriced.append(task_id)
-            elif not expired_quote and quote.recurrence == "monthly":
+            elif current and quote.recurrence == "monthly":
                 monthly += quote.amount_vnd
-            elif not expired_quote:
+            elif current:
                 one_time += quote.amount_vnd
         state = (
             "confirmed"
-            if chosen and status != TaskStatus.STALE
+            if chosen and current
             else "reviewed"
-            if status == TaskStatus.DONE and result is not None
+            if status == TaskStatus.DONE and result is not None and result.status == "done"
             else "waiting"
         )
         inputs = task["inputs"]

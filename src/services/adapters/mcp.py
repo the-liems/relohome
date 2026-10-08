@@ -141,6 +141,22 @@ class McpToolClient:
     async def call(self, tool: str, arguments: dict[str, Any]) -> Any:
         if tool not in self.endpoint.allowed_tools:
             raise ToolCallError("tool_not_allowed", f"{self.endpoint.service}.{tool} is not in the allowlist")
+        if (
+            tool == "search_airports"
+            and self.endpoint.service == "flight"
+            and not self.endpoint.url
+            and self.endpoint.stdio_module == "src.mcp_servers.flights"
+        ):
+            # Only the bundled local Flight implementation can use its own
+            # catalog. Remote endpoints/custom servers must remain authoritative.
+            from pydantic import ValidationError
+
+            from src.mcp_servers.flights.catalog import local_airport_lookup
+
+            try:
+                return local_airport_lookup(arguments)
+            except ValidationError as exc:
+                raise ToolCallError("INVALID_REQUEST", "Invalid airport lookup arguments") from exc
         sent = False
         try:
             async with asyncio.timeout(self.endpoint.timeout_s):

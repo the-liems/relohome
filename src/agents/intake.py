@@ -40,6 +40,7 @@ class IntakeInput(BaseModel):
     session: SessionContext
     previous: IntakeResult | None = None
     plan_outline: list[TaskOutline] | None = None
+    last_housing_search_options: list[dict[str, str]] = []
     decision: UserDecision | None = None
     pending_questions: list[Question] = []
     last_suggestions: list[Suggestion] = []
@@ -254,7 +255,7 @@ def ground_facts(
         )
         # A transaction reference (payment/order/booking ID) is a long code by nature; only a value that is
         # itself an email or phone number is personal data there.
-        reference = name in REFERENCE_KEYS
+        reference = name in REFERENCE_KEYS or name == "listing_ids"
         personal = (
             bool(_EMAIL.search(str(fact.value)) or _PHONE.search(str(fact.value)))
             if reference
@@ -345,6 +346,12 @@ def missing_for(
     domain: AgentName, values: dict[str, Any], sources: set[AgentName], facts: dict[str, ConfirmedFact]
 ) -> list[str]:
     """Input bắt buộc còn thiếu của task thuộc `domain`, dạng "domain.field"."""
+    if domain == AgentName.PROPERTY and values.get("housing_mode") == "compare":
+        return (
+            []
+            if isinstance(values.get("listing_ids"), list) and 2 <= len(values["listing_ids"]) <= 4
+            else ["property.listing_ids"]
+        )
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
     if domain == AgentName.RELOCATION:

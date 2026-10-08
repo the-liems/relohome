@@ -37,6 +37,7 @@ export function PlanPeek({
   onDecision,
   onPaymentCheck,
   busy = false,
+  onOpenService,
 }: {
   progress?: Data;
   threadId?: string;
@@ -45,6 +46,7 @@ export function PlanPeek({
   onDecision: (body: Data) => Promise<void>;
   onPaymentCheck: () => Promise<void>;
   busy?: boolean;
+  onOpenService?: (taskId: string, agent: string) => void;
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
@@ -225,7 +227,26 @@ export function PlanPeek({
                               <d.icon size={18} />
                             </span>
                             <div className="plan-peek-body">
-                              <strong>{d.title}</strong>
+                              {onOpenService ? (
+                                <button
+                                  className="text-button plan-open-service"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    close();
+                                    onOpenService(item.task_id, item.agent);
+                                  }}
+                                  aria-label={
+                                    uiText("Mở dịch vụ") +
+                                    ": " +
+                                    uiText(d.title)
+                                  }
+                                >
+                                  <strong>{uiText(d.title)}</strong>
+                                  <ChevronRight size={14} />
+                                </button>
+                              ) : (
+                                <strong>{d.title}</strong>
+                              )}
                               {d.detail && <p>{d.detail}</p>}
                               {item.chosen && (
                                 <p className="plan-peek-choice">

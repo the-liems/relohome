@@ -198,6 +198,7 @@ class TaskOutline(BaseModel):
     agent: AgentName
     selected: str | None = None
     options: list[dict[str, Any]] = []  # [{option_id, label}] theo thứ tự hiển thị
+    comparison_options: list[dict[str, Any]] = []  # Real homes from this result; not a selection/approval.
 
 
 class ChangeContext(BaseModel):
