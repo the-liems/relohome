@@ -318,12 +318,29 @@ def _selections(values: dict) -> dict:
     address and coordinate to prefill the moving destination."""
     intake = values.get("intake")
     facts = intake.user_confirmed_facts if intake else {}
+    results = values.get("task_results") or {}
     out: dict[str, dict] = {}
+    for task_id, option_id in (values.get("goal_selections") or {}).items():
+        result = results.get(task_id)
+        if result is None:
+            continue
+        match = next(
+            (
+                item
+                for items in result.data.values()
+                if isinstance(items, list)
+                for item in items
+                if isinstance(item, dict) and option_id in (item.get("id"), item.get("option_id"))
+            ),
+            None,
+        )
+        if match is not None:
+            out[result.agent.value] = match
     for key, fact in facts.items():
         if not key.startswith("selected:"):
             continue
         domain = key.split(":", 1)[1]
-        for result in (values.get("task_results") or {}).values():
+        for result in results.values():
             if result.agent.value != domain:
                 continue
             match = next(

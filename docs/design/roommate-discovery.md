@@ -3,7 +3,7 @@
 - Ngày: 2026-10-07, Asia/Saigon.
 - Baseline: [product spec v1.0](../ideas/roommate-service.md), [implementation plan](../../tasks/plan.md).
 - Task thực hiện: **RM-01–31 — backend, API, browser gateway và Agent**.
-- Trạng thái: backend đã nối runtime, giữ `ROOMMATE_ENABLED=false` mặc định. Frontend RM-32–41 chưa triển khai theo xác nhận của chủ sản phẩm. Các mục RM-01 dưới đây là lịch sử foundation; trạng thái mới nhất ở mục 8.
+- Trạng thái: backend đã nối runtime, giữ `ROOMMATE_ENABLED=false` mặc định. Frontend các màn tìm/kết nối/hồ sơ cơ bản hiện đã triển khai; evidence và phần còn lại của RM-32–41 tại [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md). Các mục RM-01 dưới đây là lịch sử foundation; mục 8 ghi checkpoint backend trước khi làm frontend.
 
 ## 1. Baseline và phạm vi thay đổi
 

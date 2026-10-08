@@ -24,7 +24,7 @@ from src.agents.models import (
     TaskStatus,
     error_record,
 )
-from src.agents.progress import record_goal
+from src.agents.progress import record_goal, record_selections
 from src.agents.state import WorkflowState
 from src.agents.suggestions import next_step_suggestions
 
@@ -505,6 +505,7 @@ def make_respond(deps: GraphDeps):
             "response": response,
             "messages": [AIMessage(response.text)],
             "goal_tasks": record_goal(state),
+            "goal_selections": record_selections(state),
         }
         try:
             updates = memory_updates(state)

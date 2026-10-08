@@ -3,7 +3,7 @@
 - Plan chi tiết: [plan.md](plan.md).
 - Product spec: [roommate-service.md](../docs/ideas/roommate-service.md).
 - Feature issue: [#65](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65).
-- Trạng thái: RM-01–31 hoàn tất backend/API/Agent; 169 focused tests pass. Full regression: 503 passed / 29 failed / 80 skipped; 29 lỗi trùng baseline. Frontend RM-32–41 chưa triển khai; RM-42–47/gates phát hành chưa hoàn tất toàn phần. Evidence: [backend checkpoint](../docs/integration/roommate-backend-checkpoint.md). Checklist local, chưa tạo issue con.
+- Trạng thái: RM-01–31 hoàn tất backend/API/Agent. Frontend các luồng tìm, xem hồ sơ, gửi/nhận consent và lifecycle cơ bản đã triển khai; evidence: [frontend handoff](../Frontend/ROOMMATE_UI_HANDOFF.md). Backend 169 focused tests pass; frontend 10 UI + 2 real browser tests pass. Legacy UI 109 pass / 1 lỗi baseline mobile welcome; full backend 503 pass / 29 lỗi baseline / 80 skip. Các task tổng và release gates còn pending; chưa tạo issue con.
 - Tick task xác nhận phạm vi task đó đạt; không thay kết quả checkpoint hoặc gate phát hành. Test command/acceptance criteria/file/dependency của từng task nằm trong plan.
 - Không triển khai task phụ thuộc trước khi dependency đạt; tests viết/chạy cùng từng task. Phase Tests kiểm tra thêm xuyên lớp.
 - Nếu chuyển sang tracker sau này, dùng mã RM cố định và chuyển nguồn tiến độ; không giữ hai checklist chạy độc lập.
@@ -144,9 +144,9 @@
 
 ## Frontend
 
-- [ ] [RM-32 — Typed client và entry quyền dùng](plan.md#rm-32) — dependency: RM-26, RM-31.
-- [ ] [RM-33 — Form tiêu chí và danh sách](plan.md#rm-33) — dependency: RM-11, RM-32.
-- [ ] [RM-34 — Chi tiết hồ sơ và quan tâm](plan.md#rm-34) — dependency: RM-22, RM-32, RM-33.
+- [x] [RM-32 — Typed client và entry quyền dùng](plan.md#rm-32) — dependency: RM-26, RM-31. Guest/disabled/18+/terms/session states và strict payload được kiểm tra.
+- [x] [RM-33 — Form tiêu chí và danh sách](plan.md#rm-33) — dependency: RM-11, RM-32. Self/preference riêng, hard explicit, backend score/reasons, missing score và pagination.
+- [x] [RM-34 — Chi tiết hồ sơ và quan tâm](plan.md#rm-34) — dependency: RM-22, RM-32, RM-33. Fresh API detail, bookmark riêng, unavailable không phục hồi snapshot, bỏ lưu được khi unavailable.
 
 ### CP-14 — sau RM-32–RM-34
 
@@ -154,9 +154,9 @@
 - [ ] Review diff, dependency và contract; feature-off giữ ứng dụng hiện tại hoạt động.
 - [ ] Build frontend và kiểm tra flow liên quan; lưu lỗi console/network và kết quả responsive.
 
-- [ ] [RM-35 — Editor bản giới thiệu riêng](plan.md#rm-35) — dependency: RM-22, RM-23, RM-25, RM-32.
-- [ ] [RM-36 — Quản lý nhu cầu và xuất bản](plan.md#rm-36) — dependency: RM-14, RM-19, RM-35.
-- [ ] [RM-37 — Form gửi request và consent](plan.md#rm-37) — dependency: RM-23, RM-34, RM-35.
+- [ ] [RM-35 — Editor bản giới thiệu riêng](plan.md#rm-35) — dependency: RM-22, RM-23, RM-25, RM-32. Editor text/facts/preferences và contact picker đã có; media upload editor và management đầy đủ channel còn ngoài phạm vi tìm/kết nối hiện tại.
+- [ ] [RM-36 — Quản lý nhu cầu và xuất bản](plan.md#rm-36) — dependency: RM-14, RM-19, RM-35. Đã có preview/publish/reconfirm/pause/resume/resolve/delete, tests thực tế publish/pause/resume/delete; task tổng vẫn pending nhắc hạn 3 ngày và dependency RM-35.
+- [ ] [RM-37 — Form gửi request và consent](plan.md#rm-37) — dependency: RM-23, RM-34, RM-35. Luồng review/consent và đối soát unknown outcome đã có 2 nhóm browser tests; task tổng giữ pending theo dependency RM-35.
 
 ### CP-15 — sau RM-35–RM-37
 
@@ -164,8 +164,8 @@
 - [ ] Review diff, dependency và contract; feature-off giữ ứng dụng hiện tại hoạt động.
 - [ ] Build frontend và kiểm tra flow liên quan; lưu lỗi console/network và kết quả responsive.
 
-- [ ] [RM-38 — Inbox và xem liên hệ có thời hạn](plan.md#rm-38) — dependency: RM-19, RM-23, RM-37.
-- [ ] [RM-39 — Block/report và moderation UI](plan.md#rm-39) — dependency: RM-24, RM-34, RM-38.
+- [ ] [RM-38 — Inbox và xem liên hệ có thời hạn](plan.md#rm-38) — dependency: RM-19, RM-23, RM-37. Received/sent, accept/reject/withdraw/revoke, memory-only lease/expiry/blur/focus đã có; task tổng giữ pending dependency và bộ stale-tab scenarios cuối.
+- [ ] [RM-39 — Block/report và moderation UI](plan.md#rm-39) — dependency: RM-24, RM-34, RM-38. Block/report riêng đã có; moderator dashboard chưa thuộc phạm vi UX tìm/kết nối đợt này.
 
 ### CP-16 — sau RM-38–RM-39
 
@@ -173,8 +173,8 @@
 - [ ] Review diff, dependency và contract; feature-off giữ ứng dụng hiện tại hoạt động.
 - [ ] Build frontend và kiểm tra flow liên quan; lưu lỗi console/network và kết quả responsive.
 
-- [ ] [RM-40 — Navigation và result card Agent](plan.md#rm-40) — dependency: RM-30, RM-31, RM-32, RM-33, RM-34, RM-36, RM-38, RM-39.
-- [ ] [RM-41 — VI/EN, responsive và accessibility](plan.md#rm-41) — dependency: RM-40.
+- [ ] [RM-40 — Navigation và result card Agent](plan.md#rm-40) — dependency: RM-30, RM-31, RM-32, RM-33, RM-34, RM-36, RM-38, RM-39. Route/account entry/Roommate result card/progress label đã nối; task tổng giữ pending dependencies của plan phát hành đầy đủ.
+- [ ] [RM-41 — VI/EN, responsive và accessibility](plan.md#rm-41) — dependency: RM-40. Các màn hiện có pass 320/768/1024/1440, light/dark, VI/EN, axe, keyboard/focus/reduced motion; task tổng chờ đầy đủ các màn ở dependency.
 
 ### CP-17 — sau RM-40–RM-41
 
@@ -217,6 +217,12 @@
 
 - G1–G6 có evidence tại backend checkpoint; các checkbox CP-01–13 phản ánh review/test backend, không thay gate phát hành toàn project.
 - RM-42: đã thêm race, expiry/restart, backup/restore xuyên backend; vẫn giữ task tổng pending vì phase tests/regression cuối còn theo plan.
-- RM-43/44: có real session ASGI integration, privacy và query-count 10/100/1000; chưa full browser.
+- RM-43/44: có real session ASGI integration, privacy và query-count 10/100/1000; bổ sung 2 real browser flows, chưa đủ toàn bộ privacy/media/moderation/cost scenarios của task tổng.
 - RM-45: đã chạy hồi quy; 29 lỗi baseline còn tồn tại, không tick pass.
-- RM-46/47: chưa triển khai/gate chưa đạt. Feature giữ off; chưa push/deploy.
+- RM-46: UI cũ 109/110 tests pass; mobile welcome overflow 19px được tái hiện khi tháo wiring Roommate. Giữ UI cũ, không skip/sửa assertion. RM-47/gate phát hành chưa đạt. Feature giữ off; chưa push/deploy.
+
+## Checkpoint frontend theo phạm vi hiện tại
+
+- Chỉ các màn tìm/kết nối/hồ sơ cơ bản; không sửa backend, API/scoring hoặc UX/UI service cũ.
+- Handoff có module list, test commands/evidence và giới hạn contract: [ROOMMATE_UI_HANDOFF.md](../Frontend/ROOMMATE_UI_HANDOFF.md).
+- Các mục chưa tick vẫn là yêu cầu cho bản phát hành đầy đủ trong plan, không bị xóa hoặc hạ acceptance criteria.

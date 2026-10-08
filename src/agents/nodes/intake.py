@@ -133,6 +133,34 @@ def continue_referenced_goal(result: IntakeResult, previous: IntakeResult | None
     return result
 
 
+def remembered_home(previous: IntakeResult | None, state: WorkflowState) -> IntakeResult | None:
+    """Expose a previously verified home to Intake without restoring unrelated old constraints."""
+    if previous is None or "selected:property" in previous.user_confirmed_facts:
+        return previous
+    results = state.get("task_results") or {}
+    statuses = state.get("task_status") or {}
+    for task_id, option_id in reversed(list((state.get("goal_selections") or {}).items())):
+        result = results.get(task_id)
+        if (
+            result is None
+            or result.agent != AgentName.PROPERTY
+            or result.status != "done"
+            or statuses.get(task_id) == TaskStatus.STALE
+            or not any(c.get("id") == option_id for c in result.data.get("candidates", []))
+        ):
+            continue
+        fact = ConfirmedFact(
+            value=option_id,
+            evidence="Lựa chọn đã xác nhận trong hội thoại",
+            stated_at=result.fetched_at,
+        )
+        return previous.model_copy(
+            deep=True,
+            update={"user_confirmed_facts": {**previous.user_confirmed_facts, "selected:property": fact}},
+        )
+    return previous
+
+
 def make_intake(deps: GraphDeps):
     async def intake(state: WorkflowState) -> dict:
         """Hiểu yêu cầu qua `deps.intake`, rồi kiểm evidence, gộp dữ kiện và tính phần thiếu bằng code."""
@@ -145,7 +173,7 @@ def make_intake(deps: GraphDeps):
                 return {
                     "outcome": Outcome(node="intake", code=OutcomeCode.BUDGET, detail="hết lượt LLM trong lượt này")
                 }
-        previous: IntakeResult | None = state.get("intake")
+        previous: IntakeResult | None = remembered_home(state.get("intake"), state)
         last_response = state.get("response")
         # Tin nhắn gửi cho Intake (LLM) đã che dữ liệu cá nhân; state giữ nguyên để hiển thị lịch sử.
         messages = [

@@ -2,7 +2,9 @@
 
 ## Trạng thái
 
-Backend/API/Agent đã triển khai; giao diện Roommate chưa có. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
+Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai; xem [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md) về phạm vi và tests. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
+
+**Local ngày 07/10/2026:** chủ sản phẩm đã yêu cầu bật để sử dụng. `.env` local hiện có `ROOMMATE_ENABLED=true`, state `logs/private-roommate`; API đã restart và chat nhận intent ở ghép. Moderator bootstrap dùng ID dành riêng `local-roommate-moderator`, chưa gán quyền cho tài khoản hiện có; cần cấu hình ID moderator thật khi triển khai vận hành. Không tự khai tuổi/accept terms/đăng hồ sơ cho người dùng. Entry ở màn `/ai` mở `/roommate`.
 
 ## Cấu hình
 
@@ -58,7 +60,7 @@ if runtime is not None:
 '@ | .venv/Scripts/python.exe -
 ```
 
-Chưa tạo background daemon/scheduler/email/push. Inbox trả trạng thái và nhắc xác nhận lại trong ba ngày cuối; frontend chưa hiển thị.
+Chưa tạo background daemon/scheduler/email/push. Inbox trả trạng thái và nhắc xác nhận lại trong ba ngày cuối; frontend đã có trạng thái/deadline, nhắc ba ngày cuối còn trong checklist phát hành đầy đủ.
 
 Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa ảnh gắn public; restrict/revoke có audit. Restore profile trở về paused, không tự mở lại consent. Moderator UI ở phase frontend.
 

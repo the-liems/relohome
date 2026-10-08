@@ -2,7 +2,7 @@
 
 - Phiên bản: 1.0.
 - Ngày cập nhật: 2026-10-07, Asia/Saigon.
-- Trạng thái: product spec v1.0 đã chốt; backend/API/Agent RM-01–31 đã triển khai. Frontend chưa triển khai, service chưa phát hành/bật mặc định. Evidence: [backend checkpoint](../integration/roommate-backend-checkpoint.md).
+- Trạng thái: product spec v1.0 đã chốt; backend/API/Agent RM-01–31 và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai. Service chưa phát hành/bật mặc định. Evidence: [backend checkpoint](../integration/roommate-backend-checkpoint.md), [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md). Các acceptance criteria cho bản phát hành đầy đủ vẫn giữ nguyên.
 - Issue theo dõi: [#65 — ReloHome: tìm người ở cùng](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65).
 - Phạm vi tài liệu: trải nghiệm, quyền sử dụng, quy tắc nghiệp vụ sản phẩm và tiêu chí nghiệm thu. Không định nghĩa database schema, API chi tiết hoặc code.
 - Các chính sách dưới đây là baseline nghiệm thu; không coi toàn bộ trải nghiệm đã hoàn tất chỉ vì backend đã triển khai.

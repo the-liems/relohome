@@ -3,7 +3,7 @@
 - Ngày: 2026-10-07, Asia/Saigon.
 - Baseline sản phẩm: [roommate-service.md v1.0](../docs/ideas/roommate-service.md).
 - Feature issue: [#65](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65).
-- Trạng thái: **RM-01–31 hoàn tất (backend/API/Agent)**; frontend chưa triển khai theo xác nhận mới nhất. Tiến độ thực tế tại `todo.md`, evidence tại [backend checkpoint](../docs/integration/roommate-backend-checkpoint.md). Full release gates còn pending.
+- Trạng thái: **RM-01–31 hoàn tất (backend/API/Agent)**; frontend phạm vi tìm/kết nối và hồ sơ cơ bản đã triển khai theo yêu cầu tiếp theo. Tiến độ thực tế tại `todo.md`, evidence tại [backend checkpoint](../docs/integration/roommate-backend-checkpoint.md) và [frontend handoff](../Frontend/ROOMMATE_UI_HANDOFF.md). Full release gates còn pending.
 - Task list target: [tasks/todo.md](todo.md), theo lựa chọn của chủ sản phẩm: lưu plan/checklist trong repo trước. Chưa tạo issue con hoặc cập nhật GitHub.
 - Bản plan không phải database schema, API endpoint catalog hay code. Contract kỹ thuật cụ thể được ghi/review trong các task foundation trước khi triển khai phần phụ thuộc.
 - File/module ghi “dự kiến tạo mới” mô tả tại thời điểm lập plan; implementation có thể dùng tên/ranh giới tương đương. Test command ở mỗi task là yêu cầu, không phải báo cáo đã pass; kết quả thực tế ở checklist/checkpoint.

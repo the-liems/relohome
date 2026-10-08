@@ -12,10 +12,24 @@ def test_disabled_never_bootstraps_or_calls_provider(tmp_path):
 
 def test_runtime_requires_private_path_token_and_moderators(tmp_path):
     with pytest.raises(ValueError, match="token"):
-        RoommateRuntime.open(Settings(_env_file=None, roommate_enabled=True, roommate_state_dir=tmp_path))
+        RoommateRuntime.open(
+            Settings(
+                _env_file=None,
+                roommate_enabled=True,
+                agent_api_token="",
+                roommate_moderators="",
+                roommate_state_dir=tmp_path,
+            )
+        )
     with pytest.raises(ValueError, match="moderator"):
         RoommateRuntime.open(
-            Settings(_env_file=None, roommate_enabled=True, agent_api_token="test-token", roommate_state_dir=tmp_path)
+            Settings(
+                _env_file=None,
+                roommate_enabled=True,
+                agent_api_token="test-token",
+                roommate_moderators="",
+                roommate_state_dir=tmp_path,
+            )
         )
 
 
