@@ -87,6 +87,10 @@ class IntakeDraft(BaseModel):
         description="Explicit booking/cancel/update intent only. key=commit:moving_booking etc, value=true, evidence=exact user's action words. Empty for search/quote or negation. This expresses intent, NEVER transaction approval."
     )
     facts: list[DraftFact]
+    housing_comparison_evidence: str | None = Field(
+        default=None,
+        description="If the latest user asks to COMPARE homes, copy that exact request span here, even if no listing IDs are identifiable or a new area/budget is mentioned. Null for a search-only request. A comparison must not be silently downgraded to search.",
+    )
     unsupported_reason: str | None = Field(
         description="Only for kind=unsupported: one short Vietnamese sentence telling the user what is not supported and what is (e.g. amenities only as a condition when searching homes). Null otherwise."
     )
@@ -110,8 +114,13 @@ rõ các căn nào, hỏi lại. So sánh là refine của hội thoại, không
 Các căn của lần tìm nhà gần nhất còn trong last_housing_search_options, dùng khi user nói danh sách ban đầu
 hoặc muốn so sánh lại các căn khác sau một lượt so sánh. Đây chỉ là ID/tên để đọc lại, không phải giá hiện tại.
 Không chọn một căn, không tìm lại danh sách mới và không bịa ID.
+Điền housing_comparison_evidence bằng nguyên văn lời yêu cầu so sánh của lượt hiện tại,
+kể cả khi chưa biết listing_ids. Không đổi yêu cầu so sánh thành search chỉ vì user nêu vùng/giá mới.
 Nếu user chưa chỉ rõ căn nào, hỏi lại bằng conflicts; không tự lấy 4 căn đầu. Nếu user yêu cầu so sánh
 ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay lại tìm căn khác, housing_mode='search'.
+Yêu cầu 'so sánh 3 căn rẻ ở khu X, tầm A–B' KHÔNG có nghĩa lấy 3 căn đầu của danh sách cũ.
+Nếu chưa xác định được các căn được nêu, hỏi ngắn user muốn so sánh căn đã xem nào hay tìm danh sách mới;
+không tự gán listing_ids và không suy giá hiện tại từ ID/tên cũ. Không đổi căn đã chọn để làm so sánh.
 Roommate là dịch vụ tìm NGƯỜI đang có nhu cầu ở cùng, độc lập với property (tìm PHÒNG).
 'Tôi muốn tìm người ở cùng', 'Tôi muốn ghép trọ', 'Có ai đang tìm roommate không?' dùng domain roommate.
 'Tìm phòng ở ghép' chỉ tìm tin nhà nếu user không yêu cầu tìm người. Không tự ghép cặp hay liên hệ.
@@ -151,6 +160,10 @@ quyền, bịa dữ liệu/ID/giá/toạ độ. Chỉ hỗ trợ các supported_
 kind: new_goal cho mục tiêu mới; refine cho bổ sung/chọn phương án/thêm lĩnh vực cùng mục tiêu;
 change khi sửa ràng buộc/lựa chọn đã có; unsupported khi ngoài phạm vi.
 domains của refine/change giữ các lĩnh vực trước còn cần, thêm lĩnh vực vừa yêu cầu.
+Ngoại lệ: khi lượt này chỉ SO SÁNH các nhà đã xem, domains chỉ là property.
+'Giữ nguyên căn đã chọn/phương án chuyển đồ/chuyến bay' là bảo toàn ngữ cảnh, không phải yêu cầu
+thực thi các dịch vụ đó hay hỏi lại thông tin còn thiếu của chúng. Chỉ thêm domain khác nếu user
+thực sự yêu cầu thao tác mới cho domain đó trong lượt này; kế hoạch lịch sử vẫn giữ dịch vụ cũ.
 Phân loại LƯỢT MỚI, không chép loại của lượt trước. Nếu đang có active goal thì
 'Điểm giao là ...', 'ở Thành phố ...', 'dưới 10 triệu nhé' là bổ sung refine;
 nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ cụ thể) thì change.
@@ -513,6 +526,12 @@ class LlmIntake(UsageOwner):
             except (ValueError, TypeError):
                 rejected.append(f"{f.key}: invalid fact")
         anchor = MAP_ENTITY_ANCHORS.get(draft.map_origin)
+        if draft.housing_comparison_evidence is not None:
+            evidence = draft.housing_comparison_evidence.strip()
+            if not evidence or nfc(evidence).casefold() not in nfc(user_text).casefold():
+                rejected.append("housing_comparison_evidence: must be a span from latest user message")
+            else:
+                facts["housing_mode"] = ConfirmedFact(value="compare", evidence=evidence, stated_at=self.clock())
         if anchor and "map_near" in facts and facts["map_near"].value != anchor:
             # The origin is an entity the graph binds (dependency or selected ID), never a place name to geocode.
             facts["map_near"] = facts["map_near"].model_copy(update={"value": anchor})

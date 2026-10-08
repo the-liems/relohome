@@ -57,6 +57,8 @@ import {
   serviceTargets,
   pendingServiceInput,
   closedResultSummary,
+  canSelectServiceResult,
+  navigationProgress,
 } from "./serviceJourney";
 import type {
   Component,
@@ -1032,6 +1034,7 @@ function Chat() {
       ?.house) as HouseData | undefined;
   const unavailable = (kind: string) => !status?.domains?.includes(kind);
   const journey = serviceTargets(thread);
+  const navigation = navigationProgress(thread);
   const activeTarget = journey.find((t) => t.c.task_id === workspaceTaskId);
   // Each service result opens its own workspace (map for housing, flights, moving quotes).
   // Choosing an option there returns to the chat so the user can continue with other services.
@@ -1041,7 +1044,9 @@ function Chat() {
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
   const latestProperty =
     (activeTarget?.c.type === "property" ? activeTarget : undefined) ||
-    [...allComponents].reverse().find(({ c }) => c.type === "property");
+    [...allComponents]
+      .reverse()
+      .find(({ c }) => c.type === "property" && !c.data?.comparison);
   const latestFlight =
       (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
       latestOf("flight", "offers"),
@@ -1092,6 +1097,9 @@ function Chat() {
   const lastHasService = (lastAssistant?.content.ui?.components || []).some(
     (c: Component) => c.id === latestService?.c.id && !earlierIds.has(c.id),
   );
+  const lastHasComparison = (lastAssistant?.content.ui?.components || []).some(
+    (c: Component) => !!c.data?.comparison,
+  );
   // The newest message decides: a confirmation request, a service result, or plain chat.
   useEffect(() => {
     if (manualWorkspaceReply.current === lastAssistant?.id) return;
@@ -1107,7 +1115,8 @@ function Chat() {
     setWorkspace(
       lastHasService && !latestService?.c.data?.comparison
         ? (latestService?.c.type ?? null)
-        : movingQuestions.length || pendingServiceInput(thread, "relocation")
+        : movingQuestions.length ||
+            (!lastHasComparison && pendingServiceInput(thread, "relocation"))
           ? "relocation-form"
           : null,
     );
@@ -1169,15 +1178,6 @@ function Chat() {
     }
     const target = journey.find((t) => t.c.task_id === taskId);
     if (target) {
-      if (target.c.data?.comparison) {
-        setWorkspace(null);
-        requestAnimationFrame(() =>
-          document
-            .getElementById("comparison-" + target.c.id)
-            ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-        );
-        return;
-      }
       setWorkspaceTaskId(taskId);
       setWorkspace(target.c.type);
     } else if (agent === "relocation") {
@@ -1213,7 +1213,7 @@ function Chat() {
       ) : null}
       <PlanPeek
         key={threadId || "new"}
-        progress={thread?.state?.progress}
+        progress={navigation}
         threadId={thread?.id}
         thread={thread}
         writesEnabled={!!status?.writes_enabled}
@@ -1222,12 +1222,12 @@ function Chat() {
         busy={busy}
         onOpenService={openService}
       />
-      {(thread?.state.progress?.items || []).length > 1 && (
+      {(navigation.items || []).length > 1 && (
         <nav
           className="service-journey"
           aria-label={uiText("Dịch vụ trong kế hoạch")}
         >
-          {(thread?.state.progress?.items || []).map((item: Data) => (
+          {(navigation.items || []).map((item: Data) => (
             <button
               key={item.task_id}
               className={workspaceTaskId === item.task_id ? "active" : ""}
@@ -1338,11 +1338,7 @@ function Chat() {
         </section>
       ) : workspace === "property" && latestProperty ? (
         <MapWorkspace
-          readOnly={
-            !thread?.state.plan?.tasks?.some(
-              (t: Data) => t.id === latestProperty.c.task_id,
-            )
-          }
+          readOnly={!canSelectServiceResult(thread, latestProperty)}
           focus={{
             key: latestProperty.c.id,
             viewport: latestProperty.c.data?.map_context?.viewport,

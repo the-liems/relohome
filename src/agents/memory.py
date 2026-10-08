@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.models import (
     AgentName,
     CommitActionKind,
@@ -124,7 +125,11 @@ def memory_updates(state: dict) -> list[MemoryUpdate]:
     updates: list[MemoryUpdate] = []
     if intake is not None and plan is not None:
         statuses = state.get("task_status") or {}
-        done_tasks = [t for t in plan.tasks if statuses.get(t.id) == TaskStatus.DONE]
+        done_tasks = [
+            t
+            for t in plan.tasks
+            if statuses.get(t.id) == TaskStatus.DONE and not is_housing_comparison(t.agent, t.inputs)
+        ]
 
         def used(key: str, value: Any) -> bool:
             for task in done_tasks:

@@ -51,6 +51,7 @@ QUESTION_TEXT = {
     "map.selected:property": "Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.",
     "property.city|near": "Bạn muốn tìm phòng ở khu vực nào?",
     "property.city|near|district": "Bạn muốn tìm phòng ở thành phố, quận/huyện hoặc gần địa điểm nào?",
+    "property.listing_ids": "Bạn muốn so sánh những căn đã xem nào, hay tìm danh sách mới đúng khu vực và mức giá này trước?",
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
     "relocation.move_date": "Bạn muốn chuyển đồ ngày nào?",
@@ -249,6 +250,10 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
         result = results.get(task.id)
         if statuses.get(task.id) != TaskStatus.DONE or result is None:
             continue
+        fresh = (result.data.get("execution") or {}).get("request_id") == state.get("request_id")
+        intake = state.get("intake")
+        if result.data.get("comparison") and intake and intake.needs_clarification and not fresh:
+            continue  # Asking which homes is not a fresh comparison of old rows.
         view[task.id] = {
             "agent": task.agent.value,
             "data": result.data,
@@ -260,12 +265,11 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "summary": result.summary,
             "usage": result.usage.model_dump(mode="json"),
         }
-        fresh = (result.data.get("execution") or {}).get("request_id") == state.get("request_id")
         target = lines if fresh else earlier
         display_data = result.data
         intake = state.get("intake")
         selected = intake.user_confirmed_facts.get(f"selected:{task.agent.value}") if intake else None
-        if selected and task.agent == AgentName.PROPERTY:
+        if selected and task.agent == AgentName.PROPERTY and not result.data.get("comparison"):
             chosen = [c for c in result.data.get("candidates", []) if c.get("id") == selected.value]
             if chosen:
                 display_data = {**result.data, "candidates": chosen}
@@ -277,9 +281,13 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
         target.extend(describe_result(task.agent, display_data, titles, asked_city))
         if fresh:
             notes.extend(data_notes(result.data))
-        if result.source_kind != "live":
-            kinds.add(result.source_kind)
-        relaxed.extend(result.data.get("relaxed_filters") or [])
+        if fresh:
+            if result.source_kind != "live":
+                kinds.add(result.source_kind)
+            relaxed.extend(result.data.get("relaxed_filters") or [])
+    if not lines:
+        kinds = {item["source_kind"] for item in view.values() if item["source_kind"] != "live"}
+        relaxed = [f for item in view.values() for f in item["data"].get("relaxed_filters", [])]
     # A turn that only reuses earlier results (nothing new ran) still shows them once.
     return [*(lines or earlier), *dict.fromkeys(notes)], view, kinds, relaxed
 
@@ -295,6 +303,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     lines, view, kinds, relaxed = results_view(state)
     has_results = bool(view)
     data: dict[str, Any] = {"results": view}
+    fresh_view = [
+        item for item in view.values() if item["data"].get("execution", {}).get("request_id") == state.get("request_id")
+    ]
+    current_view = fresh_view or list(view.values())
+    comparison_only = bool(current_view) and all(item["data"].get("comparison") for item in current_view)
     known_summary = ""
     if intake and AgentName.RELOCATION in intake.domains and code in {OutcomeCode.CLARIFY, OutcomeCode.ASK_USER}:
         values = intake.constraints.values
@@ -323,7 +336,8 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         )
     if intake and intake.prefilled and has_results:
         parts = ", ".join(f"{PREFILL_LABEL.get(k, k)} {v.value}" for k, v in intake.prefilled.items())
-        notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
+        if not comparison_only:
+            notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
         data["prefilled"] = {k: v.value for k, v in intake.prefilled.items()}
     if relaxed:
         notes.append(
@@ -361,8 +375,18 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         kind = "CLARIFY"
         questions = [question_for(f, session) for f in intake.blocking_missing]
         questions += [conflict_question(c, intake.domains) for c in intake.conflicts]
+        if intake.constraints.values.get("housing_mode") == "compare" and intake.blocking_missing == [
+            "property.listing_ids"
+        ]:
+            # One actionable clarification, not the same missing-ID question
+            # twice (code + model) plus an irrelevant search-filter tutorial.
+            data["comparison_clarification_details"] = list(intake.conflicts)
+            questions = [question_for("property.listing_ids", session)]
         head = "Mình cần thêm một chút thông tin:"
-        if any(f.startswith("property.") for f in intake.blocking_missing):
+        if (
+            any(f.startswith("property.") for f in intake.blocking_missing)
+            and intake.constraints.values.get("housing_mode") != "compare"
+        ):
             notes.append(
                 "Nếu có ngân sách hay yêu cầu như Wi-Fi, máy lạnh, chỗ để xe thì nói luôn để mình lọc sát hơn."
             )
@@ -425,14 +449,8 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 continue
             result = results.get(task.id)
             assessment = result.data.get("agent_assessment", {}) if result and result.status == "done" else {}
-            if (
-                result
-                and result.data.get("comparison")
-                and assessment.get("kind") == "model_assessment_not_provider_fact"
-            ):
-                lines.append("So sánh theo dữ kiện đã đọc: " + str(assessment.get("reason", ""))[:1200])
-                if assessment.get("next_step"):
-                    lines.append(str(assessment["next_step"])[:400])
+            # Comparison facts and the full domain assessment are already in
+            # the table payload; do not repeat the table as a long chat essay.
             if (
                 assessment.get("kind") == "model_assessment_not_provider_fact"
                 and assessment.get("satisfaction") == "limited"
@@ -504,6 +522,16 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             data["error"] = {"node": outcome.node, "code": code.value}
     if kind == "CLARIFY" and code == OutcomeCode.CLARIFY:
         lines = [known_summary] if known_summary else []
+    if comparison_only and code in {OutcomeCode.ANSWER, OutcomeCode.ASK_USER} and not data.get("failed_tasks"):
+        count = sum(len(item["data"]["comparison"].get("rows", [])) for item in current_view)
+        head = f"Đã so sánh {count} căn trong bảng dưới. Nhà bạn đã chọn không thay đổi."
+        lines = []
+        if data.get("limited_tasks"):
+            lines.append("Một số tiêu chí chưa được xác minh; xem nhận xét dưới bảng.")
+        if any(item["data"]["comparison"].get("price_outside_requested_range_ids") for item in current_view):
+            lines.append("Có căn nằm ngoài khoảng giá yêu cầu; xem cảnh báo trong bảng.")
+            if kind == "ANSWER":
+                kind = "PARTIAL"
     questions = unique_questions(questions)
     body = [head, *lines, *(q.text for q in questions), *notes]
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)

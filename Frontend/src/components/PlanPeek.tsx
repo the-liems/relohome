@@ -11,6 +11,8 @@ import { PendingPayment, Receipts } from "./Transactions";
 import { TabList } from "./TabList";
 
 function statusOf(item: Data) {
+  if (item.historical_search)
+    return { label: "Bản tìm nhà đã lưu", tone: "reviewed" };
   if (item.task_status === "stale")
     return { label: "Cần cập nhật", tone: "attention" };
   if (item.task_status === "failed")
