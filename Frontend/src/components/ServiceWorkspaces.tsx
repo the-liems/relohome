@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  CreditCard,
   ChevronUp,
   Clock,
   Home,
@@ -51,6 +52,8 @@ interface WorkspaceProps {
   chat: ChatDockProps;
   onSelect: (id: string) => Promise<void>;
   onExit: () => void;
+  onPay?: () => void;
+  onOutbound?: (id: string) => Promise<void>;
 }
 
 const minutes = (from?: string, to?: string) =>
@@ -103,6 +106,8 @@ export function FlightWorkspace({
   selectedId,
   chat,
   onSelect,
+  onOutbound,
+  onPay,
   onExit,
 }: WorkspaceProps) {
   const [sort, setSort] = useState("price"),
@@ -121,7 +126,9 @@ export function FlightWorkspace({
     setDetail(null);
   }
   const offers: Data[] = data.offers || [];
-  useExpiryRefresh(offers.map((o) => o.expires_at));
+  useExpiryRefresh(
+    [...offers, ...(data.return_options || [])].map((o: Data) => o.expires_at),
+  );
   const carriers = [...new Set(offers.map((o) => o.carrier).filter(Boolean))];
   const shown = useMemo(
     () =>
@@ -141,6 +148,141 @@ export function FlightWorkspace({
         setDetail({ ...o, error: (e as Error).message });
     }
   }
+  const roundTrip = data.trip_type === "round_trip";
+  const returns: Data[] = data.return_options || [];
+  const [outboundId, setOutboundId] = useState<string>(
+    data.outbound_offer_id || "",
+  );
+  useEffect(
+    () => setOutboundId(data.outbound_offer_id || ""),
+    [data.outbound_offer_id],
+  );
+  const [loadingOutbound, setLoadingOutbound] = useState("");
+  async function chooseOutbound(id: string) {
+    if (!id) return setOutboundId("");
+    if (id === data.outbound_offer_id) return setOutboundId(id);
+    setLoadingOutbound(id);
+    try {
+      await onOutbound?.(id);
+    } catch {
+      // Error is shown by the chat dock.
+    } finally {
+      setLoadingOutbound("");
+    }
+  }
+  const selectedInList =
+    !!selectedId &&
+    [...offers, ...returns].some(
+      (o) => o.id === selectedId && o.kind !== "round_trip_outbound",
+    );
+  function card(o: Data, from: string, to: string, isReturn: boolean) {
+    // Round trip: the return card shows the return leg; its price is the itinerary total.
+    const leg = isReturn ? o.legs?.[1] || o : o;
+    const duration = minutes(leg.depart_at, leg.arrive_at);
+    const late = expired(o.expires_at);
+    const outbound = o.kind === "round_trip_outbound";
+    const chosen = outbound ? outboundId === o.id : selectedId === o.id;
+    const working = outbound ? loadingOutbound === o.id : selecting === o.id;
+    return (
+      <article key={o.id} className={"svc-card " + (chosen ? "chosen" : "")}>
+        <button
+          type="button"
+          className="svc-card-main"
+          onClick={() => void open(o)}
+          aria-label={formatUi("Xem chuyến bay {0} lúc {1}", [
+            leg.carrier || o.carrier,
+            hm(leg.depart_at),
+          ])}
+        >
+          <strong className="svc-carrier">{leg.carrier || o.carrier}</strong>
+          <span className="svc-timeline">
+            <span>
+              <strong>{hm(leg.depart_at)}</strong>
+              <small>{from}</small>
+            </span>
+            <span className="svc-line">
+              <small>
+                {duration != null
+                  ? `${Math.floor(duration / 60)}g ${duration % 60}p`
+                  : ""}
+              </small>
+              <i />
+              <small>
+                {leg.stops === 0
+                  ? uiText("Bay thẳng")
+                  : leg.stops != null
+                    ? formatUi("{0} điểm dừng", [leg.stops])
+                    : uiText("Chưa rõ")}
+              </small>
+            </span>
+            <span>
+              <strong>{hm(leg.arrive_at)}</strong>
+              <small>{to}</small>
+            </span>
+          </span>
+          <small className="muted">{localDateTime(leg.depart_at)}</small>
+        </button>
+        <div className="svc-card-end">
+          <strong className="price">
+            {outbound ? uiText("từ ") : ""}
+            {money(o.fare_vnd)}
+          </strong>
+          <small className="muted">
+            {outbound
+              ? uiText("Khứ hồi rẻ nhất có chuyến đi này")
+              : o.kind === "round_trip"
+                ? uiText("Tổng khứ hồi theo kết quả")
+                : uiText("Tổng giá theo kết quả")}
+          </small>
+          <button
+            className="primary"
+            disabled={
+              chat.busy ||
+              selecting !== null ||
+              !!loadingOutbound ||
+              (chosen && !outbound) ||
+              late ||
+              o.fare_vnd == null
+            }
+            title={late ? uiText("Giá đã hết hạn, hãy tìm lại") : undefined}
+            onClick={() => {
+              if (expired(o.expires_at)) return;
+              if (outbound) void chooseOutbound(o.id);
+              else void select(o.id);
+            }}
+          >
+            {chosen && !outbound ? (
+              <>
+                <Check size={14} />
+                {uiText(" Đã chọn")}
+              </>
+            ) : late ? (
+              uiText("Giá đã hết hạn")
+            ) : working ? (
+              outbound ? (
+                uiText("Đang tải chiều về…")
+              ) : (
+                uiText("Đang chọn…")
+              )
+            ) : outbound ? (
+              chosen ? (
+                uiText("Xem chiều về")
+              ) : (
+                uiText("Chọn chuyến đi")
+              )
+            ) : isReturn ? (
+              uiText("Chọn hành trình này")
+            ) : (
+              uiText("Chọn chuyến này")
+            )}
+          </button>
+          <button className="text-button" onClick={() => void open(o)}>
+            {uiText("Xem hành trình")}
+          </button>
+        </div>
+      </article>
+    );
+  }
   return (
     <div className="svc-workspace">
       <section className="svc-main" aria-label={uiText("Chuyến bay")}>
@@ -155,10 +297,22 @@ export function FlightWorkspace({
               {data.destination || uiText("Nơi đến")}
             </h2>
             <p className="muted small">
+              {roundTrip
+                ? formatUi("Khứ hồi · đi {0} · về {1} · ", [
+                    data.flight_date || "",
+                    data.return_date || "",
+                  ])
+                : ""}
               {offers.length}
               {uiText(" chuyến · giá tại thời điểm tra cứu · chưa đặt vé")}
             </p>
           </div>
+          {onPay && selectedInList && (
+            <button className="primary" onClick={onPay}>
+              <CreditCard size={15} />
+              {uiText(" Thanh toán")}
+            </button>
+          )}
           <button className="ws-pill-button" onClick={onExit}>
             <MessageCircle size={15} />
             {uiText(" Về hội thoại")}
@@ -193,92 +347,36 @@ export function FlightWorkspace({
           ))}
         </div>
         <div className="svc-list">
-          {shown.map((o) => {
-            const duration = minutes(o.depart_at, o.arrive_at);
-            const late = expired(o.expires_at);
-            return (
-              <article
-                key={o.id}
-                className={"svc-card " + (selectedId === o.id ? "chosen" : "")}
+          {roundTrip && (
+            <h3 className="svc-section-title">
+              {outboundId
+                ? uiText("1. Chuyến đi đã chọn")
+                : uiText("1. Chọn chuyến đi")}
+            </h3>
+          )}
+          {shown
+            .filter((o) => !roundTrip || !outboundId || o.id === outboundId)
+            .map((o) => card(o, data.origin, data.destination, false))}
+          {roundTrip && outboundId && (
+            <>
+              <button
+                className="text-button"
+                onClick={() => void chooseOutbound("")}
               >
-                <button
-                  type="button"
-                  className="svc-card-main"
-                  onClick={() => void open(o)}
-                  aria-label={formatUi("Xem chuyến bay {0} lúc {1}", [
-                    o.carrier,
-                    hm(o.depart_at),
-                  ])}
-                >
-                  <strong className="svc-carrier">{o.carrier}</strong>
-                  <span className="svc-timeline">
-                    <span>
-                      <strong>{hm(o.depart_at)}</strong>
-                      <small>{data.origin}</small>
-                    </span>
-                    <span className="svc-line">
-                      <small>
-                        {duration != null
-                          ? `${Math.floor(duration / 60)}g ${duration % 60}p`
-                          : ""}
-                      </small>
-                      <i />
-                      <small>
-                        {o.stops === 0
-                          ? uiText("Bay thẳng")
-                          : o.stops != null
-                            ? formatUi("{0} điểm dừng", [o.stops])
-                            : uiText("Chưa rõ")}
-                      </small>
-                    </span>
-                    <span>
-                      <strong>{hm(o.arrive_at)}</strong>
-                      <small>{data.destination}</small>
-                    </span>
-                  </span>
-                  <small className="muted">{localDateTime(o.depart_at)}</small>
-                </button>
-                <div className="svc-card-end">
-                  <strong className="price">{money(o.fare_vnd)}</strong>
-                  <small className="muted">
-                    {uiText("Tổng giá theo kết quả")}
-                  </small>
-                  <button
-                    className="primary"
-                    disabled={
-                      chat.busy ||
-                      selecting !== null ||
-                      selectedId === o.id ||
-                      late ||
-                      o.fare_vnd == null
-                    }
-                    title={
-                      late ? uiText("Giá đã hết hạn, hãy tìm lại") : undefined
-                    }
-                    onClick={() => {
-                      if (!expired(o.expires_at)) void select(o.id);
-                    }}
-                  >
-                    {selectedId === o.id ? (
-                      <>
-                        <Check size={14} />
-                        {uiText(" Đã chọn")}
-                      </>
-                    ) : late ? (
-                      uiText("Giá đã hết hạn")
-                    ) : selecting === o.id ? (
-                      uiText("Đang chọn…")
-                    ) : (
-                      uiText("Chọn chuyến này")
-                    )}
-                  </button>
-                  <button className="text-button" onClick={() => void open(o)}>
-                    {uiText("Xem hành trình")}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                {uiText("Đổi chuyến đi")}
+              </button>
+              <h3 className="svc-section-title">
+                {uiText("2. Chọn chuyến về · giá là tổng cả hành trình")}
+              </h3>
+              {returns.map((r) => card(r, data.destination, data.origin, true))}
+              {!returns.length && (
+                <p className="notice">
+                  {data.return_message ||
+                    uiText("Chưa có chuyến về phù hợp. Hãy đổi chuyến đi.")}
+                </p>
+              )}
+            </>
+          )}
           {!shown.length && (
             <p className="notice">{uiText("Chưa có chuyến phù hợp.")}</p>
           )}
@@ -321,7 +419,10 @@ export function FlightWorkspace({
               />
             )}
             {detail.error && <p className="notice error">{detail.error}</p>}
-            {(detail.segments || []).map((s: Data, i: number) => (
+            {[
+              ...(detail.segments || []),
+              ...(detail.return_segments || []),
+            ].map((s: Data, i: number) => (
               <div className="svc-segment" key={i}>
                 <strong>
                   {s.origin || s.departure_airport || s.from}{" "}
@@ -356,6 +457,7 @@ export function MovingWorkspace({
   onSelect,
   onExit,
   onEdit,
+  onPay,
 }: WorkspaceProps) {
   const container = useRef<HTMLDivElement>(null),
     map = useRef<LibreMap | null>(null);
@@ -515,7 +617,7 @@ export function MovingWorkspace({
             <Clock size={12} />
             {uiText(" Báo giá hết hạn ")}
             {dateTime(data.expires_at)}
-            {uiText(" · trả tiền mặt cho tài xế")}
+            {uiText(" · thanh toán trong app (sandbox)")}
           </small>
         </div>
         <div className="ws-list-body">
@@ -603,9 +705,19 @@ export function MovingWorkspace({
           >
             {uiText("Sửa yêu cầu / báo giá lại")}
           </button>
+          {onPay && selectedId && (
+            <button
+              className="primary"
+              disabled={chat.busy || late}
+              onClick={onPay}
+            >
+              <CreditCard size={15} />
+              {uiText(" Thanh toán")}
+            </button>
+          )}
           <small className="muted">
             {uiText(
-              "Chọn gói xe để tiếp tục trong chat. Tên/SĐT được nhập ở bước xác nhận đặt đơn.",
+              "Chọn gói xe rồi bấm Thanh toán. Bản demo không tạo đơn AhaMove và không cần tên/SĐT.",
             )}
           </small>
         </div>
@@ -1408,7 +1520,7 @@ export function MovingRequestWorkspace({
           </button>
           <small className="muted">
             {uiText(
-              "Báo giá AhaMove, trả tiền mặt. Chưa đặt đơn cho tới khi bạn đồng ý.",
+              "Báo giá AhaMove (staging). Thanh toán trong app sau khi chọn gói; không tạo đơn.",
             )}
           </small>
         </div>

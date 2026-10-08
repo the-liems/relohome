@@ -304,8 +304,15 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
                   </small>
                 </div>
                 <div className="offer-end">
-                  <strong className="price">{money(o.fare_vnd)}</strong>
-                  <small>{uiText("Tổng giá theo kết quả")}</small>
+                  <strong className="price">
+                    {o.kind === "round_trip_outbound" ? uiText("từ ") : ""}
+                    {money(o.fare_vnd)}
+                  </strong>
+                  <small>
+                    {o.kind === "round_trip_outbound"
+                      ? uiText("Khứ hồi rẻ nhất có chuyến đi này")
+                      : uiText("Tổng giá theo kết quả")}
+                  </small>
                   <button className="secondary" onClick={() => flightDetail(o)}>
                     {uiText("Xem hành trình ")}
                     <ArrowUpRight size={14} />
@@ -561,7 +568,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
             <>
               <h2>{detail.vehicle || detail.service_id}</h2>
               <p className="price price-large">{money(detail.price_vnd)}</p>
-              <p>{uiText("Trả tiền mặt · AhaMove staging")}</p>
+              <p>{uiText("Báo giá AhaMove staging · thanh toán trong app")}</p>
               {detail.fee_breakdown && (
                 <FeeBreakdown fee={detail.fee_breakdown} />
               )}

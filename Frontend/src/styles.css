@@ -5658,3 +5658,149 @@ input[type="checkbox"] {
 @media (max-width: 480px) { .mv-guide-body { grid-template-columns: 95px 1fr; gap: 9px; } .mv-guide-body p { font-size: 11px; } .mv-vehicle-choices { grid-template-columns: repeat(3,minmax(0,1fr)); } .mv-vehicle-choices button { padding: 11px 9px; } .mv-vehicle-choices button strong { font-size: 11px; } }
 .header-home { flex-shrink: 0; }
 @media (max-width: 900px) { .header-home { display: none; } }
+
+/* In-app payment (payment-design §7–§10) */
+.checkout {
+  display: grid;
+  gap: 14px;
+}
+.checkout-steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--ui-muted);
+}
+.checkout-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--ui-line);
+  border-radius: 999px;
+}
+.checkout-steps li span {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ui-soft);
+}
+.checkout-steps li.current {
+  color: var(--ui-text);
+  border-color: var(--ui-accent);
+}
+.checkout-steps li.current span,
+.checkout-steps li.done span {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+.checkout-summary header,
+.checkout-card header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.checkout-summary h3 {
+  margin: 0;
+}
+.checkout-lines {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.checkout-people fieldset.companion {
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 8px 0;
+}
+.checkout-qr {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.checkout-qr .qr-image {
+  width: min(240px, 70vw);
+  background: #fff;
+  padding: 8px;
+  border-radius: 12px;
+}
+.checkout-attempt .tester {
+  border-style: dashed;
+}
+.checkout-panel {
+  display: grid;
+  gap: 12px;
+}
+.checkout-totals {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-soft);
+}
+.checkout-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.checkout-totals dt {
+  color: var(--ui-muted);
+}
+.checkout-totals dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.checkout-totals small {
+  display: block;
+  font-weight: 400;
+  color: var(--ui-muted);
+}
+.checkout-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  background: var(--ui-surface);
+}
+.checkout-card header .muted {
+  margin-left: auto;
+  text-align: right;
+}
+.housing-steps {
+  display: grid;
+  gap: 8px;
+}
+.housing-steps h5 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.housing-steps .agreement {
+  display: grid;
+  gap: 8px;
+}
+.housing-steps fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.svc-section-title {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+}
+.traveler-profile .form-grid {
+  margin-top: 8px;
+}
