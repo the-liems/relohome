@@ -69,6 +69,7 @@ def test_comparison_reads_exact_real_ids_without_new_search():
         await session.execute("compare_housing", {"limit": None})
         result = session.result
         assert result.status == "done" and result.source_refs == ids
+        assert not result.quotes  # Comparison facts cannot be selected/budgeted as a search.
         assert session.read_ids == set(ids) and session.tools.calls == 4
         for row in result.data["comparison"]["rows"]:
             assert row["id"] in ids and row["unknown_cost_fields"]
@@ -83,6 +84,92 @@ def test_comparison_reads_exact_real_ids_without_new_search():
         assert session.tools.calls == before
 
     asyncio.run(run())
+
+
+def test_comparison_reports_actual_prices_outside_a_requested_band():
+    async def run():
+        env = environment()
+        client = McpToolClient(
+            McpEndpoint(
+                service="location",
+                url=env["LOCATION_MCP_URL"],
+                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                allowed_tools=LOCATION_READ_TOOLS,
+            )
+        )
+        adapter = LocationSubagent(client, AgentName.PROPERTY)
+        req = AgentTaskRequest(
+            request_id=uuid4().hex,
+            thread_id="issue75-price-band",
+            task_id="read-search",
+            plan_version=1,
+            attempt=1,
+            agent=AgentName.PROPERTY,
+            goal="Đọc giá thật để kiểm giới hạn",
+            inputs={"city": "Hà Nội", "district": "Cầu Giấy", "max_price_vnd": 7_000_000, "limit": 3},
+            budget=AgentBudget(max_llm_calls=0, max_provider_calls=15),
+        )
+        search = await adapter.run(req)
+        assert search.status == "done" and len(search.data["candidates"]) == 3
+        ids = [c["id"] for c in search.data["candidates"]]
+        compare = await adapter.run(
+            req.model_copy(
+                update={
+                    "task_id": "read-compare",
+                    "inputs": {
+                        "housing_mode": "compare",
+                        "listing_ids": ids,
+                        "min_price_vnd": 5_000_000,
+                        "max_price_vnd": 7_000_000,
+                    },
+                }
+            )
+        )
+        assert compare.status == "done" and not compare.quotes
+        rows = compare.data["comparison"]["rows"]
+        expected = {r["id"] for r in rows if r["rent_vnd"] is not None and not 5_000_000 <= r["rent_vnd"] <= 7_000_000}
+        assert set(compare.data["comparison"]["price_outside_requested_range_ids"]) == expected
+        assert set(compare.source_refs) == set(ids)
+        print(
+            json.dumps({"case": "actual_price_band", "rows": len(rows), "out_of_range": len(expected), "llm_calls": 0})
+        )
+
+    asyncio.run(run())
+
+
+def test_unknown_comparison_scope_clarifies_without_replacing_a_real_selected_home():
+    """Continue only the disposable issue75 browser identity, never a user's thread."""
+    thread = os.getenv("HOUSING_COMPARISON_VERIFY_THREAD")
+    if not thread:
+        pytest.skip("Supply the actual issue75 test conversation; no fixture replay")
+    import sqlite3
+
+    run = os.getenv("HOUSING_COMPARISON_VERIFY_RUN", "issue75-browser-20261008")
+    assert run.startswith("issue75-browser-") and "/" not in run and "\\" not in run
+    conn = sqlite3.connect(f"file:{ROOT / 'logs/local' / run / 'web.sqlite3'}?mode=ro", uri=True)
+    row = conn.execute(
+        "SELECT t.owner,u.name,u.email FROM threads t JOIN users u ON u.id=t.owner WHERE t.id=?", (thread,)
+    ).fetchone()
+    conn.close()
+    assert row and row[1] == "Issue 75 comparison verification" and row[2].endswith("@example.invalid")
+    env = environment()
+    with httpx.Client(
+        base_url="http://127.0.0.1:8000/api/v1",
+        timeout=180,
+        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": row[0]},
+    ) as client:
+        before = client.get(f"/chat/{thread}/state").json()
+        response = client.post(
+            "/chat", json={"thread_id": thread, "message": "So sánh 3 căn rẻ ở Hoàn Kiếm, Hà Nội, tầm 2–3 triệu."}
+        )
+        response.raise_for_status()
+        reply = response.json()
+        after = client.get(f"/chat/{thread}/state").json()
+        assert reply["response"]["kind"] == "CLARIFY" and len(reply["response"]["questions"]) == 1
+        assert len(reply["response"]["text"].split()) <= 65
+        assert after["selections"]["property"]["id"] == before["selections"]["property"]["id"]
+        assert not reply.get("confirmation") and not after["committed"]
+        assert not any(r["data"].get("comparison") for r in reply["response"]["data"]["results"].values())
 
 
 def test_real_multiturn_comparison_preserves_ids_and_missing_costs():
@@ -238,4 +325,15 @@ def test_real_selected_home_survives_three_then_four_way_comparison():
             assert len(comparison["data"]["comparison"]["rows"]) == count
             state = http.get(f"/chat/{thread}/state").json()
             assert state["selections"]["property"]["id"] == ids[0]
+            assert comparison["data"].get("comparison")
+            comparison_id = next(
+                tid for tid, r in response["response"]["data"]["results"].items() if r["data"].get("comparison")
+            )
+            if not continuing:
+                assert comparison_id != task_id
+                original = next(i for i in state["progress"]["items"] if i["task_id"] == task_id)
+                assert original["chosen"]["id"] == ids[0]
+                assert comparison_id not in {i["task_id"] for i in state["progress"]["items"]}
+            assert comparison_id not in (state.get("cost_summary") or {}).get("selected", {})
+            assert len(response["response"]["text"].split()) <= 65
             assert not state["committed"] and not state["plan"]["commit_actions"]

@@ -57,6 +57,7 @@ def selection_is_current(values: dict, task_id: str, option_id: str) -> bool:
     result: TaskResult | None = (values.get("task_results") or {}).get(task_id)
     if (
         result is None
+        or bool(result.data.get("comparison"))
         or result.task_id != task_id
         or result.status != "done"
         or (values.get("task_status") or {}).get(task_id) != TaskStatus.DONE

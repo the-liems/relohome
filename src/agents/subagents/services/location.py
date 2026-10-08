@@ -575,7 +575,7 @@ class LocationSubagent:
 
     async def _comparison(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         """Re-read explicit listings, never replace them with new search results."""
-        candidates, rows, quotes, missing = [], [], [], []
+        candidates, rows, missing = [], [], []
         for identifier in req.inputs["listing_ids"]:
             raw = await tools.call("get_housing", {"listing_id": identifier})
             if raw.get("listing_id") != identifier:
@@ -600,20 +600,35 @@ class LocationSubagent:
                 }
             )
             missing += [f"candidates[{len(candidates) - 1}].{key}" for key in unknown]
-            if rent is not None:
-                quotes.append(
-                    Quote(option_id=identifier, label=candidate["title"], amount_vnd=rent, recurrence="monthly")
-                )
         return self._result(
             req,
             tools,
             status="done",
             source_refs=list(req.inputs["listing_ids"]),
             missing_fields=missing,
-            quotes=quotes,
+            quotes=[],  # Read-only facts, not selectable/budgeted housing options.
             data={
                 "candidates": candidates,
-                "comparison": {"rows": rows, "scope": "requested_listings_only", "fees_verified": False},
+                "comparison": {
+                    "rows": rows,
+                    "scope": "requested_listings_only",
+                    "fees_verified": False,
+                    "price_outside_requested_range_ids": [
+                        row["id"]
+                        for row in rows
+                        if row["rent_vnd"] is not None
+                        and (
+                            (
+                                req.inputs.get("min_price_vnd") is not None
+                                and row["rent_vnd"] < req.inputs["min_price_vnd"]
+                            )
+                            or (
+                                req.inputs.get("max_price_vnd") is not None
+                                and row["rent_vnd"] > req.inputs["max_price_vnd"]
+                            )
+                        )
+                    ],
+                },
                 "map_context": {
                     "scope": "returned_candidates",
                     "listing_ids": list(req.inputs["listing_ids"]),

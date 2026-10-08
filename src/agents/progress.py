@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.models import AgentName, Plan, RequestKind, TaskResult, TaskStatus
 from src.agents.selections import option_ids, option_is_expired, selected_option, selection_is_current
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
@@ -156,6 +157,8 @@ def plan_progress(values: dict) -> dict[str, Any]:
     empty = {"items": [], "totals": {"monthly_vnd": 0, "one_time_vnd": 0, "confirmed": 0, "unpriced": []}}
     if not tasks:
         return empty
+    # Analysis stays in the chat, not a second search/choice step or a cost item.
+    tasks = {tid: task for tid, task in tasks.items() if not is_housing_comparison(task["agent"], task["inputs"])}
     intake = values.get("intake")
     facts = intake.user_confirmed_facts if intake else {}
     selections: dict[str, str] = values.get("goal_selections") or {}

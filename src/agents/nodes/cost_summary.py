@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from src.agents.approval import confirmation_hash
 from src.agents.deps import GraphDeps
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.intake import selected_fact_key
 from src.agents.models import (
     CommitAction,
@@ -32,6 +33,8 @@ def select_options(plan: Plan, results: dict[str, TaskResult], intake: IntakeRes
     selected = {}
     for task in plan.tasks:
         result = results.get(task.id)
+        if is_housing_comparison(task.agent, task.inputs) or (result and result.data.get("comparison")):
+            continue  # Comparison never chooses/budgets a home or changes transaction inputs.
         if result is None or not result.quotes:
             continue
         options = {q.option_id for q in result.quotes}

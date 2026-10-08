@@ -15,6 +15,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel
 
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS
+from src.agents.housing_operations import is_housing_comparison, same_housing_operation
 from src.agents.intake import LOOKUP_KEYS, selected_fact_key
 from src.agents.memory import SOFT_FILTER_KEYS
 from src.agents.models import (
@@ -42,6 +43,7 @@ class PlannerInput(BaseModel):
     session: SessionContext
     previous_plan: Plan | None = None
     previous_results: dict[str, TaskResult] = {}
+    reserved_task_ids: list[str] = []  # Existing history identities, including when NEW_GOAL hides old context.
     validation: ValidationReport | None = None
     change_context: ChangeContext | None = None
     available_agents: list[AgentName] = []
@@ -142,6 +144,13 @@ def validate_plan(
     carried = {t.id: t for t in previous_plan.tasks} if previous_plan else {}
     remaining: dict[str, set[str]] = {}
     for task in plan.tasks:
+        previous = carried.get(task.id)
+        if (
+            previous is not None
+            and task.agent == previous.agent == AgentName.PROPERTY
+            and not same_housing_operation(task.agent, previous.inputs, task.inputs)
+        ):
+            errors.append(f"{task.id}: comparison and search must use separate task IDs")
         deps = set(task.depends_on)
         if len(deps) != len(task.depends_on) or not deps <= id_set or task.id in deps:
             errors.append(f"{task.id}: depends_on trùng, trỏ tới task không có hoặc trỏ tới chính nó")
@@ -187,6 +196,8 @@ def validate_plan(
         if source is None:
             errors.append(f"{action.id}: source_task_id không có trong plan")
             continue
+        if is_housing_comparison(source.agent, source.inputs):
+            errors.append(f"{action.id}: comparison is read-only and cannot be a transaction source")
         if action.kind not in registry.commit_kinds(source.agent):
             errors.append(f"{action.id}: service {source.agent.value} không hỗ trợ {action.kind.value}")
         if action.kind not in intake.commit_requested:

@@ -163,6 +163,8 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
             raise HTTPException(409, "Nhóm kết quả đã thay đổi. Hãy sử dụng kết quả mới nhất.")
         intake = state["intake"].model_copy(deep=True)
         update = {}
+        if result.data.get("comparison"):
+            raise HTTPException(409, "Bảng so sánh chỉ để đọc. Hãy mở kết quả tìm nhà để thay lựa chọn.")
         if body.kind == "select":
             committed = active_commits(state.get("committed"))
             previous = intake.user_confirmed_facts.get(f"selected:{result.agent.value}")

@@ -12,6 +12,8 @@ from langchain_core.messages import HumanMessage
 
 from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.intake import (
     MAP_ENTITY_ANCHORS,
     MAP_VIEW_REF,
@@ -242,6 +244,16 @@ def make_intake(deps: GraphDeps):
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
         latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
+        if (
+            previous is not None
+            and result.domains == [AgentName.PROPERTY]
+            and is_housing_comparison(AgentName.PROPERTY, result.constraints.values)
+        ):
+            # Analysing observed homes is not changing the active home/search.
+            # Normalize before grounding, so NEW_GOAL cannot erase its choices.
+            result = result.model_copy(
+                update={"kind": RequestKind.REFINE, "target_task_ids": [], "change_request": None}
+            )
         stopped_route = re.search(r"không cần (?:tính )?đường nữa", latest_text, re.IGNORECASE)
         if (
             stopped_route
@@ -258,7 +270,8 @@ def make_intake(deps: GraphDeps):
             previous
             and result.kind == RequestKind.REFINE
             and any(
-                (key in pending_fields or explicitly_changed_fact(key, latest_text))
+                not (is_housing_comparison(AgentName.PROPERTY, result.constraints.values) and key in HOUSING_INPUT_KEYS)
+                and (key in pending_fields or explicitly_changed_fact(key, latest_text))
                 and key in previous.user_confirmed_facts
                 and previous.user_confirmed_facts[key].value != fact.value
                 for key, fact in result.user_confirmed_facts.items()
@@ -302,7 +315,7 @@ def make_intake(deps: GraphDeps):
             # The read-only comparison set can change without changing the chosen
             # home or authorizing a transaction. LlmIntake already validates each
             # ID against observed options and requires current user evidence.
-            selectors |= {"listing_ids"}
+            selectors |= set(HOUSING_INPUT_KEYS)
         # Strip a model-authored Housing reference before conflict detection, not just before geocoding:
         # Housing `near` is a place; an entity reference there would be geocoded as text.
         if entity_reference(result.constraints.values.get("near")):
@@ -339,6 +352,23 @@ def make_intake(deps: GraphDeps):
                     logger.info("prefill_corrected field=%s thread_id=%s request_id=%s", key, thread_id, request_id)
         commit_requested = [k for k in CommitActionKind if commit_fact_key(k) in grounded.facts]
         supported_actions = {kind for name in deps.agents.names() for kind in deps.agents.commit_kinds(name)}
+        comparison_only = result.domains == [AgentName.PROPERTY] and is_housing_comparison(
+            AgentName.PROPERTY, result.constraints.values
+        )
+        if comparison_only:
+            # A read-only comparison cannot renew a booking intent from a past
+            # turn. A fresh, grounded transaction request is still disclosed.
+            commit_requested = [
+                kind
+                for kind in commit_requested
+                if (fact := grounded.facts.get(commit_fact_key(kind)))
+                and fact.evidence.strip()
+                and fact.evidence.casefold() in latest_text.casefold()
+            ]
+            if previous is not None and not commit_requested:
+                result = result.model_copy(
+                    update={"kind": RequestKind.REFINE, "target_task_ids": [], "change_request": None}
+                )
         unsupported = [kind for kind in commit_requested if kind not in supported_actions]
         # A disabled transaction is not a conflict in otherwise valid read
         # tasks. Retain its intent separately and explain it to the user;
@@ -355,6 +385,15 @@ def make_intake(deps: GraphDeps):
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        if (
+            AgentName.PROPERTY in result.domains
+            and is_housing_comparison(AgentName.PROPERTY, values)
+            and "listing_ids" not in result.user_confirmed_facts
+        ):
+            # Old IDs are context, not authorization to choose which homes the
+            # new comparison means. Intake must ground that set for this turn.
+            values.pop("listing_ids", None)
+            facts.pop("listing_ids", None)
         if state.get("moving_options") is not None and AgentName.RELOCATION in result.domains:
             values["moving_options"] = state["moving_options"]
         if entity_reference(values.get("near")):
