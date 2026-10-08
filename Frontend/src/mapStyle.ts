@@ -58,6 +58,7 @@ export const PILL = {
   normal: "ws-pill",
   hover: "ws-pill-hover",
   selected: "ws-pill-selected",
+  roommate: "ws-pill-roommate",
 };
 export const POI_ICON_EXPRESSION: any = [
   "match",
@@ -68,6 +69,7 @@ export const POI_ICON_EXPRESSION: any = [
 
 export function registerMapImages(map: LibreMap) {
   const pills = [
+    [PILL.roommate, "#fde047", "#a16207", "rgba(161, 98, 7, 0.2)", 4.5],
     [
       PILL.normal,
       MAP_THEME.housingMarker.fill,

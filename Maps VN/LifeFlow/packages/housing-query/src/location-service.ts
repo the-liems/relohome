@@ -98,6 +98,7 @@ export class LocationService {
          a.attributes,
          a.match_type,
          a.match_score,
+         ${request.include_geometry ? 'ST_AsGeoJSON(a.geom, 7)::jsonb' : 'NULL::jsonb'} AS geometry,
          ST_X(ST_PointOnSurface(a.geom)) AS center_lng,
          ST_Y(ST_PointOnSurface(a.geom)) AS center_lat,
          ST_XMin(Box2D(a.geom)) AS west,
@@ -146,6 +147,7 @@ export class LocationService {
             levels: request.levels,
             bounding_box: request.bounding_box,
             limit: request.limit,
+            include_geometry: false,
           })
         : Promise.resolve({ query: request.text, results: [] as AdministrativeArea[] }),
       includePlaces ? this.resolvePlaces(request) : Promise.resolve([]),
@@ -345,6 +347,7 @@ function rowToArea(row: Record<string, unknown>): AdministrativeArea {
     match_type: row.match_type,
     match_score: Number(row.match_score),
     attributes: row.attributes || {},
+    ...(row.geometry ? { geometry: row.geometry } : {}),
   })
 }
 

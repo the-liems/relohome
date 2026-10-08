@@ -15,6 +15,16 @@ export const AdministrativeAreaParentSchema = z.object({
   level: z.string().min(1),
 })
 
+const PositionSchema = z.tuple([z.number().finite().min(-180).max(180), z.number().finite().min(-90).max(90)])
+const RingSchema = z.array(PositionSchema).min(4).refine(
+  ring => Boolean(ring[0] && ring[ring.length - 1] && ring[0][0] === ring[ring.length - 1]![0] && ring[0][1] === ring[ring.length - 1]![1]),
+  'Polygon rings must be closed.',
+)
+export const AreaGeometrySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('Polygon'), coordinates: z.array(RingSchema).min(1) }),
+  z.object({ type: z.literal('MultiPolygon'), coordinates: z.array(z.array(RingSchema).min(1)).min(1) }),
+])
+
 export const AdministrativeAreaSchema = z.object({
   area_id: z.string().min(1),
   name: z.string().min(1),
@@ -26,6 +36,7 @@ export const AdministrativeAreaSchema = z.object({
   match_type: LocationMatchTypeSchema,
   match_score: z.number().min(0).max(1),
   attributes: z.record(z.string(), z.unknown()).default({}),
+  geometry: AreaGeometrySchema.optional(),
 })
 
 export const SearchAreasRequestSchema = z.object({
@@ -33,6 +44,8 @@ export const SearchAreasRequestSchema = z.object({
   levels: z.array(z.string().trim().min(1)).min(1).max(20).optional(),
   bounding_box: BoundingBoxSchema.optional(),
   limit: z.number().int().min(1).max(50).default(10),
+  // Render geometry only when requested, never in ordinary LLM lookups.
+  include_geometry: z.boolean().default(false),
 })
 
 export const SearchAreasResponseSchema = z.object({
@@ -103,6 +116,6 @@ export const ResolveLocationResponseSchema = z.object({
 })
 
 export type AdministrativeArea = z.infer<typeof AdministrativeAreaSchema>
-export type SearchAreasRequest = z.infer<typeof SearchAreasRequestSchema>
+export type SearchAreasRequest = z.input<typeof SearchAreasRequestSchema>
 export type ResolveLocationRequest = z.infer<typeof ResolveLocationRequestSchema>
 export type ResolvedLocation = z.infer<typeof ResolvedLocationSchema>

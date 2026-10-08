@@ -2,6 +2,7 @@ import type { Profile } from "./types";
 import { FactsForm } from "./FactsForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { rt } from "./text";
+import { useEffect, useState } from "react";
 export function ProfileEditor({
   value,
   change,
@@ -11,6 +12,13 @@ export function ProfileEditor({
   change: (value: Profile) => void;
   complete?: boolean;
 }) {
+  const [roomId, setRoomId] = useState(value.room?.listing_id || "");
+  useEffect(() => {
+    if (value.room) setRoomId(value.room.listing_id);
+  }, [value.room?.listing_id]);
+  useEffect(() => {
+    if (value.facts.need?.kind !== "has_room") setRoomId("");
+  }, [value.facts.city, value.facts.need?.kind]);
   return (
     <>
       <div className="rm-fields">
@@ -52,6 +60,10 @@ export function ProfileEditor({
           change({
             ...value,
             facts,
+            room:
+              facts.need?.kind === "has_room" && facts.city === value.facts.city
+                ? value.room
+                : null,
             preferences:
               facts.city !== value.facts.city
                 ? { ...value.preferences, areas: null }
@@ -69,6 +81,54 @@ export function ProfileEditor({
           change={(preferences) => change({ ...value, preferences })}
         />
       </details>
+      {value.facts.need?.kind === "has_room" && (
+        <details className="rm-disclosure">
+          <summary>
+            {rt(
+              "Hiện phòng trên map (tùy chọn)",
+              "Publish room on map (optional)",
+            )}
+          </summary>
+          <p className="rm-hint">
+            Chỉ khai báo phòng bạn đang có quyền ở. Vị trí căn được công khai
+            khi đăng nhu cầu; không tự lấy từ nhà đã chọn trong chat.
+          </p>
+          <label>
+            Mã tin nhà (listing ID)
+            <input
+              maxLength={200}
+              value={roomId}
+              onChange={(e) => {
+                setRoomId(e.target.value);
+                change({ ...value, room: null });
+              }}
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={Boolean(value.room)}
+              disabled={!roomId.trim()}
+              onChange={(e) =>
+                change({
+                  ...value,
+                  room: e.target.checked
+                    ? {
+                        listing_id: roomId.trim(),
+                        public_location_consent: true,
+                      }
+                    : null,
+                })
+              }
+            />
+            Tôi đồng ý công khai vị trí phòng này và xác nhận đang tìm bạn trọ.
+          </label>
+          <small>
+            Đây là khai báo của bạn, không phải chứng nhận quyền sở hữu từ
+            ReloHome. Để trống mã tin nếu không muốn hiện vị trí.
+          </small>
+        </details>
+      )}
     </>
   );
 }

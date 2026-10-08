@@ -51,8 +51,9 @@ export type Profile = {
   introduction: string | null;
   facts: Facts;
   preferences: Preferences;
+  room?: { listing_id: string; public_location_consent: true } | null;
 };
-export type PublicProfile = Omit<Profile, "preferences"> & {
+export type PublicProfile = Omit<Profile, "preferences" | "room"> & {
   profile_id: string;
   avatar_id?: string | null;
 };
@@ -83,6 +84,7 @@ export type Availability = {
   enabled: boolean;
   cities: City[];
   terms_version: string;
+  demo_enabled?: boolean;
 };
 export type OwnProfile = {
   version: number;

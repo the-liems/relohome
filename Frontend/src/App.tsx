@@ -55,6 +55,8 @@ import {
   hasSelection,
   nextServiceTarget,
   serviceTargets,
+  pendingServiceInput,
+  closedResultSummary,
 } from "./serviceJourney";
 import type {
   Component,
@@ -1060,6 +1062,9 @@ function Chat() {
     (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
   );
   const movingKnown: Data = {
+    ...((thread?.state?.progress?.items || []).find(
+      (i: Data) => i.agent === "relocation" && i.state === "waiting",
+    )?.inputs || {}),
     ...Object.fromEntries(
       ["moving_options", "pickup_coordinate", "destination_coordinate"]
         .filter(
@@ -1100,14 +1105,14 @@ function Chat() {
       setMovingSubmission(null);
     }
     setWorkspace(
-      movingQuestions.length
-        ? "relocation-form"
-        : lastHasService && !latestService?.c.data?.comparison
-          ? (latestService?.c.type ?? null)
+      lastHasService && !latestService?.c.data?.comparison
+        ? (latestService?.c.type ?? null)
+        : movingQuestions.length || pendingServiceInput(thread, "relocation")
+          ? "relocation-form"
           : null,
     );
     setWorkspaceTaskId(
-      movingQuestions.length ? null : latestService?.c.task_id || null,
+      lastHasService ? latestService?.c.task_id || null : null,
     );
     // Only a new server reply or navigation auto-opens a workspace. A local
     // submit/exit state change must not override the user's explicit workspace choice.
@@ -1142,8 +1147,19 @@ function Chat() {
       reviewedServices.current,
     );
     setWorkspaceTaskId(remaining?.c.task_id || null);
+    const nextAssistant = [...(next?.messages || thread?.messages || [])]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    const hasMovingInput = (
+      nextAssistant?.content.response?.questions || []
+    ).some((q: Data) =>
+      (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
+    );
     setWorkspace(
-      remaining?.c.type || (movingQuestions.length ? "relocation-form" : null),
+      remaining?.c.type ||
+        (hasMovingInput || pendingServiceInput(next || thread, "relocation")
+          ? "relocation-form"
+          : null),
     );
   }
   function openService(taskId: string, agent: string) {
@@ -1177,9 +1193,9 @@ function Chat() {
   function finishWorkspace() {
     const target = activeTarget || journey.find((t) => t.c.type === workspace);
     if (target) reviewedServices.current.add(target.c.id);
-    const remaining = nextServiceTarget(thread, reviewedServices.current);
-    setWorkspaceTaskId(remaining?.c.task_id || null);
-    setWorkspace(remaining?.c.type || null);
+    // Back means chat. Automatic next-service navigation belongs to selection.
+    setWorkspaceTaskId(null);
+    setWorkspace(null);
   }
   function choosePlace(choice: Data, field: string) {
     const place =
@@ -1532,7 +1548,16 @@ function Chat() {
                           <div className="assistant-label">
                             ReloHome <Sparkles size={12} />
                           </div>
-                          <p className="prose">{m.content.response.text}</p>
+                          <p className="prose">
+                            {closedResultSummary(m, thread) ||
+                              m.content.response.text}
+                          </p>
+                          {closedResultSummary(m, thread) && (
+                            <details className="completed-result-detail">
+                              <summary>Xem nội dung kết quả ban đầu</summary>
+                              <p className="prose">{m.content.response.text}</p>
+                            </details>
+                          )}
                           {m.content.response.kind === "PARTIAL" && (
                             <span className="tag amber">
                               {uiText("Kết quả một phần")}
@@ -1628,43 +1653,44 @@ function Chat() {
                       <Receipts
                         receipts={m.content.response?.data?.receipts || []}
                       />
-                      {(m.content.response?.questions || []).map(
-                        (q: Data, i: number) => (
-                          <div className="question" key={i}>
-                            {!m.content.response?.text.includes(q.text) && (
-                              <p>{q.text}</p>
+                      {(closedResultSummary(m, thread)
+                        ? []
+                        : m.content.response?.questions || []
+                      ).map((q: Data, i: number) => (
+                        <div className="question" key={i}>
+                          {!m.content.response?.text.includes(q.text) && (
+                            <p>{q.text}</p>
+                          )}
+                          <div className="tags">
+                            {mergePlaceCandidates(q.choices || []).map(
+                              (c: Data) => (
+                                <button
+                                  key={c.id}
+                                  className="suggestion"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    choosePlace(c, q.field).catch(() => {})
+                                  }
+                                >
+                                  <MapPin size={12} /> {c.label}
+                                </button>
+                              ),
                             )}
-                            <div className="tags">
-                              {mergePlaceCandidates(q.choices || []).map(
-                                (c: Data) => (
-                                  <button
-                                    key={c.id}
-                                    className="suggestion"
-                                    disabled={busy}
-                                    onClick={() =>
-                                      choosePlace(c, q.field).catch(() => {})
-                                    }
-                                  >
-                                    <MapPin size={12} /> {c.label}
-                                  </button>
-                                ),
-                              )}
-                              {(q.choices?.length ? [] : q.options || []).map(
-                                (o: string) => (
-                                  <button
-                                    key={o}
-                                    className="suggestion"
-                                    disabled={busy}
-                                    onClick={() => send(o).catch(() => {})}
-                                  >
-                                    {o}
-                                  </button>
-                                ),
-                              )}
-                            </div>
+                            {(q.choices?.length ? [] : q.options || []).map(
+                              (o: string) => (
+                                <button
+                                  key={o}
+                                  className="suggestion"
+                                  disabled={busy}
+                                  onClick={() => send(o).catch(() => {})}
+                                >
+                                  {o}
+                                </button>
+                              ),
+                            )}
                           </div>
-                        ),
-                      )}
+                        </div>
+                      ))}
                       {(m.content.response?.suggestions || []).length > 0 && (
                         <div className="suggestions">
                           {m.content.response!.suggestions!.map((s: Data) => (

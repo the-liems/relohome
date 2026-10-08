@@ -11,6 +11,10 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
 | SPEC | Status | Scope |
 |---|---|---|
+| [SPEC-018 — Search scope and Roommate map](SPEC-018-search-scope-and-roommate-map.md) | Draft | True administrative boundaries, viewport/radius intersection, service journey and isolated synthetic Roommate playground |
+
+| SPEC | Status | Scope |
+|---|---|---|
 | [SPEC-016 — Interactive housing search](SPEC-016-housing-search.md) | Draft; desktop list/map and automatic viewport search confirmed | Housing interaction, custom requirements, explicit home choice, and current implementation gaps |
 | [SPEC-008 — Domain MCP tool catalogue](SPEC-008-service-tools.md) | Draft | Proposed tool inputs/outputs, booking lifecycles, approval, and recovery |
 | [SPEC-015 — Maps and location experience](SPEC-015-maps-and-location-experience.md) | Draft | Customer flow, geographic evidence, cross-service selection rules, and acceptance criteria |

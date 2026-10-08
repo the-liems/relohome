@@ -109,13 +109,8 @@ export const HousingSearchRequestSchema = z
         path: ['radius_m'],
       })
     }
-    if (request.bounding_box && request.center) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Use either bounding_box or center/radius_m, not both.',
-        path: ['bounding_box'],
-      })
-    }
+    // Viewport AND proximity filter are both applied by the query layer.
+    // Panning must not silently remove the user's radius.
     if (
       request.min_price &&
       request.max_price &&
@@ -237,6 +232,8 @@ export const HousingMapRequestSchema = z.object({
   text: HousingSearchRequestSchema.shape.text,
   district: HousingSearchRequestSchema.shape.district,
   administrative_area_ids: HousingSearchRequestSchema.shape.administrative_area_ids,
+  center: HousingSearchRequestSchema.shape.center,
+  radius_m: HousingSearchRequestSchema.shape.radius_m,
   min_price: HousingSearchRequestSchema.shape.min_price,
   max_price: HousingSearchRequestSchema.shape.max_price,
   currency: HousingSearchRequestSchema.shape.currency,

@@ -10,6 +10,7 @@ from src.api.moving_quotes import router as moving_quote_router
 from src.api.roommate_access import router as roommate_access_router
 from src.api.roommate_connections import router as roommate_connections_router
 from src.api.roommate_discovery import router as roommate_discovery_router
+from src.api.roommate_map import router as roommate_map_router
 from src.api.roommate_media import router as roommate_media_router
 from src.api.roommate_profiles import router as roommate_profiles_router
 from src.api.roommate_safety import router as roommate_safety_router
@@ -65,6 +66,7 @@ app.include_router(roommate_profiles_router, prefix="/api/v1")
 app.include_router(roommate_connections_router, prefix="/api/v1")
 app.include_router(roommate_safety_router, prefix="/api/v1")
 app.include_router(roommate_media_router, prefix="/api/v1")
+app.include_router(roommate_map_router, prefix="/api/v1")
 
 
 @app.middleware("http")
