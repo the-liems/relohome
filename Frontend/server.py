@@ -150,30 +150,6 @@ def create_app(database=None, transport=None):
     app.state.store_path = database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3"))
 
     @app.get("/health")
-    async def health(request: Request):
-        """Local process probe only; production readiness is tracked by issue #67."""
-        if (
-            os.getenv("SIU_WEB_LOCAL_HEALTHCHECK", "false").lower() != "true"
-            or os.getenv("APP_ENV", "development") == "production"
-            or request.client is None
-            or request.client.host not in {"127.0.0.1", "::1"}
-        ):
-            raise HTTPException(404, "Not Found")
-        return {"status": "ok", "service": "siu-web"}
-
-    @app.get("/health")
-    async def health(request: Request):
-        """Local process probe only; production readiness is tracked by issue #67."""
-        if (
-            os.getenv("SIU_WEB_LOCAL_HEALTHCHECK", "false").lower() != "true"
-            or os.getenv("APP_ENV", "development") == "production"
-            or request.client is None
-            or request.client.host not in {"127.0.0.1", "::1"}
-        ):
-            raise HTTPException(404, "Not Found")
-        return {"status": "ok", "service": "siu-web"}
-
-    @app.get("/health")
     async def health():
         # Readiness of what this process owns; the proxy keeps this path off the public domain.
         try:

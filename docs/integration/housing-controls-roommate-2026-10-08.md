@@ -33,7 +33,8 @@ Nhánh giao: `khoa`; PR riêng vào `main`, chưa tự merge/deploy.
 
 - TypeScript/Vite build: đạt.
 - 7 contract tests frontend: đạt; chỉ kiểm tra state/validation, không giả provider.
-- 45 tests Python liên quan comparison/progress/memory/DEMO: đạt.
+- 46 tests Python liên quan comparison/progress/memory/DEMO và health readiness: đạt
+  sau khi đồng bộ `main`.
 - `ruff check src/ tests/`: đạt trên nền local lúc kiểm tra.
 - Browser + gateway/API/Location/PostGIS thật: so sánh 4 căn, giới hạn căn thứ 5,
   bỏ một căn, chi tiết không còn source icon, lỗi quyền GPS, giữ nguyên revision
@@ -78,6 +79,31 @@ Theo xác nhận của Khoa, PR `khoa → main` có **cả nền tích hợp** �
 Cần các chủ service review cả phần nền; không coi xác nhận UI là xác nhận giao
 dịch/provider thật. Cấu hình vận hành vẫn có gate riêng; không tự bật flight
 simulation, payment demo hoặc tester-confirm.
+
+### Kết quả kiểm tra nền sau đồng bộ main
+
+Giữ các sửa CI/CD mới trên `main`; không chạy deployment. Gateway chỉ còn một
+endpoint `/health`, dùng kiểm tra SQLite readiness từ `main`, không để các probe
+local cũ che mất endpoint này.
+
+Lượt chạy toàn bộ Python trên Windows ban đầu: **653 passed, 89 skipped,
+34 failed, 8 errors** (kết quả trước khi sửa health và cô lập lại môi trường test).
+Không được diễn giải các bài riêng đạt là toàn bộ CI đạt. Kiểm tra lại các bài
+thất bại với UTF-8 và Roommate tắt cho test API không liên quan vẫn còn:
+
+- Map planner: kỳ vọng task/anchor cũ chưa khớp luồng hiện tại.
+- Moving: fixture cũ thiếu `catalog_cache`/`moving`; contract catalog có thêm
+  `delivery_type` so với kỳ vọng cũ.
+- Flight: danh sách tool kỳ vọng chưa có `search_return_flights`.
+- API: fixture kiểm tra `initialize_agents()` chưa nhận tham số
+  `roommate_runtime=None` mới.
+- Các bài runner/smoke dành cho Linux gặp Bash/symlink privilege trên Windows;
+  phải xác nhận lại trên runner Linux, không tự bỏ bài khỏi CI.
+
+Không tạo mock provider hay mock test mới để né các lỗi. PR tích hợp ở trạng thái
+Draft để review được ngay, nhưng **chưa đủ điều kiện merge**: cần giải quyết
+tương thích nền, CI thật và object LFS thiếu bên dưới. Log kiểm tra lại riêng nằm
+ở `logs/local/issue79-main-recheck.txt`, không đưa vào Git.
 
 ZIP LFS `data/project-data-quangdung-20261008.zip` trên nhánh nguồn còn trả 404 tại
 thời điểm lấy code. File JSON 30 hồ sơ có trong Git và file local người dùng cung
