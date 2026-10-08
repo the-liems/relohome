@@ -103,6 +103,24 @@ Không đổi fixtures hay giả provider để biến lượt chạy thiếu c�
 CI không tự trigger cho PR base nhánh feature vì workflow đang lọc PR main.
 Sau dependency merge/retarget cần CI và review. Không tự merge chỉ vì local tests pass.
 
+Toàn suite Python trên publication branch: **527 pass, 30 fail, 87 skip**.
+Chạy cùng môi trường trên base #71: **522 pass, 30 fail, 84 skip**;
+so sánh từng test ID cho thấy **không có failure mới hay failure bị che mất**.
+30 failure có sẵn (Flight/API/Moving và fixtures cũ), vẫn cần owner/CI xử lý.
+Đã cập nhật một assertion contract cũ để tính `include_geometry=true`;
+không tạo hoặc sửa provider fixture để ép test xanh.
+
+Để phép so sánh không bị live-test collection nạp `.env` local, dùng
+`PYTHON_DOTENV_DISABLED=1`, `ROOMMATE_DEMO_ENABLED=false`,
+`LANGSMITH_TRACING=false`, `APP_ENV=test` và key test không có giá trị sử dụng.
+Lượt chưa cô lập báo 45 fail do nhiều test thừa hưởng cấu hình live/DEMO;
+không coi đó là kết quả CI chuẩn. Build trên publication sạch cũng đã pass,
+không chỉ build root integration checkout.
+
+`npm ci` LifeFlow vẫn báo high-severity dependency advisories (trong đó
+`source-map-js`). Lockfiles không đổi trong PR này; không tự chạy audit fix hay
+trộn nâng dependency vào tính năng. Cần chủ CI/security xử lý trước release.
+
 ## Giới hạn còn lại
 
 - Liên kết room là thông tin tự khai, **chưa xác minh đang ở/được phép đăng phòng**.
