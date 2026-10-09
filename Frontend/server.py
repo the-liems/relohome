@@ -669,33 +669,45 @@ def create_app(database=None, transport=None):
 
     # --- Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 
-    def pending_sends(owner, thread):
+    def pending_changes(owner, thread):
         rows = app.state.store.all(
-            "SELECT listing, slot FROM landlord_sync WHERE owner=? AND thread=?", (owner, thread)
+            "SELECT listing, slot, baseline FROM landlord_sync WHERE owner=? AND thread=?", (owner, thread)
         )
-        return {row["listing"]: row["slot"] for row in rows}
+        return {row["listing"]: (row["slot"], row["baseline"]) for row in rows}
 
-    async def send_viewing(owner, listing, slot):
-        """PUT one booked time to the landlord inbox: 'sent', 'not_managed' (other sources) or 'failed'."""
+    def fingerprint(row):
+        """What a landlord-inbox write changes on the request: tells whether a timed-out send landed."""
+        if not row:
+            return json.dumps({"attempted": True, "id": None})
+        return json.dumps({"attempted": True, "id": row.get("id"), "at": str(row.get("viewing_updated_at"))})
+
+    async def write_viewing(owner, listing, slot):
+        """Send a booked time (or withdraw when slot is empty): 'done', 'not_managed' or 'failed'."""
         try:
-            result = await upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True)
+            if slot:
+                result = await upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True)
+            else:
+                result = await upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True)
         except HTTPException as exc:
             return "not_managed" if exc.status_code in {404, 409, 422} else "failed"
         if isinstance(result, JSONResponse):  # documented outcome code forwarded by upstream()
             return "not_managed" if result.status_code in {404, 409, 422} else "failed"
-        return "sent"
+        return "done"
 
     async def landlord_viewings(owner, view, thread=None, scheduled=None, sync=False):
         """Show the landlord's answer on booked viewings of owner-managed homes
         (docs/review/viewing-landlord-confirmation.md).
 
-        Reads (`sync=False`) never write to the landlord inbox, so a request the tenant or landlord
-        closed is not reopened by opening a page. Only a viewing step writes: the listing the tenant
-        just booked (`scheduled`) is sent, even at the same time as a closed request (explicit
-        rebooking), and homes that lost their time are withdrawn. A send that fails is kept as a
-        pending intent for this booking, shown as `landlord.sync = "failed"`, and retried on the
-        tenant's next viewing action; it is dropped when the booking changes. Other sources answer
-        `not_managed` and keep the local test-mode viewing."""
+        Reads (`sync=False`) never write, so a request the tenant or landlord closed is not reopened by
+        opening a page. A viewing step writes:
+        - the home the tenant just booked (`scheduled`) is sent; an explicit booking may recreate a closed
+          request at the same time (rebooking);
+        - homes that lost their time are withdrawn;
+        - a write that failed is kept as a pending change, shown (`landlord.sync = "failed"`,
+          `landlord_withdraw_pending`) and retried on later viewing steps. A retry never recreates a request:
+          when the remote request changed since the failed attempt (the timed-out write landed and the
+          landlord may have answered or closed it) the change counts as delivered. Pending changes are
+          dropped when the booking changes. Other sources answer `not_managed` and keep test mode."""
         if not isinstance(view, dict) or not isinstance(view.get("items"), list):
             return view
         store = app.state.store
@@ -704,16 +716,19 @@ def create_app(database=None, transport=None):
             for item in view["items"]
             if item.get("status") in VIEWING_WITH_SLOT and (item.get("viewing") or {}).get("slot")
         }
-        pending = pending_sends(owner, thread) if thread else {}
-        if sync and thread:
-            for listing, slot in list(pending.items()):
-                if not same_instant(slots.get(listing), slot):  # cancelled, unselected or rebooked
-                    store.write(
-                        "DELETE FROM landlord_sync WHERE owner=? AND thread=? AND listing=?", (owner, thread, listing)
-                    )
-                    pending.pop(listing)
-            if scheduled and scheduled in slots:
-                pending[scheduled] = slots[scheduled]  # this booking must reach the landlord
+        settled = {"visited", "agreed", "reported_paid"}  # the visit happened: keep the landlord's answer
+        pending = pending_changes(owner, thread) if thread else {}
+
+        def forget(listing):
+            store.write("DELETE FROM landlord_sync WHERE owner=? AND thread=? AND listing=?", (owner, thread, listing))
+            pending.pop(listing, None)
+
+        def remember(listing, slot, baseline):
+            store.write(
+                "INSERT OR REPLACE INTO landlord_sync VALUES (?,?,?,?,?,?)",
+                (owner, thread, listing, slot, time.time(), baseline),
+            )
+            pending[listing] = (slot, baseline)
 
         async def requests():
             page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
@@ -722,19 +737,17 @@ def create_app(database=None, transport=None):
                 latest.setdefault(row["listing_id"], row)
             return latest
 
-        def remember(failed):
-            for listing in failed:
-                store.write(
-                    "INSERT OR REPLACE INTO landlord_sync VALUES (?,?,?,?,?)",
-                    (owner, thread, listing, pending[listing], time.time()),
-                )
-
         def mark(latest):
+            # Only withdrawals that were attempted and failed are known to be outstanding.
+            withdrawing = [listing for listing, (slot, baseline) in pending.items() if not slot and baseline]
+            if withdrawing:
+                view["landlord_withdraw_pending"] = withdrawing
             for item in view["items"]:
                 listing, slot = item["listing_id"], (item.get("viewing") or {}).get("slot")
                 row = latest.get(listing) if latest else None
-                if listing in pending and same_instant(pending[listing], slot):
-                    item["landlord"] = {"sync": "failed"}  # the latest send for this booking did not arrive
+                wanted = pending.get(listing, ("", ""))[0]
+                if wanted and slot and same_instant(wanted, slot):
+                    item["landlord"] = {"sync": "failed"}  # this booking has not reached the landlord
                 elif row and row.get("viewing_status") and slot and same_instant(row.get("viewing_slot"), slot):
                     item["landlord"] = {
                         "viewing_status": row["viewing_status"],
@@ -744,53 +757,61 @@ def create_app(database=None, transport=None):
                     }
             return view
 
+        # What this step wants the landlord inbox to hold: a time per booked home, or a withdrawal.
+        intents = {}
+        if sync and thread:
+            for listing, (slot, _) in list(pending.items()):
+                if slot and not same_instant(slots.get(listing), slot):
+                    forget(listing)  # cancelled, unselected or rebooked: the withdraw rule below decides
+            if scheduled and scheduled in slots:
+                intents[scheduled] = (slots[scheduled], True)
+            for listing, (slot, _) in pending.items():
+                if slot and listing not in intents:
+                    intents[listing] = (slot, False)
+            for item in [*(view.get("history") or []), *view["items"]]:
+                listing = item["listing_id"]
+                if listing not in slots and item.get("status") not in settled:
+                    intents.setdefault(listing, ("", False))
+            for listing, (slot, _) in pending.items():
+                if not slot and listing not in slots:
+                    intents.setdefault(listing, ("", False))
         try:
             latest = await requests()
         except HTTPException:
-            if sync and thread:
-                remember(list(pending))
+            for listing, (slot, _) in intents.items():
+                # Not attempted now: keep the fingerprint of an earlier failed attempt, if any.
+                remember(listing, slot, pending.get(listing, ("", ""))[1])
             view["landlord_unavailable"] = True
             return mark(None)
-        if not (sync and thread):
+        if not intents:
             return mark(latest)
-        writes, outcomes = [], {}
-        for listing, slot in pending.items():
+        writes = []
+        for listing, (slot, explicit) in intents.items():
             row = latest.get(listing)
-            # An open request already holding this exact time keeps the landlord's answer.
-            if (
-                row
-                and row.get("status") in OPEN_CONTACT
-                and row.get("viewing_status") in {"requested", "confirmed", "declined"}
-                and same_instant(row.get("viewing_slot"), slot)
-            ):
-                outcomes[listing] = "sent"
+            open_row = bool(row) and row.get("status") in OPEN_CONTACT
+            if not slot:
+                if open_row and row.get("viewing_status") in {"requested", "confirmed"}:
+                    writes.append((listing, slot))
+                elif listing in pending:
+                    forget(listing)  # nothing left to withdraw
                 continue
-            writes.append(listing)
-        for listing, result in zip(
-            writes, await asyncio.gather(*(send_viewing(owner, x, pending[x]) for x in writes)), strict=True
-        ):
-            outcomes[listing] = result
-        withdraw = [
-            item["listing_id"]
-            for item in [*(view.get("history") or []), *view["items"]]
-            if item["listing_id"] not in slots
-            and item.get("status") not in {"visited", "agreed", "reported_paid"}
-            and (latest.get(item["listing_id"]) or {}).get("status") in OPEN_CONTACT
-            and (latest.get(item["listing_id"]) or {}).get("viewing_status") in {"requested", "confirmed"}
-        ]
-        await asyncio.gather(
-            *(upstream("DELETE", f"/housing/{x}/viewing", owner, platform=True) for x in dict.fromkeys(withdraw)),
-            return_exceptions=True,
-        )
-        failed = [listing for listing, result in outcomes.items() if result == "failed"]
-        for listing, result in outcomes.items():
-            if result != "failed":
-                store.write(
-                    "DELETE FROM landlord_sync WHERE owner=? AND thread=? AND listing=?", (owner, thread, listing)
-                )
-                pending.pop(listing, None)
-        remember(failed)
-        if writes or withdraw:
+            holds = row is not None and same_instant(row.get("viewing_slot"), slot)
+            if holds and open_row and row.get("viewing_status") in {"requested", "confirmed", "declined"}:
+                if listing in pending:
+                    forget(listing)  # the landlord already has this time and may have answered
+                continue
+            baseline = pending.get(listing, ("", ""))[1]
+            if not explicit and holds and baseline and baseline != fingerprint(row):
+                forget(listing)  # the timed-out write landed; respect what happened to it since
+                continue
+            writes.append((listing, slot))
+        results = await asyncio.gather(*(write_viewing(owner, listing, slot) for listing, slot in writes))
+        for (listing, slot), result in zip(writes, results, strict=True):
+            if result == "failed":
+                remember(listing, slot, fingerprint(latest.get(listing)))
+            else:
+                forget(listing)
+        if writes:
             try:
                 latest = await requests()
             except HTTPException:

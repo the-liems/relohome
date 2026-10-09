@@ -1372,5 +1372,7 @@
   "Chưa gửi được giờ hẹn cho chủ nhà": "Time not yet sent to the owner",
   "ReloHome chưa gửi được giờ hẹn này tới chủ nhà (hệ thống tạm lỗi). Lịch của bạn vẫn được giữ; bấm gửi lại hoặc thao tác tiếp, ReloHome sẽ thử gửi lại.": "ReloHome could not send this time to the owner yet (temporary error). Your booking is kept; press resend or continue, and ReloHome will try again.",
   "Gửi lại cho chủ nhà": "Resend to the owner",
-  "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.": "Could not load the owners' answers right now; confirmation states may be out of date."
+  "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.": "Could not load the owners' answers right now; confirmation states may be out of date.",
+  "Chưa báo được chủ nhà rằng bạn đã hủy hoặc bỏ một lịch xem. ReloHome sẽ thử lại ở thao tác tiếp theo.": "Could not tell the owner that you cancelled or dropped a viewing. ReloHome will retry on your next action.",
+  "Thử lại ngay": "Retry now"
 }

@@ -541,3 +541,124 @@ async def test_contact_list_outage_is_reported_and_a_changed_booking_drops_the_r
         state["me"] = "up"
         await client.post(url + "/cancel", json={"listing_id": listing})
         assert writes == []
+
+
+@pytest.mark.asyncio
+async def test_timed_out_send_that_landed_is_not_resent_after_the_landlord_closed_it(tmp_path, monkeypatch):
+    """Review PR #88: the PUT commits but its response times out; the landlord then closes the request.
+    Later unrelated viewing actions must not recreate it; only an explicit booking may."""
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    view = {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": slot}}]}
+    rows, puts, mode = [], [], {"timeout": True}
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": rows})
+        if request.method == "PUT":
+            puts.append(path)
+            rows[:] = [
+                {
+                    "id": f"r{len(puts)}",
+                    "listing_id": listing,
+                    "status": "new",
+                    "viewing_status": "requested",
+                    "viewing_slot": slot,
+                    "viewing_updated_at": f"2026-10-09T18:0{len(puts)}:00Z",
+                }
+            ]
+            if mode["timeout"]:
+                raise httpx.ReadTimeout("response lost", request=request)  # committed upstream
+            return httpx.Response(201, json={"viewing_status": "requested"})
+        return httpx.Response(200, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings"
+        booked = (await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})).json()
+        assert booked["items"][0]["landlord"] == {"sync": "failed"} and len(puts) == 1
+        rows[0]["status"] = "resolved"  # the landlord closes the request that did arrive
+        mode["timeout"] = False
+        after = (await client.post(url + "/moving-mode", json={"mode": None})).json()
+        await client.post(url + "/landlord-retry", json={})
+        assert len(puts) == 1  # not recreated by unrelated actions or the retry button
+        assert after["items"][0]["landlord"]["request_status"] == "resolved"
+        # Booking the same time again is an explicit choice and may recreate it.
+        await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})
+        assert len(puts) == 2
+
+
+@pytest.mark.asyncio
+async def test_failed_withdrawal_is_reported_and_retried(tmp_path, monkeypatch):
+    """A cancelled booking whose withdrawal failed must not stay requested in the landlord inbox."""
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    view = {"items": [{"listing_id": listing, "status": "selected"}]}
+    row = {"id": "r1", "listing_id": listing, "status": "new", "viewing_status": "requested", "viewing_slot": slot}
+    deletes, mode = [], {"down": True}
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if request.method == "DELETE":
+            deletes.append(path)
+            if mode["down"]:
+                return httpx.Response(503, json={"message": "unavailable"})
+            row.update(viewing_status="cancelled", status="declined")
+            return httpx.Response(200, json={"changed": True})
+        return httpx.Response(200, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings"
+        cancelled = (await client.post(url + "/cancel", json={"listing_id": listing})).json()
+        assert cancelled["landlord_withdraw_pending"] == [listing] and len(deletes) == 1
+        assert (await client.get(url)).json()["landlord_withdraw_pending"] == [listing]
+        assert len(deletes) == 1  # reads never write
+        mode["down"] = False
+        retried = (await client.post(url + "/landlord-retry", json={})).json()
+        assert len(deletes) == 2 and "landlord_withdraw_pending" not in retried
+        await client.post(url + "/moving-mode", json={"mode": None})
+        assert len(deletes) == 2
+
+
+def test_store_adds_the_sync_baseline_to_existing_databases(tmp_path):
+    import sqlite3
+
+    from Frontend.store import Store
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE landlord_sync (owner TEXT NOT NULL, thread TEXT NOT NULL, listing TEXT NOT NULL,"
+        " slot TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(owner, thread, listing))"
+    )
+    old.execute("INSERT INTO landlord_sync VALUES ('u', 't', 'l', 's', 1)")
+    old.commit()
+    old.close()
+    store = Store(path)
+    assert store.one("SELECT baseline FROM landlord_sync") == {"baseline": ""}

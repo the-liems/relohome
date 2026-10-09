@@ -49,13 +49,19 @@ class Store:
                 owner TEXT NOT NULL, id TEXT NOT NULL, thread TEXT NOT NULL,
                 snapshot TEXT NOT NULL, PRIMARY KEY(owner,id)
             );
-            -- A booked viewing time the landlord inbox has not received yet (Platform unreachable).
-            -- Retried only on the tenant's viewing actions; dropped when the booking changes.
+            -- A viewing change the landlord inbox has not received yet (Platform unreachable): a booked
+            -- time, or slot '' for withdrawing one. `baseline` fingerprints the remote request before the
+            -- failed attempt so a send that landed despite a timeout is recognised. Retried only on the
+            -- tenant's viewing actions; dropped when the booking changes.
             CREATE TABLE IF NOT EXISTS landlord_sync (
                 owner TEXT NOT NULL, thread TEXT NOT NULL, listing TEXT NOT NULL,
-                slot TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(owner, thread, listing)
+                slot TEXT NOT NULL, updated REAL NOT NULL, baseline TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY(owner, thread, listing)
             );
         """)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(landlord_sync)")}
+        if "baseline" not in columns:  # databases created before the column existed
+            self.db.execute("ALTER TABLE landlord_sync ADD COLUMN baseline TEXT NOT NULL DEFAULT ''")
         self.db.execute("UPDATE runs SET status='unknown' WHERE status='running'")
         self.db.commit()
 

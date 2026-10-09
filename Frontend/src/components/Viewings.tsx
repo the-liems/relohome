@@ -387,6 +387,20 @@ export function ViewingPanel({
           </button>
         </section>
       )}
+      {(viewing.landlord_withdraw_pending || []).length > 0 && (
+        <div className="notice amber small" role="status">
+          {uiText(
+            "Chưa báo được chủ nhà rằng bạn đã hủy hoặc bỏ một lịch xem. ReloHome sẽ thử lại ở thao tác tiếp theo.",
+          )}{" "}
+          <button
+            className="text-button"
+            disabled={busy}
+            onClick={() => void post("landlord-retry")}
+          >
+            {uiText("Thử lại ngay")}
+          </button>
+        </div>
+      )}
       {viewing.landlord_unavailable && (
         <p className="notice amber small" role="status">
           {uiText(

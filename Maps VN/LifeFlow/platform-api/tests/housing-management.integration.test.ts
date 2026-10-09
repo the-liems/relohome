@@ -285,6 +285,8 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect(confirmed.body).toMatchObject({ viewing_status: 'confirmed', status: 'viewing' })
     const mine = (await call(tenant, 'GET', '/v1/housing/contact-requests/me')).body.items[0]
     expect(mine).toMatchObject({ id: request.id, viewing_status: 'confirmed', status: 'viewing' })
+    // The gateway fingerprints this to tell whether a timed-out write landed.
+    expect(mine.viewing_updated_at).not.toBeNull()
     // Cancelling in the tab withdraws the time; a request the landlord already handled stays open.
     const cancelled = await call(tenant, 'DELETE', `/v1/housing/${listingId}/viewing`)
     expect(cancelled.body).toMatchObject({ changed: true, viewing_status: 'cancelled', status: 'viewing' })

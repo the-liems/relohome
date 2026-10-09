@@ -96,10 +96,14 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
 - **Đọc không ghi:** mở tab Xem nhà hoặc tải hội thoại chỉ hiện câu trả lời của chủ nhà, không gửi gì, nên yêu cầu
   người thuê đã hủy hoặc chủ nhà đã đóng không bị mở lại. Chỉ thao tác xem nhà mới ghi: gửi đúng căn vừa đặt lịch
   (kể cả đặt lại sau khi hủy) và rút giờ của căn không còn lịch.
-- **Gửi thất bại không im lặng:** Platform lỗi khi gửi giờ thì gateway lưu "việc gửi đang chờ" (bảng
-  `landlord_sync` trong database gateway), trả `landlord.sync = "failed"`; tab hiện cảnh báo và nút "Gửi lại cho
-  chủ nhà" (`viewings/landlord-retry`). Thao tác xem nhà kế tiếp cũng thử lại. Việc chờ tự bỏ khi người thuê hủy,
-  bỏ chọn hoặc đổi giờ. Không đọc được danh sách yêu cầu thì trả `landlord_unavailable`.
+- **Gửi thất bại không im lặng:** Platform lỗi khi gửi giờ hoặc rút giờ thì gateway lưu "thay đổi đang chờ" (bảng
+  `landlord_sync` trong database gateway), trả `landlord.sync = "failed"` hoặc `landlord_withdraw_pending`; tab hiện
+  cảnh báo và nút gửi lại (`viewings/landlord-retry`). Thao tác xem nhà kế tiếp cũng thử lại. Thay đổi chờ tự bỏ khi
+  người thuê hủy, bỏ chọn hoặc đổi giờ. Không đọc được danh sách yêu cầu thì trả `landlord_unavailable`.
+- **Lần gửi lại không tạo lại yêu cầu đã đóng:** gateway lưu "dấu vân tay" của yêu cầu phía Platform (id và
+  `viewing_updated_at`) trước lần gửi lỗi. Nếu sau đó yêu cầu đã đổi (lần gửi bị timeout nhưng thực ra đã tới, rồi chủ
+  nhà trả lời hoặc đóng) thì coi như đã gửi và không gửi lại. Chỉ khi người thuê tự đặt lịch mới được tạo lại yêu cầu
+  đã đóng.
 
 ## 7. Kiểm thử
 

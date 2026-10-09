@@ -718,7 +718,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,
-         cr.viewing_slot,cr.viewing_status,cr.source,${unreadFor('tenant')}
+         cr.viewing_slot,cr.viewing_status,cr.viewing_updated_at,cr.source,${unreadFor('tenant')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        WHERE cr.tenant_user_id=$1 ORDER BY cr.created_at DESC`, [user],
     )
