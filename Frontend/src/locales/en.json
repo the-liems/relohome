@@ -934,7 +934,7 @@
   "Đồng ý thử nối đường trong 500 m": "Allow road connection within 500 m",
   "Chưa hẹn xem": "No viewing yet",
   "Đã hẹn xem (chế độ thử)": "Viewing booked (test mode)",
-  "Đã tới giờ xem, ghi kết quả": "Viewing time passed, record the outcome",
+  "Đã tới giờ xem, ghi kết quả": "Viewing time reached, record the outcome",
   "Đã gặp chủ nhà": "Met the landlord",
   "Dự phòng": "Backup",
   "Đã chốt (bạn tự báo)": "Decided (self-reported)",
@@ -989,5 +989,7 @@
   "Các căn đã chọn để hẹn xem": "Homes chosen for viewing",
   "Đã chọn {0}/{1} căn để hẹn xem": "{0}/{1} homes chosen for viewing",
   "Xong, hẹn lịch xem": "Done, book viewings",
-  "Đang bỏ…": "Removing…"
+  "Đang bỏ…": "Removing…",
+  "Từ {0}, ghi kết quả gặp chủ nhà tại đây; đã gặp và chủ nhà đồng ý thì mới chốt được.": "From {0}, record the meeting with the landlord here; you can decide once you have met and the landlord agrees.",
+  "Hẹn lịch xem trước; sau buổi gặp chủ nhà bạn ghi kết quả rồi mới chốt.": "Book a viewing first; after meeting the landlord, record the outcome, then decide."
 }

@@ -380,6 +380,21 @@ export function ViewingPanel({
                 : ""}
             </p>
           )}
+          {item.status === "viewing_scheduled" && (
+            <p className="muted small">
+              {formatUi(
+                "Từ {0}, ghi kết quả gặp chủ nhà tại đây; đã gặp và chủ nhà đồng ý thì mới chốt được.",
+                [when(item.viewing?.slot)],
+              )}
+            </p>
+          )}
+          {item.status === "selected" && (
+            <p className="muted small">
+              {uiText(
+                "Hẹn lịch xem trước; sau buổi gặp chủ nhà bạn ghi kết quả rồi mới chốt.",
+              )}
+            </p>
+          )}
           {["selected", "viewing_scheduled", "backup"].includes(item.status) &&
             !(item.status === "backup" && item.backup_from === "visited") && (
               <SlotPicker
@@ -393,8 +408,8 @@ export function ViewingPanel({
             )}
           {(item.status === "visit_due" ||
             (item.status === "backup" &&
-              item.viewing?.end &&
-              Date.parse(item.viewing.end) <= Date.now())) && (
+              item.viewing?.slot &&
+              Date.parse(item.viewing.slot) <= Date.now())) && (
             <div className="viewing-outcome" role="group">
               <span className="small">{uiText("Kết quả buổi xem:")}</span>
               {[

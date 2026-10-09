@@ -114,9 +114,9 @@ class ViewingService:
         return tx
 
     def status_of(self, tx: ServiceTransaction, now: datetime | None = None) -> str:
-        viewing = tx.details.get("viewing") or {}
-        end = _parse(viewing.get("end"))
-        if tx.status == "viewing_scheduled" and end and end <= (now or self.clock()):
+        # Ghi kết quả được từ giờ bắt đầu buổi xem: gặp chủ nhà xong có thể xác nhận ngay.
+        start = _parse((tx.details.get("viewing") or {}).get("slot"))
+        if tx.status == "viewing_scheduled" and start and start <= (now or self.clock()):
             return "visit_due"
         return tx.status
 
@@ -354,9 +354,9 @@ class ViewingService:
     def visit(self, user_id: str, thread_id: str, listing_id: str, outcome: VisitOutcome) -> dict:
         tx = self._item(user_id, thread_id, listing_id)
         viewing = tx.details.get("viewing") or {}
-        end = _parse(viewing.get("end"))
-        if end is None or end > self.clock():
-            raise CheckoutError(409, "Chỉ ghi kết quả sau giờ hẹn xem.", "visit_not_due")
+        start = _parse(viewing.get("slot"))
+        if start is None or start > self.clock():
+            raise CheckoutError(409, "Chỉ ghi kết quả từ giờ hẹn xem trở đi.", "visit_not_due")
         tx.details.setdefault("viewing_history", []).append({**viewing, "outcome": outcome})
         if outcome == "missed":
             tx.details.pop("viewing", None)
