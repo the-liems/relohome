@@ -29,6 +29,7 @@ import {
 import Fastify from 'fastify'
 import { z, ZodError } from 'zod'
 import { ManagementError, registerHousingManagement } from './housing-management.js'
+import { registerHousingReviews } from './housing-reviews.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -46,6 +47,7 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const locationService = new LocationService(queries)
   const placeService = new PlaceService(queries)
   registerHousingManagement(app, pool)
+  registerHousingReviews(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],

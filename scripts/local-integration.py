@@ -81,6 +81,7 @@ def environment(component, sandbox_writes=False, payment_demo=False):
             "POSTGRES_DB",
             "POSTGRES_APP_USER",
             "POSTGRES_APP_PASSWORD",
+            "HOUSING_REVIEW_MIN_COUNT",
         }
         prefixes = ("MCP_", "OSRM_", "PLATFORM_") if component in {"location", "platform"} else ("AHAMOVE_", "MOVING_")
         if component == "platform":
@@ -89,6 +90,8 @@ def environment(component, sandbox_writes=False, payment_demo=False):
             )
             # Housing owner workspace: trusted gateway token and moderator account IDs.
             allowed.update({"AGENT_API_TOKEN", "HOUSING_MODERATOR_IDS", "HOST_TERMS_VERSION", "HOUSING_MESSAGE_RATE_PER_MINUTE"})
+            allowed.update({"HOUSING_REVIEW_MIN_COUNT", "HOUSING_REVIEW_PATTERN_DAYS", "HOUSING_REVIEW_LOW_STARS",
+                            "HOUSING_REVIEW_PATTERN_PROPERTIES", "HOUSING_REVIEW_PATTERN_AUTHORS"})
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
     return env
 

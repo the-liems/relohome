@@ -238,6 +238,8 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
     poster_type: z.enum(['owner', 'manager', 'broker', 'business']).nullable().default(null),
     poster_name: z.string().nullable().default(null),
     host_verified: z.boolean().default(false),
+      host_rating: z.number().min(1).max(5).nullable().optional(),
+      host_review_count: z.number().int().nonnegative().optional(),
   }).nullable().default(null),
 })
 

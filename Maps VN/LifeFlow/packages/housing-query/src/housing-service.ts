@@ -20,6 +20,7 @@ import { PlaceService } from './place-service.js'
 import { RouteService } from './route-service.js'
 import { checkOperation, withinOperation } from './execution.js'
 import { definitelyDisjointScope } from './spatial-scope.js'
+import { hostReviewSummary } from './review-summary.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
@@ -273,12 +274,18 @@ export class HousingQueryService {
       this.pool.query(
         `SELECT ml.publication_status,ml.availability_status,ml.availability_confirmed_at,
           (ml.publication_status='published' AND ml.availability_status='vacant') AS accepts_contact_requests,
-          hp.poster_type,hp.display_name AS poster_name,coalesce(hp.status='verified',false) AS host_verified
+          hp.poster_type,hp.display_name AS poster_name,coalesce(hp.status='verified',false) AS host_verified,
+          (SELECT mm.user_id FROM housing.management_members mm WHERE mm.property_id=(SELECT property_id FROM housing.listings WHERE id=ml.listing_id)
+            AND mm.role='owner' AND mm.status<>'revoked' ORDER BY mm.requested_at,mm.user_id LIMIT 1) AS rating_host_user_id
          FROM housing.managed_listings ml LEFT JOIN housing.host_profiles hp ON hp.user_id=ml.created_by
          WHERE ml.listing_id=$1`,
         [listingId],
       ),
     ])
+    const managementRow = management.rows[0]
+    const hostSummary = managementRow?.rating_host_user_id
+      ? await hostReviewSummary(this.pool, managementRow.rating_host_user_id)
+      : null
     return HousingDetailSchema.parse({
       ...result,
       description: row.description,
@@ -289,6 +296,8 @@ export class HousingQueryService {
       management: management.rows[0]
         ? {
             ...management.rows[0],
+            host_rating: hostSummary?.rating ?? null,
+            host_review_count: hostSummary?.count ?? 0,
             availability_confirmed_at: management.rows[0].availability_confirmed_at
               ? new Date(management.rows[0].availability_confirmed_at).toISOString()
               : null,

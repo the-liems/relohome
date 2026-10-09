@@ -89,7 +89,7 @@ function equalSecret(actual: string, expected: string) {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-function actor(request: FastifyRequest) {
+export function actor(request: FastifyRequest) {
   const expected = process.env.AGENT_API_TOKEN || ''
   const authorization = String(request.headers.authorization || '')
   const user = String(request.headers['x-user-id'] || '').trim()
@@ -100,11 +100,11 @@ function actor(request: FastifyRequest) {
   return user
 }
 
-function moderator(user: string) {
+export function moderator(user: string) {
   return new Set((process.env.HOUSING_MODERATOR_IDS || '').split(',').map(v => v.trim()).filter(Boolean)).has(user)
 }
 
-async function member(pool: DatabasePool, user: string, property: string, active = false) {
+export async function member(pool: DatabasePool, user: string, property: string, active = false) {
   const result = await pool.query(
     `SELECT role,status FROM housing.management_members WHERE property_id=$1 AND user_id=$2`,
     [property, user],
@@ -117,7 +117,7 @@ async function member(pool: DatabasePool, user: string, property: string, active
 }
 
 // SPEC-021: a moderator never reviews a property they manage, even when they also own listings.
-async function notOwnProperty(pool: DatabasePool, user: string, property: string) {
+export async function notOwnProperty(pool: DatabasePool, user: string, property: string) {
   const result = await pool.query(
     `SELECT 1 FROM housing.management_members WHERE property_id=$1 AND user_id=$2 AND status <> 'revoked'`,
     [property, user],
