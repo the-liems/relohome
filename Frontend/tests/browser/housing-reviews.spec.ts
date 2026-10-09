@@ -92,6 +92,7 @@ async function fixture(
       return route.fulfill({
         json: {
           summary: summary(),
+          property_summary: summary(),
           items: [review, ...(mine && !withdrawn ? [mine] : [])],
           mine: mine
             ? { ...mine, status: withdrawn ? "withdrawn" : "published" }
@@ -261,6 +262,7 @@ test("tenant writes, edits, sorts and withdraws a review without exposing identi
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await openDetail(page);
+  await expect(page.getByText(/Nhà đang xem:/)).toBeVisible();
   await page.getByRole("button", { name: "Viết đánh giá" }).click();
   await expect(
     page.getByRole("button", { name: "Lưu đánh giá" }),

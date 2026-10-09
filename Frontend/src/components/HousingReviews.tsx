@@ -285,6 +285,7 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
       ) : (
         <>
           <Summary data={page.summary} />
+          {page.property_summary && <p className="hr-hint">{formatUi('Nhà đang xem: {0} · {1} đánh giá', [page.property_summary.rating == null ? t('Chưa đủ đánh giá để hiện điểm') : `${page.property_summary.rating.toLocaleString(document.documentElement.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/5`, page.property_summary.count])}</p>}
           <p className="hr-hint">
             {t(
               "Đánh giá từ người đã liên hệ. Nhãn Đã hẹn xem cho biết chủ nhà đã xác nhận giờ hẹn, không chứng minh đã thuê. Danh tính người viết được giữ riêng tư.",
