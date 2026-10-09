@@ -120,6 +120,9 @@ class ServiceSettings(BaseSettings):
     payment_tester_confirm_enabled: bool = False
     payment_tester_user_ids: str = ""  # ID tài khoản gateway, phân tách bằng dấu phẩy
     payment_reconcile_grace_seconds: int = Field(default=180, ge=30, le=3600)
+    # Worker tự đối soát lần thanh toán còn mở (không cần người dùng bấm Kiểm tra).
+    payment_reconcile_min_seconds: int = Field(default=10, ge=2, le=600)
+    payment_reconcile_max_seconds: int = Field(default=300, ge=10, le=3600)
     # Chọn nhiều căn, hẹn xem và chốt (docs/review/housing-viewing-design.md). Mọi ngưỡng là cấu hình.
     housing_viewing_enabled: bool = False
     housing_max_selected: int = Field(default=3, ge=1, le=10)

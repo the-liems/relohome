@@ -160,6 +160,14 @@ class CheckoutStore:
         row = self.db.execute("SELECT data FROM checkout_jobs WHERE transaction_id=?", (transaction_id,)).fetchone()
         return FulfilmentJob.model_validate_json(row[0]) if row else None
 
+    def open_attempts(self) -> list[PaymentAttempt]:
+        """Lần thanh toán chưa có kết quả cuối, để worker tự đối soát (không chờ người dùng bấm Kiểm tra)."""
+        rows = self.db.execute(
+            "SELECT data FROM checkout_attempts WHERE json_extract(data, '$.outcome') IN "
+            "('processing', 'awaiting_payment', 'needs_reconciliation') ORDER BY rowid"
+        ).fetchall()
+        return [PaymentAttempt.model_validate_json(r[0]) for r in rows]
+
     def pending_jobs(self) -> list[FulfilmentJob]:
         rows = self.db.execute("SELECT data FROM checkout_jobs WHERE status='pending' ORDER BY rowid").fetchall()
         return [FulfilmentJob.model_validate_json(r[0]) for r in rows]

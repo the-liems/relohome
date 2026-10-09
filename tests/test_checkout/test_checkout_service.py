@@ -439,3 +439,46 @@ async def test_tester_control_hidden_without_allowlist(env):
     with pytest.raises(CheckoutError) as exc:
         await service.tester_paid(USER, attempt["attempt_id"])
     assert exc.value.status == 403
+
+
+@pytest.mark.asyncio
+async def test_worker_reconciles_paid_attempt_without_manual_check(env):
+    """Trả qua ZaloPay mà không bấm Kiểm tra: worker tự đối soát rồi xuất vé (review PR #88)."""
+    service, clock, flight, payment, _ = env
+    _, attempt = await pay_flight(service)
+    payment.calls.clear()
+    await service.reconcile_open()
+    assert [c[0] for c in payment.calls] == ["get_payment"]  # còn PENDING
+    # Chưa tới lần kiểm tra kế (giãn dần): không tra lại cổng.
+    await service.reconcile_open()
+    assert [c[0] for c in payment.calls] == ["get_payment"]
+    payment.status = "PAID"
+    clock.now += service.settings.reconcile_min * 2
+    await service.reconcile_open()
+    stored = service.store.get_attempt(attempt["attempt_id"])
+    assert stored.outcome == "paid_verified"
+    await service.run_jobs()
+    assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"
+    # Đã có kết quả cuối: không tra cổng nữa.
+    payment.calls.clear()
+    clock.now += service.settings.reconcile_max
+    await service.reconcile_open()
+    assert payment.calls == []
+
+
+@pytest.mark.asyncio
+async def test_restarted_worker_reconciles_open_attempts_immediately(env):
+    service, _, flight, payment, _ = env
+    _, attempt = await pay_flight(service)
+    payment.status = "PAID"
+    restarted = CheckoutService(
+        store=service.store,
+        pii=service.pii,
+        secret=service.secret,
+        flight=flight,
+        payment=payment,
+        clock=service.clock,
+    )
+    await restarted.reconcile_open()
+    await restarted.run_jobs()
+    assert restarted.store.get_tx(attempt["transaction_id"]).status == "ticketed"

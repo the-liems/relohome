@@ -52,6 +52,9 @@ class CheckoutSettings:
     tester_user_ids: frozenset[str] = frozenset()
     production: bool = False
     reconcile_grace: timedelta = timedelta(minutes=3)
+    # Worker tự đối soát lần thanh toán còn mở: lần đầu sau `reconcile_min`, giãn gấp đôi tới `reconcile_max`.
+    reconcile_min: timedelta = timedelta(seconds=10)
+    reconcile_max: timedelta = timedelta(minutes=5)
     viewing_slot_minutes: int = 30
     viewing_start_hour: int = 8
     viewing_end_hour: int = 20
@@ -70,6 +73,8 @@ class CheckoutService:
     moving_contact: Any = None  # QuoteContact của hệ thống, chỉ để báo giá
     settings: CheckoutSettings = field(default_factory=CheckoutSettings)
     clock: Callable[[], datetime] = utcnow
+    # Lịch đối soát trong bộ nhớ: khởi động lại thì kiểm tra lại ngay mọi lần thanh toán còn mở.
+    _next_check: dict[str, tuple[datetime, timedelta]] = field(default_factory=dict)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
     _worker: asyncio.Task | None = None
 
@@ -683,6 +688,31 @@ class CheckoutService:
             return
         loop.create_task(self.run_jobs())
 
+    async def reconcile_open(self) -> None:
+        """Đối soát lần thanh toán còn mở dù người dùng không bấm Kiểm tra, để trả tiền xong là xuất vé
+        trước khi giữ chỗ hết hạn. Giãn dần giữa các lần tra cổng; chạy trong khóa giao dịch như `check`."""
+        now = self.clock()
+        open_ids = set()
+        for attempt in self.store.open_attempts():
+            open_ids.add(attempt.attempt_id)
+            due, delay = self._next_check.get(attempt.attempt_id, (now, self.settings.reconcile_min))
+            if due > now:
+                continue
+            async with self._lock(attempt.transaction_id):
+                fresh = self.store.get_attempt(attempt.attempt_id)
+                if fresh is None or fresh.outcome not in OPEN:
+                    continue
+                try:
+                    await self._sync(fresh)
+                except Exception:  # pragma: no cover - ghi log, lần sau thử lại
+                    logger.exception("checkout reconcile failed")
+            self._next_check[attempt.attempt_id] = (
+                self.clock() + delay,
+                min(delay * 2, self.settings.reconcile_max),
+            )
+        for attempt_id in set(self._next_check) - open_ids:
+            self._next_check.pop(attempt_id, None)
+
     async def run_jobs(self) -> None:
         for job in self.store.pending_jobs():
             async with self._lock(job.transaction_id):
@@ -734,11 +764,12 @@ class CheckoutService:
         self.store.put_job(self._touch(job))
 
     async def start(self, interval: float = 5.0) -> None:
-        """Chạy tiếp công việc dở khi khởi động và quét định kỳ (một worker)."""
+        """Đối soát lần thanh toán còn mở, chạy tiếp công việc dở khi khởi động và quét định kỳ (một worker)."""
 
         async def loop():
             while True:
                 try:
+                    await self.reconcile_open()
                     await self.run_jobs()
                 except Exception:  # pragma: no cover - log và chạy tiếp vòng sau
                     logger.exception("checkout job loop failed")
