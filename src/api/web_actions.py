@@ -137,7 +137,15 @@ async def housing_detail(listing_id: str, service: Service):
         if not raw or raw.get("listing_id") != listing_id:
             raise HTTPException(404, "Tin nhà không còn khả dụng.")
         candidate, _ = to_candidate(raw, [])
-        return {**candidate, "description": raw.get("description"), "images": raw.get("images", [])}
+        return {
+            **candidate,
+            "description": raw.get("description"),
+            "images": raw.get("images", []),
+            # Additive decision-support fields. Imported listings simply return
+            # an empty fee list and no management metadata.
+            "fees": raw.get("fees") or [],
+            "management": raw.get("management"),
+        }
     except ToolCallError:
         raise HTTPException(502, "Chưa tải được tin nhà. Hãy thử lại.") from None
 

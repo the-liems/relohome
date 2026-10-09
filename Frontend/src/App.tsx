@@ -95,6 +95,7 @@ import { TabList } from "./components/TabList";
 import { RoommateGuest, RoommateWorkspace } from "./roommate/Workspace";
 import { rt as roommateText } from "./roommate/text";
 import { GuidesPage } from "./guides/GuidesPage";
+import { LandlordWorkspace } from "./landlord/Workspace";
 
 interface AppContext {
   user: User;
@@ -184,6 +185,12 @@ export default function App() {
         existing ? "DELETE" : "PUT",
         existing ? undefined : { thread_id: thread },
       );
+      if (!existing)
+        void api(
+          "/housing-management/housing/" + encodeURIComponent(house.id) + "/events",
+          "POST",
+          { event_type: "save", dedup_key: `save:${user?.id || "session"}:${house.id}` },
+        ).catch(() => {});
       setSaved(await api<Saved[]>("/saved"));
       setToast(
         existing ? "Đã bỏ lưu căn nhà." : "Đã lưu vào Tài khoản → Đã lưu.",
@@ -274,6 +281,7 @@ export default function App() {
           <WebRoute path="/ai/:threadId" element={<Chat />} />
           <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
           <WebRoute path="/guides" element={<GuidesPage />} />
+          <WebRoute path="/landlord" element={<LandlordWorkspace />} />
           <WebRoute
             path="/plans"
             element={<Navigate to="/account" replace />}
@@ -2170,6 +2178,10 @@ function Account({ onLogout }: { onLogout: () => void }) {
           <Link className="text-button" to="/roommate">
             {roommateText("Tìm người ở cùng", "Find a roommate")}{" "}
             <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link className="text-button" to="/landlord">
+            {uiText("Quản lý nhà cho thuê")} <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </p>
         <div className="profile-banner">

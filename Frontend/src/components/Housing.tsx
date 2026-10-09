@@ -12,8 +12,14 @@ import {
   ExternalLink,
   MessageCircle,
   GitCompareArrows,
+  Calculator,
+  CircleAlert,
+  Droplets,
+  Send,
+  Users,
+  Zap,
 } from "lucide-react";
-import { api, housePrice, money, safeUrl } from "../api";
+import { api, housePrice, money, requestId, safeUrl } from "../api";
 import type { House } from "../types";
 import { Dialog } from "./Dialog";
 
@@ -197,6 +203,19 @@ export function HousingDetail({
       .finally(() => setLoading(false));
     return () => c.abort();
   }, [house.id]);
+  useEffect(() => {
+    let visitor = "session";
+    try {
+      visitor = sessionStorage.getItem("relohome-analytics-id") || requestId();
+      sessionStorage.setItem("relohome-analytics-id", visitor);
+    } catch {
+      visitor = requestId();
+    }
+    void api(`/housing-management/housing/${encodeURIComponent(house.id)}/events`, "POST", {
+      event_type: "detail_view",
+      dedup_key: `detail:${visitor}:${house.id}`,
+    }).catch(() => {});
+  }, [house.id]);
   const source = safeUrl(
     detail.source?.url || detail.source?.source_url || detail.source_url,
   );
@@ -259,6 +278,7 @@ export function HousingDetail({
           </span>
         ))}
       </div>
+      <HousingDecisionTools house={detail} />
       <p className="notice">
         {detail.location_accuracy === "rooftop"
           ? uiText("Vị trí theo tin nhà.")
@@ -302,6 +322,71 @@ export function HousingDetail({
         </div>
       )}
     </Dialog>
+  );
+}
+
+function HousingDecisionTools({ house }: { house: House }) {
+  const [people, setPeople] = useState(1);
+  const [electricity, setElectricity] = useState(100);
+  const [water, setWater] = useState(4);
+  const [vehicles, setVehicles] = useState(1);
+  const [message, setMessage] = useState("Tôi quan tâm căn này và muốn trao đổi thêm về lịch xem phòng.");
+  const [sending, setSending] = useState(false);
+  const [requestState, setRequestState] = useState("");
+  const fees = house.fees || [];
+  const rent = house.price_vnd ?? house.price?.amount ?? 0;
+  const quantity: Record<string, number> = {
+    month: 1, one_time: 0, kwh: electricity, m3: water,
+    person_month: people, vehicle_month: vehicles,
+  };
+  const monthlyFees = fees.reduce(
+    (total, fee) => total + (fee.amount == null ? 0 : fee.amount * (quantity[fee.billing_unit] || 0)),
+    0,
+  );
+  const oneTime = fees.filter((fee) => fee.billing_unit === "one_time" && fee.amount != null)
+    .reduce((total, fee) => total + Number(fee.amount), 0);
+  const unknown = fees.filter((fee) => fee.required && fee.amount == null);
+  const monthly = rent + monthlyFees;
+  const moveIn = monthly + (house.deposit_vnd || 0) + oneTime;
+  async function contact() {
+    setSending(true); setRequestState("");
+    try {
+      await api(`/housing-management/housing/${encodeURIComponent(house.id)}/contact-requests`, "POST", { message });
+      setRequestState("Đã gửi yêu cầu. Chủ nhà sẽ thấy lời nhắn trong hộp thư quản lý.");
+    } catch (cause) { setRequestState((cause as Error).message); }
+    finally { setSending(false); }
+  }
+  return (
+    <section className="housing-decision-tools" aria-labelledby="housing-cost-title">
+      <div className="housing-tool-heading">
+        <span><Calculator size={19} /></span>
+        <div><h3 id="housing-cost-title">Ước tính chi phí thực tế</h3><p>Tính bằng quy tắc cố định từ mức phí chủ nhà đã công bố.</p></div>
+      </div>
+      <div className="housing-usage-grid">
+        <label><Users size={15} /> Số người<input type="number" min="1" max="20" value={people} onChange={(e) => setPeople(Number(e.target.value) || 1)} /></label>
+        <label><Zap size={15} /> Điện (kWh/tháng)<input type="number" min="0" max="10000" value={electricity} onChange={(e) => setElectricity(Number(e.target.value) || 0)} /></label>
+        <label><Droplets size={15} /> Nước (m³/tháng)<input type="number" min="0" max="1000" value={water} onChange={(e) => setWater(Number(e.target.value) || 0)} /></label>
+        <label>Xe<input type="number" min="0" max="20" value={vehicles} onChange={(e) => setVehicles(Number(e.target.value) || 0)} /></label>
+      </div>
+      <dl className="housing-cost-summary">
+        <div><dt>Tiền thuê</dt><dd>{money(rent)}</dd></div>
+        <div><dt>Phí ước tính mỗi tháng</dt><dd>{money(monthlyFees)}</dd></div>
+        <div className="total"><dt>Tổng mỗi tháng</dt><dd>{money(monthly)}</dd></div>
+        <div><dt>Chi phí khi vào ở</dt><dd>{money(moveIn)}</dd></div>
+        {typeof house.area_m2 === "number" && house.area_m2 > 0 && <div><dt>Giá thuê / m²</dt><dd>{money(Math.round(rent / house.area_m2))}</dd></div>}
+      </dl>
+      {unknown.length > 0 && <p className="housing-cost-warning"><CircleAlert size={16} /> Chưa thể tính: {unknown.map((fee) => fee.label).join(", ")}.</p>}
+      {fees.length === 0 && <p className="housing-cost-warning"><CircleAlert size={16} /> Chủ nhà chưa công bố chi tiết điện, nước và các phí định kỳ.</p>}
+      {house.management?.accepts_contact_requests && (
+        <div className="housing-contact-box">
+          <h3>Gửi yêu cầu liên hệ</h3>
+          <p>ReloHome chuyển lời nhắn tới tài khoản quản lý tin. Thông tin liên hệ không được công khai trên tin.</p>
+          <textarea aria-label="Lời nhắn cho chủ nhà" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} />
+          <button className="primary" disabled={sending || !message.trim()} onClick={() => void contact()}><Send size={16} /> {sending ? "Đang gửi…" : "Gửi yêu cầu"}</button>
+          {requestState && <p role="status" className="housing-contact-status">{requestState}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 export function Comparison({
@@ -381,6 +466,22 @@ export function Comparison({
           <tbody>
             {[
               ["Giá", (h: House) => housePrice(h)],
+              [
+                "Giá / m²",
+                (h: House) =>
+                  h.price_vnd != null && h.area_m2
+                    ? money(Math.round(h.price_vnd / h.area_m2))
+                    : "Chưa có dữ liệu",
+              ],
+              [
+                "Phí cố định / tháng",
+                (h: House) => {
+                  const fixed = (h.fees || [])
+                    .filter((fee) => fee.billing_unit === "month" && fee.amount != null)
+                    .reduce((sum, fee) => sum + Number(fee.amount), 0);
+                  return h.fees?.length ? money(fixed) : "Chưa có dữ liệu";
+                },
+              ],
               [
                 "Diện tích",
                 (h: House) =>

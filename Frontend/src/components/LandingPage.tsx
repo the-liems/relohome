@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  Building2,
   Check,
   ChevronDown,
   Compass,
@@ -57,6 +58,12 @@ const services = [
     href: "/guides",
     title: "Cẩm nang thuê và sống",
     text: "Đọc kinh nghiệm về tìm nhà, chi phí, hợp đồng, an toàn và chia sẻ không gian sống.",
+  },
+  {
+    icon: Building2,
+    href: "/landlord",
+    title: "Quản lý nhà cho thuê",
+    text: "Dành cho chủ trọ: quản lý nhiều nhà và phòng, công khai chi phí, cập nhật trạng thái và xử lý yêu cầu liên hệ.",
   },
 ];
 const steps = [
@@ -250,7 +257,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
                 <h3>{t(s.title)}</h3>
                 <p>{t(s.text)}</p>
                 <Link to={s.href}>
-                  {t(s.href === "/roommate" ? "Khám phá hồ sơ" : s.href === "/guides" ? "Mở cẩm nang" : "Bắt đầu trò chuyện")}
+                  {t(s.href === "/roommate" ? "Khám phá hồ sơ" : s.href === "/guides" ? "Mở cẩm nang" : s.href === "/landlord" ? "Mở quản lý nhà" : "Bắt đầu trò chuyện")}
                   <ArrowUpRight size={16} />
                 </Link>
               </article>

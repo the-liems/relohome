@@ -1,0 +1,98 @@
+export type ManagementStatus = "pending" | "active" | "revoked";
+export type PublicationStatus = "draft" | "pending_review" | "published" | "hidden" | "rejected" | "deleted";
+export type AvailabilityStatus = "vacant" | "rented" | "paused";
+
+export interface Overview {
+  properties: number;
+  units: number;
+  vacant: number;
+  new_contacts: number;
+  measured_since: string | null;
+  detail_views: number;
+  saves: number;
+  contact_requests: number;
+}
+
+export interface PropertySummary {
+  id: string;
+  name: string;
+  property_type: string;
+  address: Record<string, unknown>;
+  lng: number;
+  lat: number;
+  role: "owner" | "manager";
+  status: ManagementStatus;
+  revision: number;
+  unit_count: number;
+  vacant_count: number;
+}
+
+export interface ManagedUnit {
+  id: string;
+  unit_code: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area_m2: number | null;
+  amenities: string[];
+  listing_id: string | null;
+  title: string | null;
+  publication_status: PublicationStatus | null;
+  availability_status: AvailabilityStatus | null;
+  revision: number | null;
+}
+
+export interface ListingFee {
+  id: string;
+  code: string;
+  label: string;
+  amount: number;
+  billing_unit: string;
+  required: boolean;
+  refundable: boolean;
+}
+
+export interface ListingMedia {
+  id: string;
+  url: string;
+  alt_text: string | null;
+  position: number;
+  is_primary: boolean;
+  moderation_status: string;
+}
+
+export interface ManagedListing {
+  id: string;
+  property_id: string;
+  unit_id: string;
+  title: string;
+  description: string;
+  rent_vnd: number;
+  deposit_vnd: number | null;
+  availability_from: string | null;
+  publication_status: PublicationStatus;
+  availability_status: AvailabilityStatus;
+  rejection_reason: string | null;
+  revision: number;
+  updated_at: string;
+  fees: ListingFee[];
+  media: ListingMedia[];
+}
+
+export interface PropertyDetail extends PropertySummary {
+  management_status: ManagementStatus;
+  units: ManagedUnit[];
+}
+
+export interface ContactRequest {
+  id: string;
+  listing_id: string;
+  tenant_user_id: string;
+  message: string;
+  status: "new" | "contacted" | "viewing" | "resolved" | "declined";
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  unit_code: string | null;
+  property_name: string;
+}
