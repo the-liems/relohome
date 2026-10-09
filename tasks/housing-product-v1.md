@@ -25,8 +25,11 @@
 
 - [x] HP-12: Lịch xem ở tab "Xem nhà" gửi tới chủ nhà và chờ xác nhận ([viewing-landlord-confirmation](../docs/review/viewing-landlord-confirmation.md))
 - [x] HP-13: Chủ nhà phải xác nhận giờ thì người thuê mới ghi kết quả và chốt; tin nhắn giữa hai bên trên từng yêu cầu
-- [ ] HP-14: Phản hồi và đánh giá của người thuê (thiết kế: [housing-feedback-design](../docs/review/housing-feedback-design.md))
-  - Bản thử trước: chấm chủ nhà 1–5 sao kiểu Google Maps, gắn cờ khi nhiều nhà của một chủ cùng bị đánh giá xấu (mục 14); chưa code.
+- [x] HP-14: Đánh giá chủ nhà 1–5 sao theo mục 14 ([housing-feedback-design](../docs/review/housing-feedback-design.md))
+  - Người đã liên hệ đánh giá theo property, sửa/rút, tổng hợp điểm thật và histogram; chủ nhà trả lời/báo cáo; moderator ẩn/giữ và rà soát cờ nhiều nhà/nhiều tác giả.
+  - Migration 018, bảo vệ danh tính, projection Agent chỉ có điểm tổng hợp, UI desktop/mobile/VI/EN; RV-01..07 có tests PostGIS.
+  - Các ý tưởng phản hồi phức tạp ở mục 1–13 (Bayes/ML/LLM, tự xử lý tin) vẫn là mở rộng, không thuộc task này.
+- [x] HP-12 regression: hủy lịch rồi đặt lại cùng giờ gửi yêu cầu mới cho chủ nhà; lịch còn mở giữ câu trả lời.
 
 Mỗi task phải giữ contract Housing/Moving/Flight/Roommate hiện tại, có test tập trung và build sạch trước khi đánh dấu hoàn tất.
 

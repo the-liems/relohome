@@ -1,6 +1,6 @@
 # Thiết kế: phản hồi của người thuê về căn nhà và người cho thuê
 
-Trạng thái: **v2, đề xuất, chưa code.** Ngày: 09/10/2026.
+Trạng thái: **v2; mục 14 (đánh giá chủ nhà 1–5 sao) đã triển khai trên `feature/housing-landlord-reviews`; các ý tưởng mở rộng còn lại chưa triển khai.** Ngày: 09/10/2026.
 
 v2: chốt bản đầu theo kiểu đánh giá của Google Maps: **chấm chủ nhà 1–5 sao** (mục 14). Khi nhiều nhà của cùng một
 chủ cùng bị đánh giá xấu, hệ thống **phát hiện và gắn cờ cho kiểm duyệt**; việc xử lý tiếp theo để team quyết sau
@@ -383,4 +383,18 @@ giá sai).
 - **RV-06:** Đánh giá xấu trên ≥ 2 nhà từ ≥ 3 người trong khoảng cấu hình tạo đúng một cờ theo chủ nhà; một người chấm
   xấu nhiều nhà không đủ tạo cờ; không có hành động tự động nào ngoài cờ.
 - **RV-07:** Chi tiết tin công khai có `host_rating`, `host_review_count`; client cũ vẫn parse được; không lộ người viết.
+
+## 15. Triển khai mục 14 và vận hành
+
+- Migration `018_housing_landlord_reviews.sql`; Platform `housing-reviews.ts`; summary dùng chung ở Housing query; gateway chỉ chuyển danh tính phiên.
+- Người thuê mở Chi tiết nhà → Đánh giá chủ nhà. Chủ nhà có tab Đánh giá; moderator có Đánh giá bị báo cáo/Cảnh báo theo chủ nhà trong Duyệt tin.
+- Mỗi người một review cho mỗi property. Sửa review giữ ID và thay điểm; rút không xóa row. Lý do ẩn vẫn giữ khi rút để việc đăng lại không vượt qua kiểm duyệt.
+- Danh sách công khai không trả tên hoặc ID tác giả. Review body không được đưa vào Agent; chỉ `host_rating`/`host_review_count` đi qua projection chi tiết.
+- Ngưỡng mặc định: tối thiểu 1 review để hiện điểm; thấp là ≤ 2 sao; mẫu cảnh báo trong 90 ngày, ≥ 2 property và ≥ 3 tác giả độc lập. Dùng `updated_at` của review để tính thời điểm viết/sửa gần nhất.
+- Cờ có evidence, không có hành động tự động với tin hoặc xếp hạng. Kiểm duyệt bấm Đã rà soát; thêm review thấp mới có thể mở lại cờ. Evidence được cập nhật khi review sửa/rút/ẩn; cờ cũ vẫn được giữ nếu tín hiệu không còn đủ ngưỡng.
+- Cờ là bằng chứng tại mốc `computed_at`, không phải kết luận về chủ nhà. Khi mở hàng chờ, hệ thống rà lại cửa sổ thời gian trước khi hiển thị cờ.
+- Public text chặn số điện thoại/email và một tập từ xúc phạm rõ ràng bằng luật. Bộ lọc không thay thế kiểm duyệt; các cáo buộc/tranh chấp đi qua Báo cáo đánh giá.
+- Thêm `POST /v1/moderation/housing/flags/:flagId/review` để ghi nhận cờ đã rà soát; quyền tự xử lý bị chặn như review moderation.
+- Scope giữ ở mục 14: chưa làm Bayesian score, ML/LLM phân loại phản hồi, tự ẩn tin hay tạm khóa người đăng.
+- Kiểm chứng: test RV-01..07 trên PostGIS, gateway identity/pagination, Agent privacy, browser tenant/landlord/moderation desktop/mobile và axe.
 
