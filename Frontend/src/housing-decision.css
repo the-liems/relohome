@@ -7,4 +7,10 @@
 .housing-cost-summary { margin: 0; border-top: 1px solid var(--line); }.housing-cost-summary > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }.housing-cost-summary dt { color: var(--muted); }.housing-cost-summary dd { margin: 0; font-weight: 750; }.housing-cost-summary .total { color: var(--accent); font-size: 1.04rem; }
 .housing-cost-warning { display: flex; align-items: flex-start; gap: 7px; padding: 10px; margin: 12px 0 0; background: color-mix(in srgb, #e9951a 13%, var(--surface)); color: color-mix(in srgb, #a15a00 85%, var(--ink)); font-size: .82rem; }
 .housing-contact-box { margin-top: 18px; padding-top: 17px; border-top: 1px solid var(--line); }.housing-contact-box h3 { margin: 0 0 4px; }.housing-contact-box > p { margin: 0 0 10px; color: var(--muted); font-size: .85rem; }.housing-contact-box textarea { width: 100%; min-height: 82px; resize: vertical; padding: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }.housing-contact-box button { margin-top: 9px; }.housing-contact-box .housing-contact-status { margin-top: 10px; padding: 9px; color: var(--accent); background: var(--accent-soft); }
-@media (max-width: 620px) { .housing-usage-grid { grid-template-columns: repeat(2, 1fr); } }
+.saved-compare-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); background: var(--surface); }
+.tenant-requests { padding: 20px; }.tenant-requests h3 { margin: 0 0 4px; }
+.tenant-request-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+.tenant-request-list li { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); background: var(--surface); }
+.tenant-request-list blockquote { margin: 6px 0 0; padding: 10px; background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft)); white-space: pre-line; }
+.tenant-request-list .text-button { justify-self: start; }
+@media (max-width: 620px) { .housing-usage-grid { grid-template-columns: repeat(2, 1fr); } .saved-compare-bar { flex-direction: column; align-items: stretch; } }

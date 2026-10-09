@@ -71,7 +71,9 @@ import type {
   User,
 } from "./types";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
-import { HousingCard, HousingDetail } from "./components/Housing";
+import { Comparison, HousingCard, HousingDetail } from "./components/Housing";
+import { TenantRequests } from "./components/TenantRequests";
+import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
 import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
@@ -2102,6 +2104,9 @@ function Account({ onLogout }: { onLogout: () => void }) {
   const { user, setUser, saved, threads, save, notify } = useApp();
   const [resetting, setResetting] = useState(false),
     [openSaved, setOpenSaved] = useState<Saved | null>(null);
+  // Persistent shortlist = saved homes; compare 2–4 of them with re-read details (SPEC-021 AC-04).
+  const [savedCompare, setSavedCompare] = useState<HouseData[]>([]),
+    [comparingSaved, setComparingSaved] = useState(false);
   const [tab, setTab] = useState("history"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -2273,6 +2278,17 @@ function Account({ onLogout }: { onLogout: () => void }) {
           <Heart size={17} />
           {uiText(" Đã lưu")} <span className="count">{saved.length}</span>
         </button>
+        <button
+          role="tab"
+          id={accountId + "contacts"}
+          aria-selected={tab === "contacts"}
+          aria-controls={accountId + "panel"}
+          className={tab === "contacts" ? "active" : ""}
+          onClick={() => changeTab("contacts")}
+        >
+          <MessageCircle size={17} />
+          {uiText(" Liên hệ chủ nhà")}
+        </button>
       </TabList>
       <section
         id={accountId + "panel"}
@@ -2280,7 +2296,9 @@ function Account({ onLogout }: { onLogout: () => void }) {
         aria-labelledby={accountId + tab}
         tabIndex={0}
       >
-        {tab === "history" ? (
+        {tab === "contacts" ? (
+          <TenantRequests />
+        ) : tab === "history" ? (
           <RequestHistory threads={threads} />
         ) : tab === "security" ? (
           <section className="surface account-security">
@@ -2450,12 +2468,32 @@ function Account({ onLogout }: { onLogout: () => void }) {
             </section>
           </div>
         ) : saved.length ? (
+          <>
+          <div className="saved-compare-bar">
+            <span className="muted small">
+              {formatUi(
+                "Chọn 2–{0} căn đã lưu để so sánh chi phí và thông tin mới nhất.",
+                [MAX_COMPARISON_HOMES],
+              )}
+            </span>
+            <button
+              className="primary"
+              disabled={savedCompare.length < 2}
+              onClick={() => setComparingSaved(true)}
+            >
+              {formatUi("So sánh {0} căn", [savedCompare.length])}
+            </button>
+          </div>
           <div className="saved-grid">
             {saved.map((s) => (
               <HousingCard
                 key={s.id}
                 house={s.house}
                 saved
+                compare={savedCompare.some((h) => h.id === s.id)}
+                onCompare={() =>
+                  setSavedCompare((homes) => toggleComparison(homes, s.house))
+                }
                 onSave={() => void save(s.house, s.thread_id)}
                 onOpen={() =>
                   s.thread_id
@@ -2470,6 +2508,19 @@ function Account({ onLogout }: { onLogout: () => void }) {
               />
             ))}
           </div>
+          {comparingSaved && (
+            <Comparison
+              houses={savedCompare}
+              refresh
+              onClose={() => setComparingSaved(false)}
+              onOpen={(h) => {
+                const item = saved.find((s) => s.id === h.id);
+                setComparingSaved(false);
+                if (item) setOpenSaved(item);
+              }}
+            />
+          )}
+          </>
         ) : (
           <Empty
             icon={<Heart />}

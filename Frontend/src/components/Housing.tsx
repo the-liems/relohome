@@ -1,4 +1,4 @@
-import { t as uiText } from "../uiPreferences";
+import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
   BedDouble,
@@ -20,7 +20,8 @@ import {
   Zap,
 } from "lucide-react";
 import { api, housePrice, money, requestId, safeUrl } from "../api";
-import type { House } from "../types";
+import type { Data, House } from "../types";
+import { estimateCost, type CostLine, type Usage } from "../housingCost";
 import { Dialog } from "./Dialog";
 
 export const amenities: Record<string, string> = {
@@ -325,70 +326,256 @@ export function HousingDetail({
   );
 }
 
+const OPEN_REQUEST = new Set(["new", "contacted", "viewing"]);
+const REQUEST_STATUS: Record<string, string> = {
+  new: "Đã gửi, chủ nhà chưa xem",
+  contacted: "Chủ nhà đã liên hệ",
+  viewing: "Chủ nhà đã hẹn xem",
+  resolved: "Đã hoàn tất",
+  declined: "Đã đóng",
+};
+
+// Tenant quantities start empty: the estimate never assumes a usage level (SPEC-021 AC-04).
+export function UsageInputs({
+  usage,
+  onChange,
+}: {
+  usage: Usage;
+  onChange: (next: Usage) => void;
+}) {
+  const field = (key: keyof Usage, label: string, Icon: typeof Users, max: number) => (
+    <label key={key}>
+      <Icon size={15} /> {uiText(label)}
+      <input
+        type="number"
+        min="0"
+        max={max}
+        inputMode="decimal"
+        placeholder={uiText("Bạn nhập")}
+        value={usage[key] ?? ""}
+        onChange={(e) =>
+          onChange({
+            ...usage,
+            [key]: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+          })
+        }
+      />
+    </label>
+  );
+  return (
+    <div className="housing-usage-grid">
+      {field("people", "Số người", Users, 20)}
+      {field("kwh", "Điện (kWh/tháng)", Zap, 10000)}
+      {field("m3", "Nước (m³/tháng)", Droplets, 1000)}
+      {field("vehicles", "Số xe", Calculator, 20)}
+    </div>
+  );
+}
+
+const amountText = (line: CostLine) =>
+  line.amount != null
+    ? money(line.amount)
+    : line.missing === "quantity"
+      ? uiText("Cần số liệu của bạn")
+      : uiText("Chưa rõ");
+
+// Daily or non-VND prices cannot be turned into a monthly total without guessing.
+const NO_MONTHLY_RENT = "Chưa rõ: giá không tính theo tháng";
 function HousingDecisionTools({ house }: { house: House }) {
-  const [people, setPeople] = useState(1);
-  const [electricity, setElectricity] = useState(100);
-  const [water, setWater] = useState(4);
-  const [vehicles, setVehicles] = useState(1);
-  const [message, setMessage] = useState("Tôi quan tâm căn này và muốn trao đổi thêm về lịch xem phòng.");
+  const [usage, setUsage] = useState<Usage>({});
+  const [message, setMessage] = useState(
+    uiText("Tôi quan tâm căn này và muốn trao đổi thêm về lịch xem phòng."),
+  );
   const [sending, setSending] = useState(false);
   const [requestState, setRequestState] = useState("");
-  const fees = house.fees || [];
-  const rent = house.price_vnd ?? house.price?.amount ?? 0;
-  const quantity: Record<string, number> = {
-    month: 1, one_time: 0, kwh: electricity, m3: water,
-    person_month: people, vehicle_month: vehicles,
-  };
-  const monthlyFees = fees.reduce(
-    (total, fee) => total + (fee.amount == null ? 0 : fee.amount * (quantity[fee.billing_unit] || 0)),
-    0,
-  );
-  const oneTime = fees.filter((fee) => fee.billing_unit === "one_time" && fee.amount != null)
-    .reduce((total, fee) => total + Number(fee.amount), 0);
-  const unknown = fees.filter((fee) => fee.required && fee.amount == null);
-  const monthly = rent + monthlyFees;
-  const moveIn = monthly + (house.deposit_vnd || 0) + oneTime;
-  async function contact() {
-    setSending(true); setRequestState("");
+  const [mine, setMine] = useState<Data | null>(null);
+  const cost = estimateCost(house, usage);
+  const acceptsContact = Boolean(house.management?.accepts_contact_requests);
+  async function loadMine() {
     try {
-      await api(`/housing-management/housing/${encodeURIComponent(house.id)}/contact-requests`, "POST", { message });
-      setRequestState("Đã gửi yêu cầu. Chủ nhà sẽ thấy lời nhắn trong hộp thư quản lý.");
-    } catch (cause) { setRequestState((cause as Error).message); }
-    finally { setSending(false); }
+      const page = await api<{ items: Data[] }>(
+        "/housing-management/housing/contact-requests/me",
+      );
+      setMine(
+        page.items.find(
+          (r) => r.listing_id === house.id && OPEN_REQUEST.has(r.status),
+        ) || null,
+      );
+    } catch {
+      setMine(null);
+    }
+  }
+  useEffect(() => {
+    if (acceptsContact) void loadMine();
+  }, [house.id, acceptsContact]);
+  async function contact() {
+    setSending(true);
+    setRequestState("");
+    try {
+      await api(
+        `/housing-management/housing/${encodeURIComponent(house.id)}/contact-requests`,
+        "POST",
+        { message },
+      );
+      setRequestState(
+        uiText("Đã gửi yêu cầu. Chủ nhà sẽ thấy lời nhắn trong hộp thư quản lý."),
+      );
+      await loadMine();
+    } catch (cause) {
+      setRequestState((cause as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+  async function cancel() {
+    if (!mine) return;
+    setSending(true);
+    try {
+      await api(
+        `/housing-management/housing/contact-requests/${encodeURIComponent(mine.id)}/cancel`,
+        "POST",
+        { revision: mine.revision },
+      );
+      setRequestState(uiText("Đã hủy yêu cầu liên hệ."));
+      await loadMine();
+    } catch (cause) {
+      setRequestState((cause as Error).message);
+    } finally {
+      setSending(false);
+    }
   }
   return (
     <section className="housing-decision-tools" aria-labelledby="housing-cost-title">
       <div className="housing-tool-heading">
-        <span><Calculator size={19} /></span>
-        <div><h3 id="housing-cost-title">Ước tính chi phí thực tế</h3><p>Tính bằng quy tắc cố định từ mức phí chủ nhà đã công bố.</p></div>
+        <span>
+          <Calculator size={19} />
+        </span>
+        <div>
+          <h3 id="housing-cost-title">{uiText("Ước tính chi phí")}</h3>
+          <p>
+            {uiText(
+              "Chỉ dùng mức phí chủ nhà công bố và số liệu bạn nhập; khoản thiếu không được tính bằng 0.",
+            )}
+          </p>
+        </div>
       </div>
-      <div className="housing-usage-grid">
-        <label><Users size={15} /> Số người<input type="number" min="1" max="20" value={people} onChange={(e) => setPeople(Number(e.target.value) || 1)} /></label>
-        <label><Zap size={15} /> Điện (kWh/tháng)<input type="number" min="0" max="10000" value={electricity} onChange={(e) => setElectricity(Number(e.target.value) || 0)} /></label>
-        <label><Droplets size={15} /> Nước (m³/tháng)<input type="number" min="0" max="1000" value={water} onChange={(e) => setWater(Number(e.target.value) || 0)} /></label>
-        <label>Xe<input type="number" min="0" max="20" value={vehicles} onChange={(e) => setVehicles(Number(e.target.value) || 0)} /></label>
-      </div>
+      <UsageInputs usage={usage} onChange={setUsage} />
       <dl className="housing-cost-summary">
-        <div><dt>Tiền thuê</dt><dd>{money(rent)}</dd></div>
-        <div><dt>Phí ước tính mỗi tháng</dt><dd>{money(monthlyFees)}</dd></div>
-        <div className="total"><dt>Tổng mỗi tháng</dt><dd>{money(monthly)}</dd></div>
-        <div><dt>Chi phí khi vào ở</dt><dd>{money(moveIn)}</dd></div>
-        {typeof house.area_m2 === "number" && house.area_m2 > 0 && <div><dt>Giá thuê / m²</dt><dd>{money(Math.round(rent / house.area_m2))}</dd></div>}
+        {cost.monthly.map((l, i) => (
+          <div key={"m" + i}>
+            <dt>{uiText(l.label)}</dt>
+            <dd>{amountText(l)}</dd>
+          </div>
+        ))}
+        <div className="total">
+          <dt>
+            {cost.monthlyComplete
+              ? uiText("Tổng mỗi tháng")
+              : uiText("Tạm tính mỗi tháng (từ các khoản đã biết)")}
+          </dt>
+          <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.monthlyKnown)}</dd>
+        </div>
+        <div>
+          <dt>
+            {cost.moveInComplete
+              ? uiText("Cần chuẩn bị khi vào ở")
+              : uiText("Cần chuẩn bị khi vào ở (tạm tính)")}
+          </dt>
+          <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.moveInKnown)}</dd>
+        </div>
+        <div>
+          <dt>{uiText("Tiền cọc")}</dt>
+          <dd>{cost.deposit != null ? money(cost.deposit) : uiText("Chưa rõ")}</dd>
+        </div>
+        {cost.oneTime.map((l, i) => (
+          <div key={"o" + i}>
+            <dt>{formatUi("{0} (một lần)", [uiText(l.label)])}</dt>
+            <dd>{amountText(l)}</dd>
+          </div>
+        ))}
+        {cost.pricePerM2 != null && (
+          <div>
+            <dt>{uiText("Giá thuê / m²")}</dt>
+            <dd>{money(cost.pricePerM2)}</dd>
+          </div>
+        )}
       </dl>
-      {unknown.length > 0 && <p className="housing-cost-warning"><CircleAlert size={16} /> Chưa thể tính: {unknown.map((fee) => fee.label).join(", ")}.</p>}
-      {fees.length === 0 && <p className="housing-cost-warning"><CircleAlert size={16} /> Chủ nhà chưa công bố chi tiết điện, nước và các phí định kỳ.</p>}
-      {house.management?.accepts_contact_requests && (
+      {cost.optional.length > 0 && (
+        <p className="muted small">
+          {uiText("Phí tùy chọn, không tính vào tổng: ")}
+          {cost.optional
+            .map((l) => `${uiText(l.label)} ${amountText(l)}`)
+            .join(" · ")}
+        </p>
+      )}
+      {cost.unknown.length > 0 && (
+        <p className="housing-cost-warning">
+          <CircleAlert size={16} />{" "}
+          {formatUi("Chưa rõ, hãy hỏi chủ nhà: {0}.", [
+            cost.unknown.map((l) => uiText(l)).join(", "),
+          ])}
+        </p>
+      )}
+      {!cost.feesPublished && (
+        <p className="housing-cost-warning">
+          <CircleAlert size={16} />{" "}
+          {uiText(
+            "Tin này chưa công bố điện, nước và phí định kỳ; tổng chỉ gồm tiền thuê.",
+          )}
+        </p>
+      )}
+      {acceptsContact && (
         <div className="housing-contact-box">
-          <h3>Gửi yêu cầu liên hệ</h3>
-          <p>ReloHome chuyển lời nhắn tới tài khoản quản lý tin. Thông tin liên hệ không được công khai trên tin.</p>
-          <textarea aria-label="Lời nhắn cho chủ nhà" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} />
-          <button className="primary" disabled={sending || !message.trim()} onClick={() => void contact()}><Send size={16} /> {sending ? "Đang gửi…" : "Gửi yêu cầu"}</button>
-          {requestState && <p role="status" className="housing-contact-status">{requestState}</p>}
+          <h3>{uiText("Gửi yêu cầu liên hệ")}</h3>
+          <p>
+            {uiText(
+              "ReloHome chuyển lời nhắn tới tài khoản quản lý tin. Thông tin liên hệ không được công khai trên tin.",
+            )}
+          </p>
+          {mine ? (
+            <p role="status" className="housing-contact-status">
+              {formatUi("Yêu cầu của bạn: {0}.", [
+                uiText(REQUEST_STATUS[mine.status] || mine.status),
+              ])}{" "}
+              {["new", "contacted"].includes(mine.status) && (
+                <button className="text-button" disabled={sending} onClick={() => void cancel()}>
+                  {uiText("Hủy yêu cầu")}
+                </button>
+              )}
+              {mine.status === "viewing" && (
+                <span className="small muted"> {uiText(VIEWING_HINT)}</span>
+              )}
+            </p>
+          ) : (
+            <>
+              <textarea
+                aria-label={uiText("Lời nhắn cho chủ nhà")}
+                maxLength={1000}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <button
+                className="primary"
+                disabled={sending || !message.trim()}
+                onClick={() => void contact()}
+              >
+                <Send size={16} /> {sending ? uiText("Đang gửi…") : uiText("Gửi yêu cầu")}
+              </button>
+            </>
+          )}
+          {requestState && (
+            <p role="status" className="housing-contact-status">
+              {requestState}
+            </p>
+          )}
         </div>
       )}
     </section>
   );
 }
+// The owner's "viewing" status links to the in-plan viewing flow (docs/review/housing-viewing-design.md).
+export const VIEWING_HINT =
+  "Chủ nhà đã nhận lịch hẹn. Chọn căn này để hẹn xem trong hội thoại, rồi đặt giờ ở Kế hoạch → Xem nhà để ReloHome nhắc lịch và hỗ trợ chốt căn.";
 export function Comparison({
   houses,
   onClose,
@@ -401,6 +588,7 @@ export function Comparison({
   refresh?: boolean;
 }) {
   const [loaded, setLoaded] = useState(houses);
+  const [usage, setUsage] = useState<Usage>({});
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState<string[]>([]);
   const ids = houses.map((h) => h.id).join("|");
@@ -441,6 +629,12 @@ export function Comparison({
           " Thông tin từ những kết quả đã tải. Giá và tình trạng trống cần được xác minh với nguồn tin.",
         )}
       </p>
+      <p className="muted small">
+        {uiText(
+          "Nhập mức dùng của bạn để so sánh chi phí; để trống thì khoản đó được ghi là chưa tính.",
+        )}
+      </p>
+      <UsageInputs usage={usage} onChange={setUsage} />
       {loading && (
         <p role="status">{uiText("Đang đọc lại chi tiết các căn…")}</p>
       )}
@@ -474,12 +668,31 @@ export function Comparison({
                     : "Chưa có dữ liệu",
               ],
               [
-                "Phí cố định / tháng",
+                "Tạm tính mỗi tháng",
                 (h: House) => {
-                  const fixed = (h.fees || [])
-                    .filter((fee) => fee.billing_unit === "month" && fee.amount != null)
-                    .reduce((sum, fee) => sum + Number(fee.amount), 0);
-                  return h.fees?.length ? money(fixed) : "Chưa có dữ liệu";
+                  const cost = estimateCost(h, usage);
+                  if (cost.rent == null) return uiText(NO_MONTHLY_RENT);
+                  return cost.monthlyComplete
+                    ? money(cost.monthlyKnown)
+                    : formatUi("{0} (tạm tính)", [money(cost.monthlyKnown)]);
+                },
+              ],
+              [
+                "Cần chuẩn bị khi vào ở",
+                (h: House) => {
+                  const cost = estimateCost(h, usage);
+                  if (cost.rent == null) return uiText(NO_MONTHLY_RENT);
+                  return cost.moveInComplete
+                    ? money(cost.moveInKnown)
+                    : formatUi("{0} (tạm tính)", [money(cost.moveInKnown)]);
+                },
+              ],
+              [
+                "Khoản chưa rõ",
+                (h: House) => {
+                  const cost = estimateCost(h, usage);
+                  if (!cost.feesPublished) return "Chưa công bố phí";
+                  return cost.unknown.map((l) => uiText(l)).join(", ") || "Không có";
                 },
               ],
               [
