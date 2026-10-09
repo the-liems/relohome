@@ -11,6 +11,7 @@ mission-driven theo ADR-021, contract 1.1 và kiểm chứng không mock.
 
 | SPEC | Status | Scope |
 |---|---|---|
+| [SPEC-021 — Housing Product V1](SPEC-021-housing-product-v1.md) | Accepted | Additive Tenant decision tools and isolated Landlord workspace without changing existing Housing flows |
 | [SPEC-019 — Housing comparison isolation](SPEC-019-housing-comparison-isolation.md) | Draft | Read-only comparison separate from search, choice, map navigation and costs |
 | [SPEC-018 — Search scope and Roommate map](SPEC-018-search-scope-and-roommate-map.md) | Draft | True administrative boundaries, viewport/radius intersection, service journey and isolated synthetic Roommate playground |
 
