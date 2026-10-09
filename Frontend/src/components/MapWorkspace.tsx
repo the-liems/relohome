@@ -104,6 +104,10 @@ export function MapWorkspace({
   areaName,
   saved,
   selectedId,
+  selectedIds,
+  selectionLimit,
+  onUnselect,
+  onSelectionDone,
   readOnly = false,
   chat,
   onSave,
@@ -117,6 +121,12 @@ export function MapWorkspace({
   areaName?: string;
   saved: Set<string>;
   selectedId?: string;
+  // Homes chosen for viewing (several); the plan home stays `selectedId`.
+  selectedIds?: string[];
+  // Viewing mode: the map stays open while several homes are chosen; "done" closes it.
+  selectionLimit?: number;
+  onUnselect?: (h: House) => Promise<void>;
+  onSelectionDone?: () => void;
   readOnly?: boolean;
   chat: ChatDockProps;
   onSave: (h: House) => void;
@@ -659,7 +669,9 @@ export function MapWorkspace({
       features: stacks.map((s) => {
         const ids = s.houses.map((h) => h.id);
         const state =
-          ids.includes(detail?.id || "") || ids.includes(selectedId || "")
+          ids.includes(detail?.id || "") ||
+          ids.includes(selectedId || "") ||
+          ids.some((id) => selectedIds?.includes(id))
             ? "selected"
             : ids.includes(hovered || "")
               ? "hover"
@@ -707,6 +719,7 @@ export function MapWorkspace({
     hovered,
     detail?.id,
     selectedId,
+    selectedIds?.join(","),
     JSON.stringify(choices),
     pois,
     roomMarkers,
@@ -722,9 +735,23 @@ export function MapWorkspace({
     }
   }
   async function choose_house(h: House) {
+    setListError("");
     setSelecting(h.id);
     try {
       await onSelect(h);
+    } catch (e) {
+      setListError((e as Error).message);
+    } finally {
+      setSelecting(null);
+    }
+  }
+  async function unchoose_house(h: House) {
+    setListError("");
+    setSelecting(h.id);
+    try {
+      await onUnselect?.(h);
+    } catch (e) {
+      setListError((e as Error).message);
     } finally {
       setSelecting(null);
     }
@@ -772,15 +799,38 @@ export function MapWorkspace({
         : listing
           ? `Mình đã khoanh vùng ${area}: ${countLabel} căn phù hợp đang hiện ở danh sách bên trái. Bấm "Chọn căn này" khi bạn ưng một căn.`
           : `Mình đã khoanh vùng ${area} trên bản đồ: có ${countLabel} căn phù hợp. Phóng to vào khu bạn quan tâm, hoặc nói thêm ngân sách, số phòng ngủ để mình lọc.`;
+  const isChosen = (id: string) =>
+    selectedId === id || Boolean(selectedIds?.includes(id));
+  // A home chosen for viewing can be removed here; the decided plan home cannot.
+  const removable = (id: string) =>
+    id !== selectedId &&
+    Boolean(onUnselect) &&
+    Boolean(selectedIds?.includes(id));
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}
       disabled={
-        readOnly || chat.busy || selecting !== null || selectedId === h.id
+        readOnly ||
+        chat.busy ||
+        selecting !== null ||
+        (isChosen(h.id) && !removable(h.id))
       }
-      onClick={() => void choose_house(h).catch(() => {})}
+      onClick={() =>
+        void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
+          () => {},
+        )
+      }
     >
-      {selectedId === h.id ? (
+      {removable(h.id) ? (
+        selecting === h.id ? (
+          uiText("Đang bỏ…")
+        ) : (
+          <>
+            <X size={14} />
+            {uiText(" Bỏ chọn")}
+          </>
+        )
+      ) : isChosen(h.id) ? (
         <>
           <Check size={14} />
           {uiText(" Đã chọn")}
@@ -906,7 +956,7 @@ export function MapWorkspace({
                 className={
                   "ws-card " +
                   (detail?.id === h.id ? "active" : "") +
-                  (selectedId === h.id ? " chosen" : "")
+                  (isChosen(h.id) ? " chosen" : "")
                 }
                 onMouseEnter={() => setHovered(h.id)}
                 onMouseLeave={() => setHovered(null)}
@@ -1036,6 +1086,26 @@ export function MapWorkspace({
               {comparisonHomes.length < 2
                 ? uiText("Chọn thêm một căn để so sánh")
                 : formatUi("So sánh {0} căn", [comparisonHomes.length])}
+            </button>
+          </section>
+        )}
+        {onSelectionDone && (selectedIds?.length || 0) > 0 && (
+          <section
+            className="ws-selection-tray"
+            aria-label={uiText("Các căn đã chọn để hẹn xem")}
+          >
+            <strong>
+              {formatUi("Đã chọn {0}/{1} căn để hẹn xem", [
+                selectedIds!.length,
+                selectionLimit ?? selectedIds!.length,
+              ])}
+            </strong>
+            <button
+              className="primary full"
+              disabled={chat.busy || selecting !== null}
+              onClick={onSelectionDone}
+            >
+              {uiText("Xong, hẹn lịch xem")}
             </button>
           </section>
         )}

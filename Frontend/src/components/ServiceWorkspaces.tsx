@@ -849,6 +849,7 @@ export function MovingRequestWorkspace({
   house,
   homeLoading = false,
   homeIssue = "",
+  suggestedHomes = [],
   chat,
   onConfirm,
   onExit,
@@ -858,6 +859,8 @@ export function MovingRequestWorkspace({
   house?: Data;
   homeLoading?: boolean;
   homeIssue?: string;
+  // Homes still being viewed (not decided): suggestions for B that the user confirms.
+  suggestedHomes?: Data[];
   chat: ChatDockProps;
   onConfirm: (text: string, extra: Data) => Promise<void>;
   onExit: () => void;
@@ -878,6 +881,25 @@ export function MovingRequestWorkspace({
           lng: house.lng,
         }
       : null;
+  const viewingPoints: Data[] = suggestedHomes
+    .filter(
+      (h) =>
+        h.listing_id !== house?.id &&
+        Number.isFinite(h.lat) &&
+        Number.isFinite(h.lng),
+    )
+    .map((h) => ({
+      id: "viewing-home:" + h.listing_id,
+      label: h.address || h.title,
+      category: formatUi(
+        h.location_accuracy === "rooftop"
+          ? "Căn đang xem: {0}"
+          : "Căn đang xem: {0} · vị trí gần đúng, hãy kiểm tra pin",
+        [h.title],
+      ),
+      lat: h.lat,
+      lng: h.lng,
+    }));
   const text = (v: unknown) =>
     typeof v === "string" && v !== SELECTED ? v : "";
   const initialPin = (field: string, coordinate: Data | undefined) =>
@@ -950,6 +972,7 @@ export function MovingRequestWorkspace({
     mergePlaceCandidates(
       [
         ...(field === "to_address" && housePoint ? [housePoint] : []),
+        ...(field === "to_address" ? viewingPoints : []),
         ...(asked[field]?.choices || []),
         ...(found[field] || []),
       ].filter(

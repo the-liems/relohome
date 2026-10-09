@@ -1,4 +1,4 @@
-import { t as uiText } from "./uiPreferences";
+import { formatUi, t as uiText } from "./uiPreferences";
 import {
   createContext,
   useContext,
@@ -21,6 +21,7 @@ import {
 import {
   ArrowRight,
   ArrowUpRight,
+  CalendarClock,
   Check,
   CreditCard,
   ChevronRight,
@@ -952,6 +953,39 @@ function Chat() {
   const facts = thread?.state?.intake?.user_confirmed_facts || {},
     savedIds = new Set(saved.map((s) => s.id)),
     pending = thread?.state?.pending;
+  // Several homes chosen for viewing; the plan home stays `selected:property` (set when deciding).
+  const viewing = thread?.state?.viewing;
+  const viewingItems: Data[] = viewing?.items || [];
+  const viewingIds = viewingItems.map((i) => i.listing_id);
+  const undecidedHomes = viewingItems
+    .filter((i) => !["agreed", "reported_paid"].includes(i.status))
+    .map((i) => ({ listing_id: i.listing_id, ...i.snapshot }));
+  function openViewings() {
+    setWorkspace(null);
+    setParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("panel", "plan");
+      next.set("planTab", "viewing");
+      return next;
+    });
+  }
+  async function movingDestination(index: number, count: number) {
+    // Contract with respond.moving_destination_question: the last option is "quote to an
+    // address now"; with two options the first is "wait until a home is decided".
+    if (count === 2 && index === 0) {
+      await api("/threads/" + threadId + "/viewings/moving-mode", "POST", {
+        mode: "wait_for_home",
+      });
+      await reload();
+      notify("Chuyển đồ sẽ chờ bạn chốt nhà.");
+      return;
+    }
+    if (thread?.state?.viewing?.moving_mode)
+      await api("/threads/" + threadId + "/viewings/moving-mode", "POST", {
+        mode: null,
+      });
+    setWorkspace("relocation-form");
+  }
   const allComponents = (thread?.messages || []).flatMap((m) =>
     (m.content.ui?.components || []).map((c) => ({
       c,
@@ -1152,6 +1186,14 @@ function Chat() {
       entity_id: id,
     });
     notify(message);
+    // Viewing mode: keep the map open so several homes can be chosen; "done" moves on.
+    if (viewing && target.c.type === "property") return;
+    advanceAfter(target, next);
+  }
+  function advanceAfter(
+    target: { c: Component; version: number },
+    next?: Thread | void,
+  ) {
     reviewedServices.current.add(target.c.id);
     const remaining = nextServiceTarget(
       next || thread,
@@ -1244,6 +1286,7 @@ function Chat() {
         onDecision={(body) => mutate("decision", body).then(() => {})}
         onPaymentCheck={() => mutate("payment/check", {}).then(() => {})}
         onCheckoutChanged={reload}
+        onMovingForm={() => setWorkspace("relocation-form")}
         house={selectedHouse}
         busy={busy}
         onOpenService={openService}
@@ -1280,6 +1323,7 @@ function Chat() {
           house={selectedHouse}
           homeLoading={needsHomeDetail && !fetchedHome && !homeIssue}
           homeIssue={homeIssue}
+          suggestedHomes={selectedHouse ? [] : undecidedHomes}
           // Next-step suggestions would only repeat this form; the dock keeps the question.
           chat={{
             ...chatDock,
@@ -1386,13 +1430,38 @@ function Chat() {
           areaName={latestProperty.c.data?.area_name}
           saved={savedIds}
           selectedId={facts["selected:property"]?.value}
+          selectedIds={viewing ? viewingIds : undefined}
+          selectionLimit={viewing?.max_selected}
+          onUnselect={
+            viewing
+              ? async (h) => {
+                  await api(
+                    "/threads/" + threadId + "/viewings/unselect",
+                    "POST",
+                    { listing_id: h.id },
+                  );
+                  await reload();
+                }
+              : undefined
+          }
+          onSelectionDone={
+            viewing
+              ? () => {
+                  // Close the map and go straight to booking viewings.
+                  reviewedServices.current.add(latestProperty.c.id);
+                  openViewings();
+                }
+              : undefined
+          }
           chat={chatDock}
           onSave={(h) => void save(h, thread!.id)}
           onSelect={(h) =>
             selectIn(
               latestProperty,
               h.id,
-              "Đã chọn căn nhà. Bạn có thể tiếp tục với chuyển đồ hoặc dịch vụ khác.",
+              viewing
+                ? "Đã chọn căn để hẹn xem. Hẹn lịch trong Kế hoạch → Xem nhà."
+                : "Đã chọn căn nhà. Bạn có thể tiếp tục với chuyển đồ hoặc dịch vụ khác.",
             )
           }
           onExit={() => setWorkspace(null)}
@@ -1709,12 +1778,18 @@ function Chat() {
                               ),
                             )}
                             {(q.choices?.length ? [] : q.options || []).map(
-                              (o: string) => (
+                              (o: string, index: number, all: string[]) => (
                                 <button
                                   key={o}
                                   className="suggestion"
                                   disabled={busy}
-                                  onClick={() => send(o).catch(() => {})}
+                                  onClick={() =>
+                                    (viewing &&
+                                    q.field === "relocation.selected:property"
+                                      ? movingDestination(index, all.length)
+                                      : send(o)
+                                    ).catch(() => {})
+                                  }
                                 >
                                   {o}
                                 </button>
@@ -1856,6 +1931,12 @@ function Chat() {
                   }
                 </button>
               )}
+              {viewingItems.length > 0 && (
+                <button className="secondary open-map" onClick={openViewings}>
+                  <CalendarClock size={15} />
+                  {formatUi(" Xem nhà ({0} căn)", [viewingItems.length])}
+                </button>
+              )}
               {payable.length > 0 && (
                 <button className="primary open-map" onClick={openCheckout}>
                   <CreditCard size={15} />
@@ -1965,7 +2046,10 @@ function Chat() {
         <HousingDetail
           house={openDetail}
           saved={savedIds.has(openDetail.id)}
-          selected={facts["selected:property"]?.value === openDetail.id}
+          selected={
+            facts["selected:property"]?.value === openDetail.id ||
+            viewingIds.includes(openDetail.id)
+          }
           busy={busy}
           onClose={() => setParams({}, { replace: true })}
           onSave={() => void save(openDetail, thread!.id)}
@@ -1981,7 +2065,9 @@ function Chat() {
                   })
                     .then(() =>
                       notify(
-                        "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
+                        viewing
+                          ? "Đã chọn căn để hẹn xem. Hẹn lịch trong Kế hoạch → Xem nhà."
+                          : "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
                       ),
                     )
                     .catch(() => {})

@@ -17,6 +17,7 @@ from src.api.roommate_profiles import router as roommate_profiles_router
 from src.api.roommate_safety import router as roommate_safety_router
 from src.api.routes import router
 from src.api.sandbox_payments import router as sandbox_payment_router
+from src.api.viewings import router as viewings_router
 from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
 from src.roommate.runtime import RoommateRuntime
@@ -67,6 +68,7 @@ app.include_router(sandbox_payment_router, prefix="/api/v1")
 app.include_router(web_actions_router, prefix="/api/v1")
 app.include_router(moving_quote_router, prefix="/api/v1")
 app.include_router(checkout_router, prefix="/api/v1")
+app.include_router(viewings_router, prefix="/api/v1")
 app.include_router(roommate_access_router, prefix="/api/v1")
 app.include_router(roommate_discovery_router, prefix="/api/v1")
 app.include_router(roommate_profiles_router, prefix="/api/v1")

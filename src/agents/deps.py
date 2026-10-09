@@ -64,6 +64,8 @@ class GraphSettings(BaseModel):
     price_tolerance: dict[CommitActionKind, float] = {}
     # Thanh toán của app đang bật (payment-design): đặt/trả tiền đi qua nút trên giao diện, không qua chat.
     app_payment: bool = False
+    # Chọn nhiều căn để hẹn xem; căn của kế hoạch chỉ có sau khi chốt (housing-viewing-design).
+    housing_viewing: bool = False
 
     # --- Kiểm soát chi phí (§7.5) ---
     llm_models: dict[Literal["light", "heavy"], str] = {"light": "gpt-6-luna", "heavy": "gpt-6-luna"}
@@ -123,6 +125,10 @@ class GraphDeps:
     settings: GraphSettings
     usage: UsageMeter
     clock: Callable[[], datetime] = utcnow
+    # (user_id, thread_id, task_id, listing row) -> danh sách căn đang chọn; lỗi nghiệp vụ là ValueError.
+    housing_selector: Callable[[str, str, str, dict], list[dict]] | None = None
+    # (user_id, thread_id, listing_id) -> danh sách căn đang chọn sau khi bỏ; lỗi nghiệp vụ là ValueError.
+    housing_unselector: Callable[[str, str, str], list[dict]] | None = None
 
 
 def fake_registry(clock: Callable[[], datetime] = utcnow) -> AgentRegistry:

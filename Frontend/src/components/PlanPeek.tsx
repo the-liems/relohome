@@ -10,6 +10,7 @@ import { Approval } from "./Forms";
 import { PendingPayment, Receipts } from "./Transactions";
 import { TabList } from "./TabList";
 import { CheckoutPanel } from "./Checkout";
+import { ViewingPanel } from "./Viewings";
 
 function statusOf(item: Data) {
   if (item.historical_search)
@@ -40,6 +41,7 @@ export function PlanPeek({
   onDecision,
   onPaymentCheck,
   onCheckoutChanged,
+  onMovingForm,
   house,
   busy = false,
   onOpenService,
@@ -51,6 +53,7 @@ export function PlanPeek({
   onDecision: (body: Data) => Promise<void>;
   onPaymentCheck: () => Promise<void>;
   onCheckoutChanged?: () => Promise<void>;
+  onMovingForm?: () => void;
   house?: Data;
   busy?: boolean;
   onOpenService?: (taskId: string, agent: string) => void;
@@ -183,6 +186,7 @@ export function PlanPeek({
               {[
                 ["progress", "Tiến trình"],
                 ["cost", "Chi phí"],
+                ...(state.viewing ? [["viewing", "Xem nhà"]] : []),
                 ...(state.checkout ? [["checkout", "Thanh toán"]] : []),
                 ["pending", "Cần phản hồi"],
               ].map(([key, label]) => (
@@ -332,9 +336,22 @@ export function PlanPeek({
                   )}
                 </div>
               )}
+              {tab === "viewing" && threadId && state.viewing && (
+                <div className="plan-panel-section">
+                  <ViewingPanel
+                    threadId={threadId}
+                    viewing={state.viewing}
+                    onChanged={async () => {
+                      await onCheckoutChanged?.();
+                    }}
+                    onMovingForm={onMovingForm}
+                  />
+                </div>
+              )}
               {tab === "checkout" && threadId && (
                 <div className="plan-panel-section">
                   <CheckoutPanel
+                    hideHousing={!!state.viewing}
                     threadId={threadId}
                     checkout={state.checkout}
                     facts={state.intake?.user_confirmed_facts || {}}

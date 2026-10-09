@@ -41,6 +41,8 @@ class IntakeInput(BaseModel):
     previous: IntakeResult | None = None
     plan_outline: list[TaskOutline] | None = None
     last_housing_search_options: list[dict[str, str]] = []
+    # Căn đang chọn để hẹn xem (ID/nhãn), khi bật housing-viewing; agent dùng để bỏ hoặc đổi căn qua chat.
+    housing_selection: list[dict] = []
     decision: UserDecision | None = None
     pending_questions: list[Question] = []
     last_suggestions: list[Suggestion] = []

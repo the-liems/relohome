@@ -390,7 +390,7 @@ Theo thiết kế thanh toán đa dịch vụ ([payment-design.md](../../../docs
 |---|---|
 | `FlightSearchRequest` | Thêm `trip_type` (`one_way` mặc định, `round_trip`) và `return_date` (bắt buộc khi `round_trip`, không trước `departure_date`) |
 | Provider SerpApi | Khứ hồi gửi `type=1` + `return_date`; kết quả là danh sách **chiều đi**, mỗi chuyến có `departure_token`. Server giữ token, chỉ trả `offer_id` |
-| Tool mới `search_return_flights(outbound_offer_id)` | Chỉ đọc. Gọi SerpApi với `departure_token` của chuyến đi đã chọn; trả **offer hành trình** gồm hai chặng, tổng giá, hạn. Lọc chuyến về cất cánh trước giờ hạ cánh chuyến đi cộng khoảng cách tối thiểu (`ROUND_TRIP_MIN_GAP_MINUTES`) |
+| Tool mới `search_return_flights(outbound_offer_id)` | Chỉ đọc. Gọi SerpApi với `departure_token` của chuyến đi đã chọn; trả **offer hành trình** gồm hai chặng, tổng giá, hạn. Lọc chuyến về cất cánh trước giờ hạ cánh chuyến đi cộng khoảng cách tối thiểu (`FLIGHT_ROUND_TRIP_MIN_GAP_MINUTES`, mặc định 120 phút) |
 | `get_offer` | Đọc được offer hành trình hai chặng |
 | `hold_booking`, `confirm_booking`, `cancel_booking` | Nhận offer hành trình: một booking mô phỏng có hai chặng, hạn giữ 15 phút |
 | Lưu booking (`storage.py`, `booking_engine.py`) | Chỉ lưu `passenger_ref` (tham chiếu tới kho dữ liệu cá nhân mã hóa của agent) và tóm tắt không định danh (số người theo loại). Dữ liệu hành khách chỉ dùng trong bộ nhớ để kiểm và chuẩn hóa tên, không ghi xuống bảng `bookings` như hiện nay |

@@ -151,6 +151,62 @@ def continue_referenced_goal(result: IntakeResult, previous: IntakeResult | None
     return result
 
 
+def chat_housing_selection(
+    deps: GraphDeps, state: WorkflowState, facts: dict, values: dict, result: IntakeResult
+) -> list | None:
+    """Chọn, bỏ hoặc đổi căn qua chat khi bật hẹn xem: chỉ đổi tập căn đang xem, không chốt
+    (housing-viewing-design V3). Trả danh sách căn mới cho checkpoint, hoặc None nếu lượt này không đụng tới."""
+    if not deps.settings.housing_viewing or deps.housing_selector is None:
+        return None
+    user_id, thread_id = state.get("user_id", ""), state.get("thread_id", "")
+    drop = facts.pop("housing_unselect_ids", None)
+    add = facts.pop("housing_select_ids", None)
+    values.pop("housing_unselect_ids", None)
+    values.pop("housing_select_ids", None)
+    wanted = [str(v) for v in (add.value if add else [])]
+    chosen = facts.get("selected:property")
+    before = (state.get("intake") or None) and state["intake"].user_confirmed_facts.get("selected:property")
+    if chosen is not None and (before is None or before.value != chosen.value):
+        facts.pop("selected:property")  # chọn để hẹn xem, chưa phải căn của kế hoạch
+        values.pop("selected:property", None)
+        wanted.append(str(chosen.value))
+    if not drop and not wanted:
+        return None
+    selection = None
+    try:
+        for listing_id in drop.value if drop else []:  # bỏ trước để "đổi căn" không vượt giới hạn
+            selection = deps.housing_unselector(user_id, thread_id, str(listing_id))
+        for listing_id in dict.fromkeys(wanted):
+            found = _housing_row(state, listing_id)
+            if found is None:
+                result.conflicts.append("Mình chưa thấy căn này trong kết quả hiện tại; hãy mở bản đồ nhà ở để chọn.")
+                continue
+            selection = deps.housing_selector(user_id, thread_id, found[0], found[1])
+    except ValueError as exc:  # đủ số căn, đã chốt căn khác, căn không còn trong tập
+        result.conflicts.append(str(exc))
+    return selection
+
+
+def selection_only_turn(previous: IntakeResult | None, result: IntakeResult) -> bool:
+    """Lượt không có dữ kiện mới nào ngoài việc thêm/bỏ căn đang xem (các khóa đó đã được gỡ khỏi facts)."""
+    if previous is None or result.kind == RequestKind.NEW_GOAL or result.needs_clarification:
+        return False
+    if set(result.domains) - set(previous.domains):
+        return False
+    before = previous.user_confirmed_facts
+    return all(key in before and before[key].value == fact.value for key, fact in result.user_confirmed_facts.items())
+
+
+def _housing_row(state: WorkflowState, listing_id: str) -> tuple[str, dict] | None:
+    for task_id, task_result in (state.get("task_results") or {}).items():
+        if task_result.agent != AgentName.PROPERTY or task_result.data.get("comparison"):
+            continue
+        row = next((c for c in task_result.data.get("candidates") or [] if c.get("id") == listing_id), None)
+        if row is not None:
+            return task_id, row
+    return None
+
+
 def remembered_home(previous: IntakeResult | None, state: WorkflowState) -> IntakeResult | None:
     """Expose a previously verified home to Intake without restoring unrelated old constraints."""
     if previous is None or "selected:property" in previous.user_confirmed_facts:
@@ -206,6 +262,7 @@ def make_intake(deps: GraphDeps):
                     previous=previous,
                     plan_outline=plan_outline(state),
                     last_housing_search_options=state.get("last_housing_search_options") or [],
+                    housing_selection=state.get("housing_selection") or [],
                     decision=state.get("user_decision"),
                     pending_questions=last_response.questions if last_response else [],
                     last_suggestions=last_response.suggestions if last_response else [],
@@ -577,6 +634,7 @@ def make_intake(deps: GraphDeps):
             if choice["field"] == "near":
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)
+        viewing_selection = chat_housing_selection(deps, state, facts, values, result)
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
@@ -601,6 +659,13 @@ def make_intake(deps: GraphDeps):
             "planner_questions": [],
             "housing_location": housing_pin,
         }
+        if viewing_selection is not None:
+            update["housing_selection"] = viewing_selection
+            update["housing_selection_changed"] = True
+            if selection_only_turn(state.get("intake"), result):
+                # Chỉ thêm/bỏ căn đang xem: không lập kế hoạch lại hay tìm lại (nhanh, không đổi kết quả).
+                update["outcome"] = Outcome(node="intake", code=OutcomeCode.ANSWER)
+                return update
         if result.kind == RequestKind.NEW_GOAL:
             # Do not display a previous goal's results when a new goal needs input.
             update.update(plan=None, cost_summary=None)

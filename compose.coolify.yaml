@@ -120,6 +120,8 @@ services:
       # tickets, no AhaMove order. The tester "paid" control works only for the
       # gateway account IDs listed here; empty means nobody sees it.
       APP_PAYMENT_DEMO_ENABLED: "true"
+      # Choose several homes, schedule test-mode viewings, decide one (housing-viewing-design).
+      HOUSING_VIEWING_ENABLED: "true"
       PAYMENT_TESTER_CONFIRM_ENABLED: "true"
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
       LANGCHAIN_TRACING_V2: "false"

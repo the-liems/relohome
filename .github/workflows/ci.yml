@@ -112,9 +112,22 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript workspaces
-        run: npm run build
+        env:
+          # Bound compiler heap on container runners instead of inheriting the host-sized default.
+          NODE_OPTIONS: --max-old-space-size=512
+        run: |
+          node -e 'console.log("Node heap limit MiB:", require("node:v8").getHeapStatistics().heap_size_limit / 1024 / 1024)'
+          for memory_file in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+            if [ -r "$memory_file" ]; then
+              printf '%s: ' "$memory_file"
+              cat "$memory_file"
+            fi
+          done
+          npm run build
 
       - name: Run portable workspace tests
+        env:
+          NODE_OPTIONS: --max-old-space-size=512
         run: npm run test:ci
 
   application-images:

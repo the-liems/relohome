@@ -56,6 +56,8 @@ VALUE_KEYS = (
         "move_date",
         "move_time",
         "roommate_criteria",
+        "housing_select_ids",
+        "housing_unselect_ids",
     }
 )
 COMMIT_KEYS = frozenset(
@@ -125,6 +127,11 @@ ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay
 Yêu cầu 'so sánh 3 căn rẻ ở khu X, tầm A–B' KHÔNG có nghĩa lấy 3 căn đầu của danh sách cũ.
 Nếu chưa xác định được các căn được nêu, hỏi ngắn user muốn so sánh căn đã xem nào hay tìm danh sách mới;
 không tự gán listing_ids và không suy giá hiện tại từ ID/tên cũ. Không đổi căn đã chọn để làm so sánh.
+housing_selection (nếu có) là các căn user đang chọn để đi xem, CHƯA phải căn đã chốt. User muốn thêm
+nhiều căn để xem: housing_select_ids = option_id các căn được nêu (từ plan_outline hoặc
+last_housing_search_options). User muốn bỏ một căn đang chọn: housing_unselect_ids = listing_id trong
+housing_selection. 'Đổi căn A thành căn B' = bỏ A và thêm B. Không bịa ID; chưa rõ căn nào thì hỏi lại.
+Đây là refine domain property, không tìm lại danh sách và không chốt căn.
 Roommate là dịch vụ tìm NGƯỜI đang có nhu cầu ở cùng, độc lập với property (tìm PHÒNG).
 'Tôi muốn tìm người ở cùng', 'Tôi muốn ghép trọ', 'Có ai đang tìm roommate không?' dùng domain roommate.
 'Tìm phòng ở ghép' chỉ tìm tin nhà nếu user không yêu cầu tìm người. Không tự ghép cặp hay liên hệ.
@@ -261,6 +268,13 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key in {"housing_select_ids", "housing_unselect_ids"}:
+        return (
+            isinstance(value, list)
+            and 1 <= len(value) <= 10
+            and all(isinstance(v, str) and v for v in value)
+            and len(set(value)) == len(value)
+        )
     if key == "listing_ids":
         return (
             isinstance(value, list)
@@ -387,6 +401,7 @@ class LlmIntake(UsageOwner):
             "verified_moving_locations": inp.verified_moving_locations,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
             "last_housing_search_options": inp.last_housing_search_options,
+            "housing_selection": inp.housing_selection,
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
             "amenities": sorted(AMENITIES),
@@ -515,6 +530,10 @@ class LlmIntake(UsageOwner):
                 )
                 if f.key == "listing_ids":
                     valid = valid and isinstance(value, list) and set(value) <= observed_homes
+                if f.key == "housing_select_ids":
+                    valid = valid and set(value) <= observed_homes
+                if f.key == "housing_unselect_ids":
+                    valid = valid and set(value) <= {str(h.get("listing_id")) for h in inp.housing_selection}
                 if (
                     not valid
                     or f.key in facts

@@ -94,6 +94,33 @@ def question_for(field: str, session: SessionContext | None) -> Question:
     return Question(field=field, text=text, blocking=True)
 
 
+# Câu trả lời có kiểu cho câu hỏi địa chỉ đến của chuyển đồ khi chưa chốt nhà (housing-viewing-design §7).
+# Giao diện gọi endpoint riêng cho từng lựa chọn; chữ hiển thị nằm ở đây và file ngôn ngữ.
+# Thứ tự là hợp đồng với giao diện: lựa chọn cuối luôn là "báo giá ngay"; có hai lựa chọn thì đầu là "chờ chốt".
+MOVING_WAIT_FOR_HOME = "Chờ tôi xem nhà và chốt căn rồi báo giá"
+MOVING_ADDRESS_NOW = "Báo giá ngay tới một địa chỉ"
+
+
+def moving_destination_question(question: Question, state: WorkflowState) -> Question:
+    """Chưa chốt nhà: chuyển đồ chờ chốt (tuần tự, mặc định) hoặc báo giá tới địa chỉ người dùng xác nhận."""
+    if question.field != "relocation.selected:property":
+        return question
+    if state.get("moving_destination_mode") == "wait_for_home":
+        return Question(
+            field=question.field,
+            text="Chuyển đồ sẽ báo giá sau khi bạn gặp chủ nhà và chốt căn.",
+            options=[MOVING_ADDRESS_NOW],
+            blocking=False,
+        )
+    viewing = len(state.get("housing_selection") or [])
+    lead = f"Bạn đang xem {viewing} căn, chưa chốt căn nào." if viewing else "Bạn chưa chốt căn nhà nào."
+    return Question(
+        field=question.field,
+        text=f"{lead} Chuyển đồ nên chờ bạn chốt căn, hay báo giá ngay tới một địa chỉ bạn xác nhận?",
+        options=[MOVING_WAIT_FOR_HOME, MOVING_ADDRESS_NOW],
+    )
+
+
 def unique_questions(questions: list[Question]) -> list[Question]:
     """Planner and validators may use provider aliases for the same field."""
     aliases = {"flight.date": "flight.flight_date"}
@@ -320,6 +347,16 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         item for item in view.values() if item["data"].get("execution", {}).get("request_id") == state.get("request_id")
     ]
     current_view = fresh_view or list(view.values())
+    if state.get("housing_selection_changed") and not fresh_view:
+        # Lượt chỉ thêm/bỏ căn đang xem: xác nhận ngắn thay vì lặp lại danh sách kết quả cũ.
+        selection = state.get("housing_selection") or []
+        names = ", ".join(h.get("label") or h.get("listing_id") for h in selection)
+        lines = [
+            f"Các căn bạn đang chọn để đi xem ({len(selection)}): {names}."
+            if selection
+            else "Bạn chưa chọn căn nào để đi xem.",
+            "Đây chưa phải căn đã chốt. Hẹn lịch trong Kế hoạch → Xem nhà; gặp chủ nhà xong mới chốt.",
+        ]
     comparison_only = bool(current_view) and all(item["data"].get("comparison") for item in current_view)
     known_summary = ""
     if intake and AgentName.RELOCATION in intake.domains and code in {OutcomeCode.CLARIFY, OutcomeCode.ASK_USER}:
@@ -431,7 +468,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         )
     elif code == OutcomeCode.ANSWER:
         kind = "ANSWER"
-        head = "Đây là kết quả mình tìm được:"
+        head = "" if state.get("housing_selection_changed") and not fresh_view else "Đây là kết quả mình tìm được:"
         failed = [
             {"agent": t.agent.value, "task_id": t.id}
             for t in (plan.tasks if plan else [])
@@ -549,6 +586,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             if kind == "ANSWER":
                 kind = "PARTIAL"
     questions = unique_questions(questions)
+    if deps is not None and deps.settings.housing_viewing:
+        questions = [moving_destination_question(q, state) for q in questions]
+        if any(q.field == "relocation.selected:property" for q in questions):
+            # Câu hỏi chờ chốt / địa chỉ cụ thể đã bao gồm điểm giao; không hỏi điểm giao lần nữa.
+            questions = [q for q in questions if q.field != "relocation.to_address"]
     body = [head, *lines, *(q.text for q in questions), *notes]
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)
 

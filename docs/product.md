@@ -20,6 +20,18 @@ Housing search and selection, packing and relocation services, and **travel book
 
 The [tool catalogue](specs/SPEC-008-service-tools.md) proposes grouping packing and belongings relocation as Moving and passenger journeys as Travel. Service grouping, supported travel modes and providers, payment integration, and which demo actions use mocks remain open. Those implementation choices do not make travel booking optional in the MVP. The current flight branch uses simulated booking; live ticket purchase is not implemented in this checkout.
 
+## Platform role
+
+ReloHome is an intermediary platform. It helps users find, compare and confirm
+services and pay electronically in the app. In the demo, it only collects
+and holds payments through the ZaloPay sandbox and does not pay providers: flight
+tickets are simulated and a paid Moving option is recorded as approved without an
+AhaMove order ([payment design](review/payment-design.md)). Contracts, agreements
+and legal responsibility for housing, moving and travel are between the user and
+the provider; ReloHome does not sign leases or collect housing money.
+Paying providers and holding real funds require merchant and provider agreements,
+legal review and a separate decision.
+
 ## Agreed system goal
 
 Build an AI system that breaks a natural-language goal into steps, calls multiple service APIs sequentially or in parallel, passes outputs between steps, respects dependencies, and rolls back or compensates when a step fails. Long-running workflows are acceptable if the user can see realtime progress.
@@ -107,4 +119,4 @@ This is a draft workflow derived from the team's problem statement. The [agent d
 
 ## Initial boundaries
 
-Until the team agrees otherwise, documentation treats real bookings, payment, and production credentials as outside the executable baseline. Housing lease signing is not part of the current stated workflow. The current API has no user authentication or paid-action gate. The next scope decision should be recorded here and linked to focused specs and ADRs as described in [project organization](project-organization.md).
+Until the team agrees otherwise, documentation treats real bookings, real-money payment, and production credentials as outside the executable baseline; the sandbox checkout demo is described under [Platform role](#platform-role). Housing lease signing is not part of the current stated workflow. The current API has no user authentication or paid-action gate. The next scope decision should be recorded here and linked to focused specs and ADRs as described in [project organization](project-organization.md).

@@ -29,6 +29,8 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         # existing account moderation privileges automatically.
         env.setdefault("ROOMMATE_ENABLED", "true")
         env.setdefault("ROOMMATE_MODERATORS", "local-roommate-moderator")
+        # Chọn nhiều căn để hẹn xem (housing-viewing-design); đặt HOUSING_VIEWING_ENABLED=false để tắt.
+        env.setdefault("HOUSING_VIEWING_ENABLED", "true")
     env.update(
         AGENT_SUBAGENTS="live",
         AGENT_ALLOW_SIMULATED_TRANSACTIONS="false",
