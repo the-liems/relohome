@@ -79,7 +79,28 @@
 .ll-form-hint { display: flex; gap: 8px; margin: 0; padding: 12px; background: var(--ll-soft); color: var(--muted, #5c6b63); font-weight: 500; }
 .ll-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; padding-top: 20px; border-top: 1px solid var(--ll-line); }
 .ll-form-error { margin: 0; padding: 11px 13px; color: #9c382a; background: #f8dfdb; font-weight: 650; }
-.ll-fees { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 18px; border: 1px solid var(--ll-line); }
+.ll-fees { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 18px; border: 1px solid var(--ll-line); }
+.ll-fee-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; }
+.ll-form .ll-fee-row label.checkbox { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; white-space: nowrap; }
+.ll-form .ll-fee-row label.checkbox input { width: auto; padding: 0; }
+.ll-fee-suggestions, .ll-place-results { display: flex; flex-wrap: wrap; gap: 8px; }
+.ll-fee-suggestions button, .ll-place-results button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 11px; border: 1px dashed var(--line-strong, #829087); background: transparent; color: var(--accent, #087451); font-weight: 700; text-align: left; }
+.ll-place-results button { border-style: solid; color: var(--ink, #14251d); font-weight: 500; }
+.ll-place-results button.active { border-color: var(--accent, #087451); background: var(--ll-soft); outline: 2px solid color-mix(in srgb, var(--accent, #087451) 25%, transparent); }
+.ll-inline-search { display: flex; gap: 8px; }.ll-inline-search input { flex: 1; }.ll-inline-search button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.ll-unit-actions button.danger { color: #9c382a; }
+.ll-unit-side button:disabled { opacity: .55; cursor: not-allowed; }
+.ll-moderation h3 { margin: 26px 0 12px; font-size: 1.05rem; }
+.ll-review-list { display: grid; gap: 10px; }
+.ll-review-list article { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; padding: 18px; border: 1px solid var(--ll-line); }
+.ll-review-list article > div:first-child { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.ll-review-list p { display: flex; align-items: center; gap: 5px; margin: 0; color: var(--muted, #5c6b63); }
+.ll-review-list small { color: var(--muted, #5c6b63); }
+.ll-review-list input { max-width: 520px; border: 1px solid var(--line-strong, #829087); background: var(--surface, #fff); color: var(--ink, #14251d); padding: 10px 12px; border-radius: 2px; font: inherit; }
+.ll-review-text { display: block !important; white-space: pre-line; color: var(--ink, #14251d) !important; max-height: 9em; overflow: auto; }
+.ll-review-media { display: flex; gap: 8px; overflow-x: auto; }.ll-review-media img { width: 120px; height: 90px; object-fit: cover; border: 1px solid var(--ll-line); }
+.ll-review-actions { display: grid; gap: 8px; flex: 0 0 auto; }
+.ll-review-actions button, .ll-review-list article > button { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
 .ll-fees legend { padding: 0 8px; font-weight: 800; }
 .ll-file { grid-template-columns: auto 1fr auto !important; align-items: center; padding: 18px; border: 1px dashed var(--line-strong, #829087); cursor: pointer; }
 .ll-file svg { color: var(--accent, #087451); }.ll-file small { display: block; margin-top: 4px; color: var(--muted, #5c6b63); font-weight: 450; }.ll-file input { width: auto; padding: 0; border: 0; }
@@ -106,7 +127,8 @@ html[data-theme="dark"] .ll-status.pending, html[data-theme="dark"] .ll-status.p
   .ll-heading { align-items: flex-start; }.ll-heading-actions { flex-direction: column; }
   .ll-metrics { grid-template-columns: repeat(2, 1fr); }.ll-overview-grid { grid-template-columns: 1fr; }
   .ll-property-list > button { grid-template-columns: auto 1fr auto; }.ll-property-facts { grid-column: 2 / -1; }.ll-contact-list { grid-template-columns: 1fr; }
-  .ll-fees { grid-template-columns: repeat(2, 1fr); }
+  .ll-fee-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ll-review-list article { flex-direction: column; }.ll-review-actions { width: 100%; grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
   .ll-workspace { width: 100%; padding: 18px 12px 48px; }.ll-heading { display: block; }.ll-heading-actions { margin-top: 18px; flex-direction: row; }.ll-heading-actions > * { flex: 1; }
@@ -114,6 +136,6 @@ html[data-theme="dark"] .ll-status.pending, html[data-theme="dark"] .ll-status.p
   .ll-signal-grid { grid-template-columns: 1fr; }.ll-signal-grid > div { border-right: 0; border-bottom: 1px solid var(--ll-line); }
   .ll-section-heading, .ll-property-hero { align-items: flex-start; flex-wrap: wrap; }.ll-property-hero > button { width: 100%; }
   .ll-property-list > button { grid-template-columns: auto 1fr auto; gap: 12px; }.ll-property-facts { display: none; }
-  .ll-form { grid-template-columns: 1fr; }.ll-form .wide { grid-column: auto; }.ll-fees { grid-template-columns: 1fr; }.ll-file { grid-template-columns: auto 1fr !important; }.ll-file input { grid-column: 1 / -1; }
+  .ll-form { grid-template-columns: 1fr; }.ll-form .wide { grid-column: auto; }.ll-inline-search { flex-direction: column; }.ll-review-actions { grid-template-columns: 1fr; }.ll-file { grid-template-columns: auto 1fr !important; }.ll-file input { grid-column: 1 / -1; }
   .ll-unit-side { flex-basis: 100%; justify-content: space-between; }.ll-unit-actions { justify-content: flex-start; overflow-x: auto; }
 }

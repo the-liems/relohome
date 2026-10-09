@@ -1,5 +1,6 @@
 export type ManagementStatus = "pending" | "active" | "revoked";
-export type PublicationStatus = "draft" | "pending_review" | "published" | "hidden" | "rejected" | "deleted";
+export type PublicationStatus =
+  "draft" | "pending_review" | "published" | "hidden" | "rejected" | "deleted";
 export type AvailabilityStatus = "vacant" | "rented" | "paused";
 
 export interface Overview {
@@ -45,7 +46,7 @@ export interface ListingFee {
   id: string;
   code: string;
   label: string;
-  amount: number;
+  amount: number | null; // null: the owner has not fixed the amount yet
   billing_unit: string;
   required: boolean;
   refundable: boolean;
@@ -95,4 +96,34 @@ export interface ContactRequest {
   title: string;
   unit_code: string | null;
   property_name: string;
+}
+
+export interface ModerationProperty {
+  id: string;
+  name: string;
+  property_type: string;
+  address: Record<string, unknown>;
+  user_id: string;
+  requested_at: string;
+}
+
+export interface ModerationListing {
+  id: string;
+  title: string;
+  description: string | null;
+  property_name: string;
+  address: Record<string, unknown>;
+  unit_code: string | null;
+  created_by: string;
+  updated_at: string;
+  rent_vnd: number;
+  deposit_vnd: number | null;
+  fee_count: number;
+  pending_media: { url: string; alt: string | null }[];
+  property_status: ManagementStatus | null;
+}
+
+export interface ModerationQueue {
+  properties: ModerationProperty[];
+  listings: ModerationListing[];
 }
