@@ -1,6 +1,7 @@
 # Thiết kế: chọn nhiều căn, hẹn xem và chốt căn
 
-Trạng thái: **v4, đã code trên nhánh `feat/housing-viewing` (chưa push).** Ngày: 09/10/2026.
+Trạng thái: **v4, triển khai trên nhánh `feat/housing-viewing`, PR #83 vào `khoa`.** Ngày: 09/10/2026.
+Kiểm tra và sửa tính nhất quán theo [issue #84](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/84).
 Nền đối chiếu: nhánh `khoa` tại `66e0c20` (PR #80 `khoa → main`), gồm checkout của
 [payment-design](payment-design.md) và so sánh nhà của Khoa
 ([SPEC-019](../specs/SPEC-019-housing-comparison-isolation.md)).
@@ -48,7 +49,7 @@ tự). Không gọi LLM cho thao tác, không gán cứng số liệu hay từ k
 | **Hẹn xem** (mỗi căn đã chọn) | Chọn khung giờ | Lịch gặp chủ nhà (chế độ thử: chủ nhà chưa xác nhận) | Không |
 | **Chốt** (đúng 1 căn) | Sau buổi gặp, báo đã thỏa thuận với chủ nhà | Căn này thành **căn của kế hoạch**; kích hoạt luồng tiền nhà của payment-design (cọc, tháng đầu, ngày dọn vào → cần trả chủ nhà → báo đã trả) | Ghi khoản cần trả, app **không thu** |
 
-**Chốt chỉ được làm sau buổi xem:** căn phải có lịch hẹn đã qua giờ kết thúc và người dùng ghi
+**Chốt chỉ được làm sau khi đã ghi nhận buổi xem:** căn phải có lịch hẹn đã tới giờ bắt đầu và người dùng ghi
 "Đã gặp chủ nhà". Căn chưa hẹn, lịch chưa tới giờ, hoặc "Không đi được" đều không chốt được.
 
 ## 3. Quyết định
@@ -119,7 +120,7 @@ stateDiagram-v2
   selected --> scheduled: Hẹn xem
   scheduled --> scheduled: Đổi lịch
   scheduled --> selected: Hủy lịch
-  scheduled --> visit_due: Qua giờ kết thúc
+  scheduled --> visit_due: Tới giờ bắt đầu
   visit_due --> visited: Đã gặp chủ nhà
   visit_due --> selected: Không đi được
   visited --> agreed: Chốt (chủ nhà đồng ý)
@@ -167,7 +168,7 @@ khi đó căn dự phòng về trạng thái trước lúc được giữ lại 
 
 ### 6.3. Sau buổi xem
 
-1. Qua giờ kết thúc, căn chuyển `visit_due` và hiện nhắc ghi kết quả.
+1. Tới giờ bắt đầu, căn chuyển `visit_due` và hiện nhắc ghi kết quả. Cờ `HOUSING_VIEWING_TEST_VISIT_ANYTIME` chỉ bỏ điều kiện thời gian trong môi trường không phải production; vẫn phải có lịch hẹn.
 2. Kết quả có kiểu: **Đã gặp chủ nhà** (chủ nhà đồng ý / còn phân vân / không hợp) hoặc **Không đi được**. Không có ô ghi chú tự do.
 3. "Không đi được" đưa căn về `selected` để hẹn lại; không tính là đã xem.
 
@@ -256,14 +257,15 @@ lựa chọn chuyển đồ (chờ chốt / song song) là enum trong schema; nh
 | Phương thức | Đường dẫn | Ghi chú |
 |---|---|---|
 | POST | `/ui/chat/{thread_id}/action` `kind=select` | **Đã có.** Housing: thêm vào `housing_selection`, không đặt `selected:property`. Flight, Moving không đổi |
-| POST | `/ui/chat/{thread_id}/housing/unselect` | `{listing_id}`; hủy lịch nếu có |
-| POST | `/ui/chat/{thread_id}/housing/viewing` | **Đã có.** Nhận `listing_id` của căn trong tập chọn; kiểm 6.2 |
-| POST | `/ui/chat/{thread_id}/housing/viewing/cancel` | `{listing_id}` |
-| POST | `/ui/chat/{thread_id}/housing/visit` | `{listing_id, outcome}` |
-| POST | `/ui/chat/{thread_id}/housing/agreement` | **Đã có.** Thêm `keep_listing_ids` (căn giữ lại làm dự phòng, mặc định rỗng), `decision_key`, `plan_version`; điều kiện `visited`; các bước 6.4 và 6.6. Một `listing_id` trong `keep_listing_ids` không thuộc tập chọn thì từ chối cả yêu cầu |
-| POST | `/ui/chat/{thread_id}/housing/reopen` | Thỏa thuận không thành (6.5) |
-| POST | `/ui/chat/{thread_id}/housing/paid` | **Đã có**, không đổi |
-| POST | `/ui/chat/{thread_id}/moving/destination-mode` | `{mode: wait_for_home \| confirmed_address, ...}`; câu trả lời có kiểu cho câu hỏi ở mục 7 |
+| GET | `/ui/chat/{thread_id}/viewings` | Tập căn chọn, lịch và trạng thái; kiểm chủ sở hữu hội thoại |
+| POST | `/ui/chat/{thread_id}/viewings/unselect` | `{listing_id}`; hủy lịch nếu có; không bỏ chọn căn đã chốt bằng đường này |
+| POST | `/ui/chat/{thread_id}/viewings/schedule` | `{listing_id, slot}`; kiểm 6.2 |
+| POST | `/ui/chat/{thread_id}/viewings/cancel` | `{listing_id}` |
+| POST | `/ui/chat/{thread_id}/viewings/visit` | `{listing_id, outcome}`; không sửa kết quả căn đã chốt/đã báo trả tiền |
+| POST | `/ui/chat/{thread_id}/viewings/decide` | `{listing_id, rent_vnd, deposit_vnd, move_in?, keep_listing_ids, decision_key, acknowledge_paid_moving?}`; yêu cầu `visited`. Giữ khóa hội thoại xuyên suốt, dùng task/version hiện hành từ backend; kiểm lại tập chọn và ghi thỏa thuận/căn dự phòng cùng một transaction SQLite. Cùng khóa chỉ chấp nhận cùng nội dung; quyết định đã mở lại không được replay |
+| POST | `/ui/chat/{thread_id}/viewings/reopen` | Thỏa thuận không thành (6.5); không mở lại căn đã báo trả tiền |
+| POST | `/ui/chat/{thread_id}/viewings/paid` | `{amount_vnd, paid_on}`; tự báo đã trả trực tiếp, không gọi cổng thanh toán |
+| POST | `/ui/chat/{thread_id}/viewings/moving-mode` | `{mode: wait_for_home \| null}`; lựa chọn chuyển đồ tuần tự hoặc độc lập |
 
 Gateway thêm proxy tương ứng trong `Frontend/server.py` (dùng `checkout_call` để giữ mã lỗi).
 Mọi endpoint kiểm quyền sở hữu, khóa theo hội thoại, kiểm `plan_version`. Bật bằng cờ

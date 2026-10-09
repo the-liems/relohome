@@ -735,17 +735,23 @@ export function MapWorkspace({
     }
   }
   async function choose_house(h: House) {
+    setListError("");
     setSelecting(h.id);
     try {
       await onSelect(h);
+    } catch (e) {
+      setListError((e as Error).message);
     } finally {
       setSelecting(null);
     }
   }
   async function unchoose_house(h: House) {
+    setListError("");
     setSelecting(h.id);
     try {
       await onUnselect?.(h);
+    } catch (e) {
+      setListError((e as Error).message);
     } finally {
       setSelecting(null);
     }
@@ -797,7 +803,9 @@ export function MapWorkspace({
     selectedId === id || Boolean(selectedIds?.includes(id));
   // A home chosen for viewing can be removed here; the decided plan home cannot.
   const removable = (id: string) =>
-    Boolean(onUnselect) && Boolean(selectedIds?.includes(id));
+    id !== selectedId &&
+    Boolean(onUnselect) &&
+    Boolean(selectedIds?.includes(id));
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}

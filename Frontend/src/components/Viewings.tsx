@@ -1,7 +1,7 @@
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useMemo, useRef, useState } from "react";
 import { CalendarClock, Check, Home, RotateCcw, X } from "lucide-react";
-import { api, money, requestId } from "../api";
+import { ApiError, api, money, requestId } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
 
@@ -123,10 +123,25 @@ function DecideDialog({
     [keep, setKeep] = useState<string[]>([]),
     [ack, setAck] = useState(false),
     [needsAck, setNeedsAck] = useState(false),
+    [uncertain, setUncertain] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const key = useRef(requestId());
+  const signature = useRef<string | null>(null);
   async function submit() {
+    const payload = {
+      listing_id: item.listing_id,
+      rent_vnd: Number(rent),
+      deposit_vnd: Number(deposit),
+      move_in: moveIn || null,
+      keep_listing_ids: [...keep].sort(),
+    };
+    const nextSignature = JSON.stringify(payload);
+    if (signature.current && signature.current !== nextSignature) {
+      if (uncertain) return; // Retry the same intent until its outcome is known.
+      key.current = requestId();
+    }
+    signature.current = nextSignature;
     setBusy(true);
     setError("");
     try {
@@ -134,11 +149,7 @@ function DecideDialog({
         `/threads/${encodeURIComponent(threadId)}/viewings/decide`,
         "POST",
         {
-          listing_id: item.listing_id,
-          rent_vnd: Number(rent),
-          deposit_vnd: Number(deposit),
-          move_in: moveIn || null,
-          keep_listing_ids: keep,
+          ...payload,
           decision_key: key.current,
           acknowledge_paid_moving: ack,
         },
@@ -146,6 +157,7 @@ function DecideDialog({
       onDone(result);
     } catch (e) {
       if ((e as Data).code === "moving_paid_elsewhere") setNeedsAck(true);
+      setUncertain(!(e instanceof ApiError) || e.status >= 500);
       setError(errorOf(e));
     } finally {
       setBusy(false);
@@ -165,6 +177,7 @@ function DecideDialog({
             <input
               type="number"
               min="1"
+              disabled={busy || uncertain}
               value={rent}
               onChange={(e) => setRent(e.target.value)}
             />
@@ -174,6 +187,7 @@ function DecideDialog({
             <input
               type="number"
               min="1"
+              disabled={busy || uncertain}
               value={deposit}
               onChange={(e) => setDeposit(e.target.value)}
             />
@@ -182,13 +196,14 @@ function DecideDialog({
             {uiText("Ngày dọn vào")}
             <input
               type="date"
+              disabled={busy || uncertain}
               value={moveIn}
               onChange={(e) => setMoveIn(e.target.value)}
             />
           </label>
         </div>
         {others.length > 0 && (
-          <fieldset className="viewing-others">
+          <fieldset className="viewing-others" disabled={busy || uncertain}>
             <legend>{uiText("Các căn còn lại")}</legend>
             {others.map((o) => {
               const kept = keep.includes(o.listing_id);
@@ -242,6 +257,13 @@ function DecideDialog({
         {error && (
           <p className="notice error" role="alert">
             {error}
+          </p>
+        )}
+        {uncertain && (
+          <p className="notice amber small">
+            {uiText(
+              "Chưa xác định được kết quả chốt. Gửi lại cùng thông tin để kiểm tra trước khi sửa yêu cầu.",
+            )}
           </p>
         )}
         <div className="form-actions">

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
+from uuid import uuid4
 
 from src.checkout.models import FulfilmentJob, PaymentAttempt, ServiceTransaction
 
@@ -43,6 +45,19 @@ class CheckoutStore:
     def __init__(self, connection: sqlite3.Connection):
         self.db = connection
         self.db.executescript(SCHEMA)
+
+    @contextmanager
+    def transaction(self):
+        """Atomic synchronous store step, safe inside an existing SQLite transaction."""
+        name = "checkout_" + uuid4().hex
+        self.db.execute(f"SAVEPOINT {name}")
+        try:
+            yield
+        except BaseException:
+            self.db.execute(f"ROLLBACK TO {name}")
+            raise
+        finally:
+            self.db.execute(f"RELEASE {name}")
 
     # --- giao dịch ---
 

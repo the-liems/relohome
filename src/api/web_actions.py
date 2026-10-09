@@ -148,177 +148,184 @@ async def result_action(thread_id: str, body: ResultAction, service: Service, us
 
 
 async def choose_result(thread_id: str, body: ResultAction, service, user_id: str, *, plan_choice: bool = False):
-    """`plan_choice=True`: đặt căn của kế hoạch (dùng khi chốt nhà), bỏ qua chế độ chọn nhiều căn."""
+    """Acquire the thread lock for a standalone selection action."""
     async with _lock(service, thread_id):
-        state, pending = await _owned(service, thread_id, user_id)
-        if pending:
-            raise HTTPException(409, "Hãy đổi hoặc từ chối phương án đang chờ trước khi thay lựa chọn.")
-        plan = state.get("plan")
-        result = (state.get("task_results") or {}).get(body.task_id)
-        if (
-            not plan
-            or plan.version != body.plan_version
-            or not plan.task(body.task_id)
-            or not result
-            or result.status != "done"
-            or (state.get("task_status") or {}).get(body.task_id) != TaskStatus.DONE
-            or body.fetched_at.tzinfo is None
-            or result.fetched_at != body.fetched_at
-        ):
-            raise HTTPException(409, "Nhóm kết quả đã thay đổi. Hãy sử dụng kết quả mới nhất.")
-        intake = state["intake"].model_copy(deep=True)
-        update = {}
-        if result.data.get("comparison"):
-            raise HTTPException(409, "Bảng so sánh chỉ để đọc. Hãy mở kết quả tìm nhà để thay lựa chọn.")
-        if body.kind == "select":
-            committed = active_commits(state.get("committed"))
-            previous = intake.user_confirmed_facts.get(f"selected:{result.agent.value}")
-            affected = (
-                selection_impact(plan, body.task_id, result.agent, previous.value if previous else None)
-                if previous is None or previous.value != body.entity_id
-                else {body.task_id}
-            )
-            if any(a.id in committed and a.source_task_id in affected for a in plan.commit_actions):
-                raise HTTPException(
-                    409, "Lựa chọn liên quan tới dịch vụ đã đặt. Hãy yêu cầu thay đổi trong chat để kiểm tra đơn trước."
-                )
-            key = {AgentName.PROPERTY: "candidates", AgentName.FLIGHT: "offers", AgentName.RELOCATION: "quotes"}.get(
-                result.agent
-            )
-            rows = result.data.get(key, []) if key else []
-            if result.agent == AgentName.FLIGHT:
-                # Vé khứ hồi: lựa chọn cuối là hành trình (đi + về); chuyến đi chọn bằng /flight/outbound.
-                rows = [*rows, *(result.data.get("return_options") or [])]
-            chosen = next((r for r in rows if (r.get("id") or r.get("option_id")) == body.entity_id), None)
-            if chosen and chosen.get("kind") == "round_trip_outbound":
-                raise HTTPException(
-                    409, "Đây là chuyến đi của vé khứ hồi. Hãy chọn chuyến đi để xem chiều về, rồi chọn chiều về."
-                )
-            if not chosen and result.agent == AgentName.PROPERTY:
-                # A listing explored on the map workspace: re-read it from Location and add it to
-                # this housing result, so selection, plan outline and later tasks see a real option.
-                chosen = await explored_listing(service, body.entity_id)
-                if chosen:
-                    result = result.model_copy(deep=True)
-                    missing = [
-                        key for key in ("price_vnd", "deposit_vnd", "area_m2", "address") if chosen.get(key) is None
-                    ]
-                    if chosen.get("price_unverified"):
-                        missing.append("price_quality")
-                    append_housing_candidate(result, chosen, missing)
-                    update["task_results"] = {body.task_id: result}
-            if not chosen:
-                raise HTTPException(409, "Lựa chọn không thuộc nhóm kết quả hiện tại.")
-            if option_is_expired(result, body.entity_id):
-                raise HTTPException(409, "Lựa chọn đã hết hạn hoặc chưa xác minh được thời hạn. Hãy tìm lại.")
-            label = (
-                chosen.get("title")
-                or chosen.get("carrier")
-                or chosen.get("vehicle")
-                or chosen.get("service_name")
-                or "phương án"
-            )
-            if result.agent == AgentName.PROPERTY and getattr(service, "viewing", None) and not plan_choice:
-                # Chọn để hẹn xem, chưa phải căn của kế hoạch (housing-viewing-design V3).
-                from src.api.viewings import select_for_viewing
+        return await _choose_result_locked(thread_id, body, service, user_id, plan_choice=plan_choice)
 
-                return await select_for_viewing(service, thread_id, user_id, state, body.task_id, chosen, update)
-            text = f"Tôi chọn {label} (ID: {body.entity_id})."
-            intake.user_confirmed_facts[f"selected:{result.agent.value}"] = ConfirmedFact(
-                value=body.entity_id,
-                evidence=text,
-                stated_at=utcnow(),
+
+async def _choose_result_locked(thread_id: str, body: ResultAction, service, user_id: str, *, plan_choice: bool = False):
+    """Internal selection step: caller owns the thread lock across its entire operation."""
+    if not service.locks[thread_id].locked():
+        raise RuntimeError("Selection requires the thread lock")
+    state, pending = await _owned(service, thread_id, user_id)
+    if pending:
+        raise HTTPException(409, "Hãy đổi hoặc từ chối phương án đang chờ trước khi thay lựa chọn.")
+    plan = state.get("plan")
+    result = (state.get("task_results") or {}).get(body.task_id)
+    if (
+        not plan
+        or plan.version != body.plan_version
+        or not plan.task(body.task_id)
+        or not result
+        or result.status != "done"
+        or (state.get("task_status") or {}).get(body.task_id) != TaskStatus.DONE
+        or body.fetched_at.tzinfo is None
+        or result.fetched_at != body.fetched_at
+    ):
+        raise HTTPException(409, "Nhóm kết quả đã thay đổi. Hãy sử dụng kết quả mới nhất.")
+    intake = state["intake"].model_copy(deep=True)
+    update = {}
+    if result.data.get("comparison"):
+        raise HTTPException(409, "Bảng so sánh chỉ để đọc. Hãy mở kết quả tìm nhà để thay lựa chọn.")
+    if body.kind == "select":
+        committed = active_commits(state.get("committed"))
+        previous = intake.user_confirmed_facts.get(f"selected:{result.agent.value}")
+        affected = (
+            selection_impact(plan, body.task_id, result.agent, previous.value if previous else None)
+            if previous is None or previous.value != body.entity_id
+            else {body.task_id}
+        )
+        if any(a.id in committed and a.source_task_id in affected for a in plan.commit_actions):
+            raise HTTPException(
+                409, "Lựa chọn liên quan tới dịch vụ đã đặt. Hãy yêu cầu thay đổi trong chat để kiểm tra đơn trước."
             )
-            update.update(intake=intake, messages=[HumanMessage(text)])
-            update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
-            update["goal_selections"] = select_plan_option(state, body.task_id, body.entity_id, affected)
-            # Downstream choices become stale; the choice just made in this domain stays.
-            for agent in {plan.task(tid).agent for tid in affected - {body.task_id}} - {result.agent}:
-                intake.user_confirmed_facts.pop(f"selected:{agent.value}", None)
-            if result.agent == AgentName.PROPERTY and previous and previous.value != body.entity_id:
-                old_house = next((r for r in rows if r.get("id") == previous.value), {})
-                pins = dict(state.get("moving_locations") or {})
-                for endpoint, address_key, coordinate_key in (
-                    ("pickup", "from_address", "pickup_coordinate"),
-                    ("destination", "to_address", "destination_coordinate"),
-                ):
-                    if old_house.get("address") and (pins.get(endpoint) or {}).get("address") == old_house["address"]:
-                        pins.pop(endpoint)
-                        intake.constraints.values.pop(coordinate_key, None)
-                        intake.constraints.values[address_key] = "selected:property"
-                        intake.user_confirmed_facts.pop(address_key, None)
-                update["moving_locations"] = pins
-            # Same next-step rules as a chat answer (e.g. quote moving to the chosen home).
-            suggestions = next_step_suggestions(
-                {
-                    **state,
-                    **update,
-                    "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
-                },
-                service.deps.agents,
-                service.deps.settings.max_suggestions,
-                "ANSWER",
+        key = {AgentName.PROPERTY: "candidates", AgentName.FLIGHT: "offers", AgentName.RELOCATION: "quotes"}.get(
+            result.agent
+        )
+        rows = result.data.get(key, []) if key else []
+        if result.agent == AgentName.FLIGHT:
+            # Vé khứ hồi: lựa chọn cuối là hành trình (đi + về); chuyến đi chọn bằng /flight/outbound.
+            rows = [*rows, *(result.data.get("return_options") or [])]
+        chosen = next((r for r in rows if (r.get("id") or r.get("option_id")) == body.entity_id), None)
+        if chosen and chosen.get("kind") == "round_trip_outbound":
+            raise HTTPException(
+                409, "Đây là chuyến đi của vé khứ hồi. Hãy chọn chuyến đi để xem chiều về, rồi chọn chiều về."
             )
-            response = AgentResponse(
-                kind="ANSWER",
-                text=f"Đã lưu lựa chọn: {label}. Chưa thực hiện đặt dịch vụ."
-                + (" Bạn có thể làm tiếp:" if suggestions else ""),
-                suggestions=suggestions,
-            )
-        else:
-            cursor = result.data.get("next_cursor")
-            if result.agent != AgentName.PROPERTY or not cursor or not result.data.get("search_request"):
-                raise HTTPException(409, "Nhóm kết quả này không có trang tiếp theo.")
-            request = dict(result.data["search_request"])
-            request["pagination"] = {**request.get("pagination", {}), "cursor": cursor}
-            try:
-                raw = await client_for(service, AgentName.PROPERTY).call("search_housing", request)
-            except ToolCallError:
-                raise HTTPException(502, "Không tải được trang tiếp. Hãy thử lại.") from None
-            result = result.model_copy(deep=True)
-            known = {c["id"] for c in result.data["candidates"]}
-            for row in raw.get("results", []):
-                candidate, missing = to_candidate(row, request.get("amenities", []))
-                if candidate["price_vnd"] is None or candidate["address"] is None:
-                    continue
-                if candidate["id"] not in known:
-                    if candidate.get("price_unverified"):
-                        missing.append("price_quality")
-                    known.add(candidate["id"])
-                    append_housing_candidate(result, candidate, missing)
-            result.data.update(
-                next_cursor=(raw.get("page") or {}).get("next_cursor"),
-                map_context={"scope": "returned_candidates", "listing_ids": list(known)},
-            )
-            result.data["has_more"] = bool(result.data["next_cursor"])
-            result.fetched_at = utcnow()
-            update["task_results"] = {body.task_id: result}
-            response = AgentResponse(
-                kind="ANSWER",
-                text=f"Đang hiển thị {len(known)} căn trong các trang đã tải.",
-                data={
-                    "results": {
-                        body.task_id: {
-                            "agent": "property",
-                            "data": result.data,
-                            "source": result.source,
-                            "source_kind": result.source_kind,
-                            "source_refs": result.source_refs,
-                            "fetched_at": result.fetched_at.isoformat(),
-                        }
+        if not chosen and result.agent == AgentName.PROPERTY:
+            # A listing explored on the map workspace: re-read it from Location and add it to
+            # this housing result, so selection, plan outline and later tasks see a real option.
+            chosen = await explored_listing(service, body.entity_id)
+            if chosen:
+                result = result.model_copy(deep=True)
+                missing = [
+                    key for key in ("price_vnd", "deposit_vnd", "area_m2", "address") if chosen.get(key) is None
+                ]
+                if chosen.get("price_unverified"):
+                    missing.append("price_quality")
+                append_housing_candidate(result, chosen, missing)
+                update["task_results"] = {body.task_id: result}
+        if not chosen:
+            raise HTTPException(409, "Lựa chọn không thuộc nhóm kết quả hiện tại.")
+        if option_is_expired(result, body.entity_id):
+            raise HTTPException(409, "Lựa chọn đã hết hạn hoặc chưa xác minh được thời hạn. Hãy tìm lại.")
+        label = (
+            chosen.get("title")
+            or chosen.get("carrier")
+            or chosen.get("vehicle")
+            or chosen.get("service_name")
+            or "phương án"
+        )
+        if result.agent == AgentName.PROPERTY and getattr(service, "viewing", None) and not plan_choice:
+            # Chọn để hẹn xem, chưa phải căn của kế hoạch (housing-viewing-design V3).
+            from src.api.viewings import select_for_viewing
+
+            return await select_for_viewing(service, thread_id, user_id, state, body.task_id, chosen, update)
+        text = f"Tôi chọn {label} (ID: {body.entity_id})."
+        intake.user_confirmed_facts[f"selected:{result.agent.value}"] = ConfirmedFact(
+            value=body.entity_id,
+            evidence=text,
+            stated_at=utcnow(),
+        )
+        update.update(intake=intake, messages=[HumanMessage(text)])
+        update["task_status"] = {tid: TaskStatus.STALE for tid in affected - {body.task_id}}
+        update["goal_selections"] = select_plan_option(state, body.task_id, body.entity_id, affected)
+        # Downstream choices become stale; the choice just made in this domain stays.
+        for agent in {plan.task(tid).agent for tid in affected - {body.task_id}} - {result.agent}:
+            intake.user_confirmed_facts.pop(f"selected:{agent.value}", None)
+        if result.agent == AgentName.PROPERTY and previous and previous.value != body.entity_id:
+            old_house = next((r for r in rows if r.get("id") == previous.value), {})
+            pins = dict(state.get("moving_locations") or {})
+            for endpoint, address_key, coordinate_key in (
+                ("pickup", "from_address", "pickup_coordinate"),
+                ("destination", "to_address", "destination_coordinate"),
+            ):
+                if old_house.get("address") and (pins.get(endpoint) or {}).get("address") == old_house["address"]:
+                    pins.pop(endpoint)
+                    intake.constraints.values.pop(coordinate_key, None)
+                    intake.constraints.values[address_key] = "selected:property"
+                    intake.user_confirmed_facts.pop(address_key, None)
+            update["moving_locations"] = pins
+        # Same next-step rules as a chat answer (e.g. quote moving to the chosen home).
+        suggestions = next_step_suggestions(
+            {
+                **state,
+                **update,
+                "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
+            },
+            service.deps.agents,
+            service.deps.settings.max_suggestions,
+            "ANSWER",
+        )
+        response = AgentResponse(
+            kind="ANSWER",
+            text=f"Đã lưu lựa chọn: {label}. Chưa thực hiện đặt dịch vụ."
+            + (" Bạn có thể làm tiếp:" if suggestions else ""),
+            suggestions=suggestions,
+        )
+    else:
+        cursor = result.data.get("next_cursor")
+        if result.agent != AgentName.PROPERTY or not cursor or not result.data.get("search_request"):
+            raise HTTPException(409, "Nhóm kết quả này không có trang tiếp theo.")
+        request = dict(result.data["search_request"])
+        request["pagination"] = {**request.get("pagination", {}), "cursor": cursor}
+        try:
+            raw = await client_for(service, AgentName.PROPERTY).call("search_housing", request)
+        except ToolCallError:
+            raise HTTPException(502, "Không tải được trang tiếp. Hãy thử lại.") from None
+        result = result.model_copy(deep=True)
+        known = {c["id"] for c in result.data["candidates"]}
+        for row in raw.get("results", []):
+            candidate, missing = to_candidate(row, request.get("amenities", []))
+            if candidate["price_vnd"] is None or candidate["address"] is None:
+                continue
+            if candidate["id"] not in known:
+                if candidate.get("price_unverified"):
+                    missing.append("price_quality")
+                known.add(candidate["id"])
+                append_housing_candidate(result, candidate, missing)
+        result.data.update(
+            next_cursor=(raw.get("page") or {}).get("next_cursor"),
+            map_context={"scope": "returned_candidates", "listing_ids": list(known)},
+        )
+        result.data["has_more"] = bool(result.data["next_cursor"])
+        result.fetched_at = utcnow()
+        update["task_results"] = {body.task_id: result}
+        response = AgentResponse(
+            kind="ANSWER",
+            text=f"Đang hiển thị {len(known)} căn trong các trang đã tải.",
+            data={
+                "results": {
+                    body.task_id: {
+                        "agent": "property",
+                        "data": result.data,
+                        "source": result.source,
+                        "source_kind": result.source_kind,
+                        "source_refs": result.source_refs,
+                        "fetched_at": result.fetched_at.isoformat(),
                     }
-                },
-            )
-        merged = {
-            **state,
-            **update,
-            "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
-            "task_status": {**state.get("task_status", {}), **update.get("task_status", {})},
-        }
-        summary = await make_cost_summary(service.deps)(merged)
-        update.update(cost_summary=summary["cost_summary"], response=response)
-        await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
-        return _to_response(thread_id, {"response": response}, service)
+                }
+            },
+        )
+    merged = {
+        **state,
+        **update,
+        "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
+        "task_status": {**state.get("task_status", {}), **update.get("task_status", {})},
+    }
+    summary = await make_cost_summary(service.deps)(merged)
+    update.update(cost_summary=summary["cost_summary"], response=response)
+    await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
+    return _to_response(thread_id, {"response": response}, service)
 
 
 def append_housing_candidate(result, candidate: dict, missing: list[str]) -> None:

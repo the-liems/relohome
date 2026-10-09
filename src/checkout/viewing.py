@@ -8,6 +8,7 @@ Mọi ngưỡng lấy từ cấu hình; không có hằng số nghiệp vụ tro
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import math
 import time as monotonic_time
 from collections.abc import Callable
@@ -360,6 +361,8 @@ class ViewingService:
 
     def visit(self, user_id: str, thread_id: str, listing_id: str, outcome: VisitOutcome) -> dict:
         tx = self._item(user_id, thread_id, listing_id)
+        if tx.status not in {"viewing_scheduled", "visited", "backup"}:
+            raise CheckoutError(409, "Không thể sửa kết quả xem căn đã chốt hoặc đã báo trả tiền.", "visit_state_conflict")
         viewing = tx.details.get("viewing") or {}
         start = _parse(viewing.get("slot"))
         if start is None or (start > self.clock() and not self.settings.visit_anytime):
@@ -367,6 +370,7 @@ class ViewingService:
         tx.details.setdefault("viewing_history", []).append({**viewing, "outcome": outcome})
         if outcome == "missed":
             tx.details.pop("viewing", None)
+            tx.details.pop("visit_outcome", None)
             if tx.status == "backup":
                 tx.details["backup_from"] = "selected"
             else:
@@ -396,6 +400,8 @@ class ViewingService:
         decision_key: str,
     ) -> dict:
         """Ghi ý định chốt trước mọi bước bên ngoài; gọi lại cùng khóa thì trả lại kế hoạch đã ghi."""
+        normalized_form = {k: form.get(k) for k in ("rent_vnd", "deposit_vnd", "move_in")}
+        keep = sorted(set(keep_ids))
         existing = self.store.get_decision(decision_key)
         if existing is not None:
             if (
@@ -404,6 +410,11 @@ class ViewingService:
                 or existing["listing_id"] != listing_id
             ):
                 raise CheckoutError(409, "Mã chốt đã dùng cho thao tác khác.")
+            if existing["form"] != normalized_form or existing["keep"] != keep:
+                raise CheckoutError(
+                    409, "Thông tin chốt đã đổi; không được dùng lại mã của yêu cầu cũ.", "decision_payload_mismatch"
+                )
+            self.validate_decision(existing)
             return existing
         tx = self._item(user_id, thread_id, listing_id)
         if tx.status != "visited":
@@ -427,9 +438,10 @@ class ViewingService:
             "user_id": user_id,
             "thread_id": thread_id,
             "listing_id": listing_id,
-            "keep": sorted(set(keep_ids)),
+            "keep": keep,
             "drop": sorted(other_ids - set(keep_ids)),
-            "form": {k: form.get(k) for k in ("rent_vnd", "deposit_vnd", "move_in")},
+            "form": normalized_form,
+            "selection_fingerprint": self._selection_fingerprint(user_id, thread_id),
             "step": "planned",
         }
         self.store.insert_decision(decision)
@@ -439,11 +451,43 @@ class ViewingService:
         decision["step"] = step
         self.store.put_decision(decision)
 
-    def finish_decision(self, decision: dict) -> dict:
+    def _selection_fingerprint(self, user_id: str, thread_id: str) -> str:
+        # Includes the complete consideration set, schedules and visit outcomes. A changed
+        # set must not be cancelled by an intent recorded before the user's change.
+        rows = sorted(self.active(user_id, thread_id), key=lambda tx: tx.transaction_id)
+        return hashlib.sha256("\n".join(tx.model_dump_json() for tx in rows).encode()).hexdigest()
+
+    def validate_decision(self, decision: dict) -> ServiceTransaction:
         user_id, thread_id = decision["user_id"], decision["thread_id"]
         tx = self.store.current_tx(user_id, thread_id, f"housing:{decision['listing_id']}")
         if tx is None:
-            raise CheckoutError(404, "Không còn căn để chốt.")
+            raise CheckoutError(409, "Căn của quyết định chốt không còn được chọn.", "decision_stale")
+        owned = tx.status in DECIDED and tx.details.get("decision_key") == decision["decision_key"]
+        if decision["step"] == "done" and not owned:
+            raise CheckoutError(409, "Quyết định này đã được mở lại hoặc thay thế.", "decision_stale")
+        if tx.status != "visited" and not owned:
+            raise CheckoutError(409, "Trạng thái căn đã đổi; hãy xác nhận quyết định mới.", "decision_stale")
+        if any(t.status in DECIDED and t.option_id != tx.option_id for t in self.active(user_id, thread_id)):
+            raise CheckoutError(409, "Bạn đã chốt một căn khác.", "decision_stale")
+        fingerprint = decision.get("selection_fingerprint")
+        if not owned and fingerprint and fingerprint != self._selection_fingerprint(user_id, thread_id):
+            raise CheckoutError(409, "Danh sách hoặc lịch xem đã đổi; hãy xác nhận quyết định mới.", "decision_stale")
+        return tx
+
+    def finish_decision(self, decision: dict) -> dict:
+        # Reload durable intent, never trust a caller's stale copy. Store changes commit
+        # together; graph selection is a separate durable step recovered by the API.
+        recorded = self.store.get_decision(decision["decision_key"])
+        if recorded is None or any(recorded[k] != decision[k] for k in ("user_id", "thread_id", "listing_id")):
+            raise CheckoutError(409, "Không tìm thấy quyết định đã ghi.", "decision_stale")
+        with self.store.transaction():
+            return self._finish_decision(recorded)
+
+    def _finish_decision(self, decision: dict) -> dict:
+        user_id, thread_id = decision["user_id"], decision["thread_id"]
+        tx = self.validate_decision(decision)
+        if decision["step"] == "done":
+            return self.item_view(tx)
         if tx.status not in DECIDED:
             form = decision["form"]
             tx.status = "agreed"
