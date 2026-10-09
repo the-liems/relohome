@@ -1130,7 +1130,7 @@
   "Đang tải nhà…": "Loading home…",
   "Đang tải nội dung tin…": "Loading listing…",
   "Đánh dấu đã thuê": "Mark as rented",
-  "Đã hẹn xem": "Viewing scheduled",
+  "Đã hẹn xem": "Viewing time confirmed",
   "Đã liên hệ": "Contacted",
   "Đã thu hồi": "Revoked",
   "Đã thuê": "Rented",
@@ -1323,10 +1323,7 @@
   "{0} đánh giá · trên {1} nhà": "Reviews: {0} · Properties: {1}",
   "Phân bố đánh giá 1–5 sao": "Rating distribution from 1 to 5 stars",
   "{0} sao: {1} đánh giá": "{0} stars: {1} reviews",
-  "Người thuê": "Tenant",
   "{0} trên 5 sao": "{0} out of 5 stars",
-  "Đã hẹn xem": "Viewing time confirmed",
-  "Đã liên hệ": "Contacted",
   "Phản hồi của chủ nhà": "Landlord response",
   "Báo cáo đánh giá": "Report review",
   "Lý do báo cáo": "Reason for reporting",
@@ -1369,5 +1366,7 @@
   "Chưa có cảnh báo cần rà soát.": "There are no alerts to review.",
   "{0} đánh giá thấp · {1} người viết · {2} nhà · trong {3} ngày": "{0} low ratings · {1} reviewers · {2} properties · within {3} days",
   "Tín hiệu hiện không còn đủ ngưỡng; giữ lại để rà soát lịch sử.": "The signal no longer meets the threshold. It is retained for historical review.",
-  "Đã rà soát cảnh báo": "Mark alert reviewed"
+  "Đã rà soát cảnh báo": "Mark alert reviewed",
+  "Yêu cầu với chủ nhà đã đóng, đặt lại giờ để gửi lại": "Request to the owner is closed; book again to resend",
+  "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.": "The contact request for this home was closed or cancelled, so the owner no longer holds this time. Pick a time below to send it again."
 }

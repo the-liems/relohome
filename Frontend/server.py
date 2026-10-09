@@ -669,10 +669,15 @@ def create_app(database=None, transport=None):
 
     # --- Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 
-    async def landlord_viewings(owner, view):
-        """Send booked viewing times of owner-managed homes to their landlord and show the answer
-        (docs/review/viewing-landlord-confirmation.md). Only changed slots are sent; homes from other
-        sources answer `not_managed` and keep the local test-mode viewing."""
+    async def landlord_viewings(owner, view, scheduled=None, sync=False):
+        """Show the landlord's answer on booked viewings of owner-managed homes
+        (docs/review/viewing-landlord-confirmation.md).
+
+        Reads (`sync=False`) never write to the landlord inbox, so a request the tenant or landlord
+        closed is not reopened by opening a page. Only a viewing step writes: the listing the tenant
+        just booked (`scheduled`) is sent, even at the same time as a closed request (explicit
+        rebooking), and homes that lost their time are withdrawn. Other sources answer `not_managed`
+        and keep the local test-mode viewing."""
         if not isinstance(view, dict) or not isinstance(view.get("items"), list):
             return view
 
@@ -687,37 +692,44 @@ def create_app(database=None, transport=None):
             latest = await requests()
         except HTTPException:
             return view  # Platform unavailable: the tab keeps working in test mode.
-        desired = {}
-        for item in view.get("history") or []:
-            desired[item["listing_id"]] = None
-        for item in view["items"]:
-            if item.get("status") in VIEWING_WITH_SLOT and (item.get("viewing") or {}).get("slot"):
-                desired[item["listing_id"]] = item["viewing"]["slot"]
-            elif item.get("status") == "selected":
+        if sync:
+            desired = {}
+            for item in view.get("history") or []:
                 desired[item["listing_id"]] = None
-            else:
-                desired.pop(item["listing_id"], None)  # visited or decided: leave the landlord's answer
-        calls = []
-        for listing, slot in desired.items():
-            row = latest.get(listing)
-            if slot:
-                # An identical timestamp is idempotent only while its request is still open.
-                # Cancelled/closed appointments must be requested again, even at the same time.
-                if not (
-                    row
+            for item in view["items"]:
+                if item.get("status") in VIEWING_WITH_SLOT and (item.get("viewing") or {}).get("slot"):
+                    desired[item["listing_id"]] = item["viewing"]["slot"]
+                elif item.get("status") == "selected":
+                    desired[item["listing_id"]] = None
+                else:
+                    desired.pop(item["listing_id"], None)  # visited or decided: leave the landlord's answer
+            calls = []
+            for listing, slot in desired.items():
+                row = latest.get(listing)
+                if slot and listing == scheduled:
+                    # An open request already holding this exact time keeps the landlord's answer.
+                    if not (
+                        row
+                        and row.get("status") in OPEN_CONTACT
+                        and row.get("viewing_status") in {"requested", "confirmed", "declined"}
+                        and same_instant(row.get("viewing_slot"), slot)
+                    ):
+                        calls.append(
+                            upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True)
+                        )
+                elif (
+                    not slot
+                    and row
                     and row.get("status") in OPEN_CONTACT
-                    and row.get("viewing_status") in {"requested", "confirmed", "declined"}
-                    and same_instant(row.get("viewing_slot"), slot)
+                    and row.get("viewing_status") in {"requested", "confirmed"}
                 ):
-                    calls.append(upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True))
-            elif row and row.get("status") in OPEN_CONTACT and row.get("viewing_status") in {"requested", "confirmed"}:
-                calls.append(upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True))
-        if calls:
-            await asyncio.gather(*calls, return_exceptions=True)
-            try:
-                latest = await requests()
-            except HTTPException:
-                return view
+                    calls.append(upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True))
+            if calls:
+                await asyncio.gather(*calls, return_exceptions=True)
+                try:
+                    latest = await requests()
+                except HTTPException:
+                    return view
         for item in view["items"]:
             row = latest.get(item["listing_id"])
             slot = (item.get("viewing") or {}).get("slot")
@@ -746,9 +758,9 @@ def create_app(database=None, transport=None):
         owned(thread, owner)
         if step == "visit":
             await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
-        return await landlord_viewings(
-            owner, await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
-        )
+        result = await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
+        scheduled = str(body.get("listing_id", "")) if step == "schedule" else None
+        return await landlord_viewings(owner, result, scheduled=scheduled, sync=True)
 
     async def require_landlord_confirmation(thread, owner, listing_id):
         """A home managed on ReloHome needs the landlord to confirm the booked time before the tenant

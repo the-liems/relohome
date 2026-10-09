@@ -200,11 +200,15 @@ async def test_viewing_slots_sync_to_landlord_and_show_the_answer(tmp_path, monk
             json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
         )
         thread = (await client.post("/web/api/threads")).json()["id"]
-        result = (await client.post(f"/web/api/threads/{thread}/viewings/schedule", json={})).json()
+        result = (
+            await client.post(
+                f"/web/api/threads/{thread}/viewings/schedule", json={"listing_id": managed, "slot": slot}
+            )
+        ).json()
+        # Only the home just booked is sent; the home that lost its time is withdrawn.
         assert sorted(platform_calls) == [
             ("DELETE", f"/v1/housing/{dropped}/viewing"),
             ("PUT", f"/v1/housing/{managed}/viewing"),
-            ("PUT", f"/v1/housing/{crawled}/viewing"),
         ]
         assert result["items"][0]["landlord"]["viewing_status"] == "requested"
         assert "landlord" not in result["items"][1]  # other sources stay in test mode
@@ -220,38 +224,59 @@ async def test_viewing_slots_sync_to_landlord_and_show_the_answer(tmp_path, monk
         assert snapshot["state"]["viewing"]["items"][0]["landlord"]["viewing_status"] == "confirmed"
 
 
-@pytest.mark.parametrize('request_status,viewing_status,resend', [
-    ('new', 'requested', False), ('viewing', 'confirmed', False), ('new', 'declined', False),
-    ('declined', 'cancelled', True), ('contacted', 'cancelled', True), ('resolved', 'confirmed', True),
-])
+@pytest.mark.parametrize(
+    "request_status,viewing_status,resend",
+    [
+        ("new", "requested", False),
+        ("viewing", "confirmed", False),
+        ("new", "declined", False),
+        ("declined", "cancelled", True),
+        ("contacted", "cancelled", True),
+        ("resolved", "confirmed", True),
+    ],
+)
 @pytest.mark.asyncio
-async def test_rebooking_same_time_resends_cancelled_or_closed_requests(tmp_path, monkeypatch, request_status, viewing_status, resend):
-    monkeypatch.setenv('AGENT_API_TOKEN', 'server-token')
-    listing = 'aaaaaaaa-1111-4111-8111-111111111111'
+async def test_rebooking_same_time_resends_cancelled_or_closed_requests(
+    tmp_path, monkeypatch, request_status, viewing_status, resend
+):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
     slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
-    view = {'items': [{'listing_id': listing, 'status': 'viewing_scheduled', 'viewing': {'slot': slot}}]}
-    row = {'listing_id': listing, 'status': request_status, 'viewing_status': viewing_status, 'viewing_slot': slot}
+    view = {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": slot}}]}
+    row = {"listing_id": listing, "status": request_status, "viewing_status": viewing_status, "viewing_slot": slot}
     sent = []
+
     def provider(request):
-        if request.url.path.startswith('/api/v1/ui/chat/'):
+        if request.url.path.startswith("/api/v1/ui/chat/"):
             return httpx.Response(200, json=view)
-        if request.url.path.endswith('/housing/contact-requests/me'):
-            return httpx.Response(200, json={'items': [row]})
-        if request.method == 'PUT':
+        if request.url.path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if request.method == "PUT":
             sent.append(request.url.path)
-            row.update(status='new', viewing_status='requested')
-            return httpx.Response(201, json={'viewing_status': 'requested'})
+            row.update(status="new", viewing_status="requested")
+            return httpx.Response(201, json={"viewing_status": "requested"})
         return httpx.Response(200, json={})
-    app = create_app(tmp_path / 'web.db', httpx.MockTransport(provider))
-    async with app.router.lifespan_context(app), httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url='http://test', headers=HEADERS,
-    ) as client:
-        await client.post('/web/api/auth/register', json={'email': 'tenant@example.test', 'password': 'a-long-password', 'name': 'Tenant'})
-        thread = (await client.post('/web/api/threads')).json()['id']
-        response = await client.post(f'/web/api/threads/{thread}/viewings/schedule', json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers=HEADERS,
+        ) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        response = await client.post(
+            f"/web/api/threads/{thread}/viewings/schedule", json={"listing_id": listing, "slot": slot}
+        )
         assert response.status_code == 200
         assert len(sent) == int(resend)
-        assert response.json()['items'][0]['landlord']['viewing_status'] == ('requested' if resend else viewing_status)
+        assert response.json()["items"][0]["landlord"]["viewing_status"] == ("requested" if resend else viewing_status)
 
 
 @pytest.mark.asyncio
@@ -318,26 +343,99 @@ async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, mon
 
 @pytest.mark.asyncio
 async def test_review_gateway_preserves_session_identity_and_pagination(tmp_path, monkeypatch):
-    monkeypatch.setenv('AGENT_API_TOKEN', 'server-token')
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
     captured = []
+
     def provider(request):
         captured.append(request)
-        return httpx.Response(200, json={'ok': True})
-    app = create_app(tmp_path / 'reviews.db', httpx.MockTransport(provider))
-    listing = 'aaaaaaaa-1111-4111-8111-111111111111'
-    async with app.router.lifespan_context(app), httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url='http://test', headers=HEADERS,
-    ) as client:
-        assert (await client.get(f'/web/api/housing-management/housing/{listing}/reviews')).status_code == 401
-        registered = (await client.post('/web/api/auth/register', json={'email': 'reviews@example.test', 'password': 'a-long-password', 'name': 'Tenant'})).json()
-        response = await client.get(f'/web/api/housing-management/housing/{listing}/reviews?sort=lowest&limit=20&offset=10', headers={'X-User-Id': 'forged'})
+        return httpx.Response(200, json={"ok": True})
+
+    app = create_app(tmp_path / "reviews.db", httpx.MockTransport(provider))
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers=HEADERS,
+        ) as client,
+    ):
+        assert (await client.get(f"/web/api/housing-management/housing/{listing}/reviews")).status_code == 401
+        registered = (
+            await client.post(
+                "/web/api/auth/register",
+                json={"email": "reviews@example.test", "password": "a-long-password", "name": "Tenant"},
+            )
+        ).json()
+        response = await client.get(
+            f"/web/api/housing-management/housing/{listing}/reviews?sort=lowest&limit=20&offset=10",
+            headers={"X-User-Id": "forged"},
+        )
         assert response.status_code == 200
-        assert captured[-1].url.params == httpx.QueryParams('sort=lowest&limit=20&offset=10')
-        assert captured[-1].headers['x-user-id'] == registered['id']
-        assert (await client.put(f'/web/api/housing-management/housing/{listing}/review', json={'rating': 4, 'body': ''})).status_code == 200
-        assert json.loads(captured[-1].content) == {'rating': 4, 'body': ''}
-        withdrawn = await client.request('DELETE', f'/web/api/housing-management/housing/{listing}/review', json={})
+        assert captured[-1].url.params == httpx.QueryParams("sort=lowest&limit=20&offset=10")
+        assert captured[-1].headers["x-user-id"] == registered["id"]
+        assert (
+            await client.put(f"/web/api/housing-management/housing/{listing}/review", json={"rating": 4, "body": ""})
+        ).status_code == 200
+        assert json.loads(captured[-1].content) == {"rating": 4, "body": ""}
+        withdrawn = await client.request("DELETE", f"/web/api/housing-management/housing/{listing}/review", json={})
         assert withdrawn.status_code == 200
-        assert (await client.get('/web/api/housing-management/moderation/housing/reviews')).status_code == 200
-        assert (await client.post(f'/web/api/housing-management/housing/reviews/{listing}/report', json={'reason': 'Cần kiểm tra.'})).status_code == 200
-        assert (await client.get('/web/api/housing-management/housing/reviews/export')).status_code == 404
+        assert (await client.get("/web/api/housing-management/moderation/housing/reviews")).status_code == 200
+        assert (
+            await client.post(
+                f"/web/api/housing-management/housing/reviews/{listing}/report", json={"reason": "Cần kiểm tra."}
+            )
+        ).status_code == 200
+        assert (await client.get("/web/api/housing-management/housing/reviews/export")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "request_status,viewing_status", [("declined", "requested"), ("resolved", "confirmed"), ("new", "cancelled")]
+)
+@pytest.mark.asyncio
+async def test_reads_never_reopen_closed_or_cancelled_requests(tmp_path, monkeypatch, request_status, viewing_status):
+    """Review PR #88: opening the Viewings tab or the thread must not recreate a request the tenant
+    cancelled or the landlord closed; only an explicit booking sends the time again."""
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    view = {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": slot}}]}
+    row = {
+        "id": "r1",
+        "listing_id": listing,
+        "status": request_status,
+        "viewing_status": viewing_status,
+        "viewing_slot": slot,
+    }
+    writes = []
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.startswith("/api/v1/chat/") and path.endswith("/state"):
+            return httpx.Response(200, json={"viewing": view})
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        writes.append((request.method, path))
+        return httpx.Response(200, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        tab = (await client.get(f"/web/api/threads/{thread}/viewings")).json()
+        snapshot = (await client.get(f"/web/api/threads/{thread}")).json()
+        assert writes == []
+        # The tab shows the closed state instead of pretending the time is still pending.
+        assert tab["items"][0]["landlord"]["request_status"] == request_status
+        assert snapshot["state"]["viewing"]["items"][0]["landlord"]["viewing_status"] == viewing_status
+        # Other steps (e.g. visit, unselect another home) do not resend it either.
+        await client.post(f"/web/api/threads/{thread}/viewings/moving-mode", json={"mode": None})
+        assert writes == []

@@ -31,10 +31,14 @@ const LANDLORD: Record<string, string> = {
   confirmed: "Chủ nhà đã xác nhận",
   declined: "Chủ nhà không nhận giờ này",
 };
+const landlordClosed = (landlord: Data) =>
+  ["declined", "resolved"].includes(landlord.request_status) ||
+  landlord.viewing_status === "cancelled";
 function statusLabel(item: Data, testVisit: boolean) {
   const landlord = item.landlord;
-  if (landlord && ["declined", "resolved"].includes(landlord.request_status))
-    return "Chủ nhà đã đóng yêu cầu";
+  // A closed or withdrawn request stays closed until the tenant books again (review PR #88).
+  if (landlord && landlordClosed(landlord))
+    return "Yêu cầu với chủ nhà đã đóng, đặt lại giờ để gửi lại";
   // Before the landlord confirms, their answer matters more than the test-mode visit label.
   if (
     landlord &&
@@ -440,20 +444,29 @@ export function ViewingPanel({
                 : ""}
             </p>
           )}
-          {item.landlord?.viewing_status === "declined" && (
+          {item.landlord && landlordClosed(item.landlord) && (
             <p className="notice amber small">
               {uiText(
-                "Chủ nhà không nhận giờ này. Chọn giờ khác bên dưới, ReloHome sẽ gửi lại cho chủ nhà.",
+                "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.",
               )}
             </p>
           )}
-          {item.landlord?.viewing_status === "requested" && (
-            <p className="muted small">
-              {uiText(
-                "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Chủ nhà xác nhận thì bạn mới ghi kết quả buổi xem và chốt được.",
-              )}
-            </p>
-          )}
+          {item.landlord?.viewing_status === "declined" &&
+            !landlordClosed(item.landlord) && (
+              <p className="notice amber small">
+                {uiText(
+                  "Chủ nhà không nhận giờ này. Chọn giờ khác bên dưới, ReloHome sẽ gửi lại cho chủ nhà.",
+                )}
+              </p>
+            )}
+          {item.landlord?.viewing_status === "requested" &&
+            !landlordClosed(item.landlord) && (
+              <p className="muted small">
+                {uiText(
+                  "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Chủ nhà xác nhận thì bạn mới ghi kết quả buổi xem và chốt được.",
+                )}
+              </p>
+            )}
           {item.landlord?.request_id && (
             <button className="text-button" onClick={() => setChatting(item)}>
               <MessageCircle size={14} /> {uiText("Nhắn chủ nhà")}
