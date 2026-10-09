@@ -205,7 +205,7 @@ async def test_viewing_slots_sync_to_landlord_and_show_the_answer(tmp_path, monk
             ("PUT", f"/v1/housing/{managed}/viewing"),
             ("PUT", f"/v1/housing/{crawled}/viewing"),
         ]
-        assert result["items"][0]["landlord"] == {"viewing_status": "requested", "request_status": "new"}
+        assert result["items"][0]["landlord"]["viewing_status"] == "requested"
         assert "landlord" not in result["items"][1]  # other sources stay in test mode
         # The landlord confirmed; an unchanged slot is not sent again and the answer is shown.
         mine[0]["viewing_status"], mine[0]["status"] = "confirmed", "viewing"
@@ -213,7 +213,69 @@ async def test_viewing_slots_sync_to_landlord_and_show_the_answer(tmp_path, monk
         platform_calls.clear()
         result = (await client.get(f"/web/api/threads/{thread}/viewings")).json()
         assert ("PUT", f"/v1/housing/{managed}/viewing") not in platform_calls
-        assert result["items"][0]["landlord"] == {"viewing_status": "confirmed", "request_status": "viewing"}
+        assert result["items"][0]["landlord"]["viewing_status"] == "confirmed"
         # The plan tab reads the thread snapshot; it carries the same answer.
         snapshot = (await client.get(f"/web/api/threads/{thread}")).json()
         assert snapshot["state"]["viewing"]["items"][0]["landlord"]["viewing_status"] == "confirmed"
+
+
+@pytest.mark.asyncio
+async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    managed, crawled = "aaaaaaaa-1111-4111-8111-111111111111", "bbbbbbbb-1111-4111-8111-111111111111"
+    slot = "2026-10-10T13:00:00+07:00"
+    view = {
+        "items": [
+            {"listing_id": managed, "status": "visit_due", "viewing": {"slot": slot}},
+            {"listing_id": crawled, "status": "visit_due", "viewing": {"slot": slot}},
+        ]
+    }
+    row = {
+        "id": "r1",
+        "listing_id": managed,
+        "status": "new",
+        "viewing_status": "requested",
+        "viewing_slot": "2026-10-10T06:00:00.000Z",
+        "unread": 2,
+    }
+    visits = []
+
+    def provider(request):
+        path = request.url.path
+        if path.endswith("/viewings/visit"):
+            visits.append(json.loads(request.content)["listing_id"])
+            return httpx.Response(200, json=view)
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if path == f"/v1/housing/{managed}":
+            return httpx.Response(200, json={"listing_id": managed, "management": {"accepts_contact_requests": True}})
+        if path == f"/v1/housing/{crawled}":
+            return httpx.Response(200, json={"listing_id": crawled, "management": None})
+        return httpx.Response(409, json={"code": "not_managed", "message": "x"})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings/visit"
+        blocked = await client.post(url, json={"listing_id": managed, "outcome": "met_agreed"})
+        assert blocked.status_code == 409 and visits == []
+        # Homes from other sources keep the test-mode flow.
+        assert (await client.post(url, json={"listing_id": crawled, "outcome": "met_agreed"})).status_code == 200
+        row["viewing_status"], row["status"] = "confirmed", "viewing"
+        allowed = await client.post(url, json={"listing_id": managed, "outcome": "met_agreed"})
+        assert allowed.status_code == 200 and visits == [crawled, managed]
+        assert allowed.json()["items"][0]["landlord"] == {
+            "viewing_status": "confirmed",
+            "request_status": "viewing",
+            "request_id": "r1",
+            "unread": 2,
+        }

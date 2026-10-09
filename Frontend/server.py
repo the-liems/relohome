@@ -52,7 +52,7 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
     re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events)$"),
     re.compile(r"^housing/contact-requests/me$"),
-    re.compile(r"^housing/contact-requests/[0-9a-f-]+/cancel$"),
+    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
     re.compile(r"^host/profile$"),
     re.compile(r"^moderation/host/[A-Za-z0-9_-]{1,128}/review$"),
@@ -711,7 +711,12 @@ def create_app(database=None, transport=None):
             row = latest.get(item["listing_id"])
             slot = (item.get("viewing") or {}).get("slot")
             if row and row.get("viewing_status") and slot and same_instant(row.get("viewing_slot"), slot):
-                item["landlord"] = {"viewing_status": row["viewing_status"], "request_status": row["status"]}
+                item["landlord"] = {
+                    "viewing_status": row["viewing_status"],
+                    "request_status": row["status"],
+                    "request_id": row.get("id"),
+                    "unread": row.get("unread", 0),
+                }
         return view
 
     @app.get("/web/api/threads/{thread}/viewings")
@@ -728,9 +733,31 @@ def create_app(database=None, transport=None):
     ):
         owner, body = user(request)["id"], await object_body(request)
         owned(thread, owner)
+        if step == "visit":
+            await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
         return await landlord_viewings(
             owner, await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
         )
+
+    async def require_landlord_confirmation(thread, owner, listing_id):
+        """A home managed on ReloHome needs the landlord to confirm the booked time before the tenant
+        records the visit (and so before deciding). Other homes keep the test-mode flow."""
+        try:
+            detail = await upstream("GET", f"/housing/{listing_id}", owner, platform=True)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                return  # Not a published listing; the Agent API answers for it.
+            raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
+        if not (isinstance(detail, dict) and detail.get("management")):
+            return
+        view = await landlord_viewings(owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner))
+        item = (
+            next((i for i in (view.get("items") or []) if i.get("listing_id") == listing_id), None)
+            if isinstance(view, dict)
+            else None
+        )
+        if not item or (item.get("landlord") or {}).get("viewing_status") != "confirmed":
+            raise HTTPException(409, "Chủ nhà chưa xác nhận giờ xem này; ghi kết quả sau khi chủ nhà xác nhận.")
 
     @app.post("/web/api/threads/{thread}/flight/outbound")
     async def flight_outbound(thread: str, request: Request):

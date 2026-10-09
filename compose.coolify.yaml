@@ -186,6 +186,7 @@ services:
       HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
       # Empty: no poster-terms step (team has not published terms yet).
       HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
+      HOUSING_MESSAGE_RATE_PER_MINUTE: ${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
     depends_on:
       location-migrate: {condition: service_completed_successfully}
 

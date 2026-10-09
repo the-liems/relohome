@@ -15,3 +15,16 @@
 .tenant-request-list .text-button { justify-self: start; }
 @media (max-width: 620px) { .housing-usage-grid { grid-template-columns: repeat(2, 1fr); } .saved-compare-bar { flex-direction: column; align-items: stretch; } }
 .housing-poster { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px !important; color: var(--accent) !important; font-weight: 700; }
+/* Tenant <-> landlord messages (ContactThread) */
+.contact-thread { display: grid; gap: 10px; margin-top: 10px; }
+.contact-thread-list { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; }
+.contact-thread-list li { max-width: 85%; padding: 9px 12px; border: 1px solid var(--line, #d8dfda); background: var(--surface, #fff); }
+.contact-thread-list li.mine { justify-self: end; background: color-mix(in srgb, var(--ui-accent, #15775c) 10%, var(--surface, #fff)); border-color: color-mix(in srgb, var(--ui-accent, #15775c) 35%, transparent); }
+.contact-thread-list li p { margin: 3px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.contact-thread-who { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.contact-thread-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 8px 10px; background: color-mix(in srgb, #e9951a 12%, var(--surface)); color: color-mix(in srgb, #a15a00 85%, var(--ink)); }
+.contact-thread-form { display: flex; gap: 8px; align-items: flex-end; }
+.contact-thread-form textarea { flex: 1; min-height: 44px; resize: vertical; padding: 9px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit; }
+.contact-thread-form button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.unread-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 10px; background: #b94b31; color: #fff; font-size: .72rem; font-weight: 800; }
+@media (max-width: 620px) { .contact-thread-form { flex-direction: column; align-items: stretch; } .contact-thread-list li { max-width: 100%; } }

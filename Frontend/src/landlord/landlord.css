@@ -181,3 +181,5 @@ html[data-theme="dark"] .ll-host-line.pending, html[data-theme="dark"] .ll-host-
 .ll-viewing small { color: var(--muted, #5c6b63); }
 .ll-viewing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ll-viewing-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.ll-contact-list .ll-thread-toggle { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding: 0; border: 0; background: transparent; color: var(--accent, #087451); font-weight: 750; }
+.ll-thread-toggle .ll-count { margin-left: 4px; }

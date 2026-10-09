@@ -13,12 +13,13 @@ the same PostGIS schemas and only become public after moderation.
 | --- | --- |
 | `AGENT_API_TOKEN` | Shared server secret used by the browser gateway and Platform API. Never expose it to JavaScript. |
 | `HOUSING_MODERATOR_IDS` | Comma-separated trusted account IDs that may verify posters and approve properties and listings. |
+| `HOUSING_MESSAGE_RATE_PER_MINUTE` | Optional, default 10. Messages one sender may post per minute in a tenant–landlord conversation. |
 | `HOST_TERMS_VERSION` | Optional. Empty: no poster-terms step. A value makes posters accept that version before adding homes. |
 | `SIU_PLATFORM_API_URL` | Platform API base, normally `http://127.0.0.1:4100/v1` on a host. |
 | `SIU_PUBLIC_BASE_URL` | Public HTTPS origin used for uploaded listing image URLs. |
 
 Run `npm run db:migrate` in `Maps VN/LifeFlow` before starting the new workspace.
-Migrations `013_housing_product_v1.sql`, `014_housing_host_profiles.sql` and `015_housing_viewing_requests.sql` are additive and grant the
+Migrations `013_housing_product_v1.sql`, `014_housing_host_profiles.sql` and `015_housing_viewing_requests.sql`, `016`, `017_housing_contact_messages.sql` are additive and grant the
 application role only the writes needed by the owner workflow.
 
 ## Media storage

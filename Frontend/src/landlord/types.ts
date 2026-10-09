@@ -99,6 +99,7 @@ export interface ContactRequest {
   viewing_slot: string | null;
   viewing_status: "requested" | "confirmed" | "declined" | "cancelled" | null;
   source: "contact" | "viewing";
+  unread: number;
 }
 
 export interface ModerationProperty {

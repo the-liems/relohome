@@ -29,6 +29,7 @@ import { api, dateTime, money } from "../api";
 import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
 import { EmptyState } from "../components/UiStates";
+import { ContactThread } from "../components/ContactThread";
 import { housingManagement, uploadListingImage } from "./client";
 import {
   HostProfileForm,
@@ -194,7 +195,9 @@ export function LandlordWorkspace() {
     void load();
   }, [load]);
 
-  const newContacts = contacts.filter((item) => item.status === "new").length;
+  const newContacts = contacts.filter(
+    (item) => item.status === "new" || item.unread > 0,
+  ).length;
   const pendingReviews = queue
     ? queue.hosts.length + queue.properties.length + queue.listings.length
     : 0;
@@ -1459,7 +1462,10 @@ function InboxPanel({
   changed: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState<string | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [openThread, setOpenThread] = useState(""),
+    // Opened conversations are read; avoid reloading the whole workspace (it would close them).
+    [read, setRead] = useState<Set<string>>(new Set());
   async function update(
     item: ContactRequest,
     status: ContactRequest["status"],
@@ -1582,6 +1588,33 @@ function InboxPanel({
                 <small>
                   {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
                 </small>
+                <button
+                  className="text-button ll-thread-toggle"
+                  aria-expanded={openThread === item.id}
+                  onClick={() =>
+                    setOpenThread(openThread === item.id ? "" : item.id)
+                  }
+                >
+                  <MessageSquareText size={15} />{" "}
+                  {openThread === item.id
+                    ? t("Ẩn tin nhắn")
+                    : t("Nhắn tin với người thuê")}
+                  {item.unread > 0 &&
+                    !read.has(item.id) &&
+                    openThread !== item.id && (
+                      <span className="ll-count">{item.unread}</span>
+                    )}
+                </button>
+                {openThread === item.id && (
+                  <ContactThread
+                    requestId={item.id}
+                    onRead={() =>
+                      setRead((ids) =>
+                        ids.has(item.id) ? ids : new Set([...ids, item.id]),
+                      )
+                    }
+                  />
+                )}
                 {open && (
                   <div className="ll-contact-actions">
                     {item.status === "new" && (

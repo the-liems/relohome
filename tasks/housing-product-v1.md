@@ -24,6 +24,8 @@
   - Chưa làm: điều khoản người đăng (bật bằng `HOST_TERMS_VERSION`), tạm khóa người đăng, xác minh điện tử.
 
 - [x] HP-12: Lịch xem ở tab "Xem nhà" gửi tới chủ nhà và chờ xác nhận ([viewing-landlord-confirmation](../docs/review/viewing-landlord-confirmation.md))
+- [x] HP-13: Chủ nhà phải xác nhận giờ thì người thuê mới ghi kết quả và chốt; tin nhắn giữa hai bên trên từng yêu cầu
+- [ ] HP-14: Phản hồi và đánh giá của người thuê (thiết kế: [housing-feedback-design](../docs/review/housing-feedback-design.md))
 
 Mỗi task phải giữ contract Housing/Moving/Flight/Roommate hiện tại, có test tập trung và build sạch trước khi đánh dấu hoàn tất.
 

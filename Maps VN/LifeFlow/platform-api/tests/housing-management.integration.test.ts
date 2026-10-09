@@ -295,4 +295,48 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     // Crawled or unmanaged listings keep the local test-mode viewing.
     expect((await call(tenant, 'PUT', `/v1/housing/${randomUUID()}/viewing`, { slot })).body.code).toBe('not_managed')
   })
+
+  it('tenant and landlord exchange messages on one request; nobody else can read it', async () => {
+    const owner = `test-mowner-${run}`
+    const tenant = `test-mtenant-${run}`
+    await host(owner)
+    await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, { decision: 'verify', method: 'phone_call' })
+    const propertyId = await property(owner)
+    await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})
+    const listingId = await listing(owner, await unit(owner, propertyId, 'M.1'), [])
+    await call(owner, 'POST', `/v1/landlord/listings/${listingId}/submit`, {})
+    await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${listingId}/review`, { decision: 'approve' })
+    const sent = await call(tenant, 'POST', `/v1/housing/${listingId}/contact-requests`, { message: 'Phòng còn không ạ?' })
+    const id = sent.body.id
+    const path = `/v1/housing/contact-requests/${id}/messages`
+
+    expect((await call(tenant, 'POST', path, { body: 'Chiều mai em qua xem được không?' })).status).toBe(201)
+    let inbox = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items.find((i: { id: string }) => i.id === id)
+    expect(inbox.unread).toBe(1)
+    // Strangers, including other landlords, cannot read or write.
+    expect((await call(OTHER, 'GET', path)).status).toBe(404)
+    expect((await call(OTHER, 'POST', path, { body: 'xin chào' })).status).toBe(404)
+    const read = await call(owner, 'GET', path)
+    expect(read.body.role).toBe('landlord')
+    expect(read.body.messages.map((m: { body: string }) => m.body)).toEqual(['Chiều mai em qua xem được không?'])
+    inbox = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items.find((i: { id: string }) => i.id === id)
+    expect(inbox.unread).toBe(0)
+    // The landlord's first reply marks the request as contacted; the tenant sees one unread message.
+    await call(owner, 'POST', path, { body: 'Được em, 3 giờ chiều nhé.' })
+    const mine = (await call(tenant, 'GET', '/v1/housing/contact-requests/me')).body.items.find((i: { id: string }) => i.id === id)
+    expect([mine.status, mine.unread]).toEqual(['contacted', 1])
+    expect((await call(tenant, 'GET', path)).body.messages.map((m: { sender_role: string }) => m.sender_role)).toEqual(['tenant', 'landlord'])
+    // Rate limit comes from configuration.
+    process.env.HOUSING_MESSAGE_RATE_PER_MINUTE = '2'
+    try {
+      expect((await call(tenant, 'POST', path, { body: 'Dạ vâng.' })).status).toBe(201)
+      expect((await call(tenant, 'POST', path, { body: 'Em cảm ơn.' })).status).toBe(429)
+    } finally {
+      delete process.env.HOUSING_MESSAGE_RATE_PER_MINUTE
+    }
+    // A closed request takes no more messages.
+    const rev = (await call(tenant, 'GET', '/v1/housing/contact-requests/me')).body.items.find((i: { id: string }) => i.id === id).revision
+    await call(owner, 'PATCH', `/v1/landlord/contact-requests/${id}`, { status: 'resolved', revision: rev })
+    expect((await call(owner, 'POST', path, { body: 'Cảm ơn em.' })).status).toBe(409)
+  })
 })

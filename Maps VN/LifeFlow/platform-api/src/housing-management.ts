@@ -45,6 +45,7 @@ const PropertyUpdate = PropertyInput.partial().extend({ revision: Revision })
 const UnitUpdate = UnitInput.partial()
 const MediaInput = z.object({ url: z.url().max(2_000), alt: z.string().trim().max(300).nullable().default(null) })
 const ContactInput = z.object({ message: z.string().trim().min(1).max(1_000) })
+const MessageInput = z.object({ body: z.string().trim().min(1).max(2_000) })
 const ViewingInput = z.object({ slot: z.iso.datetime({ offset: true }) })
 const ViewingDecision = z.object({ decision: z.enum(['confirm', 'decline']), revision: Revision })
 const ContactUpdate = z.object({
@@ -160,6 +161,33 @@ async function requireVerifiedHosts(pool: DatabasePool, users: string[]) {
     throw new ManagementError(409, 'Người đăng chưa được xác minh.', 'host_not_verified')
   }
 }
+
+// Messages one sender may post per minute in a conversation; configuration, not a fixed rule.
+function messageRate() {
+  const value = Number(process.env.HOUSING_MESSAGE_RATE_PER_MINUTE || 10)
+  return Number.isFinite(value) && value > 0 ? value : 10
+}
+
+// Who may read a conversation: the tenant who sent the request, or an active manager of the property.
+// Anyone else gets 404 so request IDs cannot be probed.
+async function conversationRole(pool: DatabasePool, user: string, requestId: string) {
+  const result = await pool.query(
+    `SELECT cr.*,l.title,
+       CASE WHEN cr.tenant_user_id=$2 THEN 'tenant'
+            WHEN EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=l.property_id
+                        AND mm.user_id=$2 AND mm.status='active') THEN 'landlord' END AS role
+     FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id WHERE cr.id=$1`,
+    [requestId, user],
+  )
+  const row = result.rows[0]
+  if (!row?.role) throw new ManagementError(404, 'Không tìm thấy cuộc trò chuyện.')
+  return row as Record<string, unknown> & { role: 'tenant' | 'landlord' }
+}
+
+// Unread messages for one side of a conversation (SQL fragment over alias `cr`).
+const unreadFor = (side: 'tenant' | 'landlord') =>
+  `(SELECT count(*)::int FROM housing.contact_messages m WHERE m.request_id=cr.id AND m.sender_role<>'${side}'
+     AND m.created_at > COALESCE(cr.${side}_read_at,'epoch'::timestamptz)) AS unread`
 
 async function replaceFees(client: { query: DatabasePool['query'] }, listing: string, fees: z.infer<typeof FeeInput>[]) {
   await client.query('UPDATE housing.listing_fees SET valid_to=now() WHERE listing_id=$1 AND valid_to IS NULL', [listing])
@@ -677,7 +705,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name,
-         cr.viewing_slot,cr.viewing_status,cr.source
+         cr.viewing_slot,cr.viewing_status,cr.source,${unreadFor('landlord')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        LEFT JOIN housing.units u ON u.id=l.unit_id JOIN housing.properties p ON p.id=l.property_id
        JOIN housing.management_members mm ON mm.property_id=p.id AND mm.user_id=$1 AND mm.status='active'
@@ -690,7 +718,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,
-         cr.viewing_slot,cr.viewing_status,cr.source
+         cr.viewing_slot,cr.viewing_status,cr.source,${unreadFor('tenant')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        WHERE cr.tenant_user_id=$1 ORDER BY cr.created_at DESC`, [user],
     )
@@ -777,6 +805,55 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     if (!result.rowCount) throw new ManagementError(409, 'Lịch xem đã thay đổi hoặc bạn không có quyền xử lý.')
     return result.rows[0]
+  })
+
+  // Conversation of one contact request (tenant <-> landlord); reading marks it read for the caller's side.
+  app.get('/v1/housing/contact-requests/:requestId/messages', async request => {
+    const user = actor(request)
+    const requestId = Id.parse((request.params as { requestId: string }).requestId)
+    const conversation = await conversationRole(pool, user, requestId)
+    const messages = await pool.query(
+      `SELECT id,sender_role,body,created_at FROM housing.contact_messages WHERE request_id=$1 ORDER BY created_at,id`,
+      [requestId],
+    )
+    await pool.query(`UPDATE housing.contact_requests SET ${conversation.role}_read_at=now() WHERE id=$1`, [requestId])
+    return {
+      role: conversation.role,
+      request: {
+        id: conversation.id, listing_id: conversation.listing_id, title: conversation.title,
+        status: conversation.status, message: conversation.message, created_at: conversation.created_at,
+        viewing_slot: conversation.viewing_slot, viewing_status: conversation.viewing_status,
+        open: ['new', 'contacted', 'viewing'].includes(String(conversation.status)),
+      },
+      messages: messages.rows,
+    }
+  })
+
+  app.post('/v1/housing/contact-requests/:requestId/messages', async (request, reply) => {
+    const user = actor(request)
+    const requestId = Id.parse((request.params as { requestId: string }).requestId)
+    const input = MessageInput.parse(request.body)
+    const conversation = await conversationRole(pool, user, requestId)
+    if (!['new', 'contacted', 'viewing'].includes(String(conversation.status))) {
+      throw new ManagementError(409, 'Yêu cầu đã đóng; không gửi thêm tin nhắn được.')
+    }
+    const recent = await pool.query(
+      `SELECT count(*)::int AS n FROM housing.contact_messages
+       WHERE request_id=$1 AND sender_user_id=$2 AND created_at > now() - interval '1 minute'`, [requestId, user],
+    )
+    if (recent.rows[0].n >= messageRate()) throw new ManagementError(429, 'Bạn gửi hơi nhanh; chờ một chút rồi gửi tiếp.')
+    const created = await pool.query(
+      `INSERT INTO housing.contact_messages(request_id,sender_role,sender_user_id,body) VALUES($1,$2,$3,$4)
+       RETURNING id,sender_role,body,created_at`, [requestId, conversation.role, user, input.body],
+    )
+    // The landlord's first reply means the request has been answered.
+    await pool.query(
+      `UPDATE housing.contact_requests SET ${conversation.role}_read_at=now(),updated_at=now(),
+         status=CASE WHEN $2='landlord' AND status='new' THEN 'contacted' ELSE status END,
+         revision=CASE WHEN $2='landlord' AND status='new' THEN revision+1 ELSE revision END
+       WHERE id=$1`, [requestId, conversation.role],
+    )
+    return reply.status(201).send(created.rows[0])
   })
 
   app.post('/v1/housing/contact-requests/:requestId/cancel', async request => {

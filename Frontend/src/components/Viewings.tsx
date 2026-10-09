@@ -1,9 +1,17 @@
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useMemo, useRef, useState } from "react";
-import { CalendarClock, Check, Home, RotateCcw, X } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  Home,
+  MessageCircle,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { ApiError, api, money, requestId } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
+import { ContactThread } from "./ContactThread";
 
 // Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 // Limits, slot length and suggested deposit come from the server; nothing is fixed here.
@@ -27,10 +35,12 @@ function statusLabel(item: Data, testVisit: boolean) {
   const landlord = item.landlord;
   if (landlord && ["declined", "resolved"].includes(landlord.request_status))
     return "Chủ nhà đã đóng yêu cầu";
+  // Before the landlord confirms, their answer matters more than the test-mode visit label.
   if (
     landlord &&
-    item.status === "viewing_scheduled" &&
-    LANDLORD[landlord.viewing_status]
+    LANDLORD[landlord.viewing_status] &&
+    (item.status === "viewing_scheduled" ||
+      (item.status === "visit_due" && landlord.viewing_status !== "confirmed"))
   )
     return LANDLORD[landlord.viewing_status];
   if (item.status === "visit_due" && testVisit)
@@ -320,6 +330,7 @@ export function ViewingPanel({
   onChanged: () => Promise<void> | void;
   onMovingForm?: () => void;
 }) {
+  const [chatting, setChatting] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [deciding, setDeciding] = useState<Data | null>(null),
@@ -439,9 +450,17 @@ export function ViewingPanel({
           {item.landlord?.viewing_status === "requested" && (
             <p className="muted small">
               {uiText(
-                "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Bạn sẽ thấy chủ nhà xác nhận hoặc đề nghị đổi giờ tại đây.",
+                "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Chủ nhà xác nhận thì bạn mới ghi kết quả buổi xem và chốt được.",
               )}
             </p>
+          )}
+          {item.landlord?.request_id && (
+            <button className="text-button" onClick={() => setChatting(item)}>
+              <MessageCircle size={14} /> {uiText("Nhắn chủ nhà")}
+              {item.landlord.unread > 0 && (
+                <span className="unread-badge">{item.landlord.unread}</span>
+              )}
+            </button>
           )}
           {item.status === "viewing_scheduled" && (
             <p className="muted small">
@@ -469,7 +488,7 @@ export function ViewingPanel({
                 }
               />
             )}
-          {item.landlord?.viewing_status !== "declined" &&
+          {(!item.landlord || item.landlord.viewing_status === "confirmed") &&
             (item.status === "visit_due" ||
               (item.status === "backup" &&
                 item.viewing?.slot &&
@@ -644,6 +663,17 @@ export function ViewingPanel({
         <p className="notice error" role="alert">
           {error}
         </p>
+      )}
+      {chatting && (
+        <Dialog
+          title={formatUi("Nhắn chủ nhà · {0}", [chatting.title])}
+          onClose={() => {
+            setChatting(null);
+            void onChanged();
+          }}
+        >
+          <ContactThread requestId={chatting.landlord.request_id} />
+        </Dialog>
       )}
       {deciding && (
         <DecideDialog

@@ -1,6 +1,9 @@
 # Thiết kế: gửi lịch xem nhà tới chủ nhà và chờ xác nhận
 
-Trạng thái: **v1, đã code trên nhánh `feat/housing-product-v1-finish` (chưa push).** Ngày: 09/10/2026.
+Trạng thái: **v2, đã code trên nhánh `feat/housing-product-v1-finish` (chưa push).** Ngày: 09/10/2026.
+
+v2: với tin do chủ nhà quản lý, người thuê **chỉ ghi kết quả buổi xem (và vì thế mới chốt được) khi chủ nhà đã xác
+nhận đúng giờ đó**; thêm **tin nhắn** giữa hai bên trên từng yêu cầu liên hệ (mục 6).
 Nền: [housing-viewing-design](housing-viewing-design.md) (tab "Xem nhà"), [SPEC-021](../specs/SPEC-021-housing-product-v1.md)
 (hộp thư yêu cầu liên hệ) và [host-mode-design](host-mode-design.md) (chế độ chủ nhà).
 
@@ -74,7 +77,20 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
 - Bước đặt lịch đơn lẻ cũ trong checkout (`/housing/viewing`, khi tắt tính năng chọn nhiều căn) vẫn là lịch thử.
 - Không gửi thông báo ngoài app (email, SMS); chủ nhà xem trong hộp thư.
 
-## 6. Kiểm thử
+## 6. Tin nhắn và điều kiện ghi kết quả (v2)
+
+- **Điều kiện ghi kết quả:** gateway kiểm tra trước bước `visit`. Tin có `management` (do chủ nhà quản lý) cần yêu cầu
+  liên hệ có `viewing_status = confirmed` cho đúng giờ đang hẹn; nếu không trả `409`. Tin nguồn khác giữ luồng thử.
+  Không kiểm được Platform thì trả `503` (không cho qua). Giao diện ẩn nút ghi kết quả khi chủ nhà chưa xác nhận.
+- **Tin nhắn:** bảng `housing.contact_messages` (migration `017`), một cuộc trò chuyện cho mỗi yêu cầu liên hệ.
+  Chỉ người thuê của yêu cầu và người quản lý đang hoạt động của địa điểm đọc và gửi được; người khác nhận `404`.
+  Lời nhắn đầu của yêu cầu là tin nhắn đầu tiên. Chủ nhà trả lời lần đầu thì yêu cầu chuyển `contacted`.
+  Yêu cầu đã đóng thì không gửi thêm. Giới hạn số tin mỗi phút là cấu hình `HOUSING_MESSAGE_RATE_PER_MINUTE`
+  (mặc định 10). Số tin chưa đọc hiện ở hộp thư chủ nhà, tab Liên hệ chủ nhà và tab Xem nhà.
+- Giao diện nhắc "không chuyển tiền cọc trước khi xem nhà và gặp chủ nhà" ngay trong khung chat. Không có thông báo
+  đẩy; giao diện tải lại tin mỗi 15 giây khi đang mở cuộc trò chuyện.
+
+## 7. Kiểm thử
 
 - Platform (PostGIS thật): gửi giờ, gửi lại không đổi, người khác không trả lời được, từ chối rồi đổi giờ, xác nhận,
   hủy, yêu cầu chỉ từ lịch xem đóng khi hủy, tin không quản lý trả `not_managed`.

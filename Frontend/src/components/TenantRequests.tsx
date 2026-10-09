@@ -1,9 +1,10 @@
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
-import { Inbox } from "lucide-react";
+import { Inbox, MessageCircle } from "lucide-react";
 import { api, dateTime } from "../api";
 import type { Data } from "../types";
 import { VIEWING_HINT } from "./Housing";
+import { ContactThread } from "./ContactThread";
 
 // Contact requests the signed-in tenant sent to owner-managed listings (SPEC-021 AC-05).
 const VIEWING: Record<string, string> = {
@@ -24,7 +25,8 @@ const STATUS: Record<string, string> = {
 export function TenantRequests() {
   const [items, setItems] = useState<Data[] | null>(null),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState("");
+    [busy, setBusy] = useState(""),
+    [open, setOpen] = useState("");
   async function load() {
     setError("");
     try {
@@ -97,8 +99,33 @@ export function TenantRequests() {
                   ])}
                 </p>
               )}
-              {item.status === "viewing" && (
+              {item.status === "viewing" && item.source !== "viewing" && (
                 <p className="muted small">{uiText(VIEWING_HINT)}</p>
+              )}
+              <button
+                className="text-button"
+                aria-expanded={open === item.id}
+                onClick={() => setOpen(open === item.id ? "" : item.id)}
+              >
+                <MessageCircle size={14} />{" "}
+                {open === item.id
+                  ? uiText("Ẩn tin nhắn")
+                  : uiText("Nhắn tin với chủ nhà")}
+                {item.unread > 0 && open !== item.id && (
+                  <span className="unread-badge">{item.unread}</span>
+                )}
+              </button>
+              {open === item.id && (
+                <ContactThread
+                  requestId={item.id}
+                  onRead={() =>
+                    setItems((rows) =>
+                      (rows || []).map((r) =>
+                        r.id === item.id ? { ...r, unread: 0 } : r,
+                      ),
+                    )
+                  }
+                />
               )}
               {["new", "contacted"].includes(item.status) && (
                 <button
