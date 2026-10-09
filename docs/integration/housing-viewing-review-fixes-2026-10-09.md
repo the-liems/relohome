@@ -27,6 +27,8 @@ Không deploy và không merge vào `main` trong công việc này.
 - Build Frontend (`tsc -b` + Vite): pass.
 - 38 regression test Housing/Viewings/API/graph: pass, gồm 18 test mới với SQLite thật (trạng thái, retry, rollback bằng lỗi SQLite thật).
 - Suite portable trên Windows: **704 passed, 90 skipped, 47 subtests passed**. Loại riêng ba module CI runner/container/prompt-hook phụ thuộc shell/quyền symlink Linux; không coi đây là kết quả CI Linux.
+- Ba module bị loại trên Windows được chạy riêng trong container Linux: **15 passed, 50 subtests passed**.
+- LifeFlow TypeScript workspace build + `test:ci`: pass trên máy local (37 contract test pass; 14 test live opt-in skip). Kiểm tra lại build/test với giới hạn heap Node 512 MiB để đối chiếu runner.
 - Test live mới `tests/test_api/test_viewing_live.py`: pass, dùng **Location MCP + dữ liệu DB thật + LangGraph checkpoint + HTTP handler hiện tại**, state riêng trong thư mục tạm. Ba request chốt/chốt/bỏ chọn đồng thời: một 200, hai 409; retry đúng nội dung thành công, đổi tiền với cùng khóa bị chặn, trạng thái graph/store khớp, replay sau mở lại bị chặn, căn đã báo trả tiền không bị hạ trạng thái.
 - Test live chỉ đọc provider; không tạo dữ liệu Housing giả, không gọi LLM, không đặt xe/đặt nhà/thanh toán. Bỏ điều kiện thời gian xem chỉ trong instance test tách riêng, không sửa `.env` của người dùng.
 
@@ -44,3 +46,4 @@ Remove-Item Env:RUN_HOUSING_VIEWING_LIVE, Env:VIEWING_ENV_FILE
 - Khóa hiện tại là nội bộ **một worker/một host**. Không tuyên bố an toàn multi-worker; cần khóa/CAS dùng chung và kiểm soát chuyển trạng thái khi triển khai nhiều instance.
 - Chưa có landlord availability/confirmation thật. Không dùng `HOUSING_VIEWING_TEST_VISIT_ANYTIME` cho production (runtime bỏ qua cờ khi `APP_ENV=production`).
 - CI GitHub phải kiểm tra đúng SHA mới trước khi kết luận sẵn sàng merge; lỗi runner mã 137 ở lần chạy SHA cũ không phải bằng chứng code mới đã qua CI.
+- CI trên `69fd5d6` đã qua MCP smoke nhưng compiler `platform-api` bị kill mã 137, không báo lỗi type. Thêm giới hạn heap Node 512 MiB **chỉ cho bước TypeScript CI** và log cgroup để xác định tài nguyên; không bỏ test/typecheck và không sửa runner/deploy. Đây là biện pháp cần kiểm chứng, không khẳng định đã giải quyết lỗi hạ tầng.
