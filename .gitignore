@@ -104,3 +104,6 @@ Maps\ VN/Routing/**
 !Maps\ VN/Raw/**/.gitignore
 !Maps\ VN/Extracts/**/.gitignore
 !Maps\ VN/Routing/**/.gitignore
+
+# Local pytest/tool scratch directories (never commit generated keys)
+.tmp/

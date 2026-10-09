@@ -90,6 +90,8 @@ async function applyRoleGrants() {
     housing.listing_media, housing.management_members, housing.managed_listings, housing.listing_fees,
     housing.contact_requests, housing.listing_events TO ${app}`)
   await pool.query(`GRANT INSERT ON catalog.places TO ${app}`)
+  // Owners edit the name, address and pin of their property's place; other columns stay read-only.
+  await pool.query(`GRANT UPDATE (name, address, geom, updated_at) ON catalog.places TO ${app}`)
   await pool.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA catalog, housing TO ${app}`)
   await pool.query(`GRANT INSERT ON audit.tool_calls TO ${app}`)
   await pool.query(`GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA moving TO ${app}`)

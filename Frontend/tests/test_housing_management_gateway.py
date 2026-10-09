@@ -7,7 +7,6 @@ from PIL import Image
 
 from Frontend.server import create_app
 
-
 HEADERS = {"X-SIU-Request": "1", "Origin": "http://test"}
 LISTING = "11111111-1111-4111-8111-111111111111"
 
@@ -52,6 +51,7 @@ async def test_management_gateway_uses_session_actor_and_strict_allowlist(tmp_pa
 async def test_housing_image_upload_is_sanitized_and_registered(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
     monkeypatch.setenv("SIU_PUBLIC_BASE_URL", "https://example.test")
+    monkeypatch.setenv("SIU_HOUSING_MEDIA_DIR", str(tmp_path / "media"))
 
     def provider(request):
         body = json.loads(request.content)
@@ -81,3 +81,27 @@ async def test_housing_image_upload_is_sanitized_and_registered(tmp_path, monkey
         assert image.status_code == 200
         assert image.headers["content-type"] == "image/png"
         assert image.headers["x-content-type-options"] == "nosniff"
+
+
+
+@pytest.mark.asyncio
+async def test_oversized_upload_is_rejected_before_any_upstream_call(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    monkeypatch.setenv("SIU_HOUSING_MEDIA_DIR", str(tmp_path / "media"))
+    calls = []
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(lambda request: calls.append(request)))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "big@example.test", "password": "a-long-password", "name": "Owner"},
+        )
+        response = await client.post(
+            f"/web/api/landlord/listings/{LISTING}/media-upload",
+            content=b"0" * (5 * 1024 * 1024 + 1),
+            headers={**HEADERS, "Content-Type": "image/jpeg"},
+        )
+        assert response.status_code == 413
+        assert not calls and not (tmp_path / "media").exists()

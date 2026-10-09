@@ -5,7 +5,12 @@ import { z } from 'zod'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
-const Address = z.record(z.string(), z.unknown())
+// Owners type one address line; readers (agent, search text) use the importer's `raw` key.
+const Address = z.record(z.string(), z.unknown()).transform(address =>
+  typeof address.full_address === 'string' && address.raw === undefined
+    ? { ...address, raw: address.full_address.trim() }
+    : address,
+)
 const PropertyInput = z.object({
   name: z.string().trim().min(2).max(160),
   property_type: z.enum(['apartment', 'house', 'room', 'studio', 'serviced_apartment', 'homestay', 'other']),
@@ -84,6 +89,15 @@ async function member(pool: DatabasePool, user: string, property: string, active
     throw new ManagementError(403, active ? 'Quyền quản lý chưa được duyệt.' : 'Bạn không quản lý địa điểm này.')
   }
   return row
+}
+
+// SPEC-021: a moderator never reviews a property they manage, even when they also own listings.
+async function notOwnProperty(pool: DatabasePool, user: string, property: string) {
+  const result = await pool.query(
+    `SELECT 1 FROM housing.management_members WHERE property_id=$1 AND user_id=$2 AND status <> 'revoked'`,
+    [property, user],
+  )
+  if (result.rowCount) throw new ManagementError(403, 'Không thể tự duyệt địa điểm hoặc tin mình quản lý.')
 }
 
 async function listingProperty(pool: DatabasePool, listing: string) {
@@ -177,7 +191,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     await member(pool, user, propertyId)
     const property = await pool.query(
       `SELECT p.id,p.name,p.property_type,cp.address,ST_X(cp.geom)::float AS lng,ST_Y(cp.geom)::float AS lat,
-        mm.status AS management_status,mm.role
+        mm.status AS management_status,mm.role,mm.revision
        FROM housing.properties p JOIN catalog.places cp ON cp.id=p.place_id
        JOIN housing.management_members mm ON mm.property_id=p.id AND mm.user_id=$2 WHERE p.id=$1`,
       [propertyId, user],
@@ -270,9 +284,11 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const listingId = randomUUID()
     try {
       await client.query('BEGIN')
+      // source_type 'user' is the read contract's value for user-submitted listings; the
+      // self_service attribute marks owner-managed rows. Other values break public detail parsing.
       await client.query(
         `INSERT INTO housing.listings(id,property_id,unit_id,listing_type,title,description,source_type,source_listing_id,status,attributes)
-         VALUES($1,$2,$3,'rent',$4,$5,'self_service',$6,'inactive','{"self_service":true}'::jsonb)`,
+         VALUES($1,$2,$3,'rent',$4,$5,'user',$6,'inactive','{"self_service":true}'::jsonb)`,
         [listingId, owner.rows[0].property_id, unitId, input.title, input.description, `self:${listingId}`],
       )
       await client.query(
@@ -428,10 +444,12 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const propertyId = Id.parse((request.params as { propertyId: string }).propertyId)
-    await pool.query(
+    await notOwnProperty(pool, user, propertyId)
+    const result = await pool.query(
       `UPDATE housing.management_members SET status='active',reviewed_at=now(),reviewed_by=$2,revision=revision+1
        WHERE property_id=$1 AND status='pending'`, [propertyId, user],
     )
+    if (!result.rowCount) throw new ManagementError(409, 'Địa điểm không còn chờ duyệt.')
     return { property_id: propertyId, status: 'active' }
   })
 
@@ -444,9 +462,17 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
        JOIN catalog.places cp ON cp.id=p.place_id WHERE mm.status='pending' ORDER BY mm.requested_at`,
     )
     const listings = await pool.query(
-      `SELECT l.id,l.title,p.name AS property_name,ml.created_by,ml.updated_at
+      `SELECT l.id,l.title,l.description,p.name AS property_name,cp.address,u.unit_code,ml.created_by,ml.updated_at,
+         o.price_amount::float AS rent_vnd,o.deposit_amount::float AS deposit_vnd,
+         (SELECT count(*)::int FROM housing.listing_fees f WHERE f.listing_id=l.id AND f.valid_to IS NULL) AS fee_count,
+         (SELECT coalesce(json_agg(json_build_object('url',m.url,'alt',m.alt_text) ORDER BY m.position),'[]'::json)
+            FROM housing.listing_media m WHERE m.listing_id=l.id AND m.moderation_status='pending') AS pending_media,
+         (SELECT mm.status FROM housing.management_members mm WHERE mm.property_id=p.id AND mm.role='owner' LIMIT 1) AS property_status
        FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
-       JOIN housing.properties p ON p.id=l.property_id WHERE ml.publication_status='pending_review' ORDER BY ml.updated_at`,
+       JOIN housing.properties p ON p.id=l.property_id JOIN catalog.places cp ON cp.id=p.place_id
+       LEFT JOIN housing.units u ON u.id=l.unit_id
+       LEFT JOIN LATERAL (SELECT * FROM housing.offers WHERE listing_id=l.id AND is_active ORDER BY valid_from DESC LIMIT 1) o ON true
+       WHERE ml.publication_status='pending_review' ORDER BY ml.updated_at`,
     )
     return { properties: properties.rows, listings: listings.rows }
   })
@@ -455,6 +481,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
+    await notOwnProperty(pool, user, await listingProperty(pool, listingId))
     const input = z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).parse(request.body)
     const approved = input.decision === 'approve'
     const result = await pool.query(
@@ -543,7 +570,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const input = ContactUpdate.parse(request.body)
     const result = await pool.query(
-      `UPDATE housing.contact_requests cr SET status=$2,revision=revision+1,updated_at=now()
+      `UPDATE housing.contact_requests cr SET status=$2,revision=cr.revision+1,updated_at=now()
        FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
        WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
        RETURNING cr.id,cr.status,cr.revision,cr.updated_at`, [requestId, input.status, user, input.revision],

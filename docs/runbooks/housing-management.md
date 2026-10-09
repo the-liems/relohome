@@ -23,7 +23,7 @@ only the writes needed by the owner workflow.
 ## Media storage
 
 The gateway validates JPEG/PNG input, strips metadata and writes normalized PNG
-files under `Frontend/data/housing-media`. Production deployments must mount that
+files under `Frontend/data/housing-media` (override with `SIU_HOUSING_MEDIA_DIR`). Production deployments must mount that
 directory on persistent storage and include it in backup/restore. Files use random
 identifiers and are served with `nosniff`; listing media stays pending until the
 listing is reviewed.
@@ -37,6 +37,11 @@ listing is reviewed.
 5. A moderator approves or rejects it. Approval publishes only a `vacant` listing.
 6. The owner changes availability independently to `vacant`, `rented` or `paused`.
 7. Hiding or deleting a listing immediately removes it from public Housing reads.
+
+Moderators use the "Duyệt tin" tab in `/landlord`; it appears only when the
+queue endpoint accepts the signed-in account. A moderator cannot approve a property
+or listing they manage. Self-service listings are stored with `source_type = 'user'`
+and `attributes.self_service = true`, so public reads keep the existing contract.
 
 Browser users never provide their own upstream actor ID. The gateway derives it
 from the HttpOnly session and forwards it with the trusted server token.
@@ -55,6 +60,8 @@ npm run build --workspace @lifeflow/contracts
 npm run build --workspace @lifeflow/housing-query
 npm run build --workspace @lifeflow/platform-api
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.test.ts --pool=threads --maxWorkers=1
+# Needs a migrated local PostGIS (DATABASE_URL / ADMIN_DATABASE_URL); creates and removes its own test rows.
+node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1
 
 cd ../../Frontend
 npm run build

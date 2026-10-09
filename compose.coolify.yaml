@@ -60,6 +60,9 @@ services:
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
       # Encrypts flight booker profiles. Empty: a key file is created in web-data.
       SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
+      # Owner-uploaded listing photos live on the persistent web-data volume.
+      SIU_HOUSING_MEDIA_DIR: /app/data/housing-media
+      SIU_PUBLIC_BASE_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
@@ -175,7 +178,12 @@ services:
   platform:
     <<: *app
     image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
-    environment: *location-env
+    environment:
+      <<: *location-env
+      # Housing owner workspace (docs/runbooks/housing-management.md): the web gateway
+      # authenticates with the shared token; only these account IDs may moderate.
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
+      HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
     depends_on:
       location-migrate: {condition: service_completed_successfully}
 

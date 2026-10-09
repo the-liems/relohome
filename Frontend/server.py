@@ -31,13 +31,17 @@ from src.agents.intake import redact_pii
 from src.mcp_servers.flights.schemas import Contact, Passenger
 from src.models.moving_options import MovingOptions
 from src.models.schemas import MovingQuoteForm
-from src.roommate.agent_projection import history_projection
 from src.roommate.access import RoommateError
-from src.roommate.media import sanitized_image
+from src.roommate.agent_projection import history_projection
+from src.roommate.media import MAX_IMAGE_BYTES, sanitized_image
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
-HOUSING_MEDIA = ROOT / "data" / "housing-media"
+
+
+def housing_media_dir() -> Path:
+    """Owner-uploaded listing images; mount persistently in production (runbook: housing-management)."""
+    return Path(os.getenv("SIU_HOUSING_MEDIA_DIR", str(ROOT / "data" / "housing-media")))
 HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/(overview|properties|contact-requests)$"),
     re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
@@ -690,13 +694,24 @@ def create_app(database=None, transport=None):
         owner = user(request)["id"]
         if not re.fullmatch(r"[0-9a-f-]{36}", listing_id, re.IGNORECASE):
             raise HTTPException(404)
+        too_large = HTTPException(413, "Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB và 16 megapixel.")
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_IMAGE_BYTES:
+            raise too_large
+        # Stop reading as soon as the limit is passed instead of buffering an unbounded body.
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > MAX_IMAGE_BYTES:
+                raise too_large
         try:
-            clean = await asyncio.to_thread(sanitized_image, await request.body())
+            clean = await asyncio.to_thread(sanitized_image, bytes(body))
         except RoommateError as error:
             raise HTTPException(error.status, "Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB và 16 megapixel.") from None
-        HOUSING_MEDIA.mkdir(parents=True, exist_ok=True)
+        media_dir = housing_media_dir()
+        media_dir.mkdir(parents=True, exist_ok=True)
         identifier = secrets.token_hex(20)
-        target = HOUSING_MEDIA / f"{identifier}.png"
+        target = media_dir / f"{identifier}.png"
         await asyncio.to_thread(target.write_bytes, clean)
         public_base = os.getenv("SIU_PUBLIC_BASE_URL", str(request.base_url)).rstrip("/")
         try:
@@ -716,8 +731,9 @@ def create_app(database=None, transport=None):
     async def housing_media(filename: str):
         if not re.fullmatch(r"[0-9a-f]{40}\.png", filename):
             raise HTTPException(404)
-        target = (HOUSING_MEDIA / filename).resolve()
-        if not target.is_relative_to(HOUSING_MEDIA.resolve()) or not target.is_file():
+        media_dir = housing_media_dir()
+        target = (media_dir / filename).resolve()
+        if not target.is_relative_to(media_dir.resolve()) or not target.is_file():
             raise HTTPException(404)
         return FileResponse(
             target,

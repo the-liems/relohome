@@ -283,7 +283,15 @@ export class HousingQueryService {
       images: media.rows.map((image) => ({ url: image.url, alt: image.alt_text })),
       extra_attributes: row.listing_attributes || {},
       fees: fees.rows,
-      management: management.rows[0] || null,
+      // pg returns timestamptz as Date; the read contract carries ISO strings.
+      management: management.rows[0]
+        ? {
+            ...management.rows[0],
+            availability_confirmed_at: management.rows[0].availability_confirmed_at
+              ? new Date(management.rows[0].availability_confirmed_at).toISOString()
+              : null,
+          }
+        : null,
     })
   }
 
