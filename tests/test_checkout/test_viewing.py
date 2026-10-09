@@ -286,3 +286,25 @@ def test_legacy_selected_home_is_shown_as_chosen():
     view = service.thread_view(USER, THREAD, {"intake": intake})
     assert view["legacy_chosen"] == {"listing_id": "old", "status": "legacy_chosen"}
     assert view["slots"] and view["max_selected"] == 3 and timedelta(minutes=view["slot_minutes"])
+
+
+@pytest.mark.asyncio
+async def test_test_mode_can_record_the_visit_before_the_slot(monkeypatch):
+    service, *_ = make(housing_viewing_test_visit_anytime=True)
+    service.select(USER, THREAD, "t1", row("a"))
+    await service.schedule(USER, THREAD, "a", slot(service, 9))
+    assert service.item_view(service._item(USER, THREAD, "a"))["status"] == "visit_due"
+    assert service.visit(USER, THREAD, "a", "met_agreed")["status"] == "visited"
+
+
+def test_test_visit_anytime_is_ignored_in_production(monkeypatch):
+    from src.config import get_settings
+
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
+    try:
+        service, *_ = make(housing_viewing_test_visit_anytime=True)
+        assert service.settings.visit_anytime is False
+    finally:
+        monkeypatch.delenv("APP_ENV")
+        get_settings.cache_clear()

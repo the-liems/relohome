@@ -137,6 +137,8 @@ class ServiceSettings(BaseSettings):
     housing_viewing_route_cache_seconds: int = Field(default=1800, ge=0, le=86400)
     housing_same_place_meters: int = Field(default=50, ge=1, le=1000)
     housing_deposit_suggested_months: float = Field(default=1, ge=0, le=12)
+    # Chỉ để test: ghi kết quả gặp chủ nhà ngay sau khi hẹn, không chờ tới giờ xem. Bị bỏ qua khi APP_ENV=production.
+    housing_viewing_test_visit_anytime: bool = False
     app_timezone: str = "Asia/Ho_Chi_Minh"
 
 

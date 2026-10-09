@@ -350,7 +350,9 @@ export function ViewingPanel({
             <Home size={17} />
             <strong>{item.title}</strong>
             <span className="muted small">
-              {uiText(STATUS[item.status] || item.status)}
+              {item.status === "visit_due" && viewing.test_visit_anytime
+                ? uiText("Chế độ test: ghi kết quả ngay")
+                : uiText(STATUS[item.status] || item.status)}
             </span>
           </header>
           <p className="small">

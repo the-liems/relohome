@@ -20,6 +20,7 @@ from src.agents.common import utcnow
 from src.checkout.models import OPEN, CheckoutError, ServiceTransaction
 from src.checkout.service import _letters
 from src.checkout.store import CheckoutStore
+from src.config import get_settings
 from src.services.adapters.mcp import ToolCallError
 
 # Trạng thái của một căn đã chọn (mục 5 thiết kế). `visit_due` được suy ra từ lịch đã qua giờ.
@@ -46,6 +47,7 @@ class ViewingSettings:
     same_place_meters: int
     deposit_suggested_months: float
     timezone: ZoneInfo
+    visit_anytime: bool = False  # chỉ môi trường test
 
     @classmethod
     def from_services(cls, s) -> ViewingSettings:
@@ -69,6 +71,7 @@ class ViewingSettings:
             same_place_meters=s.housing_same_place_meters,
             deposit_suggested_months=s.housing_deposit_suggested_months,
             timezone=ZoneInfo(s.app_timezone),
+            visit_anytime=s.housing_viewing_test_visit_anytime and get_settings().app_env != "production",
         )
 
 
@@ -116,7 +119,11 @@ class ViewingService:
     def status_of(self, tx: ServiceTransaction, now: datetime | None = None) -> str:
         # Ghi kết quả được từ giờ bắt đầu buổi xem: gặp chủ nhà xong có thể xác nhận ngay.
         start = _parse((tx.details.get("viewing") or {}).get("slot"))
-        if tx.status == "viewing_scheduled" and start and start <= (now or self.clock()):
+        if (
+            tx.status == "viewing_scheduled"
+            and start
+            and (self.settings.visit_anytime or start <= (now or self.clock()))
+        ):
             return "visit_due"
         return tx.status
 
@@ -355,7 +362,7 @@ class ViewingService:
         tx = self._item(user_id, thread_id, listing_id)
         viewing = tx.details.get("viewing") or {}
         start = _parse(viewing.get("slot"))
-        if start is None or start > self.clock():
+        if start is None or (start > self.clock() and not self.settings.visit_anytime):
             raise CheckoutError(409, "Chỉ ghi kết quả từ giờ hẹn xem trở đi.", "visit_not_due")
         tx.details.setdefault("viewing_history", []).append({**viewing, "outcome": outcome})
         if outcome == "missed":
@@ -568,6 +575,7 @@ class ViewingService:
             "max_selected": self.settings.max_selected,
             "slot_minutes": self.settings.slot_minutes,
             "deposit_suggested_months": self.settings.deposit_suggested_months,
+            "test_visit_anytime": self.settings.visit_anytime,
             "slots": self.slots(),
             "warnings": self.warnings(active, values),
             "moving_mode": values.get("moving_destination_mode"),
