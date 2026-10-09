@@ -52,7 +52,9 @@ MOVING_WRITE_TOOLS = frozenset(
         "cancel_move_order",
     }
 )
-FLIGHT_READ_TOOLS = frozenset({"search_airports", "search_flights", "get_offer", "get_booking"})
+FLIGHT_READ_TOOLS = frozenset(
+    {"search_airports", "search_flights", "search_return_flights", "get_offer", "get_booking"}
+)
 FLIGHT_WRITE_TOOLS = frozenset({"get_offer", "get_booking", "hold_booking", "confirm_booking", "cancel_booking"})
 PAYMENT_WRITE_TOOLS = frozenset({"create_payment", "get_payment", "cancel_payment", "refund_payment"})
 PAYMENT_SIMULATION_TOOLS = frozenset({"simulate_payment_result"})  # chỉ có ở Payment mock
@@ -110,6 +112,38 @@ class ServiceSettings(BaseSettings):
     # Nút "giả lập đã thanh toán" cho demo. Chỉ bật khi Payment MCP chạy PAYMENT_PROVIDER=mock
     # (server chỉ có tool `simulate_payment_result` ở chế độ mock; `/health` trả "simulation": true).
     payment_simulation_enabled: bool = False
+
+    # Thanh toán đa dịch vụ của app (docs/review/payment-design.md): vé và chuyển đồ đi qua ZaloPay sandbox,
+    # vé giữ chỗ/xuất vé mô phỏng trên Flight MCP, chuyển đồ chỉ ghi "đã duyệt". Không tạo đơn AhaMove.
+    app_payment_demo_enabled: bool = False
+    # Nút "Đã thanh toán" cho tester (ADR-015 mục cập nhật 2026-10-07). Không bao giờ bật trên production.
+    payment_tester_confirm_enabled: bool = False
+    payment_tester_user_ids: str = ""  # ID tài khoản gateway, phân tách bằng dấu phẩy
+    payment_reconcile_grace_seconds: int = Field(default=180, ge=30, le=3600)
+    # Worker tự đối soát lần thanh toán còn mở (không cần người dùng bấm Kiểm tra).
+    payment_reconcile_active_seconds: int = Field(default=10, ge=2, le=120)  # khi giữ chỗ còn hạn
+    payment_reconcile_min_seconds: int = Field(default=10, ge=2, le=600)
+    payment_reconcile_max_seconds: int = Field(default=300, ge=10, le=3600)
+    # Chọn nhiều căn, hẹn xem và chốt (docs/review/housing-viewing-design.md). Mọi ngưỡng là cấu hình.
+    housing_viewing_enabled: bool = False
+    housing_max_selected: int = Field(default=3, ge=1, le=10)
+    housing_viewing_slot_minutes: int = Field(default=30, ge=5, le=240)
+    housing_viewing_day_start: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    housing_viewing_day_end: str = Field(default="20:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    housing_viewing_window_days: int = Field(default=14, ge=1, le=60)
+    housing_viewing_lead_minutes: int = Field(default=120, ge=0, le=7 * 24 * 60)
+    housing_viewing_travel_buffer_minutes: int = Field(default=15, ge=0, le=240)
+    housing_viewing_min_gap_minutes: int = Field(default=60, ge=0, le=24 * 60)
+    housing_viewing_daily_soft_limit: int = Field(default=4, ge=1, le=48)
+    housing_viewing_route_profile: Literal["driving", "motorcycle", "walking"] = "motorcycle"
+    # Thành phố có dữ liệu đường (contract calculate_route_between_entities); thử theo thứ tự này.
+    housing_viewing_route_cities: str = "hcm,hanoi,danang"
+    housing_viewing_route_cache_seconds: int = Field(default=1800, ge=0, le=86400)
+    housing_same_place_meters: int = Field(default=50, ge=1, le=1000)
+    housing_deposit_suggested_months: float = Field(default=1, ge=0, le=12)
+    # Chỉ để test: ghi kết quả gặp chủ nhà ngay sau khi hẹn, không chờ tới giờ xem. Bị bỏ qua khi APP_ENV=production.
+    housing_viewing_test_visit_anytime: bool = False
+    app_timezone: str = "Asia/Ho_Chi_Minh"
 
 
 def _secret(value: SecretStr) -> str | None:

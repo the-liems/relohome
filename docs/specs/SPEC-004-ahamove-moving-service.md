@@ -46,7 +46,9 @@ packing or handling needs.
 - Letting the LLM register accounts, request tokens, inspect credentials or call
   arbitrary provider URLs.
 - Automatic provider recommendation or invented availability.
-- Payment-gateway implementation.
+- Payment-gateway implementation. (Proposed 2026-10-07, Draft, not implemented: the application, not this
+  Moving service, routes a moving quote through a ZaloPay sandbox payment order and then records the move as
+  approved without creating an AhaMove order. See [payment-design.md](../review/payment-design.md) §9.)
 - Enabling production before AhaMove UAT and an explicit configuration change.
 - Refactoring the existing Housing/Map MCP server in this capability.
 
@@ -307,3 +309,35 @@ The 2026-10-01 provider-rejection extension is AC-30; see the ID correction abov
 
 See [internal approval API](../api/moving-internal-approvals.md) and
 [integration response](../integration/moving-service-response.md).
+
+## Confirmed quote form (2026-10-05; issue #52)
+
+These additions reserve new IDs after main's AC-32. Existing AC-26–32 are
+unchanged; the stacked PR must not reuse their identifiers.
+
+- `SPEC-004/AC-33`: A typed quote form with confirmed pickup/destination and time
+  does not invoke Intake/Planner LLM. An explicitly selected service is validated
+  against the actual catalog and quoted without LLM; SIU-auto selection retains
+  the Moving LLM decision over observed provider services. Chat is unchanged.
+- `SPEC-004/AC-34`: Form quoting uses the shared task policy, usage ledger,
+  result/source/expiry validation and LangGraph checkpoint. A new quote increments
+  plan version, clears affected selections and invalidates downstream results,
+  without changing unrelated completed tasks or auto-authorizing a write.
+- `SPEC-004/AC-35`: Ownership, stale version, invalid pins/date/time, pending
+  approvals/payment/reconciliation and active Moving bookings are checked before
+  issuing a replacement quote. Verification uses real staging, not mocked prices.
+- `SPEC-004/AC-36`: The confirmed form remains mounted during thread creation and
+  quote submission. A rejected request retains pins, time and service choice;
+  success opens actual quotes directly without a flash back to the chat.
+- `SPEC-004/AC-37`: UI and agent may reuse actual catalogs for at most 45 seconds,
+  within one provider/client scope and exact pickup/city/delivery-type query.
+  Explicit refresh and provider refusal invalidate catalogs. Quotes/prices and
+  writes are never served from this cross-request cache. Default and TRUCK
+  catalogs are read in parallel for the UI, without invented service IDs.
+- `SPEC-004/AC-38`: Service detail model context omits presentation fields and
+  duplicate language labels, not request IDs/options/limits. Observed vehicle
+  constraints can be projected from redacted provider records; stored detail
+  remains unchanged and the agent still chooses its tools.
+
+See [typed API](../api/moving-quote-form.md) and [ADR-022](../adr/ADR-022-confirmed-moving-form-intent.md)
+(Proposed; team review required).

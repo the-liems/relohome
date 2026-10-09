@@ -45,6 +45,7 @@ class WorkflowState(TypedDict, total=False):
     thread_id: str
     request_id: str  # mỗi lượt API tạo mới
     moving_locations: dict | None  # validated explicit user pins; never authored by LLM
+    moving_options: dict | None  # validated service form, without contacts
     housing_location: dict | None  # shared map selection validated by API
     map_view: dict | None  # client viewport {bounding_box, zoom}, validated by API
     place_choice: dict | None  # {field, place_id, name, lat, lng} re-read from Location by API
@@ -63,7 +64,14 @@ class WorkflowState(TypedDict, total=False):
     dispatch: list[str]
     dispatch_llm_budgets: dict[str, int]
     planner_questions: list[Question]  # domain Planner hoãn vì input chưa dùng được (needs_input)
-    goal_tasks: dict[str, dict]  # task của mục tiêu hiện tại qua các lượt, cho dải tiến trình (progress.record_goal)
+    goal_tasks: dict[str, dict]  # các bước trong cuộc trò chuyện, cho bảng kế hoạch (progress.record_goal)
+    goal_selections: dict[str, str]  # option ID đã chọn theo task; độc lập với intake của lượt hiện tại
+    last_housing_search_options: list[dict]  # IDs/labels only; prices/details are re-read before comparing.
+    # Căn đang chọn để hẹn xem (chỉ ID/nhãn/task; lịch và kết quả nằm ở kho giao dịch). Không phải căn của kế hoạch.
+    housing_selection: list[dict]
+    # "wait_for_home": chuyển đồ chờ chốt nhà (tuần tự). None: chưa hỏi hoặc đã có địa chỉ đến.
+    moving_destination_mode: str | None
+    housing_selection_changed: bool  # lượt này thêm/bỏ căn đang xem qua chat; load_context reset mỗi lượt
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None

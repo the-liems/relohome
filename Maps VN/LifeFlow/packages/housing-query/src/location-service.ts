@@ -9,6 +9,7 @@ import {
   type SearchAreasRequest,
 } from '@lifeflow/contracts'
 import type { QueryExecutor } from './database.js'
+import { poiDisplayName } from './poi-label.js'
 
 interface SqlBuilder {
   values: unknown[]
@@ -97,6 +98,7 @@ export class LocationService {
          a.attributes,
          a.match_type,
          a.match_score,
+         ${request.include_geometry ? 'ST_AsGeoJSON(a.geom, 7)::jsonb' : 'NULL::jsonb'} AS geometry,
          ST_X(ST_PointOnSurface(a.geom)) AS center_lng,
          ST_Y(ST_PointOnSurface(a.geom)) AS center_lat,
          ST_XMin(Box2D(a.geom)) AS west,
@@ -145,6 +147,7 @@ export class LocationService {
             levels: request.levels,
             bounding_box: request.bounding_box,
             limit: request.limit,
+            include_geometry: false,
           })
         : Promise.resolve({ query: request.text, results: [] as AdministrativeArea[] }),
       includePlaces ? this.resolvePlaces(request) : Promise.resolve([]),
@@ -247,6 +250,9 @@ export class LocationService {
          p.id AS place_id,
          p.name,
          p.category,
+         city.name AS city_name,
+         ARRAY(SELECT a.alias_place_id::text FROM catalog.poi_aliases a
+           WHERE a.canonical_place_id=p.id ORDER BY a.alias_place_id) AS alias_ids,
          ST_X(p.geom) AS lng,
          ST_Y(p.geom) AS lat,
          p.match_type,
@@ -275,6 +281,11 @@ export class LocationService {
            area.id
          LIMIT 1
        ) parent ON true
+       LEFT JOIN LATERAL (
+         SELECT area.name FROM geo.administrative_areas area
+         WHERE area.level IN ('4','6') AND ST_Covers(area.geom,p.geom)
+         ORDER BY area.level::integer, ST_Area(area.geom), area.id LIMIT 1
+       ) city ON true
        ORDER BY p.match_rank DESC, p.match_score DESC, p.name, p.id
        LIMIT ${limitParameter}`,
       sql.values,
@@ -285,6 +296,9 @@ export class LocationService {
         entity_type: 'place',
         canonical_id: row.place_id,
         name: row.name,
+        display_name: poiDisplayName(row.name, row.category, row.city_name, row.parent_name),
+        city: row.city_name || null,
+        alias_ids: row.alias_ids || [],
         category: row.category,
         administrative_level: null,
         location: { lng: Number(row.lng), lat: Number(row.lat) },
@@ -333,6 +347,7 @@ function rowToArea(row: Record<string, unknown>): AdministrativeArea {
     match_type: row.match_type,
     match_score: Number(row.match_score),
     attributes: row.attributes || {},
+    ...(row.geometry ? { geometry: row.geometry } : {}),
   })
 }
 

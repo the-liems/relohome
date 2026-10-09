@@ -1,4 +1,5 @@
 import {
+  DeviceRouteRequestSchema, DeviceRouteResponseSchema,
   EntityRouteRequestSchema, EntityRouteResponseSchema, RouteEndpointResultSchema,
   type RouteEndpoint, type RouteEndpointResult,
 } from '@lifeflow/contracts'
@@ -9,6 +10,29 @@ import { RouteService } from './route-service.js'
 /** Resolves only explicit identifiers; never selects a search candidate on behalf of a caller. */
 export class RouteEndpointService {
   constructor(private readonly pool: QueryExecutor, private readonly routes: RouteService) {}
+
+  async calculateDevice(input: unknown) {
+    const request = DeviceRouteRequestSchema.parse(input)
+    const origin = await this.resolve(request.origin, 'origin')
+    const destination = await this.resolve(request.destination, 'destination')
+    const routeInput = {
+      profile: 'driving' as const, origin: origin.location, destination: destination.location,
+      snap_radius_m: request.snap_radius_m, steps: false,
+    }
+    const route = request.public_routing_consent
+      ? await this.routes.calculatePublicDriving(routeInput)
+      : await this.routes.calculate({ ...routeInput, city: this.routes.inferCity(destination.location) })
+    return DeviceRouteResponseSchema.parse({
+      profile: 'driving', origin, destination, route,
+      routing_provider: request.public_routing_consent ? 'public_osrm' : 'local_osrm',
+      warnings: (['origin', 'destination'] as const).flatMap((endpoint) => {
+        const accuracy = (endpoint === 'origin' ? origin : destination).location_accuracy
+        return accuracy === 'rooftop' ? [] : [{
+          endpoint, code: accuracy === 'approximate' ? 'APPROXIMATE_LOCATION' : 'UNKNOWN_LOCATION_ACCURACY',
+        }]
+      }),
+    })
+  }
 
   async calculate(input: unknown) {
     const request = EntityRouteRequestSchema.parse(input)
@@ -47,14 +71,17 @@ export class RouteEndpointService {
       WHERE l.id = $1 AND l.status = 'active' AND l.deleted_at IS NULL
         AND p.deleted_at IS NULL AND cp.status = 'active' AND cp.deleted_at IS NULL
     ` : `
-      SELECT cp.id AS canonical_id, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat,
+      SELECT COALESCE(legacy.alias_place_id,cp.id) AS canonical_id,
+        ST_X(COALESCE(legacy.legacy_geom,cp.geom)) AS lng, ST_Y(COALESCE(legacy.legacy_geom,cp.geom)) AS lat,
         cp.address, cp.attributes, s.source_type, s.source_id, s.source_url, s.observed_at
       FROM catalog.places cp
+      LEFT JOIN catalog.poi_aliases legacy ON legacy.alias_place_id=$1 AND legacy.canonical_place_id=cp.id
       LEFT JOIN LATERAL (
         SELECT source_type, source_id, source_url, observed_at FROM catalog.place_sources
         WHERE place_id = cp.id ORDER BY observed_at DESC, id LIMIT 1
       ) s ON true
-      WHERE cp.id = $1 AND cp.status = 'active' AND cp.deleted_at IS NULL
+      WHERE cp.id = COALESCE((SELECT canonical_place_id FROM catalog.poi_aliases WHERE alias_place_id=$1),$1)
+        AND cp.status = 'active' AND cp.deleted_at IS NULL
         AND COALESCE(cp.attributes->>'entity_role', '') <> 'housing_anchor'
     `, [id])
     const row = result.rows[0]

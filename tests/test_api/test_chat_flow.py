@@ -90,7 +90,7 @@ async def test_status_lists_domains(api):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready" and body["mode"] == "fake"
-    assert set(body["domains"]) == {"property", "map", "flight", "relocation", "payment"}
+    assert set(body["domains"]) == {"property", "map", "flight", "relocation", "payment", "roommate"}
     assert set(body["domain_agents"]) == set(body["domains"])
 
 

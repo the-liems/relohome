@@ -13,6 +13,7 @@ x-location: &location-env
   POSTGRES_DB: ${POSTGRES_DB:-p044_location}
   POSTGRES_APP_USER: ${POSTGRES_APP_USER:-p044_location_app}
   POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
+  HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
   OSRM_HCM_DRIVING_URL: http://hcm-driving:5000
   OSRM_HCM_WALKING_URL: http://hcm-walking:5000
   OSRM_HCM_MOTORCYCLE_URL: http://hcm-motorcycle:5000
@@ -74,6 +75,11 @@ services:
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+      # Encrypts flight booker profiles. Empty: a key file is created in web-data.
+      SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
+      # Owner-uploaded listing photos live on the persistent web-data volume.
+      SIU_HOUSING_MEDIA_DIR: /app/data/housing-media
+      SIU_PUBLIC_BASE_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
@@ -92,7 +98,9 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/backend:${RELEASE_TAG}
     environment:
-      APP_ENV: production
+      # Team test phase: "staging" allows the tester payment control below. Set
+      # "production" (and remove the tester variables) before outside users try it.
+      APP_ENV: staging
       OPENAI_API_KEY: ${OPENAI_API_KEY:?}
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       # One Coolify setting selects the model for all seven agents.
@@ -128,9 +136,26 @@ services:
       PAYMENT_DB_PATH: /app/data/payments.db
       PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
       PAYMENT_SIMULATION_ENABLED: "false"
+      # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
+      # tickets, no AhaMove order. The tester "paid" control works only for the
+      # gateway account IDs listed here; empty means nobody sees it.
+      APP_PAYMENT_DEMO_ENABLED: "true"
+      # Choose several homes, schedule test-mode viewings, decide one (housing-viewing-design).
+      HOUSING_VIEWING_ENABLED: "true"
+      PAYMENT_TESTER_CONFIRM_ENABLED: "true"
+      PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
+      # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
+      PAYMENT_RECONCILE_ACTIVE_SECONDS: ${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
+      # Roommate (docs/runbooks/roommate.md): off until the team turns it on in Coolify.
+      # Set ROOMMATE_MODERATORS before ROOMMATE_ENABLED=true; the backend refuses to start
+      # Roommate without a moderator. State lives outside /app/data, which the runtime rejects.
+      ROOMMATE_ENABLED: ${ROOMMATE_ENABLED:-false}
+      ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
+      ROOMMATE_STATE_DIR: /app/private-roommate
+      ROOMMATE_DEMO_ENABLED: "false"
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
-    volumes: [agent-data:/app/data]
+    volumes: [agent-data:/app/data, roommate-private:/app/private-roommate]
     depends_on:
       location: {condition: service_healthy}
       moving-mcp: {condition: service_healthy}
@@ -142,7 +167,9 @@ services:
     environment:
       FLIGHT_SEARCH_PROVIDER: serpapi
       FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
-      FLIGHT_SIMULATION_ENABLED: "false"
+      # Simulated hold/ticket for in-app checkout; never a real airline booking.
+      # Reachable only on the internal network (no public route).
+      FLIGHT_SIMULATION_ENABLED: "true"
     volumes: [flights-data:/app/data]
 
   postgis:
@@ -177,7 +204,20 @@ services:
   platform:
     <<: *app
     image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
-    environment: *location-env
+    environment:
+      <<: *location-env
+      # Housing owner workspace (docs/runbooks/housing-management.md): the web gateway
+      # authenticates with the shared token; only these account IDs may moderate.
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
+      HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
+      # Empty: no poster-terms step (team has not published terms yet).
+      HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
+      HOUSING_MESSAGE_RATE_PER_MINUTE: ${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
+      HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
+      HOUSING_REVIEW_PATTERN_DAYS: ${HOUSING_REVIEW_PATTERN_DAYS:-90}
+      HOUSING_REVIEW_LOW_STARS: ${HOUSING_REVIEW_LOW_STARS:-2}
+      HOUSING_REVIEW_PATTERN_PROPERTIES: ${HOUSING_REVIEW_PATTERN_PROPERTIES:-2}
+      HOUSING_REVIEW_PATTERN_AUTHORS: ${HOUSING_REVIEW_PATTERN_AUTHORS:-3}
     depends_on:
       location-migrate: {condition: service_completed_successfully}
 
@@ -271,6 +311,7 @@ services:
 volumes:
   web-data:
   agent-data:
+  roommate-private:
   flights-data:
   location-data:
   moving-data:

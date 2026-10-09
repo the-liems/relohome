@@ -4,6 +4,8 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from src.mcp_servers.flights.errors import InvalidRequestError
 from src.mcp_servers.flights.schemas import Airline, Airport, CabinClass, FareRules, strip_accents
 
@@ -18,6 +20,20 @@ DEFAULT_FARE_RULES = FareRules(
     refundable=False,
     cancel_fee=None,
 )
+
+
+class AirportLookup(BaseModel):
+    """The local tool's validated inputs; never resolves by a hand-written city map."""
+
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1)
+    limit: int = Field(default=5, ge=1, le=22)
+
+
+def local_airport_lookup(arguments: dict) -> list[dict]:
+    """Use the SAME real catalog as the bundled Flight MCP without spawning it."""
+    request = AirportLookup.model_validate(arguments)
+    return [airport.model_dump(mode="json") for airport in find_airports(request.query, request.limit)]
 
 
 def normalize_text(text: str) -> str:

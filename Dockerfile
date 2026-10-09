@@ -11,8 +11,11 @@ WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
 COPY src/ ./src/
 COPY config/ ./config/
+# /app/private-roommate: Roommate DB and contact key, private to the service user (runbook: roommate).
 RUN useradd --uid 10001 --create-home appuser \
-    && mkdir -p /app/data && chown appuser:appuser /app/data
+    && mkdir -p /app/data /app/private-roommate \
+    && chown appuser:appuser /app/data /app/private-roommate \
+    && chmod 700 /app/private-roommate
 USER appuser
 
 EXPOSE 8000

@@ -1,7 +1,9 @@
+import { t, uiPreferences } from "./uiPreferences";
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code = "",
   ) {
     super(message);
   }
@@ -26,22 +28,26 @@ export async function api<T = any>(
       typeof data.detail === "string"
         ? data.detail
         : "Không thể hoàn thành yêu cầu. Vui lòng thử lại.",
+      typeof data.code === "string" ? data.code : "",
     );
   return data;
 }
 export const requestId = () => crypto.randomUUID();
 export const money = (n: unknown, currency = "VND") =>
   typeof n === "number" && Number.isFinite(n)
-    ? new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(n)
-    : "Chưa có giá";
+    ? new Intl.NumberFormat(
+        uiPreferences().locale === "en" ? "en-US" : "vi-VN",
+        {
+          style: "currency",
+          currency,
+          maximumFractionDigits: 0,
+        },
+      ).format(n)
+    : t("Chưa có giá");
 export const dateTime = (value?: string | number) =>
   value
     ? new Date(typeof value === "number" ? value * 1000 : value).toLocaleString(
-        "vi-VN",
+        uiPreferences().locale === "en" ? "en-GB" : "vi-VN",
         {
           day: "2-digit",
           month: "2-digit",
@@ -49,7 +55,7 @@ export const dateTime = (value?: string | number) =>
           minute: "2-digit",
         },
       )
-    : "Chưa xác định";
+    : t("Chưa xác định");
 export const safeUrl = (value: unknown) =>
   typeof value === "string" && /^https?:\/\//i.test(value) ? value : undefined;
 export const periods: Record<string, string> = {
@@ -62,18 +68,18 @@ export const periods: Record<string, string> = {
 };
 export const housePrice = (h: any) =>
   h.price?.amount != null
-    ? `${money(h.price.amount, h.price.currency)} / ${periods[h.price.period] || h.price.period}`
+    ? `${money(h.price.amount, h.price.currency)} / ${t(periods[h.price.period] || h.price.period)}`
     : h.price_vnd != null
-      ? `${money(h.price_vnd)} / tháng`
-      : "Chưa có giá";
+      ? `${money(h.price_vnd)} / ${t("tháng")}`
+      : t("Chưa có giá");
 // Card price like map-app: "8,1 tr/tháng"; exact amount stays in the detail panel.
 export const compactPrice = (h: any) => {
   const amount = h.price?.amount ?? h.price_vnd;
-  if (typeof amount !== "number") return "Chưa có giá";
-  const period = periods[h.price?.period] || h.price?.period || "tháng";
+  if (typeof amount !== "number") return t("Chưa có giá");
+  const period = t(periods[h.price?.period] || h.price?.period || "tháng");
   if (h.price?.currency && h.price.currency !== "VND") return housePrice(h);
   return amount >= 1_000_000
-    ? `${(amount / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr/${period}`
+    ? `${(amount / 1_000_000).toLocaleString(uiPreferences().locale === "en" ? "en-US" : "vi-VN", { maximumFractionDigits: 1 })} ${uiPreferences().locale === "en" ? "M VND" : "tr"}/${period}`
     : `${Math.round(amount / 1000).toLocaleString("vi-VN")}k/${period}`;
 };
 export const domainLabels: Record<string, string> = {

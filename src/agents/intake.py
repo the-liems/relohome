@@ -40,6 +40,9 @@ class IntakeInput(BaseModel):
     session: SessionContext
     previous: IntakeResult | None = None
     plan_outline: list[TaskOutline] | None = None
+    last_housing_search_options: list[dict[str, str]] = []
+    # Căn đang chọn để hẹn xem (ID/nhãn), khi bật housing-viewing; agent dùng để bỏ hoặc đổi căn qua chat.
+    housing_selection: list[dict] = []
     decision: UserDecision | None = None
     pending_questions: list[Question] = []
     last_suggestions: list[Suggestion] = []
@@ -197,6 +200,8 @@ FACT_LABELS = {
     "origin": "nơi đi",
     "destination": "nơi đến",
     "flight_date": "ngày bay",
+    "return_date": "ngày bay về",
+    "trip_type": "loại vé (một chiều/khứ hồi)",
     "passengers": "số hành khách",
     "from_address": "điểm lấy đồ",
     "to_address": "điểm giao đồ",
@@ -254,7 +259,7 @@ def ground_facts(
         )
         # A transaction reference (payment/order/booking ID) is a long code by nature; only a value that is
         # itself an email or phone number is personal data there.
-        reference = name in REFERENCE_KEYS
+        reference = name in REFERENCE_KEYS or name == "listing_ids"
         personal = (
             bool(_EMAIL.search(str(fact.value)) or _PHONE.search(str(fact.value)))
             if reference
@@ -329,6 +334,7 @@ REFERENCE_KEYS = frozenset(k for keys in LOOKUP_KEYS.values() for k in keys)
 
 DEFAULT_COST_TIERS = {
     AgentName.PAYMENT: "cheap",
+    AgentName.ROOMMATE: "cheap",
     AgentName.PROPERTY: "cheap",
     AgentName.MAP: "cheap",
     AgentName.RELOCATION: "paid",
@@ -344,6 +350,12 @@ def missing_for(
     domain: AgentName, values: dict[str, Any], sources: set[AgentName], facts: dict[str, ConfirmedFact]
 ) -> list[str]:
     """Input bắt buộc còn thiếu của task thuộc `domain`, dạng "domain.field"."""
+    if domain == AgentName.PROPERTY and values.get("housing_mode") == "compare":
+        return (
+            []
+            if isinstance(values.get("listing_ids"), list) and 2 <= len(values["listing_ids"]) <= 4
+            else ["property.listing_ids"]
+        )
     if any(_has(values, k) for k in LOOKUP_KEYS.get(domain, ())):
         return []
     if domain == AgentName.RELOCATION:
@@ -378,6 +390,10 @@ def missing_for(
         ):
             missing.append("map.selected:property")
         return missing
+    if domain == AgentName.FLIGHT and values.get("trip_type") == "round_trip" and not _has(values, "return_date"):
+        # Khứ hồi cần ngày về trước khi tìm (chế độ khứ hồi của SerpApi); các field khác kiểm như thường.
+        base = [m for m in missing_for(domain, {**values, "trip_type": "one_way"}, sources, facts)]
+        return [*base, "flight.return_date"]
     if domain == AgentName.MAP and _has(values, "map_near"):
         return []
     if domain == AgentName.MAP and "selected:property" in facts and not _has(values, "near"):

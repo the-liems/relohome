@@ -1,15 +1,24 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import { Expand, Layers, MapPin, RotateCw } from "lucide-react";
 import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import { api, housePrice } from "../api";
 import type { Data, House } from "../types";
 import { Dialog } from "./Dialog";
+import { tuneBasemap } from "../mapStyle";
+import {
+  cityForPoint,
+  scopedMapOptions,
+  installMapScope,
+  fitMapPoints,
+  focusMapPoint,
+} from "../mapScope";
 
 // Same MapLibre basemap and semantic colors as LifeFlow map-app/config/map-theme.ts.
 const theme = {
   fill: "#d6efe9",
   border: "#176e69",
-  selected: "#f97316",
+  selected: "#256348",
   route: "#347fd6",
 };
 export function MapPanel({
@@ -60,23 +69,37 @@ export function MapPanel({
   };
   useEffect(() => {
     let disposed = false;
-    let resize: ResizeObserver | undefined;
     import("maplibre-gl")
       .then(({ Map, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
         try {
           setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+          const first =
+            initialViewport?.center ||
+            houses
+              .filter((h) => Number.isFinite(h.lng) && Number.isFinite(h.lat))
+              .map((h) => [h.lng!, h.lat!] as [number, number])[0] ||
+            points
+              .map(
+                (p) =>
+                  [p.location?.lng ?? p.lng, p.location?.lat ?? p.lat] as [
+                    number,
+                    number,
+                  ],
+              )
+              .find((p) => cityForPoint(p)) ||
+            routing?.route?.geometry?.coordinates?.[0];
+          const city = first ? (cityForPoint(first) ?? "hcm") : "hcm";
           const m = new Map({
             container: container.current,
             style: "https://tiles.openfreemap.org/styles/positron",
-            center: initialViewport?.center || [106.7009, 10.7769],
-            zoom: initialViewport?.zoom ?? 12,
+            ...scopedMapOptions(container.current, city, initialViewport),
             attributionControl: { compact: true },
           });
           map.current = m;
+          m.on("style.load", () => tuneBasemap(m));
+          installMapScope(m, city);
           fitted.current = "";
-          resize = new ResizeObserver(() => m.resize());
-          resize.observe(container.current);
           m.on("moveend", () => {
             const c = m.getCenter();
             viewport.current = { center: [c.lng, c.lat], zoom: m.getZoom() };
@@ -93,6 +116,7 @@ export function MapPanel({
           );
           m.on("load", () => {
             if (disposed) return;
+            tuneBasemap(m);
             m.addSource("siu-points", {
               type: "geojson",
               data: { type: "FeatureCollection", features: [] },
@@ -224,7 +248,6 @@ export function MapPanel({
       .catch(() => setError("Không tải được bản đồ. Hãy thử lại."));
     return () => {
       disposed = true;
-      resize?.disconnect();
       map.current?.remove();
       map.current = null;
       setReady(false);
@@ -283,24 +306,14 @@ export function MapPanel({
     fitted.current = signature;
     if (initialViewport) return;
     if (features.length) {
-      const xs = features.map((f) => f.geometry.coordinates[0]),
-        ys = features.map((f) => f.geometry.coordinates[1]);
-      m.fitBounds(
-        [
-          [Math.min(...xs), Math.min(...ys)],
-          [Math.max(...xs), Math.max(...ys)],
-        ],
+      fitMapPoints(
+        m,
+        features.map((f) => f.geometry.coordinates),
         { padding: 55, maxZoom: 15, duration: 500 },
       );
     } else if (geometry?.coordinates?.length && !explore) {
       const xy = geometry.coordinates as number[][];
-      m.fitBounds(
-        [
-          [Math.min(...xy.map((p) => p[0])), Math.min(...xy.map((p) => p[1]))],
-          [Math.max(...xy.map((p) => p[0])), Math.max(...xy.map((p) => p[1]))],
-        ],
-        { padding: 45, duration: 500 },
-      );
+      fitMapPoints(m, xy, { padding: 45, duration: 500 });
     }
   }, [rows, points, selected, routing, ready, explore, clusters]);
   useEffect(() => {
@@ -416,18 +429,18 @@ export function MapPanel({
     <section
       className={"map-panel " + (large ? "map-large" : "")}
       data-map-ready={ready}
-      aria-label="Bản đồ kết quả"
+      aria-label={uiText("Bản đồ kết quả")}
     >
       <div className="map-toolbar">
         <span>
           <MapPin size={16} />
-          {explore ? "Khám phá khu vực" : "Vị trí trên bản đồ"}
+          {explore ? uiText("Khám phá khu vực") : uiText("Vị trí trên bản đồ")}
         </span>
         <div>
           {filter && !filter.commute && !filter.center && !filter.radius_m && (
             <button
-              aria-label="Đổi chế độ bản đồ"
-              title="Khám phá khu vực theo bộ lọc hiện tại"
+              aria-label={uiText("Đổi chế độ bản đồ")}
+              title={uiText("Khám phá khu vực theo bộ lọc hiện tại")}
               className={explore ? "icon-button active" : "icon-button"}
               onClick={() => setExplore(!explore)}
             >
@@ -437,7 +450,7 @@ export function MapPanel({
           {!large && (
             <button
               className="icon-button"
-              aria-label="Mở bản đồ lớn"
+              aria-label={uiText("Mở bản đồ lớn")}
               onClick={() => setExpanded(true)}
             >
               <Expand size={16} />
@@ -447,16 +460,16 @@ export function MapPanel({
       </div>
       {inspected && (
         <Dialog
-          title="Nhà trong khu vực đang xem"
+          title={uiText("Nhà trong khu vực đang xem")}
           onClose={() => setInspected(null)}
         >
           <h3>{inspected.title}</h3>
           <p>{inspected.address}</p>
           <strong>{housePrice(inspected)}</strong>
           <p className="muted">
-            Đây là tin khám phá trên bản đồ, chưa thuộc nhóm kết quả của cuộc
-            trò chuyện. Hãy yêu cầu AI tìm nhà tại khu vực này để đưa vào kế
-            hoạch.
+            {uiText(
+              "Đây là tin khám phá trên bản đồ, chưa thuộc nhóm kết quả của cuộc trò chuyện. Hãy yêu cầu AI tìm nhà tại khu vực này để đưa vào kế hoạch.",
+            )}
           </p>
           <button
             className="secondary"
@@ -473,7 +486,7 @@ export function MapPanel({
               }
             }}
           >
-            Cập nhật thông tin tin nhà
+            {uiText("Cập nhật thông tin tin nhà")}
           </button>
           {inspected.description && <p>{inspected.description}</p>}
         </Dialog>
@@ -481,23 +494,30 @@ export function MapPanel({
       <div ref={container} className="map-canvas" />
       {error && (
         <div className="map-error" role="status">
-          {error}
+          {uiText(error)}
           <button
             className="text-button"
             onClick={() => setAttempt((a) => a + 1)}
           >
-            <RotateCw size={14} /> Tải lại
+            <RotateCw size={14} />
+            {uiText(" Tải lại")}
           </button>
         </div>
       )}
       <div className="map-legend">
-        <i /> {explore ? "Nhà trong vùng đang xem" : "Các kết quả đang xem"}
-        <i className="orange" /> Đang chọn
-        {truncated && <span> · Kết quả có giới hạn, hãy phóng to</span>}
+        <i />{" "}
+        {explore
+          ? uiText("Nhà trong vùng đang xem")
+          : uiText("Các kết quả đang xem")}
+        <i className="orange" />
+        {uiText(" Đang chọn")}
+        {truncated && (
+          <span>{uiText(" · Kết quả có giới hạn, hãy phóng to")}</span>
+        )}
       </div>
       {expanded && (
         <Dialog
-          title="Bản đồ · Về cuộc trò chuyện khi đóng"
+          title={uiText("Bản đồ · Về cuộc trò chuyện khi đóng")}
           wide
           onClose={() => setExpanded(false)}
         >
@@ -507,7 +527,7 @@ export function MapPanel({
             initialExplore={explore}
             onViewport={(v) => {
               viewport.current = v;
-              map.current?.jumpTo(v);
+              if (map.current) focusMapPoint(map.current, v.center, v.zoom);
             }}
             large
           />

@@ -10,7 +10,7 @@ from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, FakeClock
 
-READ_ONLY_TOOLS = {"search_airports", "search_flights", "get_offer"}
+READ_ONLY_TOOLS = {"search_airports", "search_flights", "search_return_flights", "get_offer"}
 SIMULATION_TOOLS = {
     "hold_booking",
     "confirm_booking",

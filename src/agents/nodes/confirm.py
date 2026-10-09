@@ -53,6 +53,12 @@ def confirmation_payload(state: WorkflowState) -> dict:
         "expires_at": summary.quotes_expire_at.isoformat(),
         "pii_required": {a.id: a.pii_required for a in summary.commit_actions if a.pii_required},
         "notes": confirmation_notes(summary),
+        "moving_details": {
+            a.id: {k: result.data.get(k) for k in ("from_address", "to_address", "moving_options", "addon_labels")}
+            for a in summary.commit_actions
+            if a.kind == CommitActionKind.MOVING_BOOKING
+            and (result := (state.get("task_results") or {}).get(a.source_task_id))
+        },
         "last_error": errors[-1] if errors else None,
     }
 

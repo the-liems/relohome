@@ -81,3 +81,25 @@ nằm trên hệ thống của ZaloPay và có thể trùng hoặc lẫn với �
   (key riêng, callback có URL công khai, chính sách lưu trữ theo quy định).
 - Payment chưa nối vào đặt vé: `confirm_booking` chưa yêu cầu đã thanh toán.
 - Merchant dùng chung có thể bị giới hạn hoặc thu hồi key bất kỳ lúc nào; khi đó chuyển về `mock`.
+
+## Cập nhật 2026-10-07: tester đánh dấu đã thanh toán (Draft, chưa code)
+
+Thiết kế thanh toán đa dịch vụ ([payment-design.md](../review/payment-design.md) D5, D10, §7.3) cần demo trọn luồng vé
+và chuyển đồ, trong khi chưa xác minh được cách thanh toán xong một đơn ZaloPay sandbox (xem Hệ quả). Vì vậy thêm một
+**ngoại lệ hẹp** cho quy tắc 8 (quyết định 07/10, bổ sung sau review 08/10/2026):
+
+- Đơn vẫn được tạo thật trên ZaloPay sandbox và hiện QR như bình thường; "Kiểm tra thanh toán" vẫn tra cổng. Gọi
+  ZaloPay sandbox là tích hợp thật; đánh dấu của tester là mô phỏng. Hai việc này không tương đương.
+- Cạnh QR có nút **"Đã thanh toán"** cho nhóm test. Nút **không gọi ZaloPay** và không dùng `simulate_payment_result`.
+- **Tách trạng thái**: `gateway_status` chỉ ghi giá trị ZaloPay trả; đánh dấu của tester ghi riêng (`tester_mark`:
+  người, thời điểm) và cho kết luận `paid_simulated`, không bao giờ thành `paid_verified`. Đánh dấu của tester không
+  phải bằng chứng cổng đã nhận tiền.
+- **Kiểm quyền ở backend** (ẩn nút trên UI không đủ): cờ cấu hình riêng (đề xuất `PAYMENT_TESTER_CONFIRM_ENABLED`, mặc
+  định tắt trong code, môi trường demo và test của nhóm bật); môi trường không phải production, cấu hình production từ
+  chối cờ này; người bấm thuộc danh sách tester cấu hình phía server; người bấm sở hữu giao dịch.
+- **Luật chuyển trạng thái**: chỉ đánh dấu lần thanh toán đang chờ và còn hạn; không đánh dấu lần đã hết hạn, đã đối
+  soát hoặc đã hủy. ZaloPay vẫn `pending` sau khi đánh dấu thì giữ `paid_simulated` với nhãn "ZaloPay chưa xác nhận";
+  ZaloPay sau đó báo PAID thì chuyển `paid_verified` nhưng **không** chạy hoàn tất dịch vụ lần hai.
+- Mọi nơi hiển thị gắn nhãn **"đánh dấu bởi tester"**.
+- Hết hạn trên UI không chứng minh chưa trả: tra lại cổng ít nhất một lần sau hạn trước khi cho thanh toán lại
+  (payment-design §7.2). Quy tắc 8 giữ nguyên với mọi đường còn lại.

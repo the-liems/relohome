@@ -5,10 +5,12 @@ existing target, checks the dump's SHA256, awaits pg_restore, refreshes planner 
 (ANALYZE), then runs migrations.
 """
 
+import argparse
 import hashlib
 import re
+import runpy
 import subprocess
-import sys
+import uuid
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -18,15 +20,21 @@ SNAPSHOT = ROOT / "data/teammate-snapshot"
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--snapshot", type=Path, default=SNAPSHOT, help="Verified snapshot directory; never overwritten.")
+    parser.add_argument("--database", help="Restore to a NEW DB without changing data/integration.env.")
+    args = parser.parse_args()
     config = dotenv_values(ROOT / "data/integration.env")
-    database, user = config.get("POSTGRES_DB", ""), config.get("POSTGRES_ADMIN_USER", "")
+    database, user = args.database or config.get("POSTGRES_DB", ""), config.get("POSTGRES_ADMIN_USER", "")
     if not all(re.fullmatch(r"[a-z][a-z0-9_]{1,62}", x) for x in (database, user)):
         raise SystemExit("Set safe local DB/user names in data/integration.env first.")
     manifests = {}
-    for line in (SNAPSHOT / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+    snapshot = args.snapshot.resolve()
+    for line in (snapshot / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
         if match := re.fullmatch(r"([a-fA-F0-9]{64})\s+\*?(.+)", line):
             manifests[match[2]] = match[1].lower()
-    with (SNAPSHOT / "database/lifeflow.dump").open("rb") as dump:
+    dump_path = snapshot / "database/lifeflow.dump"
+    with dump_path.open("rb") as dump:
         digest = hashlib.file_digest(dump, "sha256").hexdigest()
     if digest != manifests.get("database/lifeflow.dump"):
         raise SystemExit("Dump checksum mismatch; no database was changed.")
@@ -52,27 +60,28 @@ def main():
     if exists.stdout.strip():
         raise SystemExit("Target DB already exists. Restore refused; choose a NEW name, never overwrite existing data.")
     subprocess.run(prefix + ["createdb", "--template=template0", "-U", user, database], cwd=ROOT, check=True)
-    subprocess.run(
-        prefix
-        + [
-            "pg_restore",
-            "--exit-on-error",
-            "--no-owner",
-            "--no-acl",
-            "-U",
-            user,
-            "-d",
-            database,
-            "/snapshot/lifeflow.dump",
-        ],
-        cwd=ROOT,
-        check=True,
-    )
+    # The existing container may mount an older snapshot. Copy the exact
+    # checksum-verified dump, never restore whichever file happens to be mounted.
+    remote_dump = "/tmp/lifeflow-restore-" + uuid.uuid4().hex + ".dump"
+    subprocess.run(prefix[:6] + ["cp", str(dump_path), "postgis:" + remote_dump], cwd=ROOT, check=True)
+    try:
+        subprocess.run(
+            prefix + ["pg_restore", "--exit-on-error", "--no-owner", "--no-acl", "-U", user, "-d", database, remote_dump],
+            cwd=ROOT, check=True,
+        )
+    finally:
+        # Only the unique temporary copy created above, never a database/volume
+        # or the original snapshot. A failed restore DB is retained for diagnosis.
+        subprocess.run(prefix + ["rm", "--", remote_dump], cwd=ROOT, check=True)
     # pg_restore does not restore planner statistics. Without them spatial housing/POI
     # queries pick bad plans and hit the 8 s statement timeout.
     subprocess.run(prefix + ["psql", "-U", user, "-d", database, "-c", "ANALYZE"], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "scripts/local-integration.py", "migrate"], cwd=ROOT, check=True)
-    print("Snapshot restored and migrations completed. No existing DB was deleted or overwritten.")
+    migration_env = runpy.run_path(str(ROOT / "scripts/local-integration.py"))["environment"]("platform")
+    migration_env["POSTGRES_DB"] = database
+    subprocess.run(
+        ["node", "platform-api/dist/migrate.js"], cwd=ROOT / "Maps VN/LifeFlow", env=migration_env, check=True
+    )
+    print(f"Snapshot restored into {database}; ANALYZE/migrations completed. Existing DBs unchanged; temporary dump copy removed.")
 
 
 if __name__ == "__main__":

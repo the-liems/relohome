@@ -24,7 +24,8 @@ RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data && chown appuser:appuser /app/data
 USER appuser
 
-COPY Frontend/__init__.py Frontend/server.py Frontend/store.py ./Frontend/
+# Every top-level gateway module (server, store, roommate_gateway, ...); tests check imports resolve.
+COPY Frontend/*.py ./Frontend/
 COPY --from=frontend-build /web/dist ./Frontend/dist
 EXPOSE 8503
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \

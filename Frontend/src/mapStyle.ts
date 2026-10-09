@@ -6,8 +6,8 @@ export const BASEMAP_STYLE_URL =
   "https://tiles.openfreemap.org/styles/positron";
 
 export const MAP_THEME = {
-  primary: "#f97316",
-  primaryDark: "#c2410c",
+  primary: "#256348",
+  primaryDark: "#182f24",
   route: "#347fd6",
   poiBorder: "#365364",
   housingMarker: {
@@ -19,8 +19,8 @@ export const MAP_THEME = {
   basemap: {
     land: "#ebf0f0",
     residential: "#f6f5f5",
-    water: "#75c2ef",
-    waterway: "#62bbea",
+    water: "#b0d0d9",
+    waterway: "#96c0cd",
     park: "#d2f8e2",
     wood: "#c8f0d8",
     building: "#e5eaf0",
@@ -58,6 +58,7 @@ export const PILL = {
   normal: "ws-pill",
   hover: "ws-pill-hover",
   selected: "ws-pill-selected",
+  roommate: "ws-pill-roommate",
 };
 export const POI_ICON_EXPRESSION: any = [
   "match",
@@ -68,6 +69,7 @@ export const POI_ICON_EXPRESSION: any = [
 
 export function registerMapImages(map: LibreMap) {
   const pills = [
+    [PILL.roommate, "#fde047", "#a16207", "rgba(161, 98, 7, 0.2)", 4.5],
     [
       PILL.normal,
       MAP_THEME.housingMarker.fill,
@@ -265,11 +267,52 @@ function glyph(c: CanvasRenderingContext2D, group: PoiGroup) {
 }
 
 // Quieter basemap like map-app: hide noisy POI labels, soften land/building/road colours.
+const observedMaps = new WeakSet<LibreMap>();
 export function tuneBasemap(map: LibreMap) {
-  const b = MAP_THEME.basemap;
+  if (!observedMaps.has(map)) {
+    observedMaps.add(map);
+    const update = () => {
+      // GeoJSON/route sources can still be loading while basemap paint is ready.
+      // Apply appearance without recreating the map or waiting for every source.
+      if (map.getStyle()) tuneBasemap(map);
+    };
+    window.addEventListener("siu:appearance-change", update);
+    map.once("remove", () =>
+      window.removeEventListener("siu:appearance-change", update),
+    );
+  }
+  const dark = document.documentElement.dataset.theme === "dark";
+  const b = dark
+    ? {
+        land: "#17221c",
+        residential: "#1b2820",
+        water: "#1c3540",
+        waterway: "#2b4e5b",
+        park: "#223c2c",
+        wood: "#23372a",
+        building: "#33483b",
+        buildingOutline: "#3e5445",
+        minorRoad: "#3c5045",
+        majorRoad: "#5c7065",
+        motorway: "#71887a",
+        roadInner: "#273b30",
+      }
+    : MAP_THEME.basemap;
   const noisy = /(poi|shop|restaurant|cafe|bar|lodging|transit|bus_stop)/i;
   for (const layer of map.getStyle().layers || []) {
     try {
+      if (layer.type === "symbol" && layer.source === "openmaptiles") {
+        map.setPaintProperty(
+          layer.id,
+          "text-color",
+          dark ? "#d7e5dc" : "#42564a",
+        );
+        map.setPaintProperty(
+          layer.id,
+          "text-halo-color",
+          dark ? "#17221c" : "#f7f9f8",
+        );
+      }
       if (layer.type === "symbol" && noisy.test(layer.id))
         map.setLayoutProperty(layer.id, "visibility", "none");
       if (layer.type === "background")

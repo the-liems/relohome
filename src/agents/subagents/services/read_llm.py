@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta
+from time import perf_counter
 
 from jsonschema import Draft202012Validator
 from openai import APIError, AsyncOpenAI
@@ -28,6 +29,10 @@ inputs là ràng buộc đã xác nhận: giữ ngân sách, ngày, số ngườ
 Tool có field dùng đúng giá trị field trong task, không phải tên địa điểm do bạn tự bịa. Tọa độ/ID/giá chỉ từ tool.
 Có thể search trực tiếp nếu rõ yêu cầu (tool tự resolve phần chưa chuẩn bị), hoặc resolve trước để kiểm vị trí/sân bay.
 Search đã bao gồm resolve an toàn; không cần resolve riêng chỉ để gọi lại search cùng mục tiêu.
+Với yêu cầu đơn giản chỉ liệt kê nhà/chuyến theo bộ lọc đã xác nhận, chọn search_housing_and_return hoặc
+search_flights_and_return để lấy dữ kiện và trả ngay; không cần một lượt finish chỉ để lặp lại kết quả.
+Hai tool này KHÔNG đánh giá phù hợp hay xếp hạng theo ưu tiên. Khi cần so sánh, đọc chi tiết, kiểm tra
+yêu cầu tùy chỉnh hoặc quyết định bước tiếp theo, dùng search bình thường rồi inspect/finish/request_replan.
 search_housing.limit là số kết quả cần xem (tối đa giới hạn tool); null dùng mặc định. Khi user nêu số lượng,
 chọn đúng số đó trong giới hạn task; tool tự đọc trang nếu cần. Không lấy thêm chỉ vì còn trang.
 Không lặp thao tác đã làm. Đừng đọc tất cả chi tiết nếu không có lý do. Còn ít budget thì tìm kết quả và finish.
@@ -46,13 +51,18 @@ DOMAIN_PROMPTS = {
 không dùng trí nhớ của bạn để lấy tọa độ. search_areas là địa giới, resolve_location là địa danh.
 Nhà được truy vấn bằng PostGIS; bạn không duyệt cả database bằng LLM. Có thể lấy trang tiếp nếu trang hiện tại chưa đủ.
 Phân biệt phòng riêng, ở ghép, dorm và căn hộ theo dữ kiện nguồn; không suy từ giá. Chỉ so sánh trong phần đã đọc.
+Task housing_mode='compare': dùng compare_housing đọc đúng listing_ids. Trả reason có tên căn, ưu/nhược
+theo tiêu chí user và các dữ kiện chưa biết. Không gọi search_housing_and_return cho nhiệm vụ so sánh;
+không tự chọn nhà. Thiếu điện/nước/cọc không coi là 0; tiền thuê+cọc là dòng tiền đầu vào chưa gồm phí thiếu.
 Khoảng cách bán kính là đường thẳng, không phải thời gian đi học. Yêu cầu đường đi/thời gian chưa có dữ kiện thì
 báo hạn chế cho Orchestrator, không tự khẳng định đáp ứng. Giá có quality flag không được gọi là giá đã xác minh.""",
     AgentName.FLIGHT: """Chuyên môn Flight: phân giải sân bay bằng catalog thật, ngày và hành khách giữ đúng task.
 So sánh giờ đến/đi, số chặng và giá theo dữ kiện trả về và ưu tiên trong mục tiêu. Không chỉ chọn giá rẻ nếu giờ đến
 không đáp ứng yêu cầu. Hành lý/fare rules chưa được provider xác minh thì để chưa biết; đọc get_offer khi hữu ích.
 Search chuyến không phải đặt/xuất vé. Nếu chưa biết thời gian đi từ sân bay tới nơi xem nhà, báo hạn chế;
-không tự bịa thời gian di chuyển hoặc đổi ngày bay.""",
+không tự bịa thời gian di chuyển hoặc đổi ngày bay. Vé khứ hồi: kết quả là danh sách chiều đi, giá là giá khứ hồi
+thấp nhất có chuyến đi đó (price_scope=round_trip_from), không phải giá cả hành trình đã chốt; người dùng chọn chiều
+đi rồi chiều về trên giao diện. Giá là giá tham khảo tại thời điểm tìm, không phải hãng xác nhận.""",
     AgentName.MAP: """Chuyên môn Map: phân giải endpoint từ dữ liệu Location; phân biệt địa giới, địa danh và căn đã chọn.
 Chọn resolve/search_areas khi cần, rồi tính tuyến hoặc tìm tiện ích theo nhiệm vụ. Phương tiện và bán kính giữ đúng
 input. OSRM là ước tính, không có giao thông trực tiếp. Nearby là đường thẳng, gần nhất theo loại, không phải tất cả
@@ -105,6 +115,8 @@ class ReadLlmAgent:
         )
         session = DomainToolSession(req, self.adapter)
         trace, decisions = [], []
+        started = perf_counter()
+        timing = {"llm_ms": 0, "tool_ms": 0}
         history = [
             {
                 "role": "user",
@@ -135,12 +147,13 @@ class ReadLlmAgent:
             result.usage = run.usage.model_copy()
             result.data["agent_trace"] = {
                 "implementation": "llm-tool-loop",
-                "policy": "mission-driven-v2",
+                "policy": "mission-driven-v3-facts-completion",
                 "domain": domain.value,
                 "tools": trace,
                 "decisions": decisions,
                 "model": self.model,
                 "cached_calls": session.tools.cached_calls,
+                "timing": {**timing, "total_ms": round((perf_counter() - started) * 1000)},
             }
             return result
 
@@ -159,6 +172,7 @@ class ReadLlmAgent:
                         t for t in available if t["name"] not in {"resolve_location", "search_areas", "search_airports"}
                     ]
                 run.reserve()
+                call_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
                     reply = await self.llm_client.responses.create(
                         model=provider_model(self.api_key, self.model),
@@ -172,6 +186,7 @@ class ReadLlmAgent:
                         **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
                         **({"temperature": 0} if self.model.startswith(("gpt-4.1", "gpt-4o")) else {}),
                     )
+                timing["llm_ms"] += round((perf_counter() - call_started) * 1000)
                 if reply.usage:
                     run.usage.tokens_in += reply.usage.input_tokens
                     run.usage.tokens_out += reply.usage.output_tokens
@@ -186,8 +201,10 @@ class ReadLlmAgent:
                     raise ValueError("Invalid or unobserved tool argument")
                 trace.append(call.name)
                 decisions.append({"tool": call.name, **{k: args[k] for k in ("field", "id", "limit") if k in args}})
+                call_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
                     output, terminal = await session.execute(call.name, args)
+                timing["tool_ms"] += round((perf_counter() - call_started) * 1000)
                 if terminal:
                     return finish()
                 history.append(
@@ -230,10 +247,12 @@ class ReadLlmAgent:
             )
             failure.data["agent_trace"] = {
                 "implementation": "llm-tool-loop",
-                "policy": "mission-driven-v2",
+                "policy": "mission-driven-v3-facts-completion",
                 "domain": domain.value,
                 "tools": trace,
                 "decisions": decisions,
                 "model": self.model,
+                "failure_code": exc.code if isinstance(exc, ToolCallError) else type(exc).__name__,
+                "timing": {**timing, "total_ms": round((perf_counter() - started) * 1000)},
             }
             return failure

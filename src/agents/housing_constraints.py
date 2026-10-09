@@ -8,6 +8,8 @@ HOUSING_NUMERIC_FILTERS = (
     "max_area_m2",
 )
 HOUSING_INPUT_KEYS = (
+    "housing_mode",
+    "listing_ids",
     "city",
     "district",
     "near",

@@ -1,5 +1,10 @@
 # Bàn giao agent và tối ưu ngữ cảnh — nhánh khoa, 03/10/2026
 
+> Bản này ghi nhận nền `khoa` tại `b7cd0c7`, trước các thay đổi POI/map/Moving
+> ngày 04/10. Danh sách file và hướng dẫn nhận code + dữ liệu trên `QuangDung`:
+> [bàn giao cập nhật](quangdung-changes-and-data-handoff-2026-10-04.md).
+> Các câu “không sửa UI” bên dưới chỉ mô tả đợt agent 03/10.
+
 ## Đọc nhanh
 
 Bản này giữ giao diện MVP của teammate, cải tiến backend trên cùng LangGraph:

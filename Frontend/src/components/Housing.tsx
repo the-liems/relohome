@@ -1,5 +1,7 @@
+import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
+  BadgeCheck,
   BedDouble,
   Bath,
   Ruler,
@@ -11,10 +13,19 @@ import {
   ExternalLink,
   MessageCircle,
   GitCompareArrows,
+  Calculator,
+  CircleAlert,
+  Droplets,
+  Send,
+  Users,
+  Zap,
 } from "lucide-react";
-import { api, housePrice, money, safeUrl } from "../api";
-import type { House } from "../types";
+import { posterLabels } from "../landlord/HostProfile";
+import { api, housePrice, money, requestId, safeUrl } from "../api";
+import type { Data, House } from "../types";
+import { estimateCost, type CostLine, type Usage } from "../housingCost";
 import { Dialog } from "./Dialog";
+import { TenantHostReviews } from "./HousingReviews";
 
 export const amenities: Record<string, string> = {
   parking: "Chỗ để xe",
@@ -53,7 +64,7 @@ export function HouseImage({ house }: { house: House }) {
   ) : (
     <div className="house-placeholder">
       <HouseIcon size={30} />
-      <span>Chưa có ảnh</span>
+      <span>{uiText("Chưa có ảnh")}</span>
     </div>
   );
 }
@@ -91,14 +102,14 @@ export function HousingCard({
           <button
             className={"icon-button heart " + (saved ? "saved" : "")}
             onClick={onSave}
-            aria-label={saved ? "Bỏ lưu nhà" : "Lưu nhà"}
+            aria-label={saved ? uiText("Bỏ lưu nhà") : uiText("Lưu nhà")}
           >
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button>
         </div>
         <p className="muted address">
           <MapPin size={13} />
-          {house.address || "Chưa có địa chỉ"}
+          {house.address || uiText("Chưa có địa chỉ")}
         </p>
         <strong className="price">{housePrice(house)}</strong>
         <div className="house-stats">
@@ -125,11 +136,11 @@ export function HousingCard({
           {selected && (
             <span className="tag selected-tag">
               <Check size={12} />
-              Đã chọn
+              {uiText("Đã chọn")}
             </span>
           )}
           {house.location_accuracy !== "rooftop" && (
-            <span className="tag amber">Vị trí gần đúng</span>
+            <span className="tag amber">{uiText("Vị trí gần đúng")}</span>
           )}
           {(house.amenities || []).slice(0, 2).map((a: string) => (
             <span className="tag" key={a}>
@@ -139,7 +150,8 @@ export function HousingCard({
         </div>
         <div className="house-actions">
           <button className="text-button" onClick={onOpen}>
-            Xem chi tiết <ArrowUpRight size={14} />
+            {uiText("Xem chi tiết ")}
+            <ArrowUpRight size={14} />
           </button>
           {onCompare && (
             <label className="compare-label">
@@ -148,7 +160,7 @@ export function HousingCard({
                 checked={compare || false}
                 onChange={onCompare}
               />
-              So sánh
+              {uiText("So sánh")}
             </label>
           )}
         </div>
@@ -195,11 +207,24 @@ export function HousingDetail({
       .finally(() => setLoading(false));
     return () => c.abort();
   }, [house.id]);
+  useEffect(() => {
+    let visitor = "session";
+    try {
+      visitor = sessionStorage.getItem("relohome-analytics-id") || requestId();
+      sessionStorage.setItem("relohome-analytics-id", visitor);
+    } catch {
+      visitor = requestId();
+    }
+    void api(`/housing-management/housing/${encodeURIComponent(house.id)}/events`, "POST", {
+      event_type: "detail_view",
+      dedup_key: `detail:${visitor}:${house.id}`,
+    }).catch(() => {});
+  }, [house.id]);
   const source = safeUrl(
     detail.source?.url || detail.source?.source_url || detail.source_url,
   );
   return (
-    <Dialog title="Chi tiết nhà" onClose={onClose}>
+    <Dialog title={uiText("Chi tiết nhà")} onClose={onClose}>
       <div className="detail-photo">
         <HouseImage house={detail} />
       </div>
@@ -207,7 +232,7 @@ export function HousingDetail({
         <h2>{detail.title}</h2>
         <button
           className={"icon-button " + (saved ? "saved" : "")}
-          aria-label={saved ? "Bỏ lưu" : "Lưu nhà"}
+          aria-label={saved ? uiText("Bỏ lưu") : uiText("Lưu nhà")}
           onClick={onSave}
         >
           <Heart size={21} fill={saved ? "currentColor" : "none"} />
@@ -220,12 +245,13 @@ export function HousingDetail({
       </p>
       {loading && (
         <p role="status" className="muted">
-          Đang cập nhật thông tin…
+          {uiText("Đang cập nhật thông tin…")}
         </p>
       )}
       {error && (
         <p role="alert" className="notice amber">
-          {error} Đang hiển thị thông tin đã tra cứu.
+          {uiText(error)}
+          {uiText(" Đang hiển thị thông tin đã tra cứu.")}
         </p>
       )}
       <dl className="detail-grid">
@@ -240,13 +266,14 @@ export function HousingDetail({
         ].map(([k, v]) => (
           <div key={k}>
             <dt>{k}</dt>
-            <dd>{v ?? "Chưa có dữ liệu"}</dd>
+            <dd>{v ?? uiText("Chưa có dữ liệu")}</dd>
           </div>
         ))}
       </dl>
-      <h3>Về căn nhà</h3>
+      <h3>{uiText("Về căn nhà")}</h3>
       <p className="prose">
-        {detail.description || "Nguồn tin chưa cung cấp mô tả chi tiết."}
+        {detail.description ||
+          uiText("Nguồn tin chưa cung cấp mô tả chi tiết.")}
       </p>
       <div className="tags">
         {(detail.amenities || []).map((a: string) => (
@@ -255,11 +282,13 @@ export function HousingDetail({
           </span>
         ))}
       </div>
+      <HousingDecisionTools house={detail} />
+      {detail.management && <TenantHostReviews listingId={detail.id} />}
       <p className="notice">
         {detail.location_accuracy === "rooftop"
-          ? "Vị trí theo tin nhà."
-          : "Vị trí chỉ gần đúng theo nguồn tin."}{" "}
-        Cần xác nhận điểm xe dừng khi chuyển đồ.
+          ? uiText("Vị trí theo tin nhà.")
+          : uiText("Vị trí chỉ gần đúng theo nguồn tin.")}{" "}
+        {uiText("Cần xác nhận điểm xe dừng khi chuyển đồ.")}
       </p>
       {source && (
         <a
@@ -268,7 +297,8 @@ export function HousingDetail({
           target="_blank"
           rel="noreferrer"
         >
-          Mở nguồn tin <ExternalLink size={14} />
+          {uiText("Mở nguồn tin ")}
+          <ExternalLink size={14} />
         </a>
       )}
       {onAsk && onSelect && (
@@ -278,7 +308,7 @@ export function HousingDetail({
             onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
           >
             <MessageCircle size={16} />
-            Hỏi AI
+            {uiText("Hỏi AI")}
           </button>
           <button
             className="primary"
@@ -288,10 +318,10 @@ export function HousingDetail({
             {selected ? (
               <>
                 <Check size={16} />
-                Đã chọn
+                {uiText("Đã chọn")}
               </>
             ) : (
-              "Chọn căn này"
+              uiText("Chọn căn này")
             )}
           </button>
         </div>
@@ -299,28 +329,349 @@ export function HousingDetail({
     </Dialog>
   );
 }
+
+const OPEN_REQUEST = new Set(["new", "contacted", "viewing"]);
+const REQUEST_STATUS: Record<string, string> = {
+  new: "Đã gửi, chủ nhà chưa xem",
+  contacted: "Chủ nhà đã liên hệ",
+  viewing: "Chủ nhà đã hẹn xem",
+  resolved: "Đã hoàn tất",
+  declined: "Đã đóng",
+};
+
+// Tenant quantities start empty: the estimate never assumes a usage level (SPEC-021 AC-04).
+export function UsageInputs({
+  usage,
+  onChange,
+}: {
+  usage: Usage;
+  onChange: (next: Usage) => void;
+}) {
+  const field = (key: keyof Usage, label: string, Icon: typeof Users, max: number) => (
+    <label key={key}>
+      <Icon size={15} /> {uiText(label)}
+      <input
+        type="number"
+        min="0"
+        max={max}
+        inputMode="decimal"
+        placeholder={uiText("Bạn nhập")}
+        value={usage[key] ?? ""}
+        onChange={(e) =>
+          onChange({
+            ...usage,
+            [key]: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+          })
+        }
+      />
+    </label>
+  );
+  return (
+    <div className="housing-usage-grid">
+      {field("people", "Số người", Users, 20)}
+      {field("kwh", "Điện (kWh/tháng)", Zap, 10000)}
+      {field("m3", "Nước (m³/tháng)", Droplets, 1000)}
+      {field("vehicles", "Số xe", Calculator, 20)}
+    </div>
+  );
+}
+
+const amountText = (line: CostLine) =>
+  line.amount != null
+    ? money(line.amount)
+    : line.missing === "quantity"
+      ? uiText("Cần số liệu của bạn")
+      : uiText("Chưa rõ");
+
+// Daily or non-VND prices cannot be turned into a monthly total without guessing.
+const NO_MONTHLY_RENT = "Chưa rõ: giá không tính theo tháng";
+function HousingDecisionTools({ house }: { house: House }) {
+  const [usage, setUsage] = useState<Usage>({});
+  const [message, setMessage] = useState(
+    uiText("Tôi quan tâm căn này và muốn trao đổi thêm về lịch xem phòng."),
+  );
+  const [sending, setSending] = useState(false);
+  const [requestState, setRequestState] = useState("");
+  const [mine, setMine] = useState<Data | null>(null);
+  const cost = estimateCost(house, usage);
+  const acceptsContact = Boolean(house.management?.accepts_contact_requests);
+  async function loadMine() {
+    try {
+      const page = await api<{ items: Data[] }>(
+        "/housing-management/housing/contact-requests/me",
+      );
+      setMine(
+        page.items.find(
+          (r) => r.listing_id === house.id && OPEN_REQUEST.has(r.status),
+        ) || null,
+      );
+    } catch {
+      setMine(null);
+    }
+  }
+  useEffect(() => {
+    if (acceptsContact) void loadMine();
+  }, [house.id, acceptsContact]);
+  async function contact() {
+    setSending(true);
+    setRequestState("");
+    try {
+      await api(
+        `/housing-management/housing/${encodeURIComponent(house.id)}/contact-requests`,
+        "POST",
+        { message },
+      );
+      setRequestState(
+        uiText("Đã gửi yêu cầu. Chủ nhà sẽ thấy lời nhắn trong hộp thư quản lý."),
+      );
+      await loadMine();
+    } catch (cause) {
+      setRequestState((cause as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+  async function cancel() {
+    if (!mine) return;
+    setSending(true);
+    try {
+      await api(
+        `/housing-management/housing/contact-requests/${encodeURIComponent(mine.id)}/cancel`,
+        "POST",
+        { revision: mine.revision },
+      );
+      setRequestState(uiText("Đã hủy yêu cầu liên hệ."));
+      await loadMine();
+    } catch (cause) {
+      setRequestState((cause as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+  return (
+    <section className="housing-decision-tools" aria-labelledby="housing-cost-title">
+      <div className="housing-tool-heading">
+        <span>
+          <Calculator size={19} />
+        </span>
+        <div>
+          <h3 id="housing-cost-title">{uiText("Ước tính chi phí")}</h3>
+          <p>
+            {uiText(
+              "Chỉ dùng mức phí chủ nhà công bố và số liệu bạn nhập; khoản thiếu không được tính bằng 0.",
+            )}
+          </p>
+        </div>
+      </div>
+      <UsageInputs usage={usage} onChange={setUsage} />
+      <dl className="housing-cost-summary">
+        {cost.monthly.map((l, i) => (
+          <div key={"m" + i}>
+            <dt>{uiText(l.label)}</dt>
+            <dd>{amountText(l)}</dd>
+          </div>
+        ))}
+        <div className="total">
+          <dt>
+            {cost.monthlyComplete
+              ? uiText("Tổng mỗi tháng")
+              : uiText("Tạm tính mỗi tháng (từ các khoản đã biết)")}
+          </dt>
+          <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.monthlyKnown)}</dd>
+        </div>
+        <div>
+          <dt>
+            {cost.moveInComplete
+              ? uiText("Cần chuẩn bị khi vào ở")
+              : uiText("Cần chuẩn bị khi vào ở (tạm tính)")}
+          </dt>
+          <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.moveInKnown)}</dd>
+        </div>
+        <div>
+          <dt>{uiText("Tiền cọc")}</dt>
+          <dd>{cost.deposit != null ? money(cost.deposit) : uiText("Chưa rõ")}</dd>
+        </div>
+        {cost.oneTime.map((l, i) => (
+          <div key={"o" + i}>
+            <dt>{formatUi("{0} (một lần)", [uiText(l.label)])}</dt>
+            <dd>{amountText(l)}</dd>
+          </div>
+        ))}
+        {cost.pricePerM2 != null && (
+          <div>
+            <dt>{uiText("Giá thuê / m²")}</dt>
+            <dd>{money(cost.pricePerM2)}</dd>
+          </div>
+        )}
+      </dl>
+      {cost.optional.length > 0 && (
+        <p className="muted small">
+          {uiText("Phí tùy chọn, không tính vào tổng: ")}
+          {cost.optional
+            .map((l) => `${uiText(l.label)} ${amountText(l)}`)
+            .join(" · ")}
+        </p>
+      )}
+      {cost.unknown.length > 0 && (
+        <p className="housing-cost-warning">
+          <CircleAlert size={16} />{" "}
+          {formatUi("Chưa rõ, hãy hỏi chủ nhà: {0}.", [
+            cost.unknown.map((l) => uiText(l)).join(", "),
+          ])}
+        </p>
+      )}
+      {!cost.feesPublished && (
+        <p className="housing-cost-warning">
+          <CircleAlert size={16} />{" "}
+          {uiText(
+            "Tin này chưa công bố điện, nước và phí định kỳ; tổng chỉ gồm tiền thuê.",
+          )}
+        </p>
+      )}
+      {acceptsContact && (
+        <div className="housing-contact-box">
+          <h3>{uiText("Gửi yêu cầu liên hệ")}</h3>
+          {house.management?.poster_type && (
+            <p className="housing-poster">
+              <BadgeCheck size={15} aria-hidden="true" />
+              {[
+                house.management.poster_name,
+                uiText(posterLabels[house.management.poster_type]),
+                house.management.host_verified
+                  ? uiText("Người đăng đã được ReloHome xác minh")
+                  : uiText("Người đăng chưa được xác minh"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+          <p>
+            {uiText(
+              "ReloHome chuyển lời nhắn tới tài khoản quản lý tin. Thông tin liên hệ không được công khai trên tin.",
+            )}
+          </p>
+          {mine ? (
+            <p role="status" className="housing-contact-status">
+              {formatUi("Yêu cầu của bạn: {0}.", [
+                uiText(REQUEST_STATUS[mine.status] || mine.status),
+              ])}{" "}
+              {["new", "contacted"].includes(mine.status) && (
+                <button className="text-button" disabled={sending} onClick={() => void cancel()}>
+                  {uiText("Hủy yêu cầu")}
+                </button>
+              )}
+              {mine.status === "viewing" && (
+                <span className="small muted"> {uiText(VIEWING_HINT)}</span>
+              )}
+            </p>
+          ) : (
+            <>
+              <textarea
+                aria-label={uiText("Lời nhắn cho chủ nhà")}
+                maxLength={1000}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <button
+                className="primary"
+                disabled={sending || !message.trim()}
+                onClick={() => void contact()}
+              >
+                <Send size={16} /> {sending ? uiText("Đang gửi…") : uiText("Gửi yêu cầu")}
+              </button>
+            </>
+          )}
+          {requestState && (
+            <p role="status" className="housing-contact-status">
+              {requestState}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+// The owner's "viewing" status links to the in-plan viewing flow (docs/review/housing-viewing-design.md).
+export const VIEWING_HINT =
+  "Chủ nhà đã nhận lịch hẹn. Chọn căn này để hẹn xem trong hội thoại, rồi đặt giờ ở Kế hoạch → Xem nhà để ReloHome nhắc lịch và hỗ trợ chốt căn.";
 export function Comparison({
   houses,
   onClose,
   onOpen,
+  refresh = false,
 }: {
   houses: House[];
   onClose: () => void;
   onOpen: (h: House) => void;
+  refresh?: boolean;
 }) {
+  const [loaded, setLoaded] = useState(houses);
+  const [usage, setUsage] = useState<Usage>({});
+  const [loading, setLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState<string[]>([]);
+  const ids = houses.map((h) => h.id).join("|");
+  useEffect(() => {
+    const abort = new AbortController();
+    setLoaded(houses);
+    setUnavailable([]);
+    if (!refresh) return;
+    setLoading(true);
+    // Independent read-only detail requests; no Intake/Planner or selection call.
+    Promise.all(
+      houses.map(async (h) => {
+        try {
+          const detail = await api<House>(
+            "/housing/" + encodeURIComponent(h.id),
+            "GET",
+            undefined,
+            AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]),
+          );
+          return { house: { ...h, ...detail }, failed: false };
+        } catch {
+          return { house: h, failed: true };
+        }
+      }),
+    ).then((results) => {
+      if (abort.signal.aborted) return;
+      setLoaded(results.map((r) => r.house));
+      setUnavailable(results.filter((r) => r.failed).map((r) => r.house.id));
+      setLoading(false);
+    });
+    return () => abort.abort();
+  }, [ids, refresh]);
   return (
-    <Dialog title="So sánh các căn đã chọn" wide onClose={onClose}>
+    <Dialog title={uiText("So sánh các căn đã chọn")} wide onClose={onClose}>
       <p className="muted">
-        <GitCompareArrows size={16} /> Thông tin từ những kết quả đã tải. Giá và
-        tình trạng trống cần được xác minh với nguồn tin.
+        <GitCompareArrows size={16} />
+        {uiText(
+          " Thông tin từ những kết quả đã tải. Giá và tình trạng trống cần được xác minh với nguồn tin.",
+        )}
       </p>
+      <p className="muted small">
+        {uiText(
+          "Nhập mức dùng của bạn để so sánh chi phí; để trống thì khoản đó được ghi là chưa tính.",
+        )}
+      </p>
+      <UsageInputs usage={usage} onChange={setUsage} />
+      {loading && (
+        <p role="status">{uiText("Đang đọc lại chi tiết các căn…")}</p>
+      )}
+      {unavailable.length > 0 && (
+        <p className="notice amber" role="alert">
+          {uiText(
+            "Một số tin chưa đọc lại được; bảng đang giữ dữ liệu đã tải, không coi đó là dữ liệu mới xác minh.",
+          )}
+        </p>
+      )}
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>Tiêu chí</th>
-              {houses.map((h) => (
-                <th key={h.id}>{h.title}</th>
+              <th scope="col">{uiText("Tiêu chí")}</th>
+              {loaded.map((h) => (
+                <th scope="col" key={h.id}>
+                  {h.title}
+                </th>
               ))}
             </tr>
           </thead>
@@ -328,11 +679,48 @@ export function Comparison({
             {[
               ["Giá", (h: House) => housePrice(h)],
               [
+                "Giá / m²",
+                (h: House) =>
+                  h.price_vnd != null && h.area_m2
+                    ? money(Math.round(h.price_vnd / h.area_m2))
+                    : "Chưa có dữ liệu",
+              ],
+              [
+                "Tạm tính mỗi tháng",
+                (h: House) => {
+                  const cost = estimateCost(h, usage);
+                  if (cost.rent == null) return uiText(NO_MONTHLY_RENT);
+                  return cost.monthlyComplete
+                    ? money(cost.monthlyKnown)
+                    : formatUi("{0} (tạm tính)", [money(cost.monthlyKnown)]);
+                },
+              ],
+              [
+                "Cần chuẩn bị khi vào ở",
+                (h: House) => {
+                  const cost = estimateCost(h, usage);
+                  if (cost.rent == null) return uiText(NO_MONTHLY_RENT);
+                  return cost.moveInComplete
+                    ? money(cost.moveInKnown)
+                    : formatUi("{0} (tạm tính)", [money(cost.moveInKnown)]);
+                },
+              ],
+              [
+                "Khoản chưa rõ",
+                (h: House) => {
+                  const cost = estimateCost(h, usage);
+                  if (!cost.feesPublished) return "Chưa công bố phí";
+                  return cost.unknown.map((l) => uiText(l)).join(", ") || "Không có";
+                },
+              ],
+              [
                 "Diện tích",
                 (h: House) =>
                   h.area_m2 != null ? h.area_m2 + " m²" : "Chưa có dữ liệu",
               ],
               ["Phòng ngủ", (h: House) => h.bedrooms ?? "Chưa có dữ liệu"],
+              ["Phòng tắm", (h: House) => h.bathrooms ?? "Chưa có dữ liệu"],
+              ["Địa chỉ", (h: House) => h.address || "Chưa có dữ liệu"],
               [
                 "Tiền cọc",
                 (h: House) =>
@@ -356,19 +744,23 @@ export function Comparison({
               ],
             ].map(([label, fn]) => (
               <tr key={String(label)}>
-                <th>{String(label)}</th>
-                {houses.map((h) => (
-                  <td key={h.id}>{(fn as (h: House) => string)(h)}</td>
+                <th scope="row">{uiText(String(label))}</th>
+                {loaded.map((h) => (
+                  <td key={h.id}>
+                    {uiText(String((fn as (h: House) => unknown)(h)))}
+                  </td>
                 ))}
               </tr>
             ))}
             <tr>
-              <th />
+              <th scope="row">
+                <span className="sr-only">{uiText("Thao tác")}</span>
+              </th>
               <>
-                {houses.map((h) => (
+                {loaded.map((h) => (
                   <td key={h.id}>
                     <button className="secondary" onClick={() => onOpen(h)}>
-                      Xem chi tiết
+                      {uiText("Xem chi tiết ")}
                     </button>
                   </td>
                 ))}
@@ -377,6 +769,11 @@ export function Comparison({
           </tbody>
         </table>
       </div>
+      <p className="notice small">
+        {uiText(
+          "Thiếu thông tin không có nghĩa là miễn phí. So sánh không thay căn đã chọn và không đặt/thuê nhà.",
+        )}
+      </p>
     </Dialog>
   );
 }

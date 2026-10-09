@@ -9,6 +9,7 @@ from __future__ import annotations
 from src.agents.contracts import AgentCapability
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
 from src.agents.models import AgentBudget, AgentName, CommitActionKind
+from src.roommate.models import RoommateSearchCriteria
 
 _STR = {"type": "string", "minLength": 1}
 _INT = {"type": "integer", "minimum": 0}
@@ -32,6 +33,8 @@ PROPERTY = AgentCapability(
     input_schema={
         "type": "object",
         "properties": {
+            "housing_mode": {"enum": ["search", "compare", "search_compare"]},
+            "listing_ids": {"type": "array", "items": _STR, "minItems": 2, "maxItems": 4, "uniqueItems": True},
             "city": _STR,
             "district": _STR,
             "near": _STR,
@@ -61,10 +64,17 @@ PROPERTY = AgentCapability(
             "cursor": {"type": ["string", "null"], "maxLength": 1000},
         },
         "anyOf": [
+            {"properties": {"housing_mode": {"const": "compare"}}, "required": ["housing_mode", "listing_ids"]},
             {"required": ["city"]},
             {"required": ["near"]},
             {"required": ["district"]},
             {"required": ["bounding_box"]},
+        ],
+        "allOf": [
+            {
+                "if": {"properties": {"housing_mode": {"const": "compare"}}, "required": ["housing_mode"]},
+                "then": {"required": ["listing_ids"]},
+            }
         ],
         "additionalProperties": False,
     },
@@ -218,6 +228,8 @@ FLIGHT = AgentCapability(
             "origin": _STR,
             "destination": _STR,
             "date": _DATE,
+            "trip_type": {"type": "string", "enum": ["one_way", "round_trip"]},
+            "return_date": _DATE,
             "passengers": {
                 "type": "object",
                 "properties": {"adults": {"type": "integer", "minimum": 1}, "children": _INT, "infants": _INT},
@@ -254,7 +266,7 @@ FLIGHT = AgentCapability(
     stale_ttl_s=15 * 60,
     cost_tier="paid",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=4),
-    constraint_keys=["origin", "destination", "flight_date", "passengers"],
+    constraint_keys=["origin", "destination", "flight_date", "trip_type", "return_date", "passengers"],
     hint_keys=["preferred_airline"],
     commit_kinds=[CommitActionKind.FLIGHT_BOOKING, CommitActionKind.CANCEL_ORDER],
 )
@@ -271,6 +283,7 @@ RELOCATION = AgentCapability(
             "move_time": {"type": "string", "pattern": r"^([01]\d|2[0-3]):[0-5]\d$"},
             "selected_listing_id": _STR,
             "volume": _STR,
+            "moving_options": {"type": "object"},
             "order_id": _STR,
             "tracking_number": _STR,
         },
@@ -315,7 +328,7 @@ RELOCATION = AgentCapability(
     stale_ttl_s=300,  # báo giá AhaMove mặc định hết hạn sau 5 phút (AHAMOVE_QUOTE_TTL_SECONDS)
     cost_tier="paid",
     default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=8),
-    constraint_keys=["from_address", "to_address", "move_date", "move_time", "volume"],
+    constraint_keys=["from_address", "to_address", "move_date", "move_time", "volume", "moving_options"],
     hint_keys=["preferred_mover"],
     commit_kinds=[CommitActionKind.MOVING_BOOKING, CommitActionKind.CANCEL_ORDER, CommitActionKind.UPDATE_ORDER],
 )
@@ -352,12 +365,52 @@ PAYMENT = AgentCapability(
     constraint_keys=["payment_id"],
 )
 
+_roommate_criteria_schema = RoommateSearchCriteria.model_json_schema()
+_roommate_defs = _roommate_criteria_schema.pop("$defs", {})
+ROOMMATE = AgentCapability(
+    agent=AgentName.ROOMMATE,
+    input_schema={
+        "type": "object",
+        "$defs": _roommate_defs,
+        "properties": {"roommate_criteria": _roommate_criteria_schema},
+        "additionalProperties": False,
+    },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "entry": {"const": "roommate"},
+            "availability": {"enum": ["ready", "disabled", "eligibility_required", "criteria_required"]},
+            "profile_refs": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"profile_id": _STR},
+                    "required": ["profile_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "criteria": {"type": ["object", "null"]},
+            "execution": {"type": "object"},
+        },
+        "required": ["entry", "availability", "profile_refs"],
+        "additionalProperties": False,
+    },
+    required_fields=["entry", "availability"],
+    stale_ttl_s=60,  # Handles only; profile reads always recheck authorization and expiry.
+    cost_tier="cheap",
+    uses_llm=False,
+    default_budget=AgentBudget(max_llm_calls=0, max_provider_calls=0),
+    constraint_keys=["roommate_criteria"],
+    commit_kinds=[],
+)
+
 BASELINE_CAPABILITIES: dict[AgentName, AgentCapability] = {
     AgentName.PROPERTY: PROPERTY,
     AgentName.MAP: MAP,
     AgentName.FLIGHT: FLIGHT,
     AgentName.RELOCATION: RELOCATION,
     AgentName.PAYMENT: PAYMENT,
+    AgentName.ROOMMATE: ROOMMATE,
 }
 
 

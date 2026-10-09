@@ -65,3 +65,23 @@ Trần domain loop là 6 LLM calls, nằm trong budget chung của graph, không
 số call bắt buộc. Cache tránh gọi provider lặp; giới hạn chi tiết/phân trang bởi
 provider budget và deadline. Kiểm chứng dùng dịch vụ thật, không tạo mock data,
 không coi test skip là pass. Dữ liệu POI/nhà và provider vẫn có giới hạn coverage.
+
+### Bổ sung triển khai 05/10: trả dữ kiện không cần assessment
+
+Thêm `search_housing_and_return` và `search_flights_and_return` trong namespace
+**nội bộ domain agent**, không đổi tên MCP contract của teammate. Model chọn
+thao tác này khi chỉ cần liệt kê theo bộ lọc; normal search/inspect/finish/replan
+vẫn có cho đánh giá chuyên môn. Đây không phải fast-path phân loại câu bằng
+keyword và không bỏ Intake hay Planner. Kết quả facts-only đánh dấu
+`agent_completion.model_assessed=false`; nguồn tiếp tục nằm ở `source_refs`
+chuẩn, không tạo assessment hay tự nới ràng buộc.
+
+Lookup sân bay của Flight local dùng cùng catalog đang phục vụ MCP, kiểm cùng
+schema, sau allowlist; chỉ bỏ vòng khởi động stdio cho lookup này. MCP HTTP hoặc
+server tùy chỉnh vẫn được gọi như trước. Search giá/chuyến vẫn qua provider thật.
+Không coi catalog tĩnh là giá/chuyến live.
+
+Trade-off: task liệt kê đơn giản không có lượt LLM thứ hai chỉ để nhắc lại kết
+quả; không tuyên bố model đã đánh giá độ phù hợp. Hội thoại vẫn có overhead
+Intake/Planner. [Đo thực tế](../../eval/read-latency-2026-10-05.md) ghi rõ cache,
+token, điều kiện đo và giới hạn, không suy ra SLA hay % tăng tốc tổng thể.

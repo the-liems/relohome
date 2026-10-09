@@ -9,6 +9,7 @@ import {
   ResolveLocationRequestSchema,
   RouteRequestSchema,
   EntityRouteRequestSchema,
+  DeviceRouteRequestSchema,
   SearchAreasRequestSchema,
 } from '@lifeflow/contracts'
 import {
@@ -27,6 +28,8 @@ import {
 } from '@lifeflow/housing-query'
 import Fastify from 'fastify'
 import { z, ZodError } from 'zod'
+import { ManagementError, registerHousingManagement } from './housing-management.js'
+import { registerHousingReviews } from './housing-reviews.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -37,12 +40,14 @@ const NearbyRequestSchema = z.object({
 
 export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const app = Fastify({ logger: true })
-  const routeService = new RouteService(config.osrmUrls)
+  const routeService = new RouteService(config.osrmUrls, config.publicDrivingOsrmUrl)
   const queries = boundedQueries(pool)
   const entityRouteService = new RouteEndpointService(queries, routeService)
   const housingService = new HousingQueryService(queries, routeService, config)
   const locationService = new LocationService(queries)
   const placeService = new PlaceService(queries)
+  registerHousingManagement(app, pool)
+  registerHousingReviews(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
@@ -103,7 +108,14 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
     return entityRouteService.calculate(EntityRouteRequestSchema.parse(request.body))
   })
 
+  app.post('/v1/routes/device', async (request) => {
+    return entityRouteService.calculateDevice(DeviceRouteRequestSchema.parse(request.body))
+  })
+
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ManagementError) {
+      return reply.status(error.status).send({ code: error.code, message: error.message })
+    }
     if (error instanceof OperationError) {
       return reply.status(error.code === 'TIMEOUT' ? 504 : error.code === 'CANCELLED' ? 408 : 503)
         .send({ code: error.code, message: error.message, retryable: error.code !== 'CANCELLED' })

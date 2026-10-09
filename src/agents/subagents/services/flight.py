@@ -103,19 +103,26 @@ class FlightSubagent:
         if questions:
             return self._result(req, tools, "live", status="needs_input", questions=questions)
         passengers = inp.get("passengers") or {"adults": 1}
-        found = await tools.call(
-            "search_flights",
-            {
-                "request": {
-                    "origin": origin,
-                    "destination": destination,
-                    "departure_date": inp["date"],
-                    "passengers": passengers,
-                    "sort_by": "price",
-                    "max_results": 5,
-                }
-            },
-        )
+        round_trip = inp.get("trip_type") == "round_trip"
+        if round_trip and not inp.get("return_date"):
+            return self._result(
+                req,
+                tools,
+                "live",
+                status="needs_input",
+                questions=[Question(field="return_date", text="Bạn muốn bay về ngày nào?")],
+            )
+        request = {
+            "origin": origin,
+            "destination": destination,
+            "departure_date": inp["date"],
+            "passengers": passengers,
+            "sort_by": "price",
+            "max_results": 8 if round_trip else 5,
+        }
+        if round_trip:
+            request.update(trip_type="round_trip", return_date=inp["return_date"])
+        found = await tools.call("search_flights", {"request": request})
         found = found or {}
         source = found.get("source")
         if source != "serpapi" and not (self.allow_simulation and source == "mock"):
@@ -141,9 +148,13 @@ class FlightSubagent:
                 "seats_left": offer.get("seats_left"),
                 "stops": offer.get("stops"),
                 "expires_at": offer.get("expires_at"),
+                # round_trip_outbound: giá khứ hồi thấp nhất có chuyến đi này, chưa phải giá để thanh toán.
+                "kind": offer.get("kind") or "one_way",
+                "price_scope": offer.get("price_scope") or "one_way",
+                "flight_numbers": [s.get("flight_number") for s in segments],
             }
             offers.append(item)
-            if item["fare_vnd"] is not None:
+            if item["fare_vnd"] is not None and item["kind"] == "one_way":
                 label = f"{carrier} {str(item['depart_at'])[11:16]} {origin}→{destination}"
                 quotes.append(
                     Quote(option_id=item["id"], label=label, amount_vnd=int(item["fare_vnd"]), recurrence="one_time")
@@ -156,7 +167,15 @@ class FlightSubagent:
             tools,
             source_kind,
             status="done",
-            data={"offers": offers, "origin": origin, "destination": destination},
+            data={
+                "offers": offers,
+                "origin": origin,
+                "destination": destination,
+                "trip_type": "round_trip" if round_trip else "one_way",
+                "return_date": inp.get("return_date") if round_trip else None,
+                "flight_date": inp["date"],
+                "passengers": passengers,
+            },
             quotes=quotes,
             missing_fields=missing,
             source_refs=[o["id"] for o in offers],

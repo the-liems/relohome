@@ -154,6 +154,59 @@ Database names and role names have configurable defaults in Compose. Generate
 independent internal secrets with `openssl rand -hex 32`. Runtime writes remain
 disabled in this staging definition.
 
+### In-app payment for the team test phase
+
+The backend runs with `APP_ENV=staging` and in-app checkout on
+([payment-design](../../../docs/review/payment-design.md)): ZaloPay **sandbox**
+orders, simulated flight hold/ticket on the internal `flights-mcp`, and Moving
+recorded as approved without an AhaMove order. Optional values:
+
+| Variables | Purpose |
+| --- | --- |
+| `PAYMENT_TESTER_USER_IDS` | Comma-separated gateway account IDs allowed to use the "paid (tester)" control. Empty means nobody sees it |
+| `PAYMENT_RECONCILE_ACTIVE_SECONDS` | Optional, default 10. How often the backend checks a payable order with ZaloPay before its hold expires; it also checks once just before expiry |
+| `SIU_TRAVELER_KEY` | Fernet key for flight booker profiles. Empty creates a key file in `web-data`; losing it makes saved profiles unreadable |
+
+Testers register on the site first. Read their IDs from the web container, then
+set the list and restart the backend:
+
+```sh
+docker exec <web-container> python -c "import sqlite3; print(sqlite3.connect('/app/data/siu-web.sqlite3').execute(\"select id from users where email in ('a@example.com')\").fetchall())"
+```
+
+The control also requires an awaiting, unexpired payment owned by that account,
+and its result is labelled "marked by tester", separate from the gateway status.
+Before outside users try the site, set `APP_ENV: production`, remove
+`PAYMENT_TESTER_CONFIRM_ENABLED` and `PAYMENT_TESTER_USER_IDS`; the backend
+refuses to start if the tester control is enabled in production.
+
+### Housing owner workspace and Roommate
+
+Optional values; the defaults keep both features safe to deploy:
+
+| Variables | Purpose |
+| --- | --- |
+| `HOUSING_MODERATOR_IDS` | Comma-separated staging account IDs that verify posters and approve homes and listings. Empty means owner listings never go public |
+| `HOST_TERMS_VERSION` | Empty: no poster-terms step. A value makes posters accept that version |
+| `HOUSING_MESSAGE_RATE_PER_MINUTE` | Tenant–landlord messages one sender may post per minute (default 10) |
+| `ROOMMATE_MODERATORS` | Comma-separated staging account IDs that moderate Roommate. Required before enabling it |
+| `ROOMMATE_ENABLED` | `false` by default. Set `true` only after `ROOMMATE_MODERATORS`; the backend refuses to start Roommate without a moderator |
+
+Account IDs come from the staging web database (command above), not from a local
+machine. Restart `platform` after changing the Housing values and `backend` after
+the Roommate values.
+
+Roommate keeps `roommate.sqlite3` and its Fernet `contact.key` in the
+`roommate-private` volume at `/app/private-roommate` (outside `/app/data`, which the
+runtime rejects; the image creates it for the service user with mode 700). Back them
+up **together**: take a consistent SQLite snapshot with `Connection.backup()` (or
+stop the backend first) and store it with the matching key in encrypted storage with
+restricted access. A database without its key cannot decrypt stored contacts; the
+runtime never generates a replacement key for an existing database. Restore into a
+new private directory and follow [the Roommate runbook](../../../docs/runbooks/roommate.md).
+Demo profiles stay off on staging (`ROOMMATE_DEMO_ENABLED: "false"`): the backend
+image does not include `data/`, so a demo would need its dataset mounted read-only.
+
 Application images do not contain routing files or Location data. Prepare them
 before merging:
 

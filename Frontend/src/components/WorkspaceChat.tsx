@@ -1,3 +1,4 @@
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -7,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { Data } from "../types";
+import { mergePlaceCandidates } from "../placeCandidates";
 
 export interface ChatDockProps {
   text?: string;
@@ -46,6 +48,9 @@ export function WorkspaceChat({
   const launcher = useRef<HTMLButtonElement>(null);
   const opened = useRef(false);
   useEffect(() => {
+    if (error) setHidden(false);
+  }, [error]);
+  useEffect(() => {
     if (!hidden) {
       opened.current = true;
       input.current?.focus();
@@ -67,11 +72,12 @@ export function WorkspaceChat({
         ref={launcher}
         className="ws-chat-show"
         onClick={() => setHidden(false)}
-        aria-label="Hiện khung chat"
+        aria-label={uiText("Hiện khung chat")}
         aria-expanded={false}
         aria-controls={panelId}
       >
-        <MessageCircle size={17} /> Chat với SIU
+        <MessageCircle size={17} />
+        {uiText(" Chat với ReloHome")}
         {busy && <span className="spinner small" />}
       </button>
     );
@@ -80,7 +86,7 @@ export function WorkspaceChat({
       id={panelId}
       className="ws-dock ws-dock-compact"
       role="region"
-      aria-label="Trò chuyện với SIU AI"
+      aria-label={uiText("Trò chuyện với ReloHome")}
     >
       <form
         className="ws-dock-input"
@@ -95,14 +101,14 @@ export function WorkspaceChat({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
-          aria-label="Tin nhắn cho SIU AI"
+          aria-label={uiText("Tin nhắn cho ReloHome")}
           aria-describedby={caption ? panelId + "caption" : undefined}
           maxLength={5000}
         />
         <button
           className="send-button"
           disabled={busy || !draft.trim() || !online}
-          aria-label="Gửi tin nhắn"
+          aria-label={uiText("Gửi tin nhắn")}
         >
           {busy ? <span className="spinner small" /> : <Send size={18} />}
         </button>
@@ -110,8 +116,8 @@ export function WorkspaceChat({
           type="button"
           className="icon-button ws-dock-collapse"
           onClick={() => setHidden(true)}
-          aria-label="Ẩn khung chat"
-          title="Thu gọn chat"
+          aria-label={uiText("Ẩn khung chat")}
+          title={uiText("Thu gọn chat")}
           aria-expanded={true}
           aria-controls={panelId}
         >
@@ -125,7 +131,7 @@ export function WorkspaceChat({
       )}
       {busy && (
         <span className="ws-dock-accessible-caption" role="status">
-          SIU đang xử lý yêu cầu của bạn…
+          {uiText("ReloHome đang xử lý yêu cầu của bạn…")}
         </span>
       )}
       {((!busy && (questions.length > 0 || suggestions.length > 0)) ||
@@ -137,7 +143,7 @@ export function WorkspaceChat({
                 {q.text && <p>{q.text}</p>}
                 <div className="tags">
                   {(q.choices?.length
-                    ? q.choices
+                    ? mergePlaceCandidates(q.choices)
                     : (q.options || []).map((o: string) => ({ label: o }))
                   ).map((c: Data) => (
                     <button
@@ -165,14 +171,14 @@ export function WorkspaceChat({
                   className="suggestion"
                   onClick={() => void onSendText(s.message).catch(() => {})}
                 >
-                  {s.label}
+                  {uiText(s.label)}
                 </button>
               ))}
             </div>
           )}
           {error && (
             <p className="notice error" role="alert">
-              {error}
+              {uiText(error)}
             </p>
           )}
         </div>

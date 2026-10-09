@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Protocol
+from uuid import uuid4
 
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel
 
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS
+from src.agents.housing_operations import is_housing_comparison, same_housing_operation
 from src.agents.intake import LOOKUP_KEYS, selected_fact_key
 from src.agents.memory import SOFT_FILTER_KEYS
 from src.agents.models import (
@@ -41,6 +43,7 @@ class PlannerInput(BaseModel):
     session: SessionContext
     previous_plan: Plan | None = None
     previous_results: dict[str, TaskResult] = {}
+    reserved_task_ids: list[str] = []  # Existing history identities, including when NEW_GOAL hides old context.
     validation: ValidationReport | None = None
     change_context: ChangeContext | None = None
     available_agents: list[AgentName] = []
@@ -56,6 +59,24 @@ class PlannerOutput(BaseModel):
 
 class Planner(Protocol):
     async def plan(self, inp: PlannerInput) -> PlannerOutput: ...
+
+
+def plan_confirmed_moving_quote(previous: Plan | None, inputs: dict) -> tuple[Plan, Task]:
+    """Planner-owned typed intent path, not a natural-language template/classifier.
+
+    A quote form does not authorize pending writes. Existing receipts/results are
+    retained in state; the next explicit booking request must plan its own actions.
+    """
+    tasks = list(previous.tasks) if previous else []
+    targets = [t for t in tasks if t.agent == AgentName.RELOCATION and t.inputs.get("mode") == "quote"]
+    if len(targets) > 1:
+        raise ValueError("Choose the moving task to change; multiple quote tasks are present")
+    old = targets[0] if targets else None
+    task = Task(id=old.id if old else "moving-form-" + uuid4().hex[:12], agent=AgentName.RELOCATION, inputs=inputs)
+    tasks = [task if old and t.id == old.id else t for t in tasks]
+    if not old:
+        tasks.append(task)
+    return Plan(version=(previous.version if previous else 0) + 1, tasks=tasks, commit_actions=[]), task
 
 
 def _empty() -> PlannerOutput:
@@ -123,10 +144,19 @@ def validate_plan(
     carried = {t.id: t for t in previous_plan.tasks} if previous_plan else {}
     remaining: dict[str, set[str]] = {}
     for task in plan.tasks:
+        previous = carried.get(task.id)
+        if (
+            previous is not None
+            and task.agent == previous.agent == AgentName.PROPERTY
+            and not same_housing_operation(task.agent, previous.inputs, task.inputs)
+        ):
+            errors.append(f"{task.id}: comparison and search must use separate task IDs")
         deps = set(task.depends_on)
         if len(deps) != len(task.depends_on) or not deps <= id_set or task.id in deps:
             errors.append(f"{task.id}: depends_on trùng, trỏ tới task không có hoặc trỏ tới chính nó")
         capability = registry.capability(task.agent)
+        if task.agent == AgentName.ROOMMATE and task.depends_on:
+            errors.append(f"{task.id}: Roommate discovery must be independent")
         if task.agent in {AgentName.MAP, AgentName.RELOCATION}:
             selected = intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
             selected_id = task.inputs.get("selected_listing_id")
@@ -166,6 +196,8 @@ def validate_plan(
         if source is None:
             errors.append(f"{action.id}: source_task_id không có trong plan")
             continue
+        if is_housing_comparison(source.agent, source.inputs):
+            errors.append(f"{action.id}: comparison is read-only and cannot be a transaction source")
         if action.kind not in registry.commit_kinds(source.agent):
             errors.append(f"{action.id}: service {source.agent.value} không hỗ trợ {action.kind.value}")
         if action.kind not in intake.commit_requested:
@@ -182,7 +214,14 @@ def validate_plan(
 
 # --- TemplatePlanner (§6.2, §7.5 nguyên tắc 2) ---
 
-DOMAIN_ORDER = (AgentName.PROPERTY, AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION, AgentName.PAYMENT)
+DOMAIN_ORDER = (
+    AgentName.PROPERTY,
+    AgentName.MAP,
+    AgentName.FLIGHT,
+    AgentName.RELOCATION,
+    AgentName.PAYMENT,
+    AgentName.ROOMMATE,
+)
 DEFAULT_MAP_CATEGORIES = ["hospital", "marketplace", "pharmacy"]
 PII_REQUIRED: dict[CommitActionKind, list[str]] = {
     CommitActionKind.FLIGHT_BOOKING: ["passengers", "contact"],
@@ -315,9 +354,14 @@ class TemplatePlanner:
             _put(inputs, "origin", values.get("origin"))
             _put(inputs, "destination", values.get("destination"))
             _put(inputs, "date", values.get("flight_date"))
+            if values.get("trip_type") == "round_trip":
+                inputs["trip_type"] = "round_trip"
+                _put(inputs, "return_date", values.get("return_date"))
             adults = values.get("passengers") or values.get("household_size") or 1
             inputs["passengers"] = {"adults": int(adults)}
             return inputs, "destination" not in inputs
+        if domain == AgentName.ROOMMATE:
+            return {"roommate_criteria": values["roommate_criteria"]} if values.get("roommate_criteria") else {}, False
         if domain == AgentName.PAYMENT:
             return {"payment_id": values["payment_id"]}, False
         if domain == AgentName.RELOCATION:

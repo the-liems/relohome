@@ -9,10 +9,12 @@ import hashlib
 import io
 import json
 import os
+import re
 import secrets
 import sqlite3
 import time
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
@@ -23,11 +25,56 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from Frontend.store import Store, password_hash
+from Frontend.roommate_gateway import attach_roommate_gateway
+from Frontend.store import Store, TravelerProfiles, password_hash
 from src.agents.intake import redact_pii
+from src.mcp_servers.flights.schemas import Contact, Passenger
+from src.models.moving_options import MovingOptions
+from src.models.schemas import MovingQuoteForm
+from src.roommate.access import RoommateError
+from src.roommate.agent_projection import history_projection
+from src.roommate.media import MAX_IMAGE_BYTES, sanitized_image
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
+
+
+def housing_media_dir() -> Path:
+    """Owner-uploaded listing images; mount persistently in production (runbook: housing-management)."""
+    return Path(os.getenv("SIU_HOUSING_MEDIA_DIR", str(ROOT / "data" / "housing-media")))
+
+
+HOUSING_MANAGEMENT_PATHS = (
+    re.compile(r"^landlord/(overview|properties|contact-requests|reviews)$"),
+    re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
+    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
+    re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
+    re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide))?$"),
+    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
+    re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events|reviews|review)$"),
+    re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
+    re.compile(r"^housing/contact-requests/me$"),
+    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
+    re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
+    re.compile(r"^moderation/housing/reviews(?:/[0-9a-f-]+/decision)?$"),
+    re.compile(r"^moderation/housing/flags/[0-9a-f-]+/review$"),
+    re.compile(r"^host/profile$"),
+    re.compile(r"^moderation/host/[A-Za-z0-9_-]{1,128}/review$"),
+)
+# Viewing statuses whose booked time is sent to the landlord, and contact statuses still open.
+VIEWING_WITH_SLOT = {"viewing_scheduled", "visit_due", "backup"}
+OPEN_CONTACT = {"new", "contacted", "viewing"}
+
+
+def same_instant(left, right) -> bool:
+    try:
+        return datetime.fromisoformat(str(left)) == datetime.fromisoformat(str(right))
+    except (TypeError, ValueError):
+        return False
+
+
+# Outcome codes the owner workspace acts on (host-mode-design §5); other upstream fields are never forwarded.
+HOUSING_MANAGEMENT_CODES = {"host_profile_required", "host_terms_required", "host_not_verified"}
 
 
 class Credentials(BaseModel):
@@ -47,8 +94,64 @@ class Turn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
     housing_location: dict | None = None
     moving_locations: dict | None = None
+    moving_options: MovingOptions | None = None
     map_view: dict | None = None  # validated again by the Agent API
     place_choice: dict | None = None
+
+
+class QuoteTurn(MovingQuoteForm):
+    request_id: str = Field(min_length=16, max_length=80)
+
+
+class Traveler(BaseModel):
+    """Booker profile; companions are entered per booking and never stored here (payment-design D2/D3)."""
+
+    model_config = ConfigDict(extra="forbid")
+    title: Literal["MR", "MRS", "MS"]
+    last_name: str = Field(min_length=1, max_length=50)
+    first_name: str = Field(min_length=1, max_length=50)
+    date_of_birth: str = Field(min_length=10, max_length=10)
+    email: str = Field(max_length=180)
+    phone: str = Field(max_length=20)
+
+
+class Companion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["adult", "child", "infant"] = "adult"
+    title: Literal["MR", "MRS", "MS", "MSTR", "MISS"]
+    last_name: str = Field(min_length=1, max_length=50)
+    first_name: str = Field(min_length=1, max_length=50)
+    date_of_birth: str = Field(min_length=10, max_length=10)
+
+
+class PayTurn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payload_hash: str = Field(min_length=64, max_length=64)
+    request_key: str = Field(min_length=16, max_length=80)
+    companions: list[Companion] | None = Field(default=None, max_length=8)  # None: not a flight
+
+
+def ticket_people(traveler: Traveler, companions: list[Companion]) -> dict:
+    """Validate with the Flight schema before anything leaves the gateway."""
+    try:
+        born = date.fromisoformat(traveler.date_of_birth)
+    except ValueError:
+        raise HTTPException(422, "Ngày sinh người đặt chưa hợp lệ (YYYY-MM-DD).") from None
+    today = date.today()
+    if today.year - born.year - ((today.month, today.day) < (born.month, born.day)) < 12:
+        raise HTTPException(422, "Người đặt vé phải từ 12 tuổi trở lên. Hãy kiểm tra ngày sinh trong hồ sơ.")
+    try:
+        booker = Passenger(type="adult", **traveler.model_dump(exclude={"email", "phone"}))
+        others = [Passenger(**c.model_dump()) for c in companions]
+        contact = Contact(email=traveler.email.strip(), phone=traveler.phone.replace(" ", ""))
+    except ValueError:
+        raise HTTPException(
+            422, "Thông tin hành khách chưa hợp lệ. Tên không dấu cũng được, ngày sinh dạng YYYY-MM-DD."
+        ) from None
+    return {
+        "passengers": [p.model_dump(mode="json", exclude_none=True) for p in [booker, *others]],
+        "contact": contact.model_dump(mode="json"),
+    }
 
 
 def public_user(row):
@@ -56,6 +159,7 @@ def public_user(row):
 
 
 def presentation(payload, state):
+    payload = history_projection(payload)
     results = ((payload.get("response") or {}).get("data") or {}).get("results", {})
     payload["ui"] = {
         "version": 1,
@@ -72,6 +176,10 @@ def create_app(database=None, transport=None):
     @asynccontextmanager
     async def lifespan(app):
         app.state.store = Store(database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3")))
+        app.state.travelers = TravelerProfiles(
+            app.state.store,
+            os.getenv("SIU_TRAVELER_KEY_FILE", str(Path(app.state.store_path).parent / "siu-web-traveler.key")),
+        )
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(250, connect=10), transport=transport)
         app.state.locks = {}
         app.state.attempts = {}
@@ -80,6 +188,7 @@ def create_app(database=None, transport=None):
         app.state.store.db.close()
 
     app = FastAPI(title="SIU AI Web", lifespan=lifespan)
+    app.state.store_path = database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3"))
 
     @app.get("/health")
     async def health():
@@ -135,8 +244,8 @@ def create_app(database=None, transport=None):
         row = owned(thread, owner)
         return {
             **row,
-            "state": json.loads(row["state"]),
-            "messages": app.state.store.history(thread),
+            "state": history_projection(json.loads(row["state"])),
+            "messages": history_projection(app.state.store.history(thread)),
             "runs": app.state.store.all(
                 "SELECT id,status FROM runs WHERE thread=? AND owner=? AND status IN ('running','unknown')",
                 (thread, owner),
@@ -166,6 +275,21 @@ def create_app(database=None, transport=None):
             ) from None
         if not response.is_success:
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
+            # Preserve only documented route outcomes so the browser can distinguish
+            # a road-snapping failure from GPS denial. Never forward arbitrary fields.
+            if platform and (
+                path in {"/routes/entities", "/routes/device"}
+                and data.get("code")
+                in {"NO_ROUTE", "OUTSIDE_ROUTING_AREA", "OSRM_OFFLINE", "INVALID_RESPONSE", "TIMEOUT", "CANCELLED"}
+                or data.get("code") in HOUSING_MANAGEMENT_CODES
+            ):
+                return JSONResponse(
+                    {
+                        "detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.",
+                        "code": data["code"],
+                    },
+                    status_code=response.status_code,
+                )
             raise HTTPException(response.status_code, detail if isinstance(detail, str) else "Dữ liệu gửi chưa hợp lệ.")
         return data
 
@@ -271,7 +395,11 @@ def create_app(database=None, transport=None):
         owner = user(request)["id"]
         owned(thread, owner)
         await refresh(thread, owner)
-        return snapshot(thread, owner)
+        result = snapshot(thread, owner)
+        if isinstance(result["state"], dict) and result["state"].get("viewing"):
+            # The plan's "Xem nhà" tab reads this copy; show the landlord's answer there too.
+            await landlord_viewings(owner, result["state"]["viewing"], thread=thread)
+        return result
 
     async def remove_thread(thread, owner):
         row = owned(thread, owner)
@@ -382,6 +510,17 @@ def create_app(database=None, transport=None):
             "Xem thêm kết quả" if body.get("kind") == "more" else "Chọn phương án vào kế hoạch",
         )
 
+    @app.post("/web/api/threads/{thread}/moving/quote")
+    async def moving_quote(thread: str, body: QuoteTurn, request: Request):
+        return await run(
+            thread,
+            user(request)["id"],
+            body.request_id,
+            f"/ui/chat/{thread}/moving/quote",
+            body.model_dump(mode="json", exclude={"request_id"}),
+            f"Báo giá chuyển đồ từ form ngày {body.move_date.isoformat()} lúc {body.move_time}. Chưa đặt đơn.",
+        )
+
     @app.post("/web/api/threads/{thread}/decision")
     async def decision(thread: str, request: Request):
         body = await object_body(request)
@@ -429,6 +568,320 @@ def create_app(database=None, transport=None):
         segno.make(code, micro=False).save(output, kind="svg", scale=6, xmldecl=False)
         return Response(output.getvalue(), media_type="image/svg+xml")
 
+    # --- In-app payment (payment-design §7–§10). Typed calls straight to the Agent API: no LLM, no chat message.
+
+    async def checkout_call(method, path, owner, body=None):
+        token = os.getenv("AGENT_API_TOKEN", "")
+        if not token:
+            raise HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+        base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+        try:
+            response = await app.state.http.request(
+                method,
+                base.rstrip("/") + path,
+                headers={"Authorization": "Bearer " + token, "X-User-Id": owner},
+                json=body,
+            )
+            data = response.json()
+        except (httpx.RequestError, ValueError):
+            # The payment may exist upstream; the UI checks status instead of paying again.
+            return JSONResponse(
+                {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"},
+                status_code=502,
+            )
+        if not response.is_success:
+            detail = data.get("detail") if isinstance(data, dict) else None
+            return JSONResponse(
+                {
+                    "detail": detail if isinstance(detail, str) else "Dịch vụ chưa xử lý được yêu cầu.",
+                    "code": data.get("code") if isinstance(data, dict) else None,
+                },
+                status_code=response.status_code,
+            )
+        return data
+
+    def traveler(owner):
+        data = app.state.travelers.get(owner)
+        return Traveler.model_validate(data) if data else None
+
+    @app.get("/web/api/profile/traveler")
+    async def get_traveler(request: Request):
+        found = traveler(user(request)["id"])
+        return {"traveler": found.model_dump() if found else None}
+
+    @app.put("/web/api/profile/traveler")
+    async def put_traveler(body: Traveler, request: Request):
+        ticket_people(body, [])  # same rules as the ticket, checked before saving
+        app.state.travelers.put(user(request)["id"], body.model_dump())
+        return {"traveler": body.model_dump()}
+
+    @app.delete("/web/api/profile/traveler")
+    async def delete_traveler(request: Request):
+        app.state.travelers.delete(user(request)["id"])
+        return {"ok": True}
+
+    @app.get("/web/api/threads/{thread}/checkout")
+    async def thread_checkout(thread: str, request: Request):
+        owner = user(request)["id"]
+        owned(thread, owner)
+        return await checkout_call("GET", f"/ui/chat/{thread}/checkout", owner)
+
+    @app.post("/web/api/threads/{thread}/checkout/summary")
+    async def checkout_summary(thread: str, request: Request):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        return await checkout_call("POST", f"/ui/chat/{thread}/checkout/summary", owner, {"domain": body.get("domain")})
+
+    @app.post("/web/api/checkout/{transaction}/pay")
+    async def checkout_pay(transaction: str, body: PayTurn, request: Request):
+        owner = user(request)["id"]
+        payload = {"payload_hash": body.payload_hash, "request_key": body.request_key}
+        if body.companions is not None:
+            booker = traveler(owner)
+            if booker is None:
+                raise HTTPException(422, "Hãy điền hồ sơ người đặt vé trong Tài khoản trước khi thanh toán vé.")
+            payload["passengers"] = ticket_people(booker, body.companions)
+        return await checkout_call("POST", f"/ui/checkout/{transaction}/pay", owner, payload)
+
+    @app.post("/web/api/checkout/attempts/{attempt}/{action}")
+    async def checkout_attempt(attempt: str, action: Literal["check", "tester-paid"], request: Request):
+        return await checkout_call("POST", f"/ui/checkout/attempts/{attempt}/{action}", user(request)["id"])
+
+    @app.get("/web/api/checkout/attempts/{attempt}/qr.svg")
+    async def checkout_qr(attempt: str, request: Request):
+        data = await checkout_call("GET", f"/ui/checkout/attempts/{attempt}/qr", user(request)["id"])
+        if isinstance(data, Response):
+            return data
+        code = data.get("qr_code")
+        if not isinstance(code, str) or not 1 <= len(code) <= 4096:
+            raise HTTPException(404, "Không có mã QR cho lần thanh toán này.")
+        import segno
+
+        output = io.BytesIO()
+        segno.make(code, micro=False).save(output, kind="svg", scale=6, xmldecl=False)
+        return Response(output.getvalue(), media_type="image/svg+xml")
+
+    @app.post("/web/api/threads/{thread}/housing/{step}")
+    async def housing_step(thread: str, step: Literal["viewing", "agreement", "paid"], request: Request):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        return await checkout_call("POST", f"/ui/chat/{thread}/housing/{step}", owner, body)
+
+    # --- Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
+
+    def pending_changes(owner, thread):
+        rows = app.state.store.all(
+            "SELECT listing, slot, baseline FROM landlord_sync WHERE owner=? AND thread=?", (owner, thread)
+        )
+        return {row["listing"]: (row["slot"], row["baseline"]) for row in rows}
+
+    def fingerprint(row):
+        """What a landlord-inbox write changes on the request: tells whether a timed-out send landed."""
+        if not row:
+            return json.dumps({"attempted": True, "id": None})
+        return json.dumps({"attempted": True, "id": row.get("id"), "at": str(row.get("viewing_updated_at"))})
+
+    async def write_viewing(owner, listing, slot):
+        """Send a booked time (or withdraw when slot is empty): 'done', 'not_managed' or 'failed'."""
+        try:
+            if slot:
+                result = await upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True)
+            else:
+                result = await upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True)
+        except HTTPException as exc:
+            return "not_managed" if exc.status_code in {404, 409, 422} else "failed"
+        if isinstance(result, JSONResponse):  # documented outcome code forwarded by upstream()
+            return "not_managed" if result.status_code in {404, 409, 422} else "failed"
+        return "done"
+
+    async def landlord_viewings(owner, view, thread=None, scheduled=None, sync=False):
+        """Show the landlord's answer on booked viewings of owner-managed homes
+        (docs/review/viewing-landlord-confirmation.md).
+
+        Reads (`sync=False`) never write, so a request the tenant or landlord closed is not reopened by
+        opening a page. A viewing step writes:
+        - the home the tenant just booked (`scheduled`) is sent; an explicit booking may recreate a closed
+          request at the same time (rebooking);
+        - homes that lost their time are withdrawn;
+        - a write that failed is kept as a pending change, shown (`landlord.sync = "failed"`,
+          `landlord_withdraw_pending`) and retried on later viewing steps. A retry never recreates a request:
+          when the remote request changed since the failed attempt (the timed-out write landed and the
+          landlord may have answered or closed it) the change counts as delivered. Pending changes are
+          dropped when the booking changes. Other sources answer `not_managed` and keep test mode."""
+        if not isinstance(view, dict) or not isinstance(view.get("items"), list):
+            return view
+        store = app.state.store
+        slots = {
+            item["listing_id"]: item["viewing"]["slot"]
+            for item in view["items"]
+            if item.get("status") in VIEWING_WITH_SLOT and (item.get("viewing") or {}).get("slot")
+        }
+        settled = {"visited", "agreed", "reported_paid"}  # the visit happened: keep the landlord's answer
+        pending = pending_changes(owner, thread) if thread else {}
+
+        def forget(listing):
+            store.write("DELETE FROM landlord_sync WHERE owner=? AND thread=? AND listing=?", (owner, thread, listing))
+            pending.pop(listing, None)
+
+        def remember(listing, slot, baseline):
+            store.write(
+                "INSERT OR REPLACE INTO landlord_sync VALUES (?,?,?,?,?,?)",
+                (owner, thread, listing, slot, time.time(), baseline),
+            )
+            pending[listing] = (slot, baseline)
+
+        async def requests():
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            latest = {}
+            for row in page.get("items", []):  # newest first
+                latest.setdefault(row["listing_id"], row)
+            return latest
+
+        def mark(latest):
+            # Only withdrawals that were attempted and failed are known to be outstanding.
+            withdrawing = [listing for listing, (slot, baseline) in pending.items() if not slot and baseline]
+            if withdrawing:
+                view["landlord_withdraw_pending"] = withdrawing
+            for item in view["items"]:
+                listing, slot = item["listing_id"], (item.get("viewing") or {}).get("slot")
+                row = latest.get(listing) if latest else None
+                wanted = pending.get(listing, ("", ""))[0]
+                if wanted and slot and same_instant(wanted, slot):
+                    item["landlord"] = {"sync": "failed"}  # this booking has not reached the landlord
+                elif row and row.get("viewing_status") and slot and same_instant(row.get("viewing_slot"), slot):
+                    item["landlord"] = {
+                        "viewing_status": row["viewing_status"],
+                        "request_status": row["status"],
+                        "request_id": row.get("id"),
+                        "unread": row.get("unread", 0),
+                    }
+            return view
+
+        # What this step wants the landlord inbox to hold: a time per booked home, or a withdrawal.
+        intents = {}
+        if sync and thread:
+            for listing, (slot, _) in list(pending.items()):
+                if slot and not same_instant(slots.get(listing), slot):
+                    forget(listing)  # cancelled, unselected or rebooked: the withdraw rule below decides
+            if scheduled and scheduled in slots:
+                intents[scheduled] = (slots[scheduled], True)
+            for listing, (slot, _) in pending.items():
+                if slot and listing not in intents:
+                    intents[listing] = (slot, False)
+            for item in [*(view.get("history") or []), *view["items"]]:
+                listing = item["listing_id"]
+                if listing not in slots and item.get("status") not in settled:
+                    intents.setdefault(listing, ("", False))
+            for listing, (slot, _) in pending.items():
+                if not slot and listing not in slots:
+                    intents.setdefault(listing, ("", False))
+        try:
+            latest = await requests()
+        except HTTPException:
+            for listing, (slot, _) in intents.items():
+                # Not attempted now: keep the fingerprint of an earlier failed attempt, if any.
+                remember(listing, slot, pending.get(listing, ("", ""))[1])
+            view["landlord_unavailable"] = True
+            return mark(None)
+        if not intents:
+            return mark(latest)
+        writes = []
+        for listing, (slot, explicit) in intents.items():
+            row = latest.get(listing)
+            open_row = bool(row) and row.get("status") in OPEN_CONTACT
+            if not slot:
+                if open_row and row.get("viewing_status") in {"requested", "confirmed"}:
+                    writes.append((listing, slot))
+                elif listing in pending:
+                    forget(listing)  # nothing left to withdraw
+                continue
+            holds = row is not None and same_instant(row.get("viewing_slot"), slot)
+            if holds and open_row and row.get("viewing_status") in {"requested", "confirmed", "declined"}:
+                if listing in pending:
+                    forget(listing)  # the landlord already has this time and may have answered
+                continue
+            baseline = pending.get(listing, ("", ""))[1]
+            if not explicit and holds and baseline and baseline != fingerprint(row):
+                forget(listing)  # the timed-out write landed; respect what happened to it since
+                continue
+            writes.append((listing, slot))
+        results = await asyncio.gather(*(write_viewing(owner, listing, slot) for listing, slot in writes))
+        for (listing, slot), result in zip(writes, results, strict=True):
+            if result == "failed":
+                remember(listing, slot, fingerprint(latest.get(listing)))
+            else:
+                forget(listing)
+        if writes:
+            try:
+                latest = await requests()
+            except HTTPException:
+                view["landlord_unavailable"] = True
+                return mark(None)
+        return mark(latest)
+
+    @app.get("/web/api/threads/{thread}/viewings")
+    async def thread_viewings(thread: str, request: Request):
+        owner = user(request)["id"]
+        owned(thread, owner)
+        return await landlord_viewings(
+            owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+        )
+
+    @app.post("/web/api/threads/{thread}/viewings/{step}")
+    async def viewing_step(
+        thread: str,
+        step: Literal[
+            "unselect", "schedule", "cancel", "visit", "decide", "reopen", "paid", "moving-mode", "landlord-retry"
+        ],
+        request: Request,
+    ):
+        owner, body = user(request)["id"], await object_body(request)
+        owned(thread, owner)
+        if step == "visit":
+            await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
+        if step == "landlord-retry":
+            # Tenant asks to resend times the landlord inbox has not received; nothing changes locally.
+            result = await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
+            return await landlord_viewings(owner, result, thread=thread, sync=True)
+        result = await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
+        scheduled = str(body.get("listing_id", "")) if step == "schedule" else None
+        return await landlord_viewings(owner, result, thread=thread, scheduled=scheduled, sync=True)
+
+    async def require_landlord_confirmation(thread, owner, listing_id):
+        """A home managed on ReloHome needs the landlord to confirm the booked time before the tenant
+        records the visit (and so before deciding). Other homes keep the test-mode flow."""
+        try:
+            detail = await upstream("GET", f"/housing/{listing_id}", owner, platform=True)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                return  # Not a published listing; the Agent API answers for it.
+            raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
+        if not (isinstance(detail, dict) and detail.get("management")):
+            return
+        view = await landlord_viewings(
+            owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+        )
+        item = (
+            next((i for i in (view.get("items") or []) if i.get("listing_id") == listing_id), None)
+            if isinstance(view, dict)
+            else None
+        )
+        if not item or (item.get("landlord") or {}).get("viewing_status") != "confirmed":
+            raise HTTPException(409, "Chủ nhà chưa xác nhận giờ xem này; ghi kết quả sau khi chủ nhà xác nhận.")
+
+    @app.post("/web/api/threads/{thread}/flight/outbound")
+    async def flight_outbound(thread: str, request: Request):
+        body = await object_body(request)
+        request_id = body.pop("request_id", "")
+        return await run(
+            thread,
+            user(request)["id"],
+            request_id,
+            f"/ui/chat/{thread}/flight/outbound",
+            body,
+            "Chọn chuyến đi của vé khứ hồi",
+        )
+
     @app.get("/web/api/map/search")
     async def map_search(request: Request, text: str):
         return await upstream("GET", "/map/search?" + str(httpx.QueryParams({"text": text})), user(request)["id"])
@@ -441,11 +894,76 @@ def create_app(database=None, transport=None):
     async def flight_detail(offer_id: str, request: Request):
         return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
 
+    @app.get("/web/api/moving/services")
+    async def moving_services(request: Request, lat: float, lng: float, refresh: bool = False):
+        params = str(httpx.QueryParams({"lat": lat, "lng": lng, "refresh": refresh}))
+        return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
+
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):
-        if resource not in {"housing/map", "routes/entities", "housing/search", "places/map"}:
+        if resource not in {"housing/map", "routes/entities", "routes/device", "housing/search", "places/map"}:
             raise HTTPException(404)
         return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
+
+    @app.post("/web/api/landlord/listings/{listing_id}/media-upload")
+    async def housing_media_upload(listing_id: str, request: Request, alt: str | None = None):
+        owner = user(request)["id"]
+        if not re.fullmatch(r"[0-9a-f-]{36}", listing_id, re.IGNORECASE):
+            raise HTTPException(404)
+        too_large = HTTPException(413, "Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB và 16 megapixel.")
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_IMAGE_BYTES:
+            raise too_large
+        # Stop reading as soon as the limit is passed instead of buffering an unbounded body.
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > MAX_IMAGE_BYTES:
+                raise too_large
+        try:
+            clean = await asyncio.to_thread(sanitized_image, bytes(body))
+        except RoommateError as error:
+            raise HTTPException(error.status, "Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB và 16 megapixel.") from None
+        media_dir = housing_media_dir()
+        media_dir.mkdir(parents=True, exist_ok=True)
+        identifier = secrets.token_hex(20)
+        target = media_dir / f"{identifier}.png"
+        await asyncio.to_thread(target.write_bytes, clean)
+        public_base = os.getenv("SIU_PUBLIC_BASE_URL", str(request.base_url)).rstrip("/")
+        try:
+            result = await upstream(
+                "POST",
+                f"/landlord/listings/{listing_id}/media",
+                owner,
+                {"url": f"{public_base}/web/media/housing/{identifier}.png", "alt": (alt or "").strip()[:300] or None},
+                platform=True,
+            )
+            return JSONResponse(result, status_code=201)
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+
+    @app.get("/web/media/housing/{filename}")
+    async def housing_media(filename: str):
+        if not re.fullmatch(r"[0-9a-f]{40}\.png", filename):
+            raise HTTPException(404)
+        media_dir = housing_media_dir()
+        target = (media_dir / filename).resolve()
+        if not target.is_relative_to(media_dir.resolve()) or not target.is_file():
+            raise HTTPException(404)
+        return FileResponse(
+            target,
+            media_type="image/png",
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.api_route("/web/api/housing-management/{resource:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    async def housing_management(resource: str, request: Request):
+        if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
+            raise HTTPException(404)
+        body = None if request.method == "GET" else await object_body(request)
+        query = "?" + str(request.query_params) if request.method == "GET" and request.query_params else ""
+        return await upstream(request.method, "/" + resource + query, user(request)["id"], body, platform=True)
 
     @app.get("/web/api/saved")
     async def saved(request: Request):
@@ -484,6 +1002,8 @@ def create_app(database=None, transport=None):
     async def unsave(listing_id: str, request: Request):
         app.state.store.write("DELETE FROM saved WHERE owner=? AND id=?", (user(request)["id"], listing_id))
         return {"ok": True}
+
+    attach_roommate_gateway(app, user)
 
     @app.get("/{path:path}")
     async def static(path: str):

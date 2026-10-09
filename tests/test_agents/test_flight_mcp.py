@@ -16,7 +16,7 @@ async def test_langchain_loads_flight_tools_over_stdio(tmp_path, monkeypatch, si
         names = {tool.name for tool in tools}
         airports = await next(t for t in tools if t.name == "search_airports").ainvoke({"query": "Phú Quốc"})
 
-    expected = {"search_airports", "search_flights", "get_offer"}
+    expected = {"search_airports", "search_flights", "search_return_flights", "get_offer"}
     if simulation:
         expected |= {"hold_booking", "confirm_booking", "get_booking", "cancel_booking"}
     assert names == expected

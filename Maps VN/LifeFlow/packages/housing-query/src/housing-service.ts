@@ -19,6 +19,8 @@ import { NotFoundError, QueryValidationError, RouteServiceError } from './errors
 import { PlaceService } from './place-service.js'
 import { RouteService } from './route-service.js'
 import { checkOperation, withinOperation } from './execution.js'
+import { definitelyDisjointScope } from './spatial-scope.js'
+import { hostReviewSummary } from './review-summary.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
@@ -258,16 +260,49 @@ export class HousingQueryService {
     const row = rows[0]
     if (!row) throw new NotFoundError(`Housing listing not found: ${listingId}`)
     const result = await this.mapCandidate(row, HousingSearchRequestSchema.parse({}))
-    const media = await this.pool.query(
-      `SELECT url, alt_text FROM housing.listing_media
-       WHERE listing_id = $1 ORDER BY position, id`,
-      [listingId],
-    )
+    const [media, fees, management] = await Promise.all([
+      this.pool.query(
+        `SELECT url, alt_text FROM housing.listing_media
+         WHERE listing_id = $1 AND moderation_status='approved' ORDER BY position, id`,
+        [listingId],
+      ),
+      this.pool.query(
+        `SELECT code,label,amount::float,billing_unit,required,refundable FROM housing.listing_fees
+         WHERE listing_id=$1 AND valid_to IS NULL ORDER BY required DESC,label`,
+        [listingId],
+      ),
+      this.pool.query(
+        `SELECT ml.publication_status,ml.availability_status,ml.availability_confirmed_at,
+          (ml.publication_status='published' AND ml.availability_status='vacant') AS accepts_contact_requests,
+          hp.poster_type,hp.display_name AS poster_name,coalesce(hp.status='verified',false) AS host_verified,
+          (SELECT mm.user_id FROM housing.management_members mm WHERE mm.property_id=(SELECT property_id FROM housing.listings WHERE id=ml.listing_id)
+            AND mm.role='owner' AND mm.status<>'revoked' ORDER BY mm.requested_at,mm.user_id LIMIT 1) AS rating_host_user_id
+         FROM housing.managed_listings ml LEFT JOIN housing.host_profiles hp ON hp.user_id=ml.created_by
+         WHERE ml.listing_id=$1`,
+        [listingId],
+      ),
+    ])
+    const managementRow = management.rows[0]
+    const hostSummary = managementRow?.rating_host_user_id
+      ? await hostReviewSummary(this.pool, managementRow.rating_host_user_id)
+      : null
     return HousingDetailSchema.parse({
       ...result,
       description: row.description,
       images: media.rows.map((image) => ({ url: image.url, alt: image.alt_text })),
       extra_attributes: row.listing_attributes || {},
+      fees: fees.rows,
+      // pg returns timestamptz as Date; the read contract carries ISO strings.
+      management: management.rows[0]
+        ? {
+            ...management.rows[0],
+            host_rating: hostSummary?.rating ?? null,
+            host_review_count: hostSummary?.count ?? 0,
+            availability_confirmed_at: management.rows[0].availability_confirmed_at
+              ? new Date(management.rows[0].availability_confirmed_at).toISOString()
+              : null,
+          }
+        : null,
     })
   }
 
@@ -277,6 +312,9 @@ export class HousingQueryService {
 
   private async mapWithinBudget(input: unknown): Promise<HousingMapResponse> {
     const request = HousingMapRequestSchema.parse(input)
+    if (definitelyDisjointScope(request)) return HousingMapResponseSchema.parse({
+      features: [], meta: { mode: request.zoom < 13 ? 'clusters' : 'listings', returned_count: 0, truncated: false },
+    })
     const sql = createSqlBuilder()
     const conditions = candidateConditions(HousingSearchRequestSchema.parse(request), sql)
     if (request.listing_ids) conditions.push(`l.id = ANY(${sql.parameter(request.listing_ids)}::uuid[])`)
@@ -372,6 +410,7 @@ export class HousingQueryService {
     offset: number,
     listingId?: string,
   ): Promise<CandidateRow[]> {
+    if (definitelyDisjointScope(request)) return []
     const sql = createSqlBuilder()
     const conditions = candidateConditions(request, sql, listingId)
 

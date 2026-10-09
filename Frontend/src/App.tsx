@@ -1,9 +1,11 @@
+import { formatUi, t as uiText } from "./uiPreferences";
 import {
   createContext,
   useContext,
   useEffect,
   useRef,
   useState,
+  useId,
   type ReactNode,
 } from "react";
 import {
@@ -17,9 +19,12 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  ArrowLeftRight,
   ArrowRight,
   ArrowUpRight,
+  CalendarClock,
   Check,
+  CreditCard,
   ChevronRight,
   Compass,
   Heart,
@@ -44,8 +49,20 @@ import {
   Clock,
   ArrowDown,
   Trash2,
+  UsersRound,
+  BookOpen,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
+import { mergePlaceCandidates } from "./placeCandidates";
+import {
+  hasSelection,
+  nextServiceTarget,
+  serviceTargets,
+  pendingServiceInput,
+  closedResultSummary,
+  canSelectServiceResult,
+  navigationProgress,
+} from "./serviceJourney";
 import type {
   Component,
   Data,
@@ -54,12 +71,15 @@ import type {
   Thread,
   User,
 } from "./types";
-import { Robot } from "./components/Robot";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
-import { HousingCard, HousingDetail } from "./components/Housing";
+import { Comparison, HousingCard, HousingDetail } from "./components/Housing";
+import { TenantRequests } from "./components/TenantRequests";
+import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
+import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
+import { TravelerProfileForm } from "./components/Checkout";
 import { MapWorkspace } from "./components/MapWorkspace";
 import {
   FlightWorkspace,
@@ -71,6 +91,14 @@ import {
 import { filtersFromSearch } from "./mapWorkspace";
 import { PlanPeek } from "./components/PlanPeek";
 import { RequestHistory } from "./components/RequestHistory";
+import { LandingPage } from "./components/LandingPage";
+import { AppearanceControls, useUiPreferences } from "./uiPreferences";
+import { ContentSkeleton, EmptyState } from "./components/UiStates";
+import { TabList } from "./components/TabList";
+import { RoommateGuest, RoommateWorkspace } from "./roommate/Workspace";
+import { rt as roommateText } from "./roommate/text";
+import { GuidesPage } from "./guides/GuidesPage";
+import { LandlordWorkspace } from "./landlord/Workspace";
 
 interface AppContext {
   user: User;
@@ -118,6 +146,7 @@ const quick = [
 ];
 
 export default function App() {
+  useUiPreferences();
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [status, setStatus] = useState<Data | null>(null),
@@ -159,6 +188,12 @@ export default function App() {
         existing ? "DELETE" : "PUT",
         existing ? undefined : { thread_id: thread },
       );
+      if (!existing)
+        void api(
+          "/housing-management/housing/" + encodeURIComponent(house.id) + "/events",
+          "POST",
+          { event_type: "save", dedup_key: `save:${user?.id || "session"}:${house.id}` },
+        ).catch(() => {});
       setSaved(await api<Saved[]>("/saved"));
       setToast(
         existing ? "Đã bỏ lưu căn nhà." : "Đã lưu vào Tài khoản → Đã lưu.",
@@ -197,24 +232,34 @@ export default function App() {
       kept.length
         ? `Đã xóa ${result.deleted} cuộc trò chuyện. Giữ lại ${kept.length}: ${kept[0].detail}`
         : result.memory_forgotten
-          ? "Đã xóa toàn bộ trò chuyện và làm mới những gì SIU ghi nhớ."
-          : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của SIU, hãy thử lại sau.",
+          ? "Đã xóa toàn bộ trò chuyện và làm mới những gì ReloHome ghi nhớ."
+          : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của ReloHome, hãy thử lại sau.",
     );
   }
+  if (location.pathname === "/")
+    return <LandingPage signedIn={Boolean(user)} />;
+  if (location.pathname === "/guides" && !user)
+    return <GuidesPage standalone />;
   if (loading)
     return (
       <div className="boot">
-        <Robot />
-        <p>Đang mở không gian của bạn…</p>
+        <span className="boot-progress" aria-hidden="true" />
+        <p role="status">{uiText("Đang mở không gian của bạn…")}</p>
       </div>
     );
+  if (
+    !user &&
+    location.pathname.startsWith("/roommate") &&
+    new URLSearchParams(location.search).get("signin") !== "1"
+  )
+    return <RoommateGuest />;
   if (!user)
     return (
       <Login
         onLogin={(u) => {
           setUser(u);
           if (location.pathname === "/login")
-            navigate("/ai", { replace: true });
+            navigate(rememberedHome(), { replace: true });
         }}
       />
     );
@@ -237,6 +282,9 @@ export default function App() {
         <Routes>
           <WebRoute path="/ai" element={<Chat />} />
           <WebRoute path="/ai/:threadId" element={<Chat />} />
+          <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
+          <WebRoute path="/guides" element={<GuidesPage />} />
+          <WebRoute path="/landlord" element={<LandlordWorkspace />} />
           <WebRoute
             path="/plans"
             element={<Navigate to="/account" replace />}
@@ -256,18 +304,27 @@ export default function App() {
               />
             }
           />
-          <WebRoute path="/" element={<Navigate to="/ai" replace />} />
-          <WebRoute path="/login" element={<Navigate to="/ai" replace />} />
+          <WebRoute
+            path="/"
+            element={<Navigate to={rememberedHome()} replace />}
+          />
+          <WebRoute
+            path="/login"
+            element={<Navigate to={rememberedHome()} replace />}
+          />
           <WebRoute
             path="*"
             element={
               <Empty
+                headingLevel={1}
                 icon={<Compass />}
-                title="Không tìm thấy trang"
-                text="Trang này không tồn tại hoặc bạn chưa có quyền truy cập."
+                title={uiText("Không tìm thấy trang")}
+                text={uiText(
+                  "Trang này không tồn tại hoặc bạn chưa có quyền truy cập.",
+                )}
               >
                 <Link className="primary" to="/ai">
-                  Về Hệ thống AI
+                  {uiText("Về Hệ thống AI")}
                 </Link>
               </Empty>
             }
@@ -279,7 +336,7 @@ export default function App() {
           {toast}
           <button
             className="icon-button"
-            aria-label="Đóng thông báo"
+            aria-label={uiText("Đóng thông báo")}
             onClick={() => setToast("")}
           >
             <X size={16} />
@@ -315,39 +372,31 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
   }
   return (
     <main className="login-page">
+      <AppearanceControls className="login-appearance" />
       <section className="login-story">
-        <Link className="brand" to="/ai">
-          <span className="brand-symbol">
-            <Sparkles size={22} />
-          </span>
-          SIU AI
+        <Link className="brand" to="/" aria-label={uiText("Trang giới thiệu")}>
+          ReloHome
           <span className="brand-dot" />
         </Link>
-        <div className="login-visual">
-          <span className="orbit orbit-one">
-            <House size={26} />
-          </span>
-          <span className="orbit orbit-two">
-            <Plane size={26} />
-          </span>
-          <Robot />
-          <span className="orbit orbit-three">
-            <MapPin size={25} />
-          </span>
-        </div>
-        <span className="eyebrow">MỘT KHỞI ĐẦU MỚI, DỄ DÀNG HƠN</span>
+        <span className="eyebrow">
+          {uiText("MỘT KHỞI ĐẦU MỚI, DỄ DÀNG HƠN")}
+        </span>
         <h1>
-          Cuộc sống có nhiều việc.
+          {uiText("Cuộc sống có nhiều việc.")}
           <br />
-          <em>Cùng SIU, từng bước một.</em>
+          <em>{uiText("Cùng ReloHome, từng bước một.")}</em>
         </h1>
         <p>
-          Từ tìm một nơi ở, khám phá khu vực đến sắp xếp hành trình. Trợ lý của
-          bạn, trong một cuộc trò chuyện.
+          {uiText(
+            "Từ tìm một nơi ở, khám phá khu vực đến sắp xếp hành trình. Trợ lý của bạn, trong một cuộc trò chuyện.",
+          )}
         </p>
         <div className="login-cities">
           <MapPin size={15} />
-          Hà Nội <span>·</span> Đà Nẵng <span>·</span> TP.HCM
+          {uiText("Hà Nội ")}
+          <span>·</span>
+          {uiText(" Đà Nẵng ")}
+          <span>·</span> TP.HCM
         </div>
       </section>
       <section className="login-form-wrap">
@@ -355,20 +404,26 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           <span className="service-icon purple">
             <MessageCircle size={24} />
           </span>
-          <h2>{register ? "Bắt đầu cùng SIU AI" : "Chào bạn quay lại"}</h2>
+          <h2>
+            {register
+              ? uiText("Bắt đầu cùng ReloHome")
+              : uiText("Chào bạn quay lại")}
+          </h2>
           <p>
             {register
-              ? "Tạo tài khoản để lưu hội thoại và những lựa chọn của bạn."
-              : "Đăng nhập để tiếp tục câu chuyện của bạn."}
+              ? uiText(
+                  "Tạo tài khoản để lưu hội thoại và những lựa chọn của bạn.",
+                )
+              : uiText("Đăng nhập để tiếp tục câu chuyện của bạn.")}
           </p>
           <form onSubmit={submit}>
             {register && (
               <label>
-                Tên hiển thị
+                {uiText("Tên hiển thị")}
                 <input
                   name="name"
                   autoComplete="name"
-                  placeholder="Bạn muốn SIU gọi là gì?"
+                  placeholder={uiText("Bạn muốn ReloHome gọi là gì?")}
                   required
                   maxLength={80}
                 />
@@ -385,12 +440,12 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
               />
             </label>
             <label>
-              Mật khẩu
+              {uiText("Mật khẩu")}
               <input
                 name="password"
                 type="password"
                 autoComplete={register ? "new-password" : "current-password"}
-                placeholder="Ít nhất 10 ký tự"
+                placeholder={uiText("Ít nhất 10 ký tự")}
                 minLength={10}
                 maxLength={128}
                 required
@@ -398,16 +453,22 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
             </label>
             {error && (
               <p className="notice error" role="alert">
-                {error}
+                {uiText(error)}
               </p>
             )}
             <button className="primary full" disabled={busy}>
-              {busy ? "Đang xử lý…" : register ? "Tạo tài khoản" : "Đăng nhập"}
+              {busy
+                ? uiText("Đang xử lý…")
+                : register
+                  ? uiText("Tạo tài khoản")
+                  : uiText("Đăng nhập")}
               <ArrowRight size={18} />
             </button>
           </form>
           <p className="auth-switch">
-            {register ? "Đã có tài khoản?" : "Lần đầu đến với SIU?"}{" "}
+            {register
+              ? uiText("Đã có tài khoản?")
+              : uiText("Lần đầu đến với ReloHome?")}{" "}
             <button
               className="text-button"
               onClick={() => {
@@ -415,12 +476,12 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
                 setError("");
               }}
             >
-              {register ? "Đăng nhập" : "Tạo tài khoản"}
+              {register ? uiText("Đăng nhập") : uiText("Tạo tài khoản")}
             </button>
           </p>
           <div className="login-foot">
             <ShieldCheck size={16} />
-            Không gian riêng cho kế hoạch của bạn
+            {uiText("Không gian riêng cho kế hoạch của bạn")}
           </div>
         </div>
       </section>
@@ -428,61 +489,112 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
   );
 }
 
+// One account, two modes (docs/review/host-mode-design.md §3.1). The mode is a per-device
+// convenience only; owner permissions live in the poster profile and property membership.
+const MODE_KEY = "relohome.mode";
+function rememberedHome() {
+  try {
+    return localStorage.getItem(MODE_KEY) === "host" ? "/landlord" : "/ai";
+  } catch {
+    return "/ai";
+  }
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const { user, status, threads } = useApp(),
     location = useLocation();
+  const hostMode = location.pathname.startsWith("/landlord");
+  useEffect(() => {
+    if (!hostMode && !location.pathname.startsWith("/ai")) return;
+    try {
+      localStorage.setItem(MODE_KEY, hostMode ? "host" : "renter");
+    } catch {
+      // Private mode or blocked storage: the next login simply opens chat.
+    }
+  }, [hostMode, location.pathname]);
   const [history, setHistory] = useState(false),
     [removing, setRemoving] = useState<Thread | null>(null);
   const isChat = location.pathname.startsWith("/ai");
   const active = threads.find((t) => location.pathname === "/ai/" + t.id);
   return (
     <div className="app-shell chat-only-shell">
+      <a href="#app-main" className="app-skip">
+        {uiText("Đến nội dung chính")}
+      </a>
       <div className="main-shell">
         <header className="chat-header">
           {isChat ? (
             <div className="chat-brand">
-              <Link className="robot-avatar" to="/ai" aria-label="Về chat">
-                <Robot />
+              <Link
+                className="chat-home-link"
+                to="/ai"
+                aria-label={uiText("Về chat")}
+              >
+                RH
               </Link>
               <div>
-                <h2>
+                <p className="chat-title">
                   {active?.title ||
-                    "Một cuộc trò chuyện, nhiều điều được giải quyết"}
-                </h2>
+                    uiText("Một cuộc trò chuyện, nhiều điều được giải quyết")}
+                </p>
                 <p>
-                  SIU AI <span>·</span> Cùng bạn sắp xếp cuộc sống
+                  ReloHome <span>·</span>
+                  {uiText(" Cùng bạn sắp xếp cuộc sống")}
                 </p>
               </div>
             </div>
           ) : (
             <Link className="brand" to="/ai">
-              <span className="brand-symbol">
-                <Sparkles size={22} />
-              </span>
-              SIU AI
+              ReloHome
               <span className="brand-dot" />
             </Link>
           )}
           <div className="header-actions">
+            <Link
+              className="icon-button outlined header-home"
+              to="/"
+              aria-label={uiText("Trang giới thiệu")}
+              title={uiText("Trang giới thiệu")}
+            >
+              <House size={18} />
+            </Link>
+            <AppearanceControls />
+            <Link
+              className="secondary mode-switch"
+              to={hostMode ? "/ai" : "/landlord"}
+              aria-label={
+                hostMode ? uiText("Chế độ thuê nhà") : uiText("Chế độ chủ nhà")
+              }
+              title={
+                hostMode
+                  ? uiText("Chuyển sang chế độ thuê nhà")
+                  : uiText("Chuyển sang chế độ chủ nhà")
+              }
+            >
+              <ArrowLeftRight size={16} aria-hidden="true" />
+              <span>
+                {hostMode ? uiText("Chế độ thuê nhà") : uiText("Chế độ chủ nhà")}
+              </span>
+            </Link>
             {isChat ? (
               <>
                 <span className={"connection " + (status ? "online" : "")}>
                   <i />
-                  {status ? "AI đã kết nối" : "Chưa kết nối AI"}
+                  {status ? uiText("AI đã kết nối") : uiText("Chưa kết nối AI")}
                 </span>
                 <button
                   className="secondary"
-                  aria-label="Lịch sử"
+                  aria-label={uiText("Lịch sử")}
                   onClick={() => setHistory(true)}
                 >
                   <History size={17} />
-                  <span>Lịch sử</span>
+                  <span>{uiText("Lịch sử")}</span>
                 </button>
                 {active && (
                   <button
                     className="icon-button outlined"
-                    aria-label="Xóa cuộc trò chuyện này"
-                    title="Xóa cuộc trò chuyện này"
+                    aria-label={uiText("Xóa cuộc trò chuyện này")}
+                    title={uiText("Xóa cuộc trò chuyện này")}
                     onClick={() => setRemoving(active)}
                   >
                     <Trash2 size={18} />
@@ -491,21 +603,25 @@ function Shell({ children }: { children: ReactNode }) {
                 <Link
                   className="icon-button outlined"
                   to="/ai"
-                  aria-label="Cuộc trò chuyện mới"
+                  aria-label={uiText("Cuộc trò chuyện mới")}
                 >
                   <Plus size={20} />
                 </Link>
               </>
-            ) : (
-              <Link className="secondary" to="/ai">
+            ) : hostMode ? null : (
+              <Link
+                className="secondary"
+                to="/ai"
+                aria-label={uiText("Về chat")}
+              >
                 <MessageCircle size={16} />
-                Về chat
+                <span>{uiText("Về chat")}</span>
               </Link>
             )}
             <Link
               className="account-chip"
               to="/account"
-              aria-label="Mở tài khoản"
+              aria-label={uiText("Mở tài khoản")}
               title={user.name}
             >
               <span className="avatar account-chip-avatar">
@@ -513,12 +629,16 @@ function Shell({ children }: { children: ReactNode }) {
               </span>
               <span className="account-chip-name">
                 <strong>{user.name}</strong>
-                <small>Tài khoản</small>
+                <small>{uiText("Tài khoản")}</small>
               </span>
             </Link>
           </div>
         </header>
-        <main className={isChat ? "page-main chat-main" : "page-main"}>
+        <main
+          id="app-main"
+          tabIndex={-1}
+          className={isChat ? "page-main chat-main" : "page-main"}
+        >
           {children}
         </main>
       </div>
@@ -543,17 +663,21 @@ function DeleteThreadDialog({
   const { deleteThread } = useApp();
   return (
     <ConfirmDialog
-      title="Xóa cuộc trò chuyện?"
-      action="Xóa cuộc trò chuyện"
+      title={uiText("Xóa cuộc trò chuyện?")}
+      action={uiText("Xóa cuộc trò chuyện")}
       onConfirm={() => deleteThread(thread.id)}
       onClose={onClose}
     >
       <p>
-        <strong>{thread.title}</strong> và những gì SIU ghi nhớ từ cuộc trò
-        chuyện này sẽ bị xóa, không khôi phục được.
+        <strong>{thread.title}</strong>
+        {uiText(
+          " và những gì ReloHome ghi nhớ từ cuộc trò chuyện này sẽ bị xóa, không khôi phục được.",
+        )}
       </p>
       <p className="muted small">
-        Đơn đã đặt không bị hủy. Nhà đã lưu vẫn ở Tài khoản → Đã lưu.
+        {uiText(
+          "Đơn đã đặt không bị hủy. Nhà đã lưu vẫn ở Tài khoản → Đã lưu.",
+        )}
       </p>
     </ConfirmDialog>
   );
@@ -563,18 +687,20 @@ function ResetThreadsDialog({ onClose }: { onClose: () => void }) {
   const { resetThreads } = useApp();
   return (
     <ConfirmDialog
-      title="Xóa tất cả và làm mới SIU?"
-      action="Xóa tất cả"
+      title={uiText("Xóa tất cả và làm mới ReloHome?")}
+      action={uiText("Xóa tất cả")}
       onConfirm={resetThreads}
       onClose={onClose}
     >
       <p>
-        Mọi cuộc trò chuyện sẽ bị xóa và SIU quên các sở thích đã ghi nhớ từ trò
-        chuyện. Bạn bắt đầu lại từ đầu.
+        {uiText(
+          "Mọi cuộc trò chuyện sẽ bị xóa và ReloHome quên các sở thích đã ghi nhớ từ trò chuyện. Bạn bắt đầu lại từ đầu.",
+        )}
       </p>
       <p className="muted small">
-        Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ. Đơn đã đặt không bị hủy;
-        cuộc trò chuyện đang chờ thanh toán sẽ được giữ lại.
+        {uiText(
+          'Hồ sơ, "Sở thích AI" và nhà đã lưu được giữ. Đơn đã đặt không bị hủy; cuộc trò chuyện đang chờ thanh toán sẽ được giữ lại.',
+        )}
       </p>
     </ConfirmDialog>
   );
@@ -592,18 +718,19 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
   if (resetting)
     return <ResetThreadsDialog onClose={() => setResetting(false)} />;
   return (
-    <Dialog title="Cuộc trò chuyện của bạn" onClose={onClose}>
+    <Dialog title={uiText("Cuộc trò chuyện của bạn")} onClose={onClose}>
       <div className="search-row">
         <Search size={17} />
         <input
-          placeholder="Tìm theo tiêu đề…"
+          aria-label={uiText("Tìm theo tiêu đề…")}
+          placeholder={uiText("Tìm theo tiêu đề…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
       <Link className="primary full" to="/ai" onClick={onClose}>
         <Plus size={17} />
-        Cuộc trò chuyện mới
+        {uiText("Cuộc trò chuyện mới")}
       </Link>
       <div className="history-list">
         {threads
@@ -624,8 +751,8 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
               </Link>
               <button
                 className="icon-button"
-                aria-label={"Xóa cuộc trò chuyện " + t.title}
-                title="Xóa cuộc trò chuyện"
+                aria-label={uiText("Xóa cuộc trò chuyện ") + t.title}
+                title={uiText("Xóa cuộc trò chuyện")}
                 onClick={() => setRemoving(t)}
               >
                 <Trash2 size={16} />
@@ -633,16 +760,29 @@ function HistoryDrawer({ onClose }: { onClose: () => void }) {
             </div>
           ))}
       </div>
+      {threads.length > 0 &&
+        !threads.some((t) =>
+          t.title
+            .toLocaleLowerCase("vi")
+            .includes(query.toLocaleLowerCase("vi")),
+        ) && (
+          <EmptyState
+            icon={<Search size={24} />}
+            title={uiText("Không có yêu cầu phù hợp")}
+            text={uiText("Thử đổi từ khóa hoặc trạng thái lọc.")}
+          />
+        )}
       {threads.length ? (
         <button
           className="text-button danger"
           onClick={() => setResetting(true)}
         >
-          <Trash2 size={14} /> Xóa tất cả và làm mới SIU
+          <Trash2 size={14} />
+          {uiText(" Xóa tất cả và làm mới ReloHome")}
         </button>
       ) : (
         <p className="muted">
-          Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.
+          {uiText("Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.")}
         </p>
       )}
     </Dialog>
@@ -658,11 +798,23 @@ function Chat() {
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [draft, setDraft] = useState(""),
+    [draft, setDraft] = useState(
+      () =>
+        sessionStorage.getItem(
+          "siu-draft-" + user.id + "-" + (threadId || "new"),
+        ) || "",
+    ),
     [form, setForm] = useState<string | null>(null),
     [context, setContext] = useState<HouseData | null>(null),
     [newMessage, setNewMessage] = useState(false),
     [workspace, setWorkspace] = useState<string | null>(null);
+  const [movingSubmission, setMovingSubmission] = useState<{
+    threadId?: string;
+    formKey: string;
+  } | null>(null);
+  const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
+  const reviewedServices = useRef(new Set<string>());
+  const manualWorkspaceReply = useRef<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     nearBottom = useRef(true),
@@ -674,6 +826,8 @@ function Chat() {
     const version = ++generation.current;
     setError("");
     setContext(null);
+    setWorkspaceTaskId(null);
+    reviewedServices.current.clear();
     setDraft(
       sessionStorage.getItem(
         "siu-draft-" + user.id + "-" + (threadId || "new"),
@@ -716,11 +870,17 @@ function Chat() {
   async function reload() {
     if (threadId) {
       setThread(await api<Thread>("/threads/" + threadId));
-      await refresh();
+      void refresh().catch(() => {});
     }
   }
   async function send(text: string, extra: Data = {}) {
     if (inFlight.current || !text.trim()) return;
+    const quoteForm = extra.moving_quote_form;
+    const formKey = movingSubmission?.formKey || lastAssistant?.id || "new";
+    if (quoteForm) {
+      setMovingSubmission({ threadId, formKey });
+      setWorkspace("relocation-form");
+    } else setMovingSubmission(null);
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -732,6 +892,7 @@ function Chat() {
       if (!id) {
         const created = await api<Thread>("/threads", "POST");
         id = created.id;
+        if (quoteForm) setMovingSubmission({ threadId: id, formKey });
         setThread(created);
         navigate("/ai/" + id, { replace: true });
         currentThread.current = id;
@@ -757,13 +918,42 @@ function Chat() {
             }
           : t,
       );
-      const updated = await api<Thread>("/threads/" + id + "/chat", "POST", {
-        request_id: requestId(),
-        message,
-        ...extra,
-      });
-      if (currentThread.current === id) setThread(updated);
-      await refresh();
+      const updated = await api<Thread>(
+        "/threads/" + id + (quoteForm ? "/moving/quote" : "/chat"),
+        "POST",
+        quoteForm
+          ? {
+              request_id: requestId(),
+              ...quoteForm,
+              plan_version: thread?.state?.plan?.version || 0,
+            }
+          : { request_id: requestId(), message, ...extra },
+      );
+      if (currentThread.current === id) {
+        setThread(updated);
+        if (quoteForm) {
+          const reply = [...updated.messages]
+            .reverse()
+            .find((m) => m.role === "assistant");
+          const hasQuotes =
+            ["ANSWER", "PARTIAL"].includes(
+              reply?.content.response?.kind || "",
+            ) &&
+            (reply?.content.ui?.components || []).some(
+              (c: Component) =>
+                c.type === "relocation" &&
+                c.data?.quotes?.length &&
+                !c.data?.order,
+            );
+          if (hasQuotes) {
+            setMovingSubmission(null);
+            setWorkspace("relocation");
+          }
+          // A clarification/error keeps the same mounted form and its confirmed pins.
+        }
+      }
+      // The updated thread is authoritative; sidebar refresh is not part of quote latency.
+      void refresh().catch(() => {});
     } catch (e) {
       setError((e as Error).message);
       setDraft(text);
@@ -789,8 +979,14 @@ function Chat() {
         "POST",
         { request_id: requestId(), ...body },
       );
+      if (path === "action" && body.kind === "select") {
+        manualWorkspaceReply.current =
+          [...next.messages].reverse().find((m) => m.role === "assistant")
+            ?.id || null;
+      }
       if (currentThread.current === threadId) setThread(next);
-      await refresh();
+      void refresh().catch(() => {});
+      return next;
     } catch (e) {
       setError((e as Error).message);
       throw e;
@@ -811,6 +1007,39 @@ function Chat() {
   const facts = thread?.state?.intake?.user_confirmed_facts || {},
     savedIds = new Set(saved.map((s) => s.id)),
     pending = thread?.state?.pending;
+  // Several homes chosen for viewing; the plan home stays `selected:property` (set when deciding).
+  const viewing = thread?.state?.viewing;
+  const viewingItems: Data[] = viewing?.items || [];
+  const viewingIds = viewingItems.map((i) => i.listing_id);
+  const undecidedHomes = viewingItems
+    .filter((i) => !["agreed", "reported_paid"].includes(i.status))
+    .map((i) => ({ listing_id: i.listing_id, ...i.snapshot }));
+  function openViewings() {
+    setWorkspace(null);
+    setParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("panel", "plan");
+      next.set("planTab", "viewing");
+      return next;
+    });
+  }
+  async function movingDestination(index: number, count: number) {
+    // Contract with respond.moving_destination_question: the last option is "quote to an
+    // address now"; with two options the first is "wait until a home is decided".
+    if (count === 2 && index === 0) {
+      await api("/threads/" + threadId + "/viewings/moving-mode", "POST", {
+        mode: "wait_for_home",
+      });
+      await reload();
+      notify("Chuyển đồ sẽ chờ bạn chốt nhà.");
+      return;
+    }
+    if (thread?.state?.viewing?.moving_mode)
+      await api("/threads/" + threadId + "/viewings/moving-mode", "POST", {
+        mode: null,
+      });
+    setWorkspace("relocation-form");
+  }
   const allComponents = (thread?.messages || []).flatMap((m) =>
     (m.content.ui?.components || []).map((c) => ({
       c,
@@ -823,9 +1052,7 @@ function Chat() {
     (l: Data) =>
       thread?.state?.cost_summary?.selected?.[l.task_id] === selectedId,
   );
-  // The agent reads the chosen home from its own results (a home chosen on the map is not in any
-  // chat message), so its address and coordinate can prefill the moving destination.
-  const selectedHouse =
+  const selectedHouseInState =
     (thread?.state?.selections?.property?.id === selectedId
       ? (thread?.state?.selections?.property as HouseData)
       : undefined) ||
@@ -835,6 +1062,49 @@ function Chat() {
     (selectedId && costLine
       ? ({ id: selectedId, title: costLine.label } as HouseData)
       : undefined);
+  // Map choices can outlive result cards and selection snapshots. Resolve the persisted ID
+  // through the existing read-only detail endpoint; never substitute another candidate.
+  const [resolvedHome, setResolvedHome] = useState<{
+    threadId: string;
+    house: HouseData;
+  } | null>(null);
+  const [homeIssue, setHomeIssue] = useState("");
+  const needsHomeDetail = Boolean(
+    selectedId &&
+    (!selectedHouseInState?.address ||
+      !Number.isFinite(selectedHouseInState.lat) ||
+      !Number.isFinite(selectedHouseInState.lng)),
+  );
+  useEffect(() => {
+    setHomeIssue("");
+    if (!threadId || !selectedId || !needsHomeDetail) return;
+    const abort = new AbortController();
+    api<HouseData>(
+      "/housing/" + encodeURIComponent(selectedId),
+      "GET",
+      undefined,
+      abort.signal,
+    )
+      .then((house) => {
+        if (house?.id !== selectedId)
+          throw new Error("Không tìm thấy căn đã chọn.");
+        if (!abort.signal.aborted) setResolvedHome({ threadId, house });
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted)
+          setHomeIssue(
+            "Chưa đọc được địa chỉ căn đã chọn. Bạn có thể nhập điểm B hoặc tải lại trang để thử lại.",
+          );
+      });
+    return () => abort.abort();
+  }, [threadId, selectedId, needsHomeDetail]);
+  const fetchedHome =
+    resolvedHome &&
+    resolvedHome.threadId === threadId &&
+    resolvedHome.house.id === selectedId
+      ? resolvedHome.house
+      : undefined;
+  const selectedHouse = fetchedHome || selectedHouseInState;
   const opened = [...allComponents]
     .reverse()
     .find(
@@ -853,25 +1123,29 @@ function Chat() {
     saved.find((s) => s.id === params.get("house") && s.thread_id === threadId)
       ?.house) as HouseData | undefined;
   const unavailable = (kind: string) => !status?.domains?.includes(kind);
+  const journey = serviceTargets(thread);
+  const navigation = navigationProgress(thread);
+  const activeTarget = journey.find((t) => t.c.task_id === workspaceTaskId);
   // Each service result opens its own workspace (map for housing, flights, moving quotes).
   // Choosing an option there returns to the chat so the user can continue with other services.
   const latestOf = (type: string, field: string) =>
     [...allComponents]
       .reverse()
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
-  const latestProperty = [...allComponents]
-    .reverse()
-    .find(({ c }) => c.type === "property");
-  const latestFlight = latestOf("flight", "offers"),
+  const latestProperty =
+    (activeTarget?.c.type === "property" ? activeTarget : undefined) ||
+    [...allComponents]
+      .reverse()
+      .find(({ c }) => c.type === "property" && !c.data?.comparison);
+  const latestFlight =
+      (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
+      latestOf("flight", "offers"),
     // Once an order exists the quotes are history; tracking stays in the chat card.
-    latestMoving = [latestOf("relocation", "quotes")].find(
-      (x) => x && !x.c.data?.order,
-    );
-  const latestService = [...allComponents]
-    .reverse()
-    .find(
-      (x) => x === latestProperty || x === latestFlight || x === latestMoving,
-    );
+    latestMoving = [
+      (activeTarget?.c.type === "relocation" ? activeTarget : undefined) ||
+        latestOf("relocation", "quotes"),
+    ].find((x) => x && !x.c.data?.order);
+  const latestService = nextServiceTarget(thread, reviewedServices.current);
   const lastAssistant = [...(thread?.messages || [])]
     .reverse()
     .find((m) => m.role === "assistant");
@@ -883,6 +1157,16 @@ function Chat() {
     (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
   );
   const movingKnown: Data = {
+    ...((thread?.state?.progress?.items || []).find(
+      (i: Data) => i.agent === "relocation" && i.state === "waiting",
+    )?.inputs || {}),
+    ...Object.fromEntries(
+      ["moving_options", "pickup_coordinate", "destination_coordinate"]
+        .filter(
+          (k) => thread?.state?.intake?.constraints?.values?.[k] !== undefined,
+        )
+        .map((k) => [k, thread!.state.intake.constraints.values[k]]),
+    ),
     ...Object.fromEntries(
       MOVING_FIELDS.filter((k) => facts[k]?.value).map((k) => [
         k,
@@ -903,15 +1187,34 @@ function Chat() {
   const lastHasService = (lastAssistant?.content.ui?.components || []).some(
     (c: Component) => c.id === latestService?.c.id && !earlierIds.has(c.id),
   );
+  const lastHasComparison = (lastAssistant?.content.ui?.components || []).some(
+    (c: Component) => !!c.data?.comparison,
+  );
   // The newest message decides: a confirmation request, a service result, or plain chat.
   useEffect(() => {
+    if (manualWorkspaceReply.current === lastAssistant?.id) return;
+    if (movingSubmission) {
+      if (
+        threadId === movingSubmission.threadId ||
+        (inFlight.current && !threadId)
+      )
+        return;
+      // Explicit navigation to another conversation must not retain this form.
+      setMovingSubmission(null);
+    }
     setWorkspace(
-      movingQuestions.length
-        ? "relocation-form"
-        : lastHasService
-          ? (latestService?.c.type ?? null)
+      lastHasService && !latestService?.c.data?.comparison
+        ? (latestService?.c.type ?? null)
+        : movingQuestions.length ||
+            (!lastHasComparison && pendingServiceInput(thread, "relocation"))
+          ? "relocation-form"
           : null,
     );
+    setWorkspaceTaskId(
+      lastHasService ? latestService?.c.task_id || null : null,
+    );
+    // Only a new server reply or navigation auto-opens a workspace. A local
+    // submit/exit state change must not override the user's explicit workspace choice.
   }, [lastAssistant?.id, threadId]);
   const chatDock = {
     text: lastAssistant?.content.response?.text,
@@ -929,7 +1232,7 @@ function Chat() {
     id: string,
     message: string,
   ) {
-    await mutate("action", {
+    const next = await mutate("action", {
       kind: "select",
       task_id: target.c.task_id,
       plan_version: target.version,
@@ -937,7 +1240,82 @@ function Chat() {
       entity_id: id,
     });
     notify(message);
+    // Viewing mode: keep the map open so several homes can be chosen; "done" moves on.
+    if (viewing && target.c.type === "property") return;
+    advanceAfter(target, next);
+  }
+  function advanceAfter(
+    target: { c: Component; version: number },
+    next?: Thread | void,
+  ) {
+    reviewedServices.current.add(target.c.id);
+    const remaining = nextServiceTarget(
+      next || thread,
+      reviewedServices.current,
+    );
+    setWorkspaceTaskId(remaining?.c.task_id || null);
+    const nextAssistant = [...(next?.messages || thread?.messages || [])]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    const hasMovingInput = (
+      nextAssistant?.content.response?.questions || []
+    ).some((q: Data) =>
+      (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
+    );
+    setWorkspace(
+      remaining?.c.type ||
+        (hasMovingInput || pendingServiceInput(next || thread, "relocation")
+          ? "relocation-form"
+          : null),
+    );
+  }
+  function openService(taskId: string, agent: string) {
+    if (agent === "roommate") {
+      navigate("/roommate");
+      return;
+    }
+    const target = journey.find((t) => t.c.task_id === taskId);
+    if (target) {
+      setWorkspaceTaskId(taskId);
+      setWorkspace(target.c.type);
+    } else if (agent === "relocation") {
+      setWorkspaceTaskId(taskId);
+      setWorkspace("relocation-form");
+    } else {
+      setWorkspace(null);
+      notify(
+        "Dịch vụ này chưa có kết quả. Bạn có thể bổ sung thông tin trong chat.",
+      );
+    }
+  }
+  function finishWorkspace() {
+    const target = activeTarget || journey.find((t) => t.c.type === workspace);
+    if (target) reviewedServices.current.add(target.c.id);
+    // Back means chat. Automatic next-service navigation belongs to selection.
+    setWorkspaceTaskId(null);
     setWorkspace(null);
+  }
+  // Selected services the app can take payment for and that are not finished yet (payment-design §7).
+  const payable = thread?.state?.checkout
+    ? ["flight", "relocation"].filter(
+        (d) =>
+          facts["selected:" + d] &&
+          !(thread.state.checkout.transactions || []).some(
+            (t: Data) =>
+              t.domain === d &&
+              t.option_id === facts["selected:" + d].value &&
+              ["ticketed", "approved"].includes(t.status),
+          ),
+      )
+    : [];
+  function openCheckout() {
+    setWorkspace(null);
+    setParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("panel", "plan");
+      next.set("planTab", "checkout");
+      return next;
+    });
   }
   function choosePlace(choice: Data, field: string) {
     const place =
@@ -950,22 +1328,56 @@ function Chat() {
   }
   return (
     <div className={"chat-page" + (workspace ? " map-mode" : "")}>
+      {thread?.messages?.length ? (
+        <h1 className="sr-only">{thread.title}</h1>
+      ) : null}
       <PlanPeek
         key={threadId || "new"}
-        progress={thread?.state?.progress}
+        progress={navigation}
         threadId={thread?.id}
         thread={thread}
         writesEnabled={!!status?.writes_enabled}
-        onDecision={(body) => mutate("decision", body)}
-        onPaymentCheck={() => mutate("payment/check", {})}
+        onDecision={(body) => mutate("decision", body).then(() => {})}
+        onPaymentCheck={() => mutate("payment/check", {}).then(() => {})}
+        onCheckoutChanged={reload}
+        onMovingForm={() => setWorkspace("relocation-form")}
+        house={selectedHouse}
         busy={busy}
+        onOpenService={openService}
       />
+      {(navigation.items || []).length > 1 && (
+        <nav
+          className="service-journey"
+          aria-label={uiText("Dịch vụ trong kế hoạch")}
+        >
+          {(navigation.items || []).map((item: Data) => (
+            <button
+              key={item.task_id}
+              className={workspaceTaskId === item.task_id ? "active" : ""}
+              disabled={busy}
+              aria-current={
+                workspaceTaskId === item.task_id ? "step" : undefined
+              }
+              onClick={() => openService(item.task_id, item.agent)}
+            >
+              {item.chosen && <Check size={14} />}
+              {uiText(domainLabels[item.agent] || item.agent)}
+              {!journey.some((t) => t.c.task_id === item.task_id) && (
+                <small>{uiText("Chờ thông tin/kết quả")}</small>
+              )}
+            </button>
+          ))}
+        </nav>
+      )}
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
-          key={lastAssistant?.id || "new"}
+          key={movingSubmission?.formKey || lastAssistant?.id || "new"}
           questions={movingQuestions}
           known={movingKnown}
           house={selectedHouse}
+          homeLoading={needsHomeDetail && !fetchedHome && !homeIssue}
+          homeIssue={homeIssue}
+          suggestedHomes={selectedHouse ? [] : undecidedHomes}
           // Next-step suggestions would only repeat this form; the dock keeps the question.
           chat={{
             ...chatDock,
@@ -973,23 +1385,49 @@ function Chat() {
             suggestions: [],
           }}
           onConfirm={(text, extra) => send(text, extra)}
-          onExit={() => setWorkspace(null)}
+          onExit={() => {
+            setMovingSubmission(null);
+            setWorkspace(null);
+          }}
         />
       ) : workspace === "flight" && latestFlight ? (
         <FlightWorkspace
+          readOnly={
+            !thread?.state.plan?.tasks?.some(
+              (t: Data) => t.id === latestFlight.c.task_id,
+            )
+          }
+          key={latestFlight.c.id}
           data={latestFlight.c.data}
           selectedId={facts["selected:flight"]?.value}
           chat={chatDock}
           onSelect={(id) =>
             selectIn(latestFlight, id, "Đã chọn chuyến bay vào kế hoạch.")
           }
-          onExit={() => setWorkspace(null)}
+          onOutbound={(id) =>
+            mutate("flight/outbound", {
+              task_id: latestFlight.c.task_id,
+              plan_version: latestFlight.version,
+              fetched_at: latestFlight.c.fetched_at,
+              offer_id: id,
+            }).then(() => {})
+          }
+          onPay={thread?.state?.checkout ? openCheckout : undefined}
+          onExit={finishWorkspace}
         />
       ) : workspace === "relocation" && latestMoving ? (
         <MovingWorkspace
+          readOnly={
+            !thread?.state.plan?.tasks?.some(
+              (t: Data) => t.id === latestMoving.c.task_id,
+            )
+          }
+          key={latestMoving.c.id}
           data={latestMoving.c.data}
           selectedId={facts["selected:relocation"]?.value}
           chat={chatDock}
+          onEdit={() => setWorkspace("relocation-form")}
+          onPay={thread?.state?.checkout ? openCheckout : undefined}
           onSelect={(id) =>
             selectIn(
               latestMoving,
@@ -997,13 +1435,48 @@ function Chat() {
               "Đã chọn phương án chuyển đồ. Nhắn yêu cầu đặt khi bạn sẵn sàng.",
             )
           }
-          onExit={() => setWorkspace(null)}
+          onExit={finishWorkspace}
         />
+      ) : workspace === "map" && activeTarget ? (
+        <section className="service-map-result" key={activeTarget.c.id}>
+          <button className="secondary" onClick={finishWorkspace}>
+            {uiText("Tiếp tục kế hoạch")}
+          </button>
+          <Results
+            payload={{
+              status: "done",
+              ui: {
+                version: 1,
+                plan_version: activeTarget.version,
+                components: [activeTarget.c],
+              },
+            }}
+            selected={facts}
+            saved={savedIds}
+            busy={busy}
+            writes={!!status?.writes_enabled}
+            onOpen={openHouse}
+            onSave={(h) => void save(h, thread!.id)}
+            onAction={(c, v, kind, id) =>
+              mutate("action", {
+                kind,
+                task_id: c.task_id,
+                plan_version: v,
+                fetched_at: c.fetched_at,
+                entity_id: id,
+              }).then(() => {})
+            }
+            onPrompt={setDraft}
+            onFilter={() => setForm("property")}
+          />
+        </section>
       ) : workspace === "property" && latestProperty ? (
         <MapWorkspace
+          readOnly={!canSelectServiceResult(thread, latestProperty)}
           focus={{
             key: latestProperty.c.id,
             viewport: latestProperty.c.data?.map_context?.viewport,
+            searchScope: latestProperty.c.data?.map_context?.search_scope,
           }}
           initialFilters={filtersFromSearch(
             latestProperty.c.data?.search_request,
@@ -1011,13 +1484,38 @@ function Chat() {
           areaName={latestProperty.c.data?.area_name}
           saved={savedIds}
           selectedId={facts["selected:property"]?.value}
+          selectedIds={viewing ? viewingIds : undefined}
+          selectionLimit={viewing?.max_selected}
+          onUnselect={
+            viewing
+              ? async (h) => {
+                  await api(
+                    "/threads/" + threadId + "/viewings/unselect",
+                    "POST",
+                    { listing_id: h.id },
+                  );
+                  await reload();
+                }
+              : undefined
+          }
+          onSelectionDone={
+            viewing
+              ? () => {
+                  // Close the map and go straight to booking viewings.
+                  reviewedServices.current.add(latestProperty.c.id);
+                  openViewings();
+                }
+              : undefined
+          }
           chat={chatDock}
           onSave={(h) => void save(h, thread!.id)}
           onSelect={(h) =>
             selectIn(
               latestProperty,
               h.id,
-              "Đã chọn căn nhà. Bạn có thể tiếp tục với chuyển đồ hoặc dịch vụ khác.",
+              viewing
+                ? "Đã chọn căn để hẹn xem. Hẹn lịch trong Kế hoạch → Xem nhà."
+                : "Đã chọn căn nhà. Bạn có thể tiếp tục với chuyển đồ hoặc dịch vụ khác.",
             )
           }
           onExit={() => setWorkspace(null)}
@@ -1035,10 +1533,7 @@ function Chat() {
             }}
           >
             {loading && (
-              <div className="loading-history">
-                <span className="spinner" />
-                <span>Đang tải hội thoại…</span>
-              </div>
+              <ContentSkeleton label={uiText("Đang tải hội thoại…")} rows={2} />
             )}
             {!loading && !thread?.messages?.length && (
               <section className="welcome">
@@ -1047,22 +1542,35 @@ function Chat() {
                     <Sparkles size={22} />
                   </span>
                   <span className="eyebrow">
-                    CHÀO {user.name.toLocaleUpperCase("vi")}
+                    {uiText("CHÀO ")}
+                    {user.name.toLocaleUpperCase("vi")}
                   </span>
                 </div>
                 <h1>
-                  Bạn đang ấp ủ<br />
-                  <span>kế hoạch gì hôm nay?</span>
+                  <span className="welcome-title-lead">
+                    {uiText("Bạn đang ấp ủ")}
+                  </span>{" "}
+                  <span>{uiText("kế hoạch gì hôm nay?")}</span>
                 </h1>
                 <p>
-                  Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.
-                  <br className="desktop-only" /> Kể SIU nghe, mình sẽ cùng bạn
-                  bắt đầu.
+                  {uiText(
+                    "Tìm một nơi ở mới, chuẩn bị chuyến đi, hay khám phá khu vực.",
+                  )}
+                  <br className="desktop-only" />
+                  {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
-                <div className="quick-grid">
+                <div
+                  className="quick-grid"
+                  role="group"
+                  aria-label={roommateText(
+                    "Chức năng ReloHome",
+                    "ReloHome services",
+                  )}
+                >
                   {quick.map((q) => (
                     <button
                       className="quick-card"
+                      aria-label={`${uiText(q.title)} ${uiText(q.subtitle)}`}
                       key={q.kind}
                       onClick={() =>
                         q.kind === "relocation"
@@ -1072,21 +1580,65 @@ function Chat() {
                       disabled={unavailable(q.kind)}
                       title={
                         unavailable(q.kind)
-                          ? "Dịch vụ chưa được kết nối"
-                          : q.title
+                          ? uiText("Dịch vụ chưa được kết nối")
+                          : uiText(q.title)
                       }
                     >
                       <span className={"service-icon " + q.color}>
                         <q.icon size={24} />
                       </span>
-                      <strong>{q.title}</strong>
-                      <span>{q.subtitle}</span>
+                      <strong>{uiText(q.title)}</strong>
+                      <span>{uiText(q.subtitle)}</span>
                       <ArrowUpRight size={17} className="quick-arrow" />
                     </button>
                   ))}
+                  <Link
+                    className="quick-card"
+                    to="/roommate"
+                    aria-label={roommateText("Ở ghép", "Roommates")}
+                  >
+                    <span className="service-icon mint">
+                      <UsersRound size={24} aria-hidden="true" />
+                    </span>
+                    <strong>{roommateText("Ở ghép", "Roommates")}</strong>
+                    <span>
+                      {roommateText(
+                        "Tìm người cùng chia sẻ chỗ ở",
+                        "Find someone to share a home",
+                      )}
+                    </span>
+                    <ArrowUpRight
+                      size={17}
+                      className="quick-arrow"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                  <Link
+                    className="quick-card"
+                    to="/guides"
+                    aria-label={roommateText("Cẩm nang", "Guides")}
+                  >
+                    <span className="service-icon mint">
+                      <BookOpen size={24} aria-hidden="true" />
+                    </span>
+                    <strong>{roommateText("Cẩm nang", "Guides")}</strong>
+                    <span>
+                      {roommateText(
+                        "Kinh nghiệm thuê nhà và sống chung",
+                        "Tips for renting and living together",
+                      )}
+                    </span>
+                    <ArrowUpRight
+                      size={17}
+                      className="quick-arrow"
+                      aria-hidden="true"
+                    />
+                  </Link>
                 </div>
                 <div className="starter">
-                  <span className="muted small">THỬ BẮT ĐẦU VỚI</span>
+                  <span className="muted small">
+                    {uiText("THỬ BẮT ĐẦU VỚI")}
+                  </span>
                   <button
                     onClick={() => {
                       setDraft(
@@ -1095,7 +1647,7 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    “Tìm phòng ở Hà Nội dưới 5 triệu/tháng”
+                    {uiText("“Tìm phòng ở Hà Nội dưới 5 triệu/tháng”")}
                     <ArrowRight size={16} />
                   </button>
                   <button
@@ -1104,13 +1656,13 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    “Tôi muốn tìm nhà và chuyển đồ tới đó”
+                    {uiText("“Tôi muốn tìm nhà và chuyển đồ tới đó”")}
                     <ArrowRight size={16} />
                   </button>
                 </div>
                 <div className="welcome-note">
                   <ShieldCheck size={15} />
-                  Bạn luôn là người xác nhận trước mỗi giao dịch.
+                  {uiText("Bạn luôn là người xác nhận trước mỗi giao dịch.")}
                 </div>
                 {Object.values(user.preferences).some(Boolean) && (
                   <button
@@ -1123,7 +1675,7 @@ function Chat() {
                       input.current?.focus();
                     }}
                   >
-                    Dùng sở thích đã lưu cho lần tìm này
+                    {uiText("Dùng sở thích đã lưu cho lần tìm này")}
                   </button>
                 )}
               </section>
@@ -1134,11 +1686,6 @@ function Chat() {
                 key={m.id}
                 id={"message-" + m.id}
               >
-                {m.role === "assistant" && (
-                  <span className="message-avatar">
-                    <Robot />
-                  </span>
-                )}
                 <div className="message-content">
                   {m.role === "user" ? (
                     <div className="user-bubble">{m.content.text}</div>
@@ -1154,16 +1701,89 @@ function Chat() {
                           }
                         >
                           <div className="assistant-label">
-                            SIU AI <Sparkles size={12} />
+                            ReloHome <Sparkles size={12} />
                           </div>
-                          <p className="prose">{m.content.response.text}</p>
+                          <p className="prose">
+                            {closedResultSummary(m, thread) ||
+                              m.content.response.text}
+                          </p>
+                          {closedResultSummary(m, thread) && (
+                            <details className="completed-result-detail">
+                              <summary>Xem nội dung kết quả ban đầu</summary>
+                              <p className="prose">{m.content.response.text}</p>
+                            </details>
+                          )}
                           {m.content.response.kind === "PARTIAL" && (
-                            <span className="tag amber">Kết quả một phần</span>
+                            <span className="tag amber">
+                              {uiText("Kết quả một phần")}
+                            </span>
                           )}
                         </div>
                       )}
+                      {(m.content.ui?.components || [])
+                        .filter((c) => c.data?.comparison)
+                        .map((c) => (
+                          <div key={c.id} id={"comparison-" + c.id}>
+                            <HousingComparison data={c.data} />
+                          </div>
+                        ))}
+                      <div className="chat-service-summaries">
+                        {(m.content.ui?.components || [])
+                          .filter((c) =>
+                            [
+                              "property",
+                              "flight",
+                              "relocation",
+                              "map",
+                            ].includes(c.type),
+                          )
+                          .map((c) => {
+                            const target = journey.find(
+                              (t) => t.c.task_id === c.task_id,
+                            );
+                            const chosen =
+                              target && hasSelection(thread, target);
+                            return (
+                              <div key={c.id} className="chat-service-summary">
+                                <span>
+                                  {chosen
+                                    ? uiText("Đã chọn")
+                                    : uiText("Có kết quả")}
+                                  : {uiText(domainLabels[c.type] || c.type)}
+                                </span>
+                                {!chosen && target && (
+                                  <button
+                                    className="text-button"
+                                    onClick={() =>
+                                      openService(c.task_id, c.type)
+                                    }
+                                  >
+                                    {uiText("Xem phương án")}{" "}
+                                    <ChevronRight size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </div>
                       <Results
-                        payload={m.content}
+                        payload={{
+                          ...m.content,
+                          ui: m.content.ui
+                            ? {
+                                ...m.content.ui,
+                                components: m.content.ui.components.filter(
+                                  (c) =>
+                                    ![
+                                      "property",
+                                      "flight",
+                                      "relocation",
+                                      "map",
+                                    ].includes(c.type),
+                                ),
+                              }
+                            : undefined,
+                        }}
                         selected={facts}
                         saved={savedIds}
                         busy={busy}
@@ -1177,7 +1797,7 @@ function Chat() {
                             plan_version: v,
                             fetched_at: c.fetched_at,
                             entity_id: id,
-                          })
+                          }).then(() => {})
                         }
                         onPrompt={(s) => {
                           setDraft(s);
@@ -1188,14 +1808,17 @@ function Chat() {
                       <Receipts
                         receipts={m.content.response?.data?.receipts || []}
                       />
-                      {(m.content.response?.questions || []).map(
-                        (q: Data, i: number) => (
-                          <div className="question" key={i}>
-                            {!m.content.response?.text.includes(q.text) && (
-                              <p>{q.text}</p>
-                            )}
-                            <div className="tags">
-                              {(q.choices || []).map((c: Data) => (
+                      {(closedResultSummary(m, thread)
+                        ? []
+                        : m.content.response?.questions || []
+                      ).map((q: Data, i: number) => (
+                        <div className="question" key={i}>
+                          {!m.content.response?.text.includes(q.text) && (
+                            <p>{q.text}</p>
+                          )}
+                          <div className="tags">
+                            {mergePlaceCandidates(q.choices || []).map(
+                              (c: Data) => (
                                 <button
                                   key={c.id}
                                   className="suggestion"
@@ -1206,23 +1829,29 @@ function Chat() {
                                 >
                                   <MapPin size={12} /> {c.label}
                                 </button>
-                              ))}
-                              {(q.choices?.length ? [] : q.options || []).map(
-                                (o: string) => (
-                                  <button
-                                    key={o}
-                                    className="suggestion"
-                                    disabled={busy}
-                                    onClick={() => send(o).catch(() => {})}
-                                  >
-                                    {o}
-                                  </button>
-                                ),
-                              )}
-                            </div>
+                              ),
+                            )}
+                            {(q.choices?.length ? [] : q.options || []).map(
+                              (o: string, index: number, all: string[]) => (
+                                <button
+                                  key={o}
+                                  className="suggestion"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    (viewing &&
+                                    q.field === "relocation.selected:property"
+                                      ? movingDestination(index, all.length)
+                                      : send(o)
+                                    ).catch(() => {})
+                                  }
+                                >
+                                  {o}
+                                </button>
+                              ),
+                            )}
                           </div>
-                        ),
-                      )}
+                        </div>
+                      ))}
                       {(m.content.response?.suggestions || []).length > 0 && (
                         <div className="suggestions">
                           {m.content.response!.suggestions!.map((s: Data) => (
@@ -1231,7 +1860,7 @@ function Chat() {
                               className="suggestion"
                               onClick={() => setDraft(s.message)}
                             >
-                              {s.label}
+                              {uiText(s.label)}
                               <ArrowUpRight size={13} />
                             </button>
                           ))}
@@ -1241,14 +1870,16 @@ function Chat() {
                         m.content.confirmation.payload_hash !==
                           pending?.payload_hash && (
                           <p className="notice">
-                            Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng
-                            thái hiện tại bên dưới.
+                            {uiText(
+                              "Phương án cũ đã được xử lý hoặc thay đổi. Xem trạng thái hiện tại bên dưới.",
+                            )}
                           </p>
                         )}
                       {m.content.uncertain && (
                         <p className="notice amber">
-                          Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi
-                          gửi lại.
+                          {uiText(
+                            "Chưa rõ kết quả xử lý. Kiểm tra trạng thái trước khi gửi lại.",
+                          )}
                         </p>
                       )}
                     </>
@@ -1262,7 +1893,7 @@ function Chat() {
                 pending={pending}
                 enabled={!!status?.writes_enabled}
                 busy={busy}
-                onDecision={(body) => mutate("decision", body)}
+                onDecision={(body) => mutate("decision", body).then(() => {})}
               />
             )}
             {pending?.type === "payment_required" && thread && (
@@ -1270,25 +1901,22 @@ function Chat() {
                 pending={pending}
                 threadId={thread.id}
                 busy={busy}
-                onCheck={() => mutate("payment/check", {})}
+                onCheck={() => mutate("payment/check", {}).then(() => {})}
               />
             )}
             {busy && (
               <div className="thinking" role="status">
-                <span className="message-avatar">
-                  <Robot />
-                </span>
                 <span>
                   <i />
                   <i />
                   <i />
                 </span>
-                <small>SIU đang xử lý yêu cầu của bạn…</small>
+                <small>{uiText("ReloHome đang xử lý yêu cầu của bạn…")}</small>
               </div>
             )}
             {error && (
               <div className="notice error" role="alert">
-                {error}
+                {uiText(error)}
                 <button
                   className="text-button"
                   onClick={() => {
@@ -1297,7 +1925,7 @@ function Chat() {
                   }}
                 >
                   <RefreshCw size={14} />
-                  Kiểm tra trạng thái
+                  {uiText("Kiểm tra trạng thái")}
                 </button>
               </div>
             )}
@@ -1306,12 +1934,12 @@ function Chat() {
             ) &&
               !busy && (
                 <div className="notice amber">
-                  Có yêu cầu đang xử lý hoặc chưa rõ kết quả.
+                  {uiText("Có yêu cầu đang xử lý hoặc chưa rõ kết quả.")}
                   <button
                     className="text-button"
                     onClick={() => reload().catch((e) => setError(e.message))}
                   >
-                    Kiểm tra trạng thái
+                    {uiText("Kiểm tra trạng thái")}
                   </button>
                 </div>
               )}
@@ -1330,7 +1958,7 @@ function Chat() {
                   }}
                 >
                   <ArrowDown size={14} />
-                  Có phản hồi mới
+                  {uiText("Có phản hồi mới")}
                 </button>
               )}
               {movingQuestions.length > 0 && (
@@ -1338,7 +1966,8 @@ function Chat() {
                   className="secondary open-map"
                   onClick={() => setWorkspace("relocation-form")}
                 >
-                  <Truck size={15} /> Nhập thông tin chuyển đồ
+                  <Truck size={15} />
+                  {uiText(" Nhập thông tin chuyển đồ")}
                 </button>
               )}
               {latestService && !movingQuestions.length && (
@@ -1356,27 +1985,46 @@ function Chat() {
                   }
                 </button>
               )}
+              {viewingItems.length > 0 && (
+                <button className="secondary open-map" onClick={openViewings}>
+                  <CalendarClock size={15} />
+                  {formatUi(" Xem nhà ({0} căn)", [viewingItems.length])}
+                </button>
+              )}
+              {payable.length > 0 && (
+                <button className="primary open-map" onClick={openCheckout}>
+                  <CreditCard size={15} />
+                  {payable.length > 1
+                    ? uiText(" Thanh toán")
+                    : payable[0] === "flight"
+                      ? uiText(" Thanh toán vé máy bay")
+                      : uiText(" Thanh toán chuyển đồ")}
+                </button>
+              )}
             </div>
             {selectedHouse && (
               <div className="selection-strip">
                 <span>
                   <Check size={14} />
-                  Đã chọn: <strong>{selectedHouse.title}</strong>
+                  {uiText("Đã chọn: ")}
+                  <strong>{selectedHouse.title}</strong>
                 </span>
                 <button
                   className="text-button"
                   onClick={() => setWorkspace("relocation-form")}
                 >
-                  Chuyển đồ tới đây <ArrowRight size={13} />
+                  {uiText("Chuyển đồ tới đây ")}
+                  <ArrowRight size={13} />
                 </button>
               </div>
             )}
             {context && (
               <div className="context-chip">
-                Đang hỏi về: {context.title}
+                {uiText("Đang hỏi về: ")}
+                {context.title}
                 <button
                   className="icon-button"
-                  aria-label="Bỏ ngữ cảnh"
+                  aria-label={uiText("Bỏ ngữ cảnh")}
                   onClick={() => setContext(null)}
                 >
                   <X size={14} />
@@ -1398,8 +2046,10 @@ function Chat() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={1}
-                placeholder="Nhắn cho SIU AI… cùng bắt đầu một điều mới"
-                aria-label="Tin nhắn cho SIU AI"
+                placeholder={uiText(
+                  "Nhắn cho ReloHome… cùng bắt đầu một điều mới",
+                )}
+                aria-label={uiText("Tin nhắn cho ReloHome")}
                 maxLength={5000}
                 onKeyDown={(e) => {
                   if (
@@ -1415,24 +2065,28 @@ function Chat() {
               <button
                 className="send-button"
                 disabled={busy || !draft.trim() || !status}
-                aria-label="Gửi tin nhắn"
+                aria-label={uiText("Gửi tin nhắn")}
               >
                 <Send size={20} />
               </button>
             </form>
             <div className="composer-caption">
               <span>
-                SIU AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
+                {uiText(
+                  "ReloHome có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.",
+                )}
               </span>
               <span className="desktop-only">
-                Enter để gửi <span>·</span> Shift + Enter xuống dòng
+                {uiText("Enter để gửi ")}
+                <span>·</span>
+                {uiText(" Shift + Enter xuống dòng")}
               </span>
             </div>
             {!status && (
               <div className="connection-alert">
-                Chưa kết nối được AI.{" "}
+                {uiText("Chưa kết nối được AI.")}{" "}
                 <button className="text-button" onClick={() => void refresh()}>
-                  Thử kết nối lại
+                  {uiText("Thử kết nối lại")}
                 </button>
               </div>
             )}
@@ -1446,7 +2100,10 @@ function Chat() {
         <HousingDetail
           house={openDetail}
           saved={savedIds.has(openDetail.id)}
-          selected={facts["selected:property"]?.value === openDetail.id}
+          selected={
+            facts["selected:property"]?.value === openDetail.id ||
+            viewingIds.includes(openDetail.id)
+          }
           busy={busy}
           onClose={() => setParams({}, { replace: true })}
           onSave={() => void save(openDetail, thread!.id)}
@@ -1462,7 +2119,9 @@ function Chat() {
                   })
                     .then(() =>
                       notify(
-                        "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
+                        viewing
+                          ? "Đã chọn căn để hẹn xem. Hẹn lịch trong Kế hoạch → Xem nhà."
+                          : "Đã chọn căn nhà. Bạn có thể tiếp tục hỏi về đường đi hoặc chuyển đồ.",
                       ),
                     )
                     .catch(() => {})
@@ -1485,9 +2144,13 @@ function LegacyPlanRedirect() {
 }
 
 function Account({ onLogout }: { onLogout: () => void }) {
+  const accountId = useId();
   const { user, setUser, saved, threads, save, notify } = useApp();
   const [resetting, setResetting] = useState(false),
     [openSaved, setOpenSaved] = useState<Saved | null>(null);
+  // Persistent shortlist = saved homes; compare 2–4 of them with re-read details (SPEC-021 AC-04).
+  const [savedCompare, setSavedCompare] = useState<HouseData[]>([]),
+    [comparingSaved, setComparingSaved] = useState(false);
   const [tab, setTab] = useState("history"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -1534,10 +2197,15 @@ function Account({ onLogout }: { onLogout: () => void }) {
         <div className="page-heading">
           <div>
             <span className="eyebrow">
-              <UserRound size={13} /> TÀI KHOẢN SIU AI
+              <UserRound size={13} />
+              {uiText(" TÀI KHOẢN ReloHome")}
             </span>
-            <h1>Tài khoản của tôi</h1>
-            <p>Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.</p>
+            <h1>{uiText("Tài khoản của tôi")}</h1>
+            <p>
+              {uiText(
+                "Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.",
+              )}
+            </p>
           </div>
           <button
             className="secondary"
@@ -1552,9 +2220,19 @@ function Account({ onLogout }: { onLogout: () => void }) {
             }}
           >
             <LogOut size={16} />
-            Đăng xuất
+            {uiText("Đăng xuất")}
           </button>
         </div>
+        <p>
+          <Link className="text-button" to="/roommate">
+            {roommateText("Tìm người ở cùng", "Find a roommate")}{" "}
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link className="text-button" to="/landlord">
+            {uiText("Chế độ chủ nhà")} <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </p>
         <div className="profile-banner">
           <span className="avatar avatar-large">
             {user.name.slice(0, 1).toUpperCase()}
@@ -1570,7 +2248,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </span>
               <span>
                 <strong>{threads.length}</strong>
-                <small>Cuộc trò chuyện</small>
+                <small>{uiText("Cuộc trò chuyện")}</small>
               </span>
             </div>
             <div>
@@ -1579,236 +2257,329 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </span>
               <span>
                 <strong>{saved.length}</strong>
-                <small>Nhà đã lưu</small>
+                <small>{uiText("Nhà đã lưu")}</small>
               </span>
             </div>
           </div>
         </div>
       </section>
-      <div className="tabs account-tabs">
+      <TabList
+        className="tabs account-tabs"
+        label={uiText("Nội dung tài khoản")}
+      >
         <button
+          role="tab"
+          id={accountId + "history"}
+          aria-selected={tab === "history"}
+          aria-controls={accountId + "panel"}
           className={tab === "history" ? "active" : ""}
           onClick={() => changeTab("history")}
         >
-          <History size={17} /> Lịch sử yêu cầu
+          <History size={17} />
+          {uiText(" Lịch sử yêu cầu")}
         </button>
         <button
+          role="tab"
+          id={accountId + "security"}
+          aria-selected={tab === "security"}
+          aria-controls={accountId + "panel"}
           className={tab === "security" ? "active" : ""}
           onClick={() => changeTab("security")}
         >
-          <ShieldCheck size={17} /> Đăng nhập & bảo mật
+          <ShieldCheck size={17} />
+          {uiText(" Đăng nhập & bảo mật")}
         </button>
         <button
+          role="tab"
+          id={accountId + "profile"}
+          aria-selected={tab === "profile"}
+          aria-controls={accountId + "panel"}
           className={tab === "profile" ? "active" : ""}
           onClick={() => changeTab("profile")}
         >
-          <UserRound size={17} /> Hồ sơ
+          <UserRound size={17} />
+          {uiText(" Hồ sơ")}
         </button>
         <button
+          role="tab"
+          id={accountId + "preferences"}
+          aria-selected={tab === "preferences"}
+          aria-controls={accountId + "panel"}
           className={tab === "preferences" ? "active" : ""}
           onClick={() => changeTab("preferences")}
         >
-          <Settings2 size={17} /> Sở thích AI
+          <Settings2 size={17} />
+          {uiText(" Sở thích AI")}
         </button>
         <button
+          role="tab"
+          id={accountId + "saved"}
+          aria-selected={tab === "saved"}
+          aria-controls={accountId + "panel"}
           className={tab === "saved" ? "active" : ""}
           onClick={() => changeTab("saved")}
         >
-          <Heart size={17} /> Đã lưu{" "}
-          <span className="count">{saved.length}</span>
+          <Heart size={17} />
+          {uiText(" Đã lưu")} <span className="count">{saved.length}</span>
         </button>
-      </div>
-      {tab === "history" ? (
-        <RequestHistory threads={threads} />
-      ) : tab === "security" ? (
-        <section className="surface account-security">
-          <ShieldCheck size={26} />
-          <h3>Đăng nhập & bảo mật</h3>
-          <label>
-            Email đăng nhập
-            <input value={user.email} disabled />
-          </label>
-          <p className="muted">
-            Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.
-          </p>
-          <p className="muted">
-            Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền
-            khi đăng nhập lần sau.
-          </p>
-          <p className="muted small">
-            Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.
-          </p>
-        </section>
-      ) : tab !== "saved" ? (
-        <div className="account-grid">
-          <section className="surface">
-            <h3>
-              {tab === "profile"
-                ? "Thông tin cá nhân"
-                : "Những điều bạn ưu tiên"}
-            </h3>
-            <form
-              key={tab + user.name + JSON.stringify(user.preferences)}
-              onSubmit={submit}
-              onChange={() => setDirty(true)}
-            >
-              {tab === "profile" ? (
-                <>
-                  <label>
-                    Tên hiển thị
-                    <input
-                      name="name"
-                      required
-                      defaultValue={user.name}
-                      maxLength={80}
-                    />
-                  </label>
-                  <label>
-                    Email đăng nhập
-                    <input value={user.email} disabled />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <p className="muted">
-                    Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi
-                    nào áp dụng; yêu cầu mới trong chat được ưu tiên.
-                  </p>
-                  <div className="form-grid">
-                    <label>
-                      Thành phố
-                      <select
-                        name="city"
-                        defaultValue={user.preferences.city || ""}
-                      >
-                        <option value="">Chưa chọn</option>
-                        <option>Hà Nội</option>
-                        <option>Đà Nẵng</option>
-                        <option>Thành phố Hồ Chí Minh</option>
-                      </select>
-                    </label>
-                    <label>
-                      Ngân sách thuê · VND/tháng
-                      <input
-                        name="budget"
-                        type="number"
-                        min="0"
-                        defaultValue={user.preferences.budget || ""}
-                        placeholder="Ví dụ: 5000000"
-                      />
-                    </label>
-                    <label>
-                      Loại nhà
-                      <input
-                        name="room_type"
-                        defaultValue={user.preferences.room_type || ""}
-                        placeholder="Căn hộ, phòng trọ…"
-                      />
-                    </label>
-                    <label>
-                      Phương tiện
-                      <select
-                        name="transport"
-                        defaultValue={user.preferences.transport || ""}
-                      >
-                        <option value="">Chưa chọn</option>
-                        <option>Đi bộ</option>
-                        <option>Xe máy</option>
-                        <option>Ô tô</option>
-                      </select>
-                    </label>
-                  </div>
-                  <label>
-                    Tiện nghi quan tâm
-                    <input
-                      name="amenities"
-                      defaultValue={user.preferences.amenities || ""}
-                      placeholder="Ví dụ: có chỗ để xe"
-                      maxLength={300}
-                    />
-                  </label>
-                </>
+        <button
+          role="tab"
+          id={accountId + "contacts"}
+          aria-selected={tab === "contacts"}
+          aria-controls={accountId + "panel"}
+          className={tab === "contacts" ? "active" : ""}
+          onClick={() => changeTab("contacts")}
+        >
+          <MessageCircle size={17} />
+          {uiText(" Liên hệ chủ nhà")}
+        </button>
+      </TabList>
+      <section
+        id={accountId + "panel"}
+        role="tabpanel"
+        aria-labelledby={accountId + tab}
+        tabIndex={0}
+      >
+        {tab === "contacts" ? (
+          <TenantRequests />
+        ) : tab === "history" ? (
+          <RequestHistory threads={threads} />
+        ) : tab === "security" ? (
+          <section className="surface account-security">
+            <ShieldCheck size={26} />
+            <h3>{uiText(" Đăng nhập & bảo mật")}</h3>
+            <label>
+              {uiText("Email đăng nhập")}
+              <input value={user.email} disabled />
+            </label>
+            <p className="muted">
+              {uiText(
+                "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
               )}
-              {error && (
-                <p className="notice error" role="alert">
-                  {error}
+            </p>
+            <p className="muted">
+              {uiText(
+                "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
+              )}
+            </p>
+            <p className="muted small">
+              {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
+            </p>
+          </section>
+        ) : tab !== "saved" ? (
+          <div className="account-grid">
+            <section className="surface">
+              <h3>
+                {tab === "profile"
+                  ? uiText("Thông tin cá nhân")
+                  : uiText("Những điều bạn ưu tiên")}
+              </h3>
+              <form
+                key={tab + user.name + JSON.stringify(user.preferences)}
+                onSubmit={submit}
+                onChange={() => setDirty(true)}
+              >
+                {tab === "profile" ? (
+                  <>
+                    <label>
+                      {uiText("Tên hiển thị")}
+                      <input
+                        name="name"
+                        required
+                        defaultValue={user.name}
+                        maxLength={80}
+                      />
+                    </label>
+                    <label>
+                      {uiText("Email đăng nhập")}
+                      <input value={user.email} disabled />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <p className="muted">
+                      {uiText(
+                        "Lưu để sử dụng lại khi bắt đầu tìm kiếm. Bạn quyết định khi nào áp dụng; yêu cầu mới trong chat được ưu tiên.",
+                      )}
+                    </p>
+                    <div className="form-grid">
+                      <label>
+                        {uiText("Thành phố")}
+                        <select
+                          name="city"
+                          defaultValue={user.preferences.city || ""}
+                        >
+                          <option value="">{uiText("Chưa chọn")}</option>
+                          <option value="Hà Nội">{uiText("Hà Nội ")}</option>
+                          <option value="Đà Nẵng">{uiText("Đà Nẵng")}</option>
+                          <option value="Thành phố Hồ Chí Minh">
+                            {uiText("Thành phố Hồ Chí Minh")}
+                          </option>
+                        </select>
+                      </label>
+                      <label>
+                        {uiText("Ngân sách thuê · VND/tháng")}
+                        <input
+                          name="budget"
+                          type="number"
+                          min="0"
+                          defaultValue={user.preferences.budget || ""}
+                          placeholder={uiText("Ví dụ: 5000000")}
+                        />
+                      </label>
+                      <label>
+                        {uiText("Loại nhà")}
+                        <input
+                          name="room_type"
+                          defaultValue={user.preferences.room_type || ""}
+                          placeholder={uiText("Căn hộ, phòng trọ…")}
+                        />
+                      </label>
+                      <label>
+                        {uiText("Phương tiện")}
+                        <select
+                          name="transport"
+                          defaultValue={user.preferences.transport || ""}
+                        >
+                          <option value="">{uiText("Chưa chọn")}</option>
+                          <option value="Đi bộ">{uiText("Đi bộ")}</option>
+                          <option value="Xe máy">{uiText("Xe máy")}</option>
+                          <option value="Ô tô">{uiText("Ô tô")}</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label>
+                      {uiText("Tiện nghi quan tâm")}
+                      <input
+                        name="amenities"
+                        defaultValue={user.preferences.amenities || ""}
+                        placeholder={uiText("Ví dụ: có chỗ để xe")}
+                        maxLength={300}
+                      />
+                    </label>
+                  </>
+                )}
+                {error && (
+                  <p className="notice error" role="alert">
+                    {uiText(error)}
+                  </p>
+                )}
+                <div className="form-actions">
+                  <button
+                    type="reset"
+                    className="secondary"
+                    onClick={() => setDirty(false)}
+                  >
+                    {uiText("Hủy thay đổi")}
+                  </button>
+                  <button className="primary" disabled={busy || !dirty}>
+                    {uiText("Lưu thay đổi")}
+                  </button>
+                </div>
+              </form>
+            </section>
+            {tab === "profile" && <TravelerProfileForm />}
+            <section className="surface recent-activity">
+              <h3>{uiText("Hội thoại gần đây")}</h3>
+              {threads.slice(0, 5).map((t) => (
+                <Link key={t.id} to={"/ai/" + t.id}>
+                  <span className="service-icon blue">
+                    <MessageCircle size={17} />
+                  </span>
+                  <span>
+                    <strong>{t.title}</strong>
+                    <small>{dateTime(t.updated)}</small>
+                  </span>
+                  <ChevronRight size={15} />
+                </Link>
+              ))}
+              {!threads.length && (
+                <p className="muted">
+                  {uiText(
+                    "Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng ReloHome.",
+                  )}
                 </p>
               )}
-              <div className="form-actions">
+              {threads.length > 0 && (
                 <button
-                  type="reset"
-                  className="secondary"
-                  onClick={() => setDirty(false)}
+                  className="text-button danger"
+                  onClick={() => setResetting(true)}
                 >
-                  Hủy thay đổi
+                  <Trash2 size={14} />
+                  {uiText(" Xóa tất cả trò chuyện và làm mới ReloHome")}
                 </button>
-                <button className="primary" disabled={busy || !dirty}>
-                  Lưu thay đổi
-                </button>
-              </div>
-            </form>
-          </section>
-          <section className="surface recent-activity">
-            <h3>Hội thoại gần đây</h3>
-            {threads.slice(0, 5).map((t) => (
-              <Link key={t.id} to={"/ai/" + t.id}>
-                <span className="service-icon blue">
-                  <MessageCircle size={17} />
-                </span>
-                <span>
-                  <strong>{t.title}</strong>
-                  <small>{dateTime(t.updated)}</small>
-                </span>
-                <ChevronRight size={15} />
-              </Link>
+              )}
+            </section>
+          </div>
+        ) : saved.length ? (
+          <>
+          <div className="saved-compare-bar">
+            <span className="muted small">
+              {formatUi(
+                "Chọn 2–{0} căn đã lưu để so sánh chi phí và thông tin mới nhất.",
+                [MAX_COMPARISON_HOMES],
+              )}
+            </span>
+            <button
+              className="primary"
+              disabled={savedCompare.length < 2}
+              onClick={() => setComparingSaved(true)}
+            >
+              {formatUi("So sánh {0} căn", [savedCompare.length])}
+            </button>
+          </div>
+          <div className="saved-grid">
+            {saved.map((s) => (
+              <HousingCard
+                key={s.id}
+                house={s.house}
+                saved
+                compare={savedCompare.some((h) => h.id === s.id)}
+                onCompare={() =>
+                  setSavedCompare((homes) => toggleComparison(homes, s.house))
+                }
+                onSave={() => void save(s.house, s.thread_id)}
+                onOpen={() =>
+                  s.thread_id
+                    ? window.location.assign(
+                        "/ai/" +
+                          s.thread_id +
+                          "?panel=house&house=" +
+                          encodeURIComponent(s.id),
+                      )
+                    : setOpenSaved(s)
+                }
+              />
             ))}
-            {!threads.length && (
-              <p className="muted">
-                Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng SIU.
-              </p>
-            )}
-            {threads.length > 0 && (
-              <button
-                className="text-button danger"
-                onClick={() => setResetting(true)}
-              >
-                <Trash2 size={14} /> Xóa tất cả trò chuyện và làm mới SIU
-              </button>
-            )}
-          </section>
-        </div>
-      ) : saved.length ? (
-        <div className="saved-grid">
-          {saved.map((s) => (
-            <HousingCard
-              key={s.id}
-              house={s.house}
-              saved
-              onSave={() => void save(s.house, s.thread_id)}
-              onOpen={() =>
-                s.thread_id
-                  ? window.location.assign(
-                      "/ai/" +
-                        s.thread_id +
-                        "?panel=house&house=" +
-                        encodeURIComponent(s.id),
-                    )
-                  : setOpenSaved(s)
-              }
+          </div>
+          {comparingSaved && (
+            <Comparison
+              houses={savedCompare}
+              refresh
+              onClose={() => setComparingSaved(false)}
+              onOpen={(h) => {
+                const item = saved.find((s) => s.id === h.id);
+                setComparingSaved(false);
+                if (item) setOpenSaved(item);
+              }}
             />
-          ))}
-        </div>
-      ) : (
-        <Empty
-          icon={<Heart />}
-          title="Giữ lại những nơi bạn thích"
-          text="Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây."
-        >
-          <Link className="secondary" to="/ai">
-            Tìm nhà cùng SIU <ArrowRight size={15} />
-          </Link>
-        </Empty>
-      )}
+          )}
+          </>
+        ) : (
+          <Empty
+            icon={<Heart />}
+            title={uiText("Giữ lại những nơi bạn thích")}
+            text={uiText(
+              "Bấm biểu tượng trái tim trên một căn nhà để lưu và xem lại tại đây.",
+            )}
+          >
+            <Link className="secondary" to="/ai">
+              {uiText("Tìm nhà cùng ReloHome ")}
+              <ArrowRight size={15} />
+            </Link>
+          </Empty>
+        )}
+      </section>
       {resetting && <ResetThreadsDialog onClose={() => setResetting(false)} />}
       {openSaved && (
         <HousingDetail
@@ -1830,16 +2601,19 @@ function Empty({
   title,
   text,
   children,
+  headingLevel = 2,
 }: {
   icon: ReactNode;
   title: string;
   text: string;
   children?: ReactNode;
+  headingLevel?: 1 | 2;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   return (
     <div className="empty-state">
       <span className="empty-icon">{icon}</span>
-      <h2>{title}</h2>
+      <Heading>{title}</Heading>
       <p>{text}</p>
       {children}
     </div>

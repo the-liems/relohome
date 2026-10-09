@@ -6,22 +6,44 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.agents.wiring import AgentService
+from src.api.checkout import router as checkout_router
+from src.api.moving_quotes import router as moving_quote_router
+from src.api.roommate_access import router as roommate_access_router
+from src.api.roommate_connections import router as roommate_connections_router
+from src.api.roommate_discovery import router as roommate_discovery_router
+from src.api.roommate_map import router as roommate_map_router
+from src.api.roommate_media import router as roommate_media_router
+from src.api.roommate_profiles import router as roommate_profiles_router
+from src.api.roommate_safety import router as roommate_safety_router
 from src.api.routes import router
 from src.api.sandbox_payments import router as sandbox_payment_router
+from src.api.viewings import router as viewings_router
 from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
+from src.roommate.runtime import RoommateRuntime
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     print(f"Starting {settings.app_name} in {settings.app_env} mode")
-    service = await AgentService.open()
-    app.state.agent_service = service
+    roommate = RoommateRuntime.open(settings)
+    app.state.roommate_runtime = roommate
+    service = None
     try:
+        service = await AgentService.open(roommate_runtime=roommate)
+        app.state.agent_service = service
+        if service.checkout is not None:
+            # Chạy tiếp công việc hoàn tất còn dở sau khi khởi động lại (payment-design §7.4).
+            await service.checkout.start()
         yield
     finally:
-        await service.close()
+        if service:
+            if service.checkout is not None:
+                await service.checkout.stop()
+            await service.close()
+        if roommate:
+            roommate.close()
         print("Shutting down...")
 
 
@@ -44,6 +66,25 @@ app.add_middleware(
 app.include_router(router, prefix="/api/v1")
 app.include_router(sandbox_payment_router, prefix="/api/v1")
 app.include_router(web_actions_router, prefix="/api/v1")
+app.include_router(moving_quote_router, prefix="/api/v1")
+app.include_router(checkout_router, prefix="/api/v1")
+app.include_router(viewings_router, prefix="/api/v1")
+app.include_router(roommate_access_router, prefix="/api/v1")
+app.include_router(roommate_discovery_router, prefix="/api/v1")
+app.include_router(roommate_profiles_router, prefix="/api/v1")
+app.include_router(roommate_connections_router, prefix="/api/v1")
+app.include_router(roommate_safety_router, prefix="/api/v1")
+app.include_router(roommate_media_router, prefix="/api/v1")
+app.include_router(roommate_map_router, prefix="/api/v1")
+
+
+@app.middleware("http")
+async def roommate_private_cache(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/v1/roommate/") and not request.url.path.endswith("/availability"):
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.exception_handler(RequestValidationError)

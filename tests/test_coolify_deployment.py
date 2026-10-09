@@ -224,6 +224,22 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn(f"(`{path}`)", rule)
         self.assertIn("traefik.http.routers.p044-internal.service=noop@internal", labels)
 
+    def test_tester_payment_control_is_limited_to_configured_accounts(self):
+        # payment-design D10: the tester "paid" control never ships to production and
+        # only listed gateway accounts see it. An unset list means nobody.
+        backend = self.compose["services"]["backend"]["environment"]
+        self.assertNotEqual(backend["APP_ENV"], "production")
+        self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
+        self.assertEqual(backend["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
+        self.assertEqual(backend["HOUSING_VIEWING_ENABLED"], "true")
+        # Simulated booking tools stay on the internal network.
+        flights = self.compose["services"]["flights-mcp"]
+        self.assertNotIn("ports", flights)
+        self.assertNotIn("labels", flights)
+        exposed = [name for name, service in self.compose["services"].items()
+                   if "ports" in service or "expose" in service]
+        self.assertEqual(exposed, ["web"])
+
 
 
 class ReleaseSelectionTests(unittest.TestCase):

@@ -17,6 +17,7 @@ from src.agents.llm import StructuredLLM
 from src.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
 from src.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
 from src.agents.subagents.capabilities import fact_fits_capabilities
+from src.roommate.models import RoommateSearchCriteria
 
 AMENITIES = frozenset(
     "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
@@ -32,7 +33,7 @@ CATEGORIES = frozenset(
     "camp_site chalet resort homestay".split()
 )
 TEXT_KEYS = frozenset(
-    "city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
+    "housing_mode city district near room_type origin destination booking_ref from_address to_address volume order_id tracking_number move_month moving_mode map_mode map_near map_city route_from route_to route_profile payment_id".split()
 )
 INT_KEYS = frozenset(
     "min_price_vnd max_price_vnd min_bedrooms max_bedrooms household_size budget_vnd nearby_radius_m map_radius_m search_radius_m passengers limit".split()
@@ -44,7 +45,20 @@ VALUE_KEYS = (
     | INT_KEYS
     | NUMBER_KEYS
     | BOOL_KEYS
-    | {"must_have", "nearby_categories", "map_categories", "flight_date", "move_date", "move_time"}
+    | {
+        "listing_ids",
+        "must_have",
+        "nearby_categories",
+        "map_categories",
+        "flight_date",
+        "return_date",
+        "trip_type",
+        "move_date",
+        "move_time",
+        "roommate_criteria",
+        "housing_select_ids",
+        "housing_unselect_ids",
+    }
 )
 COMMIT_KEYS = frozenset(
     {"commit:flight_booking", "commit:moving_booking", "commit:cancel_order", "commit:update_order"}
@@ -56,8 +70,8 @@ WEEKDAYS = ("thứ hai", "thứ ba", "thứ tư", "thứ năm", "thứ sáu", "t
 class DraftFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
-    value: str | int | float | bool | list[str] = Field(
-        description="Use a plain string for city, district, near, addresses, route endpoints, map_mode, route_profile, dates and time. Arrays ONLY for must_have and nearby_categories. Numbers for prices/counts."
+    value: str | int | float | bool | list[str] | RoommateSearchCriteria = Field(
+        description="Use a plain string for city, district, near, addresses, route endpoints, housing_mode, map_mode, route_profile, dates and time. Arrays for listing_ids, must_have, nearby_categories and map_categories. Numbers for prices/counts."
     )
     evidence: str = Field(
         description="Exact contiguous substring copied from latest user message, no added punctuation or JSON delimiters."
@@ -77,6 +91,10 @@ class IntakeDraft(BaseModel):
         description="Explicit booking/cancel/update intent only. key=commit:moving_booking etc, value=true, evidence=exact user's action words. Empty for search/quote or negation. This expresses intent, NEVER transaction approval."
     )
     facts: list[DraftFact]
+    housing_comparison_evidence: str | None = Field(
+        default=None,
+        description="If the latest user asks to COMPARE homes, copy that exact request span here, even if no listing IDs are identifiable or a new area/budget is mentioned. Null for a search-only request. A comparison must not be silently downgraded to search.",
+    )
     unsupported_reason: str | None = Field(
         description="Only for kind=unsupported: one short Vietnamese sentence telling the user what is not supported and what is (e.g. amenities only as a condition when searching homes). Null otherwise."
     )
@@ -93,6 +111,38 @@ class IntakeDraft(BaseModel):
 
 
 PROMPT = """Bạn là Intake LLM của LifeFlow. Hiểu yêu cầu tiếng Việt, không lập kế hoạch hay gọi service.
+Housing có housing_mode='compare' để so sánh 2–4 căn đã thấy: listing_ids phải lấy từ option_id trong
+plan_outline.comparison_options, theo đúng các căn user nêu. options riêng dùng để CHỌN một căn;
+comparison_options dùng để SO SÁNH các căn đã đọc, kể cả sau khi đã chọn một căn. Nếu user chưa nói
+rõ các căn nào, hỏi lại. So sánh là refine của hội thoại, không tự xóa căn đã chọn hoặc các dịch vụ khác.
+Các căn của lần tìm nhà gần nhất còn trong last_housing_search_options, dùng khi user nói danh sách ban đầu
+hoặc muốn so sánh lại các căn khác sau một lượt so sánh. Đây chỉ là ID/tên để đọc lại, không phải giá hiện tại.
+Không chọn một căn, không tìm lại danh sách mới và không bịa ID.
+Điền housing_comparison_evidence bằng nguyên văn lời yêu cầu so sánh của lượt hiện tại,
+kể cả khi chưa biết listing_ids. Nếu user nêu một khu vực MỚI và yêu cầu so sánh các căn rẻ nhất ở đó,
+dùng housing_mode='search_compare', khu vực và limit 2–4: tìm tin mới trước rồi so sánh chính các tin vừa tìm.
+Không lấy listing_ids của khu vực cũ. Nếu user chỉ nêu giá/vùng để lọc lại CÁC CĂN ĐÃ XEM thì giữ compare.
+Nếu user chưa chỉ rõ căn nào, hỏi lại bằng conflicts; không tự lấy 4 căn đầu. Nếu user yêu cầu so sánh
+ba căn đầu thì ánh xạ đúng thứ tự đã hiển thị. Khi user quay lại tìm căn khác, housing_mode='search'.
+Yêu cầu 'so sánh 3 căn rẻ ở khu X, tầm A–B' KHÔNG có nghĩa lấy 3 căn đầu của danh sách cũ.
+Nếu chưa xác định được các căn được nêu, hỏi ngắn user muốn so sánh căn đã xem nào hay tìm danh sách mới;
+không tự gán listing_ids và không suy giá hiện tại từ ID/tên cũ. Không đổi căn đã chọn để làm so sánh.
+housing_selection (nếu có) là các căn user đang chọn để đi xem, CHƯA phải căn đã chốt. User muốn thêm
+nhiều căn để xem: housing_select_ids = option_id các căn được nêu (từ plan_outline hoặc
+last_housing_search_options). User muốn bỏ một căn đang chọn: housing_unselect_ids = listing_id trong
+housing_selection. 'Đổi căn A thành căn B' = bỏ A và thêm B. Không bịa ID; chưa rõ căn nào thì hỏi lại.
+Đây là refine domain property, không tìm lại danh sách và không chốt căn.
+Roommate là dịch vụ tìm NGƯỜI đang có nhu cầu ở cùng, độc lập với property (tìm PHÒNG).
+'Tôi muốn tìm người ở cùng', 'Tôi muốn ghép trọ', 'Có ai đang tìm roommate không?' dùng domain roommate.
+'Tìm phòng ở ghép' chỉ tìm tin nhà nếu user không yêu cầu tìm người. Không tự ghép cặp hay liên hệ.
+Roommate chỉ dùng fact roommate_criteria kiểu object theo schema: city hcm/hanoi/danang,
+self_facts là thông tin user tự nói về mình, preferences là mong muốn về đối phương.
+Chỉ tạo criteria khi có thành phố rõ; thiếu thành phố vẫn mở domain với facts rỗng để mở form.
+Không đoán ID khu vực: chỉ dùng canonical IDs đã được cấp, nếu chưa có chỉ giữ city.
+Không ghi city/max_price_vnd/move_date Housing/Moving từ yêu cầu chỉ Roommate.
+strength=hard CHỈ khi user nói bắt buộc/không chấp nhận; còn lại soft. Không tự nới hard.
+Không bịa trait, giới tính, ngân sách, fee_basis hoặc ngày chuyển vào. Không có contact, tuổi,
+eligibility, consent, publish, request hay actor trong criteria. Evidence nguyên văn toàn cụm yêu cầu.
 verified_moving_locations là lựa chọn map đã qua kiểm tra API. Khi user chỉ xác nhận các điểm đó,
 không trích lại from_address/to_address thành marker hay nhãn cũ; backend gắn đúng địa chỉ và tọa độ.
 Giữ ngày giờ/mục tiêu báo giá và domain relocation. Chỉ trích địa chỉ khác nếu user thực sự yêu cầu đổi.
@@ -121,6 +171,10 @@ quyền, bịa dữ liệu/ID/giá/toạ độ. Chỉ hỗ trợ các supported_
 kind: new_goal cho mục tiêu mới; refine cho bổ sung/chọn phương án/thêm lĩnh vực cùng mục tiêu;
 change khi sửa ràng buộc/lựa chọn đã có; unsupported khi ngoài phạm vi.
 domains của refine/change giữ các lĩnh vực trước còn cần, thêm lĩnh vực vừa yêu cầu.
+Ngoại lệ: khi lượt này chỉ SO SÁNH các nhà đã xem, domains chỉ là property.
+'Giữ nguyên căn đã chọn/phương án chuyển đồ/chuyến bay' là bảo toàn ngữ cảnh, không phải yêu cầu
+thực thi các dịch vụ đó hay hỏi lại thông tin còn thiếu của chúng. Chỉ thêm domain khác nếu user
+thực sự yêu cầu thao tác mới cho domain đó trong lượt này; kế hoạch lịch sử vẫn giữ dịch vụ cũ.
 Phân loại LƯỢT MỚI, không chép loại của lượt trước. Nếu đang có active goal thì
 'Điểm giao là ...', 'ở Thành phố ...', 'dưới 10 triệu nhé' là bổ sung refine;
 nếu thay giá trị cũ (kể cả làm rõ 'Quận 1' thành địa chỉ cụ thể) thì change.
@@ -163,10 +217,14 @@ Số phòng ngủ KHÔNG phải room_type hoặc household_size. Không tự ch�
 khi người dùng chỉ nói chung "tìm phòng có 2 phòng ngủ".
 Nếu có cả quận và thành phố: district là tên quận, city là thành phố; không dùng near cho quận.
 has_motorbike, budget_vnd (một lần), nearby_categories, nearby_radius_m, map_categories, map_radius_m, search_radius_m, origin, destination,
-flight_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
+flight_date, trip_type, return_date, passengers (người lớn), booking_ref, from_address, to_address, move_date, move_time,
 volume, order_id, tracking_number, move_month. value đúng kiểu: số tiền/số người/bán kính là integer,
 has_pet/has_motorbike và commit:* là boolean; must_have/nearby_categories/map_categories là array string;
 các key còn lại là string. Không mã hóa value thành chuỗi JSON.
+Vé khứ hồi: có cả chiều đi và chiều về giữa hai nơi (ví dụ "khứ hồi", "đi 10 về 15", "bay vào rồi bay về lại")
+=> trip_type='round_trip', flight_date là ngày đi, return_date là ngày về (ngày tương đối tính theo ngày đi).
+Chỉ nói khứ hồi mà chưa có ngày về: trip_type='round_trip', KHÔNG tạo return_date (graph sẽ hỏi).
+"Một chiều" hoặc không nhắc chiều về thì không tạo trip_type, hoặc trip_type='one_way'.
 Ngày rõ đổi YYYY-MM-DD dựa today giờ Việt Nam; ngày/tháng thiếu năm lấy lần tới gần nhất.
 Ngày tương đối (mai, mốt, thứ bảy này, chủ nhật tuần sau) tra trong calendar (ngày đầu là hôm nay), không tự tính;
 'thứ X này' là ngày thứ X gần nhất từ hôm nay trở đi, 'tuần sau' là tuần kế tiếp.
@@ -210,6 +268,26 @@ Trả normalized_goal ngắn, không chứa thông tin cá nhân. Không trả c
 
 
 def valid_value(key: str, value) -> bool:
+    if key in {"housing_select_ids", "housing_unselect_ids"}:
+        return (
+            isinstance(value, list)
+            and 1 <= len(value) <= 10
+            and all(isinstance(v, str) and v for v in value)
+            and len(set(value)) == len(value)
+        )
+    if key == "listing_ids":
+        return (
+            isinstance(value, list)
+            and 2 <= len(value) <= 4
+            and all(isinstance(v, str) and v for v in value)
+            and len(set(value)) == len(value)
+        )
+    if key == "roommate_criteria":
+        try:
+            RoommateSearchCriteria.model_validate(value)
+            return True
+        except (ValueError, TypeError):
+            return False
     if not fact_fits_capabilities(key, value):
         return False
     if key == "moving_mode":
@@ -229,7 +307,9 @@ def valid_value(key: str, value) -> bool:
     if key in {"must_have", "nearby_categories", "map_categories"}:
         allowed = AMENITIES if key == "must_have" else CATEGORIES
         return isinstance(value, list) and all(isinstance(v, str) and v in allowed for v in value)
-    if key in {"flight_date", "move_date"}:
+    if key == "trip_type":
+        return value in {"one_way", "round_trip"}
+    if key in {"flight_date", "return_date", "move_date"}:
         try:
             return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
         except ValueError:
@@ -320,6 +400,8 @@ class LlmIntake(UsageOwner):
             "verified_place_choice": inp.verified_place_choice,
             "verified_moving_locations": inp.verified_moving_locations,
             "plan_outline": [p.model_dump() for p in inp.plan_outline or []],
+            "last_housing_search_options": inp.last_housing_search_options,
+            "housing_selection": inp.housing_selection,
             "pending_questions": [q.model_dump() for q in inp.pending_questions],
             "last_suggestions": [s.model_dump() for s in inp.last_suggestions],
             "amenities": sorted(AMENITIES),
@@ -405,15 +487,26 @@ class LlmIntake(UsageOwner):
         allowed_options = {
             f"selected:{p.agent.value}": {str(o.get("option_id")) for o in p.options} for p in inp.plan_outline or []
         }
+        observed_homes = {
+            str(o.get("option_id"))
+            for p in inp.plan_outline or []
+            if p.agent == AgentName.PROPERTY
+            for o in (p.comparison_options or p.options)
+        }
         suggestions = {s.key: s for s in inp.last_suggestions}
+        observed_homes.update(o["option_id"] for o in inp.last_housing_search_options)
         candidates = [f for f in draft.facts[:60] if f.key not in COMMIT_KEYS]
         candidates += [f for f in draft.requested_actions[:4] if f.key in COMMIT_KEYS]
         for f in candidates:
             try:
-                value = f.value
+                value = (
+                    f.value.model_dump(mode="json", exclude_none=True)
+                    if isinstance(f.value, RoommateSearchCriteria)
+                    else f.value
+                )
                 if f.key in facts and facts[f.key].value == value:
                     continue  # Identical duplicate is harmless; keep the first grounded evidence.
-                if f.key in {"flight_date", "move_date"} and valid_value(f.key, value):
+                if f.key in {"flight_date", "return_date", "move_date"} and valid_value(f.key, value):
                     f = f.model_copy(update={"evidence": explicit_date_evidence(value, f.evidence, user_text)})
                 # Models sometimes echo already-confirmed fields from history.
                 # Ignore unchanged echoes; the graph carries the original grounded
@@ -435,6 +528,12 @@ class LlmIntake(UsageOwner):
                         else isinstance(value, str) and value in allowed_options.get(f.key, set())
                     )
                 )
+                if f.key == "listing_ids":
+                    valid = valid and isinstance(value, list) and set(value) <= observed_homes
+                if f.key == "housing_select_ids":
+                    valid = valid and set(value) <= observed_homes
+                if f.key == "housing_unselect_ids":
+                    valid = valid and set(value) <= {str(h.get("listing_id")) for h in inp.housing_selection}
                 if (
                     not valid
                     or f.key in facts
@@ -456,6 +555,12 @@ class LlmIntake(UsageOwner):
             except (ValueError, TypeError):
                 rejected.append(f"{f.key}: invalid fact")
         anchor = MAP_ENTITY_ANCHORS.get(draft.map_origin)
+        if draft.housing_comparison_evidence is not None:
+            evidence = draft.housing_comparison_evidence.strip()
+            if not evidence or nfc(evidence).casefold() not in nfc(user_text).casefold():
+                rejected.append("housing_comparison_evidence: must be a span from latest user message")
+            else:
+                facts["housing_mode"] = ConfirmedFact(value="compare", evidence=evidence, stated_at=self.clock())
         if anchor and "map_near" in facts and facts["map_near"].value != anchor:
             # The origin is an entity the graph binds (dependency or selected ID), never a place name to geocode.
             facts["map_near"] = facts["map_near"].model_copy(update={"value": anchor})
@@ -467,6 +572,16 @@ class LlmIntake(UsageOwner):
             if draft.kind != "unsupported"
             else []
         )
+        if (
+            AgentName.PROPERTY in domains
+            and AgentName.MAP in domains
+            and "nearby_categories" in facts
+            and "map_categories" not in facts
+            and draft.map_origin == "housing_results"
+        ):
+            # An amenity constraint on homes is handled by Housing itself.
+            domains.remove(AgentName.MAP)
+            facts.pop("map_near", None)
         # A nearby Map request is a valid domain task. Do not silently turn
         # exploration around an already chosen home into a new Housing search.
         kind = RequestKind(draft.kind) if domains else RequestKind.UNSUPPORTED

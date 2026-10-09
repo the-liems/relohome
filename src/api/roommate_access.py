@@ -1,0 +1,83 @@
+import secrets
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from pydantic import ValidationError
+
+from src.roommate.access import RoommateContext, RoommateError
+from src.roommate.api_models import AccessAcceptance
+from src.roommate.connection_repository import RepositoryPolicyError
+from src.roommate.policy import TERMS_VERSION, City
+from src.roommate.ports import Actor
+from src.roommate.profile_repository import VersionConflictError
+from src.roommate.services.access import AccessService
+
+PRIVATE_HEADERS = {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
+router = APIRouter(prefix="/roommate", tags=["roommate"])
+
+
+def trusted_actor(
+    request: Request, response: Response, authorization: str | None = Header(None), x_user_id: str | None = Header(None)
+) -> Actor:
+    response.headers.update(PRIVATE_HEADERS)
+    runtime = getattr(request.app.state, "roommate_runtime", None)
+    if runtime is None:
+        raise HTTPException(503, {"code": "service_unavailable"}, headers=PRIVATE_HEADERS)
+    if not authorization or not secrets.compare_digest(authorization, "Bearer " + runtime.token):
+        raise HTTPException(401, {"code": "authentication_required"}, headers=PRIVATE_HEADERS)
+    try:
+        return Actor(id=x_user_id)
+    except ValidationError:
+        raise HTTPException(401, {"code": "authentication_required"}, headers=PRIVATE_HEADERS) from None
+
+
+TrustedActor = Annotated[Actor, Depends(trusted_actor)]
+
+
+def context(request: Request, actor: TrustedActor):
+    with request.app.state.roommate_runtime.context() as ctx:
+        yield ctx
+
+
+Context = Annotated[RoommateContext, Depends(context)]
+
+
+def perform(action, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except RoommateError as error:
+        detail = {"code": error.code}
+        if error.until:
+            detail["retry_at"] = error.until.isoformat()
+        if error.reasons:
+            detail["reasons"] = list(error.reasons)
+        raise HTTPException(error.status, detail, headers=PRIVATE_HEADERS) from None
+    except RepositoryPolicyError as error:
+        detail = {"code": error.code}
+        if error.until:
+            detail["retry_at"] = error.until.isoformat()
+        raise HTTPException(429 if "limit" in error.code else 409, detail, headers=PRIVATE_HEADERS) from None
+    except VersionConflictError:
+        raise HTTPException(409, {"code": "version_conflict"}, headers=PRIVATE_HEADERS) from None
+    except ValueError:
+        raise HTTPException(422, {"code": "invalid_input"}, headers=PRIVATE_HEADERS) from None
+
+
+@router.get("/availability")
+def availability(request: Request):
+    return {
+        "enabled": getattr(request.app.state, "roommate_runtime", None) is not None,
+        "cities": [city.value for city in City],
+        "terms_version": TERMS_VERSION,
+        "demo_enabled": bool(getattr(getattr(request.app.state, "roommate_runtime", None), "demo", None)),
+    }
+
+
+@router.get("/access")
+def access(actor: TrustedActor, ctx: Context):
+    return AccessService(ctx).status(actor)
+
+
+@router.post("/access")
+def accept_access(body: AccessAcceptance, actor: TrustedActor, ctx: Context):
+    return perform(AccessService(ctx).accept, actor, body.adult, body.terms_version)

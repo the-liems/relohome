@@ -1,8 +1,8 @@
 """Tiến trình kế hoạch cho UI: các mục tiêu người dùng đã nêu, trạng thái và tổng tiền đã chốt.
 
-`record_goal` (gọi ở `respond` cuối mỗi lượt) ghi lại mọi task của mục tiêu hiện tại qua các lượt, cả domain người
-dùng đã yêu cầu nhưng chưa lập task vì còn thiếu thông tin; mục tiêu mới (`new_goal`) bắt đầu lại. Planner chỉ giữ
-task cần cho lượt đang xử lý, nên plan hiện tại không đủ làm lịch sử.
+`record_goal` (gọi ở `respond` cuối mỗi lượt) ghi lại các task trong cuộc trò chuyện, cả domain người dùng đã yêu
+cầu nhưng chưa lập task vì còn thiếu thông tin. Planner chỉ giữ task cần cho lượt đang xử lý, nên plan hiện tại
+không đủ làm lịch sử. `record_selections` giữ phương án đã chọn khi Intake bắt đầu mục tiêu thực thi mới.
 
 `plan_progress` là hàm thuần đọc state: quan hệ trước/sau lấy từ `depends_on`, từ tham chiếu tới thực thể do task
 khác trả (`selected_listing_id`) và từ marker `selected:<domain>` trong input, không từ thứ tự cố định nào.
@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.models import AgentName, Plan, RequestKind, TaskResult, TaskStatus
+from src.agents.selections import option_ids, option_is_expired, selected_option, selection_is_current
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
 # Lĩnh vực không hiện trên dải tiến trình. Thanh toán qua chat đang tắt; tổng tiền thay bằng tổng đã chốt.
@@ -38,35 +40,17 @@ INTERNAL_INPUTS = frozenset(
 ENTITY_REFERENCE_INPUTS = ("selected_listing_id", "listing_ids")
 
 
-def _option_ids(result: TaskResult | None) -> set[str]:
-    if result is None:
-        return set()
-    ids = {q.option_id for q in result.quotes}
-    for items in result.data.values():
-        if isinstance(items, list):
-            ids |= {str(i.get("id") or i.get("option_id")) for i in items if isinstance(i, dict)}
-    ids.discard("None")
-    return ids
-
-
-def _option(result: TaskResult, option_id: str) -> dict[str, Any]:
-    for items in result.data.values():
-        if isinstance(items, list):
-            for item in items:
-                if isinstance(item, dict) and option_id in (item.get("id"), item.get("option_id")):
-                    return item
-    return {}
-
-
 PENDING_PREFIX = "pending:"
 
 
 def record_goal(state: dict) -> dict[str, dict]:
-    """Các task của mục tiêu hiện tại qua các lượt (task_id -> agent, inputs, depends_on)."""
+    """Các bước của cuộc trò chuyện qua các lượt (task_id -> agent, inputs, depends_on)."""
     intake = state.get("intake")
     plan: Plan | None = state.get("plan")
-    fresh = intake is None or intake.kind == RequestKind.NEW_GOAL
-    goal: dict[str, dict] = {} if fresh else dict(state.get("goal_tasks") or {})
+    goal: dict[str, dict] = dict(state.get("goal_tasks") or {})
+    if intake is None or intake.kind == RequestKind.NEW_GOAL:
+        # Keep completed steps in this conversation; old pending prompts no longer apply.
+        goal = {k: v for k, v in goal.items() if not k.startswith(PENDING_PREFIX)}
     planned = {t.agent for t in plan.tasks} if plan else set()
     for key in [k for k, v in goal.items() if k.startswith(PENDING_PREFIX) and AgentName(v["agent"]) in planned]:
         del goal[key]
@@ -74,8 +58,9 @@ def record_goal(state: dict) -> dict[str, dict]:
         goal[task.id] = {"agent": task.agent.value, "inputs": dict(task.inputs), "depends_on": list(task.depends_on)}
     values = intake.constraints.values if intake else {}
     for domain in intake.domains if intake else []:
-        if domain in planned or any(
-            v["agent"] == domain.value and not k.startswith(PENDING_PREFIX) for k, v in goal.items()
+        if domain in planned or (
+            intake.kind != RequestKind.NEW_GOAL
+            and any(v["agent"] == domain.value and not k.startswith(PENDING_PREFIX) for k, v in goal.items())
         ):
             continue
         # Requested but not runnable yet (missing information): keep what the user already said for it.
@@ -91,6 +76,45 @@ def record_goal(state: dict) -> dict[str, dict]:
     return goal
 
 
+def record_selections(state: dict) -> dict[str, str]:
+    """Remember verified choices by task without carrying old constraints into a new execution goal."""
+    saved = dict(state.get("goal_selections") or {})
+    intake = state.get("intake")
+    plan: Plan | None = state.get("plan")
+    results: dict[str, TaskResult] = state.get("task_results") or {}
+    facts = intake.user_confirmed_facts if intake else {}
+    for task in plan.tasks if plan else []:
+        fact = facts.get(f"selected:{task.agent.value}")
+        result = results.get(task.id)
+        if (
+            not fact
+            or not result
+            or result.agent != task.agent
+            or not selection_is_current(state, task.id, str(fact.value))
+        ):
+            continue
+        # A newer verified selection for this service supersedes an older one.
+        for old_id in list(saved):
+            old_result = results.get(old_id)
+            if old_id != task.id and old_result and old_result.agent == task.agent:
+                del saved[old_id]
+        saved[task.id] = str(fact.value)
+    return saved
+
+
+def select_plan_option(state: dict, task_id: str, option_id: str, invalidated: set[str]) -> dict[str, str]:
+    """Record a validated UI selection and forget affected or superseded choices."""
+    saved = record_selections(state)
+    results: dict[str, TaskResult] = state.get("task_results") or {}
+    chosen_result = results.get(task_id)
+    for old_id in list(saved):
+        old_result = results.get(old_id)
+        if old_id in invalidated or (chosen_result and old_result and old_result.agent == chosen_result.agent):
+            del saved[old_id]
+    saved[task_id] = str(option_id)
+    return saved
+
+
 def _references(tasks: dict[str, dict], results: dict[str, TaskResult]) -> dict[str, set[str]]:
     """Task -> task nó dựa vào: depends_on, task đã cho ra thực thể nó tham chiếu, marker selected:<domain>."""
     edges = {tid: {d for d in t["depends_on"] if d in tasks} for tid, t in tasks.items()}
@@ -104,7 +128,7 @@ def _references(tasks: dict[str, dict], results: dict[str, TaskResult]) -> dict[
         for other_id, other in tasks.items():
             if other_id == tid:
                 continue
-            if referenced & _option_ids(results.get(other_id)) or other["agent"] in domains:
+            if referenced & option_ids(results.get(other_id)) or other["agent"] in domains:
                 edges[tid].add(other_id)
     return edges
 
@@ -133,8 +157,12 @@ def plan_progress(values: dict) -> dict[str, Any]:
     empty = {"items": [], "totals": {"monthly_vnd": 0, "one_time_vnd": 0, "confirmed": 0, "unpriced": []}}
     if not tasks:
         return empty
+    # Analysis stays in the chat, not a second search/choice step or a cost item.
+    tasks = {tid: task for tid, task in tasks.items() if not is_housing_comparison(task["agent"], task["inputs"])}
     intake = values.get("intake")
     facts = intake.user_confirmed_facts if intake else {}
+    selections: dict[str, str] = values.get("goal_selections") or {}
+    current_task_ids = {task.id for task in plan.tasks} if plan else set()
     statuses = values.get("task_status") or {}
     results: dict[str, TaskResult] = values.get("task_results") or {}
     edges = _references(tasks, results)
@@ -148,28 +176,37 @@ def plan_progress(values: dict) -> dict[str, Any]:
         if result is not None and result.agent != agent:
             result = None  # id reused by a task of another domain
         status = statuses.get(task_id, TaskStatus.PENDING) if not task_id.startswith(PENDING_PREFIX) else None
-        fact = facts.get(f"selected:{agent.value}")
+        fact = facts.get(f"selected:{agent.value}") if task_id in current_task_ids else None
+        selected_id = selections.get(task_id) or (str(fact.value) if fact is not None else None)
+        expired_quote = (
+            result is not None
+            and (selected_id is not None or (agent == AgentName.RELOCATION and bool(result.quotes)))
+            and option_is_expired(result, selected_id)
+        )
+        if expired_quote and status == TaskStatus.DONE:
+            status = TaskStatus.STALE
+        current = selected_id is not None and selection_is_current(values, task_id, selected_id)
         chosen = None
-        if fact is not None and result is not None and str(fact.value) in _option_ids(result):
-            option = _option(result, str(fact.value))
-            quote = next((q for q in result.quotes if q.option_id == str(fact.value)), None)
+        if selected_id is not None and result is not None and selected_id in option_ids(result):
+            option = selected_option(result, selected_id)
+            quote = next((q for q in result.quotes if q.option_id == selected_id), None)
             chosen = {
-                "id": str(fact.value),
-                "label": quote.label if quote else (option.get("title") or option.get("carrier") or str(fact.value)),
-                "amount_vnd": quote.amount_vnd if quote else None,
+                "id": selected_id,
+                "label": quote.label if quote else (option.get("title") or option.get("carrier") or selected_id),
+                "amount_vnd": quote.amount_vnd if quote and current else None,
                 "recurrence": quote.recurrence if quote else None,
             }
-            if quote is None:
+            if current and quote is None:
                 unpriced.append(task_id)
-            elif quote.recurrence == "monthly":
+            elif current and quote.recurrence == "monthly":
                 monthly += quote.amount_vnd
-            else:
+            elif current:
                 one_time += quote.amount_vnd
         state = (
             "confirmed"
-            if chosen and status != TaskStatus.STALE
+            if chosen and current
             else "reviewed"
-            if status == TaskStatus.DONE and result is not None
+            if status == TaskStatus.DONE and result is not None and result.status == "done"
             else "waiting"
         )
         inputs = task["inputs"]
@@ -188,6 +225,8 @@ def plan_progress(values: dict) -> dict[str, Any]:
                 "chosen": chosen,
             }
         )
+        if agent == AgentName.ROOMMATE:
+            items[-1]["roommate_availability"] = result.data.get("availability") if result else "criteria_required"
     confirmed = sum(1 for i in items if i["state"] == "confirmed")
     return {
         "plan_version": plan.version if plan else None,

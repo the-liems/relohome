@@ -1,7 +1,8 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +15,8 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "AI20K Agent"
-    app_env: Literal["development", "production", "test"] = "development"
+    # "staging": team test deployment (compose.coolify.yaml); only "production" disables test-only controls.
+    app_env: Literal["development", "staging", "production", "test"] = "development"
     app_port: int = Field(default=8000, ge=1, le=65535)
     app_host: str = "0.0.0.0"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -30,6 +32,15 @@ class Settings(BaseSettings):
 
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
+
+    # Isolated Roommate service: off until the complete release gates pass.
+    roommate_enabled: bool = False
+    roommate_state_dir: Path = Path("logs/private-roommate")
+    roommate_area_catalog: Path | None = None
+    roommate_moderators: str = ""
+    roommate_demo_enabled: bool = False
+    roommate_demo_dataset: Path | None = None
+    agent_api_token: SecretStr = SecretStr("")
 
 
 @lru_cache

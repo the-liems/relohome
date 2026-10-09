@@ -1,5 +1,23 @@
 # Nhập dữ liệu housing vào LifeFlow
 
+## Cập nhật dữ liệu phòng trọ — 04/10/2026
+
+File hoạt động `Maps VN/Data/housing_clean_2026-09-26.jsonl` đã chuẩn hóa **8.840**
+dòng phòng thuê 0 → 1; **8.795** unit tương ứng trên local DB đã cập nhật.
+Theo yêu cầu tiếp theo, **1.521 studio** 0 → 1 trong cả file và DB; không đổi loại
+`studio`. Tin ở ghép/giường tầng/nhiều phòng ngủ/nguyên căn chưa được tự đổi.
+Đây là quy ước một phòng thuê để ngủ, không xác minh phòng ngủ tách biệt.
+Giá trị gốc và quy tắc nằm trong `unit.attributes.bedroom_normalization`.
+
+Importer đọc file đã chuẩn hóa và giữ metadata; không cần thêm logic ghi đè
+bedrooms trong importer. Raw staging/source cũ giữ làm provenance. Backup, checksum,
+review và kiểm chứng ở [báo cáo Map/Housing/OSRM](../../../docs/integration/map-housing-osrm-audit-2026-10-04.md).
+Không dùng file backup trước chuẩn hóa làm nguồn import mặc định, vì sẽ đưa
+giá trị 0 trở lại. File nguồn hiện có ngày crawl cũ; checksum mới là:
+`95c92c1e56046f9f8e7953ff5f0e9c879ff75e3a6b5b14bbb5f6fd1b895953fd`.
+Chi tiết studio, backup và kiểm chứng:
+[cập nhật 04/10](../../../docs/integration/mainland-map-moving-studio-update-2026-10-04.md).
+
 > **Cập nhật chỉ dẫn 2026-09-29:** xem [status triển khai](../../../docs/integration/location-service-implementation-status.md) và [dữ liệu/backup hiện hành](../../../docs/integration/location-data-status.md). Location hiện có 9 tool, housing thật và MCP HTTP có bearer token. Các số liệu, test và kế hoạch trong ghi chép cũ bên dưới thuộc thời điểm viết, không phải thống kê DB của máy mới. ZIP cũ đã xóa; giữ dữ liệu backup riêng với source trong Git.
 
 Tài liệu này mô tả luồng nhập file `housing_clean_2026-09-26.jsonl` vào PostGIS mà không xóa

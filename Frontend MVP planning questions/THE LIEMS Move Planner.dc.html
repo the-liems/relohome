@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F7F9F8;color:#18251F;font-family:'Be Vietnam Pro',system-ui,sans-serif}
+a{color:#256348;text-decoration:underline}a:hover{color:#18251F}
+*{box-sizing:border-box}
+button,input,textarea{font-family:inherit}
+@keyframes lm-spin{to{transform:rotate(360deg)}}
+@keyframes lm-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes lm-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="height:{{ rootH }};display:flex;flex-direction:column;background:#F7F9F8;color:#18251F;font-family:'Be Vietnam Pro',system-ui,sans-serif;overflow:hidden">
+
+<header style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:4px 16px;background:#FFFFFF;border-bottom:1px solid #DCE4DE">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-weight:700;letter-spacing:.14em;font-size:15px">THE LIEMS</span>
+    </div>
+  <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+  <nav aria-label="{{ t.rail }}" style="{{ stepsNavStyle }}">
+    <sc-for list="{{ steps }}" as="sp" hint-placeholder-count="3">
+      <button onClick="{{ sp.onClick }}" aria-current="{{ sp.cur }}" style="{{ sp.btnStyle }}"><span style="{{ sp.bar }}"></span><span style="font-size:13px;line-height:16px;font-weight:600">{{ sp.name }}</span><span style="font-size:12px;line-height:14px;color:#58665E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sp.status }}</span></button>
+    </sc-for>
+  </nav>
+  </sc-if>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+    <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+    <div role="group" aria-label="Language" style="display:flex;border:1px solid #7B8B80;border-radius:999px;padding:2px;background:#fff">
+      <button onClick="{{ setEn }}" aria-pressed="{{ isEn }}" style="{{ enStyle }}">EN</button>
+      <button onClick="{{ setVi }}" aria-pressed="{{ isVi }}" style="{{ viStyle }}">VI</button>
+    </div>
+    </sc-if>
+    <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toggleRail }}" aria-expanded="{{ railOpen }}" style="min-height:36px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F1F5F2">{{ railToggleLabel }}</button>
+      <button onClick="{{ reset }}" style="min-height:36px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F1F5F2">{{ t.newMove }}</button>
+    </sc-if>
+  </div>
+</header>
+
+<sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+<main style="flex:1;min-height:0;overflow-y:auto">
+  <div style="max-width:760px;margin:0 auto;padding:{{ startPad }};display:flex;flex-direction:column;gap:32px;animation:lm-in .24s ease-out">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <h1 style="margin:0;font-size:{{ h1Size }};line-height:{{ h1Line }};font-weight:600">{{ t.title }}</h1>
+      <p style="margin:0;font-size:16px;line-height:24px;color:#58665E">{{ t.sub }}</p>
+    </div>
+    <div style="background:#fff;border:1px solid #7B8B80;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <label for="lm-start" style="font-size:14px;line-height:20px;font-weight:600">{{ t.startLabel }}</label>
+      <textarea id="lm-start" rows="4" value="{{ text }}" onChange="{{ onText }}" onKeyDown="{{ onStartKey }}" placeholder="{{ t.ph }}" style="width:100%;border:0;outline:none;resize:none;font-size:16px;line-height:24px;color:#18251F;background:transparent"></textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <button onClick="{{ useExample }}" style="min-height:44px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#F1F5F2">{{ t.tryEx }}</button>
+        <button onClick="{{ submitStart }}" style="{{ startBtnStyle }}">{{ t.send }}</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:14px;line-height:20px;font-weight:600">{{ t.orFill }}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
+          <button onClick="{{ c.onClick }}" style="{{ c.style }}"><span style="color:#58665E;font-weight:400">{{ c.label }}</span><span style="{{ c.valStyle }}">{{ c.value }}</span></button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;animation:lm-in .18s ease-out">
+          <label for="lm-edit-a" style="font-size:14px;line-height:20px;font-weight:600">{{ editLabel }}</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="lm-edit-a" type="{{ editType }}" value="{{ editVal }}" onChange="{{ onEdit }}" onKeyDown="{{ onEditKey }}" placeholder="{{ editPh }}" autoFocus="{{ true }}" style="flex:1 1 220px;min-width:0;min-height:44px;padding:0 16px;border:1px solid #7B8B80;border-radius:12px;font-size:16px;color:#18251F;background:#fff">
+            <button onClick="{{ saveEdit }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+            <button onClick="{{ cancelEdit }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.cancel }}</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <p style="margin:0;font-size:14px;line-height:20px;color:#58665E">{{ t.usedFor }}</p>
+      <p style="margin:0;font-size:14px;line-height:20px;color:#58665E">{{ t.demoNote }}</p>
+    </div>
+  </div>
+</main>
+</sc-if>
+
+<sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;min-height:0;display:flex;flex-direction:column;animation:lm-in .24s ease-out">
+
+  <sc-if value="{{ isNarrow }}" hint-placeholder-val="{{ false }}">
+  <nav aria-label="Views" style="flex:0 0 auto;display:flex;background:#fff;border-bottom:1px solid #DCE4DE">
+    <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="3">
+      <button onClick="{{ tb.onClick }}" aria-pressed="{{ tb.on }}" style="{{ tb.style }}">{{ tb.label }}</button>
+    </sc-for>
+  </nav>
+  </sc-if>
+
+  <div style="{{ gridStyle }}">
+
+    <section aria-label="{{ t.chat }}" style="{{ chatPanelStyle }}">
+      <div ref="{{ chatRef }}" aria-live="polite" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="2">
+          <div style="{{ m.rowStyle }}">
+            <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+              <div style="max-width:88%;background:#E5F3E9;border-radius:16px;padding:12px 16px;font-size:15px;line-height:24px;white-space:pre-wrap;overflow-wrap:anywhere">{{ m.text }}</div>
+            </sc-if>
+            <sc-if value="{{ m.isAssistant }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:12px;min-width:0;width:100%">
+                <sc-if value="{{ m.hasText }}" hint-placeholder-val="{{ false }}"><div style="font-size:15px;line-height:24px;overflow-wrap:anywhere">{{ m.text }}</div></sc-if>
+                <sc-if value="{{ m.isSteps }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border:1px solid #DCE4DE;border-radius:12px;background:#fff">
+                    <sc-for list="{{ m.steps }}" as="st" hint-placeholder-count="3">
+                      <div style="display:flex;align-items:center;gap:12px;font-size:14px;line-height:20px"><span style="{{ st.dotStyle }}">{{ st.mark }}</span><span style="{{ st.textStyle }}">{{ st.label }}</span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.isPickup }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border:1px solid #DCE4DE;border-radius:12px;background:#fff">
+                    <sc-if value="{{ m.pickupOpen }}" hint-placeholder-val="{{ true }}">
+                      <label for="lm-pick-chat" style="font-size:14px;line-height:20px;font-weight:600">{{ pickupLabel }}</label>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <input id="lm-pick-chat" type="text" value="{{ pickupDraft }}" onChange="{{ onPickupDraft }}" onKeyDown="{{ onPickupKey }}" placeholder="{{ t.ph2.pickup }}" style="flex:1 1 160px;min-width:0;min-height:44px;padding:0 12px;border:1px solid #7B8B80;border-radius:12px;font-size:15px;background:#fff;color:#18251F">
+                        <button onClick="{{ savePickup }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ m.pickupDone }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:14px;line-height:20px;color:#216744;font-weight:500">✓ {{ t.pickupSaved }}</span>
+                      <span style="font-size:14px;line-height:20px;overflow-wrap:anywhere">{{ pickupValue }}</span>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.hasQuick }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <sc-for list="{{ quick }}" as="q" hint-placeholder-count="3">
+                      <button onClick="{{ q.onClick }}" style="min-height:44px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#E5F3E9">{{ q.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:0 0 auto;padding:12px;border-top:1px solid #DCE4DE;display:flex;gap:8px;align-items:flex-end">
+        <label for="lm-chat" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ t.chat }}</label>
+        <textarea id="lm-chat" rows="2" value="{{ chatText }}" onChange="{{ onChatText }}" onKeyDown="{{ onChatKey }}" placeholder="{{ t.chatPh }}" style="flex:1;min-width:0;border:1px solid #7B8B80;border-radius:12px;padding:10px 12px;font-size:15px;line-height:22px;resize:none;color:#18251F;background:#fff"></textarea>
+        <button onClick="{{ sendChat }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.chatSend }}</button>
+      </div>
+    </section>
+
+    <main style="{{ workStyle }}">
+      <div style="{{ innerStyle }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+        </div>
+
+        <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px dashed #7B8B80;border-radius:16px;padding:32px;background:#fff;display:flex;flex-direction:column;gap:8px">
+            <h2 style="margin:0;font-size:24px;line-height:32px;font-weight:600">{{ t.idleTitle }}</h2>
+            <p style="margin:0;font-size:16px;line-height:24px;color:#58665E">{{ idleText }}</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showHousing }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:16px">
+
+
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ t.housingTitle }}</h2><span style="font-size:14px;line-height:20px;color:#58665E">{{ housingSub }}</span></div>
+              </div>
+            <div role="group" aria-label="{{ t.filters }}" style="{{ filterStyle }}">
+              <sc-for list="{{ filters }}" as="fl" hint-placeholder-count="5">
+                <button onClick="{{ fl.onClick }}" aria-pressed="{{ fl.on }}" style="{{ fl.style }}">{{ fl.label }}</button>
+              </sc-for>
+            </div>
+            </div>
+            <sc-if value="{{ showCompare }}" hint-placeholder-val="{{ false }}">
+              <section aria-label="{{ t.compareTitle }}" style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;animation:lm-in .24s ease-out">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                  <h3 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.compareTitle }}</h3>
+                  <button onClick="{{ clearCompare }}" style="min-height:44px;padding:0 16px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:500;cursor:pointer">{{ t.clear }}</button>
+                </div>
+                <div role="region" tabindex="0" aria-label="{{ t.compareTitle }}" style="overflow-x:auto">
+                  <table style="border-collapse:collapse;width:100%;min-width:{{ tableMin }}">
+                    <thead><tr>
+                      <th style="width:120px;border-bottom:1px solid #DCE4DE"></th>
+                      <sc-for list="{{ cols }}" as="co" hint-placeholder-count="2">
+                        <th style="text-align:left;vertical-align:top;padding:8px 12px 12px;border-bottom:1px solid #DCE4DE;min-width:180px">
+                          <div style="font-size:15px;line-height:22px;font-weight:600;margin-bottom:8px">{{ co.name }}</div>
+                          <button onClick="{{ co.onSelect }}" style="{{ co.btnStyle }}">{{ co.btnLabel }}</button>
+                        </th>
+                      </sc-for>
+                    </tr></thead>
+                    <tbody>
+                      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                        <tr>
+                          <th scope="row" style="text-align:left;font-weight:500;font-size:14px;line-height:20px;color:#58665E;padding:12px;border-bottom:1px solid #DCE4DE;vertical-align:top">{{ r.label }}</th>
+                          <sc-for list="{{ r.cells }}" as="ce" hint-placeholder-count="2">
+                            <td style="{{ ce.style }}">{{ ce.v }}</td>
+                          </sc-for>
+                        </tr>
+                      </sc-for>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </sc-if>
+
+            <div ref="{{ resRef }}" style="{{ resultsStyle }}">
+            <sc-if value="{{ showMapBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toHalf }}" style="position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:0;background:rgba(24,37,31,.9);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(24,37,31,.3)"><span aria-hidden="true" style="font-size:12px">▦</span>{{ t.view.map }}</button></sc-if>
+
+            <sc-if value="{{ showListPane }}" hint-placeholder-val="{{ true }}"><div onClick="{{ sheetClick }}" onWheel="{{ sheetWheel }}" onTouchStart="{{ sheetTS }}" onTouchMove="{{ sheetTM }}" style="{{ listPaneStyle }}">
+            <sc-if value="{{ showHandle }}" hint-placeholder-val="{{ false }}"><button onClick="{{ flipSheet }}" onPointerDown="{{ sheetDown }}" style="touch-action:none;position:sticky;top:0;z-index:2;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:44px;margin:0 -16px;padding:10px 16px 8px;border:0;background:#fff;cursor:pointer;color:#18251F"><span style="width:40px;height:4px;border-radius:2px;background:#7B8B80"></span><span style="font-size:14px;line-height:20px;font-weight:600">{{ nHomes }}</span></button></sc-if>
+            <sc-if value="{{ showSkeleton }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+                <sc-for list="{{ skeletons }}" as="sk" hint-placeholder-count="4">
+                  <div style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;overflow:hidden;animation:lm-pulse 1.2s ease-in-out infinite">
+                    <div style="aspect-ratio:4/3;background:repeating-linear-gradient(135deg,#EEF2EF 0 10px,#E4EAE6 10px 20px)"></div>
+                    <div style="padding:16px;display:flex;flex-direction:column;gap:8px"><div style="height:16px;width:70%;background:#E4EAE6;border-radius:8px"></div><div style="height:12px;width:45%;background:#EEF2EF;border-radius:8px"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ showCards }}" hint-placeholder-val="{{ false }}">
+              <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+                <sc-for list="{{ cards }}" as="h" hint-placeholder-count="2">
+                  <article onMouseEnter="{{ h.onEnter }}" onMouseLeave="{{ h.onLeave }}" style="{{ h.cardStyle }}">
+                    <div onClick="{{ h.onOpen }}" style="cursor:pointer;aspect-ratio:4/3;background:repeating-linear-gradient(135deg,#EEF2EF 0 10px,#E4EAE6 10px 20px);display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#58665E">{{ t.photo }}</div>
+                    <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
+                      <div style="display:flex;flex-direction:column;gap:4px">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                          <h3 style="margin:0;font-size:18px;line-height:26px;font-weight:600"><button onClick="{{ h.onOpen }}" style="border:0;background:none;padding:0;margin:0;font:inherit;color:#18251F;text-align:left;cursor:pointer" style-hover="text-decoration:underline">{{ h.name }}</button></h3>
+                          <sc-if value="{{ h.selected }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;font-size:13px;line-height:20px;font-weight:600;padding:2px 10px;border-radius:999px;background:#E5F3E9;color:#18251F;border:1px solid #256348">{{ t.selected }}</span></sc-if>
+                        </div>
+                        <span style="font-size:14px;line-height:20px;color:#58665E">{{ h.loc }}</span>
+                      </div>
+                      <div style="font-size:20px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums">{{ h.rent }}</div>
+                      <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;line-height:20px">
+                        <sc-for list="{{ h.facts }}" as="fa" hint-placeholder-count="4">
+                          <dt style="color:#58665E">{{ fa.k }}</dt><dd style="{{ fa.style }}">{{ fa.v }}</dd>
+                        </sc-for>
+                      </dl>
+                      <div style="font-size:13px;line-height:20px;color:#58665E;margin-top:auto">{{ h.source }}</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button onClick="{{ h.onCompare }}" aria-pressed="{{ h.compared }}" style="{{ h.compareStyle }}">{{ h.compareLabel }}</button>
+                        <button onClick="{{ h.onSelect }}" style="{{ h.selectStyle }}">{{ h.selectLabel }}</button>
+                      </div>
+                    </div>
+                  </article>
+                </sc-for>
+              </div>
+              </sc-if>
+              <sc-if value="{{ noMatches }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed #7B8B80;border-radius:16px;padding:24px;background:#fff;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+                  <p style="margin:0;font-size:16px;line-height:24px">{{ t.noMatch }}</p>
+                  <button onClick="{{ resetFilters }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.resetFilters }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ noArea }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed #7B8B80;border-radius:16px;padding:24px;background:#fff;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+                  <p style="margin:0;font-size:16px;line-height:24px">{{ t.noArea }}</p>
+                  <button onClick="{{ resetMap }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.resetMap }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;line-height:20px;color:#58665E"><span>{{ hiddenText }}</span><button onClick="{{ resetFilters }}" style="min-height:44px;padding:0 4px;border:0;background:none;color:#256348;text-decoration:underline;font-size:14px;font-weight:500;cursor:pointer">{{ t.resetFilters }}</button></div>
+              </sc-if>
+            </sc-if>
+            </div></sc-if>
+            <sc-if value="{{ showMapPane }}" hint-placeholder-val="{{ false }}">
+              <section ref="{{ mapRef }}" aria-label="{{ t.mapLabel }}" onPointerDown="{{ mapDown }}" onClick="{{ mapClear }}" style="{{ mapStyle }}">
+                <div style="{{ worldStyle }}"></div>
+                <span style="position:absolute;left:12px;top:12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#58665E">{{ t.mapNote }}</span>
+                <div onPointerDown="{{ stop }}" onClick="{{ stop }}" style="position:absolute;right:12px;top:12px;z-index:5;display:flex;flex-direction:column;gap:4px;cursor:default">
+                  <button onClick="{{ zoomIn }}" aria-label="{{ t.zoomIn }}" style="width:44px;height:44px;border-radius:12px;border:1px solid #7B8B80;background:#fff;font-size:22px;line-height:1;cursor:pointer;color:#18251F">+</button>
+                  <button onClick="{{ zoomOut }}" aria-label="{{ t.zoomOut }}" style="width:44px;height:44px;border-radius:12px;border:1px solid #7B8B80;background:#fff;font-size:22px;line-height:1;cursor:pointer;color:#18251F">−</button>
+                  <sc-if value="{{ mapMoved }}" hint-placeholder-val="{{ false }}"><button onClick="{{ resetMap }}" style="min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #7B8B80;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:#18251F">{{ t.resetMap }}</button></sc-if>
+                </div>
+                <sc-for list="{{ dists }}" as="dt" hint-placeholder-count="4"><span style="{{ dt.style }}">{{ dt.name }}</span></sc-for>
+                <sc-for list="{{ pins }}" as="pn" hint-placeholder-count="4">
+                  <button onClick="{{ pn.onClick }}" aria-pressed="{{ pn.on }}" aria-label="{{ pn.aria }}" style="{{ pn.btnStyle }}"><span style="{{ pn.pillStyle }}">{{ pn.label }}</span></button>
+                </sc-for>
+                <sc-if value="{{ showPin }}" hint-placeholder-val="{{ false }}">
+                  <div onPointerDown="{{ stop }}" onClick="{{ stop }}" style="cursor:default;position:absolute;left:16px;right:16px;bottom:{{ pinBottom }};z-index:8;display:flex;gap:12px 16px;justify-content:space-between;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(24,37,31,.15);animation:lm-in .18s ease-out">
+                    <button onClick="{{ pc.onOpen }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1 1 200px;text-align:left;border:0;background:none;padding:0;cursor:pointer;color:#18251F;font:inherit" style-hover="opacity:.8">
+                      <span style="font-size:16px;line-height:24px;font-weight:600">{{ pc.name }}</span>
+                      <span style="font-size:14px;line-height:20px;color:#58665E">{{ pc.loc }}</span>
+                      <span style="font-size:16px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">{{ pc.rent }}</span>
+                      <span style="font-size:14px;line-height:20px;font-weight:600;color:#256348;text-decoration:underline">{{ viewDetails }}</span>
+                    </button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                      <button onClick="{{ pc.onCompare }}" style="{{ pc.compareStyle }}">{{ pc.compareLabel }}</button>
+                      <button onClick="{{ pc.onSelect }}" style="{{ pc.selectStyle }}">{{ pc.selectLabel }}</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-if>
+
+            </div>
+            <sc-if value="{{ showToggle }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ flipView }}" style="position:sticky;bottom:16px;align-self:center;z-index:6;min-height:48px;padding:0 24px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(24,37,31,.35)">{{ flipLabel }}</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showNext }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:24px">
+            <sc-if value="{{ showSelCard }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #256348;border-radius:16px;padding:16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <span style="font-size:13px;line-height:20px;font-weight:600;color:#256348">{{ t.selected }}</span>
+                <span style="font-size:18px;line-height:26px;font-weight:600">{{ sel.name }}</span>
+                <span style="font-size:14px;line-height:20px;color:#58665E">{{ sel.addr }} · {{ sel.rent }}</span>
+              </div>
+              <button onClick="{{ backToHomes }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F1F5F2">{{ t.changeHome }}</button>
+            </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+              <sc-if value="{{ showMoving }}" hint-placeholder-val="{{ false }}"><section style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.moving }}</h3><span style="font-size:13px;line-height:20px;color:#58665E;font-weight:500">{{ t.st.notStarted }}</span></div>
+                <p style="margin:0;font-size:14px;line-height:22px;color:#58665E">{{ movingText }}</p>
+                <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:20px">
+                  <sc-for list="{{ movingReq }}" as="rq" hint-placeholder-count="2"><li style="{{ rq.style }}">{{ rq.label }}</li></sc-for>
+                </ul>
+                <sc-if value="{{ pickupMissing }}" hint-placeholder-val="{{ true }}">
+                  <label for="lm-pick-next" style="font-size:14px;line-height:20px;font-weight:600">{{ pickupLabel }}</label>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <input id="lm-pick-next" type="text" value="{{ pickupDraft }}" onChange="{{ onPickupDraft }}" onKeyDown="{{ onPickupKey }}" placeholder="{{ t.ph2.pickup }}" style="flex:1 1 160px;min-width:0;min-height:44px;padding:0 12px;border:1px solid #7B8B80;border-radius:12px;font-size:15px;background:#fff;color:#18251F">
+                    <button onClick="{{ savePickup }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                  </div>
+                </sc-if>
+                <button disabled="{{ true }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #DCE4DE;background:#EEF2EF;color:#58665E;font-size:14px;font-weight:600;cursor:not-allowed;align-self:flex-start">{{ t.getMoving }}</button>
+                <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.notBuilt }}</span>
+              </section></sc-if>
+              <sc-if value="{{ showTravel }}" hint-placeholder-val="{{ false }}"><section style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0;font-size:18px;line-height:26px;font-weight:600">{{ t.travel }}</h3><span style="font-size:13px;line-height:20px;color:#58665E;font-weight:500">{{ t.st.notStarted }}</span></div>
+                <p style="margin:0;font-size:14px;line-height:22px;color:#58665E">{{ travelText }}</p>
+                <sc-if value="{{ originMissing }}" hint-placeholder-val="{{ false }}">
+                  <label for="lm-origin-next" style="font-size:14px;line-height:20px;font-weight:600">{{ t.addFrom }}</label>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <input id="lm-origin-next" type="text" value="{{ originDraft }}" onChange="{{ onOriginDraft }}" onKeyDown="{{ onOriginKey }}" placeholder="{{ t.ph2.origin }}" style="flex:1 1 160px;min-width:0;min-height:44px;padding:0 12px;border:1px solid #7B8B80;border-radius:12px;font-size:15px;background:#fff;color:#18251F">
+                    <button onClick="{{ saveOrigin }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                  </div>
+                </sc-if>
+                <button disabled="{{ true }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #DCE4DE;background:#EEF2EF;color:#58665E;font-size:14px;font-weight:600;cursor:not-allowed;align-self:flex-start">{{ t.getTravel }}</button>
+                <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.notBuilt }}</span>
+              </section></sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+
+    <aside aria-label="{{ t.rail }}" style="{{ railStyle }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 8px 8px 24px;background:#E5F3E9;border-radius:15px 15px 0 0">
+        <div style="display:flex;flex-direction:column;min-width:0"><h2 style="margin:0;font-size:16px;line-height:24px;font-weight:600">{{ t.rail }}</h2><span style="font-size:14px;line-height:20px">{{ routeText }}</span></div>
+        <button onClick="{{ toggleRail }}" aria-label="{{ t.cancel }}" style="width:44px;height:44px;border-radius:999px;border:0;background:transparent;font-size:20px;cursor:pointer;color:#18251F">×</button>
+      </div>
+      <div style="{{ railBodyStyle }}">
+        <div style="{{ railMoreStyle }}">
+        <div style="border-top:1px solid #DCE4DE;padding-top:8px;display:flex;flex-direction:column">
+          <sc-for list="{{ detailRows }}" as="dr" hint-placeholder-count="4">
+            <button onClick="{{ dr.onClick }}" style="display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;padding:0;border:0;border-bottom:1px solid #EEF2EF;background:none;cursor:pointer;font-size:14px;line-height:20px;text-align:left;color:#18251F"><span style="color:#58665E">{{ dr.label }}</span><span style="font-weight:600;text-align:right;overflow-wrap:anywhere">{{ dr.value }}</span></button>
+          </sc-for>
+          <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #DCE4DE;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;animation:lm-in .18s ease-out">
+              <label for="lm-edit-b" style="font-size:14px;line-height:20px;font-weight:600">{{ editLabel }}</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input id="lm-edit-b" type="{{ editType }}" value="{{ editVal }}" onChange="{{ onEdit }}" onKeyDown="{{ onEditKey }}" placeholder="{{ editPh }}" autoFocus="{{ true }}" style="flex:1 1 140px;min-width:0;min-height:44px;padding:0 16px;border:1px solid #7B8B80;border-radius:12px;font-size:16px;color:#18251F;background:#fff">
+                <button onClick="{{ saveEdit }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #18251F;background:#18251F;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ t.save }}</button>
+                <button onClick="{{ cancelEdit }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;color:#18251F;font-size:14px;font-weight:600;cursor:pointer">{{ t.cancel }}</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="border-top:1px solid #DCE4DE;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:20px"><span style="color:#58665E">{{ t.oneTime }}</span><span style="font-weight:500;text-align:right">{{ t.notEst }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:20px"><span style="color:#58665E">{{ t.monthly }}</span><span style="font-weight:600;text-align:right;font-variant-numeric:tabular-nums">{{ monthlyText }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:20px"><span style="color:#58665E">{{ t.deposit }}</span><span style="font-weight:500;text-align:right;font-variant-numeric:tabular-nums">{{ depositText }}</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button disabled="{{ true }}" style="min-height:44px;padding:0 20px;border-radius:999px;border:1px solid #DCE4DE;background:#EEF2EF;color:#58665E;font-size:14px;font-weight:600;cursor:not-allowed">{{ t.review }}</button>
+          <span style="font-size:13px;line-height:20px;color:#58665E">{{ t.reviewWhy }}</span>
+        </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;line-height:20px"><span style="color:#58665E">{{ t.langLabel }}</span>
+<div role="group" aria-label="Language" style="display:flex;border:1px solid #7B8B80;border-radius:999px;padding:2px;background:#fff">
+  <button onClick="{{ setEn }}" aria-pressed="{{ isEn }}" style="{{ enStyle }}">EN</button>
+  <button onClick="{{ setVi }}" aria-pressed="{{ isVi }}" style="{{ viStyle }}">VI</button>
+</div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeDetail }}" style="position:fixed;inset:0;z-index:40;background:rgba(24,37,31,.45);display:flex;align-items:{{ dAlign }};justify-content:center;padding:{{ dPad }};animation:lm-in .18s ease-out">
+  <div role="dialog" aria-modal="true" aria-label="{{ dt.name }}" onClick="{{ stop }}" style="background:#fff;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:{{ dRadius }};display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(24,37,31,.3)">
+    <div style="position:sticky;top:0;z-index:1;display:flex;justify-content:flex-end;padding:8px;background:#fff">
+      <button onClick="{{ closeDetail }}" aria-label="{{ closeLabel }}" style="width:44px;height:44px;border-radius:999px;border:0;background:#F1F5F2;font-size:22px;line-height:1;cursor:pointer;color:#18251F">×</button>
+    </div>
+    <div style="flex:0 0 auto;aspect-ratio:16/9;margin:0 24px;border-radius:12px;background:repeating-linear-gradient(135deg,#EEF2EF 0 10px,#E4EAE6 10px 20px);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#58665E">{{ t.photo }}</div>
+    <div style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <h2 style="margin:0;font-size:24px;line-height:32px;font-weight:600;text-wrap:pretty">{{ dt.name }}</h2>
+        <span style="font-size:15px;line-height:22px;color:#58665E">{{ dt.loc }}</span>
+        <span style="font-size:22px;line-height:30px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px">{{ dt.rent }}</span>
+      </div>
+      <p style="margin:0;font-size:16px;line-height:26px;text-wrap:pretty">{{ dt.desc }}</p>
+      <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;column-gap:16px;font-size:15px;line-height:22px">
+        <sc-for list="{{ dt.full }}" as="fa" hint-placeholder-count="8"><dt style="color:#58665E;padding:10px 0;border-top:1px solid #EEF2EF">{{ fa.k }}</dt><dd style="{{ fa.style }}">{{ fa.v }}</dd></sc-for>
+      </dl>
+    </div>
+    <div style="position:sticky;bottom:0;margin-top:auto;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:16px 24px;background:#fff;border-top:1px solid #DCE4DE">
+      <button onClick="{{ dt.onCompare }}" style="{{ dt.compareStyle }}">{{ dt.compareLabel }}</button>
+      <button onClick="{{ dt.onSelect }}" style="{{ dt.selectStyle }}">{{ dt.selectLabel }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;language&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;vi&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;'en'|'vi'&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;seed&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;results&quot;,&quot;selected&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;frameW&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;frameH&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;map&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;pin&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;chat&quot;,&quot;work&quot;,&quot;plan&quot;],&quot;default&quot;:&quot;work&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screen&quot;},&quot;currency&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;USD&quot;,&quot;EUR&quot;,&quot;VND&quot;],&quot;default&quot;:&quot;USD&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;speed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0.25,&quot;max&quot;:2,&quot;step&quot;:0.25,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const MONS={en:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']};
+const AREAS={riv:{en:'Riverside',vi:'Ven sông'},south:{en:'South Park',vi:'Công viên Nam'},east:{en:'East Hill',vi:'Đồi Đông'},old:{en:'Old Town',vi:'Phố cổ'}};
+const HOMES=[
+ {id:'a',desc:{en:"Studio-style layout on the third floor with a balcony facing the river. Kitchen, washer and air conditioning included.",vi:"Bố cục kiểu studio ở tầng ba, ban công nhìn ra sông. Có bếp, máy giặt và điều hòa."},x:47,y:22,d:'riv',area:38,bed:1,furn:true,pets:'yes',lease:6,dep:2,rent:460,name:{en:'Furnished 1-bedroom by the river',vi:'Căn 1 phòng ngủ đủ nội thất cạnh sông'}},
+ {id:'b',desc:{en:"Corner unit with windows on two sides, five minutes on foot from the park. Unfurnished. The listing does not say whether pets are allowed.",vi:"Căn góc có cửa sổ hai mặt, đi bộ năm phút tới công viên. Không có nội thất. Tin đăng không nêu có cho nuôi thú cưng hay không."},x:34,y:48,d:'south',area:62,bed:2,furn:false,pets:'unknown',lease:12,dep:2,rent:480,name:{en:'Bright 2-bedroom near the park',vi:'Căn 2 phòng ngủ thoáng sáng gần công viên'}},
+ {id:'c',desc:{en:"Ground-floor home with a small private garden on a quiet street. Fully furnished, 12-month minimum lease.",vi:"Nhà tầng trệt có sân vườn nhỏ riêng, trên con phố yên tĩnh. Đủ nội thất, hợp đồng tối thiểu 12 tháng."},x:68,y:16,d:'east',area:70,bed:2,furn:true,pets:'no',lease:12,dep:3,rent:660,name:{en:'Furnished 2-bedroom with a garden',vi:'Căn 2 phòng ngủ đủ nội thất có sân vườn'}},
+ {id:'d',desc:{en:"Serviced apartment with weekly cleaning and a front desk. Utilities are included in the rent.",vi:"Căn hộ dịch vụ có dọn phòng hằng tuần và lễ tân. Tiền điện nước đã gồm trong giá thuê."},x:30,y:32,d:'old',area:45,bed:1,furn:true,pets:'yes',lease:6,dep:2,rent:760,name:{en:'Serviced 1-bedroom in the old town',vi:'Căn hộ dịch vụ 1 phòng ngủ ở phố cổ'}}
+];
+const ADDR=(h,L)=>(L==='en'?'Sample address ':'Địa chỉ mẫu ')+h.id.toUpperCase()+', '+AREAS[h.d][L];
+const RATE={USD:1,EUR:0.9,VND:25000};let CUR='USD';
+const RENTS=[320,480,640,800];
+const T={
+en:{langLabel:'Language',myMove:'My move',demo:'Demo data',newMove:'New move',title:'Plan your move',sub:'Describe the move in your own words. I will ask only for what is missing.',startLabel:'Your move',ph:'Where are you moving, and when?',tryEx:'Use an example',send:'Start planning',orFill:'Or add details directly',demoNote:'Homes are sample listings and nothing is booked or paid. Example text is not a saved choice.',
+example:"I'm moving to Lakeview on 1 Nov 2026. I need a home up to 480/month, and a ticket for just me.",
+f:{origin:'From',dest:'To',date:'Move date',budget:'Housing budget',pickup:'Pickup address',travel:'Travelers'},ph2:{origin:'City',dest:'City',date:'',budget:'e.g. 500',pickup:'Street, area, city',travel:'1'},add:'Add',needed:'Needed',save:'Save',cancel:'Cancel',
+chat:'Conversation',chatPh:'Ask or change a requirement…',chatSend:'Send',pickupSaved:'Pickup address saved',
+tabs:{chat:'Conversation',work:'Workspace',plan:'Plan'},
+idleTitle:'Waiting for details',housingTitle:'Find your next home',filters:'Housing filters',compareTitle:'Compare homes',clear:'Clear',photo:'listing photo · 4:3',selected:'Selected',select:'Select this home',compare:'Compare',comparing:'In comparison',noMatch:'No homes matched these filters. Change your budget or search area.',resetFilters:'Show all homes',
+nextTitle:'Moving and travel',nextSub:'Your home is selected. Next, the moving service and your journey.',changeHome:'Change home',moving:'Moving',travel:'Travel',getMoving:'Get moving quote',getTravel:'Search travel options',notBuilt:'This step is not part of the prototype yet.',
+rail:'Your move',oneTime:'One-time costs',notEst:'Not estimated yet',monthly:'Monthly housing',deposit:'Deposit',review:'Review plan',reviewWhy:'Available after moving and travel are quoted. Those steps are not in this prototype.',
+st:{notStarted:'Not started',searching:'Searching',ready:'Options ready',selected:'Selected'},
+steps:{housing:'Housing',moving:'Moving',travel:'Travel'},
+unk:'Not provided by the listing',yes:'Allowed',no:'Not allowed',avail:'Available now',srcDemo:'Demo listing · updated 2 Oct 2026',
+fl:{bed:'Bedrooms',any:'Any',min:'or more',pets:'Pets allowed',furn:'Furnished',lease:'Lease',upTo:'up to',mo:'mo',max:'Max rent'},
+rowL:{rent:'Rent',area:'Size',bed:'Bedrooms',furn:'Furnished',pets:'Pets',lease:'Minimum lease',dep:'Deposit',av:'Availability',loc:'Location',src:'Source'},yesW:'Yes',noW:'No',months:'months',perMonth:'/month',
+view:{list:'List',map:'Map'},zoomIn:'Zoom in',zoomOut:'Zoom out',resetMap:'Reset map',noArea:'No homes in this map area. Move or zoom out the map.',viewAs:'Results view',mapLabel:'Map of sample homes',mapNote:'Map placeholder · tiles come from the map provider',usedFor:'Housing search needs To, move date and budget. Moving needs a pickup address, asked when you start the moving quote. Travel needs From.',addFrom:'City you move from',
+pass:['passenger','passengers']},
+vi:{langLabel:'Ngôn ngữ',myMove:'Chuyến chuyển nhà',demo:'Dữ liệu mẫu',newMove:'Chuyến mới',title:'Lên kế hoạch chuyển nhà',sub:'Mô tả chuyến đi bằng lời của bạn. Mình chỉ hỏi phần còn thiếu.',startLabel:'Chuyến chuyển nhà của bạn',ph:'Bạn chuyển đến đâu, và khi nào?',tryEx:'Dùng ví dụ',send:'Bắt đầu lên kế hoạch',orFill:'Hoặc nhập trực tiếp thông tin',demoNote:'Các căn nhà là tin mẫu, không có đặt chỗ hay thanh toán nào. Văn bản ví dụ không phải lựa chọn đã lưu.',
+example:'Tôi chuyển đến Lakeview ngày 1/11/2026. Cần thuê nhà tối đa 480/tháng và một vé cho riêng tôi.',
+f:{origin:'Từ',dest:'Đến',date:'Ngày chuyển',budget:'Ngân sách thuê nhà',pickup:'Địa chỉ lấy hàng',travel:'Số người đi'},ph2:{origin:'Thành phố',dest:'Thành phố',date:'',budget:'ví dụ 500',pickup:'Đường, quận, thành phố',travel:'1'},add:'Thêm',needed:'Cần nhập',save:'Lưu',cancel:'Hủy',
+chat:'Hội thoại',chatPh:'Hỏi hoặc thay đổi yêu cầu…',chatSend:'Gửi',pickupSaved:'Đã lưu địa chỉ lấy hàng',
+tabs:{chat:'Hội thoại',work:'Không gian',plan:'Kế hoạch'},
+idleTitle:'Đang chờ thông tin',housingTitle:'Tìm nơi ở tiếp theo',filters:'Bộ lọc nhà ở',compareTitle:'So sánh nhà',clear:'Xóa',photo:'ảnh tin đăng · 4:3',selected:'Đã chọn',select:'Chọn căn này',compare:'So sánh',comparing:'Đang so sánh',noMatch:'Không có căn nào khớp bộ lọc. Hãy đổi ngân sách hoặc khu vực tìm.',resetFilters:'Hiện tất cả',
+nextTitle:'Vận chuyển và di chuyển',nextSub:'Bạn đã chọn nhà. Tiếp theo là dịch vụ chuyển đồ và chuyến đi của bạn.',changeHome:'Đổi nhà',moving:'Chuyển đồ',travel:'Di chuyển',getMoving:'Lấy báo giá chuyển đồ',getTravel:'Tìm phương tiện',notBuilt:'Bước này chưa có trong bản mẫu.',
+rail:'Chuyến của bạn',oneTime:'Chi phí một lần',notEst:'Chưa ước tính',monthly:'Tiền nhà hằng tháng',deposit:'Tiền cọc',review:'Xem lại kế hoạch',reviewWhy:'Dùng được sau khi có báo giá chuyển đồ và di chuyển. Các bước đó chưa có trong bản mẫu.',
+st:{notStarted:'Chưa bắt đầu',searching:'Đang tìm',ready:'Đã có lựa chọn',selected:'Đã chọn'},
+steps:{housing:'Nhà ở',moving:'Chuyển đồ',travel:'Di chuyển'},
+unk:'Tin đăng không nêu',yes:'Được phép',no:'Không được',avail:'Dọn vào ngay',srcDemo:'Tin mẫu · cập nhật 2/10/2026',
+fl:{bed:'Phòng ngủ',any:'Bất kỳ',min:'trở lên',pets:'Nuôi thú cưng',furn:'Có nội thất',lease:'Hợp đồng',upTo:'tối đa',mo:'tháng',max:'Giá tối đa'},
+rowL:{rent:'Giá thuê',area:'Diện tích',bed:'Phòng ngủ',furn:'Nội thất',pets:'Thú cưng',lease:'Hợp đồng tối thiểu',dep:'Tiền cọc',av:'Tình trạng',loc:'Vị trí',src:'Nguồn'},yesW:'Có',noW:'Không',months:'tháng',perMonth:'/tháng',
+view:{list:'Danh sách',map:'Bản đồ'},zoomIn:'Phóng to',zoomOut:'Thu nhỏ',resetMap:'Đặt lại bản đồ',noArea:'Không có căn nào trong vùng bản đồ. Hãy kéo hoặc thu nhỏ bản đồ.',viewAs:'Kiểu hiển thị',mapLabel:'Bản đồ các căn mẫu',mapNote:'Bản đồ minh họa · nền bản đồ do nhà cung cấp bản đồ cung cấp',usedFor:'Tìm nhà cần Đến, ngày chuyển và ngân sách. Chuyển đồ cần địa chỉ lấy hàng, sẽ hỏi khi bạn lấy báo giá chuyển đồ. Di chuyển cần Từ.',addFrom:'Thành phố bạn chuyển đi',
+pass:['hành khách','hành khách']}
+};
+const iso=(y,m,d)=>y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+const money=n=>{const q=CUR==='VND'?1000:1,v=Math.round(n*RATE[CUR]/q)*q,s=String(v).replace(/\B(?=(\d{3})+(?!\d))/g,CUR==='VND'?'.':',');return CUR==='USD'?'$'+s:CUR==='EUR'?'€'+s:s+' ₫';};
+class Component extends DCLogic {
+  seeded(){
+    const p=this.props,sd=p.seed;if(!sd||sd==='none')return {};
+    const L=p.language||'en';
+    return {railOpen:p.details===true||p.details==='true',stage:'work',f:{origin:'',dest:'Lakeview',date:'2026-11-01',budget:'480',pickup:'',travel:'1'},search:'ready',stepIdx:3,shown:4,phase:sd==='selected'?'next':'housing',selected:sd==='selected'?'b':null,
+      hview:p.view||'map',pin:p.pin||null,view:p.tab==='chat'?'chat':'work',
+      msgs:[{id:1,role:'u',type:'user',text:T[L].example},{id:2,role:'a',type:'ack'},{id:3,role:'a',type:'steps'},{id:4,role:'a',type:'found'}]};
+  }
+  state={nf:'moving',lang:this.props.language||'en',w:this.props.frameW||(typeof window!=='undefined'?window.innerWidth:1280),stage:'start',view:'work',railOpen:false,text:'',chatText:'',
+    f:{origin:'',dest:'',date:'',budget:'',pickup:'',travel:''},editing:null,editVal:'',msgs:[],search:'idle',stepIdx:0,shown:0,
+    filt:{bed:0,pets:false,furn:false,lease:0,max:480},compare:[],selected:null,phase:'housing',pickupDraft:'',originDraft:'',hview:'map',pin:null,hov:null,sheetPx:null,mapv:{cx:50,cy:50,z:1},...this.seeded()};
+  vh(){return this.props.frameH||(typeof window!=='undefined'?window.innerHeight:900);}
+  chatRef=React.createRef();mapRef=React.createRef();resRef=React.createRef();drag=null;
+  setH(v){this.wheelLock=Date.now()+550;this.setState({hview:v});}
+  sheetClick=e=>{if(this.state.w>=1200||this.state.hview!=='map')return;if(e.target.closest&&e.target.closest('button'))return;this.setH('list');};
+  sheetWheel=e=>{if(this.state.w>=1200||this.state.sheetPx!=null||Date.now()<(this.wheelLock||0))return;const hv=this.state.hview,el=e.currentTarget;
+    if(hv==='list'&&el.scrollTop<=0&&e.deltaY<-4)this.setH('map');else if(hv==='map'&&e.deltaY>4)this.setH('list');else if(hv==='min'&&e.deltaY>4)this.setH('map');};
+  sheetTS=e=>{this.ty=e.touches[0].clientY;this.tst=e.currentTarget.scrollTop;};
+  sheetTM=e=>{if(this.state.w>=1200||this.state.sheetPx!=null||Date.now()<(this.wheelLock||0))return;const dy=e.touches[0].clientY-this.ty,hv=this.state.hview;
+    if(hv==='list'&&this.tst<=0&&e.currentTarget.scrollTop<=0&&dy>50)this.setH('map');else if(hv==='map'&&dy<-30)this.setH('list');else if(hv==='min'&&dy<-30)this.setH('map');};
+  sheetDown=e=>{
+    if(e.button>0)return;const box=this.resRef.current,pane=e.currentTarget.parentElement;if(!box||!pane)return;
+    const H=box.getBoundingClientRect().height,h0=pane.getBoundingClientRect().height,y0=e.clientY;let moved=false;
+    const mv=ev=>{const dy=ev.clientY-y0;if(Math.abs(dy)>5)moved=true;if(moved)this.setState({sheetPx:Math.max(64,Math.min(H,h0-dy))});};
+    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);
+      if(!moved)return;const cur=this.state.sheetPx||h0,snaps=[['min',64],['map',H*.4],['list',H]];
+      const best=snaps.reduce((a,b)=>Math.abs(b[1]-cur)<Math.abs(a[1]-cur)?b:a);this.setState({sheetPx:null,hview:best[0]});this.sheetDragged=true;setTimeout(()=>{this.sheetDragged=false;},0);};
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+  };
+  mapDown=e=>{
+    if(e.button>0)return;const el=this.mapRef.current;if(!el)return;
+    const mv=this.state.mapv;this.drag={x:e.clientX,y:e.clientY,cx:mv.cx,cy:mv.cy,r:el.getBoundingClientRect(),moved:false};
+    const mv_=ev=>{const d=this.drag;if(!d)return;const dx=ev.clientX-d.x,dy=ev.clientY-d.y;if(Math.abs(dx)+Math.abs(dy)>4)d.moved=true;if(!d.moved)return;const z=this.state.mapv.z;
+      this.setState({mapv:{z,cx:Math.max(0,Math.min(100,d.cx-dx/d.r.width*100/z)),cy:Math.max(0,Math.min(100,d.cy-dy/d.r.height*100/z))}});};
+    const up=()=>{window.removeEventListener('pointermove',mv_);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);const m=this.drag&&this.drag.moved;this.drag=null;if(m&&this.state.w<1200&&this.state.hview!=='min'&&!this.state.pin)this.setState({hview:'min'});this.justDragged=m;setTimeout(()=>{this.justDragged=false;},0);};
+    window.addEventListener('pointermove',mv_);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+  };
+  zoomBy(k){this.setState(s=>({mapv:{...s.mapv,z:Math.max(1,Math.min(4,s.mapv.z*k))}}));}timers=[];mid=0;
+  sp(ms){return ms*(this.props.speed||1);}
+  later(fn,ms){this.timers.push(setTimeout(fn,this.sp(ms)));}
+  componentDidMount(){this.mid=10;this.onK=e=>{if(e.key==='Escape'&&this.state.detail)this.setState({detail:null});};window.addEventListener('keydown',this.onK);this.onR=()=>this.setState({w:this.props.frameW||window.innerWidth});window.addEventListener('resize',this.onR);this.onR();}
+  componentWillUnmount(){window.removeEventListener('resize',this.onR);window.removeEventListener('keydown',this.onK);this.timers.forEach(clearTimeout);}
+  componentDidUpdate(p,ps){
+    if(p.language!==this.props.language&&this.props.language)this.setState({lang:this.props.language});
+    const key=this.state.msgs.length+':'+this.state.stepIdx;
+    if(key!==this.lastKey){this.lastKey=key;const el=this.chatRef.current;if(el)el.scrollTop=el.scrollHeight;}
+  }
+  say(type,extra){this.setState(s=>({msgs:[...s.msgs,{id:++this.mid,role:'a',type,...(extra||{})}]}));}
+  parse(x){
+    const o={};
+    let c=x.match(/(?:^|\s)(?:from|từ)\s+(\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}[\p{L}.'-]*)*)/u);if(c)o.origin=c[1];
+    c=x.match(/(?:^|\s)(?:to|đến|tới|vào|ra)\s+(\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}[\p{L}.'-]*)*)/u);if(c)o.dest=c[1];
+    let m=x.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+    if(m)o.date=iso(m[3]||2026,m[2],m[1]);
+    else{m=x.match(/(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s*,?\s*(\d{4}))?/i);if(m)o.date=iso(m[3]||2026,MON.indexOf(m[2].toLowerCase())+1,m[1]);}
+    m=x.match(/(\d+(?:[.,]\d+)?)\s*(m|tr|triệu|million)(?![a-z])/i);
+    const toBase=n=>String(Math.round(n>=100000?n/RATE.VND:n/(CUR==='VND'?1:RATE[CUR])));
+    if(m)o.budget=toBase(parseFloat(m[1].replace(',','.'))*1e6);
+    else{m=x.match(/(\d{1,3}(?:[.,]\d{3}){2,})/)||x.match(/(\d[\d.,]*)\s*(?:\$|€|usd|eur|₫)?\s*(?:\/\s*(?:month|mo|tháng)|a month|per month|mỗi tháng)/i);if(m)o.budget=toBase(+m[1].replace(/\D/g,''));}
+    if(/just me|myself|một mình|riêng tôi/i.test(x))o.travel='1';
+    else{m=x.match(/(\d+)\s*(passengers?|pax|người|hành khách)/i);if(m)o.travel=m[1];}
+    return o;
+  }
+  recog(k,v){return v.trim();}
+  disp(k,v,L){
+    if(!v)return '';
+    if(k==='date'){const [y,m,d]=v.split('-').map(Number);return L==='en'?d+' '+MONS.en[m-1]+' '+y:d+' tháng '+m+', '+y;}
+    if(k==='budget')return money(+v)+T[L].perMonth;
+    if(k==='travel'){const n=+v;return n+' '+T[L].pass[n>1?1:0];}
+    return v;
+  }
+  ingest(text){
+    const p=this.parse(text),f={...this.state.f};
+    Object.keys(p).forEach(k=>{if(!f[k])f[k]=p[k];});
+    return f;
+  }
+  trySearch(f){
+    f=f||this.state.f;
+    const miss=['dest','date','budget'].filter(k=>!f[k]);
+    if(miss.length){this.say('missing',{miss});return;}
+    this.startSearch(f);
+  }
+  startSearch(f){
+    this.setState(s=>({search:'searching',stepIdx:0,shown:0,filt:{...s.filt,max:+f.budget}}));
+    this.say('steps');
+    this.later(()=>this.setState({stepIdx:1}),900);
+    this.later(()=>this.setState({stepIdx:2}),1800);
+    this.later(()=>this.setState({stepIdx:3,search:'ready'}),2700);
+    for(let i=1;i<=HOMES.length;i++)this.later(()=>this.setState({shown:i}),2800+i*260);
+    this.later(()=>this.say('found',{}),2800+HOMES.length*260+400);
+  }
+  submitStart=()=>{
+    const text=this.state.text.trim();
+    const hasF=Object.values(this.state.f).some(Boolean);
+    if(!text&&!hasF)return;
+    const f=this.ingest(text);
+    const bud=f.budget?+f.budget:this.state.filt.max;
+    this.setState(s=>({f,stage:'work',view:'work',filt:{...s.filt,max:bud},msgs:[...s.msgs,{id:++this.mid,role:'u',type:'user',text:text||'—'}]}));
+    this.say('ack');
+    this.later(()=>this.trySearch(f),700);
+  };
+  sendChat=()=>{
+    const text=this.state.chatText.trim();if(!text)return;
+    this.setState(s=>({chatText:'',msgs:[...s.msgs,{id:++this.mid,role:'u',type:'user',text}]}));
+    const st=this.state;
+    if(st.search==='searching'){this.later(()=>this.say('wait'),300);return;}
+    if(st.search==='idle'){
+      const f=this.ingest(text);
+      const before=JSON.stringify(st.f);
+      this.setState({f});
+      this.later(()=>{if(JSON.stringify(f)!==before)this.trySearch(f);else this.say('missing',{miss:['dest','date','budget'].filter(k=>!f[k])});},400);
+      return;
+    }
+    const patch={},names=[];
+    if(/pet|thú cưng|chó|mèo/i.test(text)){patch.pets=true;names.push(T[st.lang].fl.pets);}
+    if(/furnish|nội thất/i.test(text)){patch.furn=true;names.push(T[st.lang].fl.furn);}
+    const bm=text.match(/\b([123])\s*[- ]?(bed|br|phòng ngủ|pn)/i);
+    if(bm){patch.bed=+bm[1];names.push(T[st.lang].fl.bed+' '+bm[1]+'+');}
+    if(!names.length){this.later(()=>this.say('unsupported'),350);return;}
+    this.setState(s=>({filt:{...s.filt,...patch}}));
+    this.later(()=>this.say('filter',{names}),350);
+  };
+  applyQuick(kind){
+    const L=this.state.lang,t=T[L];
+    let patch={},label='';
+    if(kind==='pets'){patch={pets:true};label=t.fl.pets;}
+    if(kind==='furn'){patch={furn:true};label=t.fl.furn;}
+    if(kind==='rent'){patch={max:800};label=t.fl.max+' '+money(800);}
+    this.setState(s=>({filt:{...s.filt,...patch},msgs:[...s.msgs,{id:++this.mid,role:'u',type:'user',text:label}]}));
+    this.later(()=>this.say('filter',{names:[label]}),350);
+  }
+  select(id){
+    this.setState({selected:id,phase:'next',detail:null,pin:null});
+    this.say('selectedMsg',{hid:id});
+    if(!this.state.f.pickup&&!this.state.msgs.some(m=>m.type==='pickup'))this.later(()=>this.say('pickup'),500);
+    if(this.state.view==='work'&&this.state.w<768)this.setState({view:'work'});
+  }
+  savePickupVal=()=>{
+    const v=this.state.pickupDraft.trim();if(!v)return;
+    const parts=v.split(',').map(x=>x.trim()).filter(Boolean);
+    this.setState(s=>({f:{...s.f,pickup:v,origin:s.f.origin||(parts.length>1?parts[parts.length-1]:'')},pickupDraft:''}));
+  };
+  saveOriginVal=()=>{
+    const v=this.state.originDraft.trim();if(!v)return;
+    this.setState(s=>({f:{...s.f,origin:this.recog('origin',v)},originDraft:''}));
+  };
+  saveEditVal=()=>{
+    const s=this.state,k=s.editing;if(!k)return;
+    let v=s.editVal.trim();
+    if(k==='budget'){const n=+v.replace(/\D/g,'');v=n?String(Math.round(n/RATE[CUR])):'';}
+    if(k==='travel')v=String(Math.max(1,parseInt(v,10)||0)||'');
+    if(k==='origin'||k==='dest')v=this.recog(k,v);
+    const f={...s.f,[k]:v};
+    this.setState({f,editing:null,editVal:''});
+    if(k==='budget'&&v&&s.search==='ready')this.setState(x=>({filt:{...x.filt,max:+v}}));
+    if(s.stage==='work'&&s.search==='idle'&&['dest','date','budget'].every(q=>f[q]))this.later(()=>this.trySearch(f),250);
+  };
+  chipStyle(on,needed){return {display:'inline-flex',alignItems:'center',gap:8,minHeight:44,padding:'0 16px',borderRadius:999,fontSize:14,lineHeight:'20px',fontWeight:500,cursor:'pointer',color:needed?'#815A12':'#18251F',background:needed?'#FFF3D8':(on?'#E5F3E9':'#fff'),border:'1px '+(on||needed?'solid':'dashed')+' '+(needed?'#815A12':(on?'#256348':'#7B8B80'))};}
+  renderVals(){
+    CUR=this.props.currency||'USD';
+    const s=this.state,L=s.lang,t=T[L],f=s.f,w=s.w;
+    const mode=w>=1200?'wide':(w>=768?'mid':'narrow');
+    const isWork=s.stage==='work';
+    const D=(k,v)=>this.disp(k,v,L);
+    const bed=s.filt.bed,fl=s.filt;
+    const pass=h=>h.bed>=fl.bed&&(!fl.pets||h.pets==='yes')&&(!fl.furn||h.furn)&&(!fl.lease||h.lease<=fl.lease)&&h.rent<=fl.max;
+    const matching=HOMES.filter(pass);
+    const mv=s.mapv,sx=h=>(h.x-mv.cx)*mv.z+50,sy=h=>(h.y-mv.cy)*mv.z+50;
+    const inArea=h=>{const a=sx(h),b=sy(h);return a>=2&&a<=98&&b>=2&&b<=98;};
+    const shownAll=matching.slice(0,s.shown),visible=shownAll.filter(inArea);
+    const mapMoved=mv.z!==1||mv.cx!==50||mv.cy!==50;
+    const hiddenN=HOMES.length-matching.length;
+    const petsTxt=h=>h.pets==='yes'?t.yes:h.pets==='no'?t.no:t.unk;
+    const names={};HOMES.forEach(h=>names[h.id]=h.name[L]);
+    const sel=s.selected?HOMES.find(h=>h.id===s.selected):null;
+    const selV=sel?{name:sel.name[L],addr:ADDR(sel,L),rent:money(sel.rent)+t.perMonth}:{name:'',addr:'',rent:''};
+
+    const fieldKeys=['origin','dest','date','budget','pickup','travel'];
+    const chips=fieldKeys.map(k=>{
+      const v=f[k],empty=!v,needed=false;
+      return {label:t.f[k],value:empty?(needed?t.needed:t.add):D(k,v),style:this.chipStyle(!empty,needed),valStyle:{fontWeight:empty?400:600,color:needed?'#815A12':(empty?'#256348':'#18251F')},
+        onClick:()=>{const raw=k==='budget'&&v?String(Math.round(v*RATE[CUR])):v;this.setState({editing:k,editVal:raw});}};
+    });
+    const ek=s.editing;
+    const editType=ek==='date'?'date':(ek==='travel'?'number':'text');
+
+    const textFor=m=>{
+      const n=matching.length;
+      switch(m.type){
+        case 'user':return m.text;
+        case 'ack':return L==='en'?'Got it. I read your request and filled in what I could. You can change any detail in the plan panel.':'Mình đã đọc yêu cầu và điền những gì có thể. Bạn có thể sửa từng thông tin trong bảng kế hoạch.';
+        case 'missing':return (L==='en'?'I still need: ':'Mình còn thiếu: ')+(m.miss||[]).map(k=>t.f[k].toLowerCase()).join(', ')+(L==='en'?'. Add them in the plan panel or tell me here.':'. Hãy thêm trong bảng kế hoạch hoặc nhắn cho mình.');
+        case 'wait':return L==='en'?'Still searching. Results will appear in a moment.':'Đang tìm. Kết quả sẽ hiện ra trong giây lát.';
+        case 'found':return L==='en'?'Found '+HOMES.length+' sample homes. '+n+(n===1?' fits':' fit')+' your filters. Compare a few, or select one to use its address for the moving quote. Selecting does not sign a lease.':'Tìm thấy '+HOMES.length+' căn mẫu. '+n+' căn khớp bộ lọc. Hãy so sánh vài căn, hoặc chọn một căn để dùng địa chỉ cho báo giá chuyển đồ. Chọn nhà không có nghĩa là ký hợp đồng.';
+        case 'pickup':return f.origin?(L==='en'?'For the moving quote I need the pickup address in '+f.origin+'. You can add it now or later.':'Để báo giá chuyển đồ, mình cần địa chỉ lấy hàng ở '+f.origin+'. Bạn có thể thêm ngay hoặc sau.'):(L==='en'?"You haven't told me where you are moving from. What is your current address? It is the pickup point for the moving quote, and its city becomes From for travel.":'Bạn chưa cho mình biết bạn chuyển đi từ đâu. Địa chỉ hiện tại của bạn là gì? Đó là điểm lấy hàng cho báo giá chuyển đồ, và thành phố của địa chỉ sẽ là điểm đi cho chuyến đi.');
+        case 'filter':return (L==='en'?'Applied: ':'Đã áp dụng: ')+(m.names||[]).join(', ')+(L==='en'?'. Showing '+n+' of '+HOMES.length+' homes.':'. Đang hiện '+n+'/'+HOMES.length+' căn.');
+        case 'unsupported':return L==='en'?'In this prototype I can change the pets, furnished, and bedroom filters. Other changes are not connected yet.':'Trong bản mẫu này mình chỉ đổi được bộ lọc thú cưng, nội thất và phòng ngủ. Các thay đổi khác chưa được kết nối.';
+        case 'selectedMsg':{const h=HOMES.find(x=>x.id===m.hid);return (L==='en'?'Selected: ':'Đã chọn: ')+h.name[L]+(L==='en'?'. This is not a lease. Its address, '+ADDR(h,L)+', becomes the destination for the moving quote. Moving and travel are next; they are not built in this prototype yet.':'. Đây không phải hợp đồng thuê. Địa chỉ '+ADDR(h,L)+' sẽ là điểm đến cho báo giá chuyển đồ. Tiếp theo là chuyển đồ và di chuyển; bước này chưa có trong bản mẫu.');}
+      }
+      return '';
+    };
+    const stepLabels=[L==='en'?'Reading your request':'Đọc yêu cầu của bạn',(L==='en'?'Searching homes in ':'Tìm nhà ở ')+(D('dest',f.dest)||'…'),L==='en'?'Checking budget and availability':'Kiểm tra ngân sách và tình trạng'];
+    const lastFound=[...s.msgs].reverse().find(m=>m.type==='found');
+    const msgs=s.msgs.map(m=>{
+      const user=m.role==='u',text=textFor(m);
+      const steps=m.type==='steps'?stepLabels.map((lb,i)=>{const done=i<s.stepIdx,act=i===s.stepIdx&&s.search==='searching';
+        return {label:lb,mark:done?'✓':'',dotStyle:done?{width:20,height:20,borderRadius:'50%',background:'#E8F4EC',color:'#216744',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}:act?{width:20,height:20,borderRadius:'50%',border:'2px solid #DCE4DE',borderTopColor:'#315E93',animation:'lm-spin .8s linear infinite'}:{width:20,height:20,borderRadius:'50%',border:'1.5px solid #7B8B80'},textStyle:{color:done?'#18251F':act?'#315E93':'#58665E',fontWeight:act?600:400}};}):[];
+      return {id:m.id,isUser:user,isAssistant:!user,text,hasText:!!text&&!user,isSteps:m.type==='steps',steps,isPickup:m.type==='pickup',pickupOpen:!f.pickup,pickupDone:!!f.pickup,hasQuick:m.type==='found'&&lastFound&&lastFound.id===m.id&&s.phase==='housing',
+        rowStyle:{display:'flex',justifyContent:user?'flex-end':'flex-start',animation:'lm-in .24s ease-out'}};
+    });
+    const quick=[{label:t.fl.pets,onClick:()=>this.applyQuick('pets')},{label:t.fl.furn,onClick:()=>this.applyQuick('furn')},{label:L==='en'?'Raise max rent':'Nâng giá tối đa',onClick:()=>this.applyQuick('rent')}];
+
+    const bedLabel=t.fl.bed+': '+(bed?bed+'+':t.fl.any);
+    const rentOpts=[...new Set([...RENTS,+f.budget||fl.max])].sort((a,b)=>a-b);
+    const leaseLabel=t.fl.lease+': '+(fl.lease?t.fl.upTo+' '+fl.lease+' '+t.fl.mo:t.fl.any);
+    const fchip=(label,on,fn)=>({label,on,onClick:fn,style:{...this.chipStyle(on,false),border:'1px solid '+(on?'#256348':'#7B8B80'),boxShadow:on?'inset 0 0 0 1px #256348':'none'}});
+    const set=p=>this.setState(x=>({filt:{...x.filt,...p}}));
+    const filters=[
+      fchip(bedLabel,bed>0,()=>set({bed:(bed+1)%3})),
+      fchip(t.fl.pets,fl.pets,()=>set({pets:!fl.pets})),
+      fchip(t.fl.furn,fl.furn,()=>set({furn:!fl.furn})),
+      fchip(leaseLabel,fl.lease>0,()=>set({lease:fl.lease===0?6:fl.lease===6?12:0})),
+      fchip(t.fl.max+': '+money(fl.max),true,()=>{const nx=rentOpts.find(r=>r>fl.max);set({max:nx||rentOpts[0]});})
+    ];
+
+    const mk=h=>{
+      const isSel=s.selected===h.id,cmp=s.compare.includes(h.id),hl=s.hov===h.id||s.pin===h.id;
+      const row=(k,v,warn)=>({k,v,style:{margin:0,fontWeight:500,color:warn?'#815A12':'#18251F'}});
+      return {id:h.id,name:h.name[L],loc:ADDR(h,L),rent:money(h.rent)+t.perMonth,selected:isSel,compared:cmp,source:t.srcDemo,
+        facts:[row(t.rowL.area,h.area+' m² · '+h.bed+' '+(L==='en'?(h.bed>1?'bedrooms':'bedroom'):'phòng ngủ')),row(t.rowL.furn,h.furn?t.yesW:t.noW),row(t.rowL.pets,petsTxt(h),h.pets==='unknown'),row(t.rowL.lease,h.lease+' '+t.months),row(t.rowL.av,t.avail)],
+        cardStyle:{background:isSel?'#F4FAF6':'#fff',border:'1px solid '+(hl?'#18251F':isSel?'#256348':'#DCE4DE'),boxShadow:hl?'0 0 0 1px #18251F':isSel?'0 0 0 1px #256348':'none',transition:'border-color .15s,box-shadow .15s',borderRadius:16,overflow:'hidden',display:'flex',flexDirection:'column',animation:'lm-in .3s ease-out'},
+        compareLabel:cmp?t.comparing:t.compare,
+        compareStyle:{minHeight:44,padding:'0 16px',borderRadius:999,border:'1px solid '+(cmp?'#256348':'#7B8B80'),background:cmp?'#E5F3E9':'#fff',color:'#18251F',fontSize:14,fontWeight:500,cursor:'pointer'},
+        onCompare:()=>this.setState(x=>({compare:x.compare.includes(h.id)?x.compare.filter(i=>i!==h.id):[...x.compare,h.id].slice(-3)})),
+        selectLabel:isSel?t.selected:t.select,
+        selectStyle:{minHeight:44,padding:'0 20px',borderRadius:999,border:'1px solid #18251F',background:isSel?'#fff':'#18251F',color:isSel?'#18251F':'#fff',fontSize:14,fontWeight:600,cursor:'pointer'},
+        onSelect:()=>this.select(h.id),onEnter:()=>this.setState({hov:h.id}),onLeave:()=>this.setState(x=>x.hov===h.id?{hov:null}:null),
+        onOpen:e=>{if(e&&e.stopPropagation)e.stopPropagation();this.setState({detail:h.id});},desc:h.desc[L],
+        full:[[t.rowL.rent,money(h.rent)+t.perMonth],[t.rowL.dep,money(h.rent*h.dep)+' ('+h.dep+' '+t.months+')'],[t.rowL.area,h.area+' m²'],[t.rowL.bed,String(h.bed)],[t.rowL.furn,h.furn?t.yesW:t.noW],[t.rowL.pets,petsTxt(h),h.pets==='unknown'],[t.rowL.lease,h.lease+' '+t.months],[t.rowL.av,t.avail],[t.rowL.src,t.srcDemo]].map(([k,v,w])=>({k,v,style:{margin:0,padding:'10px 0',borderTop:'1px solid #EEF2EF',fontWeight:500,color:w?'#815A12':'#18251F'}}))};
+    };
+    const cards=visible.map(mk);
+    const dtH=s.detail?HOMES.find(x=>x.id===s.detail):null,dt=dtH?mk(dtH):{name:'',loc:'',rent:'',desc:'',full:[],compareLabel:'',selectLabel:'',compareStyle:{},selectStyle:{},onCompare:()=>{},onSelect:()=>{}};
+
+    const priceTag=h=>{if(CUR!=='VND')return money(h.rent);const m=(h.rent*RATE.VND/1e6).toFixed(1).replace(/\.0$/,'');return L==='en'?m+'M':m.replace('.',',')+' tr';};
+    const pins=cards.map(c=>{const h=HOMES.find(x=>x.id===c.id),on=s.pin===c.id,sl=c.selected,hl=on||s.hov===c.id;return {aria:c.name+', '+c.rent,on,label:(sl?'✓ ':'')+priceTag(h),onClick:e=>{e.stopPropagation();if(this.justDragged)return;this.setState({pin:on?null:c.id});},
+      btnStyle:{position:'absolute',left:sx(h)+'%',top:sy(h)+'%',transform:'translate(-50%,-50%)',zIndex:hl?3:1,minHeight:44,minWidth:44,padding:'6px 0',border:0,background:'transparent',cursor:'pointer'},
+      pillStyle:{display:'block',padding:'0 12px',lineHeight:'32px',borderRadius:999,fontSize:14,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',background:hl?'#18251F':'#fff',color:hl?'#fff':'#18251F',border:'1px solid '+(hl?'#18251F':'#7B8B80'),boxShadow:hl?'0 2px 8px rgba(24,37,31,.3)':'0 1px 3px rgba(24,37,31,.2)',transform:hl?'scale(1.08)':'none',transition:'transform .15s'}};});
+    const dists=[['old',30,41],['riv',47,29],['east',68,23],['south',34,57]].map(([k,x,y])=>({name:AREAS[k][L],style:{position:'absolute',left:((x-mv.cx)*mv.z+50)+'%',top:((y-mv.cy)*mv.z+50)+'%',transform:'translateX(-50%)',fontFamily:'ui-monospace,Menlo,monospace',fontSize:12,lineHeight:'18px',color:'#58665E',pointerEvents:'none',whiteSpace:'nowrap'}}));
+    const pc=cards.find(c=>c.id===s.pin)||{onOpen:()=>{},name:'',loc:'',rent:'',compareLabel:'',selectLabel:'',compareStyle:{},selectStyle:{},onCompare:()=>{},onSelect:()=>{}};
+    const hv=s.hview,split=mode==='wide';
+        const sheet=!split,peek=hv!=='list',sheetHide=sheet&&peek&&!!pc.name;
+    const mapStyle0=sheet?{touchAction:'none',cursor:'grab',position:'absolute',left:0,right:0,top:0,bottom:0,overflow:'hidden',borderRadius:16,border:'1px solid #DCE4DE',backgroundColor:'#EEF2EF'}:{touchAction:'none',cursor:'grab',position:split?'sticky':'relative',top:0,alignSelf:split?'start':'stretch',height:split?(this.vh()-220)+'px':(this.vh()-320)+'px',minHeight:split?520:380,overflow:'hidden',border:'1px solid #DCE4DE',borderRadius:16,backgroundColor:'#EEF2EF',backgroundImage:'repeating-linear-gradient(0deg,#E1E8E3 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,#E1E8E3 0 1px,transparent 1px 56px)'};
+    const mapStyle=sheet?mapStyle0:{...mapStyle0,position:'relative',top:undefined,alignSelf:'stretch',height:'auto',minHeight:0};
+    const resultsStyle=sheet?{position:'relative',flex:'1 1 0',minHeight:320,overflow:'hidden',borderRadius:16}:{flex:'1 1 0',minHeight:0,display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gridTemplateRows:'minmax(0,1fr)',gap:16,alignItems:'stretch'};
+    const listPaneStyle=sheet?{position:'absolute',left:0,right:0,bottom:0,height:s.sheetPx!=null?s.sheetPx+'px':(sheetHide||hv==='min'?'64px':hv==='list'?'100%':'40%'),display:'flex',flexDirection:'column',gap:16,padding:(hv==='list'&&s.sheetPx==null?'16px':'0 16px')+' 16px '+(hv==='list'?56:16)+'px',background:'#fff',borderRadius:hv==='list'&&s.sheetPx==null?0:'20px 20px 0 0',boxShadow:hv==='list'&&s.sheetPx==null?'none':'0 -4px 20px rgba(24,37,31,.2)',zIndex:7,cursor:hv==='map'?'pointer':'auto',overflowY:hv==='list'&&s.sheetPx==null?'auto':'hidden',transition:s.sheetPx!=null?'none':'height .25s ease'}:{minWidth:0,minHeight:0,overflowY:'auto',overscrollBehavior:'contain',display:'flex',flexDirection:'column',gap:24,paddingRight:4,paddingBottom:16};
+    const nHomes=visible.length+(L==='en'?(visible.length===1?' home in map area':' homes in map area'):' căn trong vùng bản đồ');
+    const detailRows=chips.filter((c,i)=>['origin','dest','date','budget'].includes(fieldKeys[i])).map(c=>({label:c.label,value:c.value,onClick:c.onClick}));
+    const viewOpts=[['list',t.view.list],['map',t.view.map]].map(([k,label])=>({label,on:hv===k,onClick:()=>this.setState({hview:k}),style:{minHeight:44,padding:'0 20px',borderRadius:999,border:'1px solid '+(hv===k?'#18251F':'#7B8B80'),background:hv===k?'#18251F':'#fff',color:hv===k?'#fff':'#18251F',fontSize:14,fontWeight:600,cursor:'pointer'}}));
+    const cmpHomes=s.compare.map(id=>HOMES.find(h=>h.id===id)).filter(Boolean);
+    const cols=cmpHomes.map(h=>{const isSel=s.selected===h.id;return {name:h.name[L],btnLabel:isSel?t.selected:t.select,btnStyle:{minHeight:44,padding:'0 16px',borderRadius:999,border:'1px solid #18251F',background:isSel?'#fff':'#18251F',color:isSel?'#18251F':'#fff',fontSize:14,fontWeight:600,cursor:'pointer'},onSelect:()=>this.select(h.id)};});
+    const cell=(v,right,warn)=>({v,style:{padding:'12px',borderBottom:'1px solid #DCE4DE',fontSize:14,lineHeight:'20px',verticalAlign:'top',textAlign:right?'right':'left',fontVariantNumeric:'tabular-nums',color:warn?'#815A12':'#18251F',fontWeight:right?600:400}});
+    const rows=[
+      {label:t.rowL.rent,cells:cmpHomes.map(h=>cell(money(h.rent)+t.perMonth,true))},
+      {label:t.rowL.dep,cells:cmpHomes.map(h=>cell(money(h.rent*h.dep)+' ('+h.dep+' '+t.months+')',true))},
+      {label:t.rowL.area,cells:cmpHomes.map(h=>cell(h.area+' m²'))},
+      {label:t.rowL.bed,cells:cmpHomes.map(h=>cell(String(h.bed)))},
+      {label:t.rowL.furn,cells:cmpHomes.map(h=>cell(h.furn?t.yesW:t.noW))},
+      {label:t.rowL.pets,cells:cmpHomes.map(h=>cell(petsTxt(h),false,h.pets==='unknown'))},
+      {label:t.rowL.lease,cells:cmpHomes.map(h=>cell(h.lease+' '+t.months))},
+      {label:t.rowL.av,cells:cmpHomes.map(h=>cell(t.avail))},
+      {label:t.rowL.loc,cells:cmpHomes.map(h=>cell(ADDR(h,L)))},
+      {label:t.rowL.src,cells:cmpHomes.map(h=>cell(t.srcDemo))}
+    ];
+
+    const hs=s.search==='idle'?'notStarted':s.search==='searching'?'searching':sel?'selected':'ready';
+    const stc={notStarted:['#58665E','transparent'],searching:['#315E93','#EAF1FA'],ready:['#18251F','#EEF2EF'],selected:['#18251F','#E5F3E9']};
+    const badge=k=>({fontSize:13,lineHeight:'20px',fontWeight:600,padding:'0 10px',borderRadius:999,color:stc[k][0],background:stc[k][1],border:k==='notStarted'?'1px solid #DCE4DE':(k==='selected'?'1px solid #256348':'1px solid transparent')});
+    const node=k=>k==='searching'?{width:20,height:20,borderRadius:'50%',border:'2px solid #DCE4DE',borderTopColor:'#315E93',animation:'lm-spin .8s linear infinite'}:k==='selected'?{width:20,height:20,borderRadius:'50%',background:'#256348',color:'#fff',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}:k==='ready'?{width:20,height:20,borderRadius:'50%',border:'2px solid #256348'}:{width:20,height:20,borderRadius:'50%',border:'1.5px solid #7B8B80'};
+    const hasRoute=!!(f.origin&&f.dest&&f.date);
+    const movingBlock=[!sel&&(L==='en'?'Needs a selected home':'Cần chọn nhà'),!f.pickup&&(L==='en'?'Needs a pickup address':'Cần địa chỉ lấy hàng')].filter(Boolean);
+    const curIdx=s.phase==='housing'?0:(s.nf==='travel'?2:1);
+    const stepClick=i=>()=>this.setState(i===0?{phase:'housing',view:'work'}:{phase:'next',nf:i===2?'travel':'moving',view:'work'});
+    const steps=[
+      {name:t.steps.housing,k:hs,status:t.st[hs],note:sel?sel.name[L]:(hs==='ready'?matching.length+' / '+HOMES.length+(L==='en'?' homes match':' căn khớp'):(L==='en'?'Needs destination, date, and budget':'Cần điểm đến, ngày và ngân sách')),line:true},
+      {name:t.steps.moving,k:'notStarted',status:!f.pickup?(L==='en'?'Needs your address':'Cần địa chỉ của bạn'):t.st.notStarted,note:movingBlock.length?movingBlock.join(' · '):(L==='en'?'Home and pickup address ready':'Đã có nhà và địa chỉ lấy hàng'),line:false},
+      {name:t.steps.travel,k:'notStarted',status:!f.origin?(L==='en'?'Needs From':'Cần điểm đi'):t.st.notStarted,note:hasRoute?(L==='en'?'Route and date known':'Đã có tuyến và ngày'):(L==='en'?'Needs origin, destination and move date':'Cần điểm đi, điểm đến và ngày chuyển'),line:false}
+    ].map((x,i)=>({onClick:stepClick(i),cur:i===curIdx,bar:{height:4,borderRadius:2,background:x.k==='searching'?'#315E93':x.k==='notStarted'?'#fff':'#256348',opacity:x.k==='ready'?.5:1,border:x.k==='notStarted'?'1px solid #7B8B80':'0'},btnStyle:{flex:1,minWidth:0,minHeight:44,padding:'4px 12px',borderRadius:10,textAlign:'left',display:'flex',flexDirection:'column',gap:2,cursor:'pointer',border:'1px solid '+(i===curIdx?'#256348':'transparent'),background:i===curIdx?'#E5F3E9':'transparent',color:'#18251F'},hLine:{flex:1,height:2,margin:'0 8px',background:x.line&&sel?'#256348':'#DCE4DE',visibility:i===2?'hidden':'visible'},name:x.name,status:x.status,note:x.note,mark:x.k==='selected'?'✓':'',nodeStyle:node(x.k),badgeStyle:badge(x.k),lineStyle:{width:2,flex:1,minHeight:x.line?28:0,background:x.line?'#256348':'transparent',marginTop:4,opacity:x.line?(sel?1:.35):0}}));
+
+    const tabsDef=[['chat',t.tabs.chat],['work',t.tabs.work]];
+    const tabs=tabsDef.map(([k,label])=>({label,on:s.view===k,onClick:()=>this.setState({view:k}),style:{flex:1,minHeight:44,border:0,borderBottom:'3px solid '+(s.view===k?'#256348':'transparent'),background:'transparent',fontSize:14,fontWeight:s.view===k?600:500,color:s.view===k?'#18251F':'#58665E',cursor:'pointer'}}));
+
+    const show=(k)=>mode!=='narrow'||s.view===k;
+    const stepsNavStyle={display:'flex',gap:4,order:mode==='narrow'?3:undefined,flex:mode==='narrow'?'1 1 100%':'1 1 360px',maxWidth:mode==='narrow'?undefined:560,minWidth:0};
+    const gridStyle=mode==='wide'?{flex:1,minHeight:0,display:'grid',gridTemplateColumns:'380px minmax(0,1fr)',gap:16,padding:'16px 24px',width:'100%',maxWidth:1440,margin:'0 auto'}:mode==='mid'?{flex:1,minHeight:0,display:'grid',gridTemplateColumns:'320px minmax(0,1fr)',gridTemplateRows:'minmax(0,1fr)',gap:16,padding:16,width:'100%'}:{flex:1,minHeight:0,display:'flex',flexDirection:'column',padding:12};
+    const panel={background:'#fff',border:'1px solid #DCE4DE',borderRadius:16,minHeight:0};
+    const chatPanelStyle={...panel,display:show('chat')?'flex':'none',flexDirection:'column',position:'relative',overflow:'hidden',flex:mode==='narrow'?1:undefined};
+    const hMode=isWork&&s.search!=='idle'&&s.phase==='housing';
+    const workStyle={display:show('work')?'flex':'none',flexDirection:'column',minHeight:0,overflowY:hMode?'hidden':'auto',flex:mode==='narrow'?1:undefined};
+    const innerStyle={display:'flex',flexDirection:'column',gap:24,padding:mode==='narrow'?(hMode?'4px 0 0':'4px 0 24px'):(hMode?'0 0 0 0':'0 8px 32px 0'),flex:hMode?'1 1 0':'1 0 auto',minHeight:0};
+    const railStyle={...panel,display:s.railOpen?'block':'none',position:'fixed',top:mode==='narrow'?112:52,right:mode==='narrow'?8:16,width:'min(380px,calc(100vw - 16px))',maxHeight:'calc(100vh - 68px)',overflowY:'auto',zIndex:30,boxShadow:'0 8px 32px rgba(24,37,31,.25)'};
+    const railBodyStyle={display:'flex',flexDirection:'column',gap:20,padding:24};
+    const railMoreStyle={display:'flex',flexDirection:'column',gap:20};
+
+    const idleMiss=['dest','date','budget'].filter(k=>!f[k]).map(k=>t.f[k].toLowerCase()).join(', ');
+    const showHousing=isWork&&s.search!=='idle'&&s.phase==='housing';
+    const sk=[0,1,2,3];
+    const enOn=L==='en';
+    const lb=on=>({minHeight:32,minWidth:40,padding:'0 10px',borderRadius:999,border:0,background:on?'#18251F':'transparent',color:on?'#fff':'#18251F',fontSize:13,fontWeight:600,cursor:'pointer'});
+    const canStart=!!s.text.trim()||Object.values(f).some(Boolean);
+    return {
+      rootH:this.props.frameH?this.props.frameH+'px':'100vh',t,isWork,isStart:!isWork,isNarrow:mode==='narrow',isMid:mode==='mid',
+      isEn:enOn,isVi:!enOn,enStyle:lb(enOn),viStyle:lb(!enOn),setEn:()=>this.setState({lang:'en'}),setVi:()=>this.setState({lang:'vi'}),
+      reset:()=>{this.timers.forEach(clearTimeout);this.timers=[];this.setState({stage:'start',text:'',chatText:'',f:{origin:'',dest:'',date:'',budget:'',pickup:'',travel:''},editing:null,msgs:[],search:'idle',stepIdx:0,shown:0,filt:{bed:0,pets:false,furn:false,lease:0,max:480},compare:[],selected:null,phase:'housing',nf:'moving',pickupDraft:'',originDraft:'',hview:'map',pin:null,mapv:{cx:50,cy:50,z:1}});},
+      startPad:mode==='narrow'?'32px 16px':'64px 32px',h1Size:mode==='narrow'?'32px':'48px',h1Line:mode==='narrow'?'40px':'56px',
+      text:s.text,onText:e=>this.setState({text:e.target.value}),useExample:()=>this.setState({text:t.example}),
+      onStartKey:e=>{if(e.key==='Enter'&&!e.shiftKey&&!(e.nativeEvent&&e.nativeEvent.isComposing)){e.preventDefault();this.submitStart();}},
+      submitStart:this.submitStart,startBtnStyle:{minHeight:44,padding:'0 24px',borderRadius:999,border:'1px solid '+(canStart?'#18251F':'#DCE4DE'),background:canStart?'#18251F':'#EEF2EF',color:canStart?'#fff':'#58665E',fontSize:14,fontWeight:600,cursor:canStart?'pointer':'not-allowed'},
+      chips,isEditing:!!ek,editLabel:ek?t.f[ek]:'',editType,editVal:s.editVal,editPh:ek?t.ph2[ek]:'',
+      onEdit:e=>this.setState({editVal:e.target.value}),onEditKey:e=>{if(e.key==='Enter'){e.preventDefault();this.saveEditVal();}else if(e.key==='Escape')this.setState({editing:null});},
+      saveEdit:this.saveEditVal,cancelEdit:()=>this.setState({editing:null}),
+      stepsNavStyle,tabs,gridStyle,chatPanelStyle,workStyle,innerStyle,railStyle,railBodyStyle,railMoreStyle,workPad:mode==='narrow'?'4px 0 24px':'0 8px 32px 0',
+      chatRef:this.chatRef,msgs,quick,chatText:s.chatText,onChatText:e=>this.setState({chatText:e.target.value}),
+      onChatKey:e=>{if(e.key==='Enter'&&!e.shiftKey&&!(e.nativeEvent&&e.nativeEvent.isComposing)){e.preventDefault();this.sendChat();}},sendChat:this.sendChat,
+      pickupDraft:s.pickupDraft,onPickupDraft:e=>this.setState({pickupDraft:e.target.value}),onPickupKey:e=>{if(e.key==='Enter'){e.preventDefault();this.savePickupVal();}},savePickup:this.savePickupVal,pickupValue:f.pickup,
+      showIdle:isWork&&s.search==='idle',idleText:(L==='en'?'Still needed to start the search: ':'Còn thiếu để bắt đầu tìm: ')+idleMiss+'.',
+      showHousing,housingSub:D('dest',f.dest)+' · '+(L==='en'?'up to ':'tối đa ')+money(fl.max)+t.perMonth+(s.search==='ready'&&!sheet?' · '+visible.length+(L==='en'?' in map area':' trong vùng bản đồ'):''),
+      showListPane:true,isList:true,showMapPane:true,showToggle:false,showHandle:sheet&&(hv!=='list'||s.sheetPx!=null||sheetHide),listPaneStyle,nHomes,flipSheet:()=>{if(this.sheetDragged)return;this.setState({hview:hv==='min'?'map':hv==='map'?'list':'map'});},sheetLabel:peek?(L==='en'?'Swipe up for list':'Mở danh sách'):(L==='en'?'Back to map':'Về bản đồ'),flipView:()=>this.setState({hview:hv==='map'?'list':'map'}),flipLabel:hv==='map'?t.view.list:t.view.map,stop:e=>e.stopPropagation(),filterStyle:mode==='narrow'?{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}:{display:'flex',flexWrap:'wrap',gap:8},mapStyle,resultsStyle,detailRows,viewOpts,pins,dists,showPin:!!pc.name,pc,mapClear:()=>{if(this.justDragged)return;if(s.pin)this.setState({pin:null});else if(sheet&&hv!=='min')this.setState({hview:'min'});},pinBottom:sheet?'80px':'16px',showMapBtn:sheet&&hv==='list'&&s.sheetPx==null&&!sheetHide,showDetail:!!dtH,dt,closeDetail:()=>this.setState({detail:null}),closeLabel:L==='en'?'Close':'Đóng',viewDetails:L==='en'?'View details':'Xem chi tiết',
+      dAlign:mode==='narrow'?'flex-end':'center',dPad:mode==='narrow'?'0':'24px',dRadius:mode==='narrow'?'20px 20px 0 0':'20px',toHalf:()=>this.setH('map'),sheetClick:this.sheetClick,sheetWheel:this.sheetWheel,sheetTS:this.sheetTS,sheetTM:this.sheetTM,mapRef:this.mapRef,mapDown:this.mapDown,zoomIn:()=>this.zoomBy(1.6),zoomOut:()=>this.zoomBy(1/1.6),resetMap:()=>this.setState({mapv:{cx:50,cy:50,z:1}}),mapMoved,
+      worldStyle:{position:'absolute',left:(50-mv.cx*mv.z)+'%',top:(50-mv.cy*mv.z)+'%',width:(mv.z*100)+'%',height:(mv.z*100)+'%',backgroundImage:'repeating-linear-gradient(0deg,#E1E8E3 0 1px,transparent 1px 10%),repeating-linear-gradient(90deg,#E1E8E3 0 1px,transparent 1px 10%)',backgroundSize:'100% 100%',pointerEvents:'none'},
+      noArea:s.search==='ready'&&matching.length>0&&visible.length===0,areaCount:visible.length,
+      originDraft:s.originDraft,onOriginDraft:e=>this.setState({originDraft:e.target.value}),onOriginKey:e=>{if(e.key==='Enter'){e.preventDefault();this.saveOriginVal();}},saveOrigin:this.saveOriginVal,originMissing:!f.origin,
+      filters,showCompare:cmpHomes.length>=2,clearCompare:()=>this.setState({compare:[]}),cols,rows,tableMin:(120+cmpHomes.length*190)+'px',
+      showSkeleton:s.search==='searching'&&s.shown===0,skeletons:sk,showCards:s.search!=='idle'&&!(s.search==='searching'&&s.shown===0),cards,
+      noMatches:s.search==='ready'&&matching.length===0,hasHidden:s.search==='ready'&&hiddenN>0&&matching.length>0,
+      hiddenText:hiddenN+(L==='en'?(hiddenN===1?' home hidden by your filters.':' homes hidden by your filters.'):' căn bị ẩn bởi bộ lọc.'),
+      resetFilters:()=>set({bed:0,pets:false,furn:false,lease:0,max:Math.max(...RENTS)}),
+      showNext:isWork&&s.phase==='next',showMoving:s.nf!=='travel',showTravel:s.nf==='travel',showSelCard:!!sel&&s.nf!=='travel',sel:selV,backToHomes:()=>this.setState({phase:'housing'}),
+      movingText:f.origin||f.pickup?(L==='en'?'A moving quote needs the pickup address'+(f.origin?' in '+f.origin:'')+', the address of the selected home, and the move date.':'Báo giá chuyển đồ cần địa chỉ lấy hàng'+(f.origin?' ở '+f.origin:'')+', địa chỉ căn nhà đã chọn và ngày chuyển.'):(L==='en'?"I don't know where you are moving from yet. Add your current address: it is the pickup point for the quote, and its city becomes From for travel.":'Mình chưa biết bạn chuyển đi từ đâu. Hãy thêm địa chỉ hiện tại: đó là điểm lấy hàng cho báo giá, và thành phố của địa chỉ sẽ là điểm đi cho chuyến đi.'),
+      movingReq:[{label:(sel?'✓ ':'○ ')+(L==='en'?'Destination: ':'Điểm đến: ')+(sel?selV.addr:'—'),style:{color:sel?'#216744':'#58665E'}},{label:(f.pickup?'✓ ':'○ ')+(L==='en'?'Pickup: ':'Lấy hàng: ')+(f.pickup||'—'),style:{color:f.pickup?'#216744':'#815A12',overflowWrap:'anywhere'}},{label:(f.date?'✓ ':'○ ')+(L==='en'?'Move date: ':'Ngày chuyển: ')+(D('date',f.date)||'—'),style:{color:f.date?'#216744':'#815A12'}}],
+      pickupMissing:!f.pickup,pickupLabel:f.origin?t.f.pickup:(L==='en'?'Your current address (pickup)':'Địa chỉ hiện tại (lấy hàng)'),resRef:this.resRef,sheetDown:this.sheetDown,
+      travelText:(hasRoute?D('origin',f.origin)+' → '+D('dest',f.dest)+' · '+D('date',f.date)+(f.travel?' · '+D('travel',f.travel):''):(L==='en'?'Needs origin, destination and move date.':'Cần điểm đi, điểm đến và ngày chuyển.'))+(L==='en'?' Travel search does not depend on the selected home.':' Việc tìm phương tiện không phụ thuộc vào căn nhà đã chọn.'),
+      routeText:(D('origin',f.origin)||'—')+' → '+(D('dest',f.dest)||'—'),dateText:f.date?D('date',f.date):(L==='en'?'Move date not set':'Chưa đặt ngày chuyển'),
+      steps,railOpen:s.railOpen,toggleRail:()=>this.setState(x=>({railOpen:!x.railOpen})),railToggleLabel:s.railOpen?(L==='en'?'Hide details':'Ẩn chi tiết'):(L==='en'?'Show details':'Xem chi tiết'),
+      monthlyText:sel?money(sel.rent)+t.perMonth:'—',depositText:sel?money(sel.rent*sel.dep)+' ('+sel.dep+' '+t.months+')':'—'
+    };
+  }
+}
+</script>
+</body>
+</html>

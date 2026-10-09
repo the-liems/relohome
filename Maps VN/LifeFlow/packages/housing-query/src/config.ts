@@ -43,6 +43,7 @@ export interface ApplicationRuntimeConfig {
     Record<'driving' | 'motorcycle' | 'walking', string>
   >
   commuteCandidateLimit: number
+  publicDrivingOsrmUrl?: string
 }
 
 export interface RuntimeConfig extends ApplicationRuntimeConfig {
@@ -56,6 +57,10 @@ export interface RuntimeConfig extends ApplicationRuntimeConfig {
 
 export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
   loadEnvironment()
+  const publicDrivingOsrmUrl = process.env.OSRM_PUBLIC_DRIVING_URL || undefined
+  if (publicDrivingOsrmUrl && publicDrivingOsrmUrl !== 'https://routing.openstreetmap.de/routed-car/') {
+    throw new Error('OSRM_PUBLIC_DRIVING_URL must be the approved HTTPS FOSSGIS driving endpoint.')
+  }
   const commuteCandidateLimit = Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100)
   if (!Number.isInteger(commuteCandidateLimit) || commuteCandidateLimit < 1 || commuteCandidateLimit > 1_000) {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
@@ -87,6 +92,7 @@ export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
       },
     },
     commuteCandidateLimit,
+    publicDrivingOsrmUrl,
   }
 }
 

@@ -12,6 +12,8 @@ from langchain_core.messages import HumanMessage
 
 from src.agents.cost import call_graph_component, llm_calls_left
 from src.agents.deps import GraphDeps
+from src.agents.housing_constraints import HOUSING_INPUT_KEYS
+from src.agents.housing_operations import is_housing_comparison
 from src.agents.intake import (
     MAP_ENTITY_ANCHORS,
     MAP_VIEW_REF,
@@ -35,14 +37,26 @@ from src.agents.models import (
     OutcomeCode,
     RequestKind,
     TaskOutline,
-    TaskStatus,
     active_commits,
     error_record,
 )
+from src.agents.selections import selection_is_current
 from src.agents.state import WorkflowState
 from src.agents.subagents.capabilities import operation_selector_keys
 
 logger = logging.getLogger(__name__)
+
+EXPLICIT_HOUSING_CITIES = (
+    (re.compile(r"(?<!\w)(Hà Nội|Ha Noi)(?!\w)", re.IGNORECASE), "Hà Nội"),
+    (re.compile(r"(?<!\w)(TP\.?\s*HCM|TP\.?\s*Hồ Chí Minh|Thành phố Hồ Chí Minh)(?!\w)", re.IGNORECASE), "Thành phố Hồ Chí Minh"),
+    (re.compile(r"(?<!\w)(Đà Nẵng|Da Nang)(?!\w)", re.IGNORECASE), "Đà Nẵng"),
+)
+
+
+def stated_housing_city(text: str) -> tuple[str, str] | None:
+    """Use only a city actually named in this turn; never derive it from a district."""
+    matches = [(match.group(0), city) for pattern, city in EXPLICIT_HOUSING_CITIES if (match := pattern.search(text))]
+    return matches[0] if len(matches) == 1 else None
 
 
 def explicitly_changed_fact(key: str, text: str) -> bool:
@@ -109,6 +123,10 @@ def plan_outline(state: WorkflowState) -> list[TaskOutline] | None:
                 id=task.id,
                 agent=task.agent,
                 options=options,
+                comparison_options=[
+                    {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
+                    for c in (result.data.get("candidates", []) if result and task.agent == AgentName.PROPERTY else [])
+                ][:20],
                 selected=summary.selected.get(task.id) if summary else None,
             )
         )
@@ -133,6 +151,88 @@ def continue_referenced_goal(result: IntakeResult, previous: IntakeResult | None
     return result
 
 
+def chat_housing_selection(
+    deps: GraphDeps, state: WorkflowState, facts: dict, values: dict, result: IntakeResult
+) -> list | None:
+    """Chọn, bỏ hoặc đổi căn qua chat khi bật hẹn xem: chỉ đổi tập căn đang xem, không chốt
+    (housing-viewing-design V3). Trả danh sách căn mới cho checkpoint, hoặc None nếu lượt này không đụng tới."""
+    if not deps.settings.housing_viewing or deps.housing_selector is None:
+        return None
+    user_id, thread_id = state.get("user_id", ""), state.get("thread_id", "")
+    drop = facts.pop("housing_unselect_ids", None)
+    add = facts.pop("housing_select_ids", None)
+    values.pop("housing_unselect_ids", None)
+    values.pop("housing_select_ids", None)
+    wanted = [str(v) for v in (add.value if add else [])]
+    chosen = facts.get("selected:property")
+    before = (state.get("intake") or None) and state["intake"].user_confirmed_facts.get("selected:property")
+    if chosen is not None and (before is None or before.value != chosen.value):
+        facts.pop("selected:property")  # chọn để hẹn xem, chưa phải căn của kế hoạch
+        values.pop("selected:property", None)
+        wanted.append(str(chosen.value))
+    if not drop and not wanted:
+        return None
+    selection = None
+    try:
+        for listing_id in drop.value if drop else []:  # bỏ trước để "đổi căn" không vượt giới hạn
+            selection = deps.housing_unselector(user_id, thread_id, str(listing_id))
+        for listing_id in dict.fromkeys(wanted):
+            found = _housing_row(state, listing_id)
+            if found is None:
+                result.conflicts.append("Mình chưa thấy căn này trong kết quả hiện tại; hãy mở bản đồ nhà ở để chọn.")
+                continue
+            selection = deps.housing_selector(user_id, thread_id, found[0], found[1])
+    except ValueError as exc:  # đủ số căn, đã chốt căn khác, căn không còn trong tập
+        result.conflicts.append(str(exc))
+    return selection
+
+
+def selection_only_turn(previous: IntakeResult | None, result: IntakeResult) -> bool:
+    """Lượt không có dữ kiện mới nào ngoài việc thêm/bỏ căn đang xem (các khóa đó đã được gỡ khỏi facts)."""
+    if previous is None or result.kind == RequestKind.NEW_GOAL or result.needs_clarification:
+        return False
+    if set(result.domains) - set(previous.domains):
+        return False
+    before = previous.user_confirmed_facts
+    return all(key in before and before[key].value == fact.value for key, fact in result.user_confirmed_facts.items())
+
+
+def _housing_row(state: WorkflowState, listing_id: str) -> tuple[str, dict] | None:
+    for task_id, task_result in (state.get("task_results") or {}).items():
+        if task_result.agent != AgentName.PROPERTY or task_result.data.get("comparison"):
+            continue
+        row = next((c for c in task_result.data.get("candidates") or [] if c.get("id") == listing_id), None)
+        if row is not None:
+            return task_id, row
+    return None
+
+
+def remembered_home(previous: IntakeResult | None, state: WorkflowState) -> IntakeResult | None:
+    """Expose a previously verified home to Intake without restoring unrelated old constraints."""
+    if previous is None or "selected:property" in previous.user_confirmed_facts:
+        return previous
+    results = state.get("task_results") or {}
+    for task_id, option_id in reversed(list((state.get("goal_selections") or {}).items())):
+        result = results.get(task_id)
+        if (
+            result is None
+            or result.agent != AgentName.PROPERTY
+            or not selection_is_current(state, task_id, option_id)
+            or not any(c.get("id") == option_id for c in result.data.get("candidates", []))
+        ):
+            continue
+        fact = ConfirmedFact(
+            value=option_id,
+            evidence="Lựa chọn đã xác nhận trong hội thoại",
+            stated_at=result.fetched_at,
+        )
+        return previous.model_copy(
+            deep=True,
+            update={"user_confirmed_facts": {**previous.user_confirmed_facts, "selected:property": fact}},
+        )
+    return previous
+
+
 def make_intake(deps: GraphDeps):
     async def intake(state: WorkflowState) -> dict:
         """Hiểu yêu cầu qua `deps.intake`, rồi kiểm evidence, gộp dữ kiện và tính phần thiếu bằng code."""
@@ -145,7 +245,7 @@ def make_intake(deps: GraphDeps):
                 return {
                     "outcome": Outcome(node="intake", code=OutcomeCode.BUDGET, detail="hết lượt LLM trong lượt này")
                 }
-        previous: IntakeResult | None = state.get("intake")
+        previous: IntakeResult | None = remembered_home(state.get("intake"), state)
         last_response = state.get("response")
         # Tin nhắn gửi cho Intake (LLM) đã che dữ liệu cá nhân; state giữ nguyên để hiển thị lịch sử.
         messages = [
@@ -161,6 +261,8 @@ def make_intake(deps: GraphDeps):
                     session=state.get("session"),
                     previous=previous,
                     plan_outline=plan_outline(state),
+                    last_housing_search_options=state.get("last_housing_search_options") or [],
+                    housing_selection=state.get("housing_selection") or [],
                     decision=state.get("user_decision"),
                     pending_questions=last_response.questions if last_response else [],
                     last_suggestions=last_response.suggestions if last_response else [],
@@ -210,6 +312,45 @@ def make_intake(deps: GraphDeps):
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
         latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
+        fresh_housing_scope = (
+            AgentName.PROPERTY in result.domains
+            and any(key in result.user_confirmed_facts for key in SEARCH_SCOPE_KEYS)
+        )
+        fresh_comparison_search = (
+            fresh_housing_scope
+            and result.constraints.values.get("housing_mode") == "compare"
+            and not result.user_confirmed_facts.get("listing_ids")
+            and re.search(r"so sánh", latest_text, re.IGNORECASE)
+            and re.search(r"rẻ nhất|thấp nhất", latest_text, re.IGNORECASE)
+        )
+        if fresh_comparison_search:
+            # A new area plus a superlative requests fresh results. Previously
+            # viewed IDs cannot stand in for homes in that new area.
+            amount = re.search(r"\b([2-4])\s*[-–]\s*([2-4])\b|\b([2-4])\s*căn\b", latest_text)
+            count = int(amount.group(2) or amount.group(3)) if amount else 4
+            result.constraints.values.update(housing_mode="search_compare", limit=count)
+            result.user_confirmed_facts["housing_mode"] = ConfirmedFact(
+                value="search_compare", evidence="so sánh", stated_at=now
+            )
+            result.user_confirmed_facts["limit"] = ConfirmedFact(
+                value=count, evidence=amount.group(0) if amount else "so sánh", stated_at=now
+            )
+            result.conflicts = [c for c in result.conflicts if "so sánh" not in c.casefold()]
+        explicit_city = stated_housing_city(latest_text) if fresh_housing_scope else None
+        if explicit_city and "city" not in result.user_confirmed_facts:
+            evidence, city = explicit_city
+            result.user_confirmed_facts["city"] = ConfirmedFact(value=city, evidence=evidence, stated_at=now)
+            result.constraints.values["city"] = city
+        if (
+            previous is not None
+            and result.domains == [AgentName.PROPERTY]
+            and is_housing_comparison(AgentName.PROPERTY, result.constraints.values)
+        ):
+            # Analysing observed homes is not changing the active home/search.
+            # Normalize before grounding, so NEW_GOAL cannot erase its choices.
+            result = result.model_copy(
+                update={"kind": RequestKind.REFINE, "target_task_ids": [], "change_request": None}
+            )
         stopped_route = re.search(r"không cần (?:tính )?đường nữa", latest_text, re.IGNORECASE)
         if (
             stopped_route
@@ -226,7 +367,8 @@ def make_intake(deps: GraphDeps):
             previous
             and result.kind == RequestKind.REFINE
             and any(
-                (key in pending_fields or explicitly_changed_fact(key, latest_text))
+                not (is_housing_comparison(AgentName.PROPERTY, result.constraints.values) and key in HOUSING_INPUT_KEYS)
+                and (key in pending_fields or explicitly_changed_fact(key, latest_text))
                 and key in previous.user_confirmed_facts
                 and previous.user_confirmed_facts[key].value != fact.value
                 for key, fact in result.user_confirmed_facts.items()
@@ -266,6 +408,16 @@ def make_intake(deps: GraphDeps):
         selectors = operation_selector_keys(
             c for c in (deps.agents.capability(n) for n in deps.agents.names()) if c is not None
         ) | {"moving_mode"}
+        if fresh_housing_scope:
+            # A new named scope replaces the old city's authority. An explicitly
+            # named city may overwrite it; otherwise Location resolves the scope.
+            for key in ("city", *SEARCH_SCOPE_KEYS):
+                previous_facts.pop(key, None)
+        if AgentName.PROPERTY in result.domains and result.constraints.values.get("housing_mode") == "compare":
+            # The read-only comparison set can change without changing the chosen
+            # home or authorizing a transaction. LlmIntake already validates each
+            # ID against observed options and requires current user evidence.
+            selectors |= set(HOUSING_INPUT_KEYS)
         # Strip a model-authored Housing reference before conflict detection, not just before geocoding:
         # Housing `near` is a place; an entity reference there would be geocoded as text.
         if entity_reference(result.constraints.values.get("near")):
@@ -302,6 +454,23 @@ def make_intake(deps: GraphDeps):
                     logger.info("prefill_corrected field=%s thread_id=%s request_id=%s", key, thread_id, request_id)
         commit_requested = [k for k in CommitActionKind if commit_fact_key(k) in grounded.facts]
         supported_actions = {kind for name in deps.agents.names() for kind in deps.agents.commit_kinds(name)}
+        comparison_only = result.domains == [AgentName.PROPERTY] and is_housing_comparison(
+            AgentName.PROPERTY, result.constraints.values
+        )
+        if comparison_only:
+            # A read-only comparison cannot renew a booking intent from a past
+            # turn. A fresh, grounded transaction request is still disclosed.
+            commit_requested = [
+                kind
+                for kind in commit_requested
+                if (fact := grounded.facts.get(commit_fact_key(kind)))
+                and fact.evidence.strip()
+                and fact.evidence.casefold() in latest_text.casefold()
+            ]
+            if previous is not None and not commit_requested:
+                result = result.model_copy(
+                    update={"kind": RequestKind.REFINE, "target_task_ids": [], "change_request": None}
+                )
         unsupported = [kind for kind in commit_requested if kind not in supported_actions]
         # A disabled transaction is not a conflict in otherwise valid read
         # tasks. Retain its intent separately and explain it to the user;
@@ -311,10 +480,27 @@ def make_intake(deps: GraphDeps):
         # an unresolved abbreviation must not block unrelated requested domains.
         facts = dict(grounded.facts)
         values = dict(result.constraints.values)
+        # This structured form is supplied by the user, never authored by Intake/Planner.
+        values.pop("moving_options", None)
+        facts.pop("moving_options", None)
         if previous is not None and result.kind != RequestKind.NEW_GOAL:
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
             values = {**carried, **values}
+        if fresh_housing_scope and "city" not in result.user_confirmed_facts:
+            values.pop("city", None)
+            facts.pop("city", None)
+        if (
+            AgentName.PROPERTY in result.domains
+            and is_housing_comparison(AgentName.PROPERTY, values)
+            and "listing_ids" not in result.user_confirmed_facts
+        ):
+            # Old IDs are context, not authorization to choose which homes the
+            # new comparison means. Intake must ground that set for this turn.
+            values.pop("listing_ids", None)
+            facts.pop("listing_ids", None)
+        if state.get("moving_options") is not None and AgentName.RELOCATION in result.domains:
+            values["moving_options"] = state["moving_options"]
         if entity_reference(values.get("near")):
             values.pop("near", None)
             facts.pop("near", None)
@@ -370,17 +556,6 @@ def make_intake(deps: GraphDeps):
                 else:
                     values.pop(key, None)
                     facts.pop(key, None)
-        if previous and "district" in result.user_confirmed_facts and not values.get("city"):
-            # Retain a city's real administrative identity when switching away from a landmark.
-            # Never infer it from the district spelling or invent a geographic alias.
-            prior_property = [
-                r
-                for tid, r in (state.get("task_results") or {}).items()
-                if r.agent == AgentName.PROPERTY and (state.get("task_status") or {}).get(tid) == TaskStatus.DONE
-            ]
-            cities = {c["city"] for r in prior_property for c in r.data.get("candidates", []) if c.get("city")}
-            if len(cities) == 1:
-                values["city"] = next(iter(cities))
         housing_pin = state.get("housing_location")
         if (
             housing_pin
@@ -441,6 +616,13 @@ def make_intake(deps: GraphDeps):
                 result.conflicts.append("Bạn muốn tìm ở khu vực nào? Mình chưa nhận được vùng bản đồ đang xem.")
         elif named_area:
             values.pop("bounding_box", None)
+        # Vé khứ hồi: ngày về trước ngày đi là mâu thuẫn; hỏi lại, không tự sửa (payment-design D12).
+        if values.get("return_date") and values.get("flight_date") and values["return_date"] < values["flight_date"]:
+            result.conflicts.append(
+                f"Ngày về ({values['return_date']}) đang trước ngày đi ({values['flight_date']}). Bạn muốn bay về ngày nào?"
+            )
+            values.pop("return_date", None)
+            facts.pop("return_date", None)
         # Ứng viên địa điểm người dùng bấm chọn trên bản đồ: API đã đối chiếu với Location.
         for key in PLACE_CHOICE_FIELDS:
             if key in result.user_confirmed_facts and not (choice and choice["field"] == key):
@@ -452,6 +634,7 @@ def make_intake(deps: GraphDeps):
             if choice["field"] == "near":
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)
+        viewing_selection = chat_housing_selection(deps, state, facts, values, result)
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
@@ -476,6 +659,13 @@ def make_intake(deps: GraphDeps):
             "planner_questions": [],
             "housing_location": housing_pin,
         }
+        if viewing_selection is not None:
+            update["housing_selection"] = viewing_selection
+            update["housing_selection_changed"] = True
+            if selection_only_turn(state.get("intake"), result):
+                # Chỉ thêm/bỏ căn đang xem: không lập kế hoạch lại hay tìm lại (nhanh, không đổi kết quả).
+                update["outcome"] = Outcome(node="intake", code=OutcomeCode.ANSWER)
+                return update
         if result.kind == RequestKind.NEW_GOAL:
             # Do not display a previous goal's results when a new goal needs input.
             update.update(plan=None, cost_summary=None)

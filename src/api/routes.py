@@ -20,6 +20,7 @@ from src.agents.common import utcnow
 from src.agents.graph import run_config
 from src.agents.intake import redact_pii
 from src.agents.progress import plan_progress
+from src.agents.selections import selected_option, selection_is_current
 from src.agents.wiring import AgentService
 from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 
@@ -129,7 +130,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending and pending.get("type") == "payment_required":
             return _payment_response(thread_id, pending, service)
         if pending:
-            if request.moving_locations or request.housing_location or request.place_choice:
+            if request.moving_locations or request.moving_options or request.housing_location or request.place_choice:
                 raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
             result = await service.graph.ainvoke(
                 Command(
@@ -156,6 +157,9 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     if request.moving_locations
                     else None,
                     "map_view": request.map_view.model_dump(mode="json") if request.map_view else None,
+                    "moving_options": request.moving_options.model_dump(mode="json", exclude_none=True)
+                    if request.moving_options is not None
+                    else None,
                     "place_choice": await _verified_place(service, request.place_choice)
                     if request.place_choice
                     else None,
@@ -306,6 +310,8 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "pending": pending,
         "selections": _selections(values),
         "progress": plan_progress(values),
+        "checkout": service.checkout.thread_view(user_id, thread_id, values) if service.checkout else None,
+        "viewing": service.viewing.thread_view(user_id, thread_id, values) if service.viewing else None,
     }
 
 
@@ -316,25 +322,30 @@ def _selections(values: dict) -> dict:
     address and coordinate to prefill the moving destination."""
     intake = values.get("intake")
     facts = intake.user_confirmed_facts if intake else {}
+    results = values.get("task_results") or {}
     out: dict[str, dict] = {}
+    for task_id, option_id in (values.get("goal_selections") or {}).items():
+        result = results.get(task_id)
+        if not selection_is_current(values, task_id, option_id):
+            continue
+        match = selected_option(result, option_id)
+        if match:
+            out[result.agent.value] = match
+    plan = values.get("plan")
+    current_task_ids = {task.id for task in plan.tasks} if plan else set()
     for key, fact in facts.items():
         if not key.startswith("selected:"):
             continue
         domain = key.split(":", 1)[1]
-        for result in (values.get("task_results") or {}).values():
-            if result.agent.value != domain:
+        for task_id, result in results.items():
+            if (
+                task_id not in current_task_ids
+                or result.agent.value != domain
+                or not selection_is_current(values, task_id, str(fact.value))
+            ):
                 continue
-            match = next(
-                (
-                    item
-                    for items in result.data.values()
-                    if isinstance(items, list)
-                    for item in items
-                    if isinstance(item, dict) and fact.value in (item.get("id"), item.get("option_id"))
-                ),
-                None,
-            )
-            if match is not None:
+            match = selected_option(result, str(fact.value))
+            if match:
                 out[domain] = match
                 break
     return out
@@ -357,8 +368,15 @@ async def delete_thread(thread_id: str, service: Service, user_id: UserId = "ano
                 status_code=409,
                 detail="Hội thoại đang có thanh toán chờ xử lý. Hãy hủy hoặc hoàn tất thanh toán trước khi xóa.",
             )
+        if service.checkout is not None and service.checkout.has_open_attempt(user_id, thread_id):
+            raise HTTPException(
+                status_code=409,
+                detail="Hội thoại có lần thanh toán đang chờ hoặc đang đối soát. Hãy hoàn tất trước khi xóa.",
+            )
         await service.graph.checkpointer.adelete_thread(thread_id)
         await service.deps.session.forget_thread(user_id, thread_id)
+        if service.viewing is not None:
+            service.viewing.delete_thread(user_id, thread_id)
     service.locks.pop(thread_id, None)
     return {"thread_id": thread_id, "deleted": True}
 
@@ -377,6 +395,8 @@ async def agent_status(service: Service):
         "status": "ready",
         "agent": "LifeFlow agent graph",
         "mode": service.mode,
+        "app_payment": service.checkout is not None,
+        "housing_viewing": service.viewing is not None,
         "domains": [d.value for d in service.deps.agents.names()],
         "domain_agents": {
             d.value: {

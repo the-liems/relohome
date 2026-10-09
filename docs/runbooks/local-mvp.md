@@ -48,6 +48,56 @@ docker compose -f config/local-routing.compose.yaml up -d
 
 Build UI một lần: `cd Frontend`, `npm ci`, `npm run build`, rồi trở về gốc repo.
 
+### Khởi động nhanh trên Windows
+
+Sau khi đã có cấu hình, DB và build TypeScript/UI, chạy từ gốc repo:
+
+```powershell
+.\scripts\start-local-mvp.ps1
+```
+
+Script khởi động các container local **đã tồn tại**, kiểm tra schema bằng tài khoản
+ứng dụng, rồi mở sáu service ẩn với log riêng trong `data/local-mvp-logs/`.
+Không restore, không tự migrate, không reset DB hay bật giao dịch sandbox.
+Nếu service thoát hoặc chưa ready, script dừng và chỉ rõ đường dẫn log; không báo
+thành công chỉ vì `Start-Process` đã chạy. Nếu thiếu container, dùng các lệnh
+Compose phía trên sau khi kiểm tra cấu hình, không khởi tạo lại DB đang dùng.
+
+Kiểm tra schema riêng, không gọi LLM:
+
+```powershell
+.venv/Scripts/python.exe scripts/local-integration.py check
+```
+
+Script tái sử dụng service đã chạy và ready, **không tự nạp code/cấu hình mới**.
+Sau khi pull code, đổi DB hoặc `.env`, dừng đúng process cũ rồi chạy lại; không
+mở process thứ hai cùng cổng. Có thể dùng các terminal riêng bên dưới để dễ dừng.
+Lệnh `Start-Process` cũ vẫn dùng được nhưng không có redirect log/readiness nên
+khó biết service nào thoát sớm.
+
+| Service | Cổng | Kiểm tra |
+| --- | --- | --- |
+| Location | 4300 | `/readyz` |
+| Platform/Housing | 4100 | `/health` và preflight schema |
+| Moving MCP | 4400 | `/ready` |
+| Moving API | 4200 | `/ready` |
+| Graph API | 8000 | `/health` |
+| Frontend gateway | 8503 | `/health` (`service=siu-web`) |
+
+Readiness không bảo đảm mọi API ngoài hoạt động hoặc key LLM còn credit.
+
+Nếu snapshot chưa có bảng Moving hoặc thiếu schema POI aliases của nhánh
+QuangDung (migrations `011`–`012`), chạy migration hiện có từ gốc repo:
+
+```powershell
+.venv/Scripts/python.exe scripts/local-integration.py migrate
+```
+
+Lệnh bỏ qua migration đã áp dụng. Kiểm tra `http://127.0.0.1:4200/ready` và
+`http://127.0.0.1:4400/ready` đều 200 sau khi các process chạy; `/health` 200
+chưa chứng minh schema đã sẵn sàng. Đợt 04/10 phát hiện thiếu 5 bảng Moving và
+khắc phục bằng `008_moving_service.sql` có sẵn, không cần sửa code provider.
+
 Mở từng terminal riêng (Ctrl+C dừng đúng process):
 
 ```powershell
@@ -66,7 +116,7 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
 
 ## Thiết lập trên máy mới
 
-1. Python 3.11+, Node 22+, Docker; tạo `.venv`, cài `requirements.txt`.
+1. Python 3.11+, Node 24+, Docker; tạo `.venv`, cài `requirements.txt`.
 2. Sao chép `.env.example` thành `.env`, điền key thật riêng: OpenAI, AhaMove staging,
    SerpApi và ZaloPay sandbox. Liên hệ báo giá phải là liên hệ thật được phép sử dụng.
 3. Chạy `python scripts/init-local-integration.py` sinh token và mật khẩu riêng.
@@ -91,6 +141,32 @@ Nếu restore thất bại, không chạy migrations chồng lên restore chưa 
 Chọn DB đích mới trong cấu hình và điều tra lỗi; giữ DB cũ để kiểm tra.
 Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
 
+### Đổi sang snapshot mới, giữ DB cũ
+
+Chỉ làm khi đã duyệt việc đổi dữ liệu. Giải nén ZIP vào thư mục **mới**, xác minh
+checksum, rồi restore bằng tên DB **chưa tồn tại**:
+
+```powershell
+.venv/Scripts/python.exe scripts/restore-local-snapshot.py --snapshot data/quangdung-snapshot-20261005 --database lifeflow_quangdung_20261005
+```
+
+Đây là ví dụ lần restore 05/10; DB đó hiện đã tồn tại nên **không chạy lại**.
+Script từ chối ghi đè, copy đúng dump đã xác minh vào container (không dùng nhầm
+dump cũ đang mount), restore, `ANALYZE` và migrate/grant cho DB mới. Tham số
+`--database` không tự sửa cấu hình đang chạy. Nếu thất bại, giữ DB dở để điều tra;
+không tự xóa DB hay volume.
+
+Sau khi kiểm số lượng/nguồn, sửa **chỉ** `POSTGRES_DB` trong
+`data/integration.env`, rồi khởi động lại sáu service. Ngày 05/10 đã chuyển từ
+`lifeflow_verified` sang `lifeflow_quangdung_20261005`; DB cũ vẫn còn.
+Muốn quay lại: đặt `POSTGRES_DB=lifeflow_verified` rồi restart service.
+Không đổi key/mật khẩu trong `.env` chỉ để đổi tên DB.
+
+ZIP mới không mang lịch sử quote/order Moving của DB cũ. Đổi lại DB cũ có thể
+đọc lịch sử đó; việc chuyển DB không tự sao chép lịch sử. Không coi checkpoint
+hội thoại còn lưu là bằng chứng một đơn tồn tại trong DB mới. Bộ OSRM đang chạy
+được giữ nguyên; restore PostgreSQL không tự thay các graph OSRM.
+
 ## Thử demo
 
 - Housing: hỏi tìm nhà theo thành phố, ngân sách, tiêu chí; kết quả rỗng là hợp lệ.
@@ -108,8 +184,23 @@ Không chạy `docker compose down -v` nếu còn dữ liệu cần giữ.
   đổi địa chỉ hoặc COD không thuộc form sửa liên hệ, phải đánh giá lại giá/đơn.
 - ZaloPay sandbox độc lập vẫn có API backend và trang Streamlit cũ; frontend React chưa có form demo riêng. UI mới đọc yêu cầu thanh toán từ workflow và kiểm tra kết quả từ provider.
 
-Moving đang CASH. Thanh toán ZaloPay là demo riêng, **chưa phải thanh toán đơn
-AhaMove hay vé máy bay**. Không tự nối hai khoản để tránh thu tiền hai lần.
+### Thanh toán trong app (nhánh `payment-design`)
+
+Chạy `api` với `--payment-demo` (thay cho `--sandbox-writes`) và đặt danh sách tài khoản tester (id trong bảng
+`users` của `data/siu-web.sqlite3`, cách nhau dấu phẩy):
+
+```bash
+PAYMENT_TESTER_USER_IDS=<id1>,<id2> .venv/bin/python scripts/local-integration.py api --payment-demo
+```
+
+Cờ bật `APP_PAYMENT_DEMO_ENABLED`, đặt vé mô phỏng (`FLIGHT_SIMULATION_ENABLED`) và nút "Đã thanh toán (tester)".
+Thu tiền qua ZaloPay sandbox; không tạo đơn AhaMove, chuyển đồ chỉ ghi "đã duyệt". Vé máy bay cần hồ sơ người đặt ở
+Tài khoản → Hồ sơ (lưu mã hóa, khóa ở `data/siu-web-traveler.key` hoặc `SIU_TRAVELER_KEY`). Khi chọn xong phương án,
+chat hiện nút "Thanh toán"; tab Thanh toán trong Kế hoạch có tổng tiền, lịch xem nhà, thỏa thuận và báo đã trả chủ
+nhà. Thiết kế: [payment-design.md](../review/payment-design.md).
+
+Không có `--payment-demo`: Moving vẫn CASH qua form xác nhận như trước; thanh toán ZaloPay là demo riêng, không nối
+với đơn AhaMove hay vé máy bay.
 
 ## An toàn và phục hồi
 
@@ -138,3 +229,5 @@ bị khóa, chọn `--basetemp=data/test-run-<ma-moi>` chưa tồn tại.
 Live tests ở `tests/test_llm_agents/` có cờ opt-in; không tạo mock test mới.
 Workflow `MVP local validation` chỉ lint/build/SQLite, không triển khai hoặc tạo đơn.
 Xem [bằng chứng và giới hạn](../../eval/mvp-local-2026-09-30.md).
+Đo Housing/Flight, đa lượt và UI sau cập nhật 05/10:
+[read latency](../../eval/read-latency-2026-10-05.md).

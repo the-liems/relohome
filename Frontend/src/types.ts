@@ -16,6 +16,25 @@ export interface House extends Data {
   price?: { amount: number; currency: string; period: string };
   thumbnail_url?: string;
   location_accuracy?: string;
+  fees?: Array<{
+    code: string;
+    label: string;
+    amount: number | null;
+    billing_unit: "month" | "one_time" | "kwh" | "m3" | "person_month" | "vehicle_month";
+    required: boolean;
+    refundable: boolean;
+  }>;
+  management?: {
+    publication_status: string;
+    availability_status: string;
+    accepts_contact_requests: boolean;
+    availability_confirmed_at: string | null;
+    poster_type?: "owner" | "manager" | "broker" | "business" | null;
+    poster_name?: string | null;
+    host_verified?: boolean;
+    host_rating?: number | null;
+    host_review_count?: number;
+  } | null;
 }
 export interface Component extends Data {
   id: string;

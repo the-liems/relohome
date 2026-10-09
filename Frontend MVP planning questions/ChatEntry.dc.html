@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F7F9F8;color:#18251F;font-family:'Be Vietnam Pro',system-ui,sans-serif}
+a{color:#256348}a:hover{color:#18251F}
+*{box-sizing:border-box}
+button,input{font-family:inherit}
+@keyframes ce-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ce-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;height:100vh;min-height:560px;display:flex;flex-direction:column;overflow:hidden;background:#F7F9F8;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:#18251F">
+  <header style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid #DCE4DE">
+    <span style="font-weight:700;letter-spacing:.14em;font-size:15px">THE LIEMS</span>
+    <span style="font-size:13px;line-height:20px;color:#58665E">{{ label }}</span>
+  </header>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))">
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <sc-for list="{{ homes }}" as="h" hint-placeholder-count="3">
+        <div style="background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center">
+          <div style="width:72px;height:56px;border-radius:10px;flex:0 0 auto;background:repeating-linear-gradient(135deg,#EEF2EF 0 8px,#E4EAE6 8px 16px)"></div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+            <span style="font-size:16px;line-height:24px;font-weight:600">{{ h.name }}</span>
+            <span style="font-size:14px;line-height:20px;color:#58665E">{{ h.meta }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position:relative;min-height:240px;background:repeating-linear-gradient(0deg,#E9EFEB 0 1px,transparent 1px 48px),repeating-linear-gradient(90deg,#E9EFEB 0 1px,transparent 1px 48px),#F1F5F2">
+      <span style="position:absolute;left:12px;top:12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#58665E">map</span>
+    </div>
+  </div>
+
+  <sc-if value="{{ showBackdrop }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ blur }}" style="position:absolute;inset:0;z-index:10;background:rgba(24,37,31,.08)"></div>
+  </sc-if>
+
+  <div style="position:absolute;left:16px;right:16px;bottom:16px;z-index:11;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none">
+    <sc-if value="{{ hasReply }}" hint-placeholder-val="{{ false }}">
+      <div style="pointer-events:auto;width:100%;max-width:560px;background:#fff;border:1px solid #DCE4DE;border-radius:16px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 24px rgba(24,37,31,.10);animation:ce-in .2s ease-out">
+        <span style="flex:1;font-size:15px;line-height:22px">{{ reply }}</span>
+        <button onClick="{{ closeReply }}" aria-label="Dismiss" style="flex:0 0 auto;width:28px;height:28px;border-radius:999px;border:0;background:#F1F5F2;color:#18251F;cursor:pointer;font-size:16px;line-height:1">×</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ pillCollapsed }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ focus }}" style="pointer-events:auto;height:40px;width:100%;max-width:300px;padding:0 16px;border-radius:999px;border:1px solid #DCE4DE;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(24,37,31,.10);display:flex;align-items:center;gap:10px;cursor:text;color:#58665E;font-size:14px;animation:ce-in .18s ease-out" style-hover="border-color:#7B8B80">
+        <span style="width:8px;height:8px;border-radius:999px;background:#216744;flex:0 0 auto;animation:ce-pulse 1.6s ease-in-out infinite"></span>
+        <span style="flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pillText }}</span>
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid #DCE4DE;border-radius:6px;padding:0 6px;color:#58665E">/</span>
+      </button>
+    </sc-if>
+
+    <sc-if value="{{ showPrompt }}" hint-placeholder-val="{{ false }}">
+      <form onSubmit="{{ send }}" style="pointer-events:auto;width:100%;max-width:560px;height:56px;padding:0 6px 0 20px;border-radius:999px;border:1px solid #7B8B80;background:#fff;box-shadow:0 8px 24px rgba(24,37,31,.12);display:flex;align-items:center;gap:8px;animation:ce-in .18s ease-out">
+        <input ref="{{ inputRef }}" value="{{ text }}" onChange="{{ onText }}" onFocus="{{ focus }}" placeholder="Change anything — cheaper, closer to work, a week later…" aria-label="Message the planner" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:15px;color:#18251F">
+        <button type="submit" aria-label="Send" style="flex:0 0 auto;width:44px;height:44px;border-radius:999px;border:0;background:#18251F;color:#fff;font-size:18px;cursor:pointer">↑</button>
+      </form>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ bubbleCollapsed }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ focus }}" aria-label="Message the planner" style="position:absolute;right:16px;bottom:16px;z-index:11;width:52px;height:52px;border-radius:999px;border:0;background:#18251F;color:#fff;box-shadow:0 6px 20px rgba(24,37,31,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;animation:ce-in .18s ease-out">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+      <span style="position:absolute;top:4px;right:4px;width:10px;height:10px;border-radius:999px;background:#5FB383;border:2px solid #18251F;animation:ce-pulse 1.6s ease-in-out infinite"></span>
+    </button>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pill&quot;,&quot;bubble&quot;,&quot;permanent&quot;],&quot;default&quot;:&quot;pill&quot;,&quot;tsType&quot;:&quot;'pill'|'bubble'|'permanent'&quot;}}">
+class Component extends DCLogic {
+  state = { focused: false, text: '', reply: null, si: 0 };
+  inputRef = React.createRef();
+  statuses = ['Finding movers for 12 Oct…', 'Checking flights SGN → HAN…', 'Plan ready · 2 approvals waiting'];
+  componentDidMount() {
+    this.kd = e => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); this.focus(); }
+      if (e.key === 'Escape') this.blur();
+    };
+    window.addEventListener('keydown', this.kd);
+    this.iv = setInterval(() => this.setState(s => ({ si: (s.si + 1) % this.statuses.length })), 3500);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.kd); clearInterval(this.iv); clearTimeout(this.rt); }
+  focus = () => { this.setState({ focused: true }, () => setTimeout(() => this.inputRef.current?.focus(), 0)); };
+  blur = () => { this.inputRef.current?.blur(); this.setState({ focused: false }); };
+  send = e => {
+    e.preventDefault();
+    const t = this.state.text.trim();
+    if (!t) return;
+    const v = this.props.variant ?? 'pill';
+    this.setState({ text: '', reply: 'Done. Showing 4 homes closer to District 1, all under $900.', focused: v === 'permanent' });
+    this.inputRef.current?.blur();
+    clearTimeout(this.rt);
+    this.rt = setTimeout(() => this.setState({ reply: null }), 7000);
+  };
+  renderVals() {
+    const v = this.props.variant ?? 'pill';
+    const f = this.state.focused;
+    return {
+      label: { pill: 'Entry A · Slim pill', bubble: 'Entry B · Bubble', permanent: 'Entry C · Permanent prompt' }[v],
+      homes: [
+        { name: 'Riverside 2BR', meta: '$860/mo · 12 min to work' },
+        { name: 'Garden studio', meta: '$640/mo · 25 min to work' },
+        { name: 'Lakeview loft', meta: '$910/mo · 8 min to work' }
+      ],
+      pillText: this.statuses[this.state.si],
+      pillCollapsed: v === 'pill' && !f,
+      bubbleCollapsed: v === 'bubble' && !f,
+      showPrompt: v === 'permanent' || f,
+      showBackdrop: v !== 'permanent' && f,
+      hasReply: !!this.state.reply,
+      reply: this.state.reply,
+      text: this.state.text,
+      onText: e => this.setState({ text: e.target.value }),
+      inputRef: this.inputRef,
+      focus: this.focus, blur: this.blur, send: this.send,
+      closeReply: () => this.setState({ reply: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

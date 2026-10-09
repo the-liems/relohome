@@ -1,12 +1,18 @@
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.models.moving_options import MovingOptions
+
 
 class MovingContact(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     name: str = Field(min_length=1, max_length=150)
     mobile: str = Field(pattern=r"^\+?\d{9,15}$")
+    building: str | None = Field(default=None, max_length=200)
+    apartment_or_floor: str | None = Field(default=None, max_length=100)
+    remarks: str | None = Field(default=None, max_length=500)
 
 
 class MovingOrderUpdate(BaseModel):
@@ -37,6 +43,19 @@ class MovingLocations(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pickup: ConfirmedLocation | None = None
     destination: ConfirmedLocation | None = None
+
+
+class MovingQuoteForm(BaseModel):
+    """Explicit quote intent; no contacts, approval or model-authored coordinates."""
+
+    model_config = ConfigDict(extra="forbid")
+    plan_version: int = Field(ge=0, strict=True)
+    pickup: ConfirmedLocation
+    destination: ConfirmedLocation
+    move_date: date
+    move_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    moving_options: MovingOptions = Field(default_factory=MovingOptions)
+    destination_listing_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class BoundingBox(BaseModel):
@@ -74,6 +93,7 @@ class PlaceChoice(BaseModel):
 class ChatRequest(BaseModel):
     housing_location: ConfirmedLocation | None = None
     moving_locations: MovingLocations | None = None
+    moving_options: MovingOptions | None = None
     map_view: MapView | None = None
     place_choice: PlaceChoice | None = None
     message: str = Field(..., min_length=1, max_length=5000, description="Tin nhắn từ user")

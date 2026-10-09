@@ -43,10 +43,23 @@ def place(pid, name, lat, lng, source, match="exact"):
 # --- Place grouping: duplicates of one destination vs real ambiguity ---
 
 
-def test_exact_duplicates_within_radius_are_one_destination_with_richest_geometry():
-    node = place("p1", "Chợ A", 16.06824, 108.22458, "node/1")
+def test_same_osm_way_and_area_are_one_destination_with_richest_geometry():
+    node = place("p1", "Chợ A", 16.06824, 108.22458, "way/1")
     area = place("p2", "Chợ A", 16.06835, 108.22428, "area/2")  # ~35 m away
     assert pick_place([node, area])["canonical_id"] == "p2"
+
+
+def test_nearby_same_name_stops_are_not_the_same_osm_object():
+    a = place("p1", "Đại học Bách Khoa", 21.0050, 105.8450, "node/1")
+    b = place("p2", "Đại học Bách Khoa", 21.0051, 105.8451, "node/2")
+    assert pick_place([a, b]) is None
+
+
+def test_same_name_different_category_is_not_merged():
+    a = place("p1", "Bách Khoa", 21.0050, 105.8450, "way/1")
+    b = place("p2", "Bách Khoa", 21.0051, 105.8451, "area/2")
+    a["category"], b["category"] = "university", "bus_stop"
+    assert pick_place([a, b]) is None
 
 
 def test_exact_matches_far_apart_stay_ambiguous_and_carry_choices():
@@ -381,7 +394,7 @@ def amenity_intake(*, explore, legacy_anchor=False):
         facts=[
             {"key": "city", "value": "Hà Nội", "evidence": "Hà Nội", "suggestion_key": None},
             {
-                "key": "map_categories" if explore and not legacy_anchor else "nearby_categories",
+                "key": "map_categories" if explore else "nearby_categories",
                 "value": ["supermarket"],
                 "evidence": "siêu thị",
                 "suggestion_key": None,
@@ -457,7 +470,7 @@ async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_ki
     raw = amenity_intake(explore=True, legacy_anchor=True)
     assert raw.domains == [AgentName.PROPERTY, AgentName.MAP]
     assert raw.constraints.values["map_near"] == "upstream:property"
-    assert raw.constraints.values["nearby_categories"] == ["supermarket"]
+    assert raw.constraints.values["map_categories"] == ["supermarket"]
     # Runtime passes every intake through this node before either planner sees it.
     node = make_intake(test_deps(ScriptedIntake([raw]), TemplatePlanner()))
     update = await node(

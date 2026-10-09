@@ -57,6 +57,8 @@ const AREA_FILTER_KEYS = [
   "max_area_m2",
   "district",
   "administrative_area_ids",
+  "center",
+  "radius_m",
   "amenities",
   "listing_type",
   "property_type",

@@ -109,13 +109,8 @@ export const HousingSearchRequestSchema = z
         path: ['radius_m'],
       })
     }
-    if (request.bounding_box && request.center) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Use either bounding_box or center/radius_m, not both.',
-        path: ['bounding_box'],
-      })
-    }
+    // Viewport AND proximity filter are both applied by the query layer.
+    // Panning must not silently remove the user's radius.
     if (
       request.min_price &&
       request.max_price &&
@@ -226,6 +221,26 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
   description: z.string().nullable(),
   images: z.array(z.object({ url: z.url(), alt: z.string().nullable() })),
   extra_attributes: z.record(z.string(), z.unknown()),
+  fees: z.array(z.object({
+    code: z.string(),
+    label: z.string(),
+    amount: z.number().nonnegative().nullable(),
+    billing_unit: z.enum(['month', 'one_time', 'kwh', 'm3', 'person_month', 'vehicle_month']),
+    required: z.boolean(),
+    refundable: z.boolean(),
+  })).default([]),
+  management: z.object({
+    publication_status: z.enum(['draft', 'pending_review', 'published', 'hidden', 'rejected', 'deleted']),
+    availability_status: z.enum(['vacant', 'rented', 'paused']),
+    accepts_contact_requests: z.boolean(),
+    availability_confirmed_at: z.iso.datetime().nullable(),
+    // Poster label for tenants; identity fields stay private (host-mode-design §3.4).
+    poster_type: z.enum(['owner', 'manager', 'broker', 'business']).nullable().default(null),
+    poster_name: z.string().nullable().default(null),
+    host_verified: z.boolean().default(false),
+      host_rating: z.number().min(1).max(5).nullable().optional(),
+      host_review_count: z.number().int().nonnegative().optional(),
+  }).nullable().default(null),
 })
 
 export const HousingMapRequestSchema = z.object({
@@ -237,6 +252,8 @@ export const HousingMapRequestSchema = z.object({
   text: HousingSearchRequestSchema.shape.text,
   district: HousingSearchRequestSchema.shape.district,
   administrative_area_ids: HousingSearchRequestSchema.shape.administrative_area_ids,
+  center: HousingSearchRequestSchema.shape.center,
+  radius_m: HousingSearchRequestSchema.shape.radius_m,
   min_price: HousingSearchRequestSchema.shape.min_price,
   max_price: HousingSearchRequestSchema.shape.max_price,
   currency: HousingSearchRequestSchema.shape.currency,

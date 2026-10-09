@@ -1,4 +1,1314 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
+import AxeBuilder from "@axe-core/playwright";
+
+async function auditAccessibility(page: Page) {
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    result.violations.map((v) => ({
+      id: v.id,
+      impact: v.impact,
+      targets: v.nodes.map((n) => n.target),
+    })),
+  ).toEqual([]);
+}
+
+// Axe does not detect text painted underneath an icon or another control.
+async function assertInputIconSpacing(wrapper: Locator) {
+  const layout = await wrapper.evaluate((el) => {
+    const input = el.querySelector("input")!;
+    const icon = el.querySelector("svg")!;
+    const field = input.getBoundingClientRect();
+    const symbol = icon.getBoundingClientRect();
+    const style = getComputedStyle(input);
+    return {
+      textStart:
+        field.left +
+        parseFloat(style.paddingLeft) +
+        parseFloat(style.borderLeftWidth),
+      iconEnd: symbol.right,
+      border: parseFloat(style.borderTopWidth),
+      fieldEnd: field.right,
+      wrapperEnd: el.getBoundingClientRect().right,
+    };
+  });
+  expect(layout.textStart).toBeGreaterThanOrEqual(layout.iconEnd + 4);
+  expect(layout.border).toBe(0);
+  expect(layout.fieldEnd).toBeLessThanOrEqual(layout.wrapperEnd + 1);
+}
+
+test("layout regression: moving sections, selected home and pickup catalog remain usable without overlapping text", async ({
+  page,
+}, info) => {
+  test.setTimeout(120000);
+  const { thread, turns } = await movingFormFixture(page);
+  for (const key of [
+    "from_address",
+    "to_address",
+    "pickup_coordinate",
+    "destination_coordinate",
+  ]) {
+    delete thread.state.intake.constraints.values[key];
+    delete thread.state.intake.user_confirmed_facts[key];
+  }
+  const home = {
+    ...houses[0],
+    address:
+      "325/29A Đường Bạch Đằng, Phường 15, Quận Bình Thạnh, Thành phố Hồ Chí Minh",
+  };
+  thread.state.intake.user_confirmed_facts["selected:property"] = {
+    value: home.id,
+  };
+  await page.route("**/web/api/housing/listing-a", (route) =>
+    route.fulfill({ json: home }),
+  );
+  await page.route("**/web/api/map/search?**", (route) =>
+    route.fulfill({
+      json: {
+        results: [
+          {
+            canonical_id: "layout-pickup",
+            name: "12 Lê Lợi, Bến Nghé, Quận 1, Hồ Chí Minh",
+            entity_type: "place",
+            location: { lat: 10.775, lng: 106.697 },
+          },
+        ],
+      },
+    }),
+  );
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [320, 768, 1024, 1920]) {
+    await page.setViewportSize({ width, height: 990 });
+    await page.goto("/ai/th_ui");
+    const form = page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+    });
+    const navigation = form.getByRole("navigation", {
+      name: "Các mục thông tin chuyển đồ",
+    });
+    await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
+    const clippedNavigation = await navigation.evaluate((nav) =>
+      [...nav.querySelectorAll("button")]
+        .filter((button) => {
+          const bounds = button.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          return [...range.getClientRects()].some(
+            (text) =>
+              text.left < bounds.left ||
+              text.right > bounds.right + 1 ||
+              text.top < bounds.top ||
+              text.bottom > bounds.bottom + 1,
+          );
+        })
+        .map((button) => button.textContent),
+    );
+    expect(clippedNavigation).toEqual([]);
+    for (const wrapper of await form.locator(".mv-location-input").all())
+      await assertInputIconSpacing(wrapper);
+    await expect(form.locator(".mv-selected-home")).toContainText(home.address);
+    // Every section still has its original fields; navigation only moves the scroll container.
+    await navigation
+      .getByRole("button", { name: "Lịch chuyển", exact: true })
+      .click();
+    await expect(form.getByLabel("Ngày chuyển")).toBeInViewport();
+    await expect(form.getByLabel("Ngày chuyển")).toHaveValue(tomorrow());
+    await navigation
+      .getByRole("button", { name: "Hàng hóa", exact: true })
+      .click();
+    await expect(
+      form.getByRole("button", { name: "Thêm kiện hàng" }),
+    ).toBeInViewport();
+    await form.getByRole("button", { name: "Thêm kiện hàng" }).click();
+    await form.getByLabel("Mô tả kiện 1").fill("Bàn làm việc và thùng quần áo");
+    await form.getByLabel("Nặng · kg kiện 1").fill("25");
+    await navigation
+      .getByRole("button", { name: "Giao nhận", exact: true })
+      .click();
+    await expect(
+      form.getByLabel("Yêu cầu bằng chứng giao hàng"),
+    ).toBeInViewport();
+    await form.getByLabel("Yêu cầu bằng chứng giao hàng").check();
+    await navigation
+      .getByRole("button", { name: "Chọn xe", exact: true })
+      .click();
+    await expect(
+      form.getByText("Chọn điểm lấy để hiển thị gói xe", { exact: true }),
+    ).toBeInViewport();
+    await form
+      .getByRole("button", { name: "Chọn điểm lấy đồ A", exact: true })
+      .click();
+    await expect(form.getByLabel("Địa chỉ lấy đồ")).toBeFocused();
+    await expect(form.getByLabel("Địa chỉ lấy đồ")).toBeInViewport();
+    await form.getByLabel("Địa chỉ lấy đồ").fill("12 Lê Lợi");
+    await form
+      .getByRole("button", {
+        name: "12 Lê Lợi, Bến Nghé, Quận 1, Hồ Chí Minh",
+        exact: true,
+      })
+      .click();
+    await navigation
+      .getByRole("button", { name: "Chọn xe", exact: true })
+      .click();
+    await selectMovingService(form, "TEST-VAN");
+    await expect(form.locator('input[value="TEST-VAN"]')).toBeChecked();
+    await navigation
+      .getByRole("button", { name: "Hàng hóa", exact: true })
+      .click();
+    await expect(form.getByLabel("Mô tả kiện 1")).toHaveValue(
+      "Bàn làm việc và thùng quần áo",
+    );
+    await navigation
+      .getByRole("button", { name: "Địa điểm", exact: true })
+      .click();
+    await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
+    const top = await page.locator(".moving-booking .ws-top").boundingBox();
+    const launcher = page.getByRole("button", { name: "Hiện khung chat" });
+    const box = await launcher.boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(top!.y + top!.height + 4);
+    await launcher.click();
+    await assertInputIconSpacing(page.locator(".ws-dock-input"));
+    const dock = await page.locator(".ws-dock").boundingBox();
+    expect(dock!.y).toBeGreaterThanOrEqual(top!.y + top!.height + 4);
+    await page.getByRole("button", { name: "Ẩn khung chat" }).click();
+    await page.screenshot({
+      path: info.outputPath(`moving-addresses-${width}.png`),
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+  }
+  expect(turns).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("layout regression: flight timeline, housing and history inputs keep separate text and controls", async ({
+  page,
+}, info) => {
+  test.setTimeout(120000);
+  const { thread, component, turns } = await fixture(page);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    thread.messages = [];
+    seed(thread, [
+      {
+        id: "layout-flight",
+        type: "flight",
+        task_id: "flight",
+        data: {
+          origin: "SGN",
+          destination: "HAN",
+          offers: [
+            {
+              id: "layout-flight",
+              carrier:
+                "Vietnam Airlines · Vietnam Airlines và đối tác khai thác",
+              depart_at: tomorrow() + "T09:00:00+07:00",
+              arrive_at: tomorrow() + "T11:00:00+07:00",
+              stops: 0,
+              fare_vnd: 1700000,
+              expires_at: new Date(Date.now() + 86400000).toISOString(),
+            },
+          ],
+        },
+      },
+    ]);
+    await page.goto("/ai/th_ui");
+    const timeline = page.locator(".svc-timeline");
+    await expect(timeline).toBeVisible();
+    const segments = await timeline
+      .locator(":scope > span")
+      .evaluateAll((items) =>
+        items.map((el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, right: r.right };
+        }),
+      );
+    expect(segments[0].right + 4).toBeLessThanOrEqual(segments[1].left);
+    expect(segments[1].right + 4).toBeLessThanOrEqual(segments[2].left);
+    await page.getByRole("button", { name: "Hiện khung chat" }).click();
+    await assertInputIconSpacing(page.locator(".ws-dock-input"));
+    await page
+      .getByLabel("Tin nhắn cho ReloHome")
+      .fill("Đổi ngày bay và thêm một hành khách");
+    await page.getByRole("button", { name: "Ẩn khung chat" }).click();
+    await page.screenshot({
+      path: info.outputPath(`flight-text-${width}.png`),
+      fullPage: true,
+    });
+    thread.messages = [];
+    seed(thread, [component]);
+    await page.goto("/ai/th_ui");
+    await expect(
+      page.getByRole("region", { name: "Bản đồ nhà ở", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Hiện khung chat" }).click();
+    await assertInputIconSpacing(page.locator(".ws-dock-input"));
+    await page.getByRole("button", { name: "Ẩn khung chat" }).click();
+    await page.getByRole("button", { name: "Lịch sử", exact: true }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "Cuộc trò chuyện của bạn",
+    });
+    await assertInputIconSpacing(dialog.locator(".search-row"));
+    await page.keyboard.press("Escape");
+    await page.getByRole("link", { name: "Mở tài khoản" }).click();
+    await assertInputIconSpacing(page.locator(".history-search"));
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+  }
+  expect(errors).toEqual([]);
+  expect(turns).toEqual([]);
+});
+
+test("production: landmarks, contrast and responsive controls at required widths", async ({
+  page,
+}, info) => {
+  test.setTimeout(120000);
+  const { turns } = await fixture(page);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: width === 320 ? 800 : 960 });
+    await page.goto("/ai");
+    await expect(page.locator(".welcome")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+    for (const control of await page
+      .locator(".header-actions button:visible, .header-actions a:visible")
+      .all()) {
+      const box = await control.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      if (width === 320) {
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await auditAccessibility(page);
+    await page.getByRole("link", { name: "Mở tài khoản" }).click();
+    await expect(
+      page.getByRole("tab", { name: "Hồ sơ", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+    await auditAccessibility(page);
+    await page.screenshot({
+      path: info.outputPath(`account-${width}.png`),
+      fullPage: true,
+    });
+  }
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await auditAccessibility(page);
+  await page.goto("/");
+  await expect(page.locator(".landing-page")).toBeVisible();
+  await auditAccessibility(page);
+  await page.screenshot({
+    path: info.outputPath("landing-production-dark.png"),
+    fullPage: true,
+  });
+  expect(errors).toEqual([]);
+  expect(turns).toEqual([]);
+});
+
+test("production: keyboard tabs, native modal focus and readonly flight detail preserve contracts", async ({
+  page,
+}) => {
+  const { thread, turns } = await fixture(page);
+  await page.goto("/ai");
+  const launcher = page.getByRole("button", { name: /Tìm nhà Một nơi/ });
+  await launcher.focus();
+  await launcher.press("Enter");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await auditAccessibility(page);
+  await dialog.getByRole("button", { name: "Đóng", exact: true }).focus();
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await dialog.evaluate((el) => el.contains(document.activeElement)),
+  ).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(launcher).toBeFocused();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
+  const tabs = page.getByRole("tablist", { name: "Nội dung kế hoạch" });
+  await tabs.getByRole("tab", { name: "Tiến trình" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.getByRole("tab", { name: "Chi phí" })).toBeFocused();
+  await expect(tabs.getByRole("tab", { name: "Tiến trình" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.keyboard.press("Enter");
+  await expect(tabs.getByRole("tab", { name: "Chi phí" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await auditAccessibility(page);
+  await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Mở tài khoản" }).click();
+  const accountTabs = page.getByRole("tablist", { name: "Nội dung tài khoản" });
+  await accountTabs
+    .getByRole("tab", { name: "Lịch sử yêu cầu", exact: true })
+    .focus();
+  await page.keyboard.press("End");
+  await expect(accountTabs.getByRole("tab", { name: /Đã lưu/ })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    accountTabs.getByRole("tab", { name: /Đã lưu/ }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(turns).toEqual([]);
+  seed(thread, [
+    {
+      id: "audit-flight",
+      type: "flight",
+      task_id: "flight",
+      data: {
+        origin: "SGN",
+        destination: "HAN",
+        offers: [
+          {
+            id: "audit-flight",
+            carrier: "Vietnam Airlines",
+            depart_at: tomorrow() + "T09:00:00+07:00",
+            arrive_at: tomorrow() + "T11:00:00+07:00",
+            stops: 0,
+            fare_vnd: 1700000,
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+        ],
+      },
+    },
+  ]);
+  await page.route("**/web/api/flight/audit-flight", (route) =>
+    route.fulfill({
+      json: {
+        id: "audit-flight",
+        carrier: "Vietnam Airlines",
+        fare_vnd: 1700000,
+        segments: [],
+        expires_at: new Date(Date.now() + 86400000).toISOString(),
+      },
+    }),
+  );
+  await page.goto("/ai/th_ui");
+  const flight = page.getByRole("button", {
+    name: "Xem chuyến bay Vietnam Airlines lúc 09:00",
+  });
+  await flight.focus();
+  await flight.press("Enter");
+  await expect(
+    page.getByRole("complementary", { name: "Chi tiết hành trình" }),
+  ).toBeVisible();
+  await auditAccessibility(page);
+  expect(turns).toEqual([]);
+});
+
+test("production: housing map and moving UI pass accessibility without losing form values", async ({
+  page,
+}, info) => {
+  test.setTimeout(90000);
+  const { thread, component, turns } = await fixture(page);
+  seed(thread, [component]);
+  await page.goto("/ai/th_ui");
+  await expect(page.locator(".map-workspace .ws-card")).toHaveCount(2);
+  await auditAccessibility(page);
+  await page.screenshot({
+    path: info.outputPath("housing-production.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Hiện khung chat" }).click();
+  await page
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true })
+    .fill("Giữ nguyên bản nháp");
+  await page.getByRole("button", { name: "Ẩn khung chat" }).click();
+  await page.getByRole("button", { name: "Hiện khung chat" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true }),
+  ).toHaveValue("Giữ nguyên bản nháp");
+  expect(turns).toEqual([]);
+  await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByLabel("Ghi chú cho tài xế").fill("Cổng sau, giữ nguyên");
+  await auditAccessibility(page);
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  const enForm = page.getByRole("complementary", { name: "Moving details" });
+  await expect(enForm.getByLabel("Driver notes")).toHaveValue(
+    "Cổng sau, giữ nguyên",
+  );
+  await expect(enForm.locator('input[value="TEST-TRUCK"]')).toBeChecked();
+  await auditAccessibility(page);
+  await page.screenshot({
+    path: info.outputPath("moving-production-dark.png"),
+    fullPage: true,
+  });
+});
+
+test("production: moving and flight panes fit narrow, tablet and desktop screens", async ({
+  page,
+}, info) => {
+  test.setTimeout(90000);
+  const { thread } = await movingFormFixture(page);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/ai/th_ui");
+    const form = page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+    });
+    await expect(form).toBeVisible();
+    const canvas = await page.locator(".moving-booking .ws-map").boundingBox();
+    expect(canvas!.height).toBeGreaterThan(200);
+    expect(canvas!.width).toBeGreaterThan(200);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+    await selectMovingService(form, "TEST-TRUCK");
+    await expect(form.locator('input[value="TEST-TRUCK"]')).toBeChecked();
+    if (width === 320) await auditAccessibility(page);
+    await page.screenshot({
+      path: info.outputPath(`moving-${width}.png`),
+      fullPage: true,
+    });
+  }
+  seed(thread, [
+    {
+      id: "responsive-flight",
+      type: "flight",
+      task_id: "flight",
+      data: {
+        origin: "SGN",
+        destination: "HAN",
+        offers: [
+          {
+            id: "responsive-flight",
+            carrier: "Vietnam Airlines",
+            depart_at: tomorrow() + "T09:00:00+07:00",
+            arrive_at: tomorrow() + "T11:00:00+07:00",
+            stops: 0,
+            fare_vnd: 1700000,
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+        ],
+      },
+    },
+  ]);
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/ai/th_ui");
+    const flights = page.getByRole("region", { name: "Chuyến bay" });
+    await expect(flights).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+    await expect(
+      flights.getByRole("button", { name: "Chọn chuyến này", exact: true }),
+    ).toBeVisible();
+    await auditAccessibility(page);
+    await page.screenshot({
+      path: info.outputPath(`flight-${width}.png`),
+      fullPage: true,
+    });
+  }
+  expect(errors).toEqual([]);
+});
+
+test("production: motion enhances feedback without hiding content and respects reduced motion", async ({
+  page,
+}) => {
+  const { turns } = await fixture(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await expect(page.locator(".landing-hero-media img")).toHaveCSS(
+    "animation-name",
+    "cover-settle",
+  );
+  await page.locator("#services").scrollIntoViewIfNeeded();
+  await expect(page.locator("#services")).toHaveAttribute(
+    "data-motion",
+    "visible",
+  );
+  await expect(page.locator("#services")).toHaveCSS("opacity", "1");
+  await auditAccessibility(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(page.locator(".landing-hero-media img")).toHaveCSS(
+    "animation-name",
+    "none",
+  );
+  await expect(page.locator("#services")).not.toHaveAttribute(
+    "data-motion",
+    "ready",
+  );
+  expect(turns).toEqual([]);
+});
+
+test("landing cover keeps the home visible and the primary action readable across screen sizes", async ({
+  page,
+}, info) => {
+  const { turns } = await fixture(page, false);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const cover = page.locator(".landing-hero");
+    const image = page.locator(".landing-hero-media img");
+    await expect(page.locator(".landing-page .robot, .landing-hero-caption")).toHaveCount(0);
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+    await expect(image).toHaveCSS("object-fit", "cover");
+    const bounds = await cover.boundingBox();
+    expect(bounds!.x).toBe(0);
+    expect(bounds!.width).toBe(width);
+    const action = await page.getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true }).boundingBox();
+    expect(action!.y + action!.height).toBeLessThanOrEqual(900);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await page.screenshot({ path: info.outputPath(`home-cover-${width}.png`) });
+  }
+  await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await auditAccessibility(page);
+  await page.screenshot({ path: info.outputPath("home-cover-dark.png") });
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await expect(page.getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true })).toBeInViewport();
+  await auditAccessibility(page);
+  await page.screenshot({ path: info.outputPath("home-cover-dark-mobile.png") });
+  expect(turns).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("landing: public introduction, active guide and roommates, CTA uses existing login and chat", async ({
+  page,
+}, info) => {
+  const { turns } = await fixture(page, false);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await expect(page.locator(".landing-page")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Tìm nơi ở mới/ }),
+  ).toBeVisible();
+  await expect(page.locator(".composer")).toHaveCount(0);
+  const image = page.locator(".landing-hero-media img");
+  await expect
+    .poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth))
+    .toBeGreaterThan(0);
+  const cta = page.getByRole("link", {
+    name: "Bắt đầu cùng ReloHome",
+    exact: true,
+  });
+  const box = await cta.boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(
+    info.project.name === "mobile" ? 844 : 960,
+  );
+  await expect(page.locator("#next")).toContainText("ĐANG HOẠT ĐỘNG");
+  await expect(page.locator("#guide .landing-guide-grid article")).toHaveCount(
+    3,
+  );
+  await expect(page.locator("#guide")).toContainText("ĐANG HOẠT ĐỘNG");
+  await expect(page.locator("#guide a, #next a").first()).toBeVisible();
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: "Mở điều hướng" }).click();
+  if (info.project.name === "mobile") {
+    await page
+      .getByRole("navigation", { name: "Điều hướng giới thiệu" })
+      .getByRole("link", { name: "Dịch vụ", exact: true })
+      .focus();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", { name: "Mở điều hướng" }),
+    ).toBeFocused();
+    await page.getByRole("button", { name: "Mở điều hướng" }).click();
+  }
+  await page
+    .getByRole("navigation", { name: "Điều hướng giới thiệu" })
+    .getByRole("link", { name: "Cẩm nang", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#guide$/);
+  if (info.project.name === "mobile")
+    await expect(
+      page.getByRole("button", { name: "Mở điều hướng" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(page.locator("#guide")).toContainText("AVAILABLE NOW");
+  await expect(page.locator("#next")).toContainText("AVAILABLE NOW");
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await page.screenshot({
+    path: info.outputPath("landing-dark-en.png"),
+    fullPage: true,
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(
+    page.getByRole("heading", { name: /Find your next home/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await page.getByRole("button", { name: "VI", exact: true }).click();
+  await page.screenshot({
+    path: info.outputPath("landing-light-vi.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/ai$/);
+  await expect(
+    page.getByRole("heading", { name: "Chào bạn quay lại" }),
+  ).toBeVisible();
+  await page.getByLabel("Email", { exact: true }).fill("ui@example.test");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("password-test-123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page.locator(".welcome")).toBeVisible();
+  await page.goto("/");
+  await expect(page.locator(".landing-page")).toBeVisible();
+  if (info.project.name === "desktop")
+    await expect(
+      page.getByRole("link", { name: "Vào không gian ReloHome" }),
+    ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Trò chuyện với ReloHome", exact: true })
+    .click();
+  await expect(page.locator(".welcome")).toBeVisible();
+  expect(turns).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("moving picker explains vehicle types, selects packages directly and preserves provider IDs", async ({
+  page,
+}, info) => {
+  const { turns } = await movingFormFixture(page);
+  const catalog = [
+    ...movingCatalog,
+    { service_id: "HAN-TRUCK-ECO-750", name: "Tiêu chuẩn 750kg", requests: [] },
+    { service_id: "HAN-TRUCK-ECO-500", name: "Tiêu chuẩn 500kg", requests: [] },
+    {
+      service_id: "HAN-TRUCK-ECO-1000",
+      name: "Tiêu chuẩn 1000kg",
+      description: "Lên tới 850kg",
+      requests: [],
+    },
+    { service_id: "HAN-VAN-500", name: "Xe VAN 500kg", requests: [] },
+    { service_id: "HAN-BIKE", name: "Siêu Tốc", requests: [] },
+    { service_id: "HAN-ECO", name: "Siêu Tốc - Tiết Kiệm", requests: [] },
+    { service_id: "SGN-POOL", name: "Siêu Rẻ", requests: [] },
+    { service_id: "SGN-AIPOB", name: "Mua hộ với AI", requests: [] },
+    {
+      service_id: "HAN-TRUCK-ECO-1500",
+      name: "Tiêu chuẩn 1500kg",
+      description: "Khoang hàng 3.2 x 1.6 x 1.7 m. Lên tới 1500 kg",
+      requests: [],
+    },
+    { service_id: "HAN-PICKUP-TRUCK", name: "Xe Bán Tải", requests: [] },
+    { service_id: "SGN-TRICYCLE", name: "Xe Ba Gác", requests: [] },
+    { service_id: "UNKNOWN-9000", name: "Dịch vụ mới", requests: [] },
+  ];
+  await page.route("**/web/api/moving/services?**", (route) =>
+    route.fulfill({ json: { services: catalog } }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  const groups = form.getByRole("group", { name: "Loại xe AhaMove" });
+  await expect(
+    groups.getByRole("button", { name: "Để ReloHome gợi ý" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    groups.getByRole("button", { name: "Gói khác", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    form.locator('select[aria-label="Tải trọng AhaMove"]'),
+  ).toHaveCount(0);
+  if (info.project.name === "desktop") {
+    await groups.getByRole("button", { name: "Xe máy", exact: true }).hover();
+    await expect(
+      form.getByRole("region", { name: "Giới thiệu Xe máy" }),
+    ).toBeVisible();
+    await expect(
+      groups.getByRole("button", { name: "Để ReloHome gợi ý" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(turns).toEqual([]);
+  }
+  await groups.getByRole("button", { name: "Xe tải", exact: true }).click();
+  await expect(
+    form.getByRole("region", { name: "Giới thiệu Xe tải" }),
+  ).toContainText("thùng hàng riêng");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText(
+    "chọn gói dịch vụ cụ thể",
+  );
+  expect(turns).toEqual([]);
+  await form.getByRole("button", { name: /Xem tất cả .* gói xe/ }).click();
+  await expect(form.getByRole("radio")).toHaveCount(5);
+  await form.locator('input[value="HAN-TRUCK-ECO-1500"]').check();
+  await expect(form.locator(".mv-service-choice.selected")).toContainText(
+    "Khoang hàng 3.2 x 1.6 x 1.7 m",
+  );
+  await form
+    .getByRole("button", { name: "Tải lại danh mục", exact: true })
+    .click();
+  await expect(form.locator('input[value="HAN-TRUCK-ECO-1500"]')).toBeChecked();
+  await expect(
+    groups.getByRole("button", { name: "Xe tải", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await form.locator('input[value="TEST-TRUCK"]').check();
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form.getByLabel("Tiền thu hộ · VND").fill("100000");
+  await groups.getByRole("button", { name: "Xe van", exact: true }).click();
+  await expect(form.getByLabel("Tiền thu hộ · VND")).toHaveValue("");
+  await expect(
+    form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
+  ).toHaveCount(0);
+  await form.locator('input[value="HAN-VAN-500"]').check();
+  await expect(
+    form
+      .getByRole("region", { name: "Giới thiệu Xe van" })
+      .locator('svg[data-vehicle="van"]'),
+  ).toBeVisible();
+  await groups.getByRole("button", { name: "Xe máy", exact: true }).click();
+  await expect(
+    groups
+      .getByRole("button", { name: "Xe máy", exact: true })
+      .locator("svg.lucide-motorbike"),
+  ).toBeVisible();
+  await expect(form.getByRole("radio")).toHaveCount(3);
+  await expect(
+    form.locator('input[value="SGN-AIPOB"],input[value="UNKNOWN-9000"]'),
+  ).toHaveCount(0);
+  await form.locator('input[value="HAN-ECO"]').check();
+  await groups.getByRole("button", { name: "Xe máy", exact: true }).click();
+  await expect(form.locator('input[value="HAN-ECO"]')).toBeChecked();
+  await form.getByRole("button", { name: "Đóng giới thiệu xe" }).click();
+  await expect(form.locator(".mv-vehicle-guide")).toHaveCount(0);
+  await groups.getByRole("button", { name: "Xe bán tải", exact: true }).click();
+  await expect(form.getByRole("radio")).toHaveCount(1);
+  await form.locator('input[value="HAN-PICKUP-TRUCK"]').check();
+  await groups.getByRole("button", { name: "Xe ba gác", exact: true }).click();
+  await form.locator('input[value="SGN-TRICYCLE"]').check();
+  await groups.getByRole("button", { name: "Xe tải", exact: true }).click();
+  await form.locator('input[value="HAN-TRUCK-ECO-750"]').check();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  const enForm = page.getByRole("complementary", { name: "Moving details" });
+  await expect(
+    enForm.locator('input[value="HAN-TRUCK-ECO-750"]'),
+  ).toBeChecked();
+  await page.screenshot({
+    path: info.outputPath("moving-picker.png"),
+    fullPage: true,
+  });
+  await enForm.getByRole("button", { name: "Confirm and get quote" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options).toMatchObject({
+    service_id: "HAN-TRUCK-ECO-750",
+    requests: [],
+  });
+  expect(turns[0].moving_options).not.toHaveProperty("family");
+  expect(turns[0].moving_options).not.toHaveProperty("capacity");
+  expect(turns[0].pickup).toMatchObject({
+    lat: 21,
+    lng: 105.84,
+    confirmed: true,
+  });
+});
+
+test("moving van choice shows only its supported sizes and keeps compact selection controls", async ({
+  page,
+}, info) => {
+  const { turns } = await movingFormFixture(page);
+  let catalog = [
+    movingCatalog[0],
+    {
+      service_id: "HAN-VAN-500",
+      name: "Xe VAN 500kg",
+      description: "Khoang 160 x 120 x 110 cm. Tối đa 500kg",
+      requests: [],
+    },
+    {
+      service_id: "HAN-VAN-750",
+      name: "Xe VAN 750kg",
+      description: "Khoang 200 x 140 x 130 cm. Lên tới 750kg",
+      requests: [],
+    },
+    {
+      service_id: "HAN-VAN-1000",
+      name: "Xe VAN 1000kg",
+      description: "Khoang 230 x 150 x 140 cm. Lên tới 850kg",
+      requests: [],
+    },
+    { service_id: "HAN-TRUCK-ECO-500", name: "Tiêu chuẩn 500kg", requests: [] },
+    { service_id: "HAN-BIKE", name: "Siêu Tốc", requests: [] },
+  ];
+  await page.route("**/web/api/moving/services?**", (route) =>
+    route.fulfill({ json: { services: catalog } }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  const groups = form.getByRole("group", { name: "Loại xe AhaMove" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await groups.getByRole("button", { name: "Xe van", exact: true }).click();
+  await expect(form.locator(".mv-service-picker legend")).toHaveText(
+    "Các gói Xe van tại điểm A",
+  );
+  await expect(form.getByRole("radio")).toHaveCount(3);
+  expect(
+    await form
+      .getByRole("radio")
+      .evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value)),
+  ).toEqual(["HAN-VAN-500", "HAN-VAN-750", "HAN-VAN-1000"]);
+  await expect(
+    form.locator(
+      'input[value="TEST-TRUCK"], input[value="HAN-TRUCK-ECO-500"], input[value="HAN-BIKE"]',
+    ),
+  ).toHaveCount(0);
+  await expect(
+    form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
+  ).toHaveCount(0);
+  for (const radio of await form.getByRole("radio").all()) {
+    const box = await radio.boundingBox();
+    expect(box!.width).toBeLessThanOrEqual(18);
+    expect(box!.height).toBeLessThanOrEqual(18);
+  }
+  for (const card of await form.locator(".mv-service-choice").all())
+    expect((await card.boundingBox())!.height).toBeLessThanOrEqual(65);
+  await form.locator('input[value="HAN-VAN-1000"]').check();
+  await expect(form.locator(".mv-service-choice.selected")).toContainText(
+    "Lên tới 850kg",
+  );
+  if (info.project.name === "desktop")
+    await groups.getByRole("button", { name: "Xe tải", exact: true }).hover();
+  else
+    await groups.getByRole("button", { name: "Xe tải", exact: true }).focus();
+  await expect(
+    groups.getByRole("button", { name: "Xe van", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(form.getByRole("radio")).toHaveCount(3);
+  await form.getByRole("button", { name: "Đóng giới thiệu xe" }).click();
+  await page.screenshot({
+    path: info.outputPath("moving-van-only.png"),
+    fullPage: true,
+  });
+  catalog = catalog.filter((s) => s.service_id !== "HAN-VAN-750");
+  await form
+    .getByRole("button", { name: "Tải lại danh mục", exact: true })
+    .click();
+  await expect(form.getByRole("radio")).toHaveCount(2);
+  await expect(form.locator('input[value="HAN-VAN-1000"]')).toBeChecked();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  const enForm = page.getByRole("complementary", { name: "Moving details" });
+  await expect(enForm.locator(".mv-service-picker legend")).toHaveText(
+    "Van services at pickup A",
+  );
+  await expect(enForm.getByRole("radio")).toHaveCount(2);
+  expect(turns).toEqual([]);
+  await enForm.getByRole("button", { name: "Confirm and get quote" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options).toMatchObject({
+    service_id: "HAN-VAN-1000",
+    requests: [],
+  });
+  expect(turns[0].pickup).toMatchObject({
+    lat: 21,
+    lng: 105.84,
+    confirmed: true,
+  });
+});
+
+test("moving vehicle guide explains automatic comparison and never books or clears input when opened", async ({
+  page,
+}, info) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByLabel("Tiền thu hộ · VND").fill("100000");
+  await form.getByLabel("Ghi chú cho tài xế").fill("Giữ nguyên ghi chú này");
+  await form
+    .getByRole("group", { name: "Loại xe AhaMove" })
+    .getByRole("button", { name: "Để ReloHome gợi ý", exact: true })
+    .click();
+  await expect(
+    form.getByRole("region", { name: "Giới thiệu Để ReloHome gợi ý" }),
+  ).toContainText("Không tự đặt xe");
+  await expect(form.getByLabel("Tiền thu hộ · VND")).toHaveValue("100000");
+  await expect(form.getByLabel("Ghi chú cho tài xế")).toHaveValue(
+    "Giữ nguyên ghi chú này",
+  );
+  await form.getByRole("button", { name: "Đóng giới thiệu xe" }).click();
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form
+    .getByRole("group", { name: "Loại xe AhaMove" })
+    .getByRole("button", { name: "Xe tải", exact: true })
+    .click();
+  await expect(form.locator('input[value="TEST-TRUCK"]')).toBeChecked();
+  await expect(
+    form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
+  ).toBeChecked();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  const enForm = page.getByRole("complementary", { name: "Moving details" });
+  await expect(
+    enForm.getByRole("region", { name: "About Truck" }),
+  ).toContainText("separate cabin and cargo body");
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await page.screenshot({
+    path: info.outputPath("moving-vehicle-guide.png"),
+    fullPage: true,
+  });
+  expect(turns).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await enForm
+    .getByRole("group", { name: "AhaMove vehicle type" })
+    .getByRole("button", { name: "Let ReloHome recommend", exact: true })
+    .click();
+  await expect(
+    enForm.locator('input[name="ahamove-service"]:checked'),
+  ).toHaveCount(0);
+  await enForm.getByRole("button", { name: "Confirm and get quote" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options.service_id).toBeUndefined();
+  expect(turns[0].moving_options.requests).toEqual([]);
+  expect(turns[0].moving_options.remarks).toBe("Giữ nguyên ghi chú này");
+  expect(turns[0].pickup).toMatchObject({
+    lat: 21,
+    lng: 105.84,
+    confirmed: true,
+  });
+});
+
+test("welcome: all starting actions fit before scrolling at laptop and mobile heights", async ({
+  page,
+}, info) => {
+  const { turns, user } = await fixture(page);
+  Object.assign(user.preferences, { city: "Hà Nội", budget: "7000000" });
+  const sizes =
+    info.project.name === "mobile"
+      ? [
+          { width: 390, height: 844 },
+          { width: 360, height: 740 },
+          { width: 390, height: 680 },
+        ]
+      : [
+          { width: 1536, height: 790 },
+          { width: 1366, height: 650 },
+          { width: 1280, height: 600 },
+        ];
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    await page.goto("/ai");
+    for (const locale of ["vi", "en"] as const) {
+      await page
+        .getByRole("button", {
+          name: locale === "vi" ? "VI" : "EN",
+          exact: true,
+        })
+        .click();
+      const scroll = page.locator(".conversation-scroll");
+      await expect(page.locator(".quick-card")).toHaveCount(6);
+      await expect(page.locator(".starter > button")).toHaveCount(2);
+      await expect
+        .poll(async () =>
+          scroll.evaluate((el) => el.scrollHeight - el.clientHeight),
+        )
+        .toBeLessThanOrEqual(2);
+      const box = await scroll.boundingBox();
+      for (const action of await page
+        .locator(
+          ".quick-card, .starter > button, .welcome-note, .welcome > .text-button",
+        )
+        .all()) {
+        const actionBox = await action.boundingBox();
+        expect(actionBox).not.toBeNull();
+        expect(actionBox!.y).toBeGreaterThanOrEqual(box!.y - 1);
+        expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
+          box!.y + box!.height + 1,
+        );
+      }
+      await expect(
+        page.getByRole("textbox", {
+          name: locale === "vi" ? "Tin nhắn cho ReloHome" : "Message ReloHome",
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBeTruthy();
+      if (size === sizes[0])
+        await page.screenshot({
+          path: info.outputPath(`welcome-compact-${locale}.png`),
+          fullPage: true,
+        });
+    }
+  }
+  await page.getByRole("button", { name: "VI", exact: true }).click();
+  await page.locator(".starter > button").first().click();
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true }),
+  ).toHaveValue("Tìm phòng ở Hà Nội dưới 5 triệu đồng mỗi tháng");
+  expect(turns).toEqual([]);
+});
+
+test("appearance: language and theme persist without changing conversation data or drafts", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "original-message",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      response: { kind: "ANSWER", text: "Địa chỉ gốc: 12 Lê Lợi, Quận 1." },
+    },
+  });
+  await page.goto("/ai/th_ui");
+  const draft = "Tìm nhà tại Bình Thạnh, giữ nguyên nội dung này";
+  await page
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true })
+    .fill(draft);
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    page.getByRole("button", { name: "History", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Message ReloHome", exact: true }),
+  ).toHaveValue(draft);
+  await expect(
+    page.getByText("Địa chỉ gốc: 12 Lê Lợi, Quận 1.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.screenshot({
+    path: info.outputPath("product-dark-en.png"),
+    fullPage: true,
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    page.getByRole("textbox", { name: "Message ReloHome", exact: true }),
+  ).toHaveValue(draft);
+  await page.getByRole("button", { name: "VI", exact: true }).click();
+  await page.getByRole("button", { name: "Chuyển sang chế độ sáng" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true }),
+  ).toHaveValue(draft);
+  expect(turns).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
+test("appearance: English account labels preserve canonical preference values and unsaved edits", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await fixture(page);
+  const edits: any[] = [];
+  await page.route("**/web/api/profile", async (route) => {
+    edits.push(route.request().postDataJSON());
+    await route.fallback();
+  });
+  await page.goto("/account");
+  await page.getByRole("tab", { name: "Sở thích AI", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Thành phố", exact: true })
+    .selectOption("Hà Nội");
+  await page
+    .getByRole("spinbutton", { name: "Ngân sách thuê · VND/tháng" })
+    .fill("6500000");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "My account", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "City", exact: true }),
+  ).toHaveValue("Hà Nội");
+  await expect(
+    page.getByRole("spinbutton", { name: "Rent budget · VND/month" }),
+  ).toHaveValue("6500000");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => edits.length).toBe(1);
+  expect(edits[0].preferences).toMatchObject({
+    city: "Hà Nội",
+    budget: "6500000",
+  });
+  await expect(
+    page.getByRole("heading", { name: "Minh Anh", exact: true }),
+  ).toBeVisible();
+});
+
+test("appearance: moving pins and service choices survive theme and language switches", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  let form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form
+    .getByLabel("Ghi chú cho tài xế")
+    .fill("Đến cổng sau, giữ nguyên ghi chú");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  form = page.getByRole("complementary", { name: "Moving details" });
+  await expect(form.getByLabel("Pickup address")).toHaveValue(
+    "Cổng A · Hà Nội",
+  );
+  await expect(form.getByLabel("Drop-off address")).toHaveValue(
+    "Cổng B · Hà Nội",
+  );
+  await expect(form.getByLabel("Moving date")).toHaveValue(tomorrow());
+  await expect(form.getByLabel("Pickup time")).toHaveValue("09:00");
+  await expect(form.locator('input[value="TEST-TRUCK"]')).toBeChecked();
+  await expect(form.getByLabel("Driver notes")).toHaveValue(
+    "Đến cổng sau, giữ nguyên ghi chú",
+  );
+  expect(turns).toEqual([]);
+  await page.screenshot({
+    path: info.outputPath("moving-dark-en.png"),
+    fullPage: true,
+  });
+  await form.getByRole("button", { name: "Confirm and get quote" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0]).toMatchObject({
+    plan_version: 1,
+    pickup: {
+      address: "Cổng A · Hà Nội",
+      lat: 21,
+      lng: 105.84,
+      confirmed: true,
+    },
+    destination: {
+      address: "Cổng B · Hà Nội",
+      lat: 21.01,
+      lng: 105.85,
+      confirmed: true,
+    },
+    moving_options: {
+      service_id: "TEST-TRUCK",
+      remarks: "Đến cổng sau, giữ nguyên ghi chú",
+    },
+  });
+  expect(turns[0]).not.toHaveProperty("locale");
+  expect(turns[0]).not.toHaveProperty("theme");
+});
+
+test("appearance: login, welcome and map are readable in both themes without overflow", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { thread, component } = await fixture(page, false);
+  await page.goto("/login");
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Welcome back", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await page.screenshot({
+    path: info.outputPath("login-dark-en.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("textbox", { name: "Email", exact: true })
+    .fill("ui@example.test");
+  await page.getByLabel("Password", { exact: true }).fill("password-test-123");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.locator(".quick-card").filter({ hasText: "Find a home" }),
+  ).toBeVisible();
+  await page.locator(".quick-card").filter({ hasText: "Find a home" }).click();
+  const homeForm = page.getByRole("dialog", {
+    name: "What kind of home are you looking for?",
+  });
+  await expect(homeForm).toBeVisible();
+  await homeForm.getByLabel("Min price · VND/month").fill("9000000");
+  await homeForm.getByLabel("Max price · VND/month").fill("5000000");
+  await homeForm.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(homeForm.getByRole("alert")).toContainText(
+    "Minimum price must not exceed maximum price.",
+  );
+  await page.keyboard.press("Escape");
+  await page
+    .locator(".quick-card")
+    .filter({ hasText: "Find a flight" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Find a flight for your journey" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.screenshot({
+    path: info.outputPath("welcome-dark-en.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await page.screenshot({
+    path: info.outputPath("welcome-light-en.png"),
+    fullPage: true,
+  });
+  seed(thread, [component]);
+  await page.goto("/ai/th_ui");
+  await expect(
+    page.getByRole("region", { name: "Housing map", exact: true }),
+  ).toBeVisible();
+  const canvas = page.locator(".ws-canvas canvas").first();
+  const handle = await canvas.elementHandle();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(canvas).toBeVisible();
+  expect(await handle!.evaluate((el) => el.isConnected)).toBeTruthy();
+  await expect(page.locator(".map-workspace .ws-card")).toHaveCount(2);
+  await page.screenshot({
+    path: info.outputPath("housing-dark-en.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+});
 
 // Explicit UI contract fixtures. Product builds never import this module.
 const houses = [
@@ -142,13 +1452,19 @@ async function fixture(page: Page, authenticated = true, calls: any[] = []) {
           : { ok: true };
     } else if (path === "/threads" && method === "POST") data = thread;
     else if (path === "/threads/th_ui" && method === "GET") data = thread;
-    else if (path === "/threads/th_ui/chat") {
+    else if (
+      path === "/threads/th_ui/chat" ||
+      path === "/threads/th_ui/moving/quote"
+    ) {
       turns.push(body);
       thread.messages.push({
         id: "u" + thread.messages.length,
         role: "user",
         created: 1790751600,
-        content: { status: "done", text: body.message },
+        content: {
+          status: "done",
+          text: body.message || "Báo giá chuyển đồ từ form. Chưa đặt đơn.",
+        },
       });
       thread.messages.push({
         id: "a" + thread.messages.length,
@@ -280,6 +1596,584 @@ function seed(thread: any, components: any[] = [], data: any = {}) {
   });
 }
 
+const movingCatalog = [
+  {
+    service_id: "TEST-TRUCK",
+    name: "Xe tải 750kg",
+    cod_limit: 500000,
+    requests: [
+      { _id: "lift", name: "Bốc xếp tận nơi", type: "BOOLEAN", price: 95000 },
+      { _id: "tip", name: "Hỗ trợ tài xế", type: "PER_UNIT", price: 5000 },
+      {
+        _id: "bulky",
+        name: "Hàng cồng kềnh",
+        type: "TIER",
+        tier_list: [
+          {
+            code: "small",
+            name_vi_vn: "Tiêu chuẩn",
+            price: 0,
+            selectable: true,
+          },
+          {
+            code: "large",
+            name_vi_vn: "Mức 1",
+            price: 10000,
+            selectable: true,
+          },
+          { code: "over", name_vi_vn: "Quá tải", price: -1, selectable: false },
+        ],
+      },
+    ],
+  },
+  { service_id: "TEST-VAN", name: "Xe van", cod_limit: 0, requests: [] },
+];
+async function selectMovingService(form: Locator, id: string) {
+  await form
+    .getByRole("button", {
+      name: id === "TEST-VAN" ? "Xe van" : "Xe tải",
+      exact: true,
+    })
+    .click();
+  await form.locator(`input[type="radio"][value="${id}"]`).check();
+}
+async function movingFormFixture(page: Page) {
+  const data = await fixture(page);
+  const values = {
+    from_address: "Cổng A · Hà Nội",
+    to_address: "Cổng B · Hà Nội",
+    move_date: tomorrow(),
+    move_time: "09:00",
+    pickup_coordinate: { lat: 21.0, lng: 105.84 },
+    destination_coordinate: { lat: 21.01, lng: 105.85 },
+  };
+  data.thread.state.intake.constraints = { values };
+  for (const [k, v] of Object.entries(values))
+    data.thread.state.intake.user_confirmed_facts[k] = { value: v };
+  data.thread.messages.push({
+    id: "moving-form",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "ASK",
+        text: "Kiểm tra yêu cầu chuyển đồ",
+        questions: [
+          { field: "relocation.move_date", text: "Chọn ngày chuyển" },
+        ],
+        data: {},
+      },
+    },
+  });
+  await page.route("**/web/api/moving/services?**", (route) =>
+    route.fulfill({ json: { services: movingCatalog } }),
+  );
+  return data;
+}
+
+test("moving form submits provider add-ons, packages and cash options with confirmed map points", async ({
+  page,
+}, testInfo) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  if (process.env.SIU_UI_SCREENSHOTS) {
+    await page.screenshot({
+      path: `../logs/local/moving-form-${testInfo.project.name}.png`,
+    });
+  }
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form.getByRole("checkbox", { name: /Hỗ trợ tài xế/ }).check();
+  await form.getByLabel("Số lượng · Hỗ trợ tài xế").fill("2");
+  await form.getByRole("checkbox", { name: /Hàng cồng kềnh/ }).check();
+  await form.getByRole("button", { name: "Thêm kiện hàng" }).click();
+  await form.getByLabel("Mô tả kiện 1").fill("Thùng sách");
+  await form.getByLabel("Nặng · kg kiện 1").fill("12");
+  await form.getByLabel("Dài · cm kiện 1").fill("50");
+  await form.getByLabel("Rộng · cm kiện 1").fill("40");
+  await form.getByLabel("Cao · cm kiện 1").fill("30");
+  await form.getByLabel("Giá trị hàng · VND").fill("300000");
+  await form.getByLabel("Tiền thu hộ · VND").fill("100000");
+  await form.getByLabel("Ghi chú cho tài xế").fill("Cổng sau");
+  await form.getByLabel("Mã khuyến mãi").fill("MOVING");
+  await form
+    .getByRole("checkbox", { name: "Yêu cầu bằng chứng giao hàng" })
+    .check();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText(
+    "chọn mức hoặc loại hàng",
+  );
+  expect(turns.length).toBe(0);
+  const tiers = form.getByLabel("Mức dịch vụ · Hàng cồng kềnh");
+  await expect(tiers.getByRole("option", { name: /Quá tải/ })).toHaveAttribute(
+    "disabled",
+    "",
+  );
+  await tiers.selectOption("large");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options).toMatchObject({
+    service_id: "TEST-TRUCK",
+    packages: [
+      {
+        description: "Thùng sách",
+        weight_kg: 12,
+        length_cm: 50,
+        width_cm: 40,
+        height_cm: 30,
+      },
+    ],
+    cod: 100000,
+    item_value: 300000,
+    remarks: "Cổng sau",
+    promo_code: "MOVING",
+    require_pod: true,
+  });
+  expect(turns[0].moving_options.requests).toEqual([
+    { request_id: "lift" },
+    { request_id: "tip", quantity: 2 },
+    { request_id: "bulky", tier_code: "large" },
+  ]);
+  expect(turns[0].pickup).toMatchObject({
+    lat: 21.0,
+    lng: 105.84,
+    confirmed: true,
+  });
+  expect(turns[0].destination).toMatchObject({
+    lat: 21.01,
+    lng: 105.85,
+    confirmed: true,
+  });
+  expect(turns[0]).not.toHaveProperty("message");
+  expect(turns[0].plan_version).toBe(1);
+  await writeFile(
+    testInfo.outputPath("moving-submitted.json"),
+    JSON.stringify(turns[0]),
+  );
+});
+
+test("moving validates package weight and COD, and changing vehicles clears incompatible add-ons", async ({
+  page,
+}) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form.getByLabel("Tiền thu hộ · VND").fill("600000");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("vượt giới hạn");
+  await form.getByRole("button", { name: "Thêm kiện hàng" }).click();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("khối lượng");
+  await form.getByRole("button", { name: "Xóa kiện 1" }).click();
+  await selectMovingService(form, "TEST-VAN");
+  await expect(form.getByLabel("Tiền thu hộ · VND")).toHaveValue("");
+  await expect(
+    form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
+  ).toHaveCount(0);
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options.requests).toEqual([]);
+  expect(turns[0].moving_options.service_id).toBe("TEST-VAN");
+});
+
+test("moving clearing an optional package description omits it from the submitted data", async ({
+  page,
+}, testInfo) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByRole("button", { name: "Thêm kiện hàng" }).click();
+  await form.getByLabel("Nặng · kg kiện 1").fill("12");
+  await form.getByLabel("Mô tả kiện 1").fill("Thùng sách");
+  await form.getByLabel("Mô tả kiện 1").fill("   ");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_options.packages).toEqual([{ weight_kg: 12 }]);
+  await writeFile(
+    testInfo.outputPath("moving-submitted.json"),
+    JSON.stringify(turns[0]),
+  );
+});
+
+for (const withQuotes of [true, false]) {
+  test(`moving PARTIAL reply ${withQuotes ? "opens usable quotes despite housing warnings" : "keeps the form when no quote was returned"}`, async ({ page }) => {
+    const { thread } = await movingFormFixture(page);
+    await page.route("**/web/api/threads/th_ui/moving/quote", route => {
+      thread.messages.push({
+        id: "partial-moving-reply", role: "assistant", created: Date.now() / 1000,
+        content: {
+          status: "done",
+          response: { kind: "PARTIAL", text: "Đã lấy báo giá. Một số tin nhà chưa xác minh giá.", questions: [], data: {} },
+          ui: { version: 1, plan_version: 2, components: withQuotes ? [{
+            id: "partial-moving-component", type: "relocation", task_id: "moving", fetched_at: new Date().toISOString(), source_kind: "sandbox",
+            data: { from_address: "Cổng A · Hà Nội", to_address: "Cổng B · Hà Nội", payment_method: "CASH", expires_at: new Date(Date.now() + 600000).toISOString(), quotes: [{ id: "partial-quote", label: "Xe tải 500kg", service_id: "TEST-TRUCK", price_vnd: 100000 }] },
+          }] : [] },
+        },
+      });
+      return route.fulfill({ json: thread });
+    });
+    await page.goto("/ai/th_ui");
+    const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+    await form.getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true }).click();
+    if (withQuotes) {
+      await expect(page.getByRole("complementary", { name: "Phương án chuyển đồ", exact: true })).toBeVisible();
+      await expect(page.locator(".mv-card")).toHaveCount(1);
+      await expect(page.locator(".mv-card .ws-select-small")).toBeEnabled();
+      await expect(page.getByRole("complementary", { name: "Thông tin chuyển đồ" })).toHaveCount(0);
+    } else {
+      await expect(form.getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true })).toBeEnabled();
+      await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue("Cổng A · Hà Nội");
+      await expect(page.getByRole("heading", { name: "Chọn gói xe phù hợp", exact: true })).toHaveCount(0);
+    }
+  });
+}
+
+test("moving a failed quote keeps locations, schedule, packages and add-ons for retry", async ({
+  page,
+}) => {
+  await movingFormFixture(page);
+  const submissions: any[] = [];
+  await page.route("**/web/api/threads/th_ui/moving/quote", (route) => {
+    submissions.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 502,
+      json: { detail: "Chưa lấy được báo giá. Vui lòng thử lại." },
+    });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form.getByRole("button", { name: "Thêm kiện hàng" }).click();
+  await form.getByLabel("Nặng · kg kiện 1").fill("12");
+  await form.getByLabel("Ghi chú cho tài xế").fill("Giao ở cổng sau");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("Chưa lấy được báo giá");
+  await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue(
+    "Cổng A · Hà Nội",
+  );
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "Cổng B · Hà Nội",
+  );
+  await expect(form.getByLabel("Ngày chuyển")).toHaveValue(tomorrow());
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("09:00");
+  await expect(
+    form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
+  ).toBeChecked();
+  await expect(form.getByLabel("Nặng · kg kiện 1")).toHaveValue("12");
+  await expect(form.getByLabel("Ghi chú cho tài xế")).toHaveValue(
+    "Giao ở cổng sau",
+  );
+  await expect(
+    form.getByRole("button", { name: "Xác nhận và lấy báo giá" }),
+  ).toBeEnabled();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => submissions.length).toBe(2);
+  expect(submissions[1].pickup).toEqual(submissions[0].pickup);
+  expect(submissions[1].destination).toEqual(submissions[0].destination);
+  expect(submissions[1].moving_options).toEqual(submissions[0].moving_options);
+});
+
+for (const domain of ["flight", "relocation"]) {
+  test(`${domain === "flight" ? "flight" : "moving"} stops selecting an expired price while the workspace remains open`, async ({
+    page,
+  }) => {
+    await page.clock.install({ time: new Date() });
+    const calls: any[] = [];
+    const { thread } = await fixture(page, true, calls);
+    const expiresAt = new Date(Date.now() + 30000).toISOString();
+    seed(thread, [
+      {
+        id: domain + ":expiry",
+        type: domain,
+        task_id: domain,
+        data:
+          domain === "flight"
+            ? {
+                origin: "HAN",
+                destination: "DAD",
+                offers: [
+                  {
+                    id: "expiring-flight",
+                    carrier: "Vietnam Airlines",
+                    fare_vnd: 900000,
+                    depart_at: "2026-11-20T06:00:00+07:00",
+                    arrive_at: "2026-11-20T07:25:00+07:00",
+                    stops: 0,
+                    expires_at: expiresAt,
+                  },
+                ],
+              }
+            : {
+                expires_at: expiresAt,
+                from_address: "Chợ Bến Thành",
+                to_address: "Bưu điện Trung tâm Sài Gòn",
+                route: {
+                  pickup: {
+                    address: "Chợ Bến Thành",
+                    lat: 10.7725,
+                    lng: 106.698,
+                  },
+                  destination: {
+                    address: "Bưu điện Trung tâm Sài Gòn",
+                    lat: 10.78,
+                    lng: 106.7,
+                  },
+                },
+                quotes: [
+                  {
+                    id: "expiring-moving",
+                    vehicle: "Xe tải",
+                    price_vnd: 250000,
+                  },
+                ],
+              },
+      },
+    ]);
+    await page.goto("/ai/th_ui");
+    const choose = page.locator(
+      domain === "flight"
+        ? ".svc-card-end .primary"
+        : ".mv-card .ws-select-small",
+    );
+    await expect(choose).toBeEnabled();
+    await page.clock.fastForward(31000);
+    await expect(choose).toBeDisabled();
+    await expect(choose).toContainText("hết hạn");
+    expect(calls.filter((c) => c.path.endsWith("/action"))).toHaveLength(0);
+  });
+
+  test(`${domain === "flight" ? "flight" : "moving"} also expires prices in chat cards and flight details`, async ({
+    page,
+  }) => {
+    await page.clock.install({ time: new Date() });
+    const calls: any[] = [];
+    const { thread } = await fixture(page, true, calls);
+    const expiresAt = new Date(Date.now() + 30000).toISOString();
+    seed(thread, [
+      {
+        id: domain + ":chat-expiry",
+        type: domain,
+        task_id: domain,
+        data:
+          domain === "flight"
+            ? {
+                origin: "HAN",
+                destination: "DAD",
+                offers: [
+                  {
+                    id: "chat-expiring-flight",
+                    carrier: "Vietnam Airlines",
+                    fare_vnd: 900000,
+                    depart_at: "2026-11-20T06:00:00+07:00",
+                    arrive_at: "2026-11-20T07:25:00+07:00",
+                    stops: 0,
+                    expires_at: expiresAt,
+                  },
+                ],
+              }
+            : {
+                expires_at: expiresAt,
+                from_address: "Cổng A",
+                to_address: "Cổng B",
+                quotes: [
+                  {
+                    id: "chat-expiring-moving",
+                    vehicle: "Xe tải",
+                    price_vnd: 250000,
+                  },
+                ],
+              },
+      },
+    ]);
+    await page.route("**/web/api/flight/chat-expiring-flight", (route) =>
+      route.fulfill({ json: { segments: [], expires_at: expiresAt } }),
+    );
+    await page.goto("/ai/th_ui");
+    await page
+      .getByRole("button", { name: "Về hội thoại", exact: true })
+      .click();
+    if (domain === "flight")
+      await page.getByRole("button", { name: /Xem hành trình/ }).click();
+    const choose =
+      domain === "flight"
+        ? page.getByRole("dialog").locator("button.primary")
+        : page.locator(".moving-card .offer-end .text-button");
+    await expect(choose).toBeEnabled();
+    await page.clock.fastForward(31000);
+    await expect(choose).toBeDisabled();
+    await expect(choose).toContainText("hết hạn");
+    expect(calls.filter((c) => c.path.endsWith("/action"))).toHaveLength(0);
+  });
+}
+
+test("flight form validates blank and identical endpoints and preserves input after a service error", async ({
+  page,
+}) => {
+  const { turns } = await fixture(page);
+  await page.route("**/web/api/threads/th_ui/chat", (route) =>
+    route.fulfill({
+      status: 502,
+      json: { detail: "Chưa tìm được chuyến bay. Hãy thử lại." },
+    }),
+  );
+  await page.goto("/ai");
+  await page.getByRole("button", { name: /Tìm chuyến bay/ }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Nơi đi", { exact: true }).fill("   ");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("DAD");
+  await form.getByLabel("Ngày bay", { exact: true }).fill(tomorrow());
+  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await expect(form.getByRole("alert")).toContainText("nhập nơi đi và nơi đến");
+  await form.getByLabel("Nơi đi", { exact: true }).fill("HAN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("han ");
+  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await expect(form.getByRole("alert")).toContainText("khác nhau");
+  expect(turns.length).toBe(0);
+  await form.getByLabel("Nơi đến", { exact: true }).fill("DAD");
+  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await expect(form.getByRole("alert")).toContainText(
+    "Chưa tìm được chuyến bay",
+  );
+  await expect(form.getByLabel("Nơi đi", { exact: true })).toHaveValue("HAN");
+  await expect(form.getByLabel("Nơi đến", { exact: true })).toHaveValue("DAD");
+  await expect(form.getByLabel("Ngày bay", { exact: true })).toHaveValue(
+    tomorrow(),
+  );
+});
+
+test("moving pickup edits invalidate the catalog selection and both sheets can be collapsed on mobile", async ({
+  page,
+}, testInfo) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await selectMovingService(form, "TEST-TRUCK");
+  await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
+  await form.getByLabel("Địa chỉ lấy đồ").fill("Cổng A mới");
+  await expect(
+    form.locator('input[name="ahamove-service"]:checked'),
+  ).toHaveCount(0);
+  await expect(
+    form
+      .getByRole("group", { name: "Loại xe AhaMove" })
+      .getByRole("button", { name: "Xe tải", exact: true }),
+  ).toHaveCount(0);
+  expect(turns.length).toBe(0);
+  if (testInfo.project.name === "mobile") {
+    const toggle = form.getByRole("button", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect
+      .poll(async () => (await form.boundingBox())!.height)
+      .toBeLessThan(50);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
+test("moving catalog errors can be retried without losing the route or calling the agent", async ({
+  page,
+}) => {
+  const { turns } = await movingFormFixture(page);
+  let recovered = false;
+  await page.route("**/web/api/moving/services?**", (route) => {
+    return !recovered
+      ? route.fulfill({
+          status: 502,
+          json: { detail: "Chưa tải được danh mục" },
+        })
+      : route.fulfill({ json: { services: movingCatalog } });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form.getByRole("alert")).toContainText("Chưa tải được danh mục");
+  recovered = true;
+  await form.getByRole("button", { name: "Tải lại danh mục" }).click();
+  await selectMovingService(form, "TEST-TRUCK");
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "Cổng B · Hà Nội",
+  );
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("09:00");
+  expect(turns.length).toBe(0);
+});
+
+test("moving empty catalogs explain the state and can be retried without submitting a quote", async ({
+  page,
+}) => {
+  const { turns } = await movingFormFixture(page);
+  let empty = true;
+  await page.route("**/web/api/moving/services?**", (route) =>
+    route.fulfill({ json: { services: empty ? [] : movingCatalog } }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form.getByRole("alert")).toContainText(
+    "Chưa có gói xe trong danh mục tại điểm A",
+  );
+  empty = false;
+  await form.getByRole("button", { name: "Tải lại danh mục" }).click();
+  await selectMovingService(form, "TEST-TRUCK");
+  await expect(form.getByRole("alert")).toHaveCount(0);
+  expect(turns.length).toBe(0);
+});
+
+for (const withHouse of [false, true]) {
+  test(`moving map taps keep an explicit destination when selected house is ${withHouse ? "present" : "absent"}`, async ({
+    page,
+  }, testInfo) => {
+    const { thread, turns } = await movingFormFixture(page);
+    delete thread.state.intake.constraints.values.to_address;
+    delete thread.state.intake.constraints.values.destination_coordinate;
+    delete thread.state.intake.user_confirmed_facts.to_address;
+    delete thread.state.intake.user_confirmed_facts.destination_coordinate;
+    if (withHouse) {
+      thread.state.intake.user_confirmed_facts["selected:property"] = {
+        value: houses[0].id,
+      };
+      thread.state.selections = { property: houses[0] };
+    }
+    await page.goto("/ai/th_ui");
+    const form = page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+    });
+    await form.getByLabel("Địa chỉ giao đồ").fill("Cổng giao mới");
+    const toggle = form.getByRole("button", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    });
+    if (testInfo.project.name === "mobile") await toggle.click();
+    const canvas = page.locator(".ws-canvas canvas");
+    await expect(canvas).toBeVisible();
+    await canvas.click({ position: { x: 200, y: 160 } });
+    if (testInfo.project.name === "mobile") await toggle.click();
+    await expect(
+      form.getByText("Đã ghim: Vị trí bạn chạm trên bản đồ"),
+    ).toBeVisible();
+    await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+    await expect.poll(() => turns.length).toBe(1);
+    expect(turns[0]).not.toHaveProperty("message");
+    expect(turns[0].destination).toMatchObject({
+      address: "Cổng giao mới",
+      confirmed: true,
+    });
+    expect(Number.isFinite(turns[0].destination.lat)).toBeTruthy();
+    expect(Number.isFinite(turns[0].destination.lng)).toBeTruthy();
+  });
+}
+
 test("map handles structured provider warnings and approximate POIs", async ({
   page,
 }) => {
@@ -328,7 +2222,7 @@ test("map handles structured provider warnings and approximate POIs", async ({
     .getByRole("button", { name: "Tính đường tới Nhà thuốc thử nghiệm" })
     .click();
   await expect(
-    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toHaveValue(/Nhà thuốc thử nghiệm/);
   expect(errors).toEqual([]);
 });
@@ -377,7 +2271,7 @@ test("AhaMove quote fee breakdown, order amount and tracking use provider fields
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Yêu cầu hủy đơn" }).click();
   await expect(
-    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toHaveValue(/điều kiện hủy/);
 });
 
@@ -417,6 +2311,13 @@ test("approval sends PII separately, blocks double submit and shows receipt", as
     const body = r.request().postDataJSON();
     expect(body.payload_hash).toBe("test-hash");
     expect(body.pii_forms.book.pickup_contact.mobile).toBe("0901234567");
+    expect(body.pii_forms.book.destination_contact.building).toBe("Tòa nhà B");
+    expect(body.pii_forms.book.destination_contact.apartment_or_floor).toBe(
+      "302",
+    );
+    expect(body.pii_forms.book.destination_contact.remarks).toBe(
+      "Có thang máy",
+    );
     expect(body.message).toBeUndefined();
     thread.state.pending = null;
     thread.messages.push({
@@ -460,10 +2361,23 @@ test("approval sends PII separately, blocks double submit and shows receipt", as
     .getByLabel("Số điện thoại", { exact: true })
     .nth(0)
     .fill("0901234567");
+  await page.getByRole("button", { name: "Dùng liên hệ điểm lấy" }).click();
+  await expect(page.getByLabel("Họ tên", { exact: true }).nth(1)).toHaveValue(
+    "Test Pickup",
+  );
+  await expect(
+    page.getByLabel("Số điện thoại", { exact: true }).nth(1),
+  ).toHaveValue("0901234567");
   await page
     .getByLabel("Số điện thoại", { exact: true })
     .nth(1)
     .fill("0907654321");
+  await page.getByLabel("Tòa nhà", { exact: true }).nth(1).fill("Tòa nhà B");
+  await page.getByLabel("Căn hộ / tầng", { exact: true }).nth(1).fill("302");
+  await page
+    .getByLabel("Chỉ dẫn giao nhận", { exact: true })
+    .nth(1)
+    .fill("Có thang máy");
   await page.getByRole("checkbox", { name: /Tôi đồng ý/ }).check();
   await page.getByRole("button", { name: "Xác nhận thao tác" }).click();
   await expect(page.getByText("Biên nhận dịch vụ")).toBeVisible();
@@ -578,12 +2492,12 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
   await expect(
     page.getByRole("heading", { name: "Chưa có lịch sử yêu cầu" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
     "Minh Anh",
   );
   await page
-    .getByRole("button", { name: "Đăng nhập & bảo mật", exact: true })
+    .getByRole("tab", { name: "Đăng nhập & bảo mật", exact: true })
     .click();
   await expect(
     page.getByText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ."),
@@ -610,7 +2524,7 @@ test("chat, housing details, selection, saved, plan and reload", async ({
   await fixture(page);
   await page.goto("/ai");
   await page
-    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome" })
     .fill("Tìm nhà 2 phòng ngủ tại Quận 1 dưới 10 triệu/tháng");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
   // Housing answers open the map workspace; this test continues in the chat cards.
@@ -660,7 +2574,7 @@ test("chat, housing details, selection, saved, plan and reload", async ({
   ).toContainText("Có kết quả");
   await page.screenshot({ path: info.outputPath("plan.png"), fullPage: true });
   await page.goto("/account");
-  await page.getByRole("button", { name: /Đã lưu/ }).click();
+  await page.getByRole("tab", { name: /Đã lưu/ }).click();
   await expect(
     page.getByRole("button", { name: houses[1].title, exact: true }),
   ).toBeVisible();
@@ -702,7 +2616,9 @@ test("chosen home prefills the moving form; nothing is sent until confirmed", as
   await page.getByRole("button", { name: /Chuyển đồ tới đây/ }).click();
   const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
   await expect(form).toContainText("Phòng đã chọn: Phòng trọ trên bản đồ");
-  await expect(form).toContainText("255 Cầu Giấy, Hà Nội");
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "255 Cầu Giấy, Hà Nội",
+  );
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect(form.getByRole("alert")).toContainText("điểm lấy");
   await form.getByLabel("Địa chỉ lấy đồ").fill("Đại học Bách khoa Hà Nội");
@@ -717,6 +2633,142 @@ test("chosen home prefills the moving form; nothing is sent until confirmed", as
     `Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến phòng mình đã chọn ngày ${tomorrow()} lúc 09:00. Chưa đặt đơn.`,
   );
   expect(turns[0].moving_locations).toBeUndefined();
+});
+
+test("map-only selected home is restored into point B after delayed detail and reload", async ({
+  page,
+}, info) => {
+  const { thread, turns } = await movingFormFixture(page);
+  const home = {
+    ...houses[0],
+    id: "map-only-home",
+    title: "Phòng đã chọn ở Bình Thạnh",
+    address: "325/29A Bạch Đằng, Bình Thạnh, Hồ Chí Minh",
+    lat: 10.800452,
+    lng: 106.70504,
+  };
+  thread.state.intake.user_confirmed_facts["selected:property"] = {
+    value: home.id,
+  };
+  for (const key of [
+    "from_address",
+    "to_address",
+    "pickup_coordinate",
+    "destination_coordinate",
+  ]) {
+    delete thread.state.intake.user_confirmed_facts[key];
+    delete thread.state.intake.constraints.values[key];
+  }
+  let release!: () => void;
+  const detailReady = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/web/api/housing/map-only-home", async (route) => {
+    await detailReady;
+    await route.fulfill({ json: home });
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form.getByText("Đang lấy địa chỉ căn đã chọn…")).toBeVisible();
+  release();
+  const homeCard = form.getByRole("button", {
+    name: `Giao tới phòng đã chọn (${home.title})`,
+  });
+  await expect(homeCard).toHaveAttribute("aria-pressed", "true");
+  await expect(homeCard).toContainText(home.address);
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
+  await expect(form.getByLabel("Ngày chuyển")).toHaveValue(tomorrow());
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("09:00");
+  await form.getByLabel("Địa chỉ giao đồ").fill("Địa chỉ B khác");
+  await expect(homeCard).toHaveAttribute("aria-pressed", "false");
+  await expect(homeCard).toContainText(home.address);
+  await homeCard.click();
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
+  // Approximate housing coordinates remain suggestions, never auto-confirmed delivery pins.
+  await expect(form).not.toContainText("Đã ghim:");
+  await expect(
+    page.getByRole("button", {
+      name: "Chọn Phòng đã chọn: " + home.title,
+      exact: true,
+    }),
+  ).toBeAttached();
+  await page.screenshot({
+    path: info.outputPath("moving-selected-home.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.reload();
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
+  await expect(homeCard).toContainText(home.address);
+  expect(turns).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("a late selected-home response never overwrites a user-entered point B", async ({
+  page,
+}) => {
+  const { thread, turns } = await movingFormFixture(page);
+  thread.state.intake.user_confirmed_facts["selected:property"] = {
+    value: "map-late",
+  };
+  delete thread.state.intake.user_confirmed_facts.to_address;
+  delete thread.state.intake.constraints.values.to_address;
+  delete thread.state.intake.constraints.values.destination_coordinate;
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/web/api/housing/map-late", async (route) => {
+    await ready;
+    await route.fulfill({ json: { ...houses[0], id: "map-late" } });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByLabel("Địa chỉ giao đồ").fill("Điểm B do người dùng nhập");
+  release();
+  const card = form.getByRole("button", {
+    name: `Giao tới phòng đã chọn (${houses[0].title})`,
+  });
+  await expect(card).toBeAttached();
+  await expect(card).toHaveAttribute("aria-pressed", "false");
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "Điểm B do người dùng nhập",
+  );
+  await card.click();
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    houses[0].address,
+  );
+  await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue(
+    "Cổng A · Hà Nội",
+  );
+  expect(turns).toEqual([]);
+});
+
+test("missing selected-home detail keeps point B editable and explains the lookup failure", async ({
+  page,
+}) => {
+  const { thread, turns } = await movingFormFixture(page);
+  thread.state.intake.user_confirmed_facts["selected:property"] = {
+    value: "map-missing",
+  };
+  delete thread.state.intake.user_confirmed_facts.to_address;
+  delete thread.state.intake.constraints.values.to_address;
+  await page.route("**/web/api/housing/map-missing", (route) =>
+    route.fulfill({ status: 404, json: { detail: "Not found" } }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form).toContainText("Chưa đọc được địa chỉ căn đã chọn");
+  await form.getByLabel("Địa chỉ giao đồ").fill("Điểm giao mới");
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue("Điểm giao mới");
+  await expect(form.locator(".mv-selected-home")).toHaveCount(0);
+  expect(turns).toEqual([]);
 });
 
 test("a moving question opens the moving form; a new address needs the pin again", async ({
@@ -789,6 +2841,195 @@ test("a moving question opens the moving form; a new address needs the pin again
   });
 });
 
+test("POI picker collapses aliases, labels the city and preserves moving date and time", async ({
+  page,
+}) => {
+  const duplicateKeys: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("same key"))
+      duplicateKeys.push(message.text());
+  });
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "poi-question",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "CLARIFY",
+        text: "Chọn điểm lấy đồ.",
+        questions: [
+          {
+            field: "from_address",
+            text: "Chọn điểm lấy đồ.",
+            choices: [
+              {
+                id: "old-way",
+                label: "Đại học Bách Khoa",
+                entity_type: "place",
+                lat: 21,
+                lng: 105.84,
+              },
+              {
+                id: "old-way",
+                label: "Đại học Bách Khoa",
+                entity_type: "place",
+                lat: 21,
+                lng: 105.84,
+              },
+              {
+                id: "stop-2",
+                label: "Đại học Bách Khoa · Trạm xe buýt",
+                entity_type: "place",
+                lat: 21.001,
+                lng: 105.84,
+              },
+            ],
+          },
+        ],
+        data: {
+          known_request: {
+            from_address: "Đại học Bách Khoa",
+            to_address: "12 Tràng Tiền, Hà Nội",
+            move_date: tomorrow(),
+            move_time: "10:00",
+          },
+        },
+      },
+    },
+  });
+  await page.route("**/api/map/search?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        results: [
+          {
+            canonical_id: "canonical-area",
+            alias_ids: ["old-way"],
+            name: "Đại học Bách Khoa",
+            display_name: "Đại học Bách Khoa · Trường đại học · Hà Nội",
+            entity_type: "place",
+            category: "university",
+            location: { lat: 21.0003, lng: 105.8403 },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(
+    form.getByRole("button", { name: "Đại học Bách Khoa", exact: true }),
+  ).toHaveCount(1);
+  await form
+    .getByRole("textbox", { name: "Địa chỉ lấy đồ", exact: true })
+    .fill("Đại học Bách Khoa");
+  await expect(form.getByRole("textbox", { name: /Địa chỉ/ })).toHaveCount(2);
+  await expect(form.getByRole("textbox", { name: "Tìm địa điểm" })).toHaveCount(
+    0,
+  );
+  await expect(
+    form.getByRole("button", { name: "Đại học Bách Khoa", exact: true }),
+  ).toHaveCount(0);
+  await expect(form.getByRole("button", { name: /Trạm xe buýt/ })).toHaveCount(
+    1,
+  );
+  await expect(form.getByLabel("Ngày chuyển")).toHaveValue(tomorrow());
+  await expect(form.getByLabel("Giờ xe đến")).toHaveValue("10:00");
+  expect(turns).toEqual([]);
+  await form.getByRole("button", { name: /Trường đại học · Hà Nội/ }).click();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].moving_locations.pickup).toMatchObject({
+    lat: 21.0003,
+    lng: 105.8403,
+    confirmed: true,
+  });
+  expect(duplicateKeys).toEqual([]);
+});
+
+test("moving A and B search inline and submit the selected coordinates", async ({
+  page,
+}) => {
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "moving-inline",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      status: "done",
+      response: {
+        kind: "CLARIFY",
+        text: "Chọn điểm lấy và điểm giao đồ.",
+        questions: [{ field: "from_address", text: "Điểm lấy đồ?" }],
+        data: { known_request: { move_date: tomorrow(), move_time: "10:00" } },
+      },
+    },
+  });
+  const queries: string[] = [];
+  await page.route("**/api/map/search?**", (route) => {
+    const query = new URL(route.request().url()).searchParams.get("text")!;
+    queries.push(query);
+    const pickup = query === "Bách Khoa Hà Nội";
+    return route.fulfill({
+      json: {
+        results: [
+          {
+            canonical_id: pickup ? "pickup-university" : "destination-home",
+            name: pickup ? "Đại học Bách khoa Hà Nội" : "12 Tràng Tiền, Hà Nội",
+            entity_type: "place",
+            location: pickup
+              ? { lat: 21.005, lng: 105.843 }
+              : { lat: 21.024, lng: 105.856 },
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form.getByRole("textbox", { name: /Địa chỉ/ })).toHaveCount(2);
+  await expect(
+    form.getByRole("button", { name: "Tìm", exact: true }),
+  ).toHaveCount(0);
+  await form.getByLabel("Địa chỉ lấy đồ").fill("Bách Khoa Hà Nội");
+  await form
+    .getByRole("button", { name: "Đại học Bách khoa Hà Nội", exact: true })
+    .click();
+  await expect(form.getByLabel("Địa chỉ lấy đồ")).toHaveValue(
+    "Đại học Bách khoa Hà Nội",
+  );
+  await form.getByLabel("Địa chỉ giao đồ").fill("Tràng Tiền Hà Nội");
+  await form
+    .getByRole("button", { name: "12 Tràng Tiền, Hà Nội", exact: true })
+    .click();
+  await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
+    "12 Tràng Tiền, Hà Nội",
+  );
+  expect(turns).toEqual([]);
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(queries).toEqual(["Bách Khoa Hà Nội", "Tràng Tiền Hà Nội"]);
+  expect({
+    pickup: turns[0].pickup,
+    destination: turns[0].destination,
+  }).toEqual({
+    pickup: {
+      address: "Đại học Bách khoa Hà Nội",
+      lat: 21.005,
+      lng: 105.843,
+      confirmed: true,
+    },
+    destination: {
+      address: "12 Tràng Tiền, Hà Nội",
+      lat: 21.024,
+      lng: 105.856,
+      confirmed: true,
+    },
+  });
+});
+
 test("housing answer opens the map workspace with viewport list, filters and chat dock", async ({
   page,
 }, info) => {
@@ -798,7 +3039,7 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   await fixture(page, true, calls);
   await page.goto("/ai");
   await page
-    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome" })
     .fill("Tìm nhà dưới 10 triệu ở Quận 1");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
   const list = page.getByRole("complementary", {
@@ -857,7 +3098,7 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   });
   await page.getByRole("button", { name: "Hiện khung chat" }).click();
   await page
-    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome" })
     .fill("Căn rẻ hơn ở khu này");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
   await expect.poll(() => sent?.map_view?.bounding_box?.west).toBeDefined();
@@ -881,7 +3122,7 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
   await fixture(page, true, calls);
   await page.goto("/ai");
   await page
-    .getByRole("textbox", { name: "Tin nhắn cho SIU AI" })
+    .getByRole("textbox", { name: "Tin nhắn cho ReloHome" })
     .fill("Tìm nhà dưới 10 triệu ở Quận 1");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
   await expect(
@@ -889,22 +3130,22 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
   ).toBeVisible();
   // Only the launcher appears initially. Opening it reveals a small composer.
   await expect(
-    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Hiện khung chat" }).click();
   await expect(
     page.getByRole("button", { name: "Xem đầy đủ", exact: true }),
   ).toHaveCount(0);
-  const input = page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" });
+  const input = page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" });
   await input.fill("Tìm căn gần đây");
   // Collapsing the composer preserves the unsent draft.
   await page.getByRole("button", { name: "Ẩn khung chat" }).click();
   await expect(
-    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Hiện khung chat" }).click();
   await expect(
-    page.getByRole("textbox", { name: "Tin nhắn cho SIU AI" }),
+    page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toBeVisible();
   await expect(input).toHaveValue("Tìm căn gần đây");
   await input.fill("");
@@ -935,7 +3176,7 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
 
 test("flight results open a flight workspace with sorting and selection", async ({
   page,
-}) => {
+}, testInfo) => {
   const calls: any[] = [];
   const { thread } = await fixture(page, true, calls);
   const later = new Date(Date.now() + 3600_000).toISOString();
@@ -974,13 +3215,29 @@ test("flight results open a flight workspace with sorting and selection", async 
   await page.goto("/ai/th_ui");
   const flights = page.getByRole("region", { name: "Chuyến bay" });
   await expect(flights).toBeVisible();
+  if (testInfo.project.name === "mobile")
+    await expect
+      .poll(
+        async () =>
+          (await flights.locator(".svc-head h2").boundingBox())!.height,
+      )
+      .toBeLessThan(40);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  if (process.env.SIU_UI_SCREENSHOTS)
+    await page.screenshot({
+      path: `../logs/local/flight-workspace-${testInfo.project.name}.png`,
+    });
   // Default sort is cheapest first.
   await expect(flights.locator(".svc-carrier").first()).toHaveText("Bamboo");
   await flights
     .getByRole("combobox", { name: "Sắp xếp chuyến bay" })
     .selectOption("depart");
   await expect(flights.locator(".svc-carrier").first()).toHaveText("Bamboo");
-  await flights.getByRole("button", { name: "Vietjet" }).click();
+  await flights.getByRole("button", { name: "Vietjet", exact: true }).click();
   await expect(flights.locator(".svc-card")).toHaveCount(1);
   await flights.getByRole("button", { name: "Chọn chuyến này" }).click();
   await expect
@@ -989,11 +3246,169 @@ test("flight results open a flight workspace with sorting and selection", async 
   await expect(flights).toHaveCount(0);
 });
 
+test("flight detail keeps the latest request, shows provider airport codes and stays closed", async ({
+  page,
+}, info) => {
+  const { thread } = await fixture(page);
+  const offers = ["A", "B"].map((carrier, i) => ({
+    id: "detail-" + carrier,
+    carrier: "Hãng " + carrier,
+    fare_vnd: 900000 + i * 100000,
+    depart_at: "2026-11-20T06:00:00+07:00",
+    arrive_at: "2026-11-20T07:25:00+07:00",
+    stops: 0,
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  }));
+  seed(thread, [
+    {
+      id: "flight:details",
+      type: "flight",
+      task_id: "flight",
+      data: { origin: "HAN", destination: "DAD", offers },
+    },
+  ]);
+  let release: (() => void) | undefined;
+  let delayed = false;
+  let responseSent = false;
+  await page.route("**/api/flight/detail-*", async (route) => {
+    const isA = route.request().url().endsWith("detail-A");
+    if (isA) {
+      delayed = true;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    await route.fulfill({
+      json: {
+        segments: [
+          {
+            origin: isA ? "HAN" : "DAD",
+            destination: isA ? "DAD" : "SGN",
+            departure_time: "2026-11-20T06:00:00+07:00",
+            arrival_time: "2026-11-20T07:25:00+07:00",
+            airline_code: "VN",
+            flight_number: isA ? "VN101" : "VN102",
+          },
+        ],
+      },
+    });
+    if (isA) responseSent = true;
+  });
+  await page.goto("/ai/th_ui");
+  const cards = page.locator(".svc-card");
+  const panel = page.getByRole("complementary", {
+    name: "Chi tiết hành trình",
+  });
+  await cards
+    .filter({ hasText: "Hãng A" })
+    .getByRole("button", { name: "Xem hành trình" })
+    .click();
+  await expect.poll(() => delayed).toBe(true);
+  if (info.project.name === "mobile")
+    await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  await cards
+    .filter({ hasText: "Hãng B" })
+    .getByText("Hãng B", { exact: true })
+    .click();
+  await expect(panel).toContainText("VN102");
+  await expect(panel).toContainText("DAD");
+  await expect(panel).toContainText("SGN");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  if (process.env.SIU_UI_SCREENSHOTS)
+    await page.screenshot({
+      path: `../logs/local/flight-detail-${info.project.name}.png`,
+    });
+  release!();
+  await expect.poll(() => responseSent).toBe(true);
+  await page.waitForLoadState("networkidle");
+  await expect(panel).toContainText("VN102");
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  delayed = false;
+  responseSent = false;
+  await cards
+    .filter({ hasText: "Hãng A" })
+    .getByRole("button", { name: "Xem hành trình" })
+    .click();
+  await expect.poll(() => delayed).toBe(true);
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  release!();
+  await expect.poll(() => responseSent).toBe(true);
+  await page.waitForLoadState("networkidle");
+  await expect(panel).toHaveCount(0);
+});
+
+test("a failed workspace selection shows its error without opening chat manually", async ({
+  page,
+}) => {
+  const { thread } = await fixture(page);
+  seed(thread, [
+    {
+      id: "flight:error",
+      type: "flight",
+      task_id: "flight",
+      data: {
+        origin: "HAN",
+        destination: "DAD",
+        offers: [
+          {
+            id: "expired-selection",
+            carrier: "Vietnam Airlines",
+            fare_vnd: 900000,
+            depart_at: "2026-11-20T06:00:00+07:00",
+            arrive_at: "2026-11-20T07:25:00+07:00",
+            stops: 0,
+            expires_at: new Date(Date.now() + 3600000).toISOString(),
+          },
+        ],
+      },
+    },
+  ]);
+  await page.route("**/api/threads/th_ui/action", (route) =>
+    route.fulfill({
+      status: 409,
+      json: { detail: "Giá đã thay đổi. Hãy tìm lại." },
+    }),
+  );
+  await page.goto("/ai/th_ui");
+  await expect(
+    page.getByRole("button", { name: "Hiện khung chat" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Chọn chuyến này" }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Trò chuyện với ReloHome" })
+      .getByRole("alert"),
+  ).toContainText("Giá đã thay đổi");
+  await expect(page.getByRole("region", { name: "Chuyến bay" })).toBeVisible();
+});
+
 test("moving quotes open a moving workspace with A/B points and fee details", async ({
   page,
 }) => {
   const calls: any[] = [];
   const { thread } = await fixture(page, true, calls);
+  const routeCalls: any[] = [];
+  await page.route("**/web/api/platform/routes/entities", (route) => {
+    routeCalls.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        route: {
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [106.698, 10.7725],
+              [106.699, 10.775],
+              [106.7, 10.78],
+            ],
+          },
+        },
+      },
+    });
+  });
   seed(thread, [
     {
       id: "moving:1",
@@ -1030,6 +3445,18 @@ test("moving quotes open a moving workspace with A/B points and fee details", as
   });
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Chợ Bến Thành")).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "OSRM (ô tô)" }),
+  ).toBeVisible();
+  expect(routeCalls).toEqual([
+    {
+      city: "hcm",
+      profile: "driving",
+      snap_radius_m: 100,
+      origin: { type: "coordinate", location: { lat: 10.7725, lng: 106.698 } },
+      destination: { type: "coordinate", location: { lat: 10.78, lng: 106.7 } },
+    },
+  ]);
   await panel.getByRole("button", { name: "Xem chi phí" }).click();
   await expect(panel.getByText("200.000 ₫")).toBeVisible();
   await panel.getByRole("button", { name: "Chọn phương án" }).click();
@@ -1071,14 +3498,16 @@ test("a conversation can be deleted, and all conversations reset", async ({
       name: "Xóa cuộc trò chuyện Tìm nhà tại Quận 1",
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Xóa tất cả và làm mới SIU" }).click();
   await page
-    .getByRole("dialog", { name: "Xóa tất cả và làm mới SIU?" })
+    .getByRole("button", { name: "Xóa tất cả và làm mới ReloHome" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Xóa tất cả và làm mới ReloHome?" })
     .getByRole("button", { name: "Xóa tất cả" })
     .click();
   await expect(
     page.getByText(
-      "Đã xóa toàn bộ trò chuyện và làm mới những gì SIU ghi nhớ.",
+      "Đã xóa toàn bộ trò chuyện và làm mới những gì ReloHome ghi nhớ.",
     ),
   ).toBeVisible();
   expect(calls.at(-1)).toEqual({ path: "/threads", method: "DELETE" });
@@ -1296,7 +3725,7 @@ test("account profile and preferences persist, history returns to its thread, an
   });
   await page.goto("/ai/th_ui");
   await page.getByRole("link", { name: "Mở tài khoản" }).click();
-  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Tên hiển thị" })
     .fill("Minh Anh mới");
@@ -1304,7 +3733,7 @@ test("account profile and preferences persist, history returns to its thread, an
   await expect(page.locator(".account-chip-name strong")).toHaveText(
     "Minh Anh mới",
   );
-  await page.getByRole("button", { name: "Sở thích AI", exact: true }).click();
+  await page.getByRole("tab", { name: "Sở thích AI", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Thành phố", exact: true })
     .selectOption("Hà Nội");
@@ -1318,11 +3747,11 @@ test("account profile and preferences persist, history returns to its thread, an
     preferences: { city: "Hà Nội", budget: "6000000" },
   });
   await page.reload();
-  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
     "Minh Anh mới",
   );
-  await page.getByRole("button", { name: "Sở thích AI", exact: true }).click();
+  await page.getByRole("tab", { name: "Sở thích AI", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "Thành phố", exact: true }),
   ).toHaveValue("Hà Nội");
@@ -1360,7 +3789,7 @@ test("a saved map home still opens its detail when it is absent from chat result
     }),
   );
   await page.goto("/account");
-  await page.getByRole("button", { name: /Đã lưu/ }).click();
+  await page.getByRole("tab", { name: /Đã lưu/ }).click();
   await page
     .getByRole("button", { name: houses[1].title, exact: true })
     .click();
@@ -1375,4 +3804,29 @@ test("a saved map home still opens its detail when it is absent from chat result
   await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "Đóng", exact: true }).click();
   await expect(page).toHaveURL(/\/ai\/th_ui$/);
+});
+
+test("ReloHome branding has no robot logo on landing, login, or chat", async ({ page }) => {
+  const { thread } = await fixture(page, false);
+  seed(thread);
+  await page.goto("/");
+  await expect(page.locator(".landing-page")).toBeVisible();
+  await expect(page.locator(".robot, .landing-hero-caption")).toHaveCount(0);
+
+  await page.goto("/ai");
+  await expect(page.locator(".login-page")).toBeVisible();
+  await expect(page.locator(".robot")).toHaveCount(0);
+  await page.locator('input[name="email"]').fill("minhanh@example.test");
+  await page.locator('input[name="password"]').fill("strong-password");
+  await page.locator('form button[type="submit"], .login-form form button').first().click();
+  await page.goto("/ai/th_ui");
+  await expect(page.locator(".chat-home-link")).toHaveText("RH");
+  await expect(page.locator(".message.assistant")).toHaveCount(1);
+  await expect(page.locator(".robot")).toHaveCount(0);
+
+  const icon = page.locator('link[rel="icon"]');
+  await expect(icon).toHaveAttribute("href", "/favicon.svg?v=home");
+  const favicon = await page.request.get("/favicon.svg?v=home");
+  expect(favicon.ok()).toBeTruthy();
+  expect(await favicon.text()).toContain("M11 29 32 12");
 });

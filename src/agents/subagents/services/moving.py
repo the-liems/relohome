@@ -18,6 +18,7 @@ from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_resul
 from src.agents.models import AgentUsage, Question, Quote, SourceKind
 from src.agents.subagents.capabilities import RELOCATION
 from src.agents.subagents.services.common import BudgetExceededError, CountingClient, first, tool_failure
+from src.models.moving_options import apply_draft_options, service_selection, validated_options
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 SOURCE = "ahamove"
@@ -189,10 +190,13 @@ class MovingSubagent:
         if questions:
             return self._result(req, tools, status="needs_input", questions=questions)
 
-        listed = await tools.call(
-            "list_moving_services", {"lat": pickup["lat"], "lng": pickup["lng"], "delivery_type": "TRUCK"}
-        )
-        services = [s["service_id"] for s in (listed or {}).get("services", [])][:MAX_SERVICES]
+        options = validated_options(inp.get("moving_options"))
+        catalog_args = {"lat": pickup["lat"], "lng": pickup["lng"]}
+        if not options.get("service_id"):
+            catalog_args["delivery_type"] = "TRUCK"
+        listed = await tools.call("list_moving_services", catalog_args)
+        catalog = {s["service_id"]: s for s in (listed or {}).get("services", [])}
+        services = [s for s in catalog if not options.get("service_id") or s == options["service_id"]][:MAX_SERVICES]
         if not services:
             return self._result(req, tools, status="done", data={"quotes": []}, missing_fields=["quotes"])
 
@@ -210,8 +214,14 @@ class MovingSubagent:
             "payment_method": "CASH",
         }
         draft["order_time"] = when
+        try:
+            selections = [service_selection(catalog[s], options) for s in services]
+        except ValueError as exc:
+            return self._result(
+                req, tools, status="needs_input", questions=[Question(field="service_id", text=str(exc))]
+            )
         estimate = await tools.call(
-            "estimate_move", {"draft": draft, "services": [{"service_id": s} for s in services]}
+            "estimate_move", {"draft": apply_draft_options(draft, options), "services": selections}
         )
         quote = (estimate or {}).get("quote") or {}
         quotes, items, missing = [], [], []
@@ -244,6 +254,13 @@ class MovingSubagent:
             "quote_id": quote.get("quote_id"),
             "expires_at": quote.get("expires_at"),
             "payment_method": "CASH",
+            "moving_options": options,
+            "addon_labels": [
+                {"id": r.get("_id") or r.get("request_id"), "label": r.get("name_vi_vn") or r.get("name")}
+                for service in catalog.values()
+                for r in service.get("requests", [])
+                if (r.get("_id") or r.get("request_id")) in {x["request_id"] for x in options.get("requests", [])}
+            ],
             "from_address": pickup["address"],
             "to_address": to_address,
             # Toạ độ và giờ đặt (không có dữ liệu cá nhân) để transaction báo giá lại với liên hệ thật.

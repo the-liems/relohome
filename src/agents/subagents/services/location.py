@@ -8,6 +8,7 @@ subagent tự xếp hạng; tên khu vực / địa danh mơ hồ thì hỏi l�
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 from datetime import datetime
 from itertools import combinations
@@ -25,9 +26,7 @@ from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 SOURCE = "lifeflow-location"
 DEFAULT_RADIUS_M = 3000
-# Bản ghi POI khớp chính xác cùng tên nằm trong bán kính này coi là một điểm đến (ví dụ way + area
-# của cùng một chợ, hai trạm xe buýt hai bên đường). Chỉ dùng cho điểm đến của Map/Housing,
-# không dùng cho điểm lấy/giao Moving.
+# Sanity bound for two representations of the SAME OSM object, not a same-name merge rule.
 SAME_PLACE_RADIUS_M = 150
 # Độ đầy đủ hình học theo loại phần tử OSM của bản ghi nguồn: vùng > đường > điểm.
 _GEOMETRY_RANK = {"relation": 3, "area": 3, "way": 2, "node": 1}
@@ -67,6 +66,8 @@ def city_of(address: dict[str, Any] | None) -> str | None:
 
 
 def label_of(item: dict) -> str:
+    if item.get("display_name"):
+        return str(item["display_name"])
     parent = (item.get("parent") or {}).get("name")
     return f"{item.get('name')} ({parent})" if parent else str(item.get("name"))
 
@@ -143,15 +144,35 @@ def _geometry_rank(item: dict) -> int:
     return _GEOMETRY_RANK.get(source_id.split("/", 1)[0], 0)
 
 
+def _osm_identity(item: dict) -> str | None:
+    source = item.get("source") or {}
+    if source.get("type") not in (None, "osm"):
+        return None
+    match = re.fullmatch(r"(node|way|relation|area)/(\d+)", str(source.get("source_id") or ""))
+    if not match:
+        return None
+    kind, identifier = match[1], int(match[2])
+    if kind == "area":
+        kind, identifier = ("way" if identifier % 2 == 0 else "relation"), identifier // 2
+    return f"{kind}/{identifier}"
+
+
 def pick_place(results: list[dict], radius_m: float = SAME_PLACE_RADIUS_M) -> dict | None:
     """Điểm đến cho Map route / tiện ích / tìm nhà gần một địa danh.
 
-    Các ứng viên khớp chính xác tên mà mọi cặp cách nhau không quá `radius_m` là cùng một điểm đến
-    trong thực tế (bản ghi trùng của nguồn): chọn bản ghi có hình học đầy đủ nhất. Ứng viên xa nhau
-    vẫn là mơ hồ thật, dùng luật `pick_clear` và hỏi lại."""
+    Chỉ gộp hai biểu diễn cùng đối tượng OSM và cùng category. Các trạm/cổng gần nhau
+    hoặc cùng tên vẫn là địa điểm khác nhau, phải giữ khả năng hỏi lại."""
     unique = _distinct([r for r in results if r.get("match_type") != "fuzzy"])
     exact = [r for r in unique if r.get("match_type") == "exact" and (r.get("location") or {}).get("lat") is not None]
-    if len(exact) >= 2 and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2)):
+    identities = {_osm_identity(item) for item in exact}
+    categories = {item.get("category") for item in exact}
+    if (
+        len(exact) >= 2
+        and len(identities) == 1
+        and None not in identities
+        and len(categories) == 1
+        and all(_meters(a["location"], b["location"]) <= radius_m for a, b in combinations(exact, 2))
+    ):
         return max(exact, key=_geometry_rank)
     return pick_clear(unique)
 
@@ -268,6 +289,10 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "quality_flags": r.get("quality_flags") or [],
         "price_unverified": any(str(f).startswith("price_") for f in r.get("quality_flags", [])),
     }
+    # Ratings are already calculated by code. Never forward review text or author identities to the Agent.
+    management = r.get("management")
+    if isinstance(management, dict):
+        candidate.update({k: management[k] for k in ("host_rating", "host_review_count") if k in management})
     missing = [k for k in ("price_vnd", "deposit_vnd", "area_m2", "address") if candidate[k] is None]
     missing += [m for m in must_have if m not in amenities]
     return candidate, missing
@@ -345,12 +370,17 @@ class LocationSubagent:
 
     async def _property(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
+        if inp.get("housing_mode") == "compare":
+            return await self._comparison(req, tools)
+        search_compare = inp.get("housing_mode") == "search_compare"
         limit = int(inp.get("limit") or 5)
+        query_limit = 20 if search_compare else limit
         search_radius = int(inp.get("search_radius_m") or DEFAULT_RADIUS_M)
         soft = inp.get("soft_filters") or {}
         area: dict[str, Any] = {}
         area_name = None
         city_scope = None
+        administrative_scope: dict | None = None
         scope_bbox: dict | None = None
         if inp.get("bounding_box"):
             # Khung bản đồ người dùng đang xem (API đã kiểm biên); thay cho thành phố / địa danh.
@@ -381,33 +411,58 @@ class LocationSubagent:
             area = {"center": place["location"], "radius_m": search_radius}
             area_name = (place.get("parent") or {}).get("name") or place.get("name")
         elif inp.get("city"):
-            areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
+            areas = (
+                (await tools.call("search_areas", {"text": inp["city"], "limit": 5, "include_geometry": True})) or {}
+            ).get("results") or []
             found = pick_city_area(areas)
             if found is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
+            administrative_scope = found
         elif inp.get("district"):
             # A district alone is a valid scope only after Location resolves it uniquely.
-            areas = ((await tools.call("search_areas", {"text": inp["district"], "limit": 5})) or {}).get(
-                "results"
-            ) or []
+            areas = (
+                (await tools.call("search_areas", {"text": inp["district"], "limit": 5, "include_geometry": True}))
+                or {}
+            ).get("results") or []
             found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
             if found is None:
                 return self._choose(req, tools, "district", inp["district"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
+            administrative_scope = found
         if city_scope:
             area["administrative_area_ids"] = [city_scope["area_id"]]
+
+        # Resolve the user's named sub-area inside the city, using the current dataset's
+        # actual unit/name. Never infer an old district from admin_level or from a ward.
+        if inp.get("district") and not area.get("bounding_box"):
+            arguments = {"text": inp["district"], "limit": 5, "include_geometry": True}
+            if scope_bbox:
+                arguments["bounding_box"] = scope_bbox
+            areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
+            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            if found is not None:
+                administrative_scope = found
+                # administrative_area_ids uses OR, not AND: keep only the narrowest scope.
+                area["administrative_area_ids"] = [found["area_id"]]
+                if not area.get("center"):
+                    area_name = found.get("name")
+                scope_bbox = found.get("bounding_box")
+            elif not area.get("center"):
+                # Legacy addresses remain searchable, but cannot supply a real polygon.
+                administrative_scope = None
+                area_name = inp["district"]
 
         def request(filters: dict[str, Any]) -> dict[str, Any]:
             body: dict[str, Any] = {
                 "listing_type": "rent",
                 "currency": "VND",
                 "price_period": "month",
-                "pagination": {"limit": limit, "cursor": inp.get("cursor")},
+                "pagination": {"limit": query_limit, "cursor": inp.get("cursor")},
                 **area,
             }
             if filters.get("max_price_vnd") is not None:
@@ -417,7 +472,7 @@ class LocationSubagent:
             for key in HOUSING_NUMERIC_FILTERS:
                 if filters.get(key) is not None:
                     body[key] = filters[key]
-            if filters.get("district"):
+            if filters.get("district") and not administrative_scope:
                 body["district"] = filters["district"]
             room = ROOM_TYPES.get(str(filters.get("room_type", "")).lower())
             if room:
@@ -448,7 +503,14 @@ class LocationSubagent:
         must_have = list(search_request.get("amenities") or [])
         candidates, missing, quotes = [], [], []
         excluded = 0
-        for r in rank_listings(results):
+        ordered = (
+            sorted(results, key=lambda r: (
+                bool(any(str(f).startswith("price_") for f in r.get("quality_flags", []))),
+                (r.get("price") or {}).get("amount") or float("inf"),
+            ))
+            if search_compare else rank_listings(results)
+        )
+        for r in ordered:
             if len(candidates) >= limit:
                 break
             candidate, unknown = to_candidate(r, must_have)
@@ -468,6 +530,12 @@ class LocationSubagent:
                     recurrence="monthly",
                 )
             )
+        viewport = (
+            scope_bbox
+            if administrative_scope and not area.get("center")
+            else await self._viewport(tools, area, search_request, candidates, scope_bbox)
+        )
+        search_envelope = area.get("bounding_box") or (viewport if search_request.get("district") else scope_bbox)
         data = {
             "area_name": area_name,
             "distance_basis": "straight_line" if area.get("center") else "administrative_or_viewport",
@@ -484,11 +552,50 @@ class LocationSubagent:
             "map_context": {
                 "scope": "returned_candidates",
                 "listing_ids": [c["id"] for c in candidates],
-                "viewport": await self._viewport(tools, area, search_request, candidates, scope_bbox),
+                "viewport": viewport,
+                "search_scope": {
+                    "center": area.get("center"),
+                    "radius_m": area.get("radius_m"),
+                    "bounding_box": search_envelope,
+                    "label": area_name,
+                    "geometry": administrative_scope.get("geometry")
+                    if administrative_scope and not area.get("center")
+                    else None,
+                    "area_id": administrative_scope.get("area_id") if administrative_scope else None,
+                    "boundary_kind": "search_radius"
+                    if area.get("center")
+                    else "administrative_polygon"
+                    if administrative_scope
+                    else "search_envelope_not_administrative_polygon",
+                    "boundary_unavailable": bool(
+                        inp.get("district") and not administrative_scope and not area.get("center")
+                    ),
+                },
             },
         }
         if relaxed:
             data["relaxed_filters"] = relaxed
+        if search_compare:
+            rows = []
+            for candidate in candidates:
+                rent = candidate["price_vnd"] if not candidate["price_unverified"] else None
+                area_m2 = candidate["area_m2"]
+                deposit = candidate["deposit_vnd"]
+                rows.append({
+                    **candidate,
+                    "rent_vnd": rent,
+                    "rent_per_m2_vnd": round(rent / area_m2)
+                    if rent is not None and isinstance(area_m2, (int, float)) and area_m2 > 0 else None,
+                    "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
+                    "cost_basis": "rent_plus_deposit_only_not_final_total",
+                    "unknown_cost_fields": ["electricity", "water", "service_fees"],
+                })
+            data["comparison"] = {
+                "rows": rows,
+                "scope": "new_search_results_only",
+                "fees_verified": False,
+                "has_more": data["has_more"],
+            }
         return self._result(
             req,
             tools,
@@ -498,6 +605,71 @@ class LocationSubagent:
             missing_fields=missing,
             source_refs=[c["id"] for c in candidates],
             summary=f"{len(candidates)} tin phù hợp" if candidates else "Chưa có tin phù hợp",
+        )
+
+    async def _comparison(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
+        """Re-read explicit listings, never replace them with new search results."""
+        candidates, rows, missing = [], [], []
+        for identifier in req.inputs["listing_ids"]:
+            raw = await tools.call("get_housing", {"listing_id": identifier})
+            if raw.get("listing_id") != identifier:
+                return failed_result(
+                    req, "invalid_input", "Không đọc được đúng căn cần so sánh.", False, SOURCE, "live"
+                )
+            candidate, unknown = to_candidate(raw, req.inputs.get("must_have", []))
+            candidates.append(candidate)
+            rent = candidate["price_vnd"] if not candidate["price_unverified"] else None
+            deposit = candidate["deposit_vnd"]
+            area = candidate["area_m2"]
+            rows.append(
+                {
+                    **candidate,
+                    "rent_vnd": rent,
+                    "rent_per_m2_vnd": round(rent / area)
+                    if rent is not None and isinstance(area, (int, float)) and area > 0
+                    else None,
+                    "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
+                    "cost_basis": "rent_plus_deposit_only_not_final_total",
+                    "unknown_cost_fields": ["electricity", "water", "service_fees"],
+                }
+            )
+            missing += [f"candidates[{len(candidates) - 1}].{key}" for key in unknown]
+        return self._result(
+            req,
+            tools,
+            status="done",
+            source_refs=list(req.inputs["listing_ids"]),
+            missing_fields=missing,
+            quotes=[],  # Read-only facts, not selectable/budgeted housing options.
+            data={
+                "candidates": candidates,
+                "comparison": {
+                    "rows": rows,
+                    "scope": "requested_listings_only",
+                    "fees_verified": False,
+                    "price_outside_requested_range_ids": [
+                        row["id"]
+                        for row in rows
+                        if row["rent_vnd"] is not None
+                        and (
+                            (
+                                req.inputs.get("min_price_vnd") is not None
+                                and row["rent_vnd"] < req.inputs["min_price_vnd"]
+                            )
+                            or (
+                                req.inputs.get("max_price_vnd") is not None
+                                and row["rent_vnd"] > req.inputs["max_price_vnd"]
+                            )
+                        )
+                    ],
+                },
+                "map_context": {
+                    "scope": "returned_candidates",
+                    "listing_ids": list(req.inputs["listing_ids"]),
+                    "viewport": bbox_of_points(candidates),
+                },
+            },
+            summary=f"Đã đọc lại {len(candidates)} căn để so sánh; chưa chọn hay liên hệ chủ nhà.",
         )
 
     async def _viewport(
@@ -529,12 +701,18 @@ class LocationSubagent:
         return bbox_of_points(candidates) or scope_bbox
 
     def _not_found(self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str) -> AgentTaskResult:
+        question = (
+            f'Mình chưa có tọa độ đáng tin cậy cho "{text}". Bạn có thể ghim địa điểm trên bản đồ '
+            'hoặc yêu cầu tìm theo quận/thành phố thay thế.'
+            if field == "near"
+            else f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?'
+        )
         return self._result(
             req,
             tools,
             status="needs_input",
             questions=[
-                Question(field=field, text=f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?')
+                Question(field=field, text=question)
             ],
         )
 

@@ -24,7 +24,7 @@ from src.agents.models import (
     TaskStatus,
     error_record,
 )
-from src.agents.progress import record_goal
+from src.agents.progress import record_goal, record_selections
 from src.agents.state import WorkflowState
 from src.agents.suggestions import next_step_suggestions
 
@@ -51,6 +51,7 @@ QUESTION_TEXT = {
     "map.selected:property": "Bạn muốn tính đường cho căn nhà nào? Hãy chọn một căn trước.",
     "property.city|near": "Bạn muốn tìm phòng ở khu vực nào?",
     "property.city|near|district": "Bạn muốn tìm phòng ở thành phố, quận/huyện hoặc gần địa điểm nào?",
+    "property.listing_ids": "Bạn muốn so sánh những căn đã xem nào, hay tìm danh sách mới đúng khu vực và mức giá này trước?",
     "relocation.from_address": "Bạn chuyển đồ từ địa chỉ nào?",
     "relocation.to_address": "Bạn chuyển đồ tới địa chỉ nào?",
     "relocation.move_date": "Bạn muốn chuyển đồ ngày nào?",
@@ -59,6 +60,7 @@ QUESTION_TEXT = {
     "flight.origin": "Bạn bay từ thành phố nào?",
     "flight.destination": "Bạn bay tới đâu?",
     "flight.flight_date": "Bạn muốn bay ngày nào?",
+    "flight.return_date": "Bạn muốn bay về ngày nào?",
     "map.near": "Bạn muốn xem tiện ích quanh địa điểm nào?",
 }
 HINT_FOR = {"flight.origin": "origin", "relocation.from_address": "current_address"}
@@ -92,6 +94,33 @@ def question_for(field: str, session: SessionContext | None) -> Question:
     return Question(field=field, text=text, blocking=True)
 
 
+# Câu trả lời có kiểu cho câu hỏi địa chỉ đến của chuyển đồ khi chưa chốt nhà (housing-viewing-design §7).
+# Giao diện gọi endpoint riêng cho từng lựa chọn; chữ hiển thị nằm ở đây và file ngôn ngữ.
+# Thứ tự là hợp đồng với giao diện: lựa chọn cuối luôn là "báo giá ngay"; có hai lựa chọn thì đầu là "chờ chốt".
+MOVING_WAIT_FOR_HOME = "Chờ tôi xem nhà và chốt căn rồi báo giá"
+MOVING_ADDRESS_NOW = "Báo giá ngay tới một địa chỉ"
+
+
+def moving_destination_question(question: Question, state: WorkflowState) -> Question:
+    """Chưa chốt nhà: chuyển đồ chờ chốt (tuần tự, mặc định) hoặc báo giá tới địa chỉ người dùng xác nhận."""
+    if question.field != "relocation.selected:property":
+        return question
+    if state.get("moving_destination_mode") == "wait_for_home":
+        return Question(
+            field=question.field,
+            text="Chuyển đồ sẽ báo giá sau khi bạn gặp chủ nhà và chốt căn.",
+            options=[MOVING_ADDRESS_NOW],
+            blocking=False,
+        )
+    viewing = len(state.get("housing_selection") or [])
+    lead = f"Bạn đang xem {viewing} căn, chưa chốt căn nào." if viewing else "Bạn chưa chốt căn nhà nào."
+    return Question(
+        field=question.field,
+        text=f"{lead} Chuyển đồ nên chờ bạn chốt căn, hay báo giá ngay tới một địa chỉ bạn xác nhận?",
+        options=[MOVING_WAIT_FOR_HOME, MOVING_ADDRESS_NOW],
+    )
+
+
 def unique_questions(questions: list[Question]) -> list[Question]:
     """Planner and validators may use provider aliases for the same field."""
     aliases = {"flight.date": "flight.flight_date"}
@@ -115,12 +144,36 @@ def describe_result(
     agent: AgentName, data: dict, titles: dict[str, str] | None = None, asked_city: str | None = None
 ) -> list[str]:
     lines = []
+    if agent == AgentName.ROOMMATE:
+        availability = data.get("availability")
+        if availability == "eligibility_required":
+            return [
+                "Để tìm người ở cùng, hãy đăng nhập, xác nhận bạn từ 18 tuổi và đồng ý điều khoản dịch vụ trong form."
+            ]
+        if availability == "criteria_required":
+            return [
+                "Hãy chọn thành phố và tiêu chí trong dịch vụ Tìm người ở cùng. Bạn tự quyết định xem hồ sơ và liên hệ."
+            ]
+        if availability == "disabled":
+            return ["Dịch vụ Tìm người ở cùng chưa được bật."]
+        return [
+            f"Có {len(data.get('profile_refs') or [])} hồ sơ trong trang kết quả. Mở dịch vụ để xem thông tin hiện tại; hệ thống không tự ghép cặp hoặc gửi yêu cầu liên hệ."
+        ]
     if agent == AgentName.PAYMENT:
         payment = data.get("payment") or {}
         lines.append(
             f"Thanh toán sandbox {payment.get('payment_id')}: {payment.get('status')} — {vnd(payment.get('amount'))}. Trạng thái do ZaloPay trả về, không đồng nghĩa dịch vụ đã được đặt."
         )
     if agent == AgentName.PROPERTY:
+        if comparison := data.get("comparison"):
+            return [
+                (
+                    f"Đã tìm {len(comparison.get('rows', []))} căn trong khu vực mới để so sánh"
+                    + (" (còn trang kết quả khác)." if comparison.get("has_more") else ".")
+                    if comparison.get("scope") == "new_search_results_only"
+                    else f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh."
+                ) + " Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
+            ]
         if data.get("search_radius_m"):
             lines.append(
                 f"Phạm vi tìm nhà: {data['search_radius_m']} m đường thẳng quanh địa điểm"
@@ -153,8 +206,15 @@ def describe_result(
             )
             lines.append(f"Quanh {(titles or {}).get(key, key)}: {names or 'chưa có dữ liệu'}")
     elif agent == AgentName.FLIGHT:
+        if data.get("trip_type") == "round_trip":
+            lines.append(
+                f"Vé khứ hồi, về ngày {data.get('return_date')}. Chiều đi (giá khứ hồi thấp nhất, giá tham khảo):"
+            )
         for offer in data.get("offers", [])[:5]:
-            lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {vnd(offer.get('fare_vnd'))}")
+            prefix = "từ " if offer.get("kind") == "round_trip_outbound" else ""
+            lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {prefix}{vnd(offer.get('fare_vnd'))}")
+        if data.get("trip_type") == "round_trip":
+            lines.append("Chọn chuyến đi trên giao diện để xem chiều về và giá cả hành trình.")
         if data.get("booking"):
             booking = data["booking"]
             lines.append(f"Đặt chỗ {booking.get('pnr') or booking.get('booking_id')}: {booking.get('status')}")
@@ -230,6 +290,10 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
         result = results.get(task.id)
         if statuses.get(task.id) != TaskStatus.DONE or result is None:
             continue
+        fresh = (result.data.get("execution") or {}).get("request_id") == state.get("request_id")
+        intake = state.get("intake")
+        if result.data.get("comparison") and intake and intake.needs_clarification and not fresh:
+            continue  # Asking which homes is not a fresh comparison of old rows.
         view[task.id] = {
             "agent": task.agent.value,
             "data": result.data,
@@ -241,12 +305,11 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
             "summary": result.summary,
             "usage": result.usage.model_dump(mode="json"),
         }
-        fresh = (result.data.get("execution") or {}).get("request_id") == state.get("request_id")
         target = lines if fresh else earlier
         display_data = result.data
         intake = state.get("intake")
         selected = intake.user_confirmed_facts.get(f"selected:{task.agent.value}") if intake else None
-        if selected and task.agent == AgentName.PROPERTY:
+        if selected and task.agent == AgentName.PROPERTY and not result.data.get("comparison"):
             chosen = [c for c in result.data.get("candidates", []) if c.get("id") == selected.value]
             if chosen:
                 display_data = {**result.data, "candidates": chosen}
@@ -258,9 +321,13 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
         target.extend(describe_result(task.agent, display_data, titles, asked_city))
         if fresh:
             notes.extend(data_notes(result.data))
-        if result.source_kind != "live":
-            kinds.add(result.source_kind)
-        relaxed.extend(result.data.get("relaxed_filters") or [])
+        if fresh:
+            if result.source_kind != "live":
+                kinds.add(result.source_kind)
+            relaxed.extend(result.data.get("relaxed_filters") or [])
+    if not lines:
+        kinds = {item["source_kind"] for item in view.values() if item["source_kind"] != "live"}
+        relaxed = [f for item in view.values() for f in item["data"].get("relaxed_filters", [])]
     # A turn that only reuses earlier results (nothing new ran) still shows them once.
     return [*(lines or earlier), *dict.fromkeys(notes)], view, kinds, relaxed
 
@@ -276,6 +343,21 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     lines, view, kinds, relaxed = results_view(state)
     has_results = bool(view)
     data: dict[str, Any] = {"results": view}
+    fresh_view = [
+        item for item in view.values() if item["data"].get("execution", {}).get("request_id") == state.get("request_id")
+    ]
+    current_view = fresh_view or list(view.values())
+    if state.get("housing_selection_changed") and not fresh_view:
+        # Lượt chỉ thêm/bỏ căn đang xem: xác nhận ngắn thay vì lặp lại danh sách kết quả cũ.
+        selection = state.get("housing_selection") or []
+        names = ", ".join(h.get("label") or h.get("listing_id") for h in selection)
+        lines = [
+            f"Các căn bạn đang chọn để đi xem ({len(selection)}): {names}."
+            if selection
+            else "Bạn chưa chọn căn nào để đi xem.",
+            "Đây chưa phải căn đã chốt. Hẹn lịch trong Kế hoạch → Xem nhà; gặp chủ nhà xong mới chốt.",
+        ]
+    comparison_only = bool(current_view) and all(item["data"].get("comparison") for item in current_view)
     known_summary = ""
     if intake and AgentName.RELOCATION in intake.domains and code in {OutcomeCode.CLARIFY, OutcomeCode.ASK_USER}:
         values = intake.constraints.values
@@ -299,12 +381,16 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     if intake and intake.unavailable_commit_requested:
         data["unavailable_actions"] = [action.value for action in intake.unavailable_commit_requested]
         notes.append(
-            "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
+            'Để đặt và thanh toán, bấm "Thanh toán" trên vé hoặc báo giá chuyển đồ đã chọn (qua ReloHome, '
+            "ZaloPay sandbox; vé là mô phỏng). Mình không tự đặt hay trả tiền qua chat."
+            if deps.settings.app_payment
+            else "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
             "mình chỉ tra cứu thông tin/báo giá, chưa thực hiện giao dịch nào."
         )
     if intake and intake.prefilled and has_results:
         parts = ", ".join(f"{PREFILL_LABEL.get(k, k)} {v.value}" for k, v in intake.prefilled.items())
-        notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
+        if not comparison_only:
+            notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
         data["prefilled"] = {k: v.value for k, v in intake.prefilled.items()}
     if relaxed:
         notes.append(
@@ -342,8 +428,18 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         kind = "CLARIFY"
         questions = [question_for(f, session) for f in intake.blocking_missing]
         questions += [conflict_question(c, intake.domains) for c in intake.conflicts]
+        if intake.constraints.values.get("housing_mode") == "compare" and intake.blocking_missing == [
+            "property.listing_ids"
+        ]:
+            # One actionable clarification, not the same missing-ID question
+            # twice (code + model) plus an irrelevant search-filter tutorial.
+            data["comparison_clarification_details"] = list(intake.conflicts)
+            questions = [question_for("property.listing_ids", session)]
         head = "Mình cần thêm một chút thông tin:"
-        if any(f.startswith("property.") for f in intake.blocking_missing):
+        if (
+            any(f.startswith("property.") for f in intake.blocking_missing)
+            and intake.constraints.values.get("housing_mode") != "compare"
+        ):
             notes.append(
                 "Nếu có ngân sách hay yêu cầu như Wi-Fi, máy lạnh, chỗ để xe thì nói luôn để mình lọc sát hơn."
             )
@@ -372,7 +468,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         )
     elif code == OutcomeCode.ANSWER:
         kind = "ANSWER"
-        head = "Đây là kết quả mình tìm được:"
+        head = "" if state.get("housing_selection_changed") and not fresh_view else "Đây là kết quả mình tìm được:"
         failed = [
             {"agent": t.agent.value, "task_id": t.id}
             for t in (plan.tasks if plan else [])
@@ -406,6 +502,8 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 continue
             result = results.get(task.id)
             assessment = result.data.get("agent_assessment", {}) if result and result.status == "done" else {}
+            # Comparison facts and the full domain assessment are already in
+            # the table payload; do not repeat the table as a long chat essay.
             if (
                 assessment.get("kind") == "model_assessment_not_provider_fact"
                 and assessment.get("satisfaction") == "limited"
@@ -413,10 +511,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 limited[task.id] = assessment
                 explanation = str(assessment.get("reason", ""))[:400]
                 next_step = str(assessment.get("next_step", ""))[:300]
-                notes.append(
-                    f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
-                    + " ".join(p for p in (explanation, next_step) if p)
-                )
+                if not result.data.get("comparison"):
+                    notes.append(
+                        f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
+                        + " ".join(p for p in (explanation, next_step) if p)
+                    )
         if limited:
             data["limited_tasks"] = limited
             if kind == "ANSWER":
@@ -476,7 +575,22 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             data["error"] = {"node": outcome.node, "code": code.value}
     if kind == "CLARIFY" and code == OutcomeCode.CLARIFY:
         lines = [known_summary] if known_summary else []
+    if comparison_only and code in {OutcomeCode.ANSWER, OutcomeCode.ASK_USER} and not data.get("failed_tasks"):
+        count = sum(len(item["data"]["comparison"].get("rows", [])) for item in current_view)
+        head = f"Đã so sánh {count} căn trong bảng dưới. Nhà bạn đã chọn không thay đổi."
+        lines = []
+        if data.get("limited_tasks"):
+            lines.append("Một số tiêu chí chưa được xác minh; xem nhận xét dưới bảng.")
+        if any(item["data"]["comparison"].get("price_outside_requested_range_ids") for item in current_view):
+            lines.append("Có căn nằm ngoài khoảng giá yêu cầu; xem cảnh báo trong bảng.")
+            if kind == "ANSWER":
+                kind = "PARTIAL"
     questions = unique_questions(questions)
+    if deps is not None and deps.settings.housing_viewing:
+        questions = [moving_destination_question(q, state) for q in questions]
+        if any(q.field == "relocation.selected:property" for q in questions):
+            # Câu hỏi chờ chốt / địa chỉ cụ thể đã bao gồm điểm giao; không hỏi điểm giao lần nữa.
+            questions = [q for q in questions if q.field != "relocation.to_address"]
     body = [head, *lines, *(q.text for q in questions), *notes]
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)
 
@@ -490,7 +604,15 @@ def make_respond(deps: GraphDeps):
             "response": response,
             "messages": [AIMessage(response.text)],
             "goal_tasks": record_goal(state),
+            "goal_selections": record_selections(state),
         }
+        for result in (state.get("task_results") or {}).values():
+            if result.agent == AgentName.PROPERTY and result.status == "done" and not result.data.get("comparison"):
+                if (result.data.get("execution") or {}).get("request_id") == state.get("request_id"):
+                    update["last_housing_search_options"] = [
+                        {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
+                        for c in result.data.get("candidates", [])
+                    ][:20]
         try:
             updates = memory_updates(state)
             if updates:

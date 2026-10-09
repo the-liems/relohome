@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents.contracts import AgentCapability
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS
+from src.agents.housing_operations import is_housing_comparison, same_housing_operation
 from src.agents.intake import missing_for, selected_fact_key
 from src.agents.llm import LLMError, StructuredLLM
 from src.agents.llm_context import result_context
@@ -65,6 +66,19 @@ class CapabilityRegistry:
 
 
 PROMPT = """Bạn là Routing Orchestrator LLM của LifeFlow, chủ động lập và sửa kế hoạch từ mục tiêu,
+Housing housing_mode='compare': task property đọc listing_ids đã xác nhận (2–4 căn), không tìm căn mới,
+không thêm task search phụ thuộc chỉ để đọc lại cùng căn. Giữ near và bộ lọc làm ngữ cảnh so sánh, không
+tự chọn nhà cho user. housing_mode='search' dùng truy vấn như bình thường, không dùng shortlist cũ để chặn tìm mới.
+housing_mode='search_compare' tìm tin ở khu vực mới rồi so sánh tối đa 2–4 tin có giá thấp nhất trong trang dữ liệu
+đọc được; không gán listing_ids cũ và không tách thành task compare phụ thuộc.
+So sánh là task phân tích riêng, KHÔNG sửa task tìm nhà thành compare hoặc dùng lại ID task search.
+Tạo ID riêng cho compare; giữ nguyên search cũ nếu cần context, hoặc bỏ khỏi plan hiện tại (lịch sử vẫn giữ).
+Ngân sách/vùng dùng để so sánh không thay bộ lọc search cũ, căn đã chọn hay điểm giao Moving.
+Khi sửa cùng bảng so sánh, giữ ID compare cũ. Khi quay lại tìm nhà, không dùng ID compare làm search.
+Roommate read-only: task roommate inputs={roommate_criteria:...} chỉ từ criteria đã xác nhận;
+thiếu criteria thì inputs={} để mở entry/form. Không thêm dependency property hoặc selected_listing_id.
+Không tạo commit/action, lựa chọn tài chính hay contact/publish/request cho Roommate.
+Không bịa hay thêm trait/preference vào roommate_criteria. Không chuyển criteria Roommate sang Housing.
 Payment chỉ là task tra cứu với inputs={payment_id:...}; không có commit action và không tính là khoản cần thu.
 ràng buộc, kết quả trước và feedback. Mỗi task là mục tiêu cho một DOMAIN, không phải MCP tool.
 confirmed_location_bindings là địa chỉ + tọa độ đã được backend nhận từ lựa chọn map hợp lệ;
@@ -76,7 +90,9 @@ approval, giá, toạ độ, ID hoặc thông tin còn thiếu. Không thay đ�
 Không tạo task với placeholder. Chỉ làm các domain được yêu cầu hoặc task cũ cần giữ.
 Khi một phần thiếu thông tin, bỏ task chưa chạy được, giữ phần có thể làm; graph sẽ hỏi user.
 Nếu tất cả đều thiếu thì tasks/actions rỗng. Không dùng suy đoán của bạn thay câu trả lời user.
-Map key: flight_date -> flight.date. 'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
+Map key: flight_date -> flight.date, trip_type -> flight.trip_type, return_date -> flight.return_date.
+Vé khứ hồi là MỘT task flight có trip_type='round_trip' và return_date; người dùng chọn chiều đi rồi chiều về trên giao diện.
+'Lọc nhà gần tiện ích' là bộ lọc Housing: nearby_categories/nearby_radius_m.
 'Xem/tìm tiện ích quanh địa danh, căn đã chọn hoặc các căn tìm được' là task Map nearby, KHÔNG tìm lại nhà thay nó.
 Nếu chỉ yêu cầu Map khám phá trong lượt mới thì nearby_categories/nearby_radius_m không đổi bộ lọc Housing đã xong.
 Map hỗ trợ cả route và nearby. Orchestrator giao mục tiêu/domain, không quy định thứ tự gọi MCP bên trong subagent.
@@ -117,6 +133,9 @@ có thể bỏ hai field này. Không suy tọa độ từ địa chỉ hay sao 
 Tương tự, Housing có near_coordinate đã xác nhận trên Map thì sao chép nguyên vẹn cùng near
 vào task property; không bỏ điểm đã chọn hoặc tạo task Map phụ chỉ để tìm lại tọa độ đó.
 Giữ task id khi sửa cùng task hoặc tái dùng task trước. Không đặt lại action đã committed.
+reserved_task_ids là ID đã dùng trong lịch sử. Với NEW_GOAL, chọn ID mới, không dùng lại những ID đó
+để không ghi đè kết quả/nhà đã chọn của mục tiêu trước. Giữ task cũ không có nghĩa phải chạy lại nó;
+lịch sử goal_tasks giữ các dịch vụ đã có mà không cần đưa chúng vào plan so sánh hiện tại.
 Chỉ tạo actions cho commit_requested đã được xác nhận bởi Intake; search/quote không tạo actions.
 Deposit ngoài phạm vi. Target huỷ/sửa phải là order_id/booking_ref do người dùng cung cấp hoặc
 receipt đang tồn tại, không suy đoán. requires_payment/PII/approval được code quản lý.
@@ -255,6 +274,13 @@ class LlmPlanner(UsageOwner):
         agents_by_id = {t.id: t.agent for t in tasks}
         for task in tasks:
             if (
+                task.agent == AgentName.PROPERTY
+                and inp.previous_plan
+                and task == inp.previous_plan.task(task.id)
+                and not same_housing_operation(task.agent, task.inputs, values)
+            ):
+                continue  # Do not inject the comparison's scope into a carried search (or vice versa).
+            if (
                 task.agent == AgentName.MAP
                 and task.inputs.get("map_mode", "nearby") != "route"
                 and any(agents_by_id.get(d) == AgentName.PROPERTY for d in task.depends_on)
@@ -280,8 +306,9 @@ class LlmPlanner(UsageOwner):
                     source_field = "map_near" if task.agent == AgentName.MAP and field == "near" else field
                     place_id = values.get(source_field + "_place_id")
                     if place_id:
-                        # Typed API choice binds its canonical name and ID together;
-                        # neither depends on the model repeating a display label.
+                        # Typed API choice binds its canonical name and ID together; a model-written
+                        # label cannot rename it (ADR-021, SPEC-014/AC-32). When the user changes the
+                        # endpoint, Intake drops the old ID, so a new text never inherits it.
                         task.inputs[field] = values[source_field]
                         task.inputs[field + "_place_id"] = place_id
                     else:
@@ -305,6 +332,9 @@ class LlmPlanner(UsageOwner):
                     task.inputs.pop("selected_listing_id", None)
             if task.agent != AgentName.RELOCATION or task.agent not in inp.intake.domains:
                 continue
+            task.inputs.pop("moving_options", None)
+            if task.inputs.get("mode") == "quote" and values.get("moving_options") is not None:
+                task.inputs["moving_options"] = dict(values["moving_options"])
             # Coordinates belong to trusted state. A model cannot override them
             # or accidentally retain the old direction's coordinates.
             for address_key, coordinate_key in (
@@ -389,6 +419,13 @@ class LlmPlanner(UsageOwner):
         plan_ids = set(plan_agents)
         requested_map_mode = values.get("map_mode", "nearby")
         if (
+            AgentName.PROPERTY in inp.intake.domains
+            and AgentName.PROPERTY not in deferred
+            and is_housing_comparison(AgentName.PROPERTY, values)
+            and not any(is_housing_comparison(t.agent, t.inputs) for t in plan.tasks)
+        ):
+            errors.append("Missing requested Housing comparison task")
+        if (
             AgentName.MAP in inp.intake.domains
             and AgentName.MAP not in deferred
             and not any(
@@ -407,21 +444,32 @@ class LlmPlanner(UsageOwner):
             ):
                 errors.append(f"Missing runnable requested domain: {domain.value}")
         for task in plan.tasks:
+            if inp.intake.kind == RequestKind.NEW_GOAL and task.id in inp.reserved_task_ids:
+                errors.append(f"{task.id}: new goal must use a fresh task ID, not overwrite history")
             carried_unrequested = task.agent not in inp.intake.domains and task == old.get(task.id)
             carried_other_map_mode = (
                 task.agent == AgentName.MAP
                 and task == old.get(task.id)
                 and task.inputs.get("map_mode", "nearby") != requested_map_mode
             )
+            carried_other_housing_mode = (
+                task.agent == AgentName.PROPERTY
+                and task == old.get(task.id)
+                and not same_housing_operation(task.agent, task.inputs, values)
+            )
+            carried_context = carried_unrequested or carried_other_map_mode or carried_other_housing_mode
             if task.agent not in inp.intake.domains and task != old.get(task.id):
                 errors.append(f"{task.id}: domain not requested")
             mappings = {
+                AgentName.ROOMMATE: {"roommate_criteria": "roommate_criteria"},
                 AgentName.PAYMENT: {"payment_id": "payment_id"},
                 AgentName.PROPERTY: {k: k for k in HOUSING_INPUT_KEYS},
                 AgentName.FLIGHT: {
                     "origin": "origin",
                     "destination": "destination",
                     "flight_date": "date",
+                    "trip_type": "trip_type",
+                    "return_date": "return_date",
                     "passengers": "passengers",
                 },
                 AgentName.MAP: (
@@ -456,7 +504,7 @@ class LlmPlanner(UsageOwner):
                 elif values.get("map_near") and task.inputs.get("map_mode", "nearby") != "route" and not binds_upstream:
                     # map_near is the anchor of a nearby search only; a route task never carries it.
                     mappings[AgentName.MAP]["map_near"] = "near"
-            if not carried_unrequested and not carried_other_map_mode:
+            if not carried_context:
                 if task.agent == AgentName.MAP:
                     selected = inp.intake.user_confirmed_facts.get(selected_fact_key(AgentName.PROPERTY))
                     selected_route = any(values.get(k) == "selected:property" for k in ("route_from", "route_to"))
@@ -498,7 +546,7 @@ class LlmPlanner(UsageOwner):
                     )
                 elif expected is None and key in defaults:
                     expected = defaults[key]
-                if value != expected and not carried_unrequested and not carried_other_map_mode:
+                if value != expected and not carried_context:
                     errors.append(f"{task.id}.{key}: not grounded in user constraints")
             if task.agent in {AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION}:
                 derived = (
@@ -516,11 +564,25 @@ class LlmPlanner(UsageOwner):
                 ):
                     errors.append(f"{task.id}: missing property dependency")
             same = next((t for t in old.values() if t.agent == task.agent and t.inputs == task.inputs), None)
-            siblings = [t for t in old.values() if t.agent == task.agent]
-            if same is None and len(siblings) == 1 and sum(t.agent == task.agent for t in plan.tasks) == 1:
+            siblings = [
+                t
+                for t in old.values()
+                if t.agent == task.agent and same_housing_operation(task.agent, t.inputs, task.inputs)
+            ]
+            matching_operations = sum(
+                t.agent == task.agent and same_housing_operation(task.agent, t.inputs, task.inputs) for t in plan.tasks
+            )
+            if same is None and len(siblings) == 1 and matching_operations == 1:
                 same = siblings[0]
             if same and same.id != task.id:
                 errors.append(f"{task.id}: preserve previous task id {same.id}")
+            prior_result = inp.previous_results.get(task.id)
+            if (
+                task.agent == AgentName.PROPERTY
+                and prior_result is not None
+                and bool(prior_result.data.get("comparison")) != is_housing_comparison(task.agent, task.inputs)
+            ):
+                errors.append(f"{task.id}: comparison and search must use separate task IDs")
         allowed_targets = {str(values[k]) for k in ("order_id", "booking_ref") if values.get(k)}
         allowed_targets |= {r.receipt_id for r in inp.committed.values()}
         for kind in inp.intake.commit_requested:

@@ -47,7 +47,7 @@ jobs:
           echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/postgis-docker.XXXXXX")" >> "$GITHUB_ENV"
       - name: Build from the pinned upstream repository
         run: |
-          docker build --pull --platform linux/arm64 --build-arg NPROC=2 -t "$IMAGE_TAG" \
+          docker buildx build --load --pull --platform linux/arm64 --build-arg NPROC=2 -t "$IMAGE_TAG" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             "https://github.com/postgis/docker-postgis.git?ref=$UPSTREAM_SHA&subdir=$UPSTREAM_DIRECTORY"
       - name: Push image and record its digest

@@ -8,6 +8,7 @@ import {
 import type { RuntimeConfig } from './config.js'
 import { RouteServiceError } from './errors.js'
 import { abortError, checkOperation, operationContext } from './execution.js'
+import { setTimeout as delay } from 'node:timers/promises'
 
 const CITY_BOUNDS = {
   hcm: { west: 106.34, south: 10.34, east: 107.05, north: 11.2 },
@@ -16,7 +17,11 @@ const CITY_BOUNDS = {
 } as const
 
 export class RouteService {
-  constructor(private readonly osrmUrls: RuntimeConfig['osrmUrls']) {}
+  private nextPublicRequestAt = 0
+  constructor(
+    private readonly osrmUrls: RuntimeConfig['osrmUrls'],
+    private readonly publicDrivingUrl?: string,
+  ) {}
 
   inferCity(coordinate: Coordinate): RouteRequest['city'] {
     for (const [city, bounds] of Object.entries(CITY_BOUNDS)) {
@@ -43,8 +48,37 @@ export class RouteService {
       }
     }
     const baseUrl = this.osrmUrls[request.city][request.profile]
+    return this.fetchRoute(request, baseUrl, signal)
+  }
+
+  // Called only by the browser device-route API after explicit consent. Not an
+  // automatic fallback for MCP/commute queries; no silently changed coordinates.
+  async calculatePublicDriving(input: Omit<RouteRequest, 'city'>, signal?: AbortSignal): Promise<RouteResult> {
+    checkOperation()
+    if (!this.publicDrivingUrl) {
+      throw new RouteServiceError('OSRM_OFFLINE', 'Public driving routing is not configured.')
+    }
+    const request = RouteRequestSchema.omit({ city: true }).parse(input)
+    if (request.profile !== 'driving') throw new RouteServiceError('INVALID_RESPONSE', 'Only driving is supported for public routing.')
+    const start = Math.max(Date.now(), this.nextPublicRequestAt)
+    if (start - Date.now() > 4_000) throw new RouteServiceError('OSRM_OFFLINE', 'Public routing is busy; retry later.')
+    this.nextPublicRequestAt = start + 1_100
+    const signals = [signal, operationContext()?.signal].filter((item): item is AbortSignal => Boolean(item))
+    const combined = AbortSignal.any(signals)
+    try {
+      await delay(Math.max(0, start - Date.now()), undefined, { signal: combined })
+    } catch {
+      throw abortError(combined)
+    }
+    return this.fetchRoute(request, this.publicDrivingUrl, combined, true)
+  }
+
+  private async fetchRoute(
+    request: Omit<RouteRequest, 'city'>, baseUrl: string, signal?: AbortSignal, publicProvider = false,
+  ): Promise<RouteResult> {
     const path = `${request.origin.lng},${request.origin.lat};${request.destination.lng},${request.destination.lat}`
-    const url = new URL(`/route/v1/${request.profile}/${path}`, baseUrl)
+    // Preserve the public endpoint's /routed-car/ prefix.
+    const url = new URL(`route/v1/${request.profile}/${path}`, baseUrl.replace(/\/?$/, '/'))
     url.searchParams.set('overview', 'full')
     url.searchParams.set('geometries', 'geojson')
     url.searchParams.set('steps', String(request.steps))
@@ -58,7 +92,10 @@ export class RouteService {
 
     let response: Response
     try {
-      response = await fetch(url, { signal: combinedSignal })
+      response = await fetch(url, {
+        signal: combinedSignal,
+        ...(publicProvider ? { headers: { 'User-Agent': 'ReloHome-local-review/1.0 (+https://github.com/AI20K-Build-Phase-Cohort-4/P-044)' } } : {}),
+      })
     } catch (error) {
       if (combinedSignal.aborted) throw abortError(combinedSignal)
       throw new RouteServiceError(

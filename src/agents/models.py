@@ -19,6 +19,7 @@ class AgentName(StrEnum):
     FLIGHT = "flight"  # Flight / Travel
     MAP = "map"  # Map & Nearby Utility
     PAYMENT = "payment"  # Owned status reads only; writes remain controlled
+    ROOMMATE = "roommate"  # Read-only people discovery; consent uses the private API.
     # Contract & Policy của sơ đồ v4 đã bỏ khỏi phạm vi (2026-09-28)
 
 
@@ -197,6 +198,7 @@ class TaskOutline(BaseModel):
     agent: AgentName
     selected: str | None = None
     options: list[dict[str, Any]] = []  # [{option_id, label}] theo thứ tự hiển thị
+    comparison_options: list[dict[str, Any]] = []  # Real homes from this result; not a selection/approval.
 
 
 class ChangeContext(BaseModel):

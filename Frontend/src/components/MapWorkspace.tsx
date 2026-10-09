@@ -1,3 +1,5 @@
+import { formatUi } from "../uiPreferences";
+import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import {
@@ -6,7 +8,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
+  GitCompareArrows,
   Heart,
   House as HouseIcon,
   Layers,
@@ -19,10 +21,18 @@ import {
 } from "lucide-react";
 import { api, compactPrice, housePrice, safeUrl } from "../api";
 import type { Data, House } from "../types";
+import { mergePlaceCandidates } from "../placeCandidates";
+import { searchScopeFeature } from "../searchScope";
+import {
+  cityForBox,
+  scopedMapOptions,
+  installMapScope,
+  fitMapBox,
+  focusMapPoint,
+} from "../mapScope";
 import {
   MAP_WORKSPACE,
   SORTS,
-  directionsUrl,
   formatAddress,
   listMode,
   mapRequest,
@@ -42,8 +52,18 @@ import {
   registerMapImages,
   tuneBasemap,
 } from "../mapStyle";
-import { HouseImage, amenities as AMENITY_LABELS } from "./Housing";
+import { HouseImage, Comparison, amenities as AMENITY_LABELS } from "./Housing";
+import { HousingDirections } from "./HousingDirections";
+import {
+  MAX_COMPARISON_HOMES,
+  toggleComparison,
+  validCoordinates,
+} from "../housingInteraction";
 import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
+import { ContentSkeleton } from "./UiStates";
+import { roommate } from "../roommate/client";
+import type { Availability } from "../roommate/types";
+import "./roommateMap.css";
 
 const PRICES = [
   0, 3_000_000, 5_000_000, 7_000_000, 10_000_000, 15_000_000, 20_000_000,
@@ -64,12 +84,19 @@ const CHIP_LABELS: Record<string, string> = {
   min_bathrooms: "WC từ",
   amenities: "Tiện nghi",
   min_price: "Giá từ",
-  administrative_area_ids: "Thành phố",
+  administrative_area_ids: "Phạm vi hành chính",
 };
 const PLACE_FIELDS = ["near", "route_from", "route_to"];
 // POIs are only loaded close enough for them to be readable and the request to stay small.
 const POI_MIN_ZOOM = 14;
 type BBox = { west: number; south: number; east: number; north: number };
+type RoomMarker = {
+  listing_id: string;
+  profile_id: string;
+  display_name: string;
+  source_kind: "real" | "demo";
+  label: string;
+};
 
 export function MapWorkspace({
   focus,
@@ -77,18 +104,30 @@ export function MapWorkspace({
   areaName,
   saved,
   selectedId,
+  selectedIds,
+  selectionLimit,
+  onUnselect,
+  onSelectionDone,
+  readOnly = false,
   chat,
   onSave,
   onSelect,
   onExit,
 }: {
   // Viewport + filters from the latest housing answer; `key` changes when a new answer arrives.
-  focus: { key: string; viewport?: BBox | null } | null;
+  focus: { key: string; viewport?: BBox | null; searchScope?: Data } | null;
   initialFilters: Data;
   // Human name of the administrative scope the agent resolved (chip label instead of its ID).
   areaName?: string;
   saved: Set<string>;
   selectedId?: string;
+  // Homes chosen for viewing (several); the plan home stays `selectedId`.
+  selectedIds?: string[];
+  // Viewing mode: the map stays open while several homes are chosen; "done" closes it.
+  selectionLimit?: number;
+  onUnselect?: (h: House) => Promise<void>;
+  onSelectionDone?: () => void;
+  readOnly?: boolean;
   chat: ChatDockProps;
   onSave: (h: House) => void;
   // Any listing (chat result or explored on the map) can be chosen; the backend re-reads it.
@@ -116,7 +155,114 @@ export function MapWorkspace({
     [sheet, setSheet] = useState(false),
     [selecting, setSelecting] = useState<string | null>(null);
   const [pois, setPois] = useState<Data | null>(null);
+  const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [includeDemo, setIncludeDemo] = useState(false);
+  const [roomMapError, setRoomMapError] = useState("");
+  const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [directions, setDirections] = useState<House | null>(null);
+  useEffect(() => {
+    const abort = new AbortController();
+    roommate<Availability>("/availability", "GET", undefined, abort.signal)
+      .then((a) => {
+        if (!abort.signal.aborted) {
+          setDemoAvailable(Boolean(a.demo_enabled));
+          setIncludeDemo(Boolean(a.demo_enabled));
+        }
+      })
+      .catch(() => {});
+    return () => abort.abort();
+  }, []);
+  const roomIds = JSON.stringify(
+    [
+      ...new Set(
+        [...markers, ...rows, ...(detail ? [detail] : [])].map((h) => h.id),
+      ),
+    ].sort(),
+  );
+  useEffect(() => {
+    const abort = new AbortController();
+    setRoomMarkers([]);
+    setRoomMapError("");
+    const ids: string[] = JSON.parse(roomIds);
+    if (!ids.length) return;
+    const load = () =>
+      roommate<{ items: RoomMarker[] }>(
+        "/map/rooms",
+        "POST",
+        {
+          listing_ids: ids.slice(0, 250),
+          include_demo: includeDemo,
+        },
+        abort.signal,
+      )
+        .then((data) => {
+          if (!abort.signal.aborted) {
+            setRoomMarkers(data.items);
+            setRoomMapError("");
+          }
+        })
+        .catch(() => {
+          if (!abort.signal.aborted) {
+            setRoomMarkers([]);
+            setRoomMapError(
+              "Chưa đọc được nhu cầu ghép trọ. Không ảnh hưởng danh sách nhà.",
+            );
+          }
+        });
+    void load();
+    const timer = setInterval(() => void load(), 30000);
+    const visible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      abort.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [roomIds, includeDemo]);
   const generation = useRef(0);
+  const activeSearchScope =
+    focus?.searchScope?.area_id &&
+    !focus.searchScope.center &&
+    !(filters.administrative_area_ids || []).includes(focus.searchScope.area_id)
+      ? undefined
+      : focus?.searchScope;
+
+  useEffect(() => {
+    if (!ready || !map.current) return;
+    const m = map.current,
+      feature = searchScopeFeature(activeSearchScope);
+    (m.getSource("ws-search-scope") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: feature ? [feature] : [],
+    });
+    const center = activeSearchScope?.center;
+    let marker: import("maplibre-gl").Marker | undefined;
+    let cancelled = false;
+    if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+      void import("maplibre-gl").then(({ Marker }) => {
+        if (cancelled) return;
+        marker = new Marker({ color: "#dc2626" })
+          .setLngLat([center.lng, center.lat])
+          .addTo(m);
+        marker
+          .getElement()
+          .setAttribute(
+            "aria-label",
+            focus?.searchScope?.label || uiText("Địa điểm tìm kiếm"),
+          );
+        marker.getElement().title =
+          focus?.searchScope?.label || uiText("Địa điểm tìm kiếm");
+      });
+    }
+    return () => {
+      cancelled = true;
+      marker?.remove();
+    };
+  }, [ready, focus?.key, activeSearchScope]);
 
   // Chat answers replace the area filters and move the map to the area the agent resolved.
   useEffect(() => {
@@ -124,40 +270,29 @@ export function MapWorkspace({
     setStack(null);
     const box = focus?.viewport;
     if (box && map.current)
-      map.current.fitBounds(
-        [
-          [box.west, box.south],
-          [box.east, box.north],
-        ],
-        { padding: 48, duration: 700 },
-      );
+      fitMapBox(map.current, box, { padding: 48, duration: 700 });
   }, [focus?.key, ready]);
 
   useEffect(() => {
-    let disposed = false,
-      resize: ResizeObserver | undefined;
+    let disposed = false;
     import("maplibre-gl")
       .then(({ Map, NavigationControl, setWorkerUrl }) => {
         if (disposed || !container.current) return;
         setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
         const box = focus?.viewport;
+        const city = cityForBox(box);
         const m = new Map({
           container: container.current,
           style: BASEMAP_STYLE_URL,
-          ...(box
-            ? {
-                bounds: [
-                  [box.west, box.south],
-                  [box.east, box.north],
-                ],
-                fitBoundsOptions: { padding: 48 },
-              }
-            : { center: [106.7009, 10.7769], zoom: 12 }),
+          ...scopedMapOptions(container.current, city),
           attributionControl: { compact: true },
         });
         map.current = m;
-        resize = new ResizeObserver(() => m.resize());
-        resize.observe(container.current);
+        m.on("style.load", () => tuneBasemap(m));
+        installMapScope(m, city);
+        if (box) fitMapBox(m, box, { padding: 48, duration: 0 });
+        // installMapScope already owns the guarded ResizeObserver. Redundant
+        // resize() calls can interrupt camera movement as the sidebar changes.
         m.addControl(
           new NavigationControl({ showCompass: false }),
           "bottom-left",
@@ -167,10 +302,32 @@ export function MapWorkspace({
             "Chưa tải được một phần bản đồ. Danh sách vẫn dùng được.",
           ),
         );
-        m.on("load", () => {
-          if (disposed) return;
+        // Provider data must not wait for every external basemap tile to finish.
+        // The style is sufficient to register our sources and report the viewport.
+        m.on("style.load", () => {
+          if (disposed || m.getSource("ws-search-scope")) return;
           tuneBasemap(m);
           registerMapImages(m);
+          m.addSource("ws-search-scope", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+          m.addLayer({
+            id: "ws-search-scope-fill",
+            type: "fill",
+            source: "ws-search-scope",
+            paint: { "fill-color": "#dc2626", "fill-opacity": 0.06 },
+          });
+          m.addLayer({
+            id: "ws-search-scope-line",
+            type: "line",
+            source: "ws-search-scope",
+            paint: {
+              "line-color": "#dc2626",
+              "line-width": 2,
+              "line-dasharray": [3, 2],
+            },
+          });
           for (const id of ["ws-clusters", "ws-listings", "ws-choices"])
             m.addSource(id, {
               type: "geojson",
@@ -250,11 +407,12 @@ export function MapWorkspace({
               filter: filter as any,
               layout: {
                 "icon-image": [
-                  "match",
-                  ["get", "state"],
-                  "selected",
+                  "case",
+                  ["get", "roommate"],
+                  PILL.roommate,
+                  ["==", ["get", "state"], "selected"],
                   PILL.selected,
-                  "hover",
+                  ["==", ["get", "state"], "hover"],
                   PILL.hover,
                   PILL.normal,
                 ],
@@ -270,9 +428,10 @@ export function MapWorkspace({
               },
               paint: {
                 "text-color": [
-                  "match",
-                  ["get", "state"],
-                  "selected",
+                  "case",
+                  ["get", "roommate"],
+                  "#713f12",
+                  ["==", ["get", "state"], "selected"],
                   "#ffffff",
                   MAP_THEME.housingMarker.text,
                 ],
@@ -284,7 +443,7 @@ export function MapWorkspace({
             type: "circle",
             source: "ws-choices",
             paint: {
-              "circle-color": "#6d28d9",
+              "circle-color": MAP_THEME.primary,
               "circle-radius": 11,
               "circle-stroke-width": 3,
               "circle-stroke-color": "#fff",
@@ -349,7 +508,6 @@ export function MapWorkspace({
       .catch(() => setMapError("Không tải được bản đồ. Hãy thử lại."));
     return () => {
       disposed = true;
-      resize?.disconnect();
       map.current?.remove();
       map.current = null;
       setReady(false);
@@ -474,7 +632,10 @@ export function MapWorkspace({
     }
   }
   const choices: Data[] = chat.questions.flatMap((q) =>
-    (q.choices || []).map((c: Data) => ({ ...c, field: q.field })),
+    mergePlaceCandidates(q.choices || []).map((c: Data) => ({
+      ...c,
+      field: q.field,
+    })),
   );
   async function choose(choice: Data) {
     const placeChoice =
@@ -508,22 +669,32 @@ export function MapWorkspace({
       features: stacks.map((s) => {
         const ids = s.houses.map((h) => h.id);
         const state =
-          ids.includes(detail?.id || "") || ids.includes(selectedId || "")
+          ids.includes(detail?.id || "") ||
+          ids.includes(selectedId || "") ||
+          ids.some((id) => selectedIds?.includes(id))
             ? "selected"
             : ids.includes(hovered || "")
               ? "hover"
               : "normal";
+        const roomProfiles = roomMarkers.filter((p) =>
+          ids.includes(p.listing_id),
+        );
+        const realRoom = roomProfiles.some((p) => p.source_kind === "real");
         return {
           type: "Feature",
           geometry: { type: "Point", coordinates: [s.lng, s.lat] },
           properties: {
             key: s.key,
             state,
+            roommate: roomProfiles.length > 0,
             rank: -s.houses.length,
             label:
-              s.houses.length > 1
+              (roomProfiles.length
+                ? `${realRoom ? "Ghép trọ" : "DEMO"} (${new Set(roomProfiles.map((p) => p.listing_id)).size} phòng) · `
+                : "") +
+              (s.houses.length > 1
                 ? `${s.houses.length} căn`
-                : shortPrice(s.houses[0]),
+                : shortPrice(s.houses[0])),
           },
         };
       }),
@@ -548,8 +719,10 @@ export function MapWorkspace({
     hovered,
     detail?.id,
     selectedId,
+    selectedIds?.join(","),
     JSON.stringify(choices),
     pois,
+    roomMarkers,
   ]);
 
   async function openDetail(h: House) {
@@ -562,9 +735,23 @@ export function MapWorkspace({
     }
   }
   async function choose_house(h: House) {
+    setListError("");
     setSelecting(h.id);
     try {
       await onSelect(h);
+    } catch (e) {
+      setListError((e as Error).message);
+    } finally {
+      setSelecting(null);
+    }
+  }
+  async function unchoose_house(h: House) {
+    setListError("");
+    setSelecting(h.id);
+    try {
+      await onUnselect?.(h);
+    } catch (e) {
+      setListError((e as Error).message);
     } finally {
       setSelecting(null);
     }
@@ -612,44 +799,117 @@ export function MapWorkspace({
         : listing
           ? `Mình đã khoanh vùng ${area}: ${countLabel} căn phù hợp đang hiện ở danh sách bên trái. Bấm "Chọn căn này" khi bạn ưng một căn.`
           : `Mình đã khoanh vùng ${area} trên bản đồ: có ${countLabel} căn phù hợp. Phóng to vào khu bạn quan tâm, hoặc nói thêm ngân sách, số phòng ngủ để mình lọc.`;
+  const isChosen = (id: string) =>
+    selectedId === id || Boolean(selectedIds?.includes(id));
+  // A home chosen for viewing can be removed here; the decided plan home cannot.
+  const removable = (id: string) =>
+    id !== selectedId &&
+    Boolean(onUnselect) &&
+    Boolean(selectedIds?.includes(id));
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={chat.busy || selecting !== null || selectedId === h.id}
-      onClick={() => void choose_house(h).catch(() => {})}
+      disabled={
+        readOnly ||
+        chat.busy ||
+        selecting !== null ||
+        (isChosen(h.id) && !removable(h.id))
+      }
+      onClick={() =>
+        void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
+          () => {},
+        )
+      }
     >
-      {selectedId === h.id ? (
+      {removable(h.id) ? (
+        selecting === h.id ? (
+          uiText("Đang bỏ…")
+        ) : (
+          <>
+            <X size={14} />
+            {uiText(" Bỏ chọn")}
+          </>
+        )
+      ) : isChosen(h.id) ? (
         <>
-          <Check size={14} /> Đã chọn
+          <Check size={14} />
+          {uiText(" Đã chọn")}
         </>
       ) : selecting === h.id ? (
-        "Đang chọn…"
+        uiText("Đang chọn…")
       ) : (
-        "Chọn căn này"
+        uiText("Chọn căn này")
       )}
+    </button>
+  );
+  const compareButton = (h: House) => {
+    const checked = comparisonHomes.some((home) => home.id === h.id);
+    return (
+      <button
+        type="button"
+        className={"ws-compare-toggle " + (checked ? "active" : "")}
+        aria-pressed={checked}
+        aria-label={formatUi("{0}: {1}", [
+          checked ? uiText("Bỏ so sánh") : uiText("Thêm so sánh"),
+          h.title,
+        ])}
+        disabled={!checked && comparisonHomes.length >= MAX_COMPARISON_HOMES}
+        onClick={() =>
+          setComparisonHomes((homes) => toggleComparison(homes, h))
+        }
+      >
+        {checked ? <Check size={15} /> : <GitCompareArrows size={15} />}
+        {checked ? uiText("Đã thêm") : uiText("So sánh")}
+      </button>
+    );
+  };
+  const directionsButton = (h: House, iconOnly = false) => (
+    <button
+      type="button"
+      className={iconOnly ? "icon-button outlined ws-dir" : "secondary"}
+      disabled={!validCoordinates(h.lat, h.lng)}
+      onClick={() => setDirections(h)}
+      aria-label={uiText("Chỉ đường từ vị trí của bạn")}
+      title={uiText("Chỉ đường từ vị trí của bạn")}
+    >
+      <Navigation size={15} />
+      {!iconOnly && uiText("Chỉ đường")}
     </button>
   );
   return (
     <div className={"map-workspace " + (listOpen ? "" : "list-closed")}>
       <aside
         className={"ws-list " + (sheet ? "open" : "")}
-        aria-label="Nhà trong vùng bản đồ"
+        aria-label={uiText("Nhà trong vùng bản đồ")}
       >
-        <button className="ws-sheet-toggle" onClick={() => setSheet(!sheet)}>
-          {listing ? `${count ?? 0} căn trong vùng này` : "Danh sách nhà"}
+        <button
+          className="ws-sheet-toggle"
+          aria-expanded={sheet}
+          onClick={() => setSheet(!sheet)}
+        >
+          {listing
+            ? formatUi("{0} căn trong vùng này", [count ?? 0])
+            : uiText("Danh sách nhà")}
         </button>
         <header className="ws-list-head">
+          {readOnly && (
+            <p className="muted small">
+              {uiText(
+                "Phương án đã lưu. Muốn đổi căn, hãy yêu cầu trong chat để cập nhật kế hoạch.",
+              )}
+            </p>
+          )}
           <div>
-            <span className="eyebrow">NHÀ Ở QUANH ĐÂY</span>
+            <span className="eyebrow">{uiText("NHÀ Ở QUANH ĐÂY")}</span>
             <h2>
               {stack
-                ? `${stack.length} căn cùng vị trí`
-                : `${countLabel} lựa chọn`}
+                ? formatUi("{0} tin chung điểm bản đồ", [stack.length])
+                : formatUi("{0} lựa chọn", [countLabel])}
             </h2>
           </div>
           <button
             className="icon-button outlined"
-            aria-label="Thu gọn danh sách"
+            aria-label={uiText("Thu gọn danh sách")}
             onClick={() => setListOpen(false)}
           >
             <ChevronLeft size={18} />
@@ -660,10 +920,18 @@ export function MapWorkspace({
             className="text-button ws-unstack"
             onClick={() => setStack(null)}
           >
-            <X size={14} /> Bỏ lọc theo vị trí này
+            <X size={14} />
+            {uiText(" Bỏ lọc theo vị trí này")}
           </button>
         )}
         <div className="ws-list-body">
+          {stack?.some((h) => h.location_accuracy !== "rooftop") && (
+            <p className="notice">
+              {uiText(
+                "Một số tin có vị trí gần đúng nên dùng chung pin. Đây là các tin riêng, chưa xác nhận cùng một căn hay cùng địa chỉ thực tế.",
+              )}
+            </p>
+          )}
           {listError && (
             <p className="notice error" role="alert">
               {listError}
@@ -673,8 +941,11 @@ export function MapWorkspace({
             <div className="ws-zoom-hint">
               <MapPin size={20} />
               <p>
-                Vùng này có {countLabel} căn phù hợp bộ lọc. Phóng to bản đồ tới
-                một khu cụ thể để xem từng căn.
+                {uiText("Vùng này có ")}
+                {countLabel}
+                {uiText(
+                  " căn phù hợp bộ lọc. Phóng to bản đồ tới một khu cụ thể để xem từng căn.",
+                )}
               </p>
             </div>
           )}
@@ -685,7 +956,7 @@ export function MapWorkspace({
                 className={
                   "ws-card " +
                   (detail?.id === h.id ? "active" : "") +
-                  (selectedId === h.id ? " chosen" : "")
+                  (isChosen(h.id) ? " chosen" : "")
                 }
                 onMouseEnter={() => setHovered(h.id)}
                 onMouseLeave={() => setHovered(null)}
@@ -697,7 +968,9 @@ export function MapWorkspace({
                 >
                   <HouseImage house={h} />
                   {h.location_accuracy !== "rooftop" && (
-                    <span className="ws-badge">Vị trí gần đúng</span>
+                    <span className="ws-badge">
+                      {uiText("Vị trí gần đúng")}
+                    </span>
                   )}
                 </button>
                 <div className="ws-card-info">
@@ -707,7 +980,11 @@ export function MapWorkspace({
                       className={
                         "icon-button heart " + (saved.has(h.id) ? "saved" : "")
                       }
-                      aria-label={saved.has(h.id) ? "Bỏ lưu nhà" : "Lưu nhà"}
+                      aria-label={
+                        saved.has(h.id)
+                          ? uiText("Bỏ lưu nhà")
+                          : uiText("Lưu nhà")
+                      }
                       onClick={() => onSave(h)}
                     >
                       <Heart
@@ -734,24 +1011,16 @@ export function MapWorkspace({
                   </p>
                   <div className="ws-card-actions">
                     {selectButton(h)}
-                    {directionsUrl(h) && (
-                      <a
-                        className="icon-button outlined ws-dir"
-                        href={directionsUrl(h)}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="Chỉ đường"
-                        title="Chỉ đường"
-                      >
-                        <Navigation size={14} />
-                      </a>
-                    )}
+                    {directionsButton(h, true)}
                   </div>
+                  {compareButton(h)}
                 </div>
               </article>
             ))}
           {!stack && listing && !rows.length && !loading && (
-            <p className="muted">Không có căn phù hợp trong vùng này.</p>
+            <p className="muted">
+              {uiText("Không có căn phù hợp trong vùng này.")}
+            </p>
           )}
           {!stack && listing && cursor && (
             <button
@@ -759,17 +1028,95 @@ export function MapWorkspace({
               disabled={loading}
               onClick={() => void more()}
             >
-              Xem thêm {MAP_WORKSPACE.pageSize} căn
+              {uiText("Xem thêm ")}
+              {MAP_WORKSPACE.pageSize}
+              {uiText(" căn")}
             </button>
           )}
-          {loading && <p className="muted small">Đang tải…</p>}
+          {loading &&
+            (rows.length === 0 ? (
+              <ContentSkeleton label={uiText("Đang tải…")} rows={2} />
+            ) : (
+              <p className="muted small" role="status">
+                {uiText("Đang tải…")}
+              </p>
+            ))}
         </div>
+        {comparisonHomes.length > 0 && (
+          <section
+            className="ws-comparison-tray"
+            aria-label={uiText("Các căn đang so sánh")}
+          >
+            <div className="ws-comparison-heading">
+              <strong>
+                <GitCompareArrows size={16} />
+                {comparisonHomes.length}/4 {uiText("căn")}
+              </strong>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setComparisonHomes([])}
+              >
+                {uiText("Bỏ tất cả")}
+              </button>
+            </div>
+            <ul>
+              {comparisonHomes.map((h) => (
+                <li key={h.id}>
+                  <span title={h.title}>{h.title}</span>
+                  <button
+                    className="icon-button"
+                    aria-label={formatUi("Bỏ so sánh: {0}", [h.title])}
+                    onClick={() =>
+                      setComparisonHomes((homes) =>
+                        homes.filter((home) => home.id !== h.id),
+                      )
+                    }
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              className="primary full"
+              disabled={comparisonHomes.length < 2}
+              onClick={() => setComparing(true)}
+            >
+              {comparisonHomes.length < 2
+                ? uiText("Chọn thêm một căn để so sánh")
+                : formatUi("So sánh {0} căn", [comparisonHomes.length])}
+            </button>
+          </section>
+        )}
+        {onSelectionDone && (selectedIds?.length || 0) > 0 && (
+          <section
+            className="ws-selection-tray"
+            aria-label={uiText("Các căn đã chọn để hẹn xem")}
+          >
+            <strong>
+              {formatUi("Đã chọn {0}/{1} căn để hẹn xem", [
+                selectedIds!.length,
+                selectionLimit ?? selectedIds!.length,
+              ])}
+            </strong>
+            <button
+              className="primary full"
+              disabled={chat.busy || selecting !== null}
+              onClick={onSelectionDone}
+            >
+              {uiText("Xong, hẹn lịch xem")}
+            </button>
+          </section>
+        )}
         <p className="ws-list-foot muted small">
-          Dữ liệu theo vùng bản đồ hiện tại, không phải toàn thị trường.
+          {uiText(
+            "Dữ liệu theo vùng bản đồ hiện tại, không phải toàn thị trường.",
+          )}
         </p>
       </aside>
 
-      <section className="ws-map" aria-label="Bản đồ nhà ở">
+      <section className="ws-map" aria-label={uiText("Bản đồ nhà ở")}>
         <div className="ws-top">
           <div className="ws-filterbar">
             {!listOpen && (
@@ -777,14 +1124,16 @@ export function MapWorkspace({
                 className="ws-pill-button"
                 onClick={() => setListOpen(true)}
               >
-                <ChevronRight size={15} /> Danh sách
+                <ChevronRight size={15} />
+                {uiText(" Danh sách")}
               </button>
             )}
             <span className="ws-filter-label">
-              <SlidersHorizontal size={15} /> Bộ lọc
+              <SlidersHorizontal size={15} />
+              {uiText(" Bộ lọc")}
             </span>
             <select
-              aria-label="Mức giá"
+              aria-label={uiText("Mức giá")}
               value={price}
               onChange={(e) => {
                 const amount = Number(e.target.value);
@@ -804,13 +1153,15 @@ export function MapWorkspace({
               ).map((p) => (
                 <option key={p} value={p}>
                   {p
-                    ? `Dưới ${(p / 1_000_000).toLocaleString("vi-VN")} triệu`
-                    : "Mọi mức giá"}
+                    ? formatUi("Dưới {0} triệu", [
+                        (p / 1_000_000).toLocaleString("vi-VN"),
+                      ])
+                    : uiText("Mọi mức giá")}
                 </option>
               ))}
             </select>
             <select
-              aria-label="Loại nhà"
+              aria-label={uiText("Loại nhà")}
               value={
                 (Array.isArray(filters.property_type)
                   ? filters.property_type[0]
@@ -822,7 +1173,7 @@ export function MapWorkspace({
                 )
               }
             >
-              <option value="">Loại nhà</option>
+              <option value="">{uiText("Loại nhà")}</option>
               {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
@@ -830,7 +1181,7 @@ export function MapWorkspace({
               ))}
             </select>
             <select
-              aria-label="Phòng ngủ"
+              aria-label={uiText("Phòng ngủ")}
               value={filters.min_bedrooms ?? ""}
               onChange={(e) =>
                 setFilters(({ min_bedrooms: _a, max_bedrooms: _b, ...f }) =>
@@ -840,32 +1191,33 @@ export function MapWorkspace({
                 )
               }
             >
-              <option value="">Phòng ngủ</option>
+              <option value="">{uiText("Phòng ngủ")}</option>
               {[1, 2, 3, 4].map((n) => (
                 <option key={n} value={n}>
-                  Từ {n} PN
+                  {uiText("Từ ")}
+                  {n} PN
                 </option>
               ))}
             </select>
             <select
-              aria-label="Sắp xếp"
+              aria-label={uiText("Sắp xếp")}
               value={sort}
               onChange={(e) => setSort(e.target.value)}
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.label}
+                  {uiText(s.label)}
                 </option>
               ))}
             </select>
             {chips.map(([k, v]) => (
               <span className="chip" key={k}>
-                {CHIP_LABELS[k]}:{" "}
+                {uiText(CHIP_LABELS[k])}:{" "}
                 {k === "administrative_area_ids"
-                  ? areaName || "đã chọn"
+                  ? areaName || uiText("đã chọn")
                   : chipValue(v)}
                 <button
-                  aria-label={"Bỏ " + CHIP_LABELS[k]}
+                  aria-label={uiText("Bỏ ") + uiText(CHIP_LABELS[k])}
                   onClick={() => setFilters(({ [k]: _, ...f }) => f)}
                 >
                   <X size={12} />
@@ -874,12 +1226,14 @@ export function MapWorkspace({
             ))}
             <span className="ws-spacer" />
             <button className="ws-pill-button" onClick={onExit}>
-              <MessageCircle size={15} /> Về hội thoại
+              <MessageCircle size={15} />
+              {uiText(" Về hội thoại")}
             </button>
           </div>
           <div className="ws-counter">
             <span>
-              <HouseIcon size={16} /> <strong>{countLabel}</strong> chỗ ở
+              <HouseIcon size={16} /> <strong>{countLabel}</strong>
+              {uiText(" chỗ ở")}
             </span>
             <span>
               <Layers size={15} />{" "}
@@ -888,28 +1242,69 @@ export function MapWorkspace({
                   <strong>
                     {(pois.features || []).length.toLocaleString("vi-VN")}
                   </strong>{" "}
-                  tiện ích
+                  {uiText("tiện ích")}
                 </>
               ) : (
-                "Phóng to để xem tiện ích"
+                uiText("Phóng to để xem tiện ích")
               )}
             </span>
           </div>
+          {searchScopeFeature(activeSearchScope) && (
+            <div className="search-scope-legend" role="note">
+              <MapPin size={14} color="#dc2626" />
+              {activeSearchScope?.geometry
+                ? `${uiText("Ranh giới theo dữ liệu hiện tại")}: ${activeSearchScope.label || ""}`
+                : activeSearchScope?.center
+                  ? uiText(
+                      "Ghim đỏ: điểm tìm kiếm · vòng nét đứt: bán kính tìm, không phải khoảng cách đi đường",
+                    )
+                  : uiText(
+                      "Nét đứt: khung khu vực tìm kiếm, không phải ranh giới hành chính chính xác",
+                    )}
+            </div>
+          )}
+          {focus?.searchScope?.boundary_unavailable && (
+            <div className="search-scope-legend" role="note">
+              Chưa có ranh giới đúng đơn vị hành chính này trong dữ liệu. Map
+              chỉ đưa tới các căn tìm được; không giả lập đường bao.
+            </div>
+          )}
+          <div className="ws-roommate-legend" role="note">
+            <span style={{ color: "#a16207" }}>●</span> Vàng: có nhu cầu ghép
+            trọ công khai.
+            {demoAvailable && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={includeDemo}
+                  onChange={(e) => setIncludeDemo(e.target.checked)}
+                />
+                Hiện phòng DEMO — liên kết minh họa, không phải người thật
+              </label>
+            )}
+            {roomMapError && <small role="status">{roomMapError}</small>}
+          </div>
         </div>
         <div ref={container} className="ws-canvas" />
-        {mapError && <div className="map-error">{mapError}</div>}
+        {mapError && (
+          <div className="map-error" role="status">
+            {mapError}
+          </div>
+        )}
         <WorkspaceChat
           {...chat}
           text={chat.fromResult ? summary : chat.text}
-          placeholder="Hỏi SIU: căn dưới 10 triệu ở khu này, đổi sang Hà Đông…"
-          caption={'SIU hiểu "khu này" là vùng bản đồ đang xem.'}
+          placeholder={uiText(
+            "Hỏi ReloHome: căn dưới 10 triệu ở khu này, đổi sang Hà Đông…",
+          )}
+          caption={uiText('ReloHome hiểu "khu này" là vùng bản đồ đang xem.')}
           onSendText={(t, x) => send(t, x)}
           onChoose={choose}
         />
       </section>
 
       {detail && (
-        <aside className="ws-detail" aria-label="Chi tiết nhà">
+        <aside className="ws-detail" aria-label={uiText("Chi tiết nhà")}>
           <div className="ws-detail-photo">
             {safeUrl(detail.images?.[0]?.url || detail.images?.[0]) ? (
               <img
@@ -924,7 +1319,9 @@ export function MapWorkspace({
                 "icon-button ws-photo-heart " +
                 (saved.has(detail.id) ? "saved" : "")
               }
-              aria-label={saved.has(detail.id) ? "Bỏ lưu nhà" : "Lưu nhà"}
+              aria-label={
+                saved.has(detail.id) ? uiText("Bỏ lưu nhà") : uiText("Lưu nhà")
+              }
               onClick={() => onSave(detail)}
             >
               <Heart
@@ -934,7 +1331,7 @@ export function MapWorkspace({
             </button>
             <button
               className="icon-button ws-detail-close"
-              aria-label="Đóng chi tiết"
+              aria-label={uiText("Đóng chi tiết")}
               onClick={() => setDetail(null)}
             >
               <X size={18} />
@@ -942,6 +1339,26 @@ export function MapWorkspace({
           </div>
           <div className="ws-detail-body">
             <h3>{detail.title}</h3>
+            {roomMarkers
+              .filter((p) => p.listing_id === detail.id)
+              .map((p) => (
+                <div className="ws-roommate-badge" key={p.profile_id}>
+                  <strong>{p.label}</strong>
+                  <p>{p.display_name}</p>
+                  <a
+                    href={
+                      p.source_kind === "demo"
+                        ? "/roommate?tab=demo"
+                        : "/roommate/profiles/" +
+                          encodeURIComponent(p.profile_id)
+                    }
+                  >
+                    {p.source_kind === "demo"
+                      ? "Xem hồ sơ DEMO (không kết nối)"
+                      : "Xem nhu cầu ở ghép"}
+                  </a>
+                </div>
+              ))}
             <strong className="price">{housePrice(detail)}</strong>
             <p className="muted address">
               <MapPin size={14} />
@@ -953,22 +1370,22 @@ export function MapWorkspace({
                 <strong>
                   {detail.area_m2 != null ? `${detail.area_m2} m²` : "—"}
                 </strong>
-                <small>Diện tích</small>
+                <small>{uiText("Diện tích")}</small>
               </div>
               <div>
                 <BedDouble size={18} />
                 <strong>{detail.bedrooms ?? "—"}</strong>
-                <small>Phòng ngủ</small>
+                <small>{uiText("Phòng ngủ")}</small>
               </div>
               <div>
                 <Bath size={18} />
                 <strong>{detail.bathrooms ?? "—"}</strong>
-                <small>Phòng tắm</small>
+                <small>{uiText("Phòng tắm")}</small>
               </div>
             </div>
             {(detail.amenities || []).length > 0 && (
               <>
-                <h4>Tiện nghi</h4>
+                <h4>{uiText("Tiện nghi")}</h4>
                 <div className="tags">
                   {detail.amenities.map((a: string) => (
                     <span className="tag" key={a}>
@@ -980,31 +1397,37 @@ export function MapWorkspace({
             )}
             <div className="ws-nearby">
               <div>
-                <h4>Tiện ích xung quanh</h4>
+                <h4>{uiText("Tiện ích xung quanh")}</h4>
                 <small className="muted">
-                  Tiện ích luôn hiển thị trên bản đồ. Phóng to quanh căn này để
-                  xem y tế, trường học, mua sắm và giao thông.
+                  {uiText(
+                    "Tiện ích luôn hiển thị trên bản đồ. Phóng to quanh căn này để xem y tế, trường học, mua sắm và giao thông.",
+                  )}
                 </small>
               </div>
               <button
                 className="ws-pill-button"
                 onClick={() => {
-                  if (Number.isFinite(detail.lat))
-                    map.current?.easeTo({
-                      center: [detail.lng!, detail.lat!],
-                      zoom: Math.max(map.current.getZoom(), 15.5),
-                    });
+                  if (Number.isFinite(detail.lat) && map.current)
+                    focusMapPoint(
+                      map.current,
+                      [detail.lng!, detail.lat!],
+                      Math.max(map.current.getZoom(), 15.5),
+                    );
                 }}
               >
-                <Layers size={14} /> Xem quanh căn
+                <Layers size={14} />
+                {uiText(" Xem quanh căn")}
               </button>
             </div>
             {Number.isFinite(detail.lat) && (
               <p className="muted small">
-                Toạ độ: {detail.lat!.toFixed(6)}, {detail.lng!.toFixed(6)}
+                {uiText("Toạ độ: ")}
+                {detail.lat!.toFixed(6)}, {detail.lng!.toFixed(6)}
                 {detail.location_accuracy !== "rooftop"
-                  ? " · vị trí gần đúng theo nguồn, hãy xác nhận số nhà với người cho thuê"
-                  : " · vị trí chính xác theo nguồn"}
+                  ? uiText(
+                      " · vị trí gần đúng theo nguồn, hãy xác nhận số nhà với người cho thuê",
+                    )
+                  : uiText(" · vị trí chính xác theo nguồn")}
               </p>
             )}
             {detail.description && (
@@ -1012,36 +1435,35 @@ export function MapWorkspace({
             )}
             {detail.detailError && (
               <p className="notice amber">
-                Chưa tải được đầy đủ tin; đang hiển thị dữ liệu danh sách.
+                {uiText(
+                  "Chưa tải được đầy đủ tin; đang hiển thị dữ liệu danh sách.",
+                )}
               </p>
             )}
           </div>
           <div className="ws-detail-actions">
-            {directionsUrl(detail) && (
-              <a
-                className="secondary"
-                href={directionsUrl(detail)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Navigation size={15} /> Chỉ đường
-              </a>
-            )}
+            {directionsButton(detail)}
             {selectButton(detail, true)}
-            {safeUrl(detail.source?.source_url || detail.source_url) && (
-              <a
-                className="icon-button outlined"
-                href={detail.source?.source_url || detail.source_url}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Xem tin gốc"
-                title="Xem tin gốc"
-              >
-                <ExternalLink size={16} />
-              </a>
-            )}
+            {compareButton(detail)}
           </div>
         </aside>
+      )}
+      {comparing && (
+        <Comparison
+          houses={comparisonHomes}
+          refresh
+          onClose={() => setComparing(false)}
+          onOpen={(h) => {
+            setComparing(false);
+            void openDetail(h);
+          }}
+        />
+      )}
+      {directions && (
+        <HousingDirections
+          house={directions}
+          onClose={() => setDirections(null)}
+        />
       )}
     </div>
   );
