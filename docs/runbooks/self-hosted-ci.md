@@ -59,8 +59,8 @@ and remove it with `always()`. Packages never install into the shared interprete
   The CI overlay assigns matching image tags, random loopback ports, and a
   project-scoped database volume. `always()` steps collect diagnostics,
   remove that project's containers/networks/volumes, and delete its image tags.
-- HTTP smoke probes use `docker exec` against each service's non-loopback network
-  address, preserving detection of an image that listens only on localhost. Moving's
+- MCP HTTP smoke probes use `docker exec` against each service's loopback address
+  to verify `/health` without relying on image healthcheck metadata. Moving's
   existing read-only deployment verifier runs in a disposable Node container
   on the Compose network. This supports runners using a host Docker socket:
   runner loopback and filesystem paths need not match the daemon host.

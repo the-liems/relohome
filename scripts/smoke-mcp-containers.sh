@@ -25,9 +25,19 @@ for dockerfile in src/mcp_servers/*/Dockerfile; do
   # Register before starting: docker run may create a container and then fail.
   containers+=("$container")
   docker run -d --name "$container" --label "lifeflow.ci.mcp=$tag" "$server-mcp:$tag"
+  # Probe the service's health endpoint without relying on image health metadata.
+  probe_health() {
+    docker exec "$container" python -c '
+import sys
+from urllib.request import urlopen
+
+with urlopen(f"http://127.0.0.1:{sys.argv[1]}/health", timeout=10) as response:
+    print(response.read().decode())
+' "$port"
+  }
   healthy=false
   for (( i=0; i<30; i++ )); do
-    if [ "$(docker inspect -f '{{.State.Health.Status}}' "$container")" = healthy ]; then
+    if probe_health >/dev/null 2>&1; then
       healthy=true
       break
     fi
@@ -37,9 +47,6 @@ for dockerfile in src/mcp_servers/*/Dockerfile; do
     echo "Container $container did not become healthy" >&2
     exit 1
   fi
-  # The runner may itself be a container using a host Docker socket. Its
-  # localhost is then not the daemon's localhost. Probe the service's network
-  # address so a server bound only to loopback still fails the smoke test.
-  docker exec "$container" python -c 'import socket, sys, urllib.request; ip = socket.gethostbyname(socket.gethostname()); print(urllib.request.urlopen(f"http://{ip}:{sys.argv[1]}/health", timeout=10).read().decode())' "$port"
+  probe_health
   echo
 done

@@ -24,7 +24,11 @@ if tool == "docker":
         print("container-id")
     elif args[0] == "inspect":
         print("unhealthy" if mode == "health" else "healthy")
-    elif args[0] == "exec" and mode == "http": sys.exit(1)
+    elif args[0] == "exec":
+        if mode == "health": sys.exit(1)
+        if mode == "http":
+            calls = [json.loads(line) for line in Path(os.environ["SMOKE_LOG"]).read_text().splitlines()]
+            if "npm" in args or sum(call[:2] == ["docker", "exec"] for call in calls) > 1: sys.exit(1)
     elif args[0] == "cp" and mode == "copy": sys.exit(1)
 '''
 
