@@ -25,6 +25,7 @@ import { api, housePrice, money, requestId, safeUrl } from "../api";
 import type { Data, House } from "../types";
 import { estimateCost, type CostLine, type Usage } from "../housingCost";
 import { Dialog } from "./Dialog";
+import { TenantHostReviews } from "./HousingReviews";
 
 export const amenities: Record<string, string> = {
   parking: "Chỗ để xe",
@@ -282,6 +283,7 @@ export function HousingDetail({
         ))}
       </div>
       <HousingDecisionTools house={detail} />
+      {detail.management && <TenantHostReviews listingId={detail.id} />}
       <p className="notice">
         {detail.location_accuracy === "rooftop"
           ? uiText("Vị trí theo tin nhà.")

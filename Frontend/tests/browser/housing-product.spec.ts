@@ -23,6 +23,7 @@ test.beforeEach(async ({ page }) => {
     if (path === "/session") return route.fulfill({ json: { id: "owner", email: "owner@example.test", name: "Mai", preferences: {} } });
     if (path === "/threads" || path === "/saved") return route.fulfill({ json: [] });
     if (path === "/status") return route.fulfill({ json: { status: "ok" } });
+    if (path.endsWith("/moderation/housing/reviews")) return route.fulfill({ json: { items: [], flags: [], next_offset: null } });
     if (path.endsWith("/host/profile")) {
       if (route.request().method() === "PUT") {
         savedProfile = route.request().postDataJSON();

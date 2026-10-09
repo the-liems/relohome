@@ -289,6 +289,10 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "quality_flags": r.get("quality_flags") or [],
         "price_unverified": any(str(f).startswith("price_") for f in r.get("quality_flags", [])),
     }
+    # Ratings are already calculated by code. Never forward review text or author identities to the Agent.
+    management = r.get("management")
+    if isinstance(management, dict):
+        candidate.update({k: management[k] for k in ("host_rating", "host_review_count") if k in management})
     missing = [k for k in ("price_vnd", "deposit_vnd", "area_m2", "address") if candidate[k] is None]
     missing += [m for m in must_have if m not in amenities]
     return candidate, missing

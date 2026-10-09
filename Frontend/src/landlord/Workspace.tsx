@@ -21,6 +21,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Star,
   Trash2,
   Users,
   X,
@@ -30,6 +31,7 @@ import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
 import { EmptyState } from "../components/UiStates";
 import { ContactThread } from "../components/ContactThread";
+import { LandlordReviews, ReviewModerationPanel } from "../components/HousingReviews";
 import { housingManagement, uploadListingImage } from "./client";
 import {
   HostProfileForm,
@@ -52,7 +54,7 @@ import type {
 } from "./types";
 import "./landlord.css";
 
-type Tab = "overview" | "properties" | "inbox" | "moderation";
+type Tab = "overview" | "properties" | "inbox" | "reviews" | "moderation";
 
 const propertyLabels: Record<string, string> = {
   apartment: "Căn hộ",
@@ -217,6 +219,7 @@ export function LandlordWorkspace() {
     ["overview", "Tổng quan", BarChart3, 0],
     ["properties", "Nhà & phòng", Building2, 0],
     ["inbox", "Yêu cầu liên hệ", Inbox, newContacts],
+    ["reviews", "Đánh giá", Star, 0],
     ...(queue
       ? ([["moderation", "Duyệt tin", ShieldCheck, pendingReviews]] as [
           Tab,
@@ -319,8 +322,10 @@ export function LandlordWorkspace() {
         )
       ) : tab === "inbox" ? (
         <InboxPanel contacts={contacts} changed={load} />
+      ) : tab === "reviews" ? (
+        <LandlordReviews />
       ) : (
-        <ModerationPanel queue={queue} changed={load} />
+        <><ModerationPanel queue={queue} changed={load} /><ReviewModerationPanel /></>
       )}
     </div>
   );

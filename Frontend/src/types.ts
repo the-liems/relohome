@@ -32,6 +32,8 @@ export interface House extends Data {
     poster_type?: "owner" | "manager" | "broker" | "business" | null;
     poster_name?: string | null;
     host_verified?: boolean;
+    host_rating?: number | null;
+    host_review_count?: number;
   } | null;
 }
 export interface Component extends Data {

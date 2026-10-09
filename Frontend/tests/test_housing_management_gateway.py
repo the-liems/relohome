@@ -314,3 +314,30 @@ async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, mon
             "request_id": "r1",
             "unread": 2,
         }
+
+
+@pytest.mark.asyncio
+async def test_review_gateway_preserves_session_identity_and_pagination(tmp_path, monkeypatch):
+    monkeypatch.setenv('AGENT_API_TOKEN', 'server-token')
+    captured = []
+    def provider(request):
+        captured.append(request)
+        return httpx.Response(200, json={'ok': True})
+    app = create_app(tmp_path / 'reviews.db', httpx.MockTransport(provider))
+    listing = 'aaaaaaaa-1111-4111-8111-111111111111'
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url='http://test', headers=HEADERS,
+    ) as client:
+        assert (await client.get(f'/web/api/housing-management/housing/{listing}/reviews')).status_code == 401
+        registered = (await client.post('/web/api/auth/register', json={'email': 'reviews@example.test', 'password': 'a-long-password', 'name': 'Tenant'})).json()
+        response = await client.get(f'/web/api/housing-management/housing/{listing}/reviews?sort=lowest&limit=20&offset=10', headers={'X-User-Id': 'forged'})
+        assert response.status_code == 200
+        assert captured[-1].url.params == httpx.QueryParams('sort=lowest&limit=20&offset=10')
+        assert captured[-1].headers['x-user-id'] == registered['id']
+        assert (await client.put(f'/web/api/housing-management/housing/{listing}/review', json={'rating': 4, 'body': ''})).status_code == 200
+        assert json.loads(captured[-1].content) == {'rating': 4, 'body': ''}
+        withdrawn = await client.request('DELETE', f'/web/api/housing-management/housing/{listing}/review', json={})
+        assert withdrawn.status_code == 200
+        assert (await client.get('/web/api/housing-management/moderation/housing/reviews')).status_code == 200
+        assert (await client.post(f'/web/api/housing-management/housing/reviews/{listing}/report', json={'reason': 'Cần kiểm tra.'})).status_code == 200
+        assert (await client.get('/web/api/housing-management/housing/reviews/export')).status_code == 404

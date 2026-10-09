@@ -45,15 +45,19 @@ def housing_media_dir() -> Path:
 
 
 HOUSING_MANAGEMENT_PATHS = (
-    re.compile(r"^landlord/(overview|properties|contact-requests)$"),
+    re.compile(r"^landlord/(overview|properties|contact-requests|reviews)$"),
+    re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
     re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
     re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide))?$"),
     re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
-    re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events)$"),
+    re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events|reviews|review)$"),
+    re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
     re.compile(r"^housing/contact-requests/me$"),
     re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
+    re.compile(r"^moderation/housing/reviews(?:/[0-9a-f-]+/decision)?$"),
+    re.compile(r"^moderation/housing/flags/[0-9a-f-]+/review$"),
     re.compile(r"^host/profile$"),
     re.compile(r"^moderation/host/[A-Za-z0-9_-]{1,128}/review$"),
 )
@@ -859,7 +863,8 @@ def create_app(database=None, transport=None):
         if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
             raise HTTPException(404)
         body = None if request.method == "GET" else await object_body(request)
-        return await upstream(request.method, "/" + resource, user(request)["id"], body, platform=True)
+        query = "?" + str(request.query_params) if request.method == "GET" and request.query_params else ""
+        return await upstream(request.method, "/" + resource + query, user(request)["id"], body, platform=True)
 
     @app.get("/web/api/saved")
     async def saved(request: Request):

@@ -1,4 +1,10 @@
 .ll-workspace {
+  /* Bind this isolated workspace's legacy aliases to the application's theme tokens. */
+  --ink: var(--ui-text);
+  --surface: var(--ui-surface);
+  --accent: var(--ui-accent);
+  --accent-soft: var(--ui-accent-soft);
+  --line-strong: var(--ui-control-line);
   --ll-line: color-mix(in srgb, var(--line, #d8dfda) 82%, transparent);
   --ll-soft: color-mix(in srgb, var(--surface, #fff) 88%, var(--accent-soft, #e2f0e8));
   width: min(1480px, calc(100% - 40px));
