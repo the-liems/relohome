@@ -1,6 +1,10 @@
 # Thiết kế: phản hồi của người thuê về căn nhà và người cho thuê
 
-Trạng thái: **v1, đề xuất, chưa code.** Ngày: 09/10/2026.
+Trạng thái: **v2, đề xuất, chưa code.** Ngày: 09/10/2026.
+
+v2: chốt bản đầu theo kiểu đánh giá của Google Maps: **chấm chủ nhà 1–5 sao** (mục 14). Khi nhiều nhà của cùng một
+chủ cùng bị đánh giá xấu, hệ thống **phát hiện và gắn cờ cho kiểm duyệt**; việc xử lý tiếp theo để team quyết sau
+(mục 14.6).
 Nền đối chiếu: nhánh `feat/housing-product-v1-finish` (từ `origin/QuangDung`), gồm [SPEC-021](../specs/SPEC-021-housing-product-v1.md),
 [host-mode-design](host-mode-design.md), [viewing-landlord-confirmation](viewing-landlord-confirmation.md),
 [housing-viewing-design](housing-viewing-design.md) và hộp thư nhắn tin giữa hai bên.
@@ -236,6 +240,8 @@ Contract đọc công khai thêm trường optional `feedback_summary` (điểm,
 
 ## 11. Giai đoạn
 
+0. **Bản thử v2 (mục 14): đánh giá chủ nhà 1–5 sao kiểu Google Maps**, kèm phát hiện đánh giá xấu lặp lại trên nhiều
+   nhà của cùng một chủ. Làm trước các bước dưới.
 1. **Báo cáo có cấu trúc + đối chiếu luật + hàng chờ kiểm duyệt** (không công khai). Đủ để xử lý C2–C5, C10 và báo
    lừa đảo khẩn.
 2. **Đánh giá công khai** với điều kiện F1, trung bình Bayes, trả lời của chủ nhà, khoảng công bố.
@@ -257,7 +263,124 @@ Contract đọc công khai thêm trường optional `feedback_summary` (điểm,
 
 ## 13. Cần team chốt
 
-1. Có công khai đánh giá ở giai đoạn đầu không, hay chỉ làm báo cáo cho kiểm duyệt (đề xuất: chỉ báo cáo trước).
+1. ~~Có công khai đánh giá ở giai đoạn đầu không~~ Đã chốt (v2): làm trước đánh giá chủ nhà 1–5 sao công khai kiểu Google Maps (mục 14); báo cáo có cấu trúc làm sau.
 2. Báo cáo lừa đảo khẩn có ẩn tạm tin tự động không (dính trách nhiệm pháp lý, giống chuyện tạm khóa).
 3. Người báo có đồng ý cho kiểm duyệt đọc đoạn tin nhắn liên quan không (cần câu xin đồng ý riêng).
 4. Có nhận phản hồi cho tin crawl không.
+5. Khi nhiều nhà của cùng một chủ bị đánh giá xấu (mục 14.6), hệ thống làm gì ngoài gắn cờ cho kiểm duyệt.
+
+## 14. Bản thử v2: đánh giá chủ nhà 1–5 sao kiểu Google Maps
+
+### 14.1. Google Maps làm gì và ReloHome lấy gì
+
+| Google Maps | ReloHome (bản thử) | Lý do khác |
+|---|---|---|
+| Ai có tài khoản cũng đánh giá được một địa điểm | Chỉ người đã **gửi yêu cầu liên hệ hoặc hẹn xem** căn thuộc nhà đó | Chặn tài khoản ảo, đối thủ, người quen tự khen (C8, C9) mà không cần mô hình |
+| Bắt buộc 1–5 sao, chữ không bắt buộc | Giống vậy | |
+| Mỗi người một đánh giá cho mỗi địa điểm, sửa hoặc xóa được | Mỗi người một đánh giá cho mỗi **nhà (property)**, sửa hoặc rút được | |
+| Đánh giá gắn với địa điểm | Viết trên một nhà, **cộng dồn thành điểm của chủ nhà** trên mọi nhà của họ; vẫn xem được điểm riêng từng nhà | Người dùng yêu cầu chấm **chủ**; chủ có nhiều nhà |
+| Hiện điểm trung bình một số lẻ, tổng số đánh giá, biểu đồ 1–5 sao | Giống vậy | |
+| Hiện ngay, bộ lọc tự động gỡ nội dung vi phạm | Hiện ngay; luật chặn số điện thoại và từ ngữ xúc phạm trước khi gửi (C10) | |
+| Chủ địa điểm trả lời công khai, không xóa được đánh giá | Giống vậy: chủ nhà trả lời một lần (sửa được), chỉ **báo cáo** được đánh giá | F5 |
+| Ai cũng báo cáo được đánh giá không phù hợp; Google xem xét | Chủ nhà và người dùng khác báo cáo; kiểm duyệt ẩn kèm lý do | F4 |
+| Sắp xếp: liên quan nhất, mới nhất, cao nhất, thấp nhất | Mới nhất, cao nhất, thấp nhất; nhà đang xem lên đầu | |
+| Huy hiệu Local Guide | Nhãn **"Đã liên hệ"** hoặc **"Đã hẹn xem"** (chủ nhà xác nhận giờ) trên từng đánh giá | Cho biết mức tương tác thật |
+
+### 14.2. Trải nghiệm
+
+**Người thuê (trang chi tiết tin, khung "Đánh giá chủ nhà"):**
+
+- Dòng tóm tắt: **4,6 ★ · 12 đánh giá · trên 3 nhà**, biểu đồ số lượng 5→1 sao.
+- Danh sách đánh giá: số sao, nhãn "Đã liên hệ/Đã hẹn xem", tên nhà, thời gian, nội dung, câu trả lời của chủ nhà.
+  Không hiện tên hay tài khoản người viết (chỉ "Người thuê"), vì người viết là khách thuê cá nhân.
+- Nếu đủ điều kiện: chọn 1–5 sao, viết nhận xét (không bắt buộc), gửi. Sau đó thấy đánh giá của mình với nút **Sửa**
+  và **Rút đánh giá**.
+- Chưa có đánh giá: "Chủ nhà chưa có đánh giá" (không hiện 0 sao).
+
+**Chủ nhà (`/landlord`, tab mới "Đánh giá"):** điểm tổng, biểu đồ, danh sách đánh giá trên mọi nhà của mình, ô
+**Trả lời** cho từng đánh giá, nút **Báo cáo đánh giá** (chọn lý do: sai đối tượng, xúc phạm, lộ thông tin, không phải
+khách thật…).
+
+**Kiểm duyệt (tab "Duyệt tin"):** mục **"Đánh giá bị báo cáo"** và mục **"Cảnh báo theo chủ nhà"** (14.6); hành động
+**Ẩn đánh giá** (bắt buộc lý do) hoặc **Giữ nguyên**.
+
+**Agent:** chi tiết tin có thêm điểm và số đánh giá của chủ nhà; agent nói "Chủ nhà được 4,6★ từ 12 đánh giá" khi
+giới thiệu, không đọc nguyên văn đánh giá (7.3).
+
+### 14.3. Quy tắc
+
+| # | Quy tắc |
+|---|---|
+| R1 | Chỉ tin do chủ nhà quản lý trên ReloHome nhận đánh giá; tin crawl không có |
+| R2 | Điều kiện viết: có yêu cầu liên hệ (bất kỳ trạng thái) với một tin của nhà đó; người quản lý nhà không tự đánh giá |
+| R3 | Nhãn "Đã hẹn xem" khi chủ nhà đã xác nhận một giờ xem của người viết; còn lại "Đã liên hệ" |
+| R4 | Điểm của chủ nhà = trung bình sao của các đánh giá đang hiện trên mọi nhà có người đó là chủ; làm tròn một số lẻ. Hiện khi số đánh giá ≥ `HOUSING_REVIEW_MIN_COUNT` (mặc định 1, như Google Maps) |
+| R5 | Đánh giá bị ẩn hoặc đã rút không tính điểm; người viết sửa đánh giá bị ẩn thì vẫn ẩn |
+| R6 | Chủ nhà không xóa, không sửa đánh giá; chỉ trả lời và báo cáo |
+| R7 | Không dùng sao của người thuê để đổi bảng chi phí hay thứ tự tìm kiếm trong bản thử (để sau khi có đủ dữ liệu) |
+
+### 14.4. Dữ liệu
+
+Migration mới (thay cho `housing.feedback` ở mục 8 trong bản thử):
+
+| Bảng | Cột chính |
+|---|---|
+| `housing.reviews` | `property_id`, `host_user_id` (chủ của nhà lúc viết), `author_user_id`, `rating` 1–5, `body` ≤ 2000, `stage` (`contacted`/`viewed`), `status` (`published`/`hidden`/`withdrawn`), `hidden_reason`, `reply_body`, `reply_at`, thời gian; duy nhất theo (`property_id`, `author_user_id`) |
+| `housing.review_reports` | `review_id`, `reporter_user_id`, `reason`, `status` (`open`/`upheld`/`dismissed`), `decided_by` |
+| `housing.host_flags` | `host_user_id`, `kind` (`repeated_low_ratings`), `evidence` (jsonb: các nhà, số đánh giá, khoảng thời gian), `status` (`open`/`reviewed`), thời gian |
+
+Contract đọc thêm hai trường optional trong `management`: `host_rating` (null khi chưa đủ) và `host_review_count`.
+
+### 14.5. API
+
+| Endpoint | Ai gọi | Ghi chú |
+|---|---|---|
+| `GET /v1/housing/:listingId/reviews?sort=&limit=` | Người dùng (qua gateway) | Tóm tắt của chủ nhà, danh sách, đánh giá của chính mình, `can_review` |
+| `PUT /v1/housing/:listingId/review` | Người thuê | `{rating, body}`; tạo hoặc sửa; kiểm R2 |
+| `DELETE /v1/housing/:listingId/review` | Người thuê | Rút (chuyển `withdrawn`, không xóa dòng) |
+| `GET /v1/landlord/reviews` | Chủ nhà | Tóm tắt và danh sách trên mọi nhà |
+| `POST /v1/landlord/reviews/:id/reply` | Chủ nhà | Trả lời một lần, sửa được |
+| `POST /v1/housing/reviews/:id/report` | Chủ nhà, người dùng khác | `{reason}`; mỗi người một báo cáo cho mỗi đánh giá |
+| `GET /v1/moderation/housing/reviews` | Kiểm duyệt | Đánh giá bị báo cáo và cờ theo chủ nhà |
+| `POST /v1/moderation/housing/reviews/:id/decision` | Kiểm duyệt | `{decision: hide\|keep, reason}`; không xử lý đánh giá về nhà mình |
+
+### 14.6. Nhiều nhà của cùng một chủ cùng bị đánh giá xấu
+
+Ý nghĩa: một đánh giá xấu có thể do nhầm hoặc thù riêng (C4, C7); **cùng một kiểu đánh giá xấu lặp lại trên nhiều nhà
+khác nhau của cùng một chủ, từ nhiều người khác nhau**, là tín hiệu mạnh hơn nhiều về cách chủ đó làm ăn.
+
+**Phát hiện (làm trong bản thử, chạy bằng luật, 0 LLM):** sau mỗi lần có đánh giá mới hoặc sửa đánh giá, kiểm tra trong
+`HOUSING_REVIEW_PATTERN_DAYS` ngày gần nhất:
+
+- số đánh giá ≤ `HOUSING_REVIEW_LOW_STARS` sao (mặc định 2) trên **ít nhất `HOUSING_REVIEW_PATTERN_PROPERTIES` nhà khác
+  nhau** (mặc định 2), và
+- đến từ **ít nhất `HOUSING_REVIEW_PATTERN_AUTHORS` người viết khác nhau** (mặc định 3), không tính đánh giá đã ẩn.
+
+Đạt điều kiện thì tạo (hoặc cập nhật) một cờ `repeated_low_ratings` cho chủ nhà, kèm bằng chứng: danh sách nhà, số
+đánh giá xấu mỗi nhà, khoảng thời gian. Cờ hiện ở mục "Cảnh báo theo chủ nhà" của kiểm duyệt. Bản thử chỉ dùng số
+sao; khi có bước LLM tách chủ đề (6.5) sẽ thêm điều kiện "cùng một vấn đề" (ví dụ cùng báo đòi tiền trước, cùng báo
+giá sai).
+
+**Xử lý sau khi có cờ: để team quyết sau** (dính trách nhiệm pháp lý như chuyện tạm khóa). Các lựa chọn để bàn:
+
+| Lựa chọn | Tác động | Ghi chú |
+|---|---|---|
+| A. Kiểm duyệt rà lại mọi tin đang hiện của chủ đó | Thấp | Không ảnh hưởng người cho thuê trước khi có kết luận |
+| B. Báo cho chủ nhà và yêu cầu giải trình hoặc sửa tin trong N ngày | Trung bình | Cần mẫu thông báo |
+| C. Hiện thông báo trung tính trên các tin: "Chủ nhà đang được ReloHome xem xét theo phản hồi của người thuê" | Cao | Dễ bị coi là bôi nhọ nếu sai |
+| D. Tạm ngừng nhận yêu cầu liên hệ mới hoặc ẩn tin tới khi xem xét xong | Rất cao | Giống tạm khóa; chờ điều khoản |
+| E. Giảm thứ tự hiện trong gợi ý của agent | Trung bình | Cần quy tắc minh bạch |
+
+Đề xuất mặc định cho tới khi team quyết: chỉ **A** (kiểm duyệt rà lại), không tự động làm gì với người cho thuê.
+
+### 14.7. Tiêu chí nghiệm thu bản thử
+
+- **RV-01:** Người chưa liên hệ nhà đó không đánh giá được; người quản lý nhà không tự đánh giá.
+- **RV-02:** Mỗi người một đánh giá cho mỗi nhà; sửa thì thay điểm cũ; rút thì không còn tính điểm.
+- **RV-03:** Điểm chủ nhà = trung bình sao trên mọi nhà của họ; biểu đồ 1–5 đúng số; chưa có đánh giá thì không hiện sao.
+- **RV-04:** Chủ nhà trả lời được, không xóa hay sửa được đánh giá; báo cáo được.
+- **RV-05:** Kiểm duyệt ẩn được kèm lý do; đánh giá bị ẩn không tính điểm, sửa lại vẫn ẩn; không xử lý đánh giá về nhà mình.
+- **RV-06:** Đánh giá xấu trên ≥ 2 nhà từ ≥ 3 người trong khoảng cấu hình tạo đúng một cờ theo chủ nhà; một người chấm
+  xấu nhiều nhà không đủ tạo cờ; không có hành động tự động nào ngoài cờ.
+- **RV-07:** Chi tiết tin công khai có `host_rating`, `host_review_count`; client cũ vẫn parse được; không lộ người viết.
+
