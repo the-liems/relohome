@@ -104,13 +104,13 @@ Nếu chưa bật opt-in, test ghi **skipped**, không ghi pass giả.
 Kiểm container thực:
 
 ```powershell
-docker build -f Dockerfile.agents --target intake -t lifeflow-intake:local .
-docker build -f Dockerfile.agents --target orchestrator -t lifeflow-orchestrator:local .
+docker buildx build --load -f Dockerfile.agents --target intake -t lifeflow-intake:local .
+docker buildx build --load -f Dockerfile.agents --target orchestrator -t lifeflow-orchestrator:local .
 .venv/Scripts/python.exe scripts/smoke-agent-containers.py
 ```
 
-Script tạo container test với token ngẫu nhiên, random loopback port và DB tmpfs,
-kiểm HTTP/non-root/configuration rồi gỡ đúng container test. Không đụng volume thật.
+Script tạo container test với token ngẫu nhiên, không xuất cổng host và dùng DB tmpfs,
+kiểm HTTP/readiness/configuration rồi gỡ đúng container test. Không đụng volume thật.
 
 ## 5. Cập nhật registry
 

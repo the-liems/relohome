@@ -41,12 +41,28 @@ x-osrm: &osrm
   <<: *app
   image: ghcr.io/project-osrm/osrm-backend@sha256:729461bcc9ae9e6aafa92c0f93db9b060a32e85d5e72092c01ae4a4a9f1eb564
   volumes: [routing-data:/data:ro]
-  healthcheck:
+  healthcheck: &osrm-health
     test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:5000/nearest/v1/driving/106.7,10.77"]
     interval: 30s
     timeout: 5s
     start_period: 60s
     retries: 10
+
+x-osrm-driving: &osrm-driving
+  <<: *osrm
+  # v26.9.0 matches the snapshot's driving graphs; it has bash, but no wget.
+  image: ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b
+  healthcheck:
+    <<: *osrm-health
+    test:
+      - CMD
+      - bash
+      - -ec
+      - >-
+        exec 3<>/dev/tcp/127.0.0.1/5000;
+        printf 'GET /nearest/v1/driving/106.7,10.77 HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3;
+        read -r -t 4 response <&3;
+        [[ "$${response}" == *" 200 "* ]]
 
 services:
   web:
@@ -253,9 +269,10 @@ services:
     depends_on:
       moving-migrate: {condition: service_completed_successfully}
 
-  # Routing datasets are provisioned on the server before the first full deploy.
+  # The snapshot's driving graphs require a different OSRM build from the
+  # walking/motorcycle graphs. Match config/local-routing.compose.yaml.
   hcm-driving:
-    <<: *osrm
+    <<: *osrm-driving
     command: [osrm-routed, --algorithm, mld, /data/hcm/driving/hcm.osrm]
   hcm-walking:
     <<: *osrm
@@ -264,7 +281,7 @@ services:
     <<: *osrm
     command: [osrm-routed, --algorithm, mld, /data/hcm/motorcycle/hcm.osrm]
   hanoi-driving:
-    <<: *osrm
+    <<: *osrm-driving
     command: [osrm-routed, --algorithm, mld, /data/hanoi/driving/hanoi.osrm]
   hanoi-walking:
     <<: *osrm
@@ -273,7 +290,7 @@ services:
     <<: *osrm
     command: [osrm-routed, --algorithm, mld, /data/hanoi/motorcycle/hanoi.osrm]
   danang-driving:
-    <<: *osrm
+    <<: *osrm-driving
     command: [osrm-routed, --algorithm, mld, /data/danang/driving/danang.osrm]
   danang-walking:
     <<: *osrm

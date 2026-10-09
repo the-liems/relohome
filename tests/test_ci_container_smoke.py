@@ -22,13 +22,14 @@ if tool == "docker":
     if args[0] in ("run", "create"):
         if mode == "start": sys.exit(125)
         print("container-id")
-    elif args[0] == "inspect":
-        print("unhealthy" if mode == "health" else "healthy")
     elif args[0] == "exec":
-        if mode == "health": sys.exit(1)
+        if mode == "health":
+            print("Connection refused", file=sys.stderr)
+            sys.exit(1)
         if mode == "http":
-            calls = [json.loads(line) for line in Path(os.environ["SMOKE_LOG"]).read_text().splitlines()]
-            if "npm" in args or sum(call[:2] == ["docker", "exec"] for call in calls) > 1: sys.exit(1)
+            print("HTTP Error 500", file=sys.stderr)
+            sys.exit(1)
+        print('{"status":"ok"}')
     elif args[0] == "cp" and mode == "copy": sys.exit(1)
 '''
 
@@ -62,8 +63,8 @@ class MCPSmokeTests(unittest.TestCase):
         return process, log
 
     def finish(self, process, log):
-        process.communicate(timeout=15)
-        return [json.loads(line) for line in log.read_text().splitlines()]
+        output, error = process.communicate(timeout=15)
+        return [json.loads(line) for line in log.read_text().splitlines()], output, error
 
     def assert_owned_cleanup(self, calls):
         starts = [call for call in calls if call[:2] == ["docker", "run"]]
@@ -78,22 +79,32 @@ class MCPSmokeTests(unittest.TestCase):
         for run_id, failure in enumerate(("start", "health", "http"), start=1):
             with self.subTest(failure=failure):
                 process, log = self.start(run_id, failure)
-                calls = self.finish(process, log)
+                calls, _, error = self.finish(process, log)
                 self.assertNotEqual(process.returncode, 0)
                 self.assert_owned_cleanup(calls)
                 self.assertTrue(any(call[:2] == ["docker", "logs"] for call in calls))
+                if failure == "health":
+                    self.assertIn("Last /health probe error: Connection refused", error)
+                if failure == "http":
+                    self.assertIn("Last /health probe error: HTTP Error 500", error)
 
     def test_overlapping_runs_use_separate_containers_and_images(self):
         first, first_log = self.start(101)
         second, second_log = self.start(102)
-        first_calls = self.finish(first, first_log)
-        second_calls = self.finish(second, second_log)
+        first_calls, first_output, _ = self.finish(first, first_log)
+        second_calls, second_output, _ = self.finish(second, second_log)
         self.assertEqual(first.returncode, 0)
         self.assertEqual(second.returncode, 0)
+        self.assertIn('{"status":"ok"}', first_output)
+        self.assertIn('{"status":"ok"}', second_output)
         first_names = self.assert_owned_cleanup(first_calls)
         second_names = self.assert_owned_cleanup(second_calls)
         self.assertTrue(set(first_names).isdisjoint(second_names))
         for run_id, calls in ((101, first_calls), (102, second_calls)):
+            probes = [call for call in calls if call[:2] == ["docker", "exec"]]
+            self.assertEqual(len(probes), 2)
+            self.assertTrue(all("127.0.0.1" in " ".join(call) for call in probes))
+            self.assertFalse(any(call[:2] == ["docker", "inspect"] for call in calls))
             for call in calls:
                 if call[:2] == ["docker", "run"]:
                     self.assertTrue(call[-1].endswith(f":ci-{run_id}-1"))
@@ -157,4 +168,5 @@ class AgentSmokeTests(unittest.TestCase):
         args = docker.call_args_list[0].args
         self.assertIn("lifeflow-intake:ci-201-1", args)
         self.assertIn("lifeflow.ci.agents=ci-201-1", args)
+        self.assertIn("/app/data:mode=1777", args)
         self.assertEqual(cleanup.call_args.args[0], ["docker", "rm", "-fv", args[args.index("--name") + 1]])

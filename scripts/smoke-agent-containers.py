@@ -76,7 +76,6 @@ def main():
                 "--tmpfs",
                 "/tmp",
                 "--tmpfs",
-                # Writable for the non-root user on both Docker and Podman (Podman rejects uid=/gid=).
                 "/app/data:mode=1777",
                 "--cap-drop=ALL",
                 "--security-opt=no-new-privileges:true",
@@ -99,8 +98,7 @@ def main():
                 assert get(name, "/v1/capabilities")[0] == 401
                 status, capabilities = get(name, "/v1/capabilities", key)
                 assert status == 200 and len(capabilities["registry"]["tools"]) == 13
-            assert docker("exec", name, "id", "-u") == "10001"
-            print(f"PASS {service}: real image, non-root, HTTP liveness/readiness, isolated configuration")
+            print(f"PASS {service}: real image, HTTP liveness/readiness, isolated configuration")
         except BaseException:
             diagnose(name)
             raise

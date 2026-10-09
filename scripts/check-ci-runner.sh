@@ -37,6 +37,10 @@ for capability in "$@"; do
       ;;
     mcp)
       for tool in make awk basename dirname xargs; do require_tool "$tool"; done
+      docker buildx version || fail "Docker Buildx is required for MCP image builds"
+      ;;
+    buildx)
+      docker buildx version || fail "Docker Buildx is required for image builds"
       ;;
     compose)
       require_tool openssl

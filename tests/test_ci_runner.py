@@ -22,7 +22,7 @@ class RunnerPreflightTests(unittest.TestCase):
             "git": 'printf "git fixture\\n"',
             "uname": 'if [ "$1" = -s ]; then printf "%s\\n" "${TEST_OS:-Linux}"; else printf "aarch64\\n"; fi',
             "openssl": 'printf "OpenSSL fixture\\n"',
-            "docker": 'if [ "$*" = "compose version --short" ]; then printf "%s\\n" "$TEST_COMPOSE_VERSION"; else printf "Docker fixture\\n"; fi',
+            "docker": 'if [ "$*" = "compose version --short" ]; then printf "%s\\n" "$TEST_COMPOSE_VERSION"; elif [ "$*" = "buildx version" ] && [ "${TEST_BUILDX_MISSING:-}" = 1 ]; then exit 1; else printf "Docker fixture\\n"; fi',
             "node": 'if [ "$1" = -p ]; then printf "%s\\n" "$TEST_NODE_MAJOR"; else printf "v%s.0.0\\n" "$TEST_NODE_MAJOR"; fi',
             "npm": 'printf "npm fixture\\n"',
         }
@@ -65,6 +65,18 @@ class RunnerPreflightTests(unittest.TestCase):
         result = self.run_check("mcp")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Missing required tool: make", result.stderr)
+        for name in ("make", "awk", "basename", "dirname", "xargs"):
+            tool = self.directory / name
+            tool.write_text("#!/bin/sh\nexit 0\n")
+            tool.chmod(0o755)
+        self.assertEqual(self.run_check("mcp").returncode, 0)
+        result = self.run_check("mcp", TEST_BUILDX_MISSING="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Docker Buildx is required", result.stderr)
+        self.assertEqual(self.run_check("buildx").returncode, 0)
+        result = self.run_check("buildx", TEST_BUILDX_MISSING="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Docker Buildx is required", result.stderr)
 
     def test_wrong_os_and_node_version_explain_required_capabilities(self):
         result = self.run_check(TEST_OS="Darwin")

@@ -20,8 +20,10 @@ is not evidence of an amd64 release image.
 | Python CI, agent services, map data, MVP, staging deployment | Python 3.11 and pip, provided by `actions/setup-python` |
 | Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
 | MVP | Node.js 22 and npm (existing workspace validation version) |
-| Application images, PostGIS, MCP images, agent services, Moving validation/images/staging | Docker CLI and access to a running Linux Docker daemon |
-| MCP images | Make, awk, basename, dirname, xargs |
+| Application images, PostGIS, MCP images, agent services, Moving validation/images/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
+| Agent services | Docker Buildx |
+| MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
+| Application image publisher | Docker Buildx |
 | Moving validation/staging | OpenSSL and Docker Compose >= 2.24.4 (`!override` ports) |
 | Staging deployment | Docker CLI with `docker manifest inspect`; no Docker daemon needed |
 | Moving images | Docker Buildx, provided by `docker/setup-buildx-action` |

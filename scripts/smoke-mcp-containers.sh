@@ -18,6 +18,16 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+probe_health() {
+  docker exec "$1" python -c '
+import sys
+from urllib.request import urlopen
+
+with urlopen(f"http://127.0.0.1:{sys.argv[1]}/health", timeout=2) as response:
+    print(response.read().decode())
+' "$2"
+}
+
 for dockerfile in src/mcp_servers/*/Dockerfile; do
   server=$(basename "$(dirname "$dockerfile")")
   port=$(awk '/^EXPOSE/ {print $2; exit}' "$dockerfile")
@@ -26,18 +36,10 @@ for dockerfile in src/mcp_servers/*/Dockerfile; do
   containers+=("$container")
   docker run -d --name "$container" --label "lifeflow.ci.mcp=$tag" "$server-mcp:$tag"
   # Probe the service's health endpoint without relying on image health metadata.
-  probe_health() {
-    docker exec "$container" python -c '
-import sys
-from urllib.request import urlopen
-
-with urlopen(f"http://127.0.0.1:{sys.argv[1]}/health", timeout=10) as response:
-    print(response.read().decode())
-' "$port"
-  }
   healthy=false
+  probe_result=''
   for (( i=0; i<30; i++ )); do
-    if probe_health >/dev/null 2>&1; then
+    if probe_result=$(probe_health "$container" "$port" 2>&1); then
       healthy=true
       break
     fi
@@ -45,8 +47,9 @@ with urlopen(f"http://127.0.0.1:{sys.argv[1]}/health", timeout=10) as response:
   done
   if [ "$healthy" != true ]; then
     echo "Container $container did not become healthy" >&2
+    echo "Last /health probe error: $probe_result" >&2
     exit 1
   fi
-  probe_health
+  printf '%s\n' "$probe_result"
   echo
 done
