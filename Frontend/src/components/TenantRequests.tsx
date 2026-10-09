@@ -6,6 +6,13 @@ import type { Data } from "../types";
 import { VIEWING_HINT } from "./Housing";
 
 // Contact requests the signed-in tenant sent to owner-managed listings (SPEC-021 AC-05).
+const VIEWING: Record<string, string> = {
+  requested: "Giờ xem {0}: chờ chủ nhà xác nhận",
+  confirmed: "Giờ xem {0}: chủ nhà đã xác nhận",
+  declined:
+    "Giờ xem {0}: chủ nhà không nhận, hãy chọn giờ khác trong tab Xem nhà",
+  cancelled: "Giờ xem {0}: bạn đã hủy",
+};
 const STATUS: Record<string, string> = {
   new: "Đã gửi, chủ nhà chưa xem",
   contacted: "Chủ nhà đã liên hệ",
@@ -83,6 +90,13 @@ export function TenantRequests() {
                 ])}
               </span>
               <blockquote>{item.message}</blockquote>
+              {item.viewing_slot && VIEWING[item.viewing_status] && (
+                <p className="small">
+                  {formatUi(VIEWING[item.viewing_status], [
+                    dateTime(item.viewing_slot),
+                  ])}
+                </p>
+              )}
               {item.status === "viewing" && (
                 <p className="muted small">{uiText(VIEWING_HINT)}</p>
               )}

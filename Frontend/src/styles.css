@@ -5931,3 +5931,15 @@ input[type="checkbox"] {
   }
 }
 
+/* Landlord answer on a booked viewing (docs/review/viewing-landlord-confirmation.md). */
+.viewing-item .viewing-landlord.requested {
+  color: var(--ui-warning);
+}
+.viewing-item .viewing-landlord.confirmed {
+  color: var(--ui-accent, var(--accent));
+  font-weight: 700;
+}
+.viewing-item .viewing-landlord.declined {
+  color: var(--ui-danger, #9c382a);
+  font-weight: 700;
+}

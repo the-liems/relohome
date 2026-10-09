@@ -45,6 +45,8 @@ const PropertyUpdate = PropertyInput.partial().extend({ revision: Revision })
 const UnitUpdate = UnitInput.partial()
 const MediaInput = z.object({ url: z.url().max(2_000), alt: z.string().trim().max(300).nullable().default(null) })
 const ContactInput = z.object({ message: z.string().trim().min(1).max(1_000) })
+const ViewingInput = z.object({ slot: z.iso.datetime({ offset: true }) })
+const ViewingDecision = z.object({ decision: z.enum(['confirm', 'decline']), revision: Revision })
 const ContactUpdate = z.object({
   status: z.enum(['contacted', 'viewing', 'resolved', 'declined']),
   revision: Revision,
@@ -289,7 +291,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       const place = await client.query(
         `INSERT INTO catalog.places(category_id,name,geom,address,attributes)
          VALUES((SELECT id FROM catalog.place_categories WHERE slug='housing-self-service'),$1,
-         ST_SetSRID(ST_MakePoint($2,$3),4326),$4,'{"source":"self_service"}'::jsonb) RETURNING id`,
+         ST_SetSRID(ST_MakePoint($2,$3),4326),$4,'{"source":"self_service","entity_role":"housing_anchor"}'::jsonb) RETURNING id`,
         [input.name, input.location.lng, input.location.lat, input.address],
       )
       const property = await client.query(
@@ -674,11 +676,12 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.get('/v1/landlord/contact-requests', async request => {
     const user = actor(request)
     const result = await pool.query(
-      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name
+      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name,
+         cr.viewing_slot,cr.viewing_status,cr.source
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        LEFT JOIN housing.units u ON u.id=l.unit_id JOIN housing.properties p ON p.id=l.property_id
        JOIN housing.management_members mm ON mm.property_id=p.id AND mm.user_id=$1 AND mm.status='active'
-       ORDER BY (cr.status='new') DESC,cr.created_at DESC`, [user],
+       ORDER BY (cr.viewing_status='requested') DESC,(cr.status='new') DESC,cr.created_at DESC`, [user],
     )
     return { items: result.rows }
   })
@@ -686,11 +689,94 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.get('/v1/housing/contact-requests/me', async request => {
     const user = actor(request)
     const result = await pool.query(
-      `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title
+      `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,
+         cr.viewing_slot,cr.viewing_status,cr.source
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        WHERE cr.tenant_user_id=$1 ORDER BY cr.created_at DESC`, [user],
     )
     return { items: result.rows }
+  })
+
+  // Viewing time from the tenant's "Xem nhà" tab (viewing-landlord-confirmation §3). Idempotent: the
+  // gateway re-sends the current slot after every viewing step; an unchanged slot changes nothing.
+  app.put('/v1/housing/:listingId/viewing', async (request, reply) => {
+    const user = actor(request)
+    const listingId = Id.parse((request.params as { listingId: string }).listingId)
+    const input = ViewingInput.parse(request.body)
+    const slot = new Date(input.slot)
+    if (slot.getTime() <= Date.now()) throw new ManagementError(422, 'Giờ xem đã qua.')
+    const eligible = await pool.query(
+      `SELECT 1 FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
+       WHERE ml.listing_id=$1 AND ml.publication_status='published' AND ml.availability_status='vacant' AND l.status='active'`,
+      [listingId],
+    )
+    if (!eligible.rowCount) throw new ManagementError(409, 'Tin này không nhận lịch xem qua ReloHome.', 'not_managed')
+    const open = await pool.query(
+      `SELECT id,viewing_slot,viewing_status FROM housing.contact_requests
+       WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')`, [listingId, user],
+    )
+    const current = open.rows[0]
+    const sameSlot = current?.viewing_slot && new Date(current.viewing_slot).getTime() === slot.getTime()
+    // A slot the landlord already answered stays answered; the tenant has to pick a different time.
+    if (current && sameSlot && ['requested', 'confirmed', 'declined'].includes(current.viewing_status)) {
+      return { id: current.id, viewing_status: current.viewing_status, changed: false }
+    }
+    if (current) {
+      const updated = await pool.query(
+        `UPDATE housing.contact_requests SET viewing_slot=$2,viewing_status='requested',viewing_updated_at=now(),
+           revision=revision+1,updated_at=now() WHERE id=$1 RETURNING id,viewing_status`, [current.id, slot],
+      )
+      return { ...updated.rows[0], changed: true }
+    }
+    try {
+      const created = await pool.query(
+        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,viewing_updated_at,source)
+         VALUES($1,$2,'Người thuê đặt lịch xem nhà qua ReloHome.',$3,'requested',now(),'viewing') RETURNING id,viewing_status`,
+        [listingId, user, slot],
+      )
+      await pool.query(
+        `INSERT INTO housing.listing_events(listing_id,actor_id,event_type,dedup_key)
+         VALUES($1,$2,'contact_request',$3) ON CONFLICT DO NOTHING`,
+        [listingId, user, `contact:${created.rows[0].id}`],
+      )
+      return reply.status(201).send({ ...created.rows[0], changed: true })
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') throw new ManagementError(409, 'Yêu cầu vừa được tạo ở nơi khác; hãy thử lại.')
+      throw error
+    }
+  })
+
+  app.delete('/v1/housing/:listingId/viewing', async request => {
+    const user = actor(request)
+    const listingId = Id.parse((request.params as { listingId: string }).listingId)
+    // A request that only existed for this viewing and was never handled closes with it.
+    const result = await pool.query(
+      `UPDATE housing.contact_requests SET viewing_status='cancelled',viewing_updated_at=now(),
+         status=CASE WHEN source='viewing' AND status='new' THEN 'declined' ELSE status END,
+         revision=revision+1,updated_at=now()
+       WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')
+         AND viewing_status IN ('requested','confirmed')
+       RETURNING id,status,viewing_status`, [listingId, user],
+    )
+    return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
+  })
+
+  app.post('/v1/landlord/contact-requests/:requestId/viewing', async request => {
+    const user = actor(request)
+    const requestId = Id.parse((request.params as { requestId: string }).requestId)
+    const input = ViewingDecision.parse(request.body)
+    const confirmed = input.decision === 'confirm'
+    const result = await pool.query(
+      `UPDATE housing.contact_requests cr SET viewing_status=$2,viewing_updated_at=now(),
+         status=CASE WHEN $2='confirmed' THEN 'viewing' ELSE cr.status END,revision=cr.revision+1,updated_at=now()
+       FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
+       WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
+         AND cr.viewing_status='requested' AND cr.status IN ('new','contacted','viewing')
+       RETURNING cr.id,cr.status,cr.viewing_status,cr.revision`,
+      [requestId, confirmed ? 'confirmed' : 'declined', user, input.revision],
+    )
+    if (!result.rowCount) throw new ManagementError(409, 'Lịch xem đã thay đổi hoặc bạn không có quyền xử lý.')
+    return result.rows[0]
   })
 
   app.post('/v1/housing/contact-requests/:requestId/cancel', async request => {

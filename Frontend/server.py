@@ -14,7 +14,7 @@ import secrets
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
@@ -42,12 +42,14 @@ COOKIE = "siu_session"
 def housing_media_dir() -> Path:
     """Owner-uploaded listing images; mount persistently in production (runbook: housing-management)."""
     return Path(os.getenv("SIU_HOUSING_MEDIA_DIR", str(ROOT / "data" / "housing-media")))
+
+
 HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/(overview|properties|contact-requests)$"),
     re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
     re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide))?$"),
-    re.compile(r"^landlord/contact-requests/[0-9a-f-]+$"),
+    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
     re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events)$"),
     re.compile(r"^housing/contact-requests/me$"),
     re.compile(r"^housing/contact-requests/[0-9a-f-]+/cancel$"),
@@ -55,6 +57,18 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^host/profile$"),
     re.compile(r"^moderation/host/[A-Za-z0-9_-]{1,128}/review$"),
 )
+# Viewing statuses whose booked time is sent to the landlord, and contact statuses still open.
+VIEWING_WITH_SLOT = {"viewing_scheduled", "visit_due", "backup"}
+OPEN_CONTACT = {"new", "contacted", "viewing"}
+
+
+def same_instant(left, right) -> bool:
+    try:
+        return datetime.fromisoformat(str(left)) == datetime.fromisoformat(str(right))
+    except (TypeError, ValueError):
+        return False
+
+
 # Outcome codes the owner workspace acts on (host-mode-design §5); other upstream fields are never forwarded.
 HOUSING_MANAGEMENT_CODES = {"host_profile_required", "host_terms_required", "host_not_verified"}
 
@@ -266,7 +280,10 @@ def create_app(database=None, transport=None):
                 or data.get("code") in HOUSING_MANAGEMENT_CODES
             ):
                 return JSONResponse(
-                    {"detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.", "code": data["code"]},
+                    {
+                        "detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.",
+                        "code": data["code"],
+                    },
                     status_code=response.status_code,
                 )
             raise HTTPException(response.status_code, detail if isinstance(detail, str) else "Dữ liệu gửi chưa hợp lệ.")
@@ -374,7 +391,11 @@ def create_app(database=None, transport=None):
         owner = user(request)["id"]
         owned(thread, owner)
         await refresh(thread, owner)
-        return snapshot(thread, owner)
+        result = snapshot(thread, owner)
+        if isinstance(result["state"], dict) and result["state"].get("viewing"):
+            # The plan's "Xem nhà" tab reads this copy; show the landlord's answer there too.
+            await landlord_viewings(owner, result["state"]["viewing"])
+        return result
 
     async def remove_thread(thread, owner):
         row = owned(thread, owner)
@@ -644,11 +665,60 @@ def create_app(database=None, transport=None):
 
     # --- Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 
+    async def landlord_viewings(owner, view):
+        """Send booked viewing times of owner-managed homes to their landlord and show the answer
+        (docs/review/viewing-landlord-confirmation.md). Only changed slots are sent; homes from other
+        sources answer `not_managed` and keep the local test-mode viewing."""
+        if not isinstance(view, dict) or not isinstance(view.get("items"), list):
+            return view
+
+        async def requests():
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            latest = {}
+            for row in page.get("items", []):  # newest first
+                latest.setdefault(row["listing_id"], row)
+            return latest
+
+        try:
+            latest = await requests()
+        except HTTPException:
+            return view  # Platform unavailable: the tab keeps working in test mode.
+        desired = {}
+        for item in view.get("history") or []:
+            desired[item["listing_id"]] = None
+        for item in view["items"]:
+            if item.get("status") in VIEWING_WITH_SLOT and (item.get("viewing") or {}).get("slot"):
+                desired[item["listing_id"]] = item["viewing"]["slot"]
+            elif item.get("status") == "selected":
+                desired[item["listing_id"]] = None
+            else:
+                desired.pop(item["listing_id"], None)  # visited or decided: leave the landlord's answer
+        calls = []
+        for listing, slot in desired.items():
+            row = latest.get(listing)
+            if slot:
+                if not (row and same_instant(row.get("viewing_slot"), slot)):
+                    calls.append(upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True))
+            elif row and row.get("status") in OPEN_CONTACT and row.get("viewing_status") in {"requested", "confirmed"}:
+                calls.append(upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True))
+        if calls:
+            await asyncio.gather(*calls, return_exceptions=True)
+            try:
+                latest = await requests()
+            except HTTPException:
+                return view
+        for item in view["items"]:
+            row = latest.get(item["listing_id"])
+            slot = (item.get("viewing") or {}).get("slot")
+            if row and row.get("viewing_status") and slot and same_instant(row.get("viewing_slot"), slot):
+                item["landlord"] = {"viewing_status": row["viewing_status"], "request_status": row["status"]}
+        return view
+
     @app.get("/web/api/threads/{thread}/viewings")
     async def thread_viewings(thread: str, request: Request):
         owner = user(request)["id"]
         owned(thread, owner)
-        return await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
+        return await landlord_viewings(owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner))
 
     @app.post("/web/api/threads/{thread}/viewings/{step}")
     async def viewing_step(
@@ -658,7 +728,9 @@ def create_app(database=None, transport=None):
     ):
         owner, body = user(request)["id"], await object_body(request)
         owned(thread, owner)
-        return await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
+        return await landlord_viewings(
+            owner, await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
+        )
 
     @app.post("/web/api/threads/{thread}/flight/outbound")
     async def flight_outbound(thread: str, request: Request):

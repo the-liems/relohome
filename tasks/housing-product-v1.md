@@ -23,5 +23,7 @@
   - Nút chuyển chế độ trên header; lần đầu khai hồ sơ người đăng; kiểm duyệt xác minh thủ công (pilot).
   - Chưa làm: điều khoản người đăng (bật bằng `HOST_TERMS_VERSION`), tạm khóa người đăng, xác minh điện tử.
 
+- [x] HP-12: Lịch xem ở tab "Xem nhà" gửi tới chủ nhà và chờ xác nhận ([viewing-landlord-confirmation](../docs/review/viewing-landlord-confirmation.md))
+
 Mỗi task phải giữ contract Housing/Moving/Flight/Roommate hiện tại, có test tập trung và build sạch trước khi đánh dấu hoàn tất.
 

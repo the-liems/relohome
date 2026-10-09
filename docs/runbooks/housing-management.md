@@ -18,7 +18,7 @@ the same PostGIS schemas and only become public after moderation.
 | `SIU_PUBLIC_BASE_URL` | Public HTTPS origin used for uploaded listing image URLs. |
 
 Run `npm run db:migrate` in `Maps VN/LifeFlow` before starting the new workspace.
-Migrations `013_housing_product_v1.sql` and `014_housing_host_profiles.sql` are additive and grant the
+Migrations `013_housing_product_v1.sql`, `014_housing_host_profiles.sql` and `015_housing_viewing_requests.sql` are additive and grant the
 application role only the writes needed by the owner workflow.
 
 ## Media storage
@@ -47,6 +47,9 @@ Moderators use the "Duyệt tin" tab in `/landlord`; it appears only when the
 queue endpoint accepts the signed-in account. A moderator cannot approve a property
 or listing they manage. Self-service listings are stored with `source_type = 'user'`
 and `attributes.self_service = true`, so public reads keep the existing contract.
+
+Viewing times booked in the tenant's "Xem nhà" tab for owner-managed listings are synced by the gateway
+into the landlord inbox, where the landlord confirms or declines them; other listings stay in test mode.
 
 Browser users never provide their own upstream actor ID. The gateway derives it
 from the HttpOnly session and forwards it with the trusted server token.

@@ -4,6 +4,7 @@ import {
   BarChart3,
   Building2,
   BadgeCheck,
+  CalendarClock,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
@@ -1477,6 +1478,29 @@ function InboxPanel({
       setBusy(null);
     }
   }
+  // Viewing time booked by the tenant in their "Xem nhà" tab (viewing-landlord-confirmation §3).
+  async function answerViewing(
+    item: ContactRequest,
+    decision: "confirm" | "decline",
+  ) {
+    setBusy(item.id);
+    setError("");
+    try {
+      await housingManagement(
+        `landlord/contact-requests/${item.id}/viewing`,
+        "POST",
+        {
+          decision,
+          revision: item.revision,
+        },
+      );
+      await changed();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   return (
     <section className="ll-panel ll-inbox">
       <div className="ll-section-heading">
@@ -1524,6 +1548,37 @@ function InboxPanel({
                   <Status value={item.status} />
                 </div>
                 <blockquote>{item.message}</blockquote>
+                {item.viewing_slot && item.viewing_status && (
+                  <div className={`ll-viewing ${item.viewing_status}`}>
+                    <CalendarClock size={16} aria-hidden="true" />
+                    <span>
+                      <strong>
+                        {formatUi("Giờ xem người thuê chọn: {0}", [
+                          dateTime(item.viewing_slot),
+                        ])}
+                      </strong>
+                      <small>{t(viewingLabels[item.viewing_status])}</small>
+                    </span>
+                    {open && item.viewing_status === "requested" && (
+                      <span className="ll-viewing-actions">
+                        <button
+                          className="primary"
+                          disabled={busy === item.id}
+                          onClick={() => void answerViewing(item, "confirm")}
+                        >
+                          <CheckCircle2 size={15} /> {t("Xác nhận giờ xem")}
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy === item.id}
+                          onClick={() => void answerViewing(item, "decline")}
+                        >
+                          {t("Không nhận giờ này")}
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                )}
                 <small>
                   {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
                 </small>
@@ -1538,15 +1593,18 @@ function InboxPanel({
                         {t("Đã liên hệ")}
                       </button>
                     )}
-                    {item.status !== "viewing" && (
-                      <button
-                        className="secondary"
-                        disabled={busy === item.id}
-                        onClick={() => void update(item, "viewing")}
-                      >
-                        {t("Đã hẹn xem")}
-                      </button>
-                    )}
+                    {item.status !== "viewing" &&
+                      !["requested", "confirmed"].includes(
+                        item.viewing_status || "",
+                      ) && (
+                        <button
+                          className="secondary"
+                          disabled={busy === item.id}
+                          onClick={() => void update(item, "viewing")}
+                        >
+                          {t("Đã hẹn xem")}
+                        </button>
+                      )}
                     <button
                       className="text-button"
                       disabled={busy === item.id}
@@ -1571,6 +1629,13 @@ function InboxPanel({
     </section>
   );
 }
+
+const viewingLabels: Record<string, string> = {
+  requested: "Chờ bạn xác nhận",
+  confirmed: "Bạn đã xác nhận; người thuê thấy lịch đã chốt",
+  declined: "Bạn không nhận giờ này; người thuê sẽ chọn giờ khác",
+  cancelled: "Người thuê đã hủy giờ xem",
+};
 
 const verificationLabels: Record<string, string> = {
   phone_call: "Gọi điện",

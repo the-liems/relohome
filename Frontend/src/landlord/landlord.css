@@ -172,3 +172,12 @@ html[data-theme="dark"] .ll-host-line.pending, html[data-theme="dark"] .ll-host-
   .ll-host-banner { flex-wrap: wrap; }.ll-host-banner > button { width: 100%; }
   .ll-poster-types { grid-template-columns: 1fr; }
 }
+/* Viewing time from the tenant's "Xem nhà" tab (viewing-landlord-confirmation §3) */
+.ll-viewing { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--ll-line); border-left: 3px solid #b46b09; background: color-mix(in srgb, #ffb54a 9%, var(--surface, #fff)); }
+.ll-viewing.confirmed { border-left-color: #087451; background: var(--ll-soft); }
+.ll-viewing.declined, .ll-viewing.cancelled { border-left-color: #829087; background: transparent; }
+.ll-viewing > svg { flex: 0 0 auto; color: var(--accent, #087451); }
+.ll-viewing > span:first-of-type { display: grid; gap: 2px; flex: 1; min-width: 200px; }
+.ll-viewing small { color: var(--muted, #5c6b63); }
+.ll-viewing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ll-viewing-actions button { display: inline-flex; align-items: center; gap: 6px; }

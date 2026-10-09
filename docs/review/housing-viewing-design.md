@@ -12,6 +12,9 @@ v3 chốt các mặc định, đổi cách chuyển đồ chọn địa chỉ đ
 chạm phần so sánh của Khoa. v4 chốt các câu hỏi còn lại: khi chốt, hủy lịch các căn khác
 là mặc định nhưng phải hỏi xác nhận và người dùng được giữ lại căn nào tùy ý.
 
+Cập nhật 09/10/2026: với tin do chủ nhà quản lý trên ReloHome, giờ hẹn được gửi vào hộp thư chủ nhà để xác nhận
+([viewing-landlord-confirmation](viewing-landlord-confirmation.md)); tin từ nguồn khác vẫn là lịch thử.
+
 ### Ghi chú khi code (09/10/2026)
 
 - **Nguồn sự thật** của lịch, kết quả buổi xem và thỏa thuận là giao dịch `housing:{listing_id}` trong kho

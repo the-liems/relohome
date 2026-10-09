@@ -96,6 +96,9 @@ export interface ContactRequest {
   title: string;
   unit_code: string | null;
   property_name: string;
+  viewing_slot: string | null;
+  viewing_status: "requested" | "confirmed" | "declined" | "cancelled" | null;
+  source: "contact" | "viewing";
 }
 
 export interface ModerationProperty {

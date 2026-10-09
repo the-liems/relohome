@@ -47,6 +47,12 @@ async function property(user: string) {
   })
   expect(result.status).toBe(201)
   created.push(result.body.id)
+  // Owner properties are housing anchors, never POIs on the map layer.
+  const place = await admin.query(
+    `SELECT cp.attributes->>'entity_role' AS role FROM housing.properties p JOIN catalog.places cp ON cp.id=p.place_id WHERE p.id=$1`,
+    [result.body.id],
+  )
+  expect(place.rows[0].role).toBe('housing_anchor')
   return result.body.id as string
 }
 
@@ -245,5 +251,48 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     } finally {
       delete process.env.HOST_TERMS_VERSION
     }
+  })
+
+  it('viewing slots from the tenant tab reach the landlord, who confirms or declines', async () => {
+    const owner = `test-vowner-${run}`
+    const tenant = `test-vtenant-${run}`
+    await host(owner)
+    await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, { decision: 'verify', method: 'phone_call' })
+    const propertyId = await property(owner)
+    await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})
+    const listingId = await listing(owner, await unit(owner, propertyId, 'V.1'), [])
+    await call(owner, 'POST', `/v1/landlord/listings/${listingId}/submit`, {})
+    await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${listingId}/review`, { decision: 'approve' })
+    const slot = new Date(Date.now() + 86_400_000).toISOString()
+
+    const first = await call(tenant, 'PUT', `/v1/housing/${listingId}/viewing`, { slot })
+    expect([first.status, first.body.viewing_status]).toEqual([201, 'requested'])
+    // Re-sending the same slot is a no-op (the gateway syncs after every step).
+    expect((await call(tenant, 'PUT', `/v1/housing/${listingId}/viewing`, { slot })).body.changed).toBe(false)
+    const inbox = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items
+    const request = inbox.find((i: { listing_id: string }) => i.listing_id === listingId)
+    expect(request).toMatchObject({ source: 'viewing', viewing_status: 'requested', status: 'new' })
+    expect(new Date(request.viewing_slot).toISOString()).toBe(slot)
+    // Only the landlord of this property answers.
+    expect((await call(OTHER, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing`, { decision: 'confirm', revision: request.revision })).status).toBe(409)
+    const declined = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing`, { decision: 'decline', revision: request.revision })
+    expect(declined.body.viewing_status).toBe('declined')
+    // The tenant picks another time; the landlord confirms it.
+    const later = new Date(Date.now() + 2 * 86_400_000).toISOString()
+    expect((await call(tenant, 'PUT', `/v1/housing/${listingId}/viewing`, { slot: later })).body.viewing_status).toBe('requested')
+    const again = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items.find((i: { id: string }) => i.id === request.id)
+    const confirmed = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing`, { decision: 'confirm', revision: again.revision })
+    expect(confirmed.body).toMatchObject({ viewing_status: 'confirmed', status: 'viewing' })
+    const mine = (await call(tenant, 'GET', '/v1/housing/contact-requests/me')).body.items[0]
+    expect(mine).toMatchObject({ id: request.id, viewing_status: 'confirmed', status: 'viewing' })
+    // Cancelling in the tab withdraws the time; a request the landlord already handled stays open.
+    const cancelled = await call(tenant, 'DELETE', `/v1/housing/${listingId}/viewing`)
+    expect(cancelled.body).toMatchObject({ changed: true, viewing_status: 'cancelled', status: 'viewing' })
+    // A request created only by a viewing and never handled closes with the cancellation.
+    const other = `test-vtenant2-${run}`
+    await call(other, 'PUT', `/v1/housing/${listingId}/viewing`, { slot })
+    expect((await call(other, 'DELETE', `/v1/housing/${listingId}/viewing`)).body.status).toBe('declined')
+    // Crawled or unmanaged listings keep the local test-mode viewing.
+    expect((await call(tenant, 'PUT', `/v1/housing/${randomUUID()}/viewing`, { slot })).body.code).toBe('not_managed')
   })
 })

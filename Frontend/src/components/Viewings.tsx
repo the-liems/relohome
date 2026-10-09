@@ -17,6 +17,26 @@ const STATUS: Record<string, string> = {
   agreed: "Đã chốt (bạn tự báo)",
   reported_paid: "Đã báo trả chủ nhà (chưa xác minh)",
 };
+// Landlord answer for homes managed on ReloHome; other homes keep the test-mode label above.
+const LANDLORD: Record<string, string> = {
+  requested: "Đã gửi giờ hẹn, chờ chủ nhà xác nhận",
+  confirmed: "Chủ nhà đã xác nhận",
+  declined: "Chủ nhà không nhận giờ này",
+};
+function statusLabel(item: Data, testVisit: boolean) {
+  const landlord = item.landlord;
+  if (landlord && ["declined", "resolved"].includes(landlord.request_status))
+    return "Chủ nhà đã đóng yêu cầu";
+  if (
+    landlord &&
+    item.status === "viewing_scheduled" &&
+    LANDLORD[landlord.viewing_status]
+  )
+    return LANDLORD[landlord.viewing_status];
+  if (item.status === "visit_due" && testVisit)
+    return "Chế độ test: ghi kết quả ngay";
+  return STATUS[item.status] || item.status;
+}
 const WARNING: Record<string, string> = {
   busy_day: "Ngày {0} có {1} lịch xem, khá dày.",
   cities_same_day: "Ngày {0} có lịch xem ở hai thành phố khác nhau.",
@@ -326,7 +346,7 @@ export function ViewingPanel({
     <div className="viewing-panel">
       <p className="muted small">
         {formatUi(
-          "Chọn tối đa {0} căn để hẹn xem. Lịch là chế độ thử: app chưa liên hệ chủ nhà. Chỉ chốt sau khi đã gặp chủ nhà.",
+          "Chọn tối đa {0} căn để hẹn xem. Với tin do chủ nhà quản lý trên ReloHome, giờ hẹn được gửi tới chủ nhà để xác nhận; tin từ nguồn khác vẫn là lịch thử, app chưa liên hệ chủ nhà. Chỉ chốt sau khi đã gặp chủ nhà.",
           [viewing.max_selected],
         )}
       </p>
@@ -371,10 +391,15 @@ export function ViewingPanel({
           <header>
             <Home size={17} />
             <strong>{item.title}</strong>
-            <span className="muted small">
-              {item.status === "visit_due" && viewing.test_visit_anytime
-                ? uiText("Chế độ test: ghi kết quả ngay")
-                : uiText(STATUS[item.status] || item.status)}
+            <span
+              className={
+                "muted small" +
+                (item.landlord
+                  ? ` viewing-landlord ${item.landlord.viewing_status}`
+                  : "")
+              }
+            >
+              {uiText(statusLabel(item, Boolean(viewing.test_visit_anytime)))}
             </span>
           </header>
           <p className="small">
@@ -404,6 +429,20 @@ export function ViewingPanel({
                 : ""}
             </p>
           )}
+          {item.landlord?.viewing_status === "declined" && (
+            <p className="notice amber small">
+              {uiText(
+                "Chủ nhà không nhận giờ này. Chọn giờ khác bên dưới, ReloHome sẽ gửi lại cho chủ nhà.",
+              )}
+            </p>
+          )}
+          {item.landlord?.viewing_status === "requested" && (
+            <p className="muted small">
+              {uiText(
+                "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Bạn sẽ thấy chủ nhà xác nhận hoặc đề nghị đổi giờ tại đây.",
+              )}
+            </p>
+          )}
           {item.status === "viewing_scheduled" && (
             <p className="muted small">
               {formatUi(
@@ -430,34 +469,35 @@ export function ViewingPanel({
                 }
               />
             )}
-          {(item.status === "visit_due" ||
-            (item.status === "backup" &&
-              item.viewing?.slot &&
-              Date.parse(item.viewing.slot) <= Date.now())) && (
-            <div className="viewing-outcome" role="group">
-              <span className="small">{uiText("Kết quả buổi xem:")}</span>
-              {[
-                ["met_agreed", "Đã gặp, chủ nhà đồng ý"],
-                ["met_undecided", "Đã gặp, còn phân vân"],
-                ["met_rejected", "Không hợp"],
-                ["missed", "Không đi được"],
-              ].map(([outcome, label]) => (
-                <button
-                  key={outcome}
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void post("visit", {
-                      listing_id: item.listing_id,
-                      outcome,
-                    })
-                  }
-                >
-                  {uiText(label)}
-                </button>
-              ))}
-            </div>
-          )}
+          {item.landlord?.viewing_status !== "declined" &&
+            (item.status === "visit_due" ||
+              (item.status === "backup" &&
+                item.viewing?.slot &&
+                Date.parse(item.viewing.slot) <= Date.now())) && (
+              <div className="viewing-outcome" role="group">
+                <span className="small">{uiText("Kết quả buổi xem:")}</span>
+                {[
+                  ["met_agreed", "Đã gặp, chủ nhà đồng ý"],
+                  ["met_undecided", "Đã gặp, còn phân vân"],
+                  ["met_rejected", "Không hợp"],
+                  ["missed", "Không đi được"],
+                ].map(([outcome, label]) => (
+                  <button
+                    key={outcome}
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void post("visit", {
+                        listing_id: item.listing_id,
+                        outcome,
+                      })
+                    }
+                  >
+                    {uiText(label)}
+                  </button>
+                ))}
+              </div>
+            )}
           {item.agreement && (
             <p className="small">
               {formatUi("Cần trả chủ nhà: cọc {0} + tháng đầu {1}", [
