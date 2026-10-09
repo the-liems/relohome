@@ -156,10 +156,11 @@ jobs:
           options=()
           if [ -n "$BUILD_TARGET" ]; then options+=(--target "$BUILD_TARGET"); fi
           if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$GITHUB_SHA"); fi
-          docker build --pull --platform linux/arm64 "${options[@]}" \
+          docker buildx build --load --pull --platform linux/arm64 "${options[@]}" \
             --file "$DOCKERFILE" --tag "$IMAGE" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" "$BUILD_CONTEXT"
+          docker image inspect "$IMAGE" >/dev/null
         env:
           BUILD_CONTEXT: ${{ matrix.context }}
           DOCKERFILE: ${{ matrix.dockerfile }}

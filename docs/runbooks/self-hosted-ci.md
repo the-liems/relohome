@@ -23,6 +23,7 @@ is not evidence of an amd64 release image.
 | Application images, PostGIS, MCP images, agent services, Moving validation/images/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
 | Agent services | Docker Buildx |
 | MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
+| Application image publisher | Docker Buildx |
 | Moving validation/staging | OpenSSL and Docker Compose >= 2.24.4 (`!override` ports) |
 | Staging deployment | Docker CLI with `docker manifest inspect`; no Docker daemon needed |
 | Moving images | Docker Buildx, provided by `docker/setup-buildx-action` |
