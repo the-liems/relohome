@@ -144,9 +144,16 @@ services:
       HOUSING_VIEWING_ENABLED: "true"
       PAYMENT_TESTER_CONFIRM_ENABLED: "true"
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
+      # Roommate (docs/runbooks/roommate.md): off until the team turns it on in Coolify.
+      # Set ROOMMATE_MODERATORS before ROOMMATE_ENABLED=true; the backend refuses to start
+      # Roommate without a moderator. State lives outside /app/data, which the runtime rejects.
+      ROOMMATE_ENABLED: ${ROOMMATE_ENABLED:-false}
+      ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
+      ROOMMATE_STATE_DIR: /app/private-roommate
+      ROOMMATE_DEMO_ENABLED: "false"
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
-    volumes: [agent-data:/app/data]
+    volumes: [agent-data:/app/data, roommate-private:/app/private-roommate]
     depends_on:
       location: {condition: service_healthy}
       moving-mcp: {condition: service_healthy}
@@ -302,6 +309,7 @@ services:
 volumes:
   web-data:
   agent-data:
+  roommate-private:
   flights-data:
   location-data:
   moving-data:
