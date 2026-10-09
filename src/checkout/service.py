@@ -52,7 +52,11 @@ class CheckoutSettings:
     tester_user_ids: frozenset[str] = frozenset()
     production: bool = False
     reconcile_grace: timedelta = timedelta(minutes=3)
-    # Worker tự đối soát lần thanh toán còn mở: lần đầu sau `reconcile_min`, giãn gấp đôi tới `reconcile_max`.
+    # Worker tự đối soát lần thanh toán còn mở. Khi còn trả được (trước `expires_at`, đã gồm hạn giữ chỗ)
+    # tra đều mỗi `reconcile_active` và thêm một lần `reconcile_final_margin` trước hạn, để đơn đã trả kịp
+    # xuất vé. Sau hạn mới giãn dần từ `reconcile_min` tới `reconcile_max`.
+    reconcile_active: timedelta = timedelta(seconds=10)
+    reconcile_final_margin: timedelta = timedelta(seconds=3)
     reconcile_min: timedelta = timedelta(seconds=10)
     reconcile_max: timedelta = timedelta(minutes=5)
     viewing_slot_minutes: int = 30
@@ -706,12 +710,24 @@ class CheckoutService:
                     await self._sync(fresh)
                 except Exception:  # pragma: no cover - ghi log, lần sau thử lại
                     logger.exception("checkout reconcile failed")
-            self._next_check[attempt.attempt_id] = (
-                self.clock() + delay,
-                min(delay * 2, self.settings.reconcile_max),
-            )
+            after = self.store.get_attempt(attempt.attempt_id) or attempt
+            self._next_check[attempt.attempt_id] = self._next_reconcile(after, self.clock(), delay)
         for attempt_id in set(self._next_check) - open_ids:
             self._next_check.pop(attempt_id, None)
+
+    def _next_reconcile(self, attempt: PaymentAttempt, now: datetime, delay: timedelta) -> tuple[datetime, timedelta]:
+        """Lần tra kế tiếp: đều và ngắn khi còn trả được (không vượt hạn), giãn dần khi đã quá hạn."""
+        s = self.settings
+        deadline = attempt.expires_at
+        if deadline is not None and now < deadline:
+            due = now + s.reconcile_active
+            final = deadline - s.reconcile_final_margin
+            if now < final < due:
+                due = final  # một lần tra sát hạn: trả ở giây cuối vẫn kịp xuất vé nếu cổng đã ghi nhận
+            elif due >= deadline:
+                due = deadline
+            return due, s.reconcile_min
+        return now + delay, min(delay * 2, s.reconcile_max)
 
     async def run_jobs(self) -> None:
         for job in self.store.pending_jobs():

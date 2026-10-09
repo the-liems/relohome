@@ -482,3 +482,52 @@ async def test_restarted_worker_reconciles_open_attempts_immediately(env):
     await restarted.reconcile_open()
     await restarted.run_jobs()
     assert restarted.store.get_tx(attempt["transaction_id"]).status == "ticketed"
+
+
+async def _run_worker_until(service, clock, start, end, step=timedelta(seconds=5), paid_at=None, payment=None):
+    """Simulate the 5-second worker loop between two offsets from `start`."""
+    offset = timedelta(0)
+    while offset <= end:
+        clock.now = start + offset
+        if paid_at is not None and offset >= paid_at:
+            payment.status = "PAID"
+        await service.reconcile_open()
+        await service.run_jobs()
+        offset += step
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("paid_second", [615, 896])
+async def test_worker_fulfils_payment_made_late_in_the_hold(env, paid_second):
+    """Review PR #88: a payment made while the hold is still valid is fulfilled before the hold expires."""
+    service, clock, flight, payment, _ = env
+    start = clock.now
+    _, attempt = await pay_flight(service)
+    deadline = service.store.get_attempt(attempt["attempt_id"]).expires_at
+    window = deadline - start
+    await _run_worker_until(
+        service,
+        clock,
+        start,
+        window - timedelta(seconds=1),
+        step=timedelta(seconds=1),
+        paid_at=timedelta(seconds=min(paid_second, window.total_seconds() - 4)),
+        payment=payment,
+    )
+    assert clock.now < deadline
+    assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"
+    assert [c[0] for c in flight.calls].count("confirm_booking") == 1
+
+
+@pytest.mark.asyncio
+async def test_payable_attempts_are_checked_at_a_steady_bounded_cadence(env):
+    service, clock, _, payment, _ = env
+    start = clock.now
+    _, attempt = await pay_flight(service)
+    deadline = service.store.get_attempt(attempt["attempt_id"]).expires_at
+    payment.calls.clear()
+    await _run_worker_until(service, clock, start, deadline - start - timedelta(seconds=1), step=timedelta(seconds=5))
+    times = (deadline - start).total_seconds()
+    checks = [c for c in payment.calls if c[0] == "get_payment"]
+    # Roughly one check per active interval, never a multi-minute gap while payable.
+    assert len(checks) >= times / service.settings.reconcile_active.total_seconds() * 0.8

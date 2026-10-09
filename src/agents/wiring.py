@@ -345,6 +345,7 @@ def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii
             tester_user_ids=frozenset(x.strip() for x in services.payment_tester_user_ids.split(",") if x.strip()),
             production=production,
             reconcile_grace=timedelta(seconds=services.payment_reconcile_grace_seconds),
+            reconcile_active=timedelta(seconds=services.payment_reconcile_active_seconds),
             reconcile_min=timedelta(seconds=services.payment_reconcile_min_seconds),
             reconcile_max=timedelta(
                 seconds=max(services.payment_reconcile_max_seconds, services.payment_reconcile_min_seconds)
