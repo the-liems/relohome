@@ -1,5 +1,6 @@
 import io
 import json
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -217,6 +218,40 @@ async def test_viewing_slots_sync_to_landlord_and_show_the_answer(tmp_path, monk
         # The plan tab reads the thread snapshot; it carries the same answer.
         snapshot = (await client.get(f"/web/api/threads/{thread}")).json()
         assert snapshot["state"]["viewing"]["items"][0]["landlord"]["viewing_status"] == "confirmed"
+
+
+@pytest.mark.parametrize('request_status,viewing_status,resend', [
+    ('new', 'requested', False), ('viewing', 'confirmed', False), ('new', 'declined', False),
+    ('declined', 'cancelled', True), ('contacted', 'cancelled', True), ('resolved', 'confirmed', True),
+])
+@pytest.mark.asyncio
+async def test_rebooking_same_time_resends_cancelled_or_closed_requests(tmp_path, monkeypatch, request_status, viewing_status, resend):
+    monkeypatch.setenv('AGENT_API_TOKEN', 'server-token')
+    listing = 'aaaaaaaa-1111-4111-8111-111111111111'
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    view = {'items': [{'listing_id': listing, 'status': 'viewing_scheduled', 'viewing': {'slot': slot}}]}
+    row = {'listing_id': listing, 'status': request_status, 'viewing_status': viewing_status, 'viewing_slot': slot}
+    sent = []
+    def provider(request):
+        if request.url.path.startswith('/api/v1/ui/chat/'):
+            return httpx.Response(200, json=view)
+        if request.url.path.endswith('/housing/contact-requests/me'):
+            return httpx.Response(200, json={'items': [row]})
+        if request.method == 'PUT':
+            sent.append(request.url.path)
+            row.update(status='new', viewing_status='requested')
+            return httpx.Response(201, json={'viewing_status': 'requested'})
+        return httpx.Response(200, json={})
+    app = create_app(tmp_path / 'web.db', httpx.MockTransport(provider))
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url='http://test', headers=HEADERS,
+    ) as client:
+        await client.post('/web/api/auth/register', json={'email': 'tenant@example.test', 'password': 'a-long-password', 'name': 'Tenant'})
+        thread = (await client.post('/web/api/threads')).json()['id']
+        response = await client.post(f'/web/api/threads/{thread}/viewings/schedule', json={})
+        assert response.status_code == 200
+        assert len(sent) == int(resend)
+        assert response.json()['items'][0]['landlord']['viewing_status'] == ('requested' if resend else viewing_status)
 
 
 @pytest.mark.asyncio

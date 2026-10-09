@@ -51,6 +51,7 @@ Quy tắc đồng bộ ở gateway (`landlord_viewings` trong `Frontend/server.p
 |---|---|
 | Có giờ (`viewing_scheduled`, `visit_due`, `backup`) và giờ khác giờ chủ nhà đang có | `PUT` giờ mới (chủ nhà phải trả lời lại) |
 | Có giờ trùng giờ chủ nhà đã trả lời | Không gửi (giữ câu trả lời) |
+| Có giờ trùng nhưng lịch đã hủy hoặc yêu cầu đã đóng | `PUT` lại giờ hẹn; chủ nhà xác nhận lại |
 | `selected` (đã hủy lịch) hoặc đã bỏ chọn | `DELETE` nếu giờ đang chờ hoặc đã xác nhận |
 | Đã xem / đã chốt | Không gửi (giữ câu trả lời của chủ nhà) |
 

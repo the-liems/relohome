@@ -697,7 +697,14 @@ def create_app(database=None, transport=None):
         for listing, slot in desired.items():
             row = latest.get(listing)
             if slot:
-                if not (row and same_instant(row.get("viewing_slot"), slot)):
+                # An identical timestamp is idempotent only while its request is still open.
+                # Cancelled/closed appointments must be requested again, even at the same time.
+                if not (
+                    row
+                    and row.get("status") in OPEN_CONTACT
+                    and row.get("viewing_status") in {"requested", "confirmed", "declined"}
+                    and same_instant(row.get("viewing_slot"), slot)
+                ):
                     calls.append(upstream("PUT", f"/housing/{listing}/viewing", owner, {"slot": slot}, platform=True))
             elif row and row.get("status") in OPEN_CONTACT and row.get("viewing_status") in {"requested", "confirmed"}:
                 calls.append(upstream("DELETE", f"/housing/{listing}/viewing", owner, platform=True))
