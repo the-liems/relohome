@@ -218,6 +218,7 @@ class AgentService:
             viewing = build_viewing(services, registry, db, checkout) if services.housing_viewing_enabled else None
             deps = GraphDeps(
                 housing_selector=viewing.selector if viewing else None,
+                housing_unselector=viewing.unselector if viewing else None,
                 intake=components.intake,
                 planner=components.planner,
                 agents=AgentRegistry(agents),

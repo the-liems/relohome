@@ -20,6 +20,11 @@ là mặc định nhưng phải hỏi xác nhận và người dùng được gi
   Giao diện hiện gợi ý một chạm mở form chuyển đồ đã điền căn vừa chốt; báo giá qua đường form có kiểu (0 LLM).
 - Câu hỏi chờ chốt / địa chỉ cụ thể thay luôn câu hỏi "chuyển đồ tới địa chỉ nào" để không hỏi trùng.
 - Chọn căn qua chat đi qua `housing_selector` trong Intake: căn vào tập chọn, không thành căn của kế hoạch.
+- Bản đồ không đóng sau mỗi lần chọn: chọn nhiều căn (bấm lại để bỏ), khay "Đã chọn N/max · Xong, hẹn lịch xem"
+  mới đóng bản đồ và mở tab Xem nhà. Mở lại bản đồ hoặc thêm/bỏ/đổi căn sau đó làm qua chat.
+- Intake hiểu thêm `housing_select_ids` (thêm nhiều căn) và `housing_unselect_ids` (bỏ căn, chỉ ID trong
+  `housing_selection`); "đổi A thành B" = bỏ A rồi thêm B. Lượt chỉ đổi căn đang xem trả lời ngay từ Intake,
+  không lập kế hoạch hay tìm lại (đo thật ~2–3 giây thay vì ~10–15 giây).
 - Cấu hình nằm trong `ServiceSettings` (mục 8); local bật mặc định qua launcher, staging bật trong
   `compose.coolify.yaml`.
 

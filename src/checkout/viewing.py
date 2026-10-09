@@ -219,6 +219,14 @@ class ViewingService:
             raise ValueError(exc.message) from None
         return self.projection(user_id, thread_id)
 
+    def unselector(self, user_id: str, thread_id: str, listing_id: str) -> list[dict]:
+        """Cho Intake: bỏ một căn qua chat. Lỗi nghiệp vụ trả về ValueError."""
+        try:
+            self.unselect(user_id, thread_id, listing_id)
+        except CheckoutError as exc:
+            raise ValueError(exc.message) from None
+        return self.projection(user_id, thread_id)
+
     def unselect(self, user_id: str, thread_id: str, listing_id: str) -> None:
         tx = self._item(user_id, thread_id, listing_id)
         if tx.status in DECIDED:

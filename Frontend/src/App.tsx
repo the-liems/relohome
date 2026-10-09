@@ -1186,6 +1186,14 @@ function Chat() {
       entity_id: id,
     });
     notify(message);
+    // Viewing mode: keep the map open so several homes can be chosen; "done" moves on.
+    if (viewing && target.c.type === "property") return;
+    advanceAfter(target, next);
+  }
+  function advanceAfter(
+    target: { c: Component; version: number },
+    next?: Thread | void,
+  ) {
     reviewedServices.current.add(target.c.id);
     const remaining = nextServiceTarget(
       next || thread,
@@ -1423,6 +1431,28 @@ function Chat() {
           saved={savedIds}
           selectedId={facts["selected:property"]?.value}
           selectedIds={viewing ? viewingIds : undefined}
+          selectionLimit={viewing?.max_selected}
+          onUnselect={
+            viewing
+              ? async (h) => {
+                  await api(
+                    "/threads/" + threadId + "/viewings/unselect",
+                    "POST",
+                    { listing_id: h.id },
+                  );
+                  await reload();
+                }
+              : undefined
+          }
+          onSelectionDone={
+            viewing
+              ? () => {
+                  // Close the map and go straight to booking viewings.
+                  reviewedServices.current.add(latestProperty.c.id);
+                  openViewings();
+                }
+              : undefined
+          }
           chat={chatDock}
           onSave={(h) => void save(h, thread!.id)}
           onSelect={(h) =>

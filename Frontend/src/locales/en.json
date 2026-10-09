@@ -985,5 +985,9 @@
   "Căn đang xem: {0}": "Home being viewed: {0}",
   "Căn đang xem: {0} · vị trí gần đúng, hãy kiểm tra pin": "Home being viewed: {0} · approximate location, check the pin",
   "Chờ tôi xem nhà và chốt căn rồi báo giá": "Wait until I view and decide on a home",
-  "Báo giá ngay tới một địa chỉ": "Quote now to an address"
+  "Báo giá ngay tới một địa chỉ": "Quote now to an address",
+  "Các căn đã chọn để hẹn xem": "Homes chosen for viewing",
+  "Đã chọn {0}/{1} căn để hẹn xem": "{0}/{1} homes chosen for viewing",
+  "Xong, hẹn lịch xem": "Done, book viewings",
+  "Đang bỏ…": "Removing…"
 }

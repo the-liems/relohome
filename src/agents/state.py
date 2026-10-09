@@ -71,6 +71,7 @@ class WorkflowState(TypedDict, total=False):
     housing_selection: list[dict]
     # "wait_for_home": chuyển đồ chờ chốt nhà (tuần tự). None: chưa hỏi hoặc đã có địa chỉ đến.
     moving_destination_mode: str | None
+    housing_selection_changed: bool  # lượt này thêm/bỏ căn đang xem qua chat; load_context reset mỗi lượt
 
     # --- Phase 3: Validate ---
     validation: ValidationReport | None

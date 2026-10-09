@@ -105,6 +105,9 @@ export function MapWorkspace({
   saved,
   selectedId,
   selectedIds,
+  selectionLimit,
+  onUnselect,
+  onSelectionDone,
   readOnly = false,
   chat,
   onSave,
@@ -120,6 +123,10 @@ export function MapWorkspace({
   selectedId?: string;
   // Homes chosen for viewing (several); the plan home stays `selectedId`.
   selectedIds?: string[];
+  // Viewing mode: the map stays open while several homes are chosen; "done" closes it.
+  selectionLimit?: number;
+  onUnselect?: (h: House) => Promise<void>;
+  onSelectionDone?: () => void;
   readOnly?: boolean;
   chat: ChatDockProps;
   onSave: (h: House) => void;
@@ -735,6 +742,14 @@ export function MapWorkspace({
       setSelecting(null);
     }
   }
+  async function unchoose_house(h: House) {
+    setSelecting(h.id);
+    try {
+      await onUnselect?.(h);
+    } finally {
+      setSelecting(null);
+    }
+  }
   async function send(text: string, extra: Data = {}) {
     const box = map.current?.getBounds();
     const map_view = box
@@ -780,13 +795,34 @@ export function MapWorkspace({
           : `Mình đã khoanh vùng ${area} trên bản đồ: có ${countLabel} căn phù hợp. Phóng to vào khu bạn quan tâm, hoặc nói thêm ngân sách, số phòng ngủ để mình lọc.`;
   const isChosen = (id: string) =>
     selectedId === id || Boolean(selectedIds?.includes(id));
+  // A home chosen for viewing can be removed here; the decided plan home cannot.
+  const removable = (id: string) =>
+    Boolean(onUnselect) && Boolean(selectedIds?.includes(id));
   const selectButton = (h: House, primary = false) => (
     <button
       className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={readOnly || chat.busy || selecting !== null || isChosen(h.id)}
-      onClick={() => void choose_house(h).catch(() => {})}
+      disabled={
+        readOnly ||
+        chat.busy ||
+        selecting !== null ||
+        (isChosen(h.id) && !removable(h.id))
+      }
+      onClick={() =>
+        void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
+          () => {},
+        )
+      }
     >
-      {isChosen(h.id) ? (
+      {removable(h.id) ? (
+        selecting === h.id ? (
+          uiText("Đang bỏ…")
+        ) : (
+          <>
+            <X size={14} />
+            {uiText(" Bỏ chọn")}
+          </>
+        )
+      ) : isChosen(h.id) ? (
         <>
           <Check size={14} />
           {uiText(" Đã chọn")}
@@ -1042,6 +1078,26 @@ export function MapWorkspace({
               {comparisonHomes.length < 2
                 ? uiText("Chọn thêm một căn để so sánh")
                 : formatUi("So sánh {0} căn", [comparisonHomes.length])}
+            </button>
+          </section>
+        )}
+        {onSelectionDone && (selectedIds?.length || 0) > 0 && (
+          <section
+            className="ws-selection-tray"
+            aria-label={uiText("Các căn đã chọn để hẹn xem")}
+          >
+            <strong>
+              {formatUi("Đã chọn {0}/{1} căn để hẹn xem", [
+                selectedIds!.length,
+                selectionLimit ?? selectedIds!.length,
+              ])}
+            </strong>
+            <button
+              className="primary full"
+              disabled={chat.busy || selecting !== null}
+              onClick={onSelectionDone}
+            >
+              {uiText("Xong, hẹn lịch xem")}
             </button>
           </section>
         )}

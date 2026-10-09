@@ -5909,3 +5909,13 @@ input[type="checkbox"] {
   display: grid;
   gap: 4px;
 }
+
+.ws-selection-tray {
+  display: grid;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-accent);
+  border-radius: 12px;
+  background: var(--ui-surface);
+}

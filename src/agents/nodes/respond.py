@@ -347,6 +347,16 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         item for item in view.values() if item["data"].get("execution", {}).get("request_id") == state.get("request_id")
     ]
     current_view = fresh_view or list(view.values())
+    if state.get("housing_selection_changed") and not fresh_view:
+        # Lượt chỉ thêm/bỏ căn đang xem: xác nhận ngắn thay vì lặp lại danh sách kết quả cũ.
+        selection = state.get("housing_selection") or []
+        names = ", ".join(h.get("label") or h.get("listing_id") for h in selection)
+        lines = [
+            f"Các căn bạn đang chọn để đi xem ({len(selection)}): {names}."
+            if selection
+            else "Bạn chưa chọn căn nào để đi xem.",
+            "Đây chưa phải căn đã chốt. Hẹn lịch trong Kế hoạch → Xem nhà; gặp chủ nhà xong mới chốt.",
+        ]
     comparison_only = bool(current_view) and all(item["data"].get("comparison") for item in current_view)
     known_summary = ""
     if intake and AgentName.RELOCATION in intake.domains and code in {OutcomeCode.CLARIFY, OutcomeCode.ASK_USER}:
@@ -458,7 +468,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         )
     elif code == OutcomeCode.ANSWER:
         kind = "ANSWER"
-        head = "Đây là kết quả mình tìm được:"
+        head = "" if state.get("housing_selection_changed") and not fresh_view else "Đây là kết quả mình tìm được:"
         failed = [
             {"agent": t.agent.value, "task_id": t.id}
             for t in (plan.tasks if plan else [])
