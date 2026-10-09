@@ -144,6 +144,8 @@ services:
       HOUSING_VIEWING_ENABLED: "true"
       PAYMENT_TESTER_CONFIRM_ENABLED: "true"
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
+      # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
+      PAYMENT_RECONCILE_ACTIVE_SECONDS: ${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
       # Roommate (docs/runbooks/roommate.md): off until the team turns it on in Coolify.
       # Set ROOMMATE_MODERATORS before ROOMMATE_ENABLED=true; the backend refuses to start
       # Roommate without a moderator. State lives outside /app/data, which the runtime rejects.

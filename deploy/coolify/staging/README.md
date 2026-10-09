@@ -164,6 +164,7 @@ recorded as approved without an AhaMove order. Optional values:
 | Variables | Purpose |
 | --- | --- |
 | `PAYMENT_TESTER_USER_IDS` | Comma-separated gateway account IDs allowed to use the "paid (tester)" control. Empty means nobody sees it |
+| `PAYMENT_RECONCILE_ACTIVE_SECONDS` | Optional, default 10. How often the backend checks a payable order with ZaloPay before its hold expires; it also checks once just before expiry |
 | `SIU_TRAVELER_KEY` | Fernet key for flight booker profiles. Empty creates a key file in `web-data`; losing it makes saved profiles unreadable |
 
 Testers register on the site first. Read their IDs from the web container, then

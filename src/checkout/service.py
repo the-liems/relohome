@@ -594,9 +594,9 @@ class CheckoutService:
             attempt.outcome = "needs_reconciliation"
             attempt.note = "Đã hết hạn trên app; đang chờ đối soát với ZaloPay."
             self.store.put_attempt(self._touch(attempt))
+        # Trong thời gian chờ sau hạn vẫn tra (chỉ đọc) để ghi nhận ngay lần trả sát hạn, nhưng chưa kết luận
+        # "không thanh toán": cổng có thể chưa ghi nhận xong.
         within_grace = expired and now < attempt.expires_at + self.settings.reconcile_grace
-        if within_grace and attempt.outcome == "needs_reconciliation":
-            return  # chưa tra: cổng có thể chưa ghi nhận lần trả sát hạn
         try:
             payment = await self.payment.call("get_payment", {"payment_ref": attempt.payment_id})
         except ToolCallError:
@@ -620,6 +620,9 @@ class CheckoutService:
         attempt.gateway_status = {"FAILED": "failed", "EXPIRED": "expired", "CANCELLED": "cancelled"}.get(
             status, "unknown"
         )
+        if within_grace and attempt.outcome != "paid_simulated":
+            self.store.put_attempt(self._touch(attempt))
+            return  # chưa kết luận trong thời gian chờ
         if attempt.outcome == "paid_simulated":
             self.store.put_attempt(self._touch(attempt))
             return  # tester đã đánh dấu: giữ kết quả mô phỏng, ghi trạng thái cổng riêng
@@ -789,9 +792,18 @@ class CheckoutService:
                     await self.run_jobs()
                 except Exception:  # pragma: no cover - log và chạy tiếp vòng sau
                     logger.exception("checkout job loop failed")
-                await asyncio.sleep(interval)
+                await asyncio.sleep(self.seconds_until_next(interval))
 
         self._worker = asyncio.create_task(loop())
+
+    def seconds_until_next(self, interval: float) -> float:
+        """Ngủ tới lần đối soát gần nhất đã hẹn (vd. lần tra sát hạn giữ chỗ), không quá `interval`."""
+        now = self.clock()
+        wait = interval
+        if self._next_check:
+            earliest = min(due for due, _ in self._next_check.values())
+            wait = min(wait, (earliest - now).total_seconds())
+        return max(wait, 0.05)
 
     async def stop(self) -> None:
         if self._worker:

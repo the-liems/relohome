@@ -304,7 +304,9 @@ async def test_expiry_waits_for_grace_then_reconciles_late_payment(env):
     clock.now += timedelta(minutes=15, seconds=10)
     payment.calls.clear()
     pending = await service.check(USER, attempt["attempt_id"])
-    assert pending["outcome"] == "needs_reconciliation" and not payment.calls  # chưa tra trong thời gian chờ
+    # Trong thời gian chờ: tra cổng (chỉ đọc) nhưng chưa kết luận khi cổng chưa báo đã trả.
+    assert pending["outcome"] == "needs_reconciliation"
+    assert [c[0] for c in payment.calls] == ["get_payment"]
     # Chưa xác định an toàn thì không tạo lần thanh toán mới.
     _, again = await pay_flight(service, key="request-key-0003")
     assert again["attempt_id"] == attempt["attempt_id"] and again["outcome"] == "needs_reconciliation"
@@ -484,39 +486,54 @@ async def test_restarted_worker_reconciles_open_attempts_immediately(env):
     assert restarted.store.get_tx(attempt["transaction_id"]).status == "ticketed"
 
 
-async def _run_worker_until(service, clock, start, end, step=timedelta(seconds=5), paid_at=None, payment=None):
-    """Simulate the 5-second worker loop between two offsets from `start`."""
-    offset = timedelta(0)
-    while offset <= end:
-        clock.now = start + offset
-        if paid_at is not None and offset >= paid_at:
-            payment.status = "PAID"
+async def _run_worker_loop(service, clock, until, interval=5.0, on_tick=None):
+    """Drive the real worker schedule (`seconds_until_next`) with the production 5-second interval."""
+    while clock.now < until:
+        if on_tick:
+            on_tick(clock.now)
         await service.reconcile_open()
         await service.run_jobs()
-        offset += step
+        clock.now += timedelta(seconds=service.seconds_until_next(interval))
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("phase", [0, 1, 2, 3, 4])
 @pytest.mark.parametrize("paid_second", [615, 896])
-async def test_worker_fulfils_payment_made_late_in_the_hold(env, paid_second):
-    """Review PR #88: a payment made while the hold is still valid is fulfilled before the hold expires."""
+async def test_worker_fulfils_payment_made_late_in_the_hold(env, paid_second, phase):
+    """Review PR #88: with the real 5-second worker, a payment made while the hold is valid is ticketed
+    before the hold expires, whatever the worker's phase."""
     service, clock, flight, payment, _ = env
     start = clock.now
     _, attempt = await pay_flight(service)
     deadline = service.store.get_attempt(attempt["attempt_id"]).expires_at
-    window = deadline - start
-    await _run_worker_until(
-        service,
-        clock,
-        start,
-        window - timedelta(seconds=1),
-        step=timedelta(seconds=1),
-        paid_at=timedelta(seconds=min(paid_second, window.total_seconds() - 4)),
-        payment=payment,
-    )
-    assert clock.now < deadline
+    paid_at = start + timedelta(seconds=paid_second)
+    assert paid_at < deadline - service.settings.reconcile_final_margin
+    clock.now = start + timedelta(seconds=phase)
+
+    def pay(now):
+        if now >= paid_at:
+            payment.status = "PAID"
+
+    await _run_worker_loop(service, clock, deadline, on_tick=pay)
     assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"
     assert [c[0] for c in flight.calls].count("confirm_booking") == 1
+
+
+@pytest.mark.asyncio
+async def test_payment_after_the_last_check_is_recorded_during_the_grace(env):
+    """A payment in the final seconds is still recorded as paid right after expiry, not left pending."""
+    service, clock, _, payment, _ = env
+    start = clock.now
+    _, attempt = await pay_flight(service)
+    deadline = service.store.get_attempt(attempt["attempt_id"]).expires_at
+
+    def pay(now):
+        if now >= deadline - timedelta(seconds=1):
+            payment.status = "PAID"
+
+    await _run_worker_loop(service, clock, deadline + timedelta(seconds=15), on_tick=pay)
+    assert service.store.get_attempt(attempt["attempt_id"]).outcome == "paid_verified"
+    assert clock.now - start < service.settings.reconcile_grace + (deadline - start)
 
 
 @pytest.mark.asyncio
@@ -526,8 +543,16 @@ async def test_payable_attempts_are_checked_at_a_steady_bounded_cadence(env):
     _, attempt = await pay_flight(service)
     deadline = service.store.get_attempt(attempt["attempt_id"]).expires_at
     payment.calls.clear()
-    await _run_worker_until(service, clock, start, deadline - start - timedelta(seconds=1), step=timedelta(seconds=5))
-    times = (deadline - start).total_seconds()
-    checks = [c for c in payment.calls if c[0] == "get_payment"]
-    # Roughly one check per active interval, never a multi-minute gap while payable.
-    assert len(checks) >= times / service.settings.reconcile_active.total_seconds() * 0.8
+    times = []
+    original = payment.call
+
+    async def timed(tool, args):
+        if tool == "get_payment":
+            times.append(clock.now)
+        return await original(tool, args)
+
+    payment.call = timed
+    await _run_worker_loop(service, clock, deadline)
+    gaps = [(b - a).total_seconds() for a, b in zip([start, *times], times, strict=False)]
+    assert max(gaps) <= service.settings.reconcile_active.total_seconds() + 5
+    assert deadline - times[-1] <= service.settings.reconcile_final_margin
