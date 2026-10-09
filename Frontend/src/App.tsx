@@ -19,6 +19,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  ArrowLeftRight,
   ArrowRight,
   ArrowUpRight,
   CalendarClock,
@@ -258,7 +259,7 @@ export default function App() {
         onLogin={(u) => {
           setUser(u);
           if (location.pathname === "/login")
-            navigate("/ai", { replace: true });
+            navigate(rememberedHome(), { replace: true });
         }}
       />
     );
@@ -303,8 +304,14 @@ export default function App() {
               />
             }
           />
-          <WebRoute path="/" element={<Navigate to="/ai" replace />} />
-          <WebRoute path="/login" element={<Navigate to="/ai" replace />} />
+          <WebRoute
+            path="/"
+            element={<Navigate to={rememberedHome()} replace />}
+          />
+          <WebRoute
+            path="/login"
+            element={<Navigate to={rememberedHome()} replace />}
+          />
           <WebRoute
             path="*"
             element={
@@ -482,9 +489,29 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
   );
 }
 
+// One account, two modes (docs/review/host-mode-design.md §3.1). The mode is a per-device
+// convenience only; owner permissions live in the poster profile and property membership.
+const MODE_KEY = "relohome.mode";
+function rememberedHome() {
+  try {
+    return localStorage.getItem(MODE_KEY) === "host" ? "/landlord" : "/ai";
+  } catch {
+    return "/ai";
+  }
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const { user, status, threads } = useApp(),
     location = useLocation();
+  const hostMode = location.pathname.startsWith("/landlord");
+  useEffect(() => {
+    if (!hostMode && !location.pathname.startsWith("/ai")) return;
+    try {
+      localStorage.setItem(MODE_KEY, hostMode ? "host" : "renter");
+    } catch {
+      // Private mode or blocked storage: the next login simply opens chat.
+    }
+  }, [hostMode, location.pathname]);
   const [history, setHistory] = useState(false),
     [removing, setRemoving] = useState<Thread | null>(null);
   const isChat = location.pathname.startsWith("/ai");
@@ -532,6 +559,23 @@ function Shell({ children }: { children: ReactNode }) {
               <House size={18} />
             </Link>
             <AppearanceControls />
+            <Link
+              className="secondary mode-switch"
+              to={hostMode ? "/ai" : "/landlord"}
+              aria-label={
+                hostMode ? uiText("Chế độ thuê nhà") : uiText("Chế độ chủ nhà")
+              }
+              title={
+                hostMode
+                  ? uiText("Chuyển sang chế độ thuê nhà")
+                  : uiText("Chuyển sang chế độ chủ nhà")
+              }
+            >
+              <ArrowLeftRight size={16} aria-hidden="true" />
+              <span>
+                {hostMode ? uiText("Chế độ thuê nhà") : uiText("Chế độ chủ nhà")}
+              </span>
+            </Link>
             {isChat ? (
               <>
                 <span className={"connection " + (status ? "online" : "")}>
@@ -564,7 +608,7 @@ function Shell({ children }: { children: ReactNode }) {
                   <Plus size={20} />
                 </Link>
               </>
-            ) : (
+            ) : hostMode ? null : (
               <Link
                 className="secondary"
                 to="/ai"
@@ -2186,7 +2230,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
           </Link>
           <span aria-hidden="true"> · </span>
           <Link className="text-button" to="/landlord">
-            {uiText("Quản lý nhà cho thuê")} <ArrowRight size={16} aria-hidden="true" />
+            {uiText("Chế độ chủ nhà")} <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </p>
         <div className="profile-banner">

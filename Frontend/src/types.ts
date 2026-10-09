@@ -29,6 +29,9 @@ export interface House extends Data {
     availability_status: string;
     accepts_contact_requests: boolean;
     availability_confirmed_at: string | null;
+    poster_type?: "owner" | "manager" | "broker" | "business" | null;
+    poster_name?: string | null;
+    host_verified?: boolean;
   } | null;
 }
 export interface Component extends Data {

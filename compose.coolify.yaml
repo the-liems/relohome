@@ -184,6 +184,8 @@ services:
       # authenticates with the shared token; only these account IDs may moderate.
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
+      # Empty: no poster-terms step (team has not published terms yet).
+      HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
     depends_on:
       location-migrate: {condition: service_completed_successfully}
 

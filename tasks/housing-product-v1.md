@@ -19,5 +19,9 @@
   - Test tích hợp `platform-api/tests/housing-management.integration.test.ts` cho AC-01/02/03/05/06 trên PostGIS thật.
   - Trạng thái `viewing` của yêu cầu liên hệ chỉ dẫn người thuê sang luồng Kế hoạch → Xem nhà.
 
+- [x] HP-11: Chế độ chủ nhà trên cùng tài khoản ([host-mode-design](../docs/review/host-mode-design.md))
+  - Nút chuyển chế độ trên header; lần đầu khai hồ sơ người đăng; kiểm duyệt xác minh thủ công (pilot).
+  - Chưa làm: điều khoản người đăng (bật bằng `HOST_TERMS_VERSION`), tạm khóa người đăng, xác minh điện tử.
+
 Mỗi task phải giữ contract Housing/Moving/Flight/Roommate hiện tại, có test tập trung và build sạch trước khi đánh dấu hoàn tất.
 

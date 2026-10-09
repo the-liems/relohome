@@ -14,3 +14,4 @@
 .tenant-request-list blockquote { margin: 6px 0 0; padding: 10px; background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft)); white-space: pre-line; }
 .tenant-request-list .text-button { justify-self: start; }
 @media (max-width: 620px) { .housing-usage-grid { grid-template-columns: repeat(2, 1fr); } .saved-compare-bar { flex-direction: column; align-items: stretch; } }
+.housing-poster { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px !important; color: var(--accent) !important; font-weight: 700; }

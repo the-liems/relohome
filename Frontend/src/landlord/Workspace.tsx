@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   BarChart3,
   Building2,
+  BadgeCheck,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
@@ -29,9 +29,17 @@ import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
 import { EmptyState } from "../components/UiStates";
 import { housingManagement, uploadListingImage } from "./client";
+import {
+  HostProfileForm,
+  HostStatusBanner,
+  HostVerifiedChip,
+  needsProfile,
+  posterLabels,
+} from "./HostProfile";
 import type {
   AvailabilityStatus,
   ContactRequest,
+  HostProfilePage,
   ManagedListing,
   ManagedUnit,
   ModerationQueue,
@@ -143,6 +151,8 @@ export function LandlordWorkspace() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createProperty, setCreateProperty] = useState(false);
+  const [host, setHost] = useState<HostProfilePage | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const loadQueue = useCallback(async () => {
     // Moderators are configured on the server; everyone else gets 403 and never sees the tab.
@@ -159,7 +169,8 @@ export function LandlordWorkspace() {
     setLoading(true);
     setError("");
     try {
-      const [summary, propertyPage, inbox] = await Promise.all([
+      const [hostPage, summary, propertyPage, inbox] = await Promise.all([
+        housingManagement<HostProfilePage>("host/profile"),
         housingManagement<Overview>("landlord/overview"),
         housingManagement<{ items: PropertySummary[] }>("landlord/properties"),
         housingManagement<{ items: ContactRequest[] }>(
@@ -167,6 +178,7 @@ export function LandlordWorkspace() {
         ),
         loadQueue(),
       ]);
+      setHost(hostPage);
       setOverview(summary);
       setProperties(propertyPage.items);
       setContacts(inbox.items);
@@ -183,8 +195,20 @@ export function LandlordWorkspace() {
 
   const newContacts = contacts.filter((item) => item.status === "new").length;
   const pendingReviews = queue
-    ? queue.properties.length + queue.listings.length
+    ? queue.hosts.length + queue.properties.length + queue.listings.length
     : 0;
+  // First visit in owner mode: the poster profile comes before anything else (host-mode-design §3.2).
+  // Moderators who do not post themselves are not pushed into the poster form or banner.
+  const showProfileForm =
+    editingProfile ||
+    (host !== null && !host.profile && properties.length === 0 && !queue);
+  const showHostBanner = Boolean(host && (host.profile || !queue));
+  const startProperty = () => {
+    setTab("properties");
+    setSelected(null);
+    if (needsProfile(host)) setEditingProfile(true);
+    else setCreateProperty(true);
+  };
   const tabs: [Tab, string, typeof Inbox, number][] = [
     ["overview", "Tổng quan", BarChart3, 0],
     ["properties", "Nhà & phòng", Building2, 0],
@@ -207,6 +231,7 @@ export function LandlordWorkspace() {
             <Building2 size={14} /> {t("KHÔNG GIAN CHỦ TRỌ")}
           </span>
           <h1>{t("Quản lý nhà cho thuê")}</h1>
+          <HostVerifiedChip profile={host?.profile ?? null} />
           <p>
             {t(
               "Cập nhật nguồn cung, theo dõi quan tâm và xử lý yêu cầu từ người thuê tại một nơi.",
@@ -214,17 +239,7 @@ export function LandlordWorkspace() {
           </p>
         </div>
         <div className="ll-heading-actions">
-          <Link className="secondary" to="/ai">
-            <ArrowLeft size={16} /> {t("Về ReloHome")}
-          </Link>
-          <button
-            className="primary"
-            onClick={() => {
-              setTab("properties");
-              setSelected(null);
-              setCreateProperty(true);
-            }}
-          >
+          <button className="primary" onClick={startProperty}>
             <Plus size={17} /> {t("Thêm nhà")}
           </button>
         </div>
@@ -239,6 +254,7 @@ export function LandlordWorkspace() {
             onClick={() => {
               setTab(key);
               setSelected(null);
+              setEditingProfile(false);
             }}
           >
             <Icon size={17} /> {t(label)}
@@ -247,6 +263,10 @@ export function LandlordWorkspace() {
         ))}
       </nav>
 
+      {!error && !loading && host && showHostBanner && !showProfileForm && (
+        <HostStatusBanner page={host} edit={() => setEditingProfile(true)} />
+      )}
+
       {error ? (
         <ErrorPanel message={error} retry={() => void load()} />
       ) : loading ? (
@@ -254,6 +274,20 @@ export function LandlordWorkspace() {
           <LoaderCircle className="spin" />{" "}
           {t("Đang chuẩn bị không gian quản lý…")}
         </div>
+      ) : showProfileForm && host ? (
+        <HostProfileForm
+          page={host}
+          close={
+            host.profile || properties.length
+              ? () => setEditingProfile(false)
+              : undefined
+          }
+          saved={(page) => {
+            setHost(page);
+            setEditingProfile(false);
+            void loadQueue();
+          }}
+        />
       ) : tab === "overview" ? (
         <OverviewPanel
           overview={overview}
@@ -273,7 +307,9 @@ export function LandlordWorkspace() {
             properties={properties}
             open={setSelected}
             creating={createProperty}
-            setCreating={setCreateProperty}
+            setCreating={(value) =>
+              value ? startProperty() : setCreateProperty(false)
+            }
             changed={load}
           />
         )
@@ -1536,6 +1572,35 @@ function InboxPanel({
   );
 }
 
+const verificationLabels: Record<string, string> = {
+  phone_call: "Gọi điện",
+  video_call: "Gọi video",
+  in_person: "Gặp trực tiếp",
+};
+const hostStatusLabels: Record<string, string> = {
+  pending: "Người đăng chờ xác minh",
+  verified: "Người đăng đã xác minh",
+  needs_info: "Người đăng cần bổ sung hồ sơ",
+};
+
+function HostLine({
+  status,
+  name,
+  type,
+}: {
+  status: string | null;
+  name: string | null;
+  type: keyof typeof posterLabels | null;
+}) {
+  return (
+    <small className={`ll-host-line ${status || "missing"}`}>
+      {name ? `${name} · ` : ""}
+      {type ? `${t(posterLabels[type])} · ` : ""}
+      {t(status ? hostStatusLabels[status] : "Người đăng chưa có hồ sơ")}
+    </small>
+  );
+}
+
 function ModerationPanel({
   queue,
   changed,
@@ -1545,7 +1610,8 @@ function ModerationPanel({
 }) {
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState(""),
-    [reasons, setReasons] = useState<Record<string, string>>({});
+    [reasons, setReasons] = useState<Record<string, string>>({}),
+    [methods, setMethods] = useState<Record<string, string>>({});
   async function run(key: string, path: string, body: unknown) {
     setBusy(key);
     setError("");
@@ -1567,7 +1633,7 @@ function ModerationPanel({
           <h2>{t("Hàng chờ duyệt")}</h2>
           <p>
             {t(
-              "Duyệt quyền quản lý địa điểm trước, rồi tới nội dung tin. Bạn không duyệt được địa điểm hay tin mình quản lý.",
+              "Xác minh người đăng trước, rồi tới địa điểm và nội dung tin. Bạn không duyệt được hồ sơ, địa điểm hay tin của chính mình.",
             )}
           </p>
         </div>
@@ -1576,6 +1642,109 @@ function ModerationPanel({
         <p className="ll-form-error" role="alert">
           {error}
         </p>
+      )}
+      <h3>{formatUi("Người đăng chờ xác minh ({0})", [queue.hosts.length])}</h3>
+      {queue.hosts.length === 0 ? (
+        <p className="muted">{t("Không có hồ sơ nào đang chờ.")}</p>
+      ) : (
+        <div className="ll-review-list">
+          {queue.hosts.map((h) => (
+            <article key={h.user_id}>
+              <div>
+                <strong>
+                  {h.display_name} · {t(posterLabels[h.poster_type])}
+                </strong>
+                <p>
+                  {h.legal_name} ·{" "}
+                  <a href={`tel:${h.phone.replace(/[^0-9+]/g, "")}`}>
+                    {h.phone}
+                  </a>
+                </p>
+                {(h.broker_license_no || h.business_name || h.tax_code) && (
+                  <small>
+                    {[
+                      h.broker_license_no &&
+                        formatUi("Chứng chỉ: {0}", [h.broker_license_no]),
+                      h.business_name,
+                      h.tax_code && formatUi("MST: {0}", [h.tax_code]),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </small>
+                )}
+                <small>
+                  {formatUi("{0} địa điểm, {1} tin đang chờ · cập nhật {2}", [
+                    h.pending_properties,
+                    h.pending_listings,
+                    dateTime(h.updated_at),
+                  ])}
+                </small>
+                <div className="ll-review-inputs">
+                  <select
+                    aria-label={t("Cách đã xác minh")}
+                    value={methods[h.user_id] || ""}
+                    onChange={(e) =>
+                      setMethods({ ...methods, [h.user_id]: e.target.value })
+                    }
+                  >
+                    <option value="">{t("Chọn cách đã xác minh")}</option>
+                    {Object.entries(verificationLabels).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {t(label)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                  <input
+                    aria-label={t("Ghi chú hoặc lý do cần bổ sung")}
+                    placeholder={t("Ghi chú nội bộ, hoặc lý do cần bổ sung")}
+                    maxLength={500}
+                    value={reasons[h.user_id] || ""}
+                    onChange={(e) =>
+                      setReasons({ ...reasons, [h.user_id]: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="ll-review-actions">
+                <button
+                  className="primary"
+                  disabled={busy === h.user_id || !methods[h.user_id]}
+                  onClick={() =>
+                    void run(
+                      h.user_id,
+                      `moderation/host/${encodeURIComponent(h.user_id)}/review`,
+                      {
+                        decision: "verify",
+                        method: methods[h.user_id],
+                        note: reasons[h.user_id]?.trim() || undefined,
+                      },
+                    )
+                  }
+                >
+                  <BadgeCheck size={15} /> {t("Đã xác minh")}
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy === h.user_id}
+                  onClick={() =>
+                    void run(
+                      h.user_id,
+                      `moderation/host/${encodeURIComponent(h.user_id)}/review`,
+                      {
+                        decision: "needs_info",
+                        reason: reasons[h.user_id]?.trim() || undefined,
+                      },
+                    )
+                  }
+                >
+                  {t("Cần bổ sung")}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
       <h3>
         {formatUi("Địa điểm chờ xác minh ({0})", [queue.properties.length])}
@@ -1595,10 +1764,15 @@ function ModerationPanel({
                   {t(propertyLabels[p.property_type] || p.property_type)} ·{" "}
                   {formatUi("gửi lúc {0}", [dateTime(p.requested_at)])}
                 </small>
+                <HostLine
+                  status={p.host_status}
+                  name={p.host_name}
+                  type={p.poster_type}
+                />
               </div>
               <button
                 className="primary"
-                disabled={busy === p.id}
+                disabled={busy === p.id || p.host_status !== "verified"}
                 onClick={() =>
                   void run(
                     p.id,
@@ -1649,6 +1823,11 @@ function ModerationPanel({
                     ))}
                   </div>
                 )}
+                <HostLine
+                  status={l.host_status}
+                  name={l.host_name}
+                  type={l.poster_type}
+                />
                 {l.property_status !== "active" && (
                   <p className="ll-form-error">
                     {t("Địa điểm của tin chưa được xác minh.")}
@@ -1667,7 +1846,11 @@ function ModerationPanel({
               <div className="ll-review-actions">
                 <button
                   className="primary"
-                  disabled={busy === l.id || l.property_status !== "active"}
+                  disabled={
+                    busy === l.id ||
+                    l.property_status !== "active" ||
+                    l.host_status !== "verified"
+                  }
                   onClick={() =>
                     void run(
                       l.id,

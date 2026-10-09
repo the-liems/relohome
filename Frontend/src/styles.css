@@ -5919,3 +5919,15 @@ input[type="checkbox"] {
   border-radius: 12px;
   background: var(--ui-surface);
 }
+/* Renter/owner mode switch (host-mode-design §3.1): icon-only on small screens, 44px target. */
+@media (max-width: 767px) {
+  .chat-only-shell .header-actions > a.mode-switch {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  .chat-only-shell .header-actions > a.mode-switch span {
+    display: none;
+  }
+}
+

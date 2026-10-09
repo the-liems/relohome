@@ -105,3 +105,38 @@ async def test_oversized_upload_is_rejected_before_any_upstream_call(tmp_path, m
         )
         assert response.status_code == 413
         assert not calls and not (tmp_path / "media").exists()
+
+
+@pytest.mark.asyncio
+async def test_host_profile_routes_and_outcome_codes(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+
+    def provider(request):
+        if request.url.path.endswith("/landlord/properties"):
+            return httpx.Response(
+                409, json={"code": "host_profile_required", "message": "Hãy hoàn tất hồ sơ.", "internal": "x"}
+            )
+        if request.url.path.endswith("/landlord/overview"):
+            return httpx.Response(409, json={"code": "SOMETHING_ELSE", "message": "Lỗi"})
+        return httpx.Response(200, json={"method": request.method, "path": request.url.path})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "host@example.test", "password": "a-long-password", "name": "Host"},
+        )
+        saved = await client.put("/web/api/housing-management/host/profile", json={"poster_type": "owner"})
+        assert saved.json() == {"method": "PUT", "path": "/v1/host/profile"}
+        review = await client.post("/web/api/housing-management/moderation/host/abc123/review", json={})
+        assert review.json()["path"] == "/v1/moderation/host/abc123/review"
+        assert (await client.post("/web/api/housing-management/moderation/host/a.b/review", json={})).status_code == 404
+        # The workspace needs the outcome code; nothing else from upstream is forwarded.
+        blocked = await client.post("/web/api/housing-management/landlord/properties", json={})
+        assert blocked.status_code == 409
+        assert blocked.json() == {"detail": "Hãy hoàn tất hồ sơ.", "code": "host_profile_required"}
+        other = await client.get("/web/api/housing-management/landlord/overview")
+        assert other.json() == {"detail": "Lỗi"}

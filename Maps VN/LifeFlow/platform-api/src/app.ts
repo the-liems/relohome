@@ -112,7 +112,7 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ManagementError) {
-      return reply.status(error.status).send({ code: 'HOUSING_MANAGEMENT_ERROR', message: error.message })
+      return reply.status(error.status).send({ code: error.code, message: error.message })
     }
     if (error instanceof OperationError) {
       return reply.status(error.code === 'TIMEOUT' ? 504 : error.code === 'CANCELLED' ? 408 : 503)

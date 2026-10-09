@@ -12,13 +12,14 @@ the same PostGIS schemas and only become public after moderation.
 | Variable | Purpose |
 | --- | --- |
 | `AGENT_API_TOKEN` | Shared server secret used by the browser gateway and Platform API. Never expose it to JavaScript. |
-| `HOUSING_MODERATOR_IDS` | Comma-separated trusted account IDs that may approve properties and listings. |
+| `HOUSING_MODERATOR_IDS` | Comma-separated trusted account IDs that may verify posters and approve properties and listings. |
+| `HOST_TERMS_VERSION` | Optional. Empty: no poster-terms step. A value makes posters accept that version before adding homes. |
 | `SIU_PLATFORM_API_URL` | Platform API base, normally `http://127.0.0.1:4100/v1` on a host. |
 | `SIU_PUBLIC_BASE_URL` | Public HTTPS origin used for uploaded listing image URLs. |
 
 Run `npm run db:migrate` in `Maps VN/LifeFlow` before starting the new workspace.
-Migration `013_housing_product_v1.sql` is additive and grants the application role
-only the writes needed by the owner workflow.
+Migrations `013_housing_product_v1.sql` and `014_housing_host_profiles.sql` are additive and grant the
+application role only the writes needed by the owner workflow.
 
 ## Media storage
 
@@ -30,6 +31,10 @@ listing is reviewed.
 
 ## Publication workflow
 
+0. In owner mode the account fills a poster profile (owner, authorized manager, broker or business).
+   A moderator verifies it outside the app (phone/video call or in person) and records only the method;
+   no ID images or numbers are stored. Unverified posters can prepare drafts, but their properties and
+   listings cannot be approved. Poster suspension is not enabled (pending a team decision).
 1. An owner creates a property. Its management membership starts as `pending`.
 2. The owner may prepare units and draft listings while verification is pending.
 3. A moderator activates the property membership.

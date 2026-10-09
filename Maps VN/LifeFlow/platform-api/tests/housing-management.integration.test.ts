@@ -18,7 +18,7 @@ let pool: ReturnType<typeof createDatabasePool>
 let admin: ReturnType<typeof createDatabasePool>
 const created: string[] = []
 
-async function call(user: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: unknown) {
+async function call(user: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: unknown) {
   const response = await app.inject({
     method,
     url,
@@ -26,6 +26,16 @@ async function call(user: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', u
     headers: { authorization: `Bearer ${TOKEN}`, 'x-user-id': user },
   })
   return { status: response.statusCode, body: response.body ? response.json() : null }
+}
+
+async function host(user: string, poster_type = 'owner') {
+  const existing = (await call(user, 'GET', '/v1/host/profile')).body.profile
+  if (existing) return existing
+  const result = await call(user, 'PUT', '/v1/host/profile', {
+    poster_type, display_name: `Người đăng ${run}`, legal_name: `Nguyễn Văn ${run}`, phone: '0901 234 567',
+  })
+  expect(result.status, JSON.stringify(result.body)).toBe(200)
+  return result.body.profile
 }
 
 async function property(user: string) {
@@ -75,13 +85,16 @@ afterAll(async () => {
     await admin.query('DELETE FROM housing.properties WHERE id = ANY($1::uuid[])', [created])
     await admin.query('DELETE FROM catalog.places WHERE id = ANY($1::uuid[])', [places.rows.map(r => r.place_id)])
   }
+  if (admin) await admin.query('DELETE FROM housing.host_profiles WHERE user_id LIKE $1', [`test-%-${run}`])
   await admin?.end() // the app closes its own pool
   delete process.env.AGENT_API_TOKEN
   delete process.env.HOUSING_MODERATOR_IDS
+  delete process.env.HOST_TERMS_VERSION
 })
 
 describe('Housing Product V1 rules (SPEC-021)', () => {
   it('AC-02/03/05/06: owner workflow, moderation, contact lifecycle and real counters', async () => {
+    await host(OWNER)
     const propertyId = await property(OWNER)
     const roomA = await unit(OWNER, propertyId, 'P.101')
     const roomB = await unit(OWNER, propertyId, 'P.102')
@@ -112,6 +125,10 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect((await app.inject({ method: 'GET', url: `/v1/housing/${listingA}` })).statusCode).toBe(404)
     expect((await call(OWNER, 'POST', `/v1/landlord/listings/${listingA}/submit`, {})).status).toBe(403)
     expect((await call(OWNER, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})).status).toBe(403)
+    // HM-03: the poster must be verified before their property is.
+    const early = await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})
+    expect([early.status, early.body.code]).toEqual([409, 'host_not_verified'])
+    expect((await call(MODERATOR, 'POST', `/v1/moderation/host/${OWNER}/review`, { decision: 'verify', method: 'video_call' })).status).toBe(200)
     expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})).status).toBe(200)
     expect((await call(OWNER, 'POST', `/v1/landlord/listings/${listingA}/submit`, {})).status).toBe(200)
     const queue = await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')
@@ -124,6 +141,10 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect(publicDetail.json().management.accepts_contact_requests).toBe(true)
     expect(publicDetail.json().fees[0].billing_unit).toBe('kwh')
     expect(publicDetail.json().address.raw).toBe(`Địa chỉ kiểm thử ${run}`)
+    // HM-05: tenants see the poster label, never identity fields.
+    expect(publicDetail.json().management).toMatchObject({ poster_type: 'owner', poster_name: `Người đăng ${run}`, host_verified: true })
+    expect(publicDetail.body).not.toContain('0901 234 567')
+    expect(publicDetail.body).not.toContain(`Nguyễn Văn ${run}`)
     // AC-01: the approved listing also parses through the existing search contract.
     const search = await app.inject({
       method: 'POST', url: '/v1/housing/search',
@@ -166,10 +187,63 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
   })
 
   it('a moderator cannot approve a property or listing they manage', async () => {
+    await host(MODERATOR)
     const own = await property(MODERATOR)
     expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${own}/approve`, {})).status).toBe(403)
     const room = await unit(MODERATOR, own, 'P.201')
     const draft = await listing(MODERATOR, room, [])
     expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${draft}/review`, { decision: 'approve' })).status).toBe(403)
+  })
+
+  it('HM-02..07: poster profile gates property creation and review', async () => {
+    const broker = `test-broker-${run}`
+    // HM-02: no profile, no property.
+    const blocked = await call(broker, 'POST', '/v1/landlord/properties', {
+      name: `Nhà môi giới ${run}`, property_type: 'room', address: { full_address: 'x' }, location: { lat: 10.78, lng: 106.7 },
+    })
+    expect([blocked.status, blocked.body.code]).toEqual([409, 'host_profile_required'])
+    expect((await call(broker, 'GET', '/v1/host/profile')).body.profile).toBeNull()
+    const profile = await host(broker, 'broker')
+    expect(profile.status).toBe('pending')
+    // HM-04: only moderators review, never their own profile; others cannot read it.
+    expect((await call(OTHER, 'POST', `/v1/moderation/host/${broker}/review`, { decision: 'verify', method: 'phone_call' })).status).toBe(403)
+    expect((await call(OTHER, 'GET', '/v1/host/profile')).body.profile?.user_id ?? null).not.toBe(broker)
+    await host(MODERATOR)
+    expect((await call(MODERATOR, 'POST', `/v1/moderation/host/${MODERATOR}/review`, { decision: 'verify', method: 'phone_call' })).status).toBe(403)
+    const queue = await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')
+    const queued = queue.body.hosts.find((h: { user_id: string }) => h.user_id === broker)
+    expect(queued).toMatchObject({ poster_type: 'broker', phone: '0901 234 567' })
+    expect(queue.body.hosts.map((h: { user_id: string }) => h.user_id)).not.toContain(MODERATOR)
+    // needs_info shows the reason to the poster; saving again sends it back for review.
+    await call(MODERATOR, 'POST', `/v1/moderation/host/${broker}/review`, { decision: 'needs_info', reason: 'Thiếu số chứng chỉ' })
+    const asked = (await call(broker, 'GET', '/v1/host/profile')).body.profile
+    expect([asked.status, asked.info_request]).toEqual(['needs_info', 'Thiếu số chứng chỉ'])
+    const resent = await call(broker, 'PUT', '/v1/host/profile', {
+      poster_type: 'broker', display_name: asked.display_name, legal_name: asked.legal_name, phone: asked.phone,
+      broker_license_no: 'CC-123', revision: asked.revision,
+    })
+    expect(resent.body.profile.status).toBe('pending')
+    await call(MODERATOR, 'POST', `/v1/moderation/host/${broker}/review`, { decision: 'verify', method: 'phone_call' })
+    // HM-06: a display-name change keeps verification; an identity change does not.
+    let current = (await call(broker, 'GET', '/v1/host/profile')).body.profile
+    const renamed = await call(broker, 'PUT', '/v1/host/profile', { ...current, display_name: 'Tên mới', revision: current.revision })
+    expect(renamed.body.profile.status).toBe('verified')
+    current = renamed.body.profile
+    const moved = await call(broker, 'PUT', '/v1/host/profile', { ...current, phone: '0909 999 999', revision: current.revision })
+    expect(moved.body.profile.status).toBe('pending')
+    // HM-07: a configured terms version must be accepted before posting.
+    process.env.HOST_TERMS_VERSION = `t-${run}`
+    try {
+      const terms = await call(broker, 'POST', '/v1/landlord/properties', {
+        name: `Nhà môi giới ${run}`, property_type: 'room', address: { full_address: 'x' }, location: { lat: 10.78, lng: 106.7 },
+      })
+      expect(terms.body.code).toBe('host_terms_required')
+      current = moved.body.profile
+      const accepted = await call(broker, 'PUT', '/v1/host/profile', { ...current, accept_terms_version: `t-${run}`, revision: current.revision })
+      expect(accepted.body.profile.terms_version).toBe(`t-${run}`)
+      await property(broker)
+    } finally {
+      delete process.env.HOST_TERMS_VERSION
+    }
   })
 })

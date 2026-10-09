@@ -52,7 +52,11 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^housing/contact-requests/me$"),
     re.compile(r"^housing/contact-requests/[0-9a-f-]+/cancel$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
+    re.compile(r"^host/profile$"),
+    re.compile(r"^moderation/host/[A-Za-z0-9_-]{1,128}/review$"),
 )
+# Outcome codes the owner workspace acts on (host-mode-design §5); other upstream fields are never forwarded.
+HOUSING_MANAGEMENT_CODES = {"host_profile_required", "host_terms_required", "host_not_verified"}
 
 
 class Credentials(BaseModel):
@@ -255,9 +259,12 @@ def create_app(database=None, transport=None):
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
             # Preserve only documented route outcomes so the browser can distinguish
             # a road-snapping failure from GPS denial. Never forward arbitrary fields.
-            if platform and path in {"/routes/entities", "/routes/device"} and data.get("code") in {
-                "NO_ROUTE", "OUTSIDE_ROUTING_AREA", "OSRM_OFFLINE", "INVALID_RESPONSE", "TIMEOUT", "CANCELLED"
-            }:
+            if platform and (
+                path in {"/routes/entities", "/routes/device"}
+                and data.get("code")
+                in {"NO_ROUTE", "OUTSIDE_ROUTING_AREA", "OSRM_OFFLINE", "INVALID_RESPONSE", "TIMEOUT", "CANCELLED"}
+                or data.get("code") in HOUSING_MANAGEMENT_CODES
+            ):
                 return JSONResponse(
                     {"detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.", "code": data["code"]},
                     status_code=response.status_code,
@@ -741,7 +748,7 @@ def create_app(database=None, transport=None):
             headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"},
         )
 
-    @app.api_route("/web/api/housing-management/{resource:path}", methods=["GET", "POST", "PATCH", "DELETE"])
+    @app.api_route("/web/api/housing-management/{resource:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def housing_management(resource: str, request: Request):
         if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
             raise HTTPException(404)

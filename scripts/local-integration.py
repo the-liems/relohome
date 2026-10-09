@@ -88,7 +88,7 @@ def environment(component, sandbox_writes=False, payment_demo=False):
                 {"POSTGRES_ADMIN_USER", "POSTGRES_ADMIN_PASSWORD", "POSTGRES_INGEST_USER", "POSTGRES_INGEST_PASSWORD"}
             )
             # Housing owner workspace: trusted gateway token and moderator account IDs.
-            allowed.update({"AGENT_API_TOKEN", "HOUSING_MODERATOR_IDS"})
+            allowed.update({"AGENT_API_TOKEN", "HOUSING_MODERATOR_IDS", "HOST_TERMS_VERSION"})
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
     return env
 

@@ -105,6 +105,9 @@ export interface ModerationProperty {
   address: Record<string, unknown>;
   user_id: string;
   requested_at: string;
+  host_status: HostStatus | null;
+  host_name: string | null;
+  poster_type: PosterType | null;
 }
 
 export interface ModerationListing {
@@ -121,9 +124,50 @@ export interface ModerationListing {
   fee_count: number;
   pending_media: { url: string; alt: string | null }[];
   property_status: ManagementStatus | null;
+  host_status: HostStatus | null;
+  host_name: string | null;
+  poster_type: PosterType | null;
 }
 
 export interface ModerationQueue {
+  hosts: ModerationHost[];
   properties: ModerationProperty[];
   listings: ModerationListing[];
+}
+
+export type PosterType = "owner" | "manager" | "broker" | "business";
+export type HostStatus = "pending" | "verified" | "needs_info";
+
+export interface HostProfile {
+  user_id: string;
+  poster_type: PosterType;
+  display_name: string;
+  legal_name: string;
+  phone: string;
+  broker_license_no: string | null;
+  business_name: string | null;
+  tax_code: string | null;
+  status: HostStatus;
+  info_request: string | null;
+  terms_version: string | null;
+  revision: number;
+}
+
+export interface HostProfilePage {
+  profile: HostProfile | null;
+  terms_version: string | null; // null: no terms acceptance step configured
+}
+
+export interface ModerationHost {
+  user_id: string;
+  poster_type: PosterType;
+  display_name: string;
+  legal_name: string;
+  phone: string;
+  broker_license_no: string | null;
+  business_name: string | null;
+  tax_code: string | null;
+  updated_at: string;
+  pending_properties: number;
+  pending_listings: number;
 }

@@ -54,8 +54,30 @@ const EventInput = z.object({
   dedup_key: z.string().trim().min(8).max(160),
 })
 
+const Text = (max: number) => z.string().trim().min(1).max(max)
+const Optional = (max: number) => z.string().trim().max(max).nullable().optional().transform(v => v || null)
+const HostProfileInput = z.object({
+  poster_type: z.enum(['owner', 'manager', 'broker', 'business']),
+  display_name: Text(80),
+  legal_name: Text(160),
+  phone: z.string().trim().regex(/^\+?[0-9 .-]{8,20}$/),
+  broker_license_no: Optional(80),
+  business_name: Optional(200),
+  tax_code: Optional(20),
+  accept_terms_version: z.string().trim().max(40).optional(),
+  revision: Revision.optional(),
+})
+const HostReview = z.object({
+  decision: z.enum(['verify', 'needs_info']),
+  method: z.enum(['phone_call', 'video_call', 'in_person']).optional(),
+  note: z.string().trim().max(500).optional(),
+  reason: z.string().trim().max(500).optional(),
+})
+// Changing any of these after verification sends the profile back to the moderator.
+const IDENTITY_FIELDS = ['poster_type', 'legal_name', 'phone', 'broker_license_no', 'business_name', 'tax_code'] as const
+
 export class ManagementError extends Error {
-  constructor(readonly status: number, message: string) { super(message) }
+  constructor(readonly status: number, message: string, readonly code = 'HOUSING_MANAGEMENT_ERROR') { super(message) }
 }
 
 function equalSecret(actual: string, expected: string) {
@@ -106,6 +128,37 @@ async function listingProperty(pool: DatabasePool, listing: string) {
   return String(result.rows[0].property_id)
 }
 
+// Team-owned terms are optional: an empty HOST_TERMS_VERSION means no acceptance step (host-mode-design H5).
+function termsVersion() {
+  return (process.env.HOST_TERMS_VERSION || '').trim() || null
+}
+
+async function hostProfile(pool: DatabasePool, user: string) {
+  const result = await pool.query('SELECT * FROM housing.host_profiles WHERE user_id=$1', [user])
+  return result.rows[0] as Record<string, unknown> | undefined
+}
+
+async function requireHostProfile(pool: DatabasePool, user: string) {
+  const profile = await hostProfile(pool, user)
+  if (!profile) throw new ManagementError(409, 'Hãy hoàn tất hồ sơ người đăng trước.', 'host_profile_required')
+  const terms = termsVersion()
+  if (terms && profile.terms_version !== terms) {
+    throw new ManagementError(409, 'Hãy đồng ý điều khoản người đăng mới nhất.', 'host_terms_required')
+  }
+  return profile
+}
+
+async function requireVerifiedHosts(pool: DatabasePool, users: string[]) {
+  if (!users.length) return
+  const result = await pool.query(
+    `SELECT count(*)::int AS verified FROM housing.host_profiles WHERE user_id = ANY($1::text[]) AND status='verified'`,
+    [users],
+  )
+  if (result.rows[0].verified !== new Set(users).size) {
+    throw new ManagementError(409, 'Người đăng chưa được xác minh.', 'host_not_verified')
+  }
+}
+
 async function replaceFees(client: { query: DatabasePool['query'] }, listing: string, fees: z.infer<typeof FeeInput>[]) {
   await client.query('UPDATE housing.listing_fees SET valid_to=now() WHERE listing_id=$1 AND valid_to IS NULL', [listing])
   for (const fee of fees) {
@@ -118,6 +171,73 @@ async function replaceFees(client: { query: DatabasePool['query'] }, listing: st
 }
 
 export function registerHousingManagement(app: FastifyInstance, pool: DatabasePool) {
+  // Poster profile (host-mode-design §5): who is behind a property; only moderators see identity fields.
+  app.get('/v1/host/profile', async request => {
+    const user = actor(request)
+    return { profile: (await hostProfile(pool, user)) ?? null, terms_version: termsVersion() }
+  })
+
+  app.put('/v1/host/profile', async request => {
+    const user = actor(request)
+    const input = HostProfileInput.parse(request.body)
+    const terms = termsVersion()
+    if (terms && input.accept_terms_version !== undefined && input.accept_terms_version !== terms) {
+      throw new ManagementError(409, 'Điều khoản đã có phiên bản mới; hãy tải lại trang.', 'host_terms_required')
+    }
+    const accepted = terms && input.accept_terms_version === terms ? terms : null
+    const current = await hostProfile(pool, user)
+    if (!current) {
+      if (terms && !accepted) throw new ManagementError(409, 'Hãy đồng ý điều khoản người đăng.', 'host_terms_required')
+      const created = await pool.query(
+        `INSERT INTO housing.host_profiles(user_id,poster_type,display_name,legal_name,phone,broker_license_no,
+           business_name,tax_code,terms_version,terms_accepted_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9::text IS NULL THEN NULL ELSE now() END)
+         ON CONFLICT (user_id) DO NOTHING RETURNING *`,
+        [user, input.poster_type, input.display_name, input.legal_name, input.phone, input.broker_license_no,
+          input.business_name, input.tax_code, accepted],
+      )
+      if (!created.rowCount) throw new ManagementError(409, 'Hồ sơ đã được tạo ở nơi khác.')
+      return { profile: created.rows[0], terms_version: terms }
+    }
+    if (input.revision === undefined) throw new ManagementError(409, 'Hồ sơ đã tồn tại; hãy tải lại trang.')
+    const identityChanged = IDENTITY_FIELDS.some(field => (current[field] ?? null) !== input[field])
+    const updated = await pool.query(
+      `UPDATE housing.host_profiles SET poster_type=$3,display_name=$4,legal_name=$5,phone=$6,broker_license_no=$7,
+         business_name=$8,tax_code=$9,
+         terms_version=COALESCE($10,terms_version),
+         terms_accepted_at=CASE WHEN $10::text IS NULL THEN terms_accepted_at ELSE now() END,
+         status=CASE WHEN $11 OR status='needs_info' THEN 'pending' ELSE status END,
+         verification_method=CASE WHEN $11 THEN NULL ELSE verification_method END,
+         reviewed_at=CASE WHEN $11 THEN NULL ELSE reviewed_at END,
+         reviewed_by=CASE WHEN $11 THEN NULL ELSE reviewed_by END,
+         revision=revision+1,updated_at=now()
+       WHERE user_id=$1 AND revision=$2 RETURNING *`,
+      [user, input.revision, input.poster_type, input.display_name, input.legal_name, input.phone,
+        input.broker_license_no, input.business_name, input.tax_code, accepted, identityChanged],
+    )
+    if (!updated.rowCount) throw new ManagementError(409, 'Hồ sơ đã được cập nhật ở nơi khác.')
+    return { profile: updated.rows[0], terms_version: terms }
+  })
+
+  app.post('/v1/moderation/host/:userId/review', async request => {
+    const user = actor(request)
+    if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
+    const target = z.string().trim().min(1).max(128).parse((request.params as { userId: string }).userId)
+    if (target === user) throw new ManagementError(403, 'Không thể tự xác minh hồ sơ của mình.')
+    const input = HostReview.parse(request.body)
+    if (input.decision === 'verify' && !input.method) throw new ManagementError(400, 'Chọn cách đã xác minh.')
+    const verified = input.decision === 'verify'
+    const result = await pool.query(
+      `UPDATE housing.host_profiles SET status=$2,verification_method=$3,review_note=$4,info_request=$5,
+         reviewed_at=now(),reviewed_by=$6,revision=revision+1,updated_at=now()
+       WHERE user_id=$1 AND status='pending' RETURNING user_id,status,revision`,
+      [target, verified ? 'verified' : 'needs_info', verified ? input.method : null, input.note || null,
+        verified ? null : input.reason || 'Cần bổ sung thông tin.', user],
+    )
+    if (!result.rowCount) throw new ManagementError(409, 'Hồ sơ không còn chờ xác minh.')
+    return result.rows[0]
+  })
+
   app.get('/v1/landlord/overview', async request => {
     const user = actor(request)
     const result = await pool.query(
@@ -162,6 +282,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.post('/v1/landlord/properties', async (request, reply) => {
     const user = actor(request)
     const input = PropertyInput.parse(request.body)
+    await requireHostProfile(pool, user)
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -414,6 +535,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
     await member(pool, user, await listingProperty(pool, listingId), true)
+    await requireHostProfile(pool, user)
     const result = await pool.query(
       `UPDATE housing.managed_listings SET publication_status='pending_review',revision=revision+1,updated_at=now()
        WHERE listing_id=$1 AND publication_status IN ('draft','rejected','hidden') RETURNING revision`, [listingId],
@@ -445,6 +567,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const propertyId = Id.parse((request.params as { propertyId: string }).propertyId)
     await notOwnProperty(pool, user, propertyId)
+    const pending = await pool.query(
+      `SELECT user_id FROM housing.management_members WHERE property_id=$1 AND status='pending'`, [propertyId],
+    )
+    await requireVerifiedHosts(pool, pending.rows.map(r => String(r.user_id)))
     const result = await pool.query(
       `UPDATE housing.management_members SET status='active',reviewed_at=now(),reviewed_by=$2,revision=revision+1
        WHERE property_id=$1 AND status='pending'`, [propertyId, user],
@@ -457,9 +583,11 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const properties = await pool.query(
-      `SELECT p.id,p.name,p.property_type,cp.address,mm.user_id,mm.requested_at
+      `SELECT p.id,p.name,p.property_type,cp.address,mm.user_id,mm.requested_at,
+         hp.status AS host_status,hp.display_name AS host_name,hp.poster_type
        FROM housing.management_members mm JOIN housing.properties p ON p.id=mm.property_id
-       JOIN catalog.places cp ON cp.id=p.place_id WHERE mm.status='pending' ORDER BY mm.requested_at`,
+       JOIN catalog.places cp ON cp.id=p.place_id LEFT JOIN housing.host_profiles hp ON hp.user_id=mm.user_id
+       WHERE mm.status='pending' ORDER BY mm.requested_at`,
     )
     const listings = await pool.query(
       `SELECT l.id,l.title,l.description,p.name AS property_name,cp.address,u.unit_code,ml.created_by,ml.updated_at,
@@ -467,14 +595,23 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
          (SELECT count(*)::int FROM housing.listing_fees f WHERE f.listing_id=l.id AND f.valid_to IS NULL) AS fee_count,
          (SELECT coalesce(json_agg(json_build_object('url',m.url,'alt',m.alt_text) ORDER BY m.position),'[]'::json)
             FROM housing.listing_media m WHERE m.listing_id=l.id AND m.moderation_status='pending') AS pending_media,
-         (SELECT mm.status FROM housing.management_members mm WHERE mm.property_id=p.id AND mm.role='owner' LIMIT 1) AS property_status
+         (SELECT mm.status FROM housing.management_members mm WHERE mm.property_id=p.id AND mm.role='owner' LIMIT 1) AS property_status,
+         hp.status AS host_status,hp.display_name AS host_name,hp.poster_type
        FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
+       LEFT JOIN housing.host_profiles hp ON hp.user_id=ml.created_by
        JOIN housing.properties p ON p.id=l.property_id JOIN catalog.places cp ON cp.id=p.place_id
        LEFT JOIN housing.units u ON u.id=l.unit_id
        LEFT JOIN LATERAL (SELECT * FROM housing.offers WHERE listing_id=l.id AND is_active ORDER BY valid_from DESC LIMIT 1) o ON true
        WHERE ml.publication_status='pending_review' ORDER BY ml.updated_at`,
     )
-    return { properties: properties.rows, listings: listings.rows }
+    const hosts = await pool.query(
+      `SELECT hp.user_id,hp.poster_type,hp.display_name,hp.legal_name,hp.phone,hp.broker_license_no,hp.business_name,
+         hp.tax_code,hp.updated_at,
+         (SELECT count(*)::int FROM housing.management_members mm WHERE mm.user_id=hp.user_id AND mm.status='pending') AS pending_properties,
+         (SELECT count(*)::int FROM housing.managed_listings ml WHERE ml.created_by=hp.user_id AND ml.publication_status='pending_review') AS pending_listings
+       FROM housing.host_profiles hp WHERE hp.status='pending' AND hp.user_id <> $1 ORDER BY hp.updated_at`, [user],
+    )
+    return { hosts: hosts.rows, properties: properties.rows, listings: listings.rows }
   })
 
   app.post('/v1/moderation/housing/listings/:listingId/review', async request => {
@@ -484,6 +621,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     await notOwnProperty(pool, user, await listingProperty(pool, listingId))
     const input = z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).parse(request.body)
     const approved = input.decision === 'approve'
+    if (approved) {
+      const author = await pool.query('SELECT created_by FROM housing.managed_listings WHERE listing_id=$1', [listingId])
+      await requireVerifiedHosts(pool, author.rows.map(r => String(r.created_by)))
+    }
     const result = await pool.query(
       `UPDATE housing.managed_listings SET publication_status=$2,reviewed_at=now(),reviewed_by=$3,rejection_reason=$4,
        availability_confirmed_at=CASE WHEN $2='published' THEN now() ELSE availability_confirmed_at END,

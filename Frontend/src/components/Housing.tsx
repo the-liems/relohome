@@ -1,6 +1,7 @@
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
+  BadgeCheck,
   BedDouble,
   Bath,
   Ruler,
@@ -19,6 +20,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { posterLabels } from "../landlord/HostProfile";
 import { api, housePrice, money, requestId, safeUrl } from "../api";
 import type { Data, House } from "../types";
 import { estimateCost, type CostLine, type Usage } from "../housingCost";
@@ -527,6 +529,20 @@ function HousingDecisionTools({ house }: { house: House }) {
       {acceptsContact && (
         <div className="housing-contact-box">
           <h3>{uiText("Gửi yêu cầu liên hệ")}</h3>
+          {house.management?.poster_type && (
+            <p className="housing-poster">
+              <BadgeCheck size={15} aria-hidden="true" />
+              {[
+                house.management.poster_name,
+                uiText(posterLabels[house.management.poster_type]),
+                house.management.host_verified
+                  ? uiText("Người đăng đã được ReloHome xác minh")
+                  : uiText("Người đăng chưa được xác minh"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
           <p>
             {uiText(
               "ReloHome chuyển lời nhắn tới tài khoản quản lý tin. Thông tin liên hệ không được công khai trên tin.",

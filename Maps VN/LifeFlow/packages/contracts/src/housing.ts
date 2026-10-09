@@ -234,6 +234,10 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
     availability_status: z.enum(['vacant', 'rented', 'paused']),
     accepts_contact_requests: z.boolean(),
     availability_confirmed_at: z.iso.datetime().nullable(),
+    // Poster label for tenants; identity fields stay private (host-mode-design §3.4).
+    poster_type: z.enum(['owner', 'manager', 'broker', 'business']).nullable().default(null),
+    poster_name: z.string().nullable().default(null),
+    host_verified: z.boolean().default(false),
   }).nullable().default(null),
 })
 

@@ -11,6 +11,7 @@ Phạm vi phát hành gồm:
 - Tenant: shortlist bền vững, so sánh 2–4 căn, bảng chi phí từ dữ liệu đã biết, kịch bản điện/nước/người/xe, giá/m², câu hỏi cần xác minh và yêu cầu liên hệ.
 - Landlord: quyền quản lý theo địa điểm, CRUD bản nháp, nhiều phòng, giá/phí, media, publish/ẩn/xóa mềm, trạng thái trống, inbox và dashboard số liệu thật.
 - Moderator: duyệt quyền quản lý và tin/ảnh; không đồng nhất với Landlord.
+- Chế độ chủ nhà: một tài khoản chuyển giữa chế độ thuê nhà và chủ nhà; lần đầu khai hồ sơ người đăng (chủ nhà, người được ủy quyền, môi giới, doanh nghiệp). Moderator xác minh người đăng thủ công (pilot) trước khi duyệt địa điểm và tin của họ. Thiết kế: [host-mode-design.md](../review/host-mode-design.md).
 - Analytics: chỉ đếm event thật sau thời điểm bắt đầu thu; không backfill và không tạo số liệu giả.
 
 Ngoài phạm vi: hợp đồng thuê, thu tiền thuê/cọc trong ứng dụng, bảo trì, ERP tòa nhà, dự báo giá, tự động claim tin crawl và LLM cho tính toán/filter.
@@ -52,6 +53,7 @@ Ngoài phạm vi: hợp đồng thuê, thu tiền thuê/cọc trong ứng dụng
 - **SPEC-021/AC-07:** Upload từ browser không cho path traversal/file không phải ảnh/file quá giới hạn.
 - **SPEC-021/AC-08:** Desktop/mobile, keyboard focus, loading/empty/error và contrast được kiểm tra.
 - **SPEC-021/AC-09:** Housing/Moving/Flight/Roommate và auth hiện hữu qua regression.
+- **SPEC-021/AC-10:** Chưa có hồ sơ người đăng thì không tạo được địa điểm; moderator không duyệt được địa điểm hay tin của người đăng chưa xác minh và không tự xác minh hồ sơ của mình; người thuê chỉ thấy tên hiển thị, tư cách đăng tin và trạng thái xác minh (host-mode-design HM-01..08).
 
 ## Lệnh kiểm chứng
 

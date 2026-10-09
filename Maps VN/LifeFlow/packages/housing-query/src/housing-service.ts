@@ -271,9 +271,11 @@ export class HousingQueryService {
         [listingId],
       ),
       this.pool.query(
-        `SELECT publication_status,availability_status,availability_confirmed_at,
-          (publication_status='published' AND availability_status='vacant') AS accepts_contact_requests
-         FROM housing.managed_listings WHERE listing_id=$1`,
+        `SELECT ml.publication_status,ml.availability_status,ml.availability_confirmed_at,
+          (ml.publication_status='published' AND ml.availability_status='vacant') AS accepts_contact_requests,
+          hp.poster_type,hp.display_name AS poster_name,coalesce(hp.status='verified',false) AS host_verified
+         FROM housing.managed_listings ml LEFT JOIN housing.host_profiles hp ON hp.user_id=ml.created_by
+         WHERE ml.listing_id=$1`,
         [listingId],
       ),
     ])
