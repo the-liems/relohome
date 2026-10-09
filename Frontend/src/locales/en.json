@@ -1368,5 +1368,9 @@
   "Tín hiệu hiện không còn đủ ngưỡng; giữ lại để rà soát lịch sử.": "The signal no longer meets the threshold. It is retained for historical review.",
   "Đã rà soát cảnh báo": "Mark alert reviewed",
   "Yêu cầu với chủ nhà đã đóng, đặt lại giờ để gửi lại": "Request to the owner is closed; book again to resend",
-  "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.": "The contact request for this home was closed or cancelled, so the owner no longer holds this time. Pick a time below to send it again."
+  "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.": "The contact request for this home was closed or cancelled, so the owner no longer holds this time. Pick a time below to send it again.",
+  "Chưa gửi được giờ hẹn cho chủ nhà": "Time not yet sent to the owner",
+  "ReloHome chưa gửi được giờ hẹn này tới chủ nhà (hệ thống tạm lỗi). Lịch của bạn vẫn được giữ; bấm gửi lại hoặc thao tác tiếp, ReloHome sẽ thử gửi lại.": "ReloHome could not send this time to the owner yet (temporary error). Your booking is kept; press resend or continue, and ReloHome will try again.",
+  "Gửi lại cho chủ nhà": "Resend to the owner",
+  "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.": "Could not load the owners' answers right now; confirmation states may be out of date."
 }

@@ -36,6 +36,7 @@ const landlordClosed = (landlord: Data) =>
   landlord.viewing_status === "cancelled";
 function statusLabel(item: Data, testVisit: boolean) {
   const landlord = item.landlord;
+  if (landlord?.sync === "failed") return "Chưa gửi được giờ hẹn cho chủ nhà";
   // A closed or withdrawn request stays closed until the tenant books again (review PR #88).
   if (landlord && landlordClosed(landlord))
     return "Yêu cầu với chủ nhà đã đóng, đặt lại giờ để gửi lại";
@@ -386,6 +387,13 @@ export function ViewingPanel({
           </button>
         </section>
       )}
+      {viewing.landlord_unavailable && (
+        <p className="notice amber small" role="status">
+          {uiText(
+            "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.",
+          )}
+        </p>
+      )}
       {(viewing.warnings || []).map((w: Data, i: number) => (
         <p key={i} className="notice amber small">
           {formatUi(WARNING[w.code] || w.code, [
@@ -443,6 +451,20 @@ export function ViewingPanel({
                   ])
                 : ""}
             </p>
+          )}
+          {item.landlord?.sync === "failed" && item.viewing?.slot && (
+            <div className="notice amber small" role="status">
+              {uiText(
+                "ReloHome chưa gửi được giờ hẹn này tới chủ nhà (hệ thống tạm lỗi). Lịch của bạn vẫn được giữ; bấm gửi lại hoặc thao tác tiếp, ReloHome sẽ thử gửi lại.",
+              )}{" "}
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => void post("landlord-retry")}
+              >
+                {uiText("Gửi lại cho chủ nhà")}
+              </button>
+            </div>
           )}
           {item.landlord && landlordClosed(item.landlord) && (
             <p className="notice amber small">

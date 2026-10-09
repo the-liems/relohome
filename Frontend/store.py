@@ -49,6 +49,12 @@ class Store:
                 owner TEXT NOT NULL, id TEXT NOT NULL, thread TEXT NOT NULL,
                 snapshot TEXT NOT NULL, PRIMARY KEY(owner,id)
             );
+            -- A booked viewing time the landlord inbox has not received yet (Platform unreachable).
+            -- Retried only on the tenant's viewing actions; dropped when the booking changes.
+            CREATE TABLE IF NOT EXISTS landlord_sync (
+                owner TEXT NOT NULL, thread TEXT NOT NULL, listing TEXT NOT NULL,
+                slot TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(owner, thread, listing)
+            );
         """)
         self.db.execute("UPDATE runs SET status='unknown' WHERE status='running'")
         self.db.commit()
@@ -89,6 +95,7 @@ class Store:
         with self.db:
             self.db.execute("DELETE FROM messages WHERE thread=?", (thread,))
             self.db.execute("DELETE FROM runs WHERE thread=? AND owner=?", (thread, owner))
+            self.db.execute("DELETE FROM landlord_sync WHERE thread=? AND owner=?", (thread, owner))
             self.db.execute("UPDATE saved SET thread='' WHERE owner=? AND thread=?", (owner, thread))
             self.db.execute("DELETE FROM threads WHERE id=? AND owner=?", (thread, owner))
 

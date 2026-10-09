@@ -439,3 +439,105 @@ async def test_reads_never_reopen_closed_or_cancelled_requests(tmp_path, monkeyp
         # Other steps (e.g. visit, unselect another home) do not resend it either.
         await client.post(f"/web/api/threads/{thread}/viewings/moving-mode", json={"mode": None})
         assert writes == []
+
+
+@pytest.mark.asyncio
+async def test_failed_landlord_send_is_reported_and_retried_only_by_viewing_actions(tmp_path, monkeypatch):
+    """Review PR #88: a booked time the landlord inbox did not receive is reported, kept, and retried on
+    the tenant's next viewing action; reads stay read-only and a changed booking drops the retry."""
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    scheduled = {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": slot}}]}
+    state = {"view": scheduled, "platform": "down", "me": "up", "rows": []}
+    writes = []
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=state["view"])
+        if path.startswith("/api/v1/chat/") and path.endswith("/state"):
+            return httpx.Response(200, json={"viewing": state["view"]})
+        if path.endswith("/housing/contact-requests/me"):
+            if state["me"] == "down":
+                return httpx.Response(503, json={"message": "unavailable"})
+            return httpx.Response(200, json={"items": state["rows"]})
+        writes.append((request.method, path))
+        if state["platform"] == "down":
+            return httpx.Response(503, json={"message": "unavailable"})
+        state["rows"] = [
+            {"id": "r1", "listing_id": listing, "status": "new", "viewing_status": "requested", "viewing_slot": slot}
+        ]
+        return httpx.Response(201, json={"viewing_status": "requested"})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings"
+        booked = await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})
+        assert booked.status_code == 200
+        assert booked.json()["items"][0]["landlord"] == {"sync": "failed"}  # not a silent success
+        # Reads show the pending send but never write.
+        writes.clear()
+        assert (await client.get(url)).json()["items"][0]["landlord"] == {"sync": "failed"}
+        snapshot = (await client.get(f"/web/api/threads/{thread}")).json()
+        assert snapshot["state"]["viewing"]["items"][0]["landlord"] == {"sync": "failed"}
+        assert writes == []
+        # The tenant's next viewing action retries the same booking once the platform is back.
+        state["platform"] = "up"
+        retried = await client.post(url + "/landlord-retry", json={})
+        assert writes == [("PUT", f"/v1/housing/{listing}/viewing")]
+        assert retried.json()["items"][0]["landlord"]["viewing_status"] == "requested"
+        writes.clear()
+        await client.post(url + "/moving-mode", json={"mode": None})
+        assert writes == []  # delivered: nothing left to retry
+
+
+@pytest.mark.asyncio
+async def test_contact_list_outage_is_reported_and_a_changed_booking_drops_the_retry(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    state = {
+        "view": {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": slot}}]},
+        "me": "down",
+    }
+    writes = []
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=state["view"])
+        if path.endswith("/housing/contact-requests/me"):
+            if state["me"] == "down":
+                return httpx.Response(503, json={"message": "unavailable"})
+            return httpx.Response(200, json={"items": []})
+        writes.append((request.method, path))
+        return httpx.Response(201, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "tenant@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings"
+        booked = (await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})).json()
+        assert booked["landlord_unavailable"] is True
+        assert booked["items"][0]["landlord"] == {"sync": "failed"}
+        # The tenant cancels before the platform recovers: the pending send must not reopen it.
+        state["view"] = {"items": [{"listing_id": listing, "status": "selected"}]}
+        state["me"] = "up"
+        await client.post(url + "/cancel", json={"listing_id": listing})
+        assert writes == []

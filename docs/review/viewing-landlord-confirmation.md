@@ -91,6 +91,16 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
 - Giao diện nhắc "không chuyển tiền cọc trước khi xem nhà và gặp chủ nhà" ngay trong khung chat. Không có thông báo
   đẩy; giao diện tải lại tin mỗi 15 giây khi đang mở cuộc trò chuyện.
 
+### Cập nhật theo review PR #88
+
+- **Đọc không ghi:** mở tab Xem nhà hoặc tải hội thoại chỉ hiện câu trả lời của chủ nhà, không gửi gì, nên yêu cầu
+  người thuê đã hủy hoặc chủ nhà đã đóng không bị mở lại. Chỉ thao tác xem nhà mới ghi: gửi đúng căn vừa đặt lịch
+  (kể cả đặt lại sau khi hủy) và rút giờ của căn không còn lịch.
+- **Gửi thất bại không im lặng:** Platform lỗi khi gửi giờ thì gateway lưu "việc gửi đang chờ" (bảng
+  `landlord_sync` trong database gateway), trả `landlord.sync = "failed"`; tab hiện cảnh báo và nút "Gửi lại cho
+  chủ nhà" (`viewings/landlord-retry`). Thao tác xem nhà kế tiếp cũng thử lại. Việc chờ tự bỏ khi người thuê hủy,
+  bỏ chọn hoặc đổi giờ. Không đọc được danh sách yêu cầu thì trả `landlord_unavailable`.
+
 ## 7. Kiểm thử
 
 - Platform (PostGIS thật): gửi giờ, gửi lại không đổi, người khác không trả lời được, từ chối rồi đổi giờ, xác nhận,
