@@ -76,7 +76,8 @@ def main():
                 "--tmpfs",
                 "/tmp",
                 "--tmpfs",
-                "/app/data:uid=10001,gid=10001",
+                # Writable for the non-root user on both Docker and Podman (Podman rejects uid=/gid=).
+                "/app/data:mode=1777",
                 "--cap-drop=ALL",
                 "--security-opt=no-new-privileges:true",
                 f"lifeflow-{service}:{os.environ.get('AGENT_IMAGE_TAG', 'local')}",
