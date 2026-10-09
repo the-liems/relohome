@@ -28,6 +28,7 @@ import {
 } from '@lifeflow/housing-query'
 import Fastify from 'fastify'
 import { z, ZodError } from 'zod'
+import { ManagementError, registerHousingManagement } from './housing-management.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -44,6 +45,7 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const housingService = new HousingQueryService(queries, routeService, config)
   const locationService = new LocationService(queries)
   const placeService = new PlaceService(queries)
+  registerHousingManagement(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
@@ -109,6 +111,9 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   })
 
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ManagementError) {
+      return reply.status(error.status).send({ code: 'HOUSING_MANAGEMENT_ERROR', message: error.message })
+    }
     if (error instanceof OperationError) {
       return reply.status(error.code === 'TIMEOUT' ? 504 : error.code === 'CANCELLED' ? 408 : 503)
         .send({ code: error.code, message: error.message, retryable: error.code !== 'CANCELLED' })

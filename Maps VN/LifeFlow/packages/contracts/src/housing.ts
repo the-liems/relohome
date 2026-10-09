@@ -221,6 +221,20 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
   description: z.string().nullable(),
   images: z.array(z.object({ url: z.url(), alt: z.string().nullable() })),
   extra_attributes: z.record(z.string(), z.unknown()),
+  fees: z.array(z.object({
+    code: z.string(),
+    label: z.string(),
+    amount: z.number().nonnegative().nullable(),
+    billing_unit: z.enum(['month', 'one_time', 'kwh', 'm3', 'person_month', 'vehicle_month']),
+    required: z.boolean(),
+    refundable: z.boolean(),
+  })).default([]),
+  management: z.object({
+    publication_status: z.enum(['draft', 'pending_review', 'published', 'hidden', 'rejected', 'deleted']),
+    availability_status: z.enum(['vacant', 'rented', 'paused']),
+    accepts_contact_requests: z.boolean(),
+    availability_confirmed_at: z.iso.datetime().nullable(),
+  }).nullable().default(null),
 })
 
 export const HousingMapRequestSchema = z.object({

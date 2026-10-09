@@ -259,16 +259,31 @@ export class HousingQueryService {
     const row = rows[0]
     if (!row) throw new NotFoundError(`Housing listing not found: ${listingId}`)
     const result = await this.mapCandidate(row, HousingSearchRequestSchema.parse({}))
-    const media = await this.pool.query(
-      `SELECT url, alt_text FROM housing.listing_media
-       WHERE listing_id = $1 ORDER BY position, id`,
-      [listingId],
-    )
+    const [media, fees, management] = await Promise.all([
+      this.pool.query(
+        `SELECT url, alt_text FROM housing.listing_media
+         WHERE listing_id = $1 AND moderation_status='approved' ORDER BY position, id`,
+        [listingId],
+      ),
+      this.pool.query(
+        `SELECT code,label,amount::float,billing_unit,required,refundable FROM housing.listing_fees
+         WHERE listing_id=$1 AND valid_to IS NULL ORDER BY required DESC,label`,
+        [listingId],
+      ),
+      this.pool.query(
+        `SELECT publication_status,availability_status,availability_confirmed_at,
+          (publication_status='published' AND availability_status='vacant') AS accepts_contact_requests
+         FROM housing.managed_listings WHERE listing_id=$1`,
+        [listingId],
+      ),
+    ])
     return HousingDetailSchema.parse({
       ...result,
       description: row.description,
       images: media.rows.map((image) => ({ url: image.url, alt: image.alt_text })),
       extra_attributes: row.listing_attributes || {},
+      fees: fees.rows,
+      management: management.rows[0] || null,
     })
   }
 
