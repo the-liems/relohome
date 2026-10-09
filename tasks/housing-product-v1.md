@@ -6,7 +6,7 @@
 - [x] HP-04: publication, availability and moderator workflow
 - [x] HP-05: tenant contact request + landlord inbox
 - [x] HP-06: real analytics events + overview counters
-- [ ] HP-07: browser gateway and secure image upload
+- [x] HP-07: browser gateway and secure image upload
 - [ ] HP-08: Tenant cost calculator, shortlist and contact UX
 - [ ] HP-09: Landlord workspace responsive UI
 - [ ] HP-10: Agent/read compatibility, tests and full regression

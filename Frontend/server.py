@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -31,9 +32,23 @@ from src.mcp_servers.flights.schemas import Contact, Passenger
 from src.models.moving_options import MovingOptions
 from src.models.schemas import MovingQuoteForm
 from src.roommate.agent_projection import history_projection
+from src.roommate.access import RoommateError
+from src.roommate.media import sanitized_image
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "siu_session"
+HOUSING_MEDIA = ROOT / "data" / "housing-media"
+HOUSING_MANAGEMENT_PATHS = (
+    re.compile(r"^landlord/(overview|properties|contact-requests)$"),
+    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
+    re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
+    re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide))?$"),
+    re.compile(r"^landlord/contact-requests/[0-9a-f-]+$"),
+    re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events)$"),
+    re.compile(r"^housing/contact-requests/me$"),
+    re.compile(r"^housing/contact-requests/[0-9a-f-]+/cancel$"),
+    re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
+)
 
 
 class Credentials(BaseModel):
@@ -669,6 +684,53 @@ def create_app(database=None, transport=None):
         if resource not in {"housing/map", "routes/entities", "routes/device", "housing/search", "places/map"}:
             raise HTTPException(404)
         return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
+
+    @app.post("/web/api/landlord/listings/{listing_id}/media-upload")
+    async def housing_media_upload(listing_id: str, request: Request, alt: str | None = None):
+        owner = user(request)["id"]
+        if not re.fullmatch(r"[0-9a-f-]{36}", listing_id, re.IGNORECASE):
+            raise HTTPException(404)
+        try:
+            clean = await asyncio.to_thread(sanitized_image, await request.body())
+        except RoommateError as error:
+            raise HTTPException(error.status, "Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB và 16 megapixel.") from None
+        HOUSING_MEDIA.mkdir(parents=True, exist_ok=True)
+        identifier = secrets.token_hex(20)
+        target = HOUSING_MEDIA / f"{identifier}.png"
+        await asyncio.to_thread(target.write_bytes, clean)
+        public_base = os.getenv("SIU_PUBLIC_BASE_URL", str(request.base_url)).rstrip("/")
+        try:
+            result = await upstream(
+                "POST",
+                f"/landlord/listings/{listing_id}/media",
+                owner,
+                {"url": f"{public_base}/web/media/housing/{identifier}.png", "alt": (alt or "").strip()[:300] or None},
+                platform=True,
+            )
+            return JSONResponse(result, status_code=201)
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+
+    @app.get("/web/media/housing/{filename}")
+    async def housing_media(filename: str):
+        if not re.fullmatch(r"[0-9a-f]{40}\.png", filename):
+            raise HTTPException(404)
+        target = (HOUSING_MEDIA / filename).resolve()
+        if not target.is_relative_to(HOUSING_MEDIA.resolve()) or not target.is_file():
+            raise HTTPException(404)
+        return FileResponse(
+            target,
+            media_type="image/png",
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.api_route("/web/api/housing-management/{resource:path}", methods=["GET", "POST", "PATCH", "DELETE"])
+    async def housing_management(resource: str, request: Request):
+        if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
+            raise HTTPException(404)
+        body = None if request.method == "GET" else await object_body(request)
+        return await upstream(request.method, "/" + resource, user(request)["id"], body, platform=True)
 
     @app.get("/web/api/saved")
     async def saved(request: Request):
