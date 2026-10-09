@@ -16,7 +16,7 @@ ui-payment:
 mcp-build:
 	@for s in $(MCP_SERVERS); do \
 		echo "==> build $$s-mcp"; \
-		docker build -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:$(MCP_IMAGE_TAG) . || exit 1; \
+		docker buildx build --load -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:$(MCP_IMAGE_TAG) . || exit 1; \
 	done
 
 mcp-up:

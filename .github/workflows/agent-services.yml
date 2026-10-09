@@ -49,7 +49,7 @@ jobs:
       - name: Create job-local Python environment
         run: bash scripts/setup-ci-python.sh
       - name: Verify runner tools
-        run: bash scripts/check-ci-runner.sh python docker
+        run: bash scripts/check-ci-runner.sh python docker buildx
       - run: pip install -r requirements.txt -r requirements-agents.txt
       - run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
       - run: pytest tests/test_agent_services -q
@@ -61,8 +61,8 @@ jobs:
       - run: npm ci && npm run build --workspace=@lifeflow/contracts
         working-directory: Maps VN/LifeFlow
       - run: node scripts/export-agent-registry.mjs --check
-      - run: docker build -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
-      - run: docker build -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
+      - run: docker buildx build --load -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
+      - run: docker buildx build --load -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
       - run: python scripts/smoke-agent-containers.py
       - name: Remove only this job's containers and images
         if: always()
