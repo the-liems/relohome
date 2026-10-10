@@ -65,6 +65,8 @@ try {
     ['search-bbox', 'search', { bounding_box: bbox }],
     ['search-text', 'search', { text: 'phòng trọ quận 1' }],
     ['search-radius', 'search', radius],
+    ['search-district', 'search', { district: 'Quận 1' }],
+    ['search-district-polygon', 'search', { district: 'Phường Tân Hưng' }],
   ]
   for (const [label, method, input] of benchmarks) {
     const statements = []

@@ -114,7 +114,11 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
       // available; otherwise require an exact normalized-address match.
       // Address comparison ignores the administrative unit-type prefix on both sides
       // ("Hà Đông" = "Quận Hà Đông"); the name itself must still match exactly.
-      `(EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}) AND ST_Covers(a.geom, ${cp}.geom))
+      // Covered listings are found once per query by a spatial join from the few matching areas
+      // (map_points mirrors each active listing's place point), then checked by a hashed lookup,
+      // instead of probing the administrative-area index once per listing.
+      `(l.id IN (SELECT m.id FROM geo.administrative_areas a JOIN housing.map_points m ON ST_Covers(a.geom, m.geom)
+          WHERE lower(a.name) = lower(${district}))
         OR (NOT EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}))
           AND ${DISTRICT_KEY(`${cp}.address->>'district'`)} = ${DISTRICT_KEY(district)}))`,
     )
