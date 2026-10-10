@@ -7,16 +7,20 @@ No GitHub App or deploy key is needed.
 
 ## Files and release flow
 
-- `.github/workflows/ci.yml` contains an explicit matrix of nine ARM64 images.
-  Each entry names its Dockerfile, build context and target. Builds use normal
-  `docker build` and `docker push` commands; they need no runtime credentials.
+- `.github/workflows/ci.yml` coordinates validation and calls
+  `build-application-images.yml`. `config/ci/application-images.json` lists the
+  ten ARM64 application images, their Dockerfiles, contexts and targets.
 - `.github/workflows/deploy-staging.yml` deploys a successful main CI run,
   automatically after CI completes or manually by CI run ID. It never builds images.
+- `.github/workflows/deploy-coolify.yml` shares release selection and submission
+  with the manual **Deploy production** workflow. Neither uses GitHub Environments.
 - `compose.coolify.yaml` is the image-only source of truth for services,
   environment references, health checks, networks and volumes.
-- `scripts/deploy-coolify.py` replaces only `${IMAGE_PREFIX}` and `${RELEASE_TAG}`,
-  saves the resulting Compose file, updates Coolify and
-  submits the deployment request. Other variables are left for Coolify to resolve.
+- `scripts/deploy-coolify.py` sets `${IMAGE_PREFIX}` and `${RELEASE_TAG}`, renders
+  `${DEPLOY_HOST}` from the Service's `APP_URL` and `${DEPLOY_RESOURCE}` from its
+  UUID, then saves Compose and submits the deployment request. All runtime
+  secret references are left for Coolify to resolve. The router name includes
+  the resource UUID so environments can share a proxy without collisions.
 
 The workflow uses each service's Dockerfile:
 
@@ -27,6 +31,7 @@ The workflow uses each service's Dockerfile:
 | `platform`, `location-migrate` | `Maps VN/LifeFlow/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
 | `location` | `Maps VN/LifeFlow/mcp-server/Dockerfile` | `Maps VN/LifeFlow` |
 | `flights-mcp` | `src/mcp_servers/flights/Dockerfile` | Repository root |
+| `payments-mcp` | `src/mcp_servers/payments/Dockerfile` | Repository root |
 | `moving-api`, `moving-mcp`, `moving-migrate` | `Maps VN/LifeFlow/Dockerfile.moving` | `Maps VN/LifeFlow` |
 
 Coolify pulls these images; GitHub Actions builds them. Dockerfiles are shared
@@ -55,7 +60,8 @@ this stack builds its Moving images with the same release tag as the other apps.
 ## Create or reuse the staging Service
 
 1. Open `https://coolify.c4-app-044.io.vn` → **P-044 → staging**.
-2. Create **Docker Compose Empty** on the ARM64 server, or reuse the resource
+2. Create a **Docker Compose** Service on the ARM64 server (the UI may call
+   this **Docker Compose Empty**), or reuse the resource
    already created for this stack. Save the bootstrap definition below, which
    starts PostGIS and a temporary container for preparing the routing volume.
 3. Copy the parent **Service UUID** from the resource URL. Do not use the
@@ -98,15 +104,22 @@ workflow is enabled.
 
 | Setting | Location | Value |
 | --- | --- | --- |
-| `COOLIFY_TOKEN` | Repository secret | Coolify token with `read`, `read:sensitive`, `write`, `deploy` |
-| `COOLIFY_CA_CERT` | Repository secret, optional | Private CA PEM if needed |
-| `COOLIFY_SERVICE_UUID` | Repository variable | Parent Service UUID |
-| `COOLIFY_URL` | Repository variable, optional | Defaults to `https://coolify.c4-app-044.io.vn` |
+| `COOLIFY_STAGING_TOKEN` | Repository secret | Coolify token with `read`, `read:sensitive`, `write`, `deploy` |
+| `COOLIFY_STAGING_SERVICE_UUID` | Repository variable | Parent Service UUID |
+| `COOLIFY_STAGING_URL` | Repository variable | `https://coolify.c4-app-044.io.vn` |
 
 ```sh
-gh secret set COOLIFY_TOKEN
-gh variable set COOLIFY_SERVICE_UUID --body '<service-uuid>'
+gh secret set COOLIFY_STAGING_TOKEN
+gh variable set COOLIFY_STAGING_URL --body https://coolify.c4-app-044.io.vn
+gh variable set COOLIFY_STAGING_SERVICE_UUID --body '<service-uuid>'
 ```
+
+When migrating an existing setup, copy the previous `COOLIFY_URL`,
+`COOLIFY_SERVICE_UUID` and `COOLIFY_TOKEN` settings into the corresponding
+`COOLIFY_STAGING_*` settings **before merging**. There is no fallback to the old
+names. Remove the old settings after the first successful deployment. Custom CA
+configuration has been removed; HTTPS uses the runner's standard trust store.
+An unused legacy CA certificate secret can be deleted from GitHub.
 
 Create the API token while the Coolify team that owns **P-044** is selected.
 The workflow needs all four listed abilities: it reads Compose and resolved
@@ -136,7 +149,7 @@ the first CD run, even while the resource contains only the bootstrap services:
 | Variables | Purpose |
 | --- | --- |
 | `OPENAI_API_KEY`, `AGENT_MODEL` | LLM credentials and model selection |
-| `AGENT_API_TOKEN`, `LOCATION_MCP_AUTH_TOKEN`, `MOVING_MCP_AUTH_TOKEN` | Independent internal service tokens |
+| `AGENT_API_TOKEN`, `LOCATION_MCP_AUTH_TOKEN`, `MOVING_MCP_AUTH_TOKEN`, `FLIGHT_MCP_AUTH_TOKEN`, `PAYMENT_MCP_AUTH_TOKEN` | Independent internal service tokens |
 | `POSTGRES_ADMIN_PASSWORD`, `POSTGRES_APP_PASSWORD`, `POSTGRES_INGEST_PASSWORD` | Separate Location database roles |
 | `MOVING_DB_ADMIN_PASSWORD`, `MOVING_DB_APP_PASSWORD` | Separate Moving database roles; use URL-safe passwords |
 | `FLIGHT_SERPAPI_API_KEY` | Flight search |
@@ -144,15 +157,18 @@ the first CD run, even while the resource contains only the bootstrap services:
 | Both `AHAMOVE_API_KEY` and `AHAMOVE_MOBILE`, or `AHAMOVE_USER_TOKEN` | AhaMove staging; CD requires one complete credential form before restarting |
 | `AHAMOVE_WEBHOOK_SECRET` | Moving API authentication |
 | `MOVING_QUOTE_CONTACT_NAME`, `MOVING_QUOTE_CONTACT_MOBILE` | Authorized quote contact |
-| `APP_URL` | Public staging URL |
+| `APP_URL` | Required HTTPS public origin, e.g. `https://staging.c4-app-044.io.vn`; no path or trailing slash |
 
 `AGENT_MODEL` is an optional Coolify setting, defaulting to `gpt-6-luna`.
 Compose uses it to populate the seven service-specific `AGENT_*_MODEL` variables
 that the backend reads.
 
 Database names and role names have configurable defaults in Compose. Generate
-independent internal secrets with `openssl rand -hex 32`. Runtime writes remain
-disabled in this staging definition.
+independent internal secrets with `openssl rand -hex 32`. Agent and AhaMove
+transaction writes remain disabled; in-app sandbox checkout is described below.
+Optional `AHAMOVE_ENV`, `AHAMOVE_BASE_URL` and `AHAMOVE_PRODUCTION_ENABLED` are
+specific to each Coolify Service. Leave the defaults for staging. The payment
+service retains the fixed ZaloPay sandbox endpoint required by checkout.
 
 ### In-app payment for the team test phase
 
@@ -270,18 +286,18 @@ Once CD creates the `web` component, set only its domain, for example
 `https://staging.c4-app-044.io.vn:8503`. The port tells the proxy where the web
 container listens; browsers use HTTPS 443. Configure DNS to reach that server.
 Save the domain and restart the Service in Coolify to apply its proxy routing.
-Leave the other components private. Payment runs as the backend's stdio child.
+Leave the other components private, including the standalone `payments-mcp` service.
 
 The `web` labels block `/health` and FastAPI's `/docs`, `/redoc` and
 `/openapi.json` at the proxy for that domain; they return 418. Docker's
-healthcheck calls the container directly and is unaffected. The domain is written
-literally because Coolify escapes `$` in labels, so update the rule if the domain
-changes.
+healthcheck calls the container directly and is unaffected. CD renders the rule
+from `APP_URL` before submission because Coolify escapes `$` in labels. Keep
+`APP_URL` and the web domain aligned and rerun CD when changing the domain.
 
 ## Automatic deployment
 
 Once the GitHub settings, Coolify resource, runtime values and data are ready,
-merge the workflows. **CI** tests, builds and publishes all nine application
+merge the workflows. **CI** tests, builds and publishes all ten application
 images. Its successful completion on `main` triggers **Deploy staging** through
 `workflow_run`. Failed CI runs and PR runs cannot deploy. The deploy workflow
 checks the source run's workflow, repository, branch, event and successful status
@@ -372,11 +388,14 @@ gh workflow run deploy-staging.yml --ref main -f ci_run_id=123456789
 ```
 
 The ID must identify this repository's successful main **CI** run, not a deployment
-run or another workflow. All nine published images must still exist in GHCR.
+run or another workflow. All ten published images must still exist in GHCR.
 Re-enabling the workflow does not itself deploy releases built while it was
 paused; select a run manually or wait for a new successful main CI run.
 
 Manual selection can redeploy an older release and its original Compose file.
+Releases from before environment-aware Compose retain their original staging
+hostname/router; use them only for staging rollback and review routing when
+production shares that proxy. Production rejects these older definitions.
 New automatic releases can subsequently replace it; coordinate a rollback with
 incoming main builds. To hold an older release, disable the deployment workflow
 after its manual submission and check for already queued deployment runs.
@@ -398,6 +417,18 @@ ID, or save a retained `coolify-release.yaml` to the same Service and deploy it
 in Coolify. Retain its GHCR images and back up persistent volumes. Redeploying
 old images does not reverse schema migrations or restore old volume contents.
 
-The workflow automates staging only. Production will promote selected release
-images with production configuration in its own environment/resource. Staging
-and production may share or use different Coolify instances and servers.
+[Production deployment](../production/README.md) promotes a selected CI release
+manually, using its own repository settings and Coolify Service. Staging and
+production may share or use different Coolify instances and servers.
+
+## Public domain and failed-deployment artifacts
+
+Keep the web domain configured in Coolify identical to the `APP_URL` origin.
+Additional aliases are not covered by the custom health/docs blocking router;
+do not add them without extending that rule. CD rejects an `APP_URL` with a
+trailing slash to keep the payment redirect URL valid.
+
+If submission fails before the hostname can be resolved, the saved Compose
+artifact is diagnostic and still contains `${DEPLOY_HOST}`. Do not deploy that
+file manually. Fix the reported setting and rerun CD to generate the fully
+rendered definition. Runtime secrets remain variable references in both files.

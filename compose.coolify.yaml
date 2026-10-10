@@ -1,4 +1,4 @@
-# Image-only Coolify definition. CD replaces IMAGE_PREFIX and RELEASE_TAG.
+# Image-only Coolify definition. CD sets image tags and the public proxy rule.
 # All other variable references are resolved by Coolify. Only web gets a domain.
 x-app: &app
   init: true
@@ -25,15 +25,15 @@ x-location: &location-env
   OSRM_DANANG_MOTORCYCLE_URL: http://danang-motorcycle:5000
 
 x-moving: &moving-env
-  AHAMOVE_ENV: staging
-  AHAMOVE_BASE_URL: https://partner-apistg.ahamove.com/v3
+  AHAMOVE_ENV: ${AHAMOVE_ENV:-staging}
+  AHAMOVE_BASE_URL: ${AHAMOVE_BASE_URL:-https://partner-apistg.ahamove.com/v3}
   # CD requires either the user token or both API key and mobile before restart.
   AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
   AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
   AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
   AHAMOVE_WRITE_ENABLED: "false"
   AHAMOVE_RATING_ENABLED: "false"
-  AHAMOVE_PRODUCTION_ENABLED: "false"
+  AHAMOVE_PRODUCTION_ENABLED: ${AHAMOVE_PRODUCTION_ENABLED:-false}
   # Passwords embedded in URLs must be URL-safe (use 32 random hex bytes).
   MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
 
@@ -84,12 +84,13 @@ services:
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
     # healthcheck calls the container directly. Coolify escapes $ in labels, so the
-    # host is literal here.
+    # deployment script renders the host from Coolify APP_URL before submission.
+    # Resource-specific router names allow environments to share a proxy.
     labels:
-      - traefik.http.routers.p044-internal.rule=Host(`staging.c4-app-044.io.vn`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
-      - traefik.http.routers.p044-internal.entrypoints=https
-      - traefik.http.routers.p044-internal.tls=true
-      - traefik.http.routers.p044-internal.service=noop@internal
+      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule=Host(`${DEPLOY_HOST}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.entrypoints=https
+      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.tls=true
+      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.service=noop@internal
     depends_on:
       backend: {condition: service_healthy}
       platform: {condition: service_healthy}
@@ -120,7 +121,7 @@ services:
       LOCATION_MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
       MOVING_MCP_URL: http://moving-mcp:4400/mcp
       MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
-      MOVING_ENVIRONMENT: staging
+      MOVING_ENVIRONMENT: ${AHAMOVE_ENV:-staging}
       MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
       MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
       FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
@@ -177,7 +178,7 @@ services:
       PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
       PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
       PAYMENT_DB_PATH: /app/data/payments.db
-      PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
+      PAYMENT_REDIRECT_URL: ${APP_URL:?}/
     volumes: [payments-data:/app/data]
 
   postgis:

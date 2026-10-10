@@ -13,6 +13,7 @@ import ssl
 import subprocess
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 import yaml
@@ -43,7 +44,10 @@ def deploy(compose_path, output):
     if not re.fullmatch(r"[A-Za-z0-9_-]+", resource):
         raise ValueError("Set a valid Coolify Service UUID")
     content = render(Path(compose_path).read_text(), os.environ["IMAGE_PREFIX"], tag)
+    content = content.replace("${DEPLOY_RESOURCE}", resource)
     Path(output).write_text(content)
+    if os.environ.get("DEPLOYMENT_ENVIRONMENT") == "production" and "${DEPLOY_HOST}" not in content:
+        raise ValueError("Production requires a CI release with environment-aware Compose; older releases target staging")
     definition = yaml.safe_load(content)
     if not token:
         raise ValueError("Set the Coolify API token")
@@ -55,8 +59,6 @@ def deploy(compose_path, output):
         except (OSError, subprocess.SubprocessError):
             raise RuntimeError(f"Cannot read image manifest for {image}; check the tag and registry access") from None
     context = ssl.create_default_context()
-    if os.environ.get("COOLIFY_CA_CERT"):
-        context.load_verify_locations(cadata=os.environ["COOLIFY_CA_CERT"])
 
     def request(path, method="GET", body=None):
         headers = {"Authorization": "Bearer " + token, "Accept": "application/json"}
@@ -71,11 +73,26 @@ def deploy(compose_path, output):
         except HTTPError as error:
             raise RuntimeError(f"Coolify {method} {path} returned HTTP {error.code}") from None
         except URLError:
-            raise RuntimeError("Cannot reach Coolify with verified TLS; check runner network and CA") from None
+            raise RuntimeError("Cannot reach Coolify with verified TLS; check runner network and server certificate") from None
+
+    def fetch_values():
+        variables = request("/services/" + resource + "/envs")
+        return {item["key"]: item.get("real_value", item.get("value")) for item in variables}
 
     current = request("/services/" + resource)
     if "docker_compose_raw" not in current:
         raise RuntimeError("Coolify token needs read:sensitive to verify Compose; enable that ability before release")
+    # Coolify escapes label interpolation. Render only the public host and a
+    # resource-specific router name here; runtime secrets stay as references.
+    if "${DEPLOY_HOST}" in content:
+        values = fetch_values()
+        raw_app_url = values.get("APP_URL") or ""
+        app_url = https_url(raw_app_url, "Coolify APP_URL")
+        if raw_app_url != app_url:
+            raise ValueError("Coolify APP_URL must not have a trailing slash")
+        content = content.replace("${DEPLOY_HOST}", urlsplit(app_url).hostname)
+        definition = yaml.safe_load(content)
+    Path(output).write_text(content)
     request("/services/" + resource, "PATCH", {"docker_compose_raw": base64.b64encode(content.encode()).decode()})
     saved = request("/services/" + resource)
     parsed = yaml.safe_load(saved.get("docker_compose_raw", ""))
@@ -84,8 +101,8 @@ def deploy(compose_path, output):
     # New required variables must be supplied before starting this release.
     # Read values only to check presence; never print or persist runtime secrets.
     required = set(re.findall(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*):\?[^}]*\}", content))
-    variables = request("/services/" + resource + "/envs")
-    values = {item["key"]: item.get("real_value", item.get("value")) for item in variables}
+    # Re-fetch after PATCH: Coolify may have created variables from new Compose references.
+    values = fetch_values()
     missing = sorted(key for key in required if not values.get(key))
     if missing:
         raise RuntimeError("Set required Coolify variables before deployment: " + ", ".join(missing))

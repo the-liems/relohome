@@ -7,6 +7,8 @@ run on Linux x64 or ARM64 with the required tools. Application release builds in
 When adding x64 capacity, retain available ARM64 capacity for release builds.
 MCP and agent smoke builds use the Docker engine's native architecture; a remote
 engine may differ from its runner host.
+**Deploy staging** and **Deploy production** call the shared `deploy-coolify.yml`
+submission workflow.
 Agent and Map workflows also watch the shared runner preflight; Moving change
 detection requests validation when it changes. Agent CI watches the Python
 environment helper too.
@@ -41,7 +43,7 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | Jobs | Required tools |
 | --- | --- |
 | Every job | Bash and Git |
-| Python CI, agent services, map data, MVP, staging deployment | Python 3.11 and pip, provided by `actions/setup-python` |
+| Python CI, agent services, map data, MVP, Coolify deployment | Python 3.11 and pip, provided by `actions/setup-python` |
 | Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
 | MVP | Node.js 22 and npm (existing workspace validation version) |
 | Application images, PostGIS, MCP images, agent services, Moving validation/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
@@ -49,18 +51,18 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
 | Application image publisher | Docker Buildx |
 | Moving validation/staging | OpenSSL and Docker Compose >= 2.24.4 (`!override` ports) |
-| Staging deployment | Docker CLI with `docker manifest inspect`; no Docker daemon needed |
+| Coolify deployment | Docker CLI with `docker manifest inspect`; no Docker daemon needed |
 
 `scripts/check-ci-runner.sh` checks tools inside jobs before expensive work.
 The setup actions verify language runtimes; job logs record actual versions
 and Docker access. The runner also needs outbound access to GitHub Actions,
 language package registries, Docker Hub, and GHCR for publishing or deployment
-manifest checks. Staging deployment also needs outbound HTTPS access to
-`COOLIFY_URL` and a trusted certificate chain. Set the repository secret
-`COOLIFY_CA_CERT` to the private CA PEM if that instance requires one.
+manifest checks. Coolify deployment also needs outbound HTTPS access to
+`COOLIFY_STAGING_URL` / `COOLIFY_PRODUCTION_URL` and a certificate chain trusted
+by the runner's standard trust store. CD has no custom CA secret or insecure TLS option.
 The deployment selector uses Node 24 bundled with `actions/github-script@v8`
 (requires runner >= 2.327.1); the Python tests use Node 24 explicitly installed by
-`actions/setup-node`. Most jobs have a 30-minute execution timeout; staging
+`actions/setup-node`. Most jobs have a 30-minute execution timeout; Coolify
 deployment uses 10 minutes and the PostGIS build uses 40.
 Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
@@ -119,7 +121,7 @@ pending. This PR does not change repository protection settings.
 
 ## Disposable resources
 
-- Staging deployment logs into GHCR with the job's `GITHUB_TOKEN` and
+- Coolify deployment logs into GHCR with the job's `GITHUB_TOKEN` and
   `packages: read`, using a temporary `DOCKER_CONFIG` under `RUNNER_TEMP`.
   The token needs pull access to the selected private packages; grant this
   repository access in each package's Actions access settings where needed.
