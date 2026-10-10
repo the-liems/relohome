@@ -94,6 +94,14 @@ Trong lượt kiểm tra này đã đồng bộ `origin/QuangDung` đến `fc82a
 022 trên DB local và chạy 3 test tích hợp map_points thành công, gồm test kết nối
 mới có search_path cố định. Chạy lại 34 test chuẩn hóa và 2 subtest đều qua.
 
+Sau đó nhóm push tiếp đến `46730bb` (PR #92/CI/MCP và tối ưu truy vấn district).
+Đã merge giữ nguyên các commit đó, build toàn bộ LifeFlow qua; regression Housing
+trên DB test riêng: **45 qua, 9 POI opt-in giữ skipped**. Test MCP auth TypeScript:
+20 qua; Python dedicated MCP/auth: 26 qua. Lượt chạy Housing trên DB ứng dụng bị
+trùng ID fixture `district_7_test`, nên chuyển sang DB test có sẵn; không sửa/xóa
+record của ứng dụng để làm test qua. Đây không phải kiểm chứng end-to-end toàn
+bộ các dịch vụ sau cập nhật mới.
+
 Đầu ra bàn giao dự kiến: `data/housing-handoff/final/01-before-standardization.jsonl`
 và `02-after-standardization.jsonl`, kèm manifest/README và ZIP. Chỉ phát hành bản
 đầy đủ khi `pending()` kiểm cả số nhà **và policy lookup của đường** bằng 0.
