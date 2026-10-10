@@ -138,11 +138,8 @@ pip install -r requirements.txt    # đã có mcp[cli] và langchain-mcp-adapter
 Luôn chạy từ **thư mục gốc dự án** để Python tìm thấy package `src` và đọc được file `.env`.
 
 ```bash
-# HTTP service (default)
+# HTTP service (default), tại http://127.0.0.1:8765/mcp
 python -m src.mcp_servers.flights
-
-# Streamable HTTP tại http://127.0.0.1:8765/mcp
-python -m src.mcp_servers.flights --transport streamable-http
 ```
 
 ### Chạy bằng Docker

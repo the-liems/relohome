@@ -22,9 +22,16 @@ service/client pair in sync when rotating secrets.
 
 ## Existing staging data
 
-This change prepares deployment configuration; it does not deploy or migrate data.
-For an existing installation, migrate Payment's SQLite database before starting
-the new release. Otherwise existing payment references will point to an empty DB.
+Merging this PR triggers staging deployment after successful main CI.
+Complete these prerequisites before merging: configure separate Flight and Payment
+tokens, validate the existing Location and Moving tokens against the internal
+authentication contract, and prepare the Payment database migration. A configured
+Moving write token must be valid and distinct from its read token.
+
+For an existing installation, preserve Payment's SQLite database before the
+automatic rollout starts. Otherwise existing checkout records will reference
+payment IDs that the new service cannot find. An empty database is only appropriate
+if the staging owner explicitly accepts losing access to the existing payment history.
 
 1. Stop the old backend and keep it stopped while copying payment state. Back up
    `agent-data`, including `payments.db` and any `payments.db-wal`/`payments.db-shm`
@@ -33,10 +40,14 @@ the new release. Otherwise existing payment references will point to an empty DB
 2. Create the release's `payments-data` volume. Copy the backed-up `payments.db`
    into its root; set the volume directory and database ownership to UID/GID 10001
    (the existing `mcp` service user). Do not copy unrelated agent state or secrets.
-3. Set the two service tokens, then start the new Payment service. Verify its
-   `/health` reports `provider=zalopay`, `environment=sandbox`, `simulation=false`.
-4. Start the backend with `PAYMENT_MCP_URL=http://payments-mcp:8766/mcp`. Verify an
-   existing owned payment can be read before accepting new checkout requests.
+3. Before merging, set the two new service tokens and validate Location/Moving
+   tokens. Keep the old backend stopped after taking the final database backup.
+   Confirm the target volume is the exact volume Coolify will attach to Payment.
+   Then merge; successful main CI automatically deploys the new stack. Verify
+   Payment `/health` reports `provider=zalopay`, `environment=sandbox`, `simulation=false`.
+4. The backend starts after Payment becomes healthy, with
+   `PAYMENT_MCP_URL=http://payments-mcp:8766/mcp`. Verify an existing owned payment
+   can be read before accepting new checkout requests.
    Preserve the original backup for rollback; do not run old and new payment
    writers concurrently. A rollback after new payments requires backing up the
    new Payment database and returning that current state to the old location.

@@ -137,7 +137,7 @@ with st.sidebar:
 
     st.divider()
     st.subheader("🔌 Kiểm tra kết nối")
-    if st.button("Kiểm tra ngay", width="stretch", disabled=False):
+    if st.button("Kiểm tra ngay", width="stretch"):
         with st.spinner("Đang handshake với MCP server..."):
             try:
                 st.session_state.server_info[mode] = inspect_server(mode)
@@ -252,7 +252,7 @@ with tab_search:
         max_results = c2.slider("Số kết quả tối đa", 1, 20, 8)
         nonstop = c3.checkbox("Chỉ bay thẳng", value=False)
         submitted = st.form_submit_button(
-            f"🔎 Tìm chuyến ({MODE_NAMES[mode]})", type="primary", disabled=False
+            f"🔎 Tìm chuyến ({MODE_NAMES[mode]})", type="primary"
         )
 
     if submitted:
