@@ -1,13 +1,15 @@
+import pytest
 from starlette.testclient import TestClient
 
 from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import SERVER_NAME, create_server
 from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices
+from tests.mcp_http import TEST_MCP_TOKEN
 
 
 def test_health_route_reports_provider(services: FlightServices, settings: FlightSettings) -> None:
-    client = TestClient(create_server(services, settings=settings).streamable_http_app())
+    client = TestClient(create_server(services, settings=settings.model_copy(update={"mcp_auth_token": TEST_MCP_TOKEN})).streamable_http_app())
 
     response = client.get("/health")
 
@@ -39,7 +41,8 @@ def test_agent_uses_http_when_url_is_set(monkeypatch) -> None:
     }
 
 
-def test_agent_uses_stdio_by_default(monkeypatch) -> None:
+def test_agent_requires_service_url(monkeypatch) -> None:
     monkeypatch.delenv("FLIGHT_MCP_URL", raising=False)
 
-    assert flight_mcp.flight_server_connection()["transport"] == "stdio"
+    with pytest.raises(ValueError, match="FLIGHT_MCP_URL"):
+        flight_mcp.flight_server_connection()

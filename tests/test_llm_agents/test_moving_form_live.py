@@ -48,9 +48,7 @@ async def runtime(tmp_path):
         agent_sandbox_payments_enabled=False,
         agent_allow_simulated_transactions=False,
         payment_simulation_enabled=False,
-        flight_mcp_stdio=False,
         flight_mcp_url="",
-        payment_mcp_stdio=False,
         payment_mcp_url="",
     )
     assert settings.moving_environment == "staging"

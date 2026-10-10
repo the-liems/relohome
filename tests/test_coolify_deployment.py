@@ -230,7 +230,14 @@ class RepositoryContractTests(unittest.TestCase):
         backend = self.compose["services"]["backend"]["environment"]
         self.assertNotEqual(backend["APP_ENV"], "production")
         self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
-        self.assertEqual(backend["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
+        payment = self.compose["services"]["payments-mcp"]
+        self.assertEqual(payment["environment"]["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
+        self.assertEqual(backend["PAYMENT_MCP_URL"], "http://payments-mcp:8766/mcp")
+        self.assertNotIn("PAYMENT_ZALOPAY_KEY1", backend)
+        self.assertNotIn("PAYMENT_ZALOPAY_KEY2", backend)
+        self.assertNotIn("PAYMENT_MCP_STDIO", backend)
+        self.assertNotIn("ports", payment)
+        self.assertEqual(payment["volumes"], ["payments-data:/app/data"])
         self.assertEqual(backend["HOUSING_VIEWING_ENABLED"], "true")
         # Simulated booking tools stay on the internal network.
         flights = self.compose["services"]["flights-mcp"]

@@ -17,7 +17,8 @@
     "@lifeflow/housing-query": "0.1.0",
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.1.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@lifeflow/mcp-core": "0.1.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.1.0",

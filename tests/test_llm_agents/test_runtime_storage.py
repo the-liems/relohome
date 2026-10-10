@@ -44,7 +44,7 @@ async def test_real_runtime_checkpoint_survives_restart(tmp_path):
     from src.services.adapters.registry import ServiceSettings
 
     settings = ServiceSettings(
-        agent_state_dir=str(tmp_path), location_mcp_url="", moving_mcp_url="", flight_mcp_stdio=False, flight_mcp_url=""
+        agent_state_dir=str(tmp_path), location_mcp_url="", moving_mcp_url="", flight_mcp_url=""
     )
     service = await AgentService.open(settings)
     try:

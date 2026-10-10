@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -18,8 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 
@@ -36,19 +33,17 @@ class ToolCallError(Exception):
 
 @dataclass(frozen=True)
 class McpEndpoint:
-    """Một endpoint MCP. `url` = Streamable HTTP; `stdio_module` = chạy `python -m <module>` (dev/test)."""
+    """Dedicated service endpoint using MCP Streamable HTTP."""
 
     service: str
     allowed_tools: frozenset[str]
     url: str | None = None
     token: str | None = field(default=None, repr=False)
-    stdio_module: str | None = None
-    stdio_env: dict[str, str] = field(default_factory=dict, repr=False)
     timeout_s: float = 30.0
 
     @property
     def configured(self) -> bool:
-        return bool(self.url or self.stdio_module)
+        return bool(self.url)
 
 
 def unwrap(result: CallToolResult) -> Any:
@@ -104,6 +99,16 @@ def _retryable(message: str) -> bool:
     return any(k in text for k in ("timeout", "timed out", "unavailable", "rate limit", "temporar", "503", "502"))
 
 
+def _auth_failure(exc: BaseException) -> int | None:
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403):
+        return exc.response.status_code
+    if isinstance(exc, BaseExceptionGroup):
+        for child in exc.exceptions:
+            if status := _auth_failure(child):
+                return status
+    return None
+
+
 class McpToolClient:
     def __init__(self, endpoint: McpEndpoint):
         self.endpoint = endpoint
@@ -118,45 +123,12 @@ class McpToolClient:
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         yield session
-        elif ep.stdio_module:
-            # Do not give a Flight/Payment child the AI key, DB admin password,
-            # or credentials for other providers through the inherited environment.
-            inherited = os.environ
-            if ep.service in {"flight", "payment"}:
-                prefixes = ("FLIGHT_",) if ep.service == "flight" else ("PAYMENT_",)
-                system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "COMSPEC", "PATHEXT", "PYTHONPATH", "PYTHONIOENCODING"}
-                inherited = {k: v for k, v in os.environ.items() if k.upper() in system_keys or k.startswith(prefixes)}
-            params = StdioServerParameters(
-                command=sys.executable,
-                args=["-m", ep.stdio_module],
-                cwd=str(PROJECT_ROOT),
-                env={**inherited, **ep.stdio_env},
-            )
-            async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
-                await session.initialize()
-                yield session
         else:
             raise ToolCallError("not_configured", f"MCP endpoint for {ep.service} is not configured", transport=True)
 
     async def call(self, tool: str, arguments: dict[str, Any]) -> Any:
         if tool not in self.endpoint.allowed_tools:
             raise ToolCallError("tool_not_allowed", f"{self.endpoint.service}.{tool} is not in the allowlist")
-        if (
-            tool == "search_airports"
-            and self.endpoint.service == "flight"
-            and not self.endpoint.url
-            and self.endpoint.stdio_module == "src.mcp_servers.flights"
-        ):
-            # Only the bundled local Flight implementation can use its own
-            # catalog. Remote endpoints/custom servers must remain authoritative.
-            from pydantic import ValidationError
-
-            from src.mcp_servers.flights.catalog import local_airport_lookup
-
-            try:
-                return local_airport_lookup(arguments)
-            except ValidationError as exc:
-                raise ToolCallError("INVALID_REQUEST", "Invalid airport lookup arguments") from exc
         sent = False
         try:
             async with asyncio.timeout(self.endpoint.timeout_s):
@@ -171,6 +143,11 @@ class McpToolClient:
                 "timeout", f"{self.endpoint.service}.{tool} timed out", retryable=True, transport=not sent
             ) from exc
         except Exception as exc:  # lỗi kết nối nằm trong ExceptionGroup của anyio
+            if status := _auth_failure(exc):
+                raise ToolCallError(
+                    "UNAUTHORIZED" if status == 401 else "FORBIDDEN",
+                    f"{self.endpoint.service} rejected MCP access",
+                ) from exc
             raise ToolCallError(
                 "unavailable",
                 f"{self.endpoint.service} unreachable: {type(exc).__name__}",

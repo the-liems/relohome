@@ -128,11 +128,11 @@ jobs:
       - name: Run portable workspace tests
         env:
           NODE_OPTIONS: --max-old-space-size=512
-        run: npm run test:ci
+        run: npm run test:ci && npm exec --workspace @lifeflow/mcp-server -- vitest run tests/mcp-http.integration.test.ts
 
   application-images:
     needs: [lint-and-test, mcp-images, lifeflow-typescript]
-    runs-on: [self-hosted, linux, team-44]
+    runs-on: [self-hosted, linux, ARM64, team-44]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -148,10 +148,13 @@ jobs:
           - {service: location, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/mcp-server/Dockerfile', target: ''}
           - {service: location-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/platform-api/Dockerfile', target: 'location-migrate'}
           - {service: flights-mcp, context: ., dockerfile: src/mcp_servers/flights/Dockerfile, target: ''}
+          - {service: payments-mcp, context: ., dockerfile: src/mcp_servers/payments/Dockerfile, target: ''}
           - {service: moving-api, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-api}
           - {service: moving-mcp, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-mcp}
           - {service: moving-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-migrate}
     steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
       - uses: actions/checkout@v4
       - name: Set image prefix and isolate registry credentials
         run: |

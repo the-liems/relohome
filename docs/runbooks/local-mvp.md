@@ -13,6 +13,12 @@ Housing/Map đọc snapshot thật của nhóm; Flight tìm bằng SerpApi;
 Moving gọi AhaMove staging; trang thanh toán gọi ZaloPay sandbox thật.
 Không dùng kết quả giả khi provider lỗi. API thiếu cấu hình thì không hứa có chức năng đó.
 
+Flight and Payment run as dedicated HTTP services. The agent uses `FLIGHT_MCP_URL`
+and `PAYMENT_MCP_URL` and never launches a provider process. Configure provider
+credentials on their services; `FLIGHT_MCP_AUTH_TOKEN` and `PAYMENT_MCP_AUTH_TOKEN` are shared
+only with the corresponding client. Missing URLs leave those domains unconfigured.
+The old `*_MCP_STDIO` flags no longer enable a transport.
+
 ## Tổ chức thư mục
 
 | Nơi | Trách nhiệm |
@@ -57,7 +63,7 @@ Sau khi đã có cấu hình, DB và build TypeScript/UI, chạy từ gốc repo
 ```
 
 Script khởi động các container local **đã tồn tại**, kiểm tra schema bằng tài khoản
-ứng dụng, rồi mở sáu service ẩn với log riêng trong `data/local-mvp-logs/`.
+ứng dụng, rồi mở tám service ẩn với log riêng trong `data/local-mvp-logs/`.
 Không restore, không tự migrate, không reset DB hay bật giao dịch sandbox.
 Nếu service thoát hoặc chưa ready, script dừng và chỉ rõ đường dẫn log; không báo
 thành công chỉ vì `Start-Process` đã chạy. Nếu thiếu container, dùng các lệnh
@@ -81,6 +87,8 @@ khó biết service nào thoát sớm.
 | Platform/Housing | 4100 | `/health` và preflight schema |
 | Moving MCP | 4400 | `/ready` |
 | Moving API | 4200 | `/ready` |
+| Flight MCP | 8765 | `/health` |
+| Payment MCP | 8766 | `/health` |
 | Graph API | 8000 | `/health` |
 | Frontend gateway | 8503 | `/health` (`service=siu-web`) |
 
@@ -105,6 +113,8 @@ Mở từng terminal riêng (Ctrl+C dừng đúng process):
 .venv/Scripts/python.exe scripts/local-integration.py platform
 .venv/Scripts/python.exe scripts/local-integration.py moving
 .venv/Scripts/python.exe scripts/local-integration.py moving-api
+.venv/Scripts/python.exe scripts/local-integration.py flight
+.venv/Scripts/python.exe scripts/local-integration.py payment
 .venv/Scripts/python.exe scripts/local-integration.py api
 .venv/Scripts/python.exe scripts/local-integration.py ui
 ```

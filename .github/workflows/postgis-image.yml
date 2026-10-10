@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-publish:
-    runs-on: [self-hosted, linux, team-44]
+    runs-on: [self-hosted, linux, ARM64, team-44]
     timeout-minutes: 40
     permissions:
       contents: read
@@ -41,6 +41,8 @@ jobs:
       VARIANT: ${{ matrix.variant }}
       UPSTREAM_DIRECTORY: ${{ matrix.directory }}
     steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
       - name: Prepare image tag and temporary registry login
         run: |
           echo "IMAGE_TAG=ghcr.io/${GITHUB_REPOSITORY,,}/postgis:$VARIANT-$UPSTREAM_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"

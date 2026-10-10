@@ -18,6 +18,9 @@ Tài liệu liên quan:
 source .venv/bin/activate
 pip install -r requirements.txt
 pytest tests/test_mcp_payments -q
+export PAYMENT_MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
+# Start in a separate terminal with the same token; leave it running:
+PAYMENT_PROVIDER=mock python -m src.mcp_servers.payments
 make ui-payment            # giao diện demo tại http://localhost:8502
 ```
 
@@ -54,6 +57,7 @@ src/mcp_servers/payments/
 | `PAYMENT_EXPIRE_MINUTES` | `15` | Hạn thanh toán của một đơn |
 | `PAYMENT_RETENTION_DAYS` | `30` | Xóa bản ghi cũ hơn số ngày này |
 | `PAYMENT_DB_PATH` | `./data/payments.db` | File SQLite |
+| `MCP_AUTH_TOKEN` | required | Service bearer token, at least 32 ASCII token characters; clients use `PAYMENT_MCP_AUTH_TOKEN` |
 | `PAYMENT_MCP_HOST`, `PAYMENT_MCP_PORT` | `127.0.0.1`, `8766` | Khi chạy Streamable HTTP |
 
 **Quy tắc giữ key:** chỉ điền trong `.env` (đã bị `.gitignore`), không commit, không dán vào khung chat AI
@@ -98,7 +102,7 @@ nhưng tài liệu ZaloPay không nêu rõ mốc bắt đầu thời hạn ở c
 ## Chạy server
 
 ```bash
-python -m src.mcp_servers.payments                               # stdio
+python -m src.mcp_servers.payments                               # HTTP service at :8766/mcp
 python -m src.mcp_servers.payments --transport streamable-http   # http://127.0.0.1:8766/mcp
 
 # Docker (image không chứa key; key truyền lúc chạy)
@@ -107,7 +111,7 @@ curl localhost:8766/health                    # {"status":"ok","server":"vn-paym
 docker run --rm -p 8766:8766 --env-file .env payments-mcp
 ```
 
-Agent LangGraph: `src/agents/tools/payment_mcp.py` (stdio mặc định, đặt `PAYMENT_MCP_URL` để gọi container).
+Agent LangGraph: `src/agents/tools/payment_mcp.py` requires `PAYMENT_MCP_URL` and connects over HTTP. Provider credentials and SQLite state belong to the Payment service. Set `MCP_AUTH_TOKEN` on the service and the matching `PAYMENT_MCP_AUTH_TOKEN` on the client to authenticate internal requests.
 
 ## Giới hạn
 
