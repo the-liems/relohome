@@ -3,6 +3,7 @@ from mcp.types import ToolAnnotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from src.mcp_servers.http_service import HttpServiceMCP
 from src.mcp_servers.payments.tools import PaymentServices, PaymentTools, build_services
 
 SERVER_NAME = "vn-payment"
@@ -23,11 +24,11 @@ CREATE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHi
 COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=True)
 
 
-def create_server(services: PaymentServices | None = None, host: str = "127.0.0.1", port: int = 8766) -> FastMCP:
+def create_server(services: PaymentServices | None = None, host: str = "127.0.0.1", port: int = 8766, *, token: str = "") -> FastMCP:
     """Tạo MCP server; truyền `services` để test với cổng/DB riêng. `host` truyền lúc khởi tạo (xem ADR-014)."""
     services = services or build_services()
     tools = PaymentTools(services)
-    mcp = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port)
+    mcp = HttpServiceMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port, service_token=token)
 
     mcp.add_tool(tools.create_payment, title="Tạo thanh toán", annotations=CREATE)
     mcp.add_tool(tools.get_payment, title="Trạng thái thanh toán", annotations=READ_ONLY)
@@ -47,6 +48,7 @@ def create_server(services: PaymentServices | None = None, host: str = "127.0.0.
                 "provider": services.engine.provider,
                 # Client (graph / UI demo) biết có dùng được `simulate_payment_result` hay không
                 "simulation": services.engine.provider == "mock",
+                "environment": services.engine.environment,
             }
         )
 

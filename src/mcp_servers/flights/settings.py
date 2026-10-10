@@ -41,6 +41,7 @@ class FlightSettings(BaseSettings):
         le=1440,
         description="Khoảng cách tối thiểu giữa giờ hạ cánh chiều đi và giờ cất cánh chiều về",
     )
+    mcp_token: str = ""
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(default=8765, ge=1, le=65535)
 

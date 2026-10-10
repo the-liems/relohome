@@ -1,6 +1,6 @@
 """Giao diện demo thanh toán: `make ui-payment` (cổng 8502).
 
-Mọi thao tác đi qua payment MCP server (stdio) như agent thật; công tắc ở sidebar đổi
+Mọi thao tác đi qua payment MCP server (HTTP) như agent thật; công tắc ở sidebar đổi
 giữa cổng mock (offline) và ZaloPay sandbox. Giao diện không có ô nhập dữ liệu cá nhân:
 mã đơn và mã khách tự sinh, key ZaloPay chỉ nằm trong .env (xem ADR-015).
 """
@@ -182,7 +182,7 @@ with tab_conn:
           node [shape=box, style="rounded,filled", fontname="Helvetica", fontcolor="white", color="white"];
           edge [color="#607d8b", fontname="Helvetica", fontsize=10, fontcolor="#607d8b"];
           ui [label="Streamlit UI", fillcolor="#1565c0"];
-          client [label="MCP client\\n(stdio, JSON-RPC)", fillcolor="#1565c0"];
+          client [label="MCP client\\n(HTTP, JSON-RPC)", fillcolor="#1565c0"];
           server [label="MCP server\\nvn-payment", fillcolor="#6a1b9a"];
           guard [label="Lớp bảo vệ\\ndữ liệu cá nhân", fillcolor="#c62828"];
           mock [label="Mock gateway\\n(offline)", fillcolor="{mock_color}"];

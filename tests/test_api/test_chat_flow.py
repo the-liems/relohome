@@ -167,9 +167,7 @@ async def test_simulation_is_off_in_live_mode_by_default(api_client_factory, mon
         moving_mcp_url="",
         moving_approval_url="",
         flight_mcp_url="",
-        flight_mcp_stdio=False,
         payment_mcp_url="",
-        payment_mcp_stdio=False,
     )
     service = AgentService.create(services=settings)
     service.settings = settings  # Live authentication uses the trusted gateway token.

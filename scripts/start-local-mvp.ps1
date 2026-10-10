@@ -40,6 +40,8 @@ try {
         @{ Name = 'platform'; Port = 4100; Health = '/health'; Expected = 'ok' },
         @{ Name = 'moving'; Port = 4400; Health = '/ready'; Expected = 'ok' },
         @{ Name = 'moving-api'; Port = 4200; Health = '/ready'; Expected = 'ok' },
+        @{ Name = 'flight'; Port = 8765; Health = '/health'; Expected = 'ok' },
+        @{ Name = 'payment'; Port = 8766; Health = '/health'; Expected = 'ok' },
         @{ Name = 'api'; Port = 8000; Health = '/health'; Expected = 'ok' },
         @{ Name = 'ui'; Port = 8503; Health = '/health'; Expected = 'ok' }
     )

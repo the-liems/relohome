@@ -124,17 +124,9 @@ services:
       MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
       MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
       FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
-      FLIGHT_MCP_STDIO: "false"
-      # Current PaymentSubagent requires the sandbox MCP child process.
-      PAYMENT_MCP_STDIO: "true"
-      PAYMENT_MCP_URL: ""
-      PAYMENT_PROVIDER: zalopay
-      PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
-      PAYMENT_ZALOPAY_APP_ID: ${PAYMENT_ZALOPAY_APP_ID:?}
-      PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
-      PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
-      PAYMENT_DB_PATH: /app/data/payments.db
-      PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
+      FLIGHT_MCP_TOKEN: ${FLIGHT_MCP_TOKEN:?}
+      PAYMENT_MCP_URL: http://payments-mcp:8766/mcp
+      PAYMENT_MCP_TOKEN: ${PAYMENT_MCP_TOKEN:?}
       PAYMENT_SIMULATION_ENABLED: "false"
       # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
       # tickets, no AhaMove order. The tester "paid" control works only for the
@@ -160,17 +152,33 @@ services:
       location: {condition: service_healthy}
       moving-mcp: {condition: service_healthy}
       flights-mcp: {condition: service_healthy}
+      payments-mcp: {condition: service_healthy}
 
   flights-mcp:
     <<: *app
     image: ${IMAGE_PREFIX}/flights-mcp:${RELEASE_TAG}
     environment:
+      FLIGHT_MCP_TOKEN: ${FLIGHT_MCP_TOKEN:?}
       FLIGHT_SEARCH_PROVIDER: serpapi
       FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
       # Simulated hold/ticket for in-app checkout; never a real airline booking.
       # Reachable only on the internal network (no public route).
       FLIGHT_SIMULATION_ENABLED: "true"
     volumes: [flights-data:/app/data]
+
+  payments-mcp:
+    <<: *app
+    image: ${IMAGE_PREFIX}/payments-mcp:${RELEASE_TAG}
+    environment:
+      PAYMENT_MCP_TOKEN: ${PAYMENT_MCP_TOKEN:?}
+      PAYMENT_PROVIDER: zalopay
+      PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
+      PAYMENT_ZALOPAY_APP_ID: ${PAYMENT_ZALOPAY_APP_ID:?}
+      PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
+      PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
+      PAYMENT_DB_PATH: /app/data/payments.db
+      PAYMENT_REDIRECT_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}/
+    volumes: [payments-data:/app/data]
 
   postgis:
     image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
@@ -313,6 +321,7 @@ volumes:
   agent-data:
   roommate-private:
   flights-data:
+  payments-data:
   location-data:
   moving-data:
   routing-data:

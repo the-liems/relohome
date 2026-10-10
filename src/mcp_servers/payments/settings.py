@@ -36,6 +36,7 @@ class PaymentSettings(BaseSettings):
     expire_minutes: int = Field(default=15, ge=5, le=1440)
     retention_days: int = Field(default=30, ge=1, le=365)
     db_path: str = "./data/payments.db"
+    mcp_token: str = ""
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(default=8766, ge=1, le=65535)
 

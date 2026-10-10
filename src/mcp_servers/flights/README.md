@@ -49,9 +49,9 @@ trong tương lai.
 make ui            # hoặc: streamlit run src/ui/flight_demo.py
 ```
 
-Mở <http://localhost:8501>. Giao diện gọi server qua MCP stdio giống agent thật:
+Start the Flight HTTP service first and set `FLIGHT_MCP_URL`. Open <http://localhost:8501>; the demo connects over HTTP.
 
-- Công tắc **🌐 Dùng API thật** ở sidebar đổi giữa `mock` và `serpapi` (không cần sửa `.env`).
+- Provider mode belongs to the service. To compare modes, run separate services and set `FLIGHT_MOCK_MCP_URL` and `FLIGHT_SERPAPI_MCP_URL`.
 - **Kiểm tra ngay**: handshake MCP, liệt kê tool/resource; ở chế độ thật còn kiểm tra API key
   và số lượt còn lại qua `serpapi.com/account.json` (không tốn lượt).
 - Tab Tìm chuyến dùng được trong cả hai chế độ. Để chạy đủ luồng Đặt vé → Tra cứu/Hủy
@@ -95,7 +95,7 @@ src/mcp_servers/flights/
 
 src/agents/tools/flight_mcp.py   # Nạp tool vào LangGraph qua langchain-mcp-adapters
 tests/test_mcp_flights/          # Unit test + test MCP in-memory
-tests/test_agents/test_flight_mcp.py  # Test chạy server thật qua stdio
+tests/test_agents/test_flight_mcp.py  # Test chạy server thật qua HTTP
 ```
 
 Server có cấu hình riêng (`settings.py`, tiền tố `FLIGHT_`) và không sửa `src/config.py`,
@@ -135,7 +135,7 @@ pip install -r requirements.txt    # đã có mcp[cli] và langchain-mcp-adapter
 Luôn chạy từ **thư mục gốc dự án** để Python tìm thấy package `src` và đọc được file `.env`.
 
 ```bash
-# stdio (Claude Code/Desktop, LangGraph)
+# HTTP service (default)
 python -m src.mcp_servers.flights
 
 # Streamable HTTP tại http://127.0.0.1:8765/mcp
@@ -161,8 +161,7 @@ docker run --rm -p 8765:8765 -e FLIGHT_SEARCH_PROVIDER=mock flights-mcp
 ```
 
 Cho agent LangGraph dùng server trong container: đặt `FLIGHT_MCP_URL=http://localhost:8765/mcp`
-(trong compose, `backend` đã được đặt sẵn `http://flights-mcp:8765/mcp`). Không có biến này thì
-agent tự mở server qua stdio như cũ.
+(trong compose, `backend` đã được đặt sẵn `http://flights-mcp:8765/mcp`). Missing URL leaves the domain unconfigured; clients never start a server.
 
 ### Thử bằng MCP Inspector (cần Node.js)
 

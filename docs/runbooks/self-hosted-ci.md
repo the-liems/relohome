@@ -42,6 +42,14 @@ deployment uses 10 minutes and the PostGIS build uses 40.
 Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
 
+Flight/Payment integration tests run real HTTP services with a test-owned
+lifecycle. Application clients never create provider subprocesses. The runner
+virtualenv regression resolves the real interpreter before relocating its symlink
+and includes bootstrap stdout/stderr on failure. Python images normalize copied
+source/config access before switching to existing service users. MCP and agent
+smoke jobs remove group/other checkout access before building so the actual
+container smoke tests cover restrictive source permissions.
+
 ## Disposable resources
 
 - Staging deployment logs into GHCR with the job's `GITHUB_TOKEN` and

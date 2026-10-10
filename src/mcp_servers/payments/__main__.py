@@ -9,11 +9,11 @@ from src.mcp_servers.payments.tools import build_services
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="MCP server thanh toán (mock / ZaloPay sandbox)")
-    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="streamable-http")
     args = parser.parse_args()
 
     settings = get_payment_settings()
-    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port)
+    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port, token=settings.mcp_token)
     server.run(transport=args.transport)
 
 

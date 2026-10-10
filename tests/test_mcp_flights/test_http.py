@@ -1,3 +1,4 @@
+import pytest
 from starlette.testclient import TestClient
 
 from src.agents.tools import flight_mcp
@@ -39,7 +40,8 @@ def test_agent_uses_http_when_url_is_set(monkeypatch) -> None:
     }
 
 
-def test_agent_uses_stdio_by_default(monkeypatch) -> None:
+def test_agent_requires_service_url(monkeypatch) -> None:
     monkeypatch.delenv("FLIGHT_MCP_URL", raising=False)
 
-    assert flight_mcp.flight_server_connection()["transport"] == "stdio"
+    with pytest.raises(ValueError, match="FLIGHT_MCP_URL"):
+        flight_mcp.flight_server_connection()

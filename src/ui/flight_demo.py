@@ -1,6 +1,6 @@
 """Giao diện demo kết nối API vé máy bay: `streamlit run src/ui/flight_demo.py`.
 
-Mọi thao tác đi qua flight MCP server (stdio) như agent thật; công tắc ở sidebar đổi
+Mọi thao tác đi qua flight MCP server (HTTP) như agent thật; công tắc ở sidebar đổi
 nguồn dữ liệu giữa mock (offline) và SerpApi Google Flights (giá thật).
 """
 
@@ -214,7 +214,7 @@ with tab_conn:
           node [shape=box, style="rounded,filled", fontname="Helvetica", fontcolor="white", color="white"];
           edge [color="#607d8b", fontname="Helvetica", fontsize=10, fontcolor="#607d8b"];
           ui [label="Streamlit UI", fillcolor="#1565c0"];
-          client [label="MCP client\\n(stdio, JSON-RPC)", fillcolor="#1565c0"];
+          client [label="MCP client\\n(HTTP, JSON-RPC)", fillcolor="#1565c0"];
           server [label="MCP server\\nvn-flight-booking\\n7 tools", fillcolor="#6a1b9a"];
           mock [label="Mock provider\\n(offline)", fillcolor="{mock_color}"];
           serp [label="SerpApi\\nGoogle Flights API\\n(giá thật)", fillcolor="{serp_color}"];

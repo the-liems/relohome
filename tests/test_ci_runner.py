@@ -92,7 +92,8 @@ class PythonEnvironmentTests(unittest.TestCase):
     def test_each_job_gets_a_fresh_environment_outside_the_shared_interpreter(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "python").symlink_to(sys.executable)
+            # A relocated link into a job venv can confuse nested venv bootstrap.
+            (root / "python").symlink_to(Path(sys.executable).resolve())
             environments = []
             for job in ("first", "second"):
                 env_file, path_file = root / f"{job}.env", root / f"{job}.path"
@@ -104,8 +105,17 @@ class PythonEnvironmentTests(unittest.TestCase):
                     },
                     capture_output=True, text=True, timeout=30,
                 )
-                self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
                 venv = Path(env_file.read_text().strip().removeprefix("CI_PYTHON_VENV="))
+                diagnostics = created.stdout + created.stderr
+                if created.returncode:
+                    # venv itself hides ensurepip's captured output on failure.
+                    bootstrap = subprocess.run(
+                        [str(venv / "bin/python"), "-m", "ensurepip", "--upgrade", "--default-pip"],
+                        capture_output=True, text=True, timeout=30,
+                    )
+                    diagnostics += bootstrap.stdout + bootstrap.stderr
+                    diagnostics += (venv / "pyvenv.cfg").read_text()
+                self.assertEqual(created.returncode, 0, diagnostics)
                 environments.append(venv)
                 self.assertEqual(venv.parent, root)
                 self.assertEqual(path_file.read_text().strip(), str(venv / "bin"))

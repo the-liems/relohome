@@ -31,6 +31,11 @@ class PaymentEngine:
         settings: PaymentSettings,
         clock: Callable[[], datetime] = now_vn,
     ) -> None:
+        self.environment = (
+            "sandbox" if gateway.name == "zalopay"
+            and settings.zalopay_endpoint.rstrip("/") == "https://sb-openapi.zalopay.vn/v2"
+            else "mock" if gateway.name == "mock" else "unknown"
+        )
         self._db = db
         self._gateway = gateway
         self._prefix = settings.order_prefix

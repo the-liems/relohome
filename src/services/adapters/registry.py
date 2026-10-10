@@ -99,15 +99,13 @@ class ServiceSettings(BaseSettings):
     moving_quote_contact_name: str = ""
     moving_quote_contact_mobile: str = ""
 
-    # Flight (nhánh Doan/api). Để trống URL + bật stdio = tự chạy server Python cục bộ.
+    # Flight: dedicated HTTP service; missing URL leaves the domain unconfigured.
     flight_mcp_url: str = ""
     flight_mcp_token: SecretStr = SecretStr("")
-    flight_mcp_stdio: bool = False
 
     # Payment / ZaloPay sandbox (nhánh Doan/api)
     payment_mcp_url: str = ""
     payment_mcp_token: SecretStr = SecretStr("")
-    payment_mcp_stdio: bool = False
     payment_source_kind: Literal["sandbox", "demo", "live"] = "sandbox"
     # Nút "giả lập đã thanh toán" cho demo. Chỉ bật khi Payment MCP chạy PAYMENT_PROVIDER=mock
     # (server chỉ có tool `simulate_payment_result` ở chế độ mock; `/health` trả "simulation": true).
@@ -188,22 +186,18 @@ class ServiceRegistry:
             url=(s.moving_mcp_url or None) if moving_write_token else None,
             token=moving_write_token,
         )
-        flight_stdio = "src.mcp_servers.flights" if s.flight_mcp_stdio and not s.flight_mcp_url else None
         flight_read = McpEndpoint(
             "flight",
             FLIGHT_READ_TOOLS,
             url=s.flight_mcp_url or None,
             token=_secret(s.flight_mcp_token),
-            stdio_module=flight_stdio,
         )
         flight_write = McpEndpoint(
             "flight",
             FLIGHT_WRITE_TOOLS,
             url=s.flight_mcp_url or None,
             token=_secret(s.flight_mcp_token),
-            stdio_module=flight_stdio,
         )
-        payment_stdio = "src.mcp_servers.payments" if s.payment_mcp_stdio and not s.payment_mcp_url else None
         payment_tools = PAYMENT_WRITE_TOOLS | (
             PAYMENT_SIMULATION_TOOLS if s.payment_simulation_enabled else frozenset()
         )
@@ -212,7 +206,6 @@ class ServiceRegistry:
             payment_tools,
             url=s.payment_mcp_url or None,
             token=_secret(s.payment_mcp_token),
-            stdio_module=payment_stdio,
         )
         return cls(
             location=ServiceEntry("location", location_read, None, "live"),
@@ -228,7 +221,6 @@ class ServiceRegistry:
                     frozenset({"get_payment"}),
                     url=s.payment_mcp_url or None,
                     token=_secret(s.payment_mcp_token),
-                    stdio_module=payment_stdio,
                 ),
                 payment_write,
                 s.payment_source_kind,

@@ -1,10 +1,10 @@
-"""Client cho giao diện demo vé máy bay: flight MCP server qua stdio + kiểm tra tài khoản SerpApi."""
+"""Client cho giao diện demo vé máy bay: flight MCP server over HTTP + kiểm tra tài khoản SerpApi."""
 
+import os
 import time
 from typing import Any, Literal
 
 import httpx
-from mcp import StdioServerParameters
 
 from src.ui import mcp_client
 from src.ui.mcp_client import CallRecord, ServerInfo
@@ -25,12 +25,12 @@ SERPAPI_ACCOUNT_FIELDS = (
 )
 
 
-def server_params(mode: Mode, api_key: str) -> StdioServerParameters:
-    """Chạy `python -m src.mcp_servers.flights` với provider được chọn."""
-    env = {"FLIGHT_SEARCH_PROVIDER": mode}
-    if api_key:
-        env["FLIGHT_SERPAPI_API_KEY"] = api_key
-    return mcp_client.stdio_params("src.mcp_servers.flights", env)
+def server_params(mode: Mode, api_key: str) -> mcp_client.HttpServerParameters:
+    """Provider mode belongs to the service; select its configured URL."""
+    url = os.environ.get(f"FLIGHT_{mode.upper()}_MCP_URL") or os.environ.get("FLIGHT_MCP_URL")
+    if not url:
+        raise ValueError("Set FLIGHT_MCP_URL to the running service")
+    return mcp_client.HttpServerParameters(url, os.environ.get("FLIGHT_MCP_TOKEN", ""))
 
 
 def call_tool(mode: Mode, api_key: str, tool: str, arguments: dict[str, Any]) -> CallRecord:

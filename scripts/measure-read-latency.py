@@ -24,25 +24,17 @@ sys.path.insert(0, str(ROOT))
 
 
 async def catalog_check():
-    from src.services.adapters.mcp import unwrap
     from src.services.adapters.registry import ServiceRegistry
 
     client = ServiceRegistry.from_settings().flight.read_client()
-    if not client or client.endpoint.url or client.endpoint.stdio_module != "src.mcp_servers.flights":
-        raise RuntimeError("Catalog comparison requires the bundled local Flight server.")
+    if not client:
+        raise RuntimeError("Set FLIGHT_MCP_URL to the running Flight HTTP service.")
     observations = []
     for query in ("Hà Nội", "Đà Nẵng", "SGN"):
-        args = {"query": query, "limit": 5}
         started = perf_counter()
-        # Real MCP roundtrip baseline, not a mocked transport.
-        async with client._session() as session:
-            wire = unwrap(await session.call_tool("search_airports", args))
-        wire_ms = round((perf_counter() - started) * 1000, 2)
-        started = perf_counter()
-        local = await client.call("search_airports", args)
-        local_ms = round((perf_counter() - started) * 1000, 2)
-        assert wire == local, "Local lookup must exactly match the real MCP catalog."
-        observations.append({"query": query, "wire_ms": wire_ms, "local_ms": local_ms, "codes": [r["code"] for r in local]})
+        airports = await client.call("search_airports", {"query": query, "limit": 5})
+        observations.append({"query": query, "http_ms": round((perf_counter() - started) * 1000, 2),
+                             "codes": [row["code"] for row in airports]})
     print(json.dumps({"catalog": observations, "llm_calls": 0}, ensure_ascii=False))
 
 

@@ -34,6 +34,7 @@ COPY --from=builder /opt/venv /opt/venv
 # Chỉ copy đúng package của server (không copy .env, tests, code agent...)
 COPY src/__init__.py src/__init__.py
 COPY src/mcp_servers/__init__.py src/mcp_servers/__init__.py
+COPY src/mcp_servers/http_service.py src/mcp_servers/http_service.py
 COPY src/mcp_servers/payments src/mcp_servers/payments
 
 # Chạy bằng user thường; SQLite (giao dịch + muối giả danh) nằm trong volume /app/data
