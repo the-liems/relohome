@@ -75,6 +75,11 @@ creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/confi
 readable and directories traversable by existing non-root service users. Source
 remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes.
 The normal MCP and agent smoke checks validate container startup.
+Migration image jobs strip group/other permissions from the build context before
+building, then run each image twice against a disposable database. The checker
+uses PyYAML from the job-local environment to read database image tags from
+`compose.coolify.yaml`. PR jobs also log into GHCR so they can pull private
+PostGIS images; publishing remains limited to main.
 
 ## Disposable resources
 

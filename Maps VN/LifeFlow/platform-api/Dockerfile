@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.14
 FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
@@ -40,7 +41,7 @@ COPY --from=build --chown=node:node /app/platform-api/dist ./platform-api/dist
 USER node
 
 FROM runtime AS location-migrate
-COPY database/migrations/ ./database/migrations/
+COPY --chmod=u=rwX,go=rX database/migrations/ ./database/migrations/
 CMD ["node", "platform-api/dist/migrate.js"]
 
 FROM runtime AS platform
