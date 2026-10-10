@@ -662,3 +662,126 @@ def test_store_adds_the_sync_baseline_to_existing_databases(tmp_path):
     old.close()
     store = Store(path)
     assert store.one("SELECT baseline FROM landlord_sync") == {"baseline": ""}
+
+
+@pytest.mark.parametrize(
+    "request_status,viewing_status", [("resolved", "confirmed"), ("declined", "confirmed"), ("contacted", "cancelled")]
+)
+@pytest.mark.asyncio
+async def test_retry_changed_time_respects_a_closed_request_even_when_remote_keeps_old_time(
+    tmp_path, monkeypatch, request_status, viewing_status
+):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    old_slot = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    new_slot = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    view = {"items": [{"listing_id": listing, "status": "viewing_scheduled", "viewing": {"slot": new_slot}}]}
+    row = {
+        "id": "bbbbbbbb-1111-4111-8111-111111111111",
+        "listing_id": listing,
+        "status": "viewing",
+        "viewing_status": "confirmed",
+        "viewing_slot": old_slot,
+        "viewing_updated_at": "2026-10-09T18:00:00Z",
+    }
+    writes, mode = [], {"down": True}
+
+    def provider(request):
+        path = request.url.path
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if request.method == "PUT":
+            writes.append(path)
+            if mode["down"]:
+                return httpx.Response(503, json={"message": "unavailable"})
+            row.update(
+                id="cccccccc-1111-4111-8111-111111111111",
+                status="new",
+                viewing_status="requested",
+                viewing_slot=new_slot,
+            )
+            return httpx.Response(201, json={"viewing_status": "requested"})
+        return httpx.Response(200, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "retry@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        url = f"/web/api/threads/{thread}/viewings"
+        booked = await client.post(url + "/schedule", json={"listing_id": listing, "slot": new_slot})
+        assert booked.json()["items"][0]["landlord"] == {"sync": "failed"}
+        assert len(writes) == 1
+        row.update(status=request_status, viewing_status=viewing_status)
+        mode["down"] = False
+
+        retried = (await client.post(url + "/landlord-retry", json={})).json()
+        assert len(writes) == 1  # a retry must not recreate the closed request
+        assert retried["items"][0]["viewing"]["slot"] == new_slot  # preserve the tenant's draft booking
+        assert retried["items"][0]["landlord"]["request_status"] == request_status
+        assert "sync" not in retried["items"][0]["landlord"]  # show closure, not an endlessly retryable outage
+        assert app.state.store.all("SELECT * FROM landlord_sync WHERE thread=?", (thread,)) == []
+        await client.post(url + "/moving-mode", json={"mode": None})
+        assert len(writes) == 1
+
+        # A fresh explicit schedule, even for the same new time, may create a new request.
+        explicit = (await client.post(url + "/schedule", json={"listing_id": listing, "slot": new_slot})).json()
+        assert len(writes) == 2
+        assert explicit["items"][0]["landlord"]["viewing_status"] == "requested"
+
+
+@pytest.mark.asyncio
+async def test_closed_confirmed_request_does_not_authorize_recording_a_visit(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    slot = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    view = {"items": [{"listing_id": listing, "status": "visit_due", "viewing": {"slot": slot}}]}
+    visits = []
+
+    def provider(request):
+        path = request.url.path
+        if path.endswith("/viewings/visit"):
+            visits.append(path)
+            return httpx.Response(200, json=view)
+        if path.startswith("/api/v1/ui/chat/"):
+            return httpx.Response(200, json=view)
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "listing_id": listing,
+                            "status": "resolved",
+                            "viewing_status": "confirmed",
+                            "viewing_slot": slot,
+                        }
+                    ]
+                },
+            )
+        if path == f"/v1/housing/{listing}":
+            return httpx.Response(200, json={"listing_id": listing, "management": {"accepts_contact_requests": True}})
+        return httpx.Response(200, json={})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "visit@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        response = await client.post(
+            f"/web/api/threads/{thread}/viewings/visit", json={"listing_id": listing, "outcome": "met_agreed"}
+        )
+        assert response.status_code == 409
+        assert visits == []
