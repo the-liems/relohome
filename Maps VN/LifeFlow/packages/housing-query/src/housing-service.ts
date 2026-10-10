@@ -21,6 +21,7 @@ import { RouteService } from './route-service.js'
 import { checkOperation, withinOperation } from './execution.js'
 import { definitelyDisjointScope } from './spatial-scope.js'
 import { hostReviewSummary } from './review-summary.js'
+import { candidateFrom } from './current-offer.js'
 
 const COMMUTE_SNAP_RADIUS_M = 100
 const ROUTE_CONCURRENCY = 4
@@ -73,8 +74,9 @@ function qualityFlags(attributes: unknown): string[] {
   })
 }
 
-function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilder, listingId?: string): string[] {
-  const conditions = [
+function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilder, listingId?: string, indexed = false): string[] {
+  const p = indexed ? 'l' : 'p', u = indexed ? 'l' : 'u', cp = indexed ? 'l' : 'cp'
+  const conditions = indexed ? [] : [
     "l.status = 'active'",
     'l.deleted_at IS NULL',
     'p.deleted_at IS NULL',
@@ -88,7 +90,7 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
     conditions.push(`(l.title ILIKE ${parameter} OR l.description ILIKE ${parameter} OR cp.address::text ILIKE ${parameter})`)
   }
   const propertyTypes = list(request.property_type)
-  if (propertyTypes) conditions.push(`p.property_type = ANY(${sql.parameter(propertyTypes)}::text[])`)
+  if (propertyTypes) conditions.push(`${p}.property_type = ANY(${sql.parameter(propertyTypes)}::text[])`)
   const listingTypes = list(request.listing_type)
   if (listingTypes) conditions.push(`l.listing_type = ANY(${sql.parameter(listingTypes)}::text[])`)
 
@@ -101,25 +103,25 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
       // available; otherwise require an exact normalized-address match.
       // Address comparison ignores the administrative unit-type prefix on both sides
       // ("Hà Đông" = "Quận Hà Đông"); the name itself must still match exactly.
-      `(EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}) AND ST_Covers(a.geom, cp.geom))
+      `(EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}) AND ST_Covers(a.geom, ${cp}.geom))
         OR (NOT EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE lower(a.name) = lower(${district}))
-          AND ${DISTRICT_KEY("cp.address->>'district'")} = ${DISTRICT_KEY(district)}))`,
+          AND ${DISTRICT_KEY(`${cp}.address->>'district'`)} = ${DISTRICT_KEY(district)}))`,
     )
   }
   if (request.administrative_area_ids) {
     conditions.push(
-      `EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE a.id = ANY(${sql.parameter(request.administrative_area_ids)}::text[]) AND ST_Covers(a.geom, cp.geom))`,
+      `EXISTS (SELECT 1 FROM geo.administrative_areas a WHERE a.id = ANY(${sql.parameter(request.administrative_area_ids)}::text[]) AND ST_Covers(a.geom, ${cp}.geom))`,
     )
   }
   if (request.bounding_box) {
     const box = request.bounding_box
     conditions.push(
-      `ST_Intersects(cp.geom, ST_MakeEnvelope(${sql.parameter(box.west)}, ${sql.parameter(box.south)}, ${sql.parameter(box.east)}, ${sql.parameter(box.north)}, 4326))`,
+      `ST_Intersects(${cp}.geom, ST_MakeEnvelope(${sql.parameter(box.west)}, ${sql.parameter(box.south)}, ${sql.parameter(box.east)}, ${sql.parameter(box.north)}, 4326))`,
     )
   }
   if (request.center && request.radius_m) {
     conditions.push(
-      `ST_DWithin(cp.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(request.center.lng)}, ${sql.parameter(request.center.lat)}), 4326)::geography, ${sql.parameter(request.radius_m)})`,
+      `ST_DWithin(${cp}.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(request.center.lng)}, ${sql.parameter(request.center.lat)}), 4326)::geography, ${sql.parameter(request.radius_m)})`,
     )
   }
 
@@ -129,7 +131,7 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
     // conservative geodesic/model margin so the coarse filter cannot trim the edge.
     const coarseRadius = (request.commute.max_distance_m + 2 * COMMUTE_SNAP_RADIUS_M) * 1.01
     conditions.push(
-      `ST_DWithin(cp.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(destination.lng)}, ${sql.parameter(destination.lat)}), 4326)::geography, ${sql.parameter(coarseRadius)})`,
+      `ST_DWithin(${cp}.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(destination.lng)}, ${sql.parameter(destination.lat)}), 4326)::geography, ${sql.parameter(coarseRadius)})`,
     )
   }
 
@@ -145,12 +147,12 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
   }
   if (request.currency) conditions.push(`o.currency = ${sql.parameter(request.currency)}`)
   if (request.price_period) conditions.push(`o.price_period = ${sql.parameter(request.price_period)}`)
-  if (request.min_bedrooms !== undefined) conditions.push(`u.bedrooms >= ${sql.parameter(request.min_bedrooms)}`)
-  if (request.max_bedrooms !== undefined) conditions.push(`u.bedrooms <= ${sql.parameter(request.max_bedrooms)}`)
-  if (request.min_bathrooms !== undefined) conditions.push(`u.bathrooms >= ${sql.parameter(request.min_bathrooms)}`)
-  if (request.min_area_m2 !== undefined) conditions.push(`u.area_m2 >= ${sql.parameter(request.min_area_m2)}`)
-  if (request.max_area_m2 !== undefined) conditions.push(`u.area_m2 <= ${sql.parameter(request.max_area_m2)}`)
-  if (request.amenities) conditions.push(`u.amenities @> ${sql.parameter(request.amenities)}::text[]`)
+  if (request.min_bedrooms !== undefined) conditions.push(`${u}.bedrooms >= ${sql.parameter(request.min_bedrooms)}`)
+  if (request.max_bedrooms !== undefined) conditions.push(`${u}.bedrooms <= ${sql.parameter(request.max_bedrooms)}`)
+  if (request.min_bathrooms !== undefined) conditions.push(`${u}.bathrooms >= ${sql.parameter(request.min_bathrooms)}`)
+  if (request.min_area_m2 !== undefined) conditions.push(`${u}.area_m2 >= ${sql.parameter(request.min_area_m2)}`)
+  if (request.max_area_m2 !== undefined) conditions.push(`${u}.area_m2 <= ${sql.parameter(request.max_area_m2)}`)
+  if (request.amenities) conditions.push(`${u}.amenities @> ${sql.parameter(request.amenities)}::text[]`)
   if (request.availability_from) {
     conditions.push(`(o.availability_from IS NULL OR o.availability_from <= ${sql.parameter(request.availability_from)}::date)`)
   }
@@ -171,7 +173,7 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
         WHERE np.status = 'active'
           AND np.deleted_at IS NULL
           AND nc.slug = ${sql.parameter(nearby.category)}
-          AND ST_DWithin(np.geog, cp.geog, ${sql.parameter(nearby.max_distance_m)})
+          AND ST_DWithin(np.geog, ${cp}.geog, ${sql.parameter(nearby.max_distance_m)})
       )`,
     )
   }
@@ -316,7 +318,10 @@ export class HousingQueryService {
       features: [], meta: { mode: request.zoom < 13 ? 'clusters' : 'listings', returned_count: 0, truncated: false },
     })
     const sql = createSqlBuilder()
-    const conditions = candidateConditions(HousingSearchRequestSchema.parse(request), sql)
+    // Text keeps its exact title/description/address semantics on source tables.
+    const indexed = !request.text
+    const cp = indexed ? 'l' : 'cp'
+    const conditions = candidateConditions(HousingSearchRequestSchema.parse(request), sql, undefined, indexed)
     if (request.listing_ids) conditions.push(`l.id = ANY(${sql.parameter(request.listing_ids)}::uuid[])`)
 
     const limit = request.limit + 1
@@ -324,14 +329,10 @@ export class HousingQueryService {
       const gridSize = Math.max(0.002, 60 * 360 / (256 * 2 ** request.zoom))
       const result = await this.pool.query(
         `WITH candidates AS (
-           SELECT cp.geom, o.price_amount, o.currency, o.price_period,
-             ST_SnapToGrid(cp.geom, ${sql.parameter(gridSize)}) AS grid_cell
-           FROM housing.listings l
-           JOIN housing.properties p ON p.id = l.property_id
-           LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
-           JOIN housing.current_offers o ON o.listing_id = l.id
-           JOIN catalog.places cp ON cp.id = p.place_id
-           WHERE ${conditions.join(' AND ')}
+           SELECT ${cp}.geom, o.price_amount, o.currency, o.price_period,
+             ST_SnapToGrid(${cp}.geom, ${sql.parameter(gridSize)}) AS grid_cell
+           ${candidateFrom(indexed)}
+           WHERE ${conditions.join(' AND ') || 'true'}
          )
          SELECT md5(ST_AsText(grid_cell) || ':' || currency || ':' || price_period) AS cluster_id,
            AVG(ST_X(geom)) AS lng, AVG(ST_Y(geom)) AS lat,
@@ -359,24 +360,29 @@ export class HousingQueryService {
     }
 
     const result = await this.pool.query(
-      `SELECT l.id AS listing_id, l.title, l.listing_type, l.source_url,
+      `WITH page AS MATERIALIZED (
+         SELECT l.id AS listing_id,o.id AS offer_id
+         ${candidateFrom(indexed)}
+         WHERE ${conditions.join(' AND ') || 'true'}
+         ORDER BY l.updated_at DESC,l.id LIMIT ${sql.parameter(limit)}
+       )
+       SELECT l.id AS listing_id, l.title, l.listing_type, l.source_url,
          p.property_type, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat, cp.address,
          o.price_amount, o.currency, o.price_period,
          u.bedrooms, u.bathrooms, u.area_m2, COALESCE(u.amenities, '{}') AS amenities,
          COALESCE(l.attributes->>'location_accuracy', 'unknown') AS location_accuracy,
          thumbnail.url AS thumbnail_url
        FROM housing.listings l
+       JOIN page ON page.listing_id=l.id
        JOIN housing.properties p ON p.id = l.property_id
        LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
-       JOIN housing.current_offers o ON o.listing_id = l.id
+       JOIN housing.offers o ON o.id=page.offer_id
        JOIN catalog.places cp ON cp.id = p.place_id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
          WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
        ) thumbnail ON true
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY l.updated_at DESC, l.id
-       LIMIT ${sql.parameter(limit)}`,
+       ORDER BY l.updated_at DESC, l.id`,
       sql.values,
     )
     const truncated = result.rows.length > request.limit
@@ -412,7 +418,8 @@ export class HousingQueryService {
   ): Promise<CandidateRow[]> {
     if (definitelyDisjointScope(request)) return []
     const sql = createSqlBuilder()
-    const conditions = candidateConditions(request, sql, listingId)
+    const indexed = !request.text
+    const conditions = candidateConditions(request, sql, listingId, indexed)
 
     let distanceExpression = 'NULL::double precision'
     if (request.center) {
@@ -420,12 +427,20 @@ export class HousingQueryService {
     }
 
     const orderBy = buildOrderBy(request)
+    const candidateOrder = buildOrderBy(request, indexed)
     const queryLimit = request.commute ? this.config.commuteCandidateLimit + 1 : request.pagination.limit + 1
     const limitParameter = sql.parameter(queryLimit)
     const offsetClause = `OFFSET ${sql.parameter(offset)}`
 
     const result = await this.pool.query(
-      `SELECT
+      `WITH page AS MATERIALIZED (
+         SELECT l.id AS listing_id,o.id AS offer_id,
+           ${indexed ? distanceExpression.replace('cp.geog', 'l.geog') : distanceExpression} AS distance_meters
+         ${candidateFrom(indexed)}
+         WHERE ${conditions.join(' AND ') || 'true'}
+         ORDER BY ${candidateOrder} LIMIT ${limitParameter} ${offsetClause}
+       )
+       SELECT
          l.id AS listing_id,
          p.id AS property_id,
          u.id AS unit_id,
@@ -456,19 +471,18 @@ export class HousingQueryService {
          l.attributes AS listing_attributes,
          l.attributes->>'observed_at' AS observed_at,
          l.created_at,
-         ${distanceExpression} AS distance_meters
+         page.distance_meters
        FROM housing.listings l
+       JOIN page ON page.listing_id=l.id
        JOIN housing.properties p ON p.id = l.property_id
        LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
-       JOIN housing.current_offers o ON o.listing_id = l.id
+       JOIN housing.offers o ON o.id=page.offer_id
        JOIN catalog.places cp ON cp.id = p.place_id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
          WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
        ) thumbnail ON true
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY ${orderBy}
-       LIMIT ${limitParameter} ${offsetClause}`,
+       ORDER BY ${orderBy}`,
       sql.values,
     )
     return result.rows as CandidateRow[]
@@ -559,11 +573,11 @@ function validateSort(request: ParsedHousingSearchRequest) {
   }
 }
 
-function buildOrderBy(request: ParsedHousingSearchRequest) {
+function buildOrderBy(request: ParsedHousingSearchRequest, indexed = false) {
   const expressions: Record<string, string> = {
     price_amount: 'o.price_amount',
-    area_m2: 'u.area_m2',
-    bedrooms: 'u.bedrooms',
+    area_m2: indexed ? 'l.area_m2' : 'u.area_m2',
+    bedrooms: indexed ? 'l.bedrooms' : 'u.bedrooms',
     created_at: 'l.created_at',
     verified_at: 'l.verified_at',
     distance_meters: 'distance_meters',
