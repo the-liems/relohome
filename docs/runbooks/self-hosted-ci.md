@@ -44,8 +44,8 @@ and remove it with `always()`. Packages never install into the shared interprete
 
 Flight/Payment integration tests run real HTTP services with a test-owned
 lifecycle. Application clients never create provider subprocesses. The runner
-virtualenv regression resolves the real interpreter before relocating its symlink
-and includes bootstrap stdout/stderr on failure. Python images normalize copied
+virtualenv regression selects the installed interpreter through a PATH wrapper
+rather than relocating its symlink, and includes bootstrap stdout/stderr on failure. Python images normalize copied
 source/config access before switching to existing service users. MCP and agent
 smoke jobs remove group/other checkout access before building so the actual
 container smoke tests cover restrictive source permissions.

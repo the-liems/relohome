@@ -52,8 +52,7 @@ make ui            # hoặc: streamlit run src/ui/flight_demo.py
 Start the Flight HTTP service first and set `FLIGHT_MCP_URL`. Open <http://localhost:8501>; the demo connects over HTTP.
 
 - Provider mode belongs to the service. To compare modes, run separate services and set `FLIGHT_MOCK_MCP_URL` and `FLIGHT_SERPAPI_MCP_URL`.
-- **Kiểm tra ngay**: handshake MCP, liệt kê tool/resource; ở chế độ thật còn kiểm tra API key
-  và số lượt còn lại qua `serpapi.com/account.json` (không tốn lượt).
+- **Kiểm tra ngay**: handshake MCP over HTTP and list service tools/resources. Provider credentials stay on the service.
 - Tab Tìm chuyến dùng được trong cả hai chế độ. Để chạy đủ luồng Đặt vé → Tra cứu/Hủy
   giả lập, cần bật `FLIGHT_SIMULATION_ENABLED=true` trong shell hoặc `.env`; công tắc nguồn
   dữ liệu không bật simulation. Ví dụ: `FLIGHT_SIMULATION_ENABLED=true make ui`.

@@ -28,6 +28,9 @@ async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, m
         async with httpx.AsyncClient() as http:
             assert (await http.post(url)).status_code == 401
             assert (await http.post(url, headers={"Authorization": "Bearer wrong"})).status_code == 401
+            assert (await http.post(url, headers={
+                "Authorization": "Bearer service-token", "Origin": "https://untrusted.example"
+            })).status_code == 403
         registry = ServiceRegistry.from_settings(ServiceSettings(
             _env_file=None, payment_mcp_url=url, payment_mcp_token="service-token", payment_simulation_enabled=True
         ))

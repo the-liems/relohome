@@ -39,4 +39,4 @@ the new release. Otherwise existing payment references will point to an empty DB
 The legacy Streamlit demos also connect over HTTP. Provider mode is configured on
 the service; optional `FLIGHT_MOCK_MCP_URL`, `FLIGHT_SERPAPI_MCP_URL`,
 `PAYMENT_MOCK_MCP_URL` and `PAYMENT_ZALOPAY_MCP_URL` select independently running
-demo services. Passing a provider key to a UI does not reconfigure a remote server.
+demo services. The UI does not accept provider credentials or reconfigure a remote server.

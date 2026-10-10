@@ -1,6 +1,7 @@
 """Regression coverage for runner prerequisites and shared interpreter isolation."""
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -92,8 +93,12 @@ class PythonEnvironmentTests(unittest.TestCase):
     def test_each_job_gets_a_fresh_environment_outside_the_shared_interpreter(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            # A relocated link into a job venv can confuse nested venv bootstrap.
-            (root / "python").symlink_to(Path(sys.executable).resolve())
+            # Keep the interpreter's installed location when selecting it through PATH.
+            # A relocated symlink makes venv record the temporary directory as home;
+            # setup-python's relocated toolcache then cannot find its standard library.
+            python = root / "python"
+            python.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + ' "$@"\n')
+            python.chmod(0o755)
             environments = []
             for job in ("first", "second"):
                 env_file, path_file = root / f"{job}.env", root / f"{job}.path"
