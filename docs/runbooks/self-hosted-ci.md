@@ -2,9 +2,7 @@
 
 All jobs in `ci.yml`, `moving-containers.yml`, `agent-services.yml`,
 `map-data.yml`, `mvp.yml`, `postgis-image.yml`, and `deploy-staging.yml` use `[self-hosted, linux, team-44]`. The runner
-must be available to this repository and carry those three labels.
-The application-image matrix and PostGIS image job additionally require `ARM64`
-so fixed `linux/arm64` builds and runtime probes run on native ARM64 machines. Job/check
+must be available to this repository and carry all three labels. Job/check
 names, existing path filters, dependencies, GHCR push conditions, and the protected
 `moving-staging` environment remain unchanged.
 Agent and Map workflows also watch the shared runner preflight; Moving change
@@ -13,9 +11,7 @@ environment helper too.
 
 The baseline CI run on 2026-10-05 used `team-44-Doan0904`, Linux ARM64.
 Most checks support Linux ARM64 and x64. The application-image matrix and PostGIS
-publisher build ARM64 images and explicitly select an ARM64 runner.
-The other jobs can use either architecture. Selecting only `team-44` does not
-constrain the architecture, even when a Docker build specifies `--platform`. A successful ARM64 build
+publisher build ARM64 images and use the ARM64 runner. A successful ARM64 build
 is not evidence of an amd64 release image.
 
 | Jobs | Required tools |

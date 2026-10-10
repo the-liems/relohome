@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-publish:
-    runs-on: [self-hosted, linux, ARM64, team-44]
+    runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 40
     permissions:
       contents: read
