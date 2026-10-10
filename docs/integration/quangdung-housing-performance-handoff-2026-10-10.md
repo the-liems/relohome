@@ -74,6 +74,30 @@ nếu cần tháo, dùng `database/rollbacks/housing_query_performance.sql` sau 
 
 ## 3. Trạng thái data geocode
 
+### Cập nhật lượt toàn nguồn chiều 10/10
+
+Người dùng yêu cầu tra nốt rồi gộp thành hai bản để so sánh. Lượt `whole_source`
+đã tra đủ **8.378/8.378 khóa số nhà**. Sau phục hồi cache còn **224 khóa cấp đường**
+chưa có lookup theo policy hiện tại; cả ba key gặp HTTP 429. Tác vụ ngừng gọi API
+khi hết quota, giữ cache và có supervisor chờ key/quota khả dụng để tiếp tục.
+
+Đầu ra bàn giao dự kiến: `data/housing-handoff/final/01-before-standardization.jsonl`
+và `02-after-standardization.jsonl`, kèm manifest/README và ZIP. Chỉ phát hành bản
+đầy đủ khi `pending()` kiểm cả số nhà **và policy lookup của đường** bằng 0.
+Không lấy `cache-review.completed == total` làm bằng chứng tra hết, vì các bản
+`preserve_street_only` offline trước đây vẫn có thể tồn tại trong candidate file.
+
+Supervisor đã được duyệt cho inspect/export/dry-run/đóng gói preview; việc tự động
+áp live trước khi người dùng xem pair đã bị automatic approval review từ chối.
+Source/DB live chưa nhận lô mới. Sau khi pair sẵn sàng cần duyệt việc áp vào live
+trên patch/dry-run cụ thể. Xem `data/housing-geocode/finish-workflow.json`.
+
+Sửa export nối lô (`159d72f`): preserve khi evidence mới không khớp hoặc va chạm
+phải giữ pin **hiện hành**, không quay lại pin raw trước những lô đã áp. Test RED
+tái hiện cả hai trường hợp; GREEN 34 tests và 2 subtests, lint qua. Không đổi backend.
+
+Các số ở phần dưới mô tả checkpoint của lượt shared-pins trước lượt toàn nguồn.
+
 Job resume đã kết thúc **13:37:27, 10/10/2026 (Asia/Saigon)**, `status=complete`.
 Scope đang chọn có 8.637 khóa địa chỉ; 7.697 đã có kết quả trước khi resume;
 940 khóa còn lại đã tra xong bằng 1.523 request mới, có cache và tổng 120 RPM.
