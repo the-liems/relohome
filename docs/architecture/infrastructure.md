@@ -33,7 +33,7 @@ Implementation tasks and progress belong in GitHub Issues, not duplicated here.
 | Deployment scope | Full integrated application: browser gateway/frontend, agent backend, domain services, databases, and routing services |
 | Coolify instance | Existing self-hosted installation; supply its HTTPS origin as the runtime `COOLIFY_URL` input |
 | Deployment CPU | ARM64; build and verify `linux/arm64` images |
-| CI runner | Existing persistent `team-44` runner on the Coolify host, including PR jobs with host Docker access; current exposure described below |
+| CI runners | Self-hosted Linux runners labeled `team-44`; application, Moving, and PostGIS image builds additionally require `ARM64` and verify native execution. The persistent runner on the Coolify host includes PR jobs with host Docker access; current exposure described below. See [runner requirements and recovery](../runbooks/self-hosted-ci.md#arm64-runner-availability-and-recovery) |
 | Repository access | Organization blocks GitHub Apps and deploy keys; Coolify does not clone the repository |
 | Delivery source | GitHub Actions checks out source, builds images, and publishes to GHCR; Coolify pulls them |
 | Registry access | Operator confirmed private-image pulling with a personal credential; verify permissions for each newly published application package |

@@ -132,7 +132,7 @@ jobs:
 
   application-images:
     needs: [lint-and-test, mcp-images, lifeflow-typescript]
-    runs-on: [self-hosted, linux, team-44]
+    runs-on: [self-hosted, linux, ARM64, team-44]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -153,6 +153,8 @@ jobs:
           - {service: moving-mcp, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-mcp}
           - {service: moving-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-migrate}
     steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
       - uses: actions/checkout@v4
       - name: Set image prefix and isolate registry credentials
         run: |
