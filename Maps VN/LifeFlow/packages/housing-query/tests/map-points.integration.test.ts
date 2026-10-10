@@ -54,3 +54,21 @@ it('lets the app read the derived data but denies direct writes and calls to its
     has_function_privilege($1,'housing.sync_map_display()','EXECUTE') AS display_callable`,[config.postgresAppUser])).rows[0]
   expect(permissions).toEqual({readable:true,writable:false,sync_callable:false,display_callable:false})
 })
+
+it('syncs map data from a fresh connection that has not touched catalog.places yet', async () => {
+  // The SECURITY DEFINER sync functions run with search_path=pg_catalog,pg_temp. Planning their
+  // query loads the places expression indexes, so geo.normalize_search must not depend on search_path.
+  const fresh = createDatabasePool(getRuntimeConfig().ingestDatabaseUrl, 1)
+  try {
+    const client = await fresh.connect()
+    try {
+      await client.query('SET search_path = pg_catalog, pg_temp')
+      await client.query('EXPLAIN SELECT * FROM housing.map_point_source WHERE id = ANY($1::uuid[])', [[listing]])
+      expect((await client.query("SELECT geo.normalize_search('Đường   Lê Lợi') AS value")).rows[0].value).toBe('duong le loi')
+    } finally {
+      client.release()
+    }
+  } finally {
+    await fresh.end()
+  }
+})

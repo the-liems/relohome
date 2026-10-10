@@ -1,6 +1,6 @@
 # Housing query performance
 
-Ngày: 10/10/2026. Baseline sản phẩm: `PERF-MUC1-truy-van-ban-do.md`.
+Ngày: 10/10/2026. Baseline sản phẩm: ghi chú đo đạc mức 1 (tài liệu nội bộ, không lưu trong repo).
 
 ## Contract
 
@@ -63,6 +63,9 @@ node scripts/verify-housing-query-performance.mjs 9b2b2db
 
 Migration 019 tạo/backfill read model và covering index cho offers. Migration 020 thêm
 metadata marker nhỏ và index chọn ảnh. Migration 021 thêm index tìm chữ/resolve.
+Migration 022 gọi `unaccent` kèm schema trong `geo.normalize_search`: trigger chạy với
+`search_path` cố định nên trước đó một kết nối mới, chưa đọc `catalog.places`, sẽ lỗi khi tạo
+hoặc sửa tin. Kết quả hàm không đổi nên các index cũ vẫn dùng được; rollback không cần tháo 022.
 Không refresh theo lịch; thay đổi ghi cập nhật read model trong cùng transaction.
 Không cần sửa `.env` hay thêm infrastructure. Đợt tạo index/backfill nên chạy trong
 cửa sổ triển khai trước khi bật code mới.
