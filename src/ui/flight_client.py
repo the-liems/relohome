@@ -24,4 +24,3 @@ def call_tool(mode: Mode, tool: str, arguments: dict[str, Any]) -> CallRecord:
 
 def inspect_server(mode: Mode) -> ServerInfo:
     return mcp_client.inspect_server(server_params(mode))
-

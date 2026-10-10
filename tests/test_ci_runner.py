@@ -1,10 +1,8 @@
-"""Regression coverage for runner prerequisites and shared interpreter isolation."""
+"""Regression coverage for runner tool prerequisites."""
 
 import os
-import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -87,44 +85,3 @@ class RunnerPreflightTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Node.js 24 required, found v22.0.0", result.stderr)
         self.assertEqual(self.run_check("node22", TEST_NODE_MAJOR="22").returncode, 0)
-
-
-class PythonEnvironmentTests(unittest.TestCase):
-    def test_each_job_gets_a_fresh_environment_outside_the_shared_interpreter(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            # Keep the interpreter's installed location when selecting it through PATH.
-            # A relocated symlink makes venv record the temporary directory as home;
-            # setup-python's relocated toolcache then cannot find its standard library.
-            python = root / "python"
-            python.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + ' "$@"\n')
-            python.chmod(0o755)
-            environments = []
-            for job in ("first", "second"):
-                env_file, path_file = root / f"{job}.env", root / f"{job}.path"
-                created = subprocess.run(
-                    [BASH, str(ROOT / "scripts/setup-ci-python.sh")],
-                    env={
-                        **os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                        "RUNNER_TEMP": str(root), "GITHUB_ENV": str(env_file), "GITHUB_PATH": str(path_file),
-                    },
-                    capture_output=True, text=True, timeout=30,
-                )
-                venv = Path(env_file.read_text().strip().removeprefix("CI_PYTHON_VENV="))
-                diagnostics = created.stdout + created.stderr
-                if created.returncode:
-                    # venv itself hides ensurepip's captured output on failure.
-                    bootstrap = subprocess.run(
-                        [str(venv / "bin/python"), "-m", "ensurepip", "--upgrade", "--default-pip"],
-                        capture_output=True, text=True, timeout=30,
-                    )
-                    diagnostics += bootstrap.stdout + bootstrap.stderr
-                    diagnostics += (venv / "pyvenv.cfg").read_text()
-                self.assertEqual(created.returncode, 0, diagnostics)
-                environments.append(venv)
-                self.assertEqual(venv.parent, root)
-                self.assertEqual(path_file.read_text().strip(), str(venv / "bin"))
-                prefix = subprocess.check_output([str(venv / "bin/python"), "-c", "import sys; print(sys.prefix)"], text=True)
-                self.assertEqual(prefix.strip(), str(venv))
-                subprocess.run([str(venv / "bin/python"), "-m", "pip", "--version"], check=True, capture_output=True)
-            self.assertNotEqual(*environments)

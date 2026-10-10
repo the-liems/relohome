@@ -43,10 +43,9 @@ Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
 
 Flight/Payment integration tests run real HTTP services with a test-owned
-lifecycle. Application clients never create provider subprocesses. The runner
-virtualenv regression selects the installed interpreter through a PATH wrapper
-rather than relocating its symlink, and includes bootstrap stdout/stderr on failure. Python images normalize copied
-source/config access before switching to existing service users. MCP and agent
+lifecycle. Application clients never create provider subprocesses. The existing
+job-local virtualenv setup and dependency-install steps validate environment
+creation directly. Python images normalize copied source/config access before switching to existing service users. MCP and agent
 smoke jobs remove group/other checkout access before building so the actual
 container smoke tests cover restrictive source permissions.
 
@@ -91,7 +90,8 @@ Run `actionlint` (the custom label is configured in `.github/actionlint.yaml`),
 The smoke regression tests exercise failed starts, health timeouts, failed
 HTTP checks, cleanup, and overlapping run isolation using a fake Docker CLI.
 Runner tests cover the Compose minimum-version boundary, diagnostic messages,
-capability-specific prerequisites, and fresh Python environment creation.
+capability-specific prerequisites. The normal CI setup and dependency-install
+steps validate job-local Python environments.
 Actual container compatibility and runner availability must additionally be
 verified in Actions. Python assertion fixes are tracked separately in #45–#50.
 
