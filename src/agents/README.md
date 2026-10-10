@@ -76,8 +76,8 @@ uvicorn src.main:app --reload                # API tại /api/v1
 |---|---|---|
 | property, map | Location (`Maps VN/LifeFlow/mcp-server`) | `LOCATION_MCP_URL`, `LOCATION_MCP_AUTH_TOKEN` |
 | relocation | Moving / AhaMove (`Maps VN/LifeFlow/moving-mcp-server`) | `MOVING_MCP_URL`, `MOVING_MCP_AUTH_TOKEN`, `MOVING_QUOTE_CONTACT_*`, `MOVING_APPROVAL_URL` |
-| flight | Flight (`src/mcp_servers/flights`) | `FLIGHT_MCP_URL` hoặc `FLIGHT_MCP_STDIO=true` |
-| thanh toán | Payment ZaloPay sandbox (`src/mcp_servers/payments`) | `PAYMENT_MCP_URL` hoặc `PAYMENT_MCP_STDIO=true` |
+| flight | Flight (`src/mcp_servers/flights`) | `FLIGHT_MCP_URL` |
+| thanh toán | Payment ZaloPay sandbox (`src/mcp_servers/payments`) | `PAYMENT_MCP_URL` |
 
 Service chưa cấu hình thì lĩnh vực đó không được đăng ký. Lưu ý: app mặc định dùng
 `PassThroughIntake` + `NotImplementedPlanner`, nên `/chat` trả `UNSUPPORTED` cho tới khi có Intake và

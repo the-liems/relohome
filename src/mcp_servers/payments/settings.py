@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 VN_TZ = timezone(timedelta(hours=7))
@@ -36,6 +36,7 @@ class PaymentSettings(BaseSettings):
     expire_minutes: int = Field(default=15, ge=5, le=1440)
     retention_days: int = Field(default=30, ge=1, le=365)
     db_path: str = "./data/payments.db"
+    mcp_auth_token: str = Field(default="", validation_alias=AliasChoices("MCP_AUTH_TOKEN", "PAYMENT_MCP_AUTH_TOKEN", "mcp_auth_token"))
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(default=8766, ge=1, le=65535)
 

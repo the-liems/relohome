@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const rootDirectory = resolve(packageDirectory, '..')
-const authToken = 'lifeflow-mcp-integration-token'
+const authToken = 'lifeflow-mcp-integration-token-0123456789'
 
 let child: ChildProcess
 let endpoint: URL
@@ -48,6 +48,8 @@ describe('LifeFlow MCP Streamable HTTP server', () => {
 
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toBe('Bearer')
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(await response.json()).toEqual({ status: 'error', code: 'UNAUTHORIZED' })
   })
 
   it('publishes all nine tools to an authenticated remote client', async () => {

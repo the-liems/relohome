@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto'
+import { authenticateMcpRequest, requireServiceToken, sendAuthError } from '@lifeflow/mcp-core'
 import { createServer, type ServerResponse } from 'node:http'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { hostHeaderValidation, toNodeHandler } from '@modelcontextprotocol/node'
@@ -14,9 +14,8 @@ export interface MovingHttpOptions {
 }
 
 export function getMovingHttpOptions(): MovingHttpOptions {
-  const token = process.env.MOVING_MCP_AUTH_TOKEN?.trim() || ''
-  if (token.length < 32) throw new Error('MOVING_MCP_AUTH_TOKEN must contain at least 32 characters.')
-  const writeToken = process.env.MOVING_MCP_WRITE_TOKEN?.trim() || undefined
+  const token = requireServiceToken(process.env.MCP_AUTH_TOKEN || process.env.MOVING_MCP_AUTH_TOKEN || '')
+  const writeToken = process.env.MCP_WRITE_TOKEN || process.env.MOVING_MCP_WRITE_TOKEN || undefined
   validateTokens(token, writeToken)
   const list = (value: string) => value.split(',').map((entry) => entry.trim()).filter(Boolean)
   const allowedHosts = list(process.env.MOVING_MCP_ALLOWED_HOSTS || 'localhost,127.0.0.1,moving-mcp')
@@ -29,16 +28,11 @@ export function getMovingHttpOptions(): MovingHttpOptions {
 }
 
 function validateTokens(read: string, write?: string) {
-  if (read.length < 32 || (write && (write.length < 32 || write === read))) {
-    throw new Error('Moving read and write tokens must be distinct and contain at least 32 characters.')
+  requireServiceToken(read)
+  if (write) {
+    requireServiceToken(write, 'MCP_WRITE_TOKEN')
+    if (write === read) throw new Error('Moving read and write tokens must be distinct.')
   }
-}
-
-function matchesToken(header: string, token?: string) {
-  if (!token) return false
-  const actual = Buffer.from(header)
-  const expected = Buffer.from(`Bearer ${token}`)
-  return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
 export function buildMovingHttpServer(
@@ -72,7 +66,7 @@ export function buildMovingHttpServer(
       if (!validateHost(req, res)) return
       const origin = req.headers.origin
       if (origin && !options.allowedOrigins.includes(origin)) {
-        json(res, 403, { code: 'ORIGIN_NOT_ALLOWED' }); return
+        sendAuthError(res, 403, 'ORIGIN_NOT_ALLOWED'); return
       }
       const path = new URL(req.url || '/', 'http://localhost').pathname
       if (req.method === 'GET' && (path === '/health' || path === '/ready')) {
@@ -86,13 +80,10 @@ export function buildMovingHttpServer(
       }
       if (path !== '/mcp') { json(res, 404, { code: 'NOT_FOUND' }); return }
       if (stopping) { json(res, 503, { code: 'STOPPING' }); return }
-      const authorization = req.headers.authorization || ''
-      const canRead = matchesToken(authorization, options.token)
-      const canWrite = matchesToken(authorization, options.writeToken)
-      if (!canRead && !canWrite) {
-        res.setHeader('www-authenticate', 'Bearer realm="lifeflow-moving"')
-        json(res, 401, { code: 'NOT_AUTHORIZED' }); return
-      }
+      const credential = authenticateMcpRequest(req, res,
+        options.writeToken ? [options.token, options.writeToken] : [options.token])
+      if (credential === undefined) return
+      const canWrite = credential === 1
       if (canWrite && handleWriteMcp) await handleWriteMcp(req, res)
       else await handleMcp(req, res)
     } catch {

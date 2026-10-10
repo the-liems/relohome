@@ -1,0 +1,72 @@
+{
+  "token": "internal-mcp-test-token-0123456789",
+  "headers": [
+    {
+      "name": "canonical",
+      "header": "Bearer internal-mcp-test-token-0123456789",
+      "valid": true
+    },
+    {
+      "name": "lowercase",
+      "header": "bearer internal-mcp-test-token-0123456789",
+      "valid": true
+    },
+    {
+      "name": "mixed-case",
+      "header": "bEaReR internal-mcp-test-token-0123456789",
+      "valid": true
+    },
+    {
+      "name": "missing",
+      "header": null,
+      "valid": false
+    },
+    {
+      "name": "wrong-token",
+      "header": "Bearer wrong",
+      "valid": false
+    },
+    {
+      "name": "basic",
+      "header": "Basic internal-mcp-test-token-0123456789",
+      "valid": false
+    },
+    {
+      "name": "tab",
+      "header": "Bearer\tinternal-mcp-test-token-0123456789",
+      "valid": false
+    },
+    {
+      "name": "two-spaces",
+      "header": "Bearer  internal-mcp-test-token-0123456789",
+      "valid": false
+    },
+    {
+      "name": "trailing-space",
+      "header": "Bearer internal-mcp-test-token-0123456789 ",
+      "valid": false
+    },
+    {
+      "name": "newline",
+      "header": "Bearer internal-mcp-test-token-0123456789\n",
+      "valid": false
+    },
+    {
+      "name": "unicode",
+      "header": "Bearer internal-mcp-test-token-0123456789\u00e9",
+      "valid": false
+    },
+    {
+      "name": "empty",
+      "header": "Bearer ",
+      "valid": false
+    }
+  ],
+  "invalid_tokens": [
+    "",
+    "short",
+    "internal-mcp-test-token-0123456789\n",
+    "internal-mcp-test-token-0123456789 ",
+    "internal-mcp-test-token-0123456789\u00e9"
+  ]
+}

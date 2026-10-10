@@ -56,8 +56,8 @@ services:
     build: { context: ., dockerfile: Dockerfile.moving, target: moving-mcp, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
     environment:
       <<: *provider
-      MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?Set MOVING_MCP_AUTH_TOKEN}
-      MOVING_MCP_WRITE_TOKEN: ${MOVING_MCP_WRITE_TOKEN:-}
+      MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?Set MOVING_MCP_AUTH_TOKEN}
+      MCP_WRITE_TOKEN: ${MOVING_MCP_WRITE_TOKEN:-}
       MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
     ports: ['127.0.0.1:${MOVING_MCP_PUBLISHED_PORT:-4400}:4400']
 

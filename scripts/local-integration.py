@@ -1,6 +1,6 @@
 """Run one local component with ignored integration configuration; no deployment.
 
-Usage: .venv/Scripts/python scripts/local-integration.py location|platform|moving|moving-api|api|migrate|ui|check
+Usage: .venv/Scripts/python scripts/local-integration.py location|platform|moving|moving-api|flight|payment|api|migrate|ui|check
 Keep each long-running component in its own terminal. Ctrl+C stops that component.
 """
 
@@ -46,8 +46,8 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         AGENT_SANDBOX_PAYMENTS_ENABLED="true" if sandbox_writes else "false",
         PAYMENT_PROVIDER="zalopay",
         PAYMENT_ZALOPAY_ENDPOINT="https://sb-openapi.zalopay.vn/v2",
-        PAYMENT_MCP_STDIO="true",
-        PAYMENT_MCP_URL="",
+        FLIGHT_MCP_URL=env.get("FLIGHT_MCP_URL", "http://127.0.0.1:8765/mcp"),
+        PAYMENT_MCP_URL=env.get("PAYMENT_MCP_URL", "http://127.0.0.1:8766/mcp"),
         PAYMENT_DB_PATH=str(ROOT / "data/integration-payments.db"),
         PAYMENT_REDIRECT_URL="http://localhost:8503/",
         LANGCHAIN_TRACING_V2="false",
@@ -66,6 +66,20 @@ def environment(component, sandbox_writes=False, payment_demo=False):
     env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
     env["PYTHONPATH"] = str(ROOT)
     env["PYTHONIOENCODING"] = "utf-8"
+    if component in {"api", "ui"}:
+        # Provider credentials and provider databases belong to their services.
+        for key in list(env):
+            if key.startswith("PAYMENT_ZALOPAY_") or key in {
+                "FLIGHT_SERPAPI_API_KEY", "FLIGHT_SEARCH_PROVIDER", "FLIGHT_DB_PATH",
+                "FLIGHT_SIMULATION_ENABLED", "PAYMENT_PROVIDER", "PAYMENT_DB_PATH", "PAYMENT_REDIRECT_URL",
+            }:
+                env.pop(key)
+    if component in {"flight", "payment"}:
+        prefix = "FLIGHT_" if component == "flight" else "PAYMENT_"
+        system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATHEXT", "COMSPEC",
+                       "PYTHONPATH", "PYTHONIOENCODING", "LD_LIBRARY_PATH"}
+        env = {key: value for key, value in env.items() if key in system_keys or key.startswith(prefix)}
+        env["MCP_AUTH_TOKEN"] = env.get(prefix + "MCP_AUTH_TOKEN", "")
     if component in {"location", "platform", "moving", "moving-api"}:
         allowed = {
             "PATH",
@@ -93,12 +107,14 @@ def environment(component, sandbox_writes=False, payment_demo=False):
             allowed.update({"HOUSING_REVIEW_MIN_COUNT", "HOUSING_REVIEW_PATTERN_DAYS", "HOUSING_REVIEW_LOW_STARS",
                             "HOUSING_REVIEW_PATTERN_PROPERTIES", "HOUSING_REVIEW_PATTERN_AUTHORS"})
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
+        if component == "moving":
+            env["MCP_AUTH_TOKEN"] = env.get("MOVING_MCP_AUTH_TOKEN", "")
     return env
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "api", "migrate", "ui", "check"])
+    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "flight", "payment", "api", "migrate", "ui", "check"])
     parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
@@ -116,6 +132,8 @@ def main():
         "platform": ["node", "platform-api/dist/server.js"],
         "moving": ["node", "moving-mcp-server/dist/http-server.js"],
         "moving-api": ["node", "moving-api/dist/server.js"],
+        "flight": [sys.executable, "-m", "src.mcp_servers.flights", "--transport", "streamable-http"],
+        "payment": [sys.executable, "-m", "src.mcp_servers.payments", "--transport", "streamable-http"],
         "migrate": ["node", "platform-api/dist/migrate.js"],
         "check": ["node", "scripts/check-local-schema.mjs"],
         "api": [
@@ -157,7 +175,7 @@ def main():
                 args.sandbox_writes,
                 args.payment_demo,
             ),
-            cwd=ROOT if args.component in {"api", "ui"} else MAPS,
+            cwd=ROOT if args.component in {"api", "ui", "flight", "payment"} else MAPS,
         )
     )
 

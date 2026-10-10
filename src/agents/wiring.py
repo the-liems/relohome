@@ -7,8 +7,8 @@
 |---|---|---|
 | property, map | Location (QuangDung) | LOCATION_MCP_URL, LOCATION_MCP_AUTH_TOKEN |
 | relocation | Moving / AhaMove (khoa) | MOVING_MCP_URL, MOVING_MCP_AUTH_TOKEN, MOVING_QUOTE_CONTACT_* |
-| flight | Flight (Doan/api) | FLIGHT_MCP_URL hoặc FLIGHT_MCP_STDIO=true |
-| (thanh toán) | Payment ZaloPay sandbox (Doan/api) | PAYMENT_MCP_URL hoặc PAYMENT_MCP_STDIO=true |
+| flight | Flight (Doan/api) | FLIGHT_MCP_URL |
+| (thanh toán) | Payment ZaloPay sandbox (Doan/api) | PAYMENT_MCP_URL |
 
 Service chưa cấu hình thì lĩnh vực đó không được đăng ký. Khi chủ service có subagent riêng
 (`run_task`), thay subagent nền bằng `RemoteAgent` ở đây; graph không đổi.
@@ -136,17 +136,8 @@ class AgentService:
             raise ValueError("Simulated transactions are disabled for this integration")
         if services.agent_writes_enabled and services.moving_environment != "staging":
             raise ValueError("MVP transactions are restricted to AhaMove staging")
-        if services.agent_sandbox_payments_enabled:
-            from src.mcp_servers.payments.settings import PaymentSettings
-
-            payment_settings = PaymentSettings()
-            if (
-                not services.payment_mcp_stdio
-                or services.payment_mcp_url
-                or payment_settings.provider != "zalopay"
-                or payment_settings.zalopay_endpoint.rstrip("/") != "https://sb-openapi.zalopay.vn/v2"
-            ):
-                raise ValueError("Sandbox payment demo requires local ZaloPay MCP with official sandbox endpoint")
+        if services.agent_sandbox_payments_enabled or services.app_payment_demo_enabled:
+            await verify_sandbox_payment_service(services)
         stack = AsyncExitStack()
         await stack.__aenter__()
         try:
@@ -175,16 +166,7 @@ class AgentService:
 
             payment_read = registry.payment.read_client()
             if payment_read and services.payment_source_kind == "sandbox":
-                from src.mcp_servers.payments.settings import PaymentSettings
-
-                payment_settings = PaymentSettings()
-                if (
-                    services.payment_mcp_stdio
-                    and not services.payment_mcp_url
-                    and payment_settings.provider == "zalopay"
-                    and payment_settings.zalopay_endpoint.rstrip("/") == "https://sb-openapi.zalopay.vn/v2"
-                ):
-                    agents[AgentName.PAYMENT] = PaymentSubagent(payment_read, db)
+                agents[AgentName.PAYMENT] = PaymentSubagent(payment_read, db)
             for name, model in {
                 AgentName.PROPERTY: services.agent_housing_model,
                 AgentName.MAP: services.agent_map_model,
@@ -296,6 +278,29 @@ class AgentService:
         )
 
 
+async def verify_sandbox_payment_service(services: ServiceSettings):
+    """Verify service-owned provider configuration without reading merchant secrets."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    import httpx
+
+    if not services.payment_mcp_url or services.payment_source_kind != "sandbox":
+        raise ValueError("Sandbox payments require PAYMENT_MCP_URL and sandbox source kind")
+    endpoint = urlsplit(services.payment_mcp_url)
+    health_url = urlunsplit((endpoint.scheme, endpoint.netloc, "/health", "", ""))
+    token = services.payment_mcp_auth_token.get_secret_value()
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        async with httpx.AsyncClient(headers=headers, timeout=5, follow_redirects=False) as http:
+            response = await http.get(health_url)
+            response.raise_for_status()
+            health = response.json()
+        if health.get("provider") != "zalopay" or health.get("environment") != "sandbox":
+            raise ValueError("Unexpected payment service configuration")
+    except (httpx.HTTPError, ValueError, AttributeError) as exc:
+        raise ValueError("Payment service must be healthy and use the official ZaloPay sandbox") from exc
+
+
 def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, checkout=None):
     """Chọn nhiều căn để hẹn xem; dùng chung kho giao dịch với thanh toán của app nếu có."""
     from src.checkout.store import CheckoutStore
@@ -313,16 +318,8 @@ def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii
     from src.checkout.service import CheckoutService, CheckoutSettings
     from src.checkout.store import CheckoutStore
     from src.config import get_settings
-    from src.mcp_servers.payments.settings import PaymentSettings
-
-    payment_settings = PaymentSettings()
-    if (
-        not services.payment_mcp_stdio
-        or services.payment_mcp_url
-        or payment_settings.provider != "zalopay"
-        or payment_settings.zalopay_endpoint.rstrip("/") != "https://sb-openapi.zalopay.vn/v2"
-    ):
-        raise ValueError("App payment demo requires the local ZaloPay MCP with the official sandbox endpoint")
+    if not services.payment_mcp_url or services.payment_source_kind != "sandbox":
+        raise ValueError("App payment demo requires a dedicated sandbox Payment HTTP service")
     production = get_settings().app_env == "production"
     if production and services.payment_tester_confirm_enabled:
         raise ValueError("The tester payment control is never enabled in production")
