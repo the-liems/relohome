@@ -65,6 +65,23 @@ afterAll(async () => {
 })
 
 describe('HousingQueryService hard constraints', () => {
+  it('preserves case-insensitive text OR across title, description and the original JSON address', async () => {
+    await client.query('SAVEPOINT text_fields')
+    try {
+      await client.query("UPDATE housing.listings SET description='Description Needle' WHERE id=$1",[ids.validListing])
+      await client.query("UPDATE housing.listings SET title='Title Needle' WHERE id=$1",[ids.unknownListing])
+      await client.query(`UPDATE catalog.places SET address='{"street":"Address Needle"}' WHERE id=$1`,[ids.expensivePlace])
+      const expected=[ids.unknownListing,ids.validListing,ids.expensiveListing]
+      expect((await service.search({text:'nEeDlE'})).results.map(r=>r.listing_id)).toEqual(expected)
+      expect((await service.search({text:'Need%'})).results.map(r=>r.listing_id)).toEqual(expected)
+      const box={west:106.69,south:10.76,east:106.74,north:10.8}
+      const map=await service.map({text:'needle',bounding_box:box,zoom:15})
+      expect(map.features.map(r=>r.kind==='listing' && r.listing_id).sort()).toEqual([...expected].sort())
+      const clusters=await service.map({text:'needle',bounding_box:box,zoom:10})
+      expect(clusters.features.reduce((n,r)=>n+(r.kind==='cluster'?r.count:0),0)).toBe(3)
+    } finally { await client.query('ROLLBACK TO SAVEPOINT text_fields') }
+  })
+
   it('keeps future, expired and overlapping offer selection live for search, markers and clusters', async () => {
     await client.query('SAVEPOINT temporal_offers')
     try {

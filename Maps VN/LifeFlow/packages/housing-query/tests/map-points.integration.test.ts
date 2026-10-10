@@ -44,3 +44,13 @@ it('keeps map data fresh within the source transaction and preserves a soft-dele
   await db.query('UPDATE housing.listings SET deleted_at=now() WHERE id=$1',[listing])
   expect(await point()).toBeUndefined()
 })
+
+it('lets the app read the derived data but denies direct writes and calls to its privileged sync helpers', async () => {
+  const config = getRuntimeConfig()
+  const permissions = (await db.query(`SELECT
+    has_table_privilege($1,'housing.map_points','SELECT') AS readable,
+    has_table_privilege($1,'housing.map_points','INSERT') AS writable,
+    has_function_privilege($1,'housing.sync_map_points(uuid[])','EXECUTE') AS sync_callable,
+    has_function_privilege($1,'housing.sync_map_display()','EXECUTE') AS display_callable`,[config.postgresAppUser])).rows[0]
+  expect(permissions).toEqual({readable:true,writable:false,sync_callable:false,display_callable:false})
+})

@@ -87,7 +87,18 @@ function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilde
   if (listingId) conditions.push(`l.id = ${sql.parameter(listingId)}`)
   if (request.text) {
     const parameter = sql.parameter(`%${request.text}%`)
-    conditions.push(`(l.title ILIKE ${parameter} OR l.description ILIKE ${parameter} OR cp.address::text ILIKE ${parameter})`)
+    // OR across joined relations prevents independent trigram lookups. Union
+    // the matching listing IDs first, preserving each original ILIKE field.
+    conditions.push(`l.id IN (
+      SELECT id FROM housing.listings
+      WHERE status='active' AND deleted_at IS NULL
+        AND (title ILIKE ${parameter} OR description ILIKE ${parameter})
+      UNION
+      SELECT al.id FROM catalog.places ap
+      JOIN housing.properties hp ON hp.place_id=ap.id
+      JOIN housing.listings al ON al.property_id=hp.id
+      WHERE ap.deleted_at IS NULL AND ap.address::text ILIKE ${parameter}
+    )`)
   }
   const propertyTypes = list(request.property_type)
   if (propertyTypes) conditions.push(`${p}.property_type = ANY(${sql.parameter(propertyTypes)}::text[])`)
@@ -418,7 +429,7 @@ export class HousingQueryService {
 
     let distanceExpression = 'NULL::double precision'
     if (request.center) {
-      distanceExpression = `ST_Distance(cp.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(request.center.lng)}, ${sql.parameter(request.center.lat)}), 4326)::geography)`
+      distanceExpression = `ST_Distance(${indexed ? 'l' : 'cp'}.geog, ST_SetSRID(ST_MakePoint(${sql.parameter(request.center.lng)}, ${sql.parameter(request.center.lat)}), 4326)::geography)`
     }
 
     const orderBy = buildOrderBy(request)
@@ -430,7 +441,7 @@ export class HousingQueryService {
     const result = await this.pool.query(
       `WITH page AS MATERIALIZED (
          SELECT l.id AS listing_id,o.id AS offer_id,
-           ${indexed ? distanceExpression.replace('cp.geog', 'l.geog') : distanceExpression} AS distance_meters
+           ${distanceExpression} AS distance_meters
          ${candidateFrom(indexed)}
          WHERE ${conditions.join(' AND ') || 'true'}
          ORDER BY ${candidateOrder} LIMIT ${limitParameter} ${offsetClause}
