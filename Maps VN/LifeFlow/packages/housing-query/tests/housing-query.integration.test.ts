@@ -65,6 +65,48 @@ afterAll(async () => {
 })
 
 describe('HousingQueryService hard constraints', () => {
+  it('preserves case-insensitive text OR across title, description and the original JSON address', async () => {
+    await client.query('SAVEPOINT text_fields')
+    try {
+      await client.query("UPDATE housing.listings SET description='Description Needle' WHERE id=$1",[ids.validListing])
+      await client.query("UPDATE housing.listings SET title='Title Needle' WHERE id=$1",[ids.unknownListing])
+      await client.query(`UPDATE catalog.places SET address='{"street":"Address Needle"}' WHERE id=$1`,[ids.expensivePlace])
+      const expected=[ids.unknownListing,ids.validListing,ids.expensiveListing]
+      expect((await service.search({text:'nEeDlE'})).results.map(r=>r.listing_id)).toEqual(expected)
+      expect((await service.search({text:'Need%'})).results.map(r=>r.listing_id)).toEqual(expected)
+      const box={west:106.69,south:10.76,east:106.74,north:10.8}
+      const map=await service.map({text:'needle',bounding_box:box,zoom:15})
+      expect(map.features.map(r=>r.kind==='listing' && r.listing_id).sort()).toEqual([...expected].sort())
+      const clusters=await service.map({text:'needle',bounding_box:box,zoom:10})
+      expect(clusters.features.reduce((n,r)=>n+(r.kind==='cluster'?r.count:0),0)).toBe(3)
+    } finally { await client.query('ROLLBACK TO SAVEPOINT text_fields') }
+  })
+
+  it('keeps future, expired and overlapping offer selection live for search, markers and clusters', async () => {
+    await client.query('SAVEPOINT temporal_offers')
+    try {
+      await client.query(`UPDATE housing.offers SET valid_from=now()-interval '10 days' WHERE listing_id=$1`,[ids.validListing])
+      const newer = (await client.query(`INSERT INTO housing.offers(listing_id,price_amount,currency,price_period,valid_from)
+        VALUES($1,16000000,'VND','month',now()+interval '1 day') RETURNING id`,[ids.validListing])).rows[0].id
+      const check = async (amount: number) => {
+        expect((await service.get(ids.validListing)).price.amount).toBe(amount)
+        expect((await service.search({text:'Valid listing'})).results[0].price.amount).toBe(amount)
+        for (const zoom of [10,15]) {
+          const feature = (await service.map({bounding_box:{west:106.69,south:10.76,east:106.74,north:10.8},listing_ids:[ids.validListing],zoom})).features[0]
+          expect(feature.kind==='cluster' ? feature.min_price_amount : feature.price.amount).toBe(amount)
+        }
+      }
+      await check(14000000) // future offer cannot win just because it was inserted most recently
+      await client.query(`UPDATE housing.offers SET valid_from=now()-interval '1 day' WHERE id=$1`,[newer])
+      await check(16000000) // no update or refresh of map_points is needed
+      await client.query(`UPDATE housing.offers SET valid_to=now()-interval '1 hour' WHERE id=$1`,[newer])
+      await check(14000000) // fallback to the older still-valid price
+      await client.query(`UPDATE housing.offers SET is_active=false WHERE listing_id=$1`,[ids.validListing])
+      expect((await service.search({text:'Valid listing'})).results).toEqual([])
+      expect((await service.map({bounding_box:{west:106.69,south:10.76,east:106.74,north:10.8},listing_ids:[ids.validListing],zoom:15})).features).toEqual([])
+    } finally { await client.query('ROLLBACK TO SAVEPOINT temporal_offers') }
+  })
+
   it('applies identical hard filters to search, map listings and map clusters', async () => {
     const filters = {
       bounding_box: { west: 106.69, south: 10.76, east: 106.74, north: 10.80 },

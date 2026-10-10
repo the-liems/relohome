@@ -526,7 +526,10 @@ export function ViewingPanel({
               )}
             </p>
           )}
-          {["selected", "viewing_scheduled", "backup"].includes(item.status) &&
+          {(["selected", "viewing_scheduled", "backup"].includes(item.status) ||
+            (item.status === "visit_due" &&
+              item.landlord &&
+              landlordClosed(item.landlord))) &&
             !(item.status === "backup" && item.backup_from === "visited") && (
               <SlotPicker
                 slots={viewing.slots || []}
@@ -537,7 +540,9 @@ export function ViewingPanel({
                 }
               />
             )}
-          {(!item.landlord || item.landlord.viewing_status === "confirmed") &&
+          {(!item.landlord ||
+            (item.landlord.viewing_status === "confirmed" &&
+              !landlordClosed(item.landlord))) &&
             (item.status === "visit_due" ||
               (item.status === "backup" &&
                 item.viewing?.slot &&

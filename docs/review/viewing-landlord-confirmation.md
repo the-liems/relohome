@@ -81,7 +81,8 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
 ## 6. Tin nhắn và điều kiện ghi kết quả (v2)
 
 - **Điều kiện ghi kết quả:** gateway kiểm tra trước bước `visit`. Tin có `management` (do chủ nhà quản lý) cần yêu cầu
-  liên hệ có `viewing_status = confirmed` cho đúng giờ đang hẹn; nếu không trả `409`. Tin nguồn khác giữ luồng thử.
+  liên hệ còn mở (`new`, `contacted`, `viewing`) và có `viewing_status = confirmed` cho đúng giờ đang hẹn;
+  nếu không trả `409`. Xác nhận của yêu cầu đã đóng không cho phép ghi kết quả. Tin nguồn khác giữ luồng thử.
   Không kiểm được Platform thì trả `503` (không cho qua). Giao diện ẩn nút ghi kết quả khi chủ nhà chưa xác nhận.
 - **Tin nhắn:** bảng `housing.contact_messages` (migration `017`), một cuộc trò chuyện cho mỗi yêu cầu liên hệ.
   Chỉ người thuê của yêu cầu và người quản lý đang hoạt động của địa điểm đọc và gửi được; người khác nhận `404`.
@@ -105,6 +106,19 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
   nhà trả lời hoặc đóng) thì coi như đã gửi và không gửi lại. Chỉ khi người thuê tự đặt lịch mới được tạo lại yêu cầu
   đã đóng.
 
+### Sửa trường hợp đổi giờ gửi thất bại (10/10/2026)
+
+- Nền code: `origin/main` tại `9b2b2db` (đã merge PR #88), cập nhật vào nhánh local `QuangDung`.
+- Trường hợp còn thiếu: chủ nhà đang giữ giờ A; người thuê đổi sang B nhưng gửi lỗi; sau đó chủ nhà đóng
+  yêu cầu hoặc hủy lịch A. Giờ và `viewing_updated_at` cũ có thể giữ nguyên, nên kiểm tra fingerprint cùng
+  giờ B không phát hiện việc đóng. Retry trước đây gửi `PUT` và mở lại yêu cầu.
+- Retry giờ xem giờ đây bỏ thay đổi chờ nếu yêu cầu đã đóng hoặc lịch bị hủy, bất kể giờ phía chủ nhà có
+  trùng giờ đang chờ hay không. Giữ giờ nháp phía người thuê và hiển thị trạng thái đã đóng. Chỉ thao tác
+  đặt lịch rõ ràng của người thuê mới gửi lại yêu cầu.
+- Không hiện nút ghi kết quả cho yêu cầu đã đóng dù nó giữ `viewing_status = confirmed`; gateway cũng
+  chặn gọi trực tiếp bằng `409`. Nếu lịch đã tới giờ mà yêu cầu đóng, người thuê vẫn chọn giờ mới được.
+- Không đổi endpoint, payload, database schema hay checkout của Moving/Flight.
+
 ## 7. Kiểm thử
 
 - Platform (PostGIS thật): gửi giờ, gửi lại không đổi, người khác không trả lời được, từ chối rồi đổi giờ, xác nhận,
@@ -112,3 +126,17 @@ Hộp thư chủ nhà và `contact-requests/me` trả thêm ba trường mới; 
 - Gateway: chỉ gửi giờ đổi, rút giờ của căn đã bỏ chọn, tin nguồn khác giữ chế độ thử, câu trả lời hiện cả ở
   `viewings` lẫn snapshot hội thoại.
 - Trình duyệt: chủ nhà xác nhận giờ xem trong hộp thư (desktop, mobile, axe).
+
+Kiểm tra bản sửa 10/10/2026:
+
+- RED: 4 trường hợp gateway thất bại trước khi sửa (retry khi `resolved`, `declined`, lịch `cancelled`,
+  và ghi kết quả bằng xác nhận của yêu cầu đã đóng). Test Chrome cũng tái hiện nút ghi kết quả sai.
+- GREEN: 99 test gateway, checkout, cấu hình deployment, ảnh runtime web, projection review,
+  graph lịch xem và API lịch xem đều qua. Chạy với `PYTHONUTF8=1`, `APP_ENV=test`, `ROOMMATE_ENABLED=false`
+  để fixture offline không kế thừa cấu hình Roommate bật trong `.env` local; không sửa `.env`.
+- Chrome: 6 test trong `Frontend/tests/browser/viewing-closed-request.spec.ts` qua trên desktop/mobile;
+  xác minh yêu cầu đóng không ghi kết quả được, có thể đặt lại và yêu cầu mở đã xác nhận vẫn ghi được.
+  Không có `pageerror` trong các luồng này.
+- `npm run build` và `ruff check Frontend/server.py Frontend/tests/test_housing_management_gateway.py` qua.
+- Các test lỗi gửi/timeout dùng upstream mô phỏng; không thực hiện giao dịch thanh toán hay ghi lịch
+  vào tài khoản thật để kiểm tra sự cố này.

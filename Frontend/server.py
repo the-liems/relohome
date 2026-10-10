@@ -681,6 +681,9 @@ def create_app(database=None, transport=None):
             return json.dumps({"attempted": True, "id": None})
         return json.dumps({"attempted": True, "id": row.get("id"), "at": str(row.get("viewing_updated_at"))})
 
+    def closed_viewing_request(row):
+        return bool(row) and (row.get("status") not in OPEN_CONTACT or row.get("viewing_status") == "cancelled")
+
     async def write_viewing(owner, listing, slot):
         """Send a booked time (or withdraw when slot is empty): 'done', 'not_managed' or 'failed'."""
         try:
@@ -705,6 +708,7 @@ def create_app(database=None, transport=None):
         - homes that lost their time are withdrawn;
         - a write that failed is kept as a pending change, shown (`landlord.sync = "failed"`,
           `landlord_withdraw_pending`) and retried on later viewing steps. A retry never recreates a request:
+          closed or cancelled requests are respected even if they retain an older time. Otherwise,
           when the remote request changed since the failed attempt (the timed-out write landed and the
           landlord may have answered or closed it) the change counts as delivered. Pending changes are
           dropped when the booking changes. Other sources answer `not_managed` and keep test mode."""
@@ -748,7 +752,12 @@ def create_app(database=None, transport=None):
                 wanted = pending.get(listing, ("", ""))[0]
                 if wanted and slot and same_instant(wanted, slot):
                     item["landlord"] = {"sync": "failed"}  # this booking has not reached the landlord
-                elif row and row.get("viewing_status") and slot and same_instant(row.get("viewing_slot"), slot):
+                elif (
+                    row
+                    and row.get("viewing_status")
+                    and slot
+                    and (same_instant(row.get("viewing_slot"), slot) or closed_viewing_request(row))
+                ):
                     item["landlord"] = {
                         "viewing_status": row["viewing_status"],
                         "request_status": row["status"],
@@ -794,6 +803,9 @@ def create_app(database=None, transport=None):
                     writes.append((listing, slot))
                 elif listing in pending:
                     forget(listing)  # nothing left to withdraw
+                continue
+            if not explicit and closed_viewing_request(row):
+                forget(listing)  # closure wins over a failed time change; only a new booking may reopen it
                 continue
             holds = row is not None and same_instant(row.get("viewing_slot"), slot)
             if holds and open_row and row.get("viewing_status") in {"requested", "confirmed", "declined"}:
@@ -866,7 +878,8 @@ def create_app(database=None, transport=None):
             if isinstance(view, dict)
             else None
         )
-        if not item or (item.get("landlord") or {}).get("viewing_status") != "confirmed":
+        landlord = (item.get("landlord") or {}) if item else {}
+        if landlord.get("viewing_status") != "confirmed" or landlord.get("request_status") not in OPEN_CONTACT:
             raise HTTPException(409, "Chủ nhà chưa xác nhận giờ xem này; ghi kết quả sau khi chủ nhà xác nhận.")
 
     @app.post("/web/api/threads/{thread}/flight/outbound")
