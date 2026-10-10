@@ -128,7 +128,7 @@ jobs:
       - name: Run portable workspace tests
         env:
           NODE_OPTIONS: --max-old-space-size=512
-        run: npm run test:ci
+        run: npm run test:ci && npm exec --workspace @lifeflow/mcp-server -- vitest run tests/mcp-http.integration.test.ts
 
   application-images:
     needs: [lint-and-test, mcp-images, lifeflow-typescript]
