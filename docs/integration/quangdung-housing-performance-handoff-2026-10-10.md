@@ -13,6 +13,7 @@ hay force-push lên lịch sử đã được bạn khác cập nhật.
 | `2ef8378` | Marker đọc metadata nhỏ, tránh đọc payload crawl và join lại toàn bộ bảng |
 | `46614be` | Index và SQL tìm chữ giữ nguyên nghĩa ILIKE; index resolve phù hợp điều kiện thực tế |
 | `88687da` | Baseline, benchmark/parity script, hướng dẫn và rollback |
+| `5ba82bc` | Bản sửa của nhóm: migration 022 giúp trigger đồng bộ map chạy được trên kết nối DB mới |
 
 Chi tiết quyết định và số đo: [Housing query performance](../design/housing-query-performance.md).
 Sửa lịch xem: [Viewing landlord confirmation](../review/viewing-landlord-confirmation.md).
@@ -24,6 +25,7 @@ Các file chính:
 - `Maps VN/LifeFlow/database/migrations/019_housing_map_points.sql`
 - `Maps VN/LifeFlow/database/migrations/020_housing_map_display.sql`
 - `Maps VN/LifeFlow/database/migrations/021_housing_text_indexes.sql`
+- `Maps VN/LifeFlow/database/migrations/022_normalize_search_path_independent.sql`
 - `Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs`
 - `Frontend/server.py`, `Frontend/src/components/Viewings.tsx` và regression tests tương ứng
 
@@ -64,7 +66,7 @@ npm run build
 node scripts/verify-housing-query-performance.mjs 9b2b2db
 ```
 
-**Migrate 019–021 trước khi khởi động code mới.** Migration có backfill/index, nên
+**Migrate 019–022 trước khi khởi động code mới.** Migration có backfill/index, nên
 chạy trong cửa sổ triển khai. Kiểm tra API tìm nhà/map, cập nhật/ẩn tin, giá hết hạn,
 rồi so CPU/RAM/read/IOPS và latency trên cloud với cùng thao tác trong baseline.
 
@@ -80,6 +82,17 @@ Người dùng yêu cầu tra nốt rồi gộp thành hai bản để so sánh.
 đã tra đủ **8.378/8.378 khóa số nhà**. Sau phục hồi cache còn **224 khóa cấp đường**
 chưa có lookup theo policy hiện tại; cả ba key gặp HTTP 429. Tác vụ ngừng gọi API
 khi hết quota, giữ cache và có supervisor chờ key/quota khả dụng để tiếp tục.
+
+Kiểm tra lại lúc **16:41 ngày 10/10 (Asia/Saigon)** bằng đúng một request mỗi key:
+cả ba vẫn trả HTTP 429. Đã ghi cả 3 request kiểm tra vào bộ đếm, tổng 27.391 request
+bao gồm pilot. Không reset trạng thái quota hoặc gọi lặp; không có thời điểm reset
+được provider xác nhận. Supervisor kiểm ngày/key ở local để resume khi khả dụng.
+Con số 225 trong snapshot của job trước cache recovery là cũ; số còn thiếu thực tế
+theo task/candidate và policy là **224/16.371** (98,63% đã có lookup).
+
+Trong lượt kiểm tra này đã đồng bộ `origin/QuangDung` đến `fc82a24`, áp migration
+022 trên DB local và chạy 3 test tích hợp map_points thành công, gồm test kết nối
+mới có search_path cố định. Chạy lại 34 test chuẩn hóa và 2 subtest đều qua.
 
 Đầu ra bàn giao dự kiến: `data/housing-handoff/final/01-before-standardization.jsonl`
 và `02-after-standardization.jsonl`, kèm manifest/README và ZIP. Chỉ phát hành bản
