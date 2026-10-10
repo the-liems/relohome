@@ -1,0 +1,106 @@
+name: Application image builds
+
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: JSON include matrix from the application image catalog
+        required: true
+        type: string
+      publish:
+        description: Publish the complete main release to GHCR
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build image (${{ matrix.service }})
+    runs-on: [self-hosted, linux, ARM64, team-44]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    env:
+      RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}
+    steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
+      - uses: actions/checkout@v4
+      - name: Set up Python for migration checks
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Create job-local migration Python environment
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        run: bash scripts/setup-ci-python.sh
+      - name: Install migration check dependencies
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        run: python -m pip install PyYAML==6.0.2
+      - name: Verify migration runner tools
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        run: bash scripts/check-ci-runner.sh python docker
+      - name: Prepare image tag and registry credentials
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}/$SERVICE:$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-docker.XXXXXX")" >> "$GITHUB_ENV"
+        env:
+          SERVICE: ${{ matrix.service }}
+      - name: Log in to GHCR
+        # PR migration checks also pull the private deployment database image.
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify runner tools
+        run: bash scripts/check-ci-runner.sh docker buildx
+      - name: Reproduce restrictive migration build-context permissions
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        env:
+          BUILD_CONTEXT: ${{ matrix.context }}
+        run: chmod -R go-rwx "$BUILD_CONTEXT"
+      - name: Build ARM64 image
+        run: |
+          options=()
+          if [ -n "$BUILD_TARGET" ]; then options+=(--target "$BUILD_TARGET"); fi
+          if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$GITHUB_SHA"); fi
+          docker buildx build --load --pull --platform linux/arm64 "${options[@]}" \
+            --file "$DOCKERFILE" --tag "$IMAGE" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" "$BUILD_CONTEXT"
+          docker image inspect "$IMAGE" >/dev/null
+        env:
+          BUILD_CONTEXT: ${{ matrix.context }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          BUILD_TARGET: ${{ matrix.target }}
+      - name: Import the web gateway inside its runtime image
+        # Building is not enough: a missing runtime module only fails when the app starts.
+        if: matrix.service == 'web'
+        run: docker run --rm --entrypoint python "$IMAGE" -c "import Frontend.server"
+      - name: Verify migrations against a real database twice
+        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
+        env:
+          MIGRATION_KIND: ${{ matrix.service }}
+        run: python3 scripts/test-migration-image.py "$MIGRATION_KIND" "$IMAGE"
+      - name: Push image
+        if: inputs.publish && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker push "$IMAGE"
+      - name: Record image identity
+        run: |
+          printf 'Image: `%s`\nCommit: `%s`\nPlatform: `linux/arm64`\n' "$IMAGE" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean up image and registry credentials
+        if: always()
+        run: |
+          if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf -- "$CI_PYTHON_VENV"; fi
+          if [ -n "${IMAGE:-}" ]; then docker image rm "$IMAGE" || true; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

@@ -200,8 +200,7 @@ class RepositoryContractTests(unittest.TestCase):
         cls.compose = yaml.safe_load((SCRIPTS.parent / "compose.coolify.yaml").read_text())
 
     def test_every_release_image_has_a_workflow_build(self):
-        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/ci.yml").read_text())
-        builds = workflow["jobs"]["application-images"]["strategy"]["matrix"]["include"]
+        builds = json.loads((SCRIPTS.parent / "config/ci/application-images.json").read_text())
         expected = {service["image"].split("/")[-1].split(":")[0]
                     for service in self.compose["services"].values()
                     if service["image"].startswith("${IMAGE_PREFIX}/")}

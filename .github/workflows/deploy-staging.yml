@@ -92,9 +92,11 @@ jobs:
         if: steps.release.outputs.deploy == 'true'
         with:
           python-version: "3.11"
-      - run: bash scripts/setup-ci-python.sh
+      - name: Create Python environment
+        run: bash scripts/setup-ci-python.sh
         if: steps.release.outputs.deploy == 'true'
-      - run: pip install PyYAML==6.0.3
+      - name: Install deployment dependencies
+        run: pip install PyYAML==6.0.3
         if: steps.release.outputs.deploy == 'true'
       - name: Authenticate for image availability checks
         id: registry
@@ -125,7 +127,7 @@ jobs:
           name: coolify-staging-${{ steps.release.outputs.tag }}
           path: coolify-release.yaml
           if-no-files-found: ignore
-      - name: Remove job-local environment and registry credentials
+      - name: Clean up environment and registry credentials
         if: always()
         run: |
           if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf -- "$CI_PYTHON_VENV"; fi

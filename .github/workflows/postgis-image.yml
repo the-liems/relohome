@@ -27,6 +27,7 @@ env:
 
 jobs:
   build-publish:
+    name: Build image (${{ matrix.variant }})
     runs-on: [self-hosted, linux, ARM64, team-44]
     timeout-minutes: 40
     permissions:
@@ -71,7 +72,7 @@ jobs:
           name: postgis-image-${{ matrix.variant }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: postgis-image.txt
           if-no-files-found: error
-      - name: Clean up this job's image and registry login
+      - name: Clean up image and registry credentials
         if: always()
         run: |
           if [ -n "${PUBLISH_TAG:-}" ]; then docker image rm "$PUBLISH_TAG" || true; fi
