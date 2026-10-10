@@ -152,6 +152,8 @@ jobs:
           - {service: moving-mcp, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-mcp}
           - {service: moving-migrate, context: 'Maps VN/LifeFlow', dockerfile: 'Maps VN/LifeFlow/Dockerfile.moving', target: moving-migrate}
     steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
       - uses: actions/checkout@v4
       - name: Set image prefix and isolate registry credentials
         run: |

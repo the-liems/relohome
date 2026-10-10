@@ -1,9 +1,10 @@
 # Self-hosted CI
 
 All jobs in `ci.yml`, `moving-containers.yml`, `agent-services.yml`,
-`map-data.yml`, `mvp.yml`, `postgis-image.yml`, and `deploy-staging.yml` use `[self-hosted, linux, team-44]`. The runner
+`map-data.yml`, `mvp.yml`, `postgis-image.yml`, and `deploy-staging.yml` use at least
+`[self-hosted, linux, team-44]`. The runner
 must be available to this repository and carry those three labels.
-The application-image matrix and PostGIS image job additionally require `ARM64`
+The application-image matrix, Moving `images` job, and PostGIS image job additionally require `ARM64`
 so fixed `linux/arm64` builds and runtime probes run on native ARM64 machines. Job/check
 names, existing path filters, dependencies, GHCR push conditions, and the protected
 `moving-staging` environment remain unchanged.
@@ -12,11 +13,32 @@ detection requests validation when it changes. Agent CI watches the Python
 environment helper too.
 
 The baseline CI run on 2026-10-05 used `team-44-Doan0904`, Linux ARM64.
-Most checks support Linux ARM64 and x64. The application-image matrix and PostGIS
+Most checks support Linux ARM64 and x64. The application-image matrix, Moving images, and PostGIS
 publisher build ARM64 images and explicitly select an ARM64 runner.
 The other jobs can use either architecture. Selecting only `team-44` does not
 constrain the architecture, even when a Docker build specifies `--platform`. A successful ARM64 build
 is not evidence of an amd64 release image.
+
+## ARM64 runner availability and recovery
+
+In repository Settings → Actions → Runners, verify that an online Linux ARM64
+runner available to this repository carries `self-hosted`, `linux`, `ARM64`, and
+`team-44`. The PostGIS build in run `38039269660` selected `team-44-arm64-2`
+with all four labels and passed. Each ARM64 image job checks `uname -m` before
+building, so an incorrectly labeled x64 runner fails immediately. Moving builds
+also declare `platforms: linux/arm64` and use architecture-specific cache scopes.
+
+If image jobs remain queued, check runner status and labels first. Restore the
+ARM64 runner's Actions service and GitHub connectivity, or register another Linux
+ARM64 runner with all four labels and the tools listed below. Keep the ARM64
+selector; assigning that label to an x64 runner does not provide native execution.
+An online but busy runner will pick up the queued job when it becomes available.
+
+`timeout-minutes` limits execution time only; it does not limit the wait for a
+runner. While application images are queued, CI has not completed and the
+`workflow_run` staging deployment cannot start. After restoring capacity, let a
+still-queued run continue, or rerun a failed/cancelled run from Actions. Confirm
+that the image jobs complete and the staging deployment workflow is triggered.
 
 | Jobs | Required tools |
 | --- | --- |
