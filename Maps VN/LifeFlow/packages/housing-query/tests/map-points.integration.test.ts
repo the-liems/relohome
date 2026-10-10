@@ -20,6 +20,10 @@ afterAll(async () => { if(db){await db.query('ROLLBACK');db.release()} if(pool)a
 it('keeps map data fresh within the source transaction and preserves a soft-deleted unit as unknown', async () => {
   const point = async () => (await db.query('SELECT *,ST_X(geom) AS lng FROM housing.map_points WHERE id=$1',[listing])).rows[0]
   expect(await point()).toMatchObject({property_type:'room',bedrooms:'1.00',area_m2:'20.00'})
+  await db.query(`UPDATE housing.listings SET title='Fresh marker',source_url='https://example.test/room',
+    attributes='{"location_accuracy":"approximate","irrelevant_provider_payload":"not copied"}' WHERE id=$1`,[listing])
+  expect(await point()).toMatchObject({title:'Fresh marker',source_url:'https://example.test/room',location_accuracy:'approximate'})
+  expect(await point()).not.toHaveProperty('attributes')
   await db.query('UPDATE housing.units SET area_m2=25,amenities=ARRAY[\'parking\'] WHERE id=$1',[unit])
   expect(await point()).toMatchObject({area_m2:'25.00',amenities:['parking']})
   await db.query('UPDATE catalog.places SET geom=ST_SetSRID(ST_MakePoint(106.8,10.78),4326) WHERE id=$1',[place])

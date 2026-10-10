@@ -361,23 +361,18 @@ export class HousingQueryService {
 
     const result = await this.pool.query(
       `WITH page AS MATERIALIZED (
-         SELECT l.id AS listing_id,o.id AS offer_id
+         SELECT l.id AS listing_id,o.price_amount,o.currency,o.price_period
          ${candidateFrom(indexed)}
          WHERE ${conditions.join(' AND ') || 'true'}
          ORDER BY l.updated_at DESC,l.id LIMIT ${sql.parameter(limit)}
        )
        SELECT l.id AS listing_id, l.title, l.listing_type, l.source_url,
-         p.property_type, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat, cp.address,
+         l.property_type, ST_X(l.geom) AS lng, ST_Y(l.geom) AS lat, l.address,
          o.price_amount, o.currency, o.price_period,
-         u.bedrooms, u.bathrooms, u.area_m2, COALESCE(u.amenities, '{}') AS amenities,
-         COALESCE(l.attributes->>'location_accuracy', 'unknown') AS location_accuracy,
+         l.bedrooms, l.bathrooms, l.area_m2, l.amenities,l.location_accuracy,
          thumbnail.url AS thumbnail_url
-       FROM housing.listings l
-       JOIN page ON page.listing_id=l.id
-       JOIN housing.properties p ON p.id = l.property_id
-       LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
-       JOIN housing.offers o ON o.id=page.offer_id
-       JOIN catalog.places cp ON cp.id = p.place_id
+       FROM housing.map_points l
+       JOIN page o ON o.listing_id=l.id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
          WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
