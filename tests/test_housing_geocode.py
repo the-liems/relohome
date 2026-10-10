@@ -712,6 +712,42 @@ class AddressTests(unittest.TestCase):
                 self.assertEqual(old["location"], new["location"])
                 self.assertEqual(new["derived"]["housing_geocoding"]["decision"], "preserve_provider_shared_pin")
 
+    def test_incremental_export_keeps_previous_pin_when_new_evidence_is_unresolved_or_collides(self):
+        for collision in (False, True):
+            with self.subTest(collision=collision), tempfile.TemporaryDirectory() as directory:
+                base = Path(directory)
+                source, out = base / "source.jsonl", base / "out"
+                rows = [record("10"), record("12")]
+                rows[1]["source_listing_id"] = "2"
+                text = "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n"
+                source.write_text(text, encoding="utf-8")
+                MODULE.prepare(source, out, 10)
+                frozen = out / "housing-original.jsonl"
+                frozen.write_text(text, encoding="utf-8")
+                current = copy.deepcopy(rows)
+                current[0]["location"].update(latitude=10.801, longitude=106.706, method="vietmap_geocode_v4")
+                source.write_text("\n".join(json.dumps(r) for r in current) + "\n", encoding="utf-8")
+                inventory = json.loads((out / "inventory.json").read_text(encoding="utf-8"))
+                inventory.update(frozen_source=str(frozen), live_source_sha256=MODULE.sha256(source))
+                MODULE.write_json(out / "inventory.json", inventory)
+                entries = []
+                for task in MODULE.read_jsonl(out / "tasks.jsonl"):
+                    candidate = {"coordinates": [10.802, 106.707], "place": {"hs_num": task["address"]["housenumber"]}}
+                    entries.append({"key": task["key"], "assessment": {
+                        "decision": "update_address_position" if collision else "preserve_unresolved",
+                        "candidate": candidate if collision else None,
+                    }})
+                (out / "full-candidates.jsonl").write_text("\n".join(json.dumps(r) for r in entries) + "\n", encoding="utf-8")
+                FULL.export(out)
+                after = list(MODULE.read_jsonl(out / "housing-geocoded.jsonl"))
+                self.assertEqual(after[0]["location"], current[0]["location"])
+                self.assertEqual(after[1]["location"], current[1]["location"])
+                self.assertTrue(after[0]["derived"]["housing_geocoding"]["preserved_current_location"])
+                self.assertEqual(APPLY.validate_export(frozen, out / "housing-geocoded.jsonl"), 2)
+                exported = json.loads((out / "full-export.json").read_text(encoding="utf-8"))
+                self.assertEqual(exported["counts"]["coordinate_changed"], 1)
+                self.assertEqual(exported["counts"]["coordinates_changed_this_batch"], 0)
+
     def test_partial_export_retains_pending_and_can_continue_from_frozen_source(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

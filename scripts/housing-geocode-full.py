@@ -784,6 +784,11 @@ def export(output, allow_partial=False):
                 decision = protected[identity]
             elif BASE.task_key(address) in collisions and decision in UPDATE_DECISIONS:
                 decision = "preserve_provider_shared_pin"
+            if decision not in UPDATE_DECISIONS:
+                # An incremental preserve means retain the current applied pin,
+                # not restore the frozen pre-geocode coordinates. New ambiguity
+                # must not undo a previous reviewed batch.
+                row["location"] = copy.deepcopy(current.get("location"))
             counts[decision] += 1
             metadata = {
                 "rule": RULE,
@@ -795,6 +800,8 @@ def export(output, allow_partial=False):
                 "independently_verified": False,
                 "source_sha256": inventory["source_sha256"],
             }
+            if decision not in UPDATE_DECISIONS and current.get("location") != original.get("location"):
+                metadata["preserved_current_location"] = True
             if decision in UPDATE_DECISIONS:
                 match = result["assessment"]["candidate"]
                 coords = match["coordinates"]
@@ -812,7 +819,11 @@ def export(output, allow_partial=False):
                 if decision == "update_street_position":
                     metadata["position_precision"] = "street"
                     metadata["house_position_known"] = False
-                counts["coordinate_changed"] += int(metadata["candidate_displacement_m"] > 0.1)
+            moved_from_original = BASE.distance_m(
+                [original["location"]["latitude"], original["location"]["longitude"]],
+                [row["location"]["latitude"], row["location"]["longitude"]],
+            )
+            counts["coordinate_changed"] += int(moved_from_original is not None and moved_from_original > 0.1)
             row.setdefault("derived", {})["housing_geocoding"] = metadata
             address_changed = address != current.get("address_normalized")
             location_changed = row["location"] != current.get("location")
