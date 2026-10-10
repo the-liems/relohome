@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 
 from src.mcp_servers.flights.settings import FlightSettings, get_flight_settings
 from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
+from src.mcp_servers.http_service import HttpServiceMCP
 
 SERVER_NAME = "vn-flight-booking"
 INSTRUCTIONS = """\
@@ -51,7 +52,7 @@ def create_server(
         if simulation
         else "Search real flights and inspect offers only. Booking, ticketing, cancellation and payment are unavailable."
     )
-    mcp = FastMCP(SERVER_NAME, instructions=instructions, host=host, port=port)
+    mcp = HttpServiceMCP(SERVER_NAME, instructions=instructions, host=host, port=port, service_token=settings.mcp_auth_token)
 
     mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)

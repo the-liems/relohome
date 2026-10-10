@@ -1,6 +1,6 @@
 """Giao diện demo kết nối API vé máy bay: `streamlit run src/ui/flight_demo.py`.
 
-Mọi thao tác đi qua flight MCP server (stdio) như agent thật; công tắc ở sidebar đổi
+Mọi thao tác đi qua flight MCP server (HTTP) như agent thật; công tắc ở sidebar đổi
 nguồn dữ liệu giữa mock (offline) và SerpApi Google Flights (giá thật).
 """
 
@@ -20,17 +20,15 @@ import streamlit as st  # noqa: E402
 from src.mcp_servers.flights.catalog import load_airports  # noqa: E402
 from src.mcp_servers.flights.schemas import FlightSearchRequest  # noqa: E402
 from src.mcp_servers.flights.search.serpapi import build_params  # noqa: E402
-from src.mcp_servers.flights.settings import FlightSettings, now_vn  # noqa: E402
+from src.mcp_servers.flights.settings import now_vn  # noqa: E402
 from src.ui.flight_client import (  # noqa: E402
     CallRecord,
     Mode,
     ServerInfo,
     call_tool,
-    check_serpapi_account,
     inspect_server,
 )
 
-PLACEHOLDER_KEY = "your-serpapi-key-here"
 CABINS = {
     "economy": "Phổ thông",
     "premium_economy": "Phổ thông đặc biệt",
@@ -89,7 +87,6 @@ def init_state() -> None:
         "offer_detail": None,
         "booking": None,
         "server_info": {},
-        "serpapi_account": None,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -98,7 +95,7 @@ def init_state() -> None:
 def run_tool(tool: str, arguments: dict[str, Any]) -> CallRecord:
     """Gọi tool qua MCP và ghi vào nhật ký."""
     with st.spinner(f"Đang gọi MCP tool `{tool}` ({MODE_NAMES[mode]})..."):
-        record = call_tool(mode, api_key, tool, arguments)
+        record = call_tool(mode, tool, arguments)
     st.session_state.log.append(record)
     return record
 
@@ -127,57 +124,28 @@ def show_error(record: CallRecord) -> None:
 MODE_NAMES: dict[Mode, str] = {"mock": "Mock (giả lập)", "serpapi": "API thật – SerpApi"}
 
 init_state()
-env_key = FlightSettings().serpapi_api_key
-env_key = "" if env_key == PLACEHOLDER_KEY else env_key
-
 with st.sidebar:
     st.header("⚙️ Chế độ dữ liệu")
     real = st.toggle("🌐 Dùng API thật (Google Flights qua SerpApi)", value=False)
     mode: Mode = "serpapi" if real else "mock"
     if real:
         st.success("**Đang dùng API THẬT** — giá & giờ bay lấy trực tiếp từ Google Flights.")
-        typed_key = st.text_input(
-            "SerpApi API key",
-            type="password",
-            placeholder="Để trống = dùng key trong .env" if env_key else "Dán API key SerpApi",
-        )
-        api_key = typed_key.strip() or env_key
-        if not api_key:
-            st.error("Chưa có API key. Đặt `FLIGHT_SERPAPI_API_KEY` trong `.env` hoặc nhập ở trên.")
-        else:
-            st.caption(f"Key: `{api_key[:4]}…{api_key[-4:]}` ({'nhập tay' if typed_key else 'từ .env'})")
+        st.caption("Configure the SerpApi key on the Flight service. This UI uses its HTTP endpoint.")
         st.info("Mỗi lần tìm **mới** tốn 1 lượt SerpApi; tìm lại cùng tham số trong 1 giờ sẽ dùng cache.")
     else:
-        api_key = ""
         st.warning("**Đang dùng MOCK** — dữ liệu giả lập offline, không tốn lượt API.")
 
     st.divider()
     st.subheader("🔌 Kiểm tra kết nối")
-    if st.button("Kiểm tra ngay", width="stretch", disabled=real and not api_key):
+    if st.button("Kiểm tra ngay", width="stretch"):
         with st.spinner("Đang handshake với MCP server..."):
             try:
-                st.session_state.server_info[mode] = inspect_server(mode, api_key)
+                st.session_state.server_info[mode] = inspect_server(mode)
             except Exception as exc:
                 st.session_state.server_info.pop(mode, None)
                 st.error(f"MCP server lỗi: {type(exc).__name__}: {exc}")
-        if real:
-            with st.spinner("Đang kiểm tra API key SerpApi..."):
-                try:
-                    st.session_state.serpapi_account = check_serpapi_account(api_key)
-                except RuntimeError as exc:
-                    st.session_state.serpapi_account = {"error": str(exc)}
-
     info: ServerInfo | None = st.session_state.server_info.get(mode)
     st.markdown(f"MCP server: {'🟢 đã kết nối' if info else '⚪ chưa kiểm tra'}")
-    if real:
-        account = st.session_state.serpapi_account
-        if not account:
-            st.markdown("SerpApi: ⚪ chưa kiểm tra")
-        elif "error" in account:
-            st.markdown(f"SerpApi: 🔴 {account['error']}")
-        else:
-            st.markdown(f"SerpApi: 🟢 key hợp lệ · còn **{account['total_searches_left']}** lượt")
-
     st.divider()
     ok_calls = sum(r.ok for r in st.session_state.log)
     st.caption(f"Đã gọi API {len(st.session_state.log)} lần · thành công {ok_calls}")
@@ -214,7 +182,7 @@ with tab_conn:
           node [shape=box, style="rounded,filled", fontname="Helvetica", fontcolor="white", color="white"];
           edge [color="#607d8b", fontname="Helvetica", fontsize=10, fontcolor="#607d8b"];
           ui [label="Streamlit UI", fillcolor="#1565c0"];
-          client [label="MCP client\\n(stdio, JSON-RPC)", fillcolor="#1565c0"];
+          client [label="MCP client\\n(HTTP, JSON-RPC)", fillcolor="#1565c0"];
           server [label="MCP server\\nvn-flight-booking\\n7 tools", fillcolor="#6a1b9a"];
           mock [label="Mock provider\\n(offline)", fillcolor="{mock_color}"];
           serp [label="SerpApi\\nGoogle Flights API\\n(giá thật)", fillcolor="{serp_color}"];
@@ -256,16 +224,6 @@ with tab_conn:
         )
         st.markdown("**Resource:** " + " · ".join(f"`{r}`" for r in info.resources))
 
-    account = st.session_state.serpapi_account
-    if real and account and "error" not in account:
-        st.markdown("**Tài khoản SerpApi** (endpoint `/account.json`, không tốn lượt)")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Gói", account["plan_name"])
-        c2.metric("Lượt còn lại", account["total_searches_left"])
-        c3.metric("Đã dùng tháng này", account["this_month_usage"])
-        c4.metric("Độ trễ HTTP", f"{account['latency_ms']} ms")
-
-
 # ---------- tab: tìm chuyến ----------
 
 airports = load_airports()
@@ -294,7 +252,7 @@ with tab_search:
         max_results = c2.slider("Số kết quả tối đa", 1, 20, 8)
         nonstop = c3.checkbox("Chỉ bay thẳng", value=False)
         submitted = st.form_submit_button(
-            f"🔎 Tìm chuyến ({MODE_NAMES[mode]})", type="primary", disabled=real and not api_key
+            f"🔎 Tìm chuyến ({MODE_NAMES[mode]})", type="primary"
         )
 
     if submitted:

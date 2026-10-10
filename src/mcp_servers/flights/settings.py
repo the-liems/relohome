@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Việt Nam không dùng giờ mùa hè nên offset cố định +07:00 là đủ (không cần tzdata trên Windows)
@@ -41,6 +41,7 @@ class FlightSettings(BaseSettings):
         le=1440,
         description="Khoảng cách tối thiểu giữa giờ hạ cánh chiều đi và giờ cất cánh chiều về",
     )
+    mcp_auth_token: str = Field(default="", validation_alias=AliasChoices("MCP_AUTH_TOKEN", "FLIGHT_MCP_AUTH_TOKEN", "mcp_auth_token"))
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(default=8765, ge=1, le=65535)
 

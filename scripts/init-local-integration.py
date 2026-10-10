@@ -23,7 +23,8 @@ def main():
         "LOCATION_MCP_URL": "http://127.0.0.1:4300/mcp",
         "MOVING_MCP_URL": "http://127.0.0.1:4400/mcp",
         "MOVING_APPROVAL_URL": "http://127.0.0.1:4200/v1/internal/moving/approvals",
-        "FLIGHT_MCP_STDIO": "true",
+        "FLIGHT_MCP_URL": "http://127.0.0.1:8765/mcp",
+        "PAYMENT_MCP_URL": "http://127.0.0.1:8766/mcp",
         "FLIGHT_DB_PATH": "data/integration-flights.db",
     }
     for name in (
@@ -35,6 +36,8 @@ def main():
         "MOVING_MCP_WRITE_TOKEN",
         "MOVING_APPROVAL_TOKEN",
         "AGENT_API_TOKEN",
+        "FLIGHT_MCP_AUTH_TOKEN",
+        "PAYMENT_MCP_AUTH_TOKEN",
     ):
         values[name] = secrets.token_urlsafe(32)
     # Reuse the Location workspace database when it is already configured.

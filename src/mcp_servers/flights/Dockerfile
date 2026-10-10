@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.14
 # MCP server đặt vé máy bay nội địa (vn-flight-booking) — Streamable HTTP tại :8765/mcp
 #
 # Build context là THƯ MỤC GỐC dự án vì code import theo package `src.mcp_servers.flights`:
@@ -30,9 +31,10 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # Chỉ copy đúng package của server (không copy .env, tests, code agent...)
-COPY src/__init__.py src/__init__.py
-COPY src/mcp_servers/__init__.py src/mcp_servers/__init__.py
-COPY src/mcp_servers/flights src/mcp_servers/flights
+COPY --chmod=u=rwX,go=rX src/__init__.py src/__init__.py
+COPY --chmod=u=rwX,go=rX src/mcp_servers/__init__.py src/mcp_servers/__init__.py
+COPY --chmod=u=rwX,go=rX src/mcp_servers/http_service.py src/mcp_servers/http_service.py
+COPY --chmod=u=rwX,go=rX src/mcp_servers/flights src/mcp_servers/flights
 
 # Chạy bằng user thường; SQLite (offer, booking) nằm trong volume /app/data
 RUN useradd --create-home --uid 10001 mcp \

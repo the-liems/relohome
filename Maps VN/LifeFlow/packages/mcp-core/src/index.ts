@@ -1,3 +1,5 @@
+export { authenticateMcpRequest, requireServiceToken, sendAuthError, validBearerToken } from './auth.js'
+
 export interface AuditExecutor {
   query(sql: string, values?: unknown[]): Promise<unknown>
 }

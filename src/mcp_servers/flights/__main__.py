@@ -9,7 +9,7 @@ from src.mcp_servers.flights.tools import build_services
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="MCP server đặt vé máy bay nội địa Việt Nam")
-    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="streamable-http")
     args = parser.parse_args()
 
     settings = get_flight_settings()

@@ -199,7 +199,7 @@ Chỉ gửi `amenities` trong ví dụ nếu máy lạnh là yêu cầu bắt bu
 
 ### 5.1. Streamable HTTP và Bearer
 
-Server đã có `/mcp`, `/healthz`, `/readyz`, kiểm tra Host/Origin và Bearer khi `MCP_AUTH_TOKEN` không rỗng. `/readyz` chỉ thử DB bằng `SELECT 1`, chưa kiểm tra dữ liệu hoặc OSRM.
+Server đã có `/mcp`, `/healthz`, `/readyz`, kiểm tra Host/Origin và Bearer bắt buộc bằng `MCP_AUTH_TOKEN` (ít nhất 32 ký tự ASCII). `/readyz` chỉ thử DB bằng `SELECT 1`, chưa kiểm tra dữ liệu hoặc OSRM.
 
 Ví dụ hai container **cùng Docker network**, MCP được gọi bằng service name `location-mcp`:
 

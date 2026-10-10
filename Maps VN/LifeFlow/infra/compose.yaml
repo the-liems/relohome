@@ -49,7 +49,7 @@ services:
       MCP_PORT: 3000
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1],lifeflow-location-mcp}
       MCP_ALLOWED_ORIGIN_HOSTS: ${MCP_ALLOWED_ORIGIN_HOSTS:-localhost,127.0.0.1,[::1]}
-      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?Set MCP_AUTH_TOKEN}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

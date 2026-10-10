@@ -34,7 +34,7 @@ for dockerfile in src/mcp_servers/*/Dockerfile; do
   container="$server-mcp-smoke-$suffix"
   # Register before starting: docker run may create a container and then fail.
   containers+=("$container")
-  docker run -d --name "$container" --label "lifeflow.ci.mcp=$tag" "$server-mcp:$tag"
+  docker run -d --env "MCP_AUTH_TOKEN=smoke-$suffix-01234567890123456789012345678901" --name "$container" --label "lifeflow.ci.mcp=$tag" "$server-mcp:$tag"
   # Probe the service's health endpoint without relying on image health metadata.
   healthy=false
   probe_result=''

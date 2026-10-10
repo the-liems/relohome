@@ -1,6 +1,6 @@
-"""Local integration: real Flight/Payment MCP subprocesses, mock providers and temporary DBs.
+"""Local integration: real Flight/Payment HTTP MCP services, mock providers and temporary DBs.
 
-This is default-suite coverage: it needs no external services, network or provider credentials.
+This is default-suite coverage: it starts test-owned HTTP services on loopback and needs no provider credentials.
 
 Đi đủ luồng §10.2 dòng 3: tìm chuyến → xác nhận + form hành khách → giữ chỗ → tạo thanh toán →
 chờ PAID → xuất vé.
@@ -14,30 +14,39 @@ from src.agents.intake import ScriptedIntake
 from src.agents.models import AgentName, CommitActionKind, RequestKind
 from src.agents.planning import TemplatePlanner
 from src.agents.wiring import live_deps
+from src.mcp_servers.flights.server import create_server as flight_server
+from src.mcp_servers.flights.settings import FlightSettings
+from src.mcp_servers.payments.server import create_server as payment_server
+from src.mcp_servers.payments.settings import PaymentSettings
+from src.mcp_servers.payments.tools import build_services as payment_services
 from src.services.adapters.registry import ServiceSettings
+from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 
 
 @pytest.mark.asyncio
 async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, monkeypatch):
-    for name in ("FLIGHT_MCP_URL", "PAYMENT_MCP_URL"):
-        monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("FLIGHT_SEARCH_PROVIDER", "mock")
-    monkeypatch.setenv("FLIGHT_SIMULATION_ENABLED", "true")
-    monkeypatch.setenv("FLIGHT_SERPAPI_API_KEY", "")
-    monkeypatch.setenv("FLIGHT_DB_PATH", str(tmp_path / "flights.db"))
-    monkeypatch.setenv("PAYMENT_PROVIDER", "mock")
-    monkeypatch.setenv("PAYMENT_DB_PATH", str(tmp_path / "payments.db"))
+    flights = flight_server(settings=FlightSettings(
+        _env_file=None, search_provider="mock", simulation_enabled=True, db_path=str(tmp_path / "flights.db")
+    ))
+    payments = payment_server(payment_services(PaymentSettings(
+        _env_file=None, provider="mock", db_path=str(tmp_path / "payments.db")
+    )))
+    async with running_mcp(flights) as flight_url, running_mcp(payments) as payment_url:
+        await booking_flow(tmp_path, monkeypatch, flight_url, payment_url)
+
+
+async def booking_flow(tmp_path, monkeypatch, flight_url, payment_url):
     services = ServiceSettings(
         _env_file=None,
         agent_subagents="live",
         agent_allow_simulated_transactions=True,
         location_mcp_url="",
         moving_mcp_url="",
-        flight_mcp_url="",
-        flight_mcp_stdio=True,
-        payment_mcp_url="",
-        payment_mcp_stdio=True,
+        flight_mcp_url=flight_url,
+        flight_mcp_auth_token=TEST_MCP_TOKEN,
+        payment_mcp_url=payment_url,
+        payment_mcp_auth_token=TEST_MCP_TOKEN,
         payment_source_kind="demo",
         payment_simulation_enabled=True,
     )

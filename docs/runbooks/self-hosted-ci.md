@@ -68,6 +68,14 @@ deployment uses 10 minutes and the PostGIS build uses 40.
 Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
 
+Flight/Payment integration tests run real HTTP services with a test-owned
+lifecycle. Application clients never create provider subprocesses. The existing
+job-local virtualenv setup and dependency-install steps validate environment
+creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/config so files are
+readable and directories traversable by existing non-root service users. Source
+remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes.
+The normal MCP and agent smoke checks validate container startup.
+
 ## Disposable resources
 
 - Staging deployment logs into GHCR with the job's `GITHUB_TOKEN` and
@@ -109,7 +117,8 @@ Run `actionlint` (the custom label is configured in `.github/actionlint.yaml`),
 The smoke regression tests exercise failed starts, health timeouts, failed
 HTTP checks, cleanup, and overlapping run isolation using a fake Docker CLI.
 Runner tests cover the Compose minimum-version boundary, diagnostic messages,
-capability-specific prerequisites, and fresh Python environment creation.
+capability-specific prerequisites. The normal CI setup and dependency-install
+steps validate job-local Python environments.
 Actual container compatibility and runner availability must additionally be
 verified in Actions. Python assertion fixes are tracked separately in #45–#50.
 

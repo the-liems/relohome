@@ -1,9 +1,8 @@
-"""Regression coverage for runner prerequisites and shared interpreter isolation."""
+"""Regression coverage for runner tool prerequisites."""
 
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -86,29 +85,3 @@ class RunnerPreflightTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Node.js 24 required, found v22.0.0", result.stderr)
         self.assertEqual(self.run_check("node22", TEST_NODE_MAJOR="22").returncode, 0)
-
-
-class PythonEnvironmentTests(unittest.TestCase):
-    def test_each_job_gets_a_fresh_environment_outside_the_shared_interpreter(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "python").symlink_to(sys.executable)
-            environments = []
-            for job in ("first", "second"):
-                env_file, path_file = root / f"{job}.env", root / f"{job}.path"
-                subprocess.run(
-                    [BASH, str(ROOT / "scripts/setup-ci-python.sh")],
-                    env={
-                        **os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                        "RUNNER_TEMP": str(root), "GITHUB_ENV": str(env_file), "GITHUB_PATH": str(path_file),
-                    },
-                    check=True, capture_output=True, timeout=30,
-                )
-                venv = Path(env_file.read_text().strip().removeprefix("CI_PYTHON_VENV="))
-                environments.append(venv)
-                self.assertEqual(venv.parent, root)
-                self.assertEqual(path_file.read_text().strip(), str(venv / "bin"))
-                prefix = subprocess.check_output([str(venv / "bin/python"), "-c", "import sys; print(sys.prefix)"], text=True)
-                self.assertEqual(prefix.strip(), str(venv))
-                subprocess.run([str(venv / "bin/python"), "-m", "pip", "--version"], check=True, capture_output=True)
-            self.assertNotEqual(*environments)

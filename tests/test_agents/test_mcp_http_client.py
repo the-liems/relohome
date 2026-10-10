@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from src.services.adapters.mcp import PROJECT_ROOT, McpEndpoint, McpToolClient, ToolCallError
+from tests.mcp_http import TEST_MCP_TOKEN
 
 
 def free_port() -> int:
@@ -23,6 +24,7 @@ async def test_http_client_calls_tool_and_enforces_allowlist(tmp_path):
     env = {
         **os.environ,
         "FLIGHT_SEARCH_PROVIDER": "mock",
+        "MCP_AUTH_TOKEN": TEST_MCP_TOKEN,
         "FLIGHT_DB_PATH": str(tmp_path / "f.db"),
         "FLIGHT_MCP_HOST": "127.0.0.1",
         "FLIGHT_MCP_PORT": str(port),
@@ -47,7 +49,7 @@ async def test_http_client_calls_tool_and_enforces_allowlist(tmp_path):
                 except httpx.HTTPError:
                     await asyncio.sleep(0.1)
         endpoint = McpEndpoint(
-            "flight", frozenset({"search_airports"}), url=f"http://127.0.0.1:{port}/mcp", token="read-token"
+            "flight", frozenset({"search_airports"}), url=f"http://127.0.0.1:{port}/mcp", token=TEST_MCP_TOKEN
         )
         client = McpToolClient(endpoint)
         airports = await client.call("search_airports", {"query": "Đà Nẵng", "limit": 1})
