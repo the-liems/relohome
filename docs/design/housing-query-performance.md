@@ -26,12 +26,12 @@ Ngày: 10/10/2026. Baseline sản phẩm: `PERF-MUC1-truy-van-ban-do.md`.
 
 ## Thứ tự và nghiệm thu
 
-- [ ] Read model và trigger; test insert/update/ẩn/xóa/move pin/soft delete/rollback.
-- [ ] Query map/search; đối chiếu kết quả gốc và mới, mọi filter/sort/cursor/commute.
-- [ ] Giá tương lai/hết hạn/overlap/tie; không cần refresh để đổi giá theo thời gian.
-- [ ] Tìm chữ và resolve: chỉ giữ thay đổi có số đo tốt hơn và danh sách tương đương.
-- [ ] Build Housing/Platform; chạy test PostGIS của các workspace bị ảnh hưởng.
-- [ ] Benchmark cùng DB, cùng request; ghi cả phương án loại bỏ và hướng rollback.
+- [x] Read model và trigger; test insert/update/ẩn/xóa/move pin/soft delete/rollback.
+- [x] Query map/search; parity 24 bộ request, 65 so sánh; integration kiểm tra nearby/commute.
+- [x] Giá tương lai/hết hạn/overlap; giữ đúng tie-break gốc; không cần refresh để đổi giá.
+- [x] Tìm chữ và resolve: giữ ngữ nghĩa cũ, index đúng biểu thức, có cải thiện đo được.
+- [x] Build toàn LifeFlow; chạy test PostGIS của các workspace bị ảnh hưởng.
+- [x] Benchmark cùng DB, cùng request; ghi cả phương án loại bỏ và hướng rollback.
 
 ## Thử nghiệm trước triển khai
 
@@ -48,4 +48,70 @@ Không bổ sung cache có độ trễ cho giá hay tình trạng phòng ở bư
 
 Chạy migration mới trước khi chạy code query mới. Role app chỉ đọc read model; trigger
 chạy dưới quyền owner với `search_path` cố định. Quay về code query cũ được ngay vì
-không sửa bảng gốc. Nếu tháo read model, dùng rollback riêng sau khi quay về code cũ.
+không sửa bảng gốc. Nếu thật sự cần tháo schema, dùng
+`Maps VN/LifeFlow/database/rollbacks/housing_query_performance.sql` **sau** khi quay về
+code cũ; thường chỉ rollback code là đủ. Script không nằm trong thư mục migrations
+nên không chạy tự động khi deploy.
+
+Trong thư mục `Maps VN/LifeFlow`, với env trỏ đúng database:
+
+```sh
+npm run db:migrate --workspace @lifeflow/platform-api
+npm run build
+node scripts/verify-housing-query-performance.mjs 9b2b2db
+```
+
+Migration 019 tạo/backfill read model và covering index cho offers. Migration 020 thêm
+metadata marker nhỏ và index chọn ảnh. Migration 021 thêm index tìm chữ/resolve.
+Không refresh theo lịch; thay đổi ghi cập nhật read model trong cùng transaction.
+Không cần sửa `.env` hay thêm infrastructure. Đợt tạo index/backfill nên chạy trong
+cửa sổ triển khai trước khi bật code mới.
+
+## Kết quả cuối trên local
+
+PostgreSQL 16.9, `shared_buffers=128MB`, `work_mem=4MB`, 38.222 tin và 169.413 places.
+Đây là lượt xác minh riêng; không thay số đo cloud/baseline trong báo cáo gốc.
+
+Công cụ trong repo chạy READ ONLY, giữ cùng snapshot và cùng schema đã migrate,
+đối chiếu code `9b2b2db` với code mới. EXPLAIN đo 3 lần, đảo thứ tự cũ/mới, lấy median.
+Do schema mới cũng có lợi cho code tham chiếu, số đo này khác bảng baseline trước migration.
+
+| Query | Truy cập trang cũ → mới (MiB) | SQL median cũ → mới (ms) |
+|---|---|---|
+| Cụm cả TP.HCM | 1.362,45 → 50,80 | 187,60 → 103,06 |
+| Marker Q1, tối đa 500 | 98,80 → 43,34 | 37,99 → 21,82 |
+| Danh sách trong khung nhìn | 98,80 → 16,73 | 40,18 → 18,09 |
+| Tìm chữ | 332,84 → 26,08 | 274,18 → 28,33 |
+| Bán kính 2 km | 345,02 → 25,24 | 79,20 → 22,92 |
+
+- 24 bộ request / 65 so sánh: không khác response sau bỏ `query_id` ngẫu nhiên;
+  tọa độ làm tròn 8 chữ số để bỏ nhiễu centroid song song. So cả field, id, thứ tự,
+  cursor và số đếm cụm. Script thoát lỗi khi có khác biệt.
+- Resolve POI: index normalized-address cũ loại địa chỉ `{}` nên OR không suy ra
+  predicate partial index. Index mới giữ cả `{}`; không thay SQL, fuzzy threshold
+  hay ranking. Lượt EXPLAIN đối chiếu: 172,81 → 119,45 MiB, đã dùng bitmap trigram.
+- 44 test housing-query qua trên DB test riêng; 9 test POI canonical tùy chọn vẫn
+  chưa bật như cấu hình cũ.
+- Platform: 30 test tự tạo fixture qua trên DB riêng; 12 test cần POI/area import
+  qua trên snapshot local. Tổng 42 test qua; 11 test tùy chọn giữ nguyên gate.
+  Lượt chạy toàn suite trên DB trống ban đầu có 5 lỗi thiếu dữ liệu tham chiếu;
+  cả 5 đã kiểm lại thành công trên snapshot, không xóa data để làm test xanh.
+- `npm run test:ci` qua: 37 test contracts; các test Moving live chưa bật (14 test
+  giữ nguyên gate), không phát sinh đơn thật. Build toàn bộ workspace qua.
+- Test trigger RED trước migration; metadata marker RED trước migration 020;
+  GREEN sau migrate. App đọc được read model nhưng không được ghi trực tiếp
+  hay gọi các helper SECURITY DEFINER.
+- Mutation tạm `valid_from <= now()` thành `>= now()` bị test giá tương lai bắt
+  đúng lỗi; source đã khôi phục nguyên vẹn. Không bỏ hay nới assertion.
+- Rollback SQL đã chạy trên DB test riêng: bảng gốc giữ nguyên số dòng, chỉ tháo
+  schema/index/migration ledger bổ sung. Reapply 019–021 thành công.
+
+## Giới hạn và theo dõi cloud
+
+- Chưa đạt mục tiêu mọi truy vấn dưới 10 MiB/50 ms trong báo cáo; marker 500 điểm
+  và cụm toàn thành phố vẫn phải xử lý lượng kết quả cần thiết. Không giảm marker
+  hay bỏ filter để đạt số đẹp. Không suy ra mức giảm physical disk từ buffer hits.
+- Payload POI lớn và RAM/OSRM là hạng mục riêng; chưa thay contract hoặc frontend
+  để cắt dữ liệu. Không bật cache có độ trễ cho giá/tình trạng phòng.
+- Sau deploy cần so cùng thao tác với biểu đồ read/IOPS, CPU, RAM và thời gian API
+  trên cloud. Các số ở trên là SQL local, không phải kết quả đã deploy.
