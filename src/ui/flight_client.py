@@ -15,7 +15,7 @@ def server_params(mode: Mode) -> mcp_client.HttpServerParameters:
     url = os.environ.get(f"FLIGHT_{mode.upper()}_MCP_URL") or os.environ.get("FLIGHT_MCP_URL")
     if not url:
         raise ValueError("Set FLIGHT_MCP_URL to the running service")
-    return mcp_client.HttpServerParameters(url, os.environ.get("FLIGHT_MCP_TOKEN", ""))
+    return mcp_client.HttpServerParameters(url, os.environ.get("FLIGHT_MCP_AUTH_TOKEN", ""))
 
 
 def call_tool(mode: Mode, tool: str, arguments: dict[str, Any]) -> CallRecord:

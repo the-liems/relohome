@@ -79,6 +79,7 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATHEXT", "COMSPEC",
                        "PYTHONPATH", "PYTHONIOENCODING", "LD_LIBRARY_PATH"}
         env = {key: value for key, value in env.items() if key in system_keys or key.startswith(prefix)}
+        env["MCP_AUTH_TOKEN"] = env.get(prefix + "MCP_AUTH_TOKEN", "")
     if component in {"location", "platform", "moving", "moving-api"}:
         allowed = {
             "PATH",
@@ -106,6 +107,8 @@ def environment(component, sandbox_writes=False, payment_demo=False):
             allowed.update({"HOUSING_REVIEW_MIN_COUNT", "HOUSING_REVIEW_PATTERN_DAYS", "HOUSING_REVIEW_LOW_STARS",
                             "HOUSING_REVIEW_PATTERN_PROPERTIES", "HOUSING_REVIEW_PATTERN_AUTHORS"})
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
+        if component == "moving":
+            env["MCP_AUTH_TOKEN"] = env.get("MOVING_MCP_AUTH_TOKEN", "")
     return env
 
 

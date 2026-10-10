@@ -15,7 +15,7 @@ Không dùng kết quả giả khi provider lỗi. API thiếu cấu hình thì 
 
 Flight and Payment run as dedicated HTTP services. The agent uses `FLIGHT_MCP_URL`
 and `PAYMENT_MCP_URL` and never launches a provider process. Configure provider
-credentials on their services; `FLIGHT_MCP_TOKEN` and `PAYMENT_MCP_TOKEN` are shared
+credentials on their services; `FLIGHT_MCP_AUTH_TOKEN` and `PAYMENT_MCP_AUTH_TOKEN` are shared
 only with the corresponding client. Missing URLs leave those domains unconfigured.
 The old `*_MCP_STDIO` flags no longer enable a transport.
 

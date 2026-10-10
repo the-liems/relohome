@@ -47,9 +47,8 @@ lifecycle. Application clients never create provider subprocesses. The existing
 job-local virtualenv setup and dependency-install steps validate environment
 creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/config so files are
 readable and directories traversable by existing non-root service users. Source
-remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes. MCP and agent
-smoke jobs remove group/other checkout access before building so the actual
-container smoke tests cover restrictive source permissions.
+remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes.
+The normal MCP and agent smoke checks validate container startup.
 
 ## Disposable resources
 

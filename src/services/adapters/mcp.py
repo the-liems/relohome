@@ -99,6 +99,16 @@ def _retryable(message: str) -> bool:
     return any(k in text for k in ("timeout", "timed out", "unavailable", "rate limit", "temporar", "503", "502"))
 
 
+def _auth_failure(exc: BaseException) -> int | None:
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403):
+        return exc.response.status_code
+    if isinstance(exc, BaseExceptionGroup):
+        for child in exc.exceptions:
+            if status := _auth_failure(child):
+                return status
+    return None
+
+
 class McpToolClient:
     def __init__(self, endpoint: McpEndpoint):
         self.endpoint = endpoint
@@ -133,6 +143,11 @@ class McpToolClient:
                 "timeout", f"{self.endpoint.service}.{tool} timed out", retryable=True, transport=not sent
             ) from exc
         except Exception as exc:  # lỗi kết nối nằm trong ExceptionGroup của anyio
+            if status := _auth_failure(exc):
+                raise ToolCallError(
+                    "UNAUTHORIZED" if status == 401 else "FORBIDDEN",
+                    f"{self.endpoint.service} rejected MCP access",
+                ) from exc
             raise ToolCallError(
                 "unavailable",
                 f"{self.endpoint.service} unreachable: {type(exc).__name__}",

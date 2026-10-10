@@ -19,7 +19,7 @@ def server_params(mode: Mode) -> mcp_client.HttpServerParameters:
     url = os.environ.get(f"PAYMENT_{mode.upper()}_MCP_URL") or os.environ.get("PAYMENT_MCP_URL")
     if not url:
         raise ValueError("Set PAYMENT_MCP_URL to the running service")
-    return mcp_client.HttpServerParameters(url, os.environ.get("PAYMENT_MCP_TOKEN", ""))
+    return mcp_client.HttpServerParameters(url, os.environ.get("PAYMENT_MCP_AUTH_TOKEN", ""))
 
 
 def call_tool(mode: Mode, tool: str, arguments: dict[str, Any]) -> CallRecord:

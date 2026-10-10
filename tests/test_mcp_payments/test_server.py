@@ -9,6 +9,7 @@ from src.agents.tools import payment_mcp
 from src.mcp_servers.payments.engine import PaymentEngine
 from src.mcp_servers.payments.server import SERVER_NAME, create_server
 from src.mcp_servers.payments.tools import PaymentServices
+from tests.mcp_http import TEST_MCP_TOKEN
 
 BASE_TOOLS = {"create_payment", "get_payment", "cancel_payment", "refund_payment"}
 
@@ -54,7 +55,7 @@ async def test_pii_error_over_mcp_does_not_echo_value(engine: PaymentEngine) -> 
 
 
 def test_health_and_container_host(engine: PaymentEngine) -> None:
-    server = create_server(PaymentServices(engine=engine), host="0.0.0.0", port=8766)
+    server = create_server(PaymentServices(engine=engine), host="0.0.0.0", port=8766, token=TEST_MCP_TOKEN)
     assert server.settings.transport_security is None
     response = TestClient(server.streamable_http_app()).get("/health")
     assert response.json() == {"status": "ok", "server": SERVER_NAME, "provider": "mock", "simulation": True, "environment": "mock"}

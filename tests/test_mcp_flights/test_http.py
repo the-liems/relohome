@@ -5,10 +5,11 @@ from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import SERVER_NAME, create_server
 from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices
+from tests.mcp_http import TEST_MCP_TOKEN
 
 
 def test_health_route_reports_provider(services: FlightServices, settings: FlightSettings) -> None:
-    client = TestClient(create_server(services, settings=settings).streamable_http_app())
+    client = TestClient(create_server(services, settings=settings.model_copy(update={"mcp_auth_token": TEST_MCP_TOKEN})).streamable_http_app())
 
     response = client.get("/health")
 

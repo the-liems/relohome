@@ -52,7 +52,7 @@ def create_server(
         if simulation
         else "Search real flights and inspect offers only. Booking, ticketing, cancellation and payment are unavailable."
     )
-    mcp = HttpServiceMCP(SERVER_NAME, instructions=instructions, host=host, port=port, service_token=settings.mcp_token)
+    mcp = HttpServiceMCP(SERVER_NAME, instructions=instructions, host=host, port=port, service_token=settings.mcp_auth_token)
 
     mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)

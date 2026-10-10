@@ -25,7 +25,7 @@ def payment_server_connection() -> StreamableHttpConnection:
     if not url:
         raise ValueError("Set PAYMENT_MCP_URL to the running payment service")
     connection: StreamableHttpConnection = {"transport": "streamable_http", "url": url}
-    if token := os.environ.get("PAYMENT_MCP_TOKEN"):
+    if token := os.environ.get("PAYMENT_MCP_AUTH_TOKEN"):
         connection["headers"] = {"Authorization": f"Bearer {token}"}
     return connection
 

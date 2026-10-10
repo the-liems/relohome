@@ -36,8 +36,8 @@ def main():
         "MOVING_MCP_WRITE_TOKEN",
         "MOVING_APPROVAL_TOKEN",
         "AGENT_API_TOKEN",
-        "FLIGHT_MCP_TOKEN",
-        "PAYMENT_MCP_TOKEN",
+        "FLIGHT_MCP_AUTH_TOKEN",
+        "PAYMENT_MCP_AUTH_TOKEN",
     ):
         values[name] = secrets.token_urlsafe(32)
     # Reuse the Location workspace database when it is already configured.

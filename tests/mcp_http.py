@@ -6,9 +6,13 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
+TEST_MCP_TOKEN = "test-mcp-token-01234567890123456789"
+
 
 @asynccontextmanager
 async def running_mcp(server):
+    if not server.service_token:
+        server.service_token = TEST_MCP_TOKEN
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen(128)

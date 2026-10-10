@@ -18,7 +18,7 @@ from tests.mcp_http import running_mcp
 async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, monkeypatch):
     server = create_server(build_services(PaymentSettings(
         _env_file=None, provider="mock", db_path=str(tmp_path / "payment.db")
-    )), token="service-token")
+    )), token="service-token-01234567890123456789")
 
     async def forbidden_spawn(*args, **kwargs):
         raise AssertionError("Application attempted to launch a provider process")
@@ -29,11 +29,16 @@ async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, m
             assert (await http.post(url)).status_code == 401
             assert (await http.post(url, headers={"Authorization": "Bearer wrong"})).status_code == 401
             assert (await http.post(url, headers={
-                "Authorization": "Bearer service-token", "Origin": "https://untrusted.example"
+                "Authorization": "Bearer service-token-01234567890123456789", "Origin": "https://untrusted.example"
             })).status_code == 403
         registry = ServiceRegistry.from_settings(ServiceSettings(
-            _env_file=None, payment_mcp_url=url, payment_mcp_token="service-token", payment_simulation_enabled=True
+            _env_file=None, payment_mcp_url=url, payment_mcp_auth_token="service-token-01234567890123456789", payment_simulation_enabled=True
         ))
+        denied = McpToolClient(McpEndpoint("payment", frozenset({"get_payment"}), url=url, token="wrong"))
+        with pytest.raises(ToolCallError) as error:
+            await denied.call("get_payment", {"payment_ref": "missing"})
+        assert error.value.code == "UNAUTHORIZED"
+        assert not error.value.retryable
         writer, reader = registry.payment.write_client(), registry.payment.read_client()
         created = await writer.call("create_payment", {"order_ref": "order_1", "amount": 100_000})
         # A different HTTP session still reads the state owned by the service.
@@ -66,11 +71,11 @@ async def test_sandbox_service_contract_without_local_merchant_keys(monkeypatch,
 
     def respond(request):
         assert str(request.url) == "http://payments:8766/health"
-        assert request.headers["Authorization"] == "Bearer service-token"
+        assert request.headers["Authorization"] == "Bearer service-token-01234567890123456789"
         return httpx.Response(200, json={"provider": provider, "environment": environment})
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: original(transport=httpx.MockTransport(respond), **kwargs))
-    settings = ServiceSettings(_env_file=None, payment_mcp_url="http://payments:8766/mcp", payment_mcp_token="service-token")
+    settings = ServiceSettings(_env_file=None, payment_mcp_url="http://payments:8766/mcp", payment_mcp_auth_token="service-token-01234567890123456789")
     if accepted:
         await verify_sandbox_payment_service(settings)
     else:

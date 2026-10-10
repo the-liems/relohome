@@ -124,9 +124,9 @@ services:
       MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
       MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
       FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
-      FLIGHT_MCP_TOKEN: ${FLIGHT_MCP_TOKEN:?}
+      FLIGHT_MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
       PAYMENT_MCP_URL: http://payments-mcp:8766/mcp
-      PAYMENT_MCP_TOKEN: ${PAYMENT_MCP_TOKEN:?}
+      PAYMENT_MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_SIMULATION_ENABLED: "false"
       # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
       # tickets, no AhaMove order. The tester "paid" control works only for the
@@ -158,7 +158,7 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/flights-mcp:${RELEASE_TAG}
     environment:
-      FLIGHT_MCP_TOKEN: ${FLIGHT_MCP_TOKEN:?}
+      MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
       FLIGHT_SEARCH_PROVIDER: serpapi
       FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
       # Simulated hold/ticket for in-app checkout; never a real airline booking.
@@ -170,7 +170,7 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/payments-mcp:${RELEASE_TAG}
     environment:
-      PAYMENT_MCP_TOKEN: ${PAYMENT_MCP_TOKEN:?}
+      MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_PROVIDER: zalopay
       PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
       PAYMENT_ZALOPAY_APP_ID: ${PAYMENT_ZALOPAY_APP_ID:?}
@@ -271,7 +271,7 @@ services:
     image: ${IMAGE_PREFIX}/moving-mcp:${RELEASE_TAG}
     environment:
       <<: *moving-env
-      MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
+      MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
       MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
     depends_on:
       moving-migrate: {condition: service_completed_successfully}

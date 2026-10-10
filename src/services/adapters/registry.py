@@ -101,11 +101,11 @@ class ServiceSettings(BaseSettings):
 
     # Flight: dedicated HTTP service; missing URL leaves the domain unconfigured.
     flight_mcp_url: str = ""
-    flight_mcp_token: SecretStr = SecretStr("")
+    flight_mcp_auth_token: SecretStr = SecretStr("")
 
     # Payment / ZaloPay sandbox (nhánh Doan/api)
     payment_mcp_url: str = ""
-    payment_mcp_token: SecretStr = SecretStr("")
+    payment_mcp_auth_token: SecretStr = SecretStr("")
     payment_source_kind: Literal["sandbox", "demo", "live"] = "sandbox"
     # Nút "giả lập đã thanh toán" cho demo. Chỉ bật khi Payment MCP chạy PAYMENT_PROVIDER=mock
     # (server chỉ có tool `simulate_payment_result` ở chế độ mock; `/health` trả "simulation": true).
@@ -190,13 +190,13 @@ class ServiceRegistry:
             "flight",
             FLIGHT_READ_TOOLS,
             url=s.flight_mcp_url or None,
-            token=_secret(s.flight_mcp_token),
+            token=_secret(s.flight_mcp_auth_token),
         )
         flight_write = McpEndpoint(
             "flight",
             FLIGHT_WRITE_TOOLS,
             url=s.flight_mcp_url or None,
-            token=_secret(s.flight_mcp_token),
+            token=_secret(s.flight_mcp_auth_token),
         )
         payment_tools = PAYMENT_WRITE_TOOLS | (
             PAYMENT_SIMULATION_TOOLS if s.payment_simulation_enabled else frozenset()
@@ -205,7 +205,7 @@ class ServiceRegistry:
             "payment",
             payment_tools,
             url=s.payment_mcp_url or None,
-            token=_secret(s.payment_mcp_token),
+            token=_secret(s.payment_mcp_auth_token),
         )
         return cls(
             location=ServiceEntry("location", location_read, None, "live"),
@@ -220,7 +220,7 @@ class ServiceRegistry:
                     "payment",
                     frozenset({"get_payment"}),
                     url=s.payment_mcp_url or None,
-                    token=_secret(s.payment_mcp_token),
+                    token=_secret(s.payment_mcp_auth_token),
                 ),
                 payment_write,
                 s.payment_source_kind,

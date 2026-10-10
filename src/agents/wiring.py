@@ -288,7 +288,7 @@ async def verify_sandbox_payment_service(services: ServiceSettings):
         raise ValueError("Sandbox payments require PAYMENT_MCP_URL and sandbox source kind")
     endpoint = urlsplit(services.payment_mcp_url)
     health_url = urlunsplit((endpoint.scheme, endpoint.netloc, "/health", "", ""))
-    token = services.payment_mcp_token.get_secret_value()
+    token = services.payment_mcp_auth_token.get_secret_value()
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         async with httpx.AsyncClient(headers=headers, timeout=5, follow_redirects=False) as http:

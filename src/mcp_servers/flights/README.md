@@ -49,7 +49,11 @@ trong tương lai.
 make ui            # hoặc: streamlit run src/ui/flight_demo.py
 ```
 
-Start the Flight HTTP service first and set `FLIGHT_MCP_URL`. Open <http://localhost:8501>; the demo connects over HTTP.
+Start the Flight HTTP service first and set `FLIGHT_MCP_URL` and the matching
+`FLIGHT_MCP_AUTH_TOKEN`. Each HTTP service requires `MCP_AUTH_TOKEN` (at least 32
+ASCII token characters); local settings also accept `FLIGHT_MCP_AUTH_TOKEN`.
+See the [internal authentication contract](../../../docs/specs/internal-mcp-auth.md).
+Open <http://localhost:8501>; the demo connects over HTTP.
 
 - Provider mode belongs to the service. To compare modes, run separate services and set `FLIGHT_MOCK_MCP_URL` and `FLIGHT_SERPAPI_MCP_URL`.
 - **Kiểm tra ngay**: handshake MCP over HTTP and list service tools/resources. Provider credentials stay on the service.
@@ -154,8 +158,9 @@ curl localhost:8765/health  # {"status":"ok","server":"vn-flight-booking","provi
 make mcp-down
 
 # Cách 2: docker thuần (build context là thư mục gốc dự án)
+export MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
 docker build -f src/mcp_servers/flights/Dockerfile -t flights-mcp .
-docker run --rm -p 8765:8765 -e FLIGHT_SEARCH_PROVIDER=mock flights-mcp
+docker run --rm -p 8765:8765 -e MCP_AUTH_TOKEN -e FLIGHT_SEARCH_PROVIDER=mock flights-mcp
 # Giá thật: -e FLIGHT_SEARCH_PROVIDER=serpapi -e FLIGHT_SERPAPI_API_KEY=...
 ```
 
@@ -280,11 +285,12 @@ TypeScript hay ngôn ngữ khác.
 import asyncio
 
 from mcp import ClientSession
+import os
 from mcp.client.streamable_http import streamablehttp_client
 
 
 async def main() -> None:
-    async with streamablehttp_client("http://127.0.0.1:8765/mcp") as (read, write, _):
+    async with streamablehttp_client("http://127.0.0.1:8765/mcp", headers={"Authorization": f"Bearer {os.environ['FLIGHT_MCP_AUTH_TOKEN']}"}) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool("search_airports", {"query": "phu quoc"})
@@ -294,11 +300,10 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Với LangGraph, khai báo kết nối kiểu `{"transport": "streamable_http", "url": "http://127.0.0.1:8765/mcp"}`
-trong `MultiServerMCPClient`.
-
-⚠️ Server chưa có xác thực và mặc định chỉ nghe ở `127.0.0.1`. Không đặt
-`FLIGHT_MCP_HOST=0.0.0.0` trên máy public (xem ADR-013).
+Với LangGraph, đặt URL và bearer header trong `MultiServerMCPClient`;
+`src/agents/tools/flight_mcp.py` đọc `FLIGHT_MCP_URL` và `FLIGHT_MCP_AUTH_TOKEN`.
+Server kiểm tra bearer token bắt buộc; xem
+[internal authentication contract](../../../docs/specs/internal-mcp-auth.md).
 
 ## Tool, resource, prompt
 

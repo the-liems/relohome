@@ -13,7 +13,7 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_payment_settings()
-    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port, token=settings.mcp_token)
+    server = create_server(build_services(settings), host=settings.mcp_host, port=settings.mcp_port, token=settings.mcp_auth_token)
     server.run(transport=args.transport)
 
 

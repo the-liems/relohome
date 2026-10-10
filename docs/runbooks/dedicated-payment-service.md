@@ -9,11 +9,16 @@ commands; start both before `api`. Container deployments use service DNS names.
 Coolify runs `payments-mcp` on its internal network, with no host port or public
 route. Its persistent `payments-data` volume owns `payments.db`; the backend keeps
 checkout/session/ownership records in `agent-data`. ZaloPay merchant keys are only
-passed to the Payment container. Set separate random `FLIGHT_MCP_TOKEN` and
-`PAYMENT_MCP_TOKEN` secrets in Coolify before deploying; clients send bearer tokens,
+passed to the Payment container. Set separate random `FLIGHT_MCP_AUTH_TOKEN` and
+`PAYMENT_MCP_AUTH_TOKEN` secrets in Coolify before deploying; clients send bearer tokens,
 MCP endpoints reject missing/wrong tokens and browser-origin requests. Health
 checks return metadata only. Sandbox checkout verifies the remote service reports
 ZaloPay and the official sandbox environment before opening the application.
+
+All four MCP services follow the [internal authentication contract](../specs/internal-mcp-auth.md).
+Each server requires `MCP_AUTH_TOKEN`; Compose maps the matching scoped client
+secret into that variable. Missing or invalid tokens fail startup. Keep each
+service/client pair in sync when rotating secrets.
 
 ## Existing staging data
 

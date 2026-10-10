@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto'
+import { authenticateMcpRequest, requireServiceToken } from '@lifeflow/mcp-core'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import {
   hostHeaderValidation,
@@ -17,7 +17,7 @@ const allowedHosts = commaSeparated(
 const allowedOriginHosts = commaSeparated(
   process.env.MCP_ALLOWED_ORIGIN_HOSTS || 'localhost,127.0.0.1,[::1]',
 )
-const authToken = process.env.MCP_AUTH_TOKEN || ''
+const authToken = requireServiceToken(process.env.MCP_AUTH_TOKEN || '')
 
 const validateHost = hostHeaderValidation(allowedHosts)
 const validateOrigin = originValidation(allowedOriginHosts)
@@ -69,11 +69,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse) 
 
   if (!validateHost(request, response) || !validateOrigin(request, response)) return
 
-  if (authToken && !validBearerToken(request.headers.authorization, authToken)) {
-    response.setHeader('WWW-Authenticate', 'Bearer')
-    sendJson(response, 401, { status: 'error', code: 'UNAUTHORIZED' })
-    return
-  }
+  if (authenticateMcpRequest(request, response, [authToken]) === undefined) return
 
   await handleMcpRequest(request, response)
 }
@@ -92,13 +88,6 @@ function parsePort(value: string) {
   return parsed
 }
 
-function validBearerToken(header: string | undefined, expected: string) {
-  if (!header?.startsWith('Bearer ')) return false
-  const supplied = Buffer.from(header.slice('Bearer '.length))
-  const configured = Buffer.from(expected)
-  return supplied.length === configured.length && timingSafeEqual(supplied, configured)
-}
-
 function sendJson(response: ServerResponse, statusCode: number, body: Record<string, string>) {
   response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' })
   response.end(JSON.stringify(body))
@@ -106,9 +95,6 @@ function sendJson(response: ServerResponse, statusCode: number, body: Record<str
 
 httpServer.listen(port, host, () => {
   console.log(`LifeFlow Location MCP listening on http://${host}:${port}/mcp`)
-  if (!authToken) {
-    console.warn('MCP_AUTH_TOKEN is not set. Keep the port private or configure authentication before deployment.')
-  }
 })
 
 let closing = false

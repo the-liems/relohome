@@ -25,7 +25,7 @@ def flight_server_connection() -> StreamableHttpConnection:
     if not url:
         raise ValueError("Set FLIGHT_MCP_URL to the running flight service")
     connection: StreamableHttpConnection = {"transport": "streamable_http", "url": url}
-    if token := os.environ.get("FLIGHT_MCP_TOKEN"):
+    if token := os.environ.get("FLIGHT_MCP_AUTH_TOKEN"):
         connection["headers"] = {"Authorization": f"Bearer {token}"}
     return connection
 

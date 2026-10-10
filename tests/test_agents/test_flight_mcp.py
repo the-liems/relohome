@@ -3,7 +3,7 @@ import pytest
 from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import create_server
 from src.mcp_servers.flights.settings import FlightSettings
-from tests.mcp_http import running_mcp
+from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 
 
 @pytest.mark.asyncio
@@ -15,6 +15,7 @@ async def test_langchain_loads_flight_tools_over_http(tmp_path, monkeypatch, sim
     ))
     async with running_mcp(server) as url:
         monkeypatch.setenv("FLIGHT_MCP_URL", url)
+        monkeypatch.setenv("FLIGHT_MCP_AUTH_TOKEN", TEST_MCP_TOKEN)
         async with flight_mcp.flight_tools_session() as tools:
             names = {tool.name for tool in tools}
             airports = await next(t for t in tools if t.name == "search_airports").ainvoke({"query": "Phú Quốc"})

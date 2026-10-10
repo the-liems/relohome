@@ -20,7 +20,7 @@ from src.mcp_servers.payments.server import create_server as payment_server
 from src.mcp_servers.payments.settings import PaymentSettings
 from src.mcp_servers.payments.tools import build_services as payment_services
 from src.services.adapters.registry import ServiceSettings
-from tests.mcp_http import running_mcp
+from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 
 
@@ -44,7 +44,9 @@ async def booking_flow(tmp_path, monkeypatch, flight_url, payment_url):
         location_mcp_url="",
         moving_mcp_url="",
         flight_mcp_url=flight_url,
+        flight_mcp_auth_token=TEST_MCP_TOKEN,
         payment_mcp_url=payment_url,
+        payment_mcp_auth_token=TEST_MCP_TOKEN,
         payment_source_kind="demo",
         payment_simulation_enabled=True,
     )
