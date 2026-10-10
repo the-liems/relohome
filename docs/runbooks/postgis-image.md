@@ -3,7 +3,11 @@
 The `PostGIS ARM64 image` workflow builds the upstream `postgis/docker-postgis`
 `16-3.5/alpine` Dockerfile directly from Git and publishes it to
 `ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis` as `16-3.5-alpine`.
-It is a source build on `team-44`, with `NPROC=2` limiting compilation.
+It is a source build on a native Linux ARM64 runner selected by
+`[self-hosted, linux, ARM64, team-44]`, with `NPROC=2` limiting compilation.
+The job verifies `uname -m` is `aarch64` before building. For queued publishes,
+check ARM64 runner availability and labels using the
+[self-hosted CI recovery instructions](self-hosted-ci.md#arm64-runner-availability-and-recovery).
 PostgreSQL 16 uses Alpine because its upstream Debian recipe references an
 unavailable Bullseye PGDG repository.
 

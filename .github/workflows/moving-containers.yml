@@ -106,7 +106,7 @@ jobs:
   images:
     needs: [changes, validate]
     if: needs.changes.outputs.moving == 'true'
-    runs-on: [self-hosted, linux, team-44]
+    runs-on: [self-hosted, linux, ARM64, team-44]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -116,6 +116,8 @@ jobs:
       matrix:
         target: [moving-mcp, moving-api, moving-migrate]
     steps:
+      - name: Verify native ARM64 runner
+        run: test "$(uname -m)" = aarch64
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Verify runner tools
@@ -135,11 +137,12 @@ jobs:
           context: Maps VN/LifeFlow
           file: Maps VN/LifeFlow/Dockerfile.moving
           target: ${{ matrix.target }}
+          platforms: linux/arm64
           build-args: RELEASE_SHA=${{ github.sha }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          cache-from: type=gha,scope=${{ matrix.target }}-arm64
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-arm64
       - name: Record build identity (not staging verification)
         env:
           IMAGE: ${{ steps.image.outputs.name }}
