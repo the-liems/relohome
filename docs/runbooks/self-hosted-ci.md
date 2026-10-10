@@ -45,7 +45,9 @@ and remove it with `always()`. Packages never install into the shared interprete
 Flight/Payment integration tests run real HTTP services with a test-owned
 lifecycle. Application clients never create provider subprocesses. The existing
 job-local virtualenv setup and dependency-install steps validate environment
-creation directly. Python images normalize copied source/config access before switching to existing service users. MCP and agent
+creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/config so files are
+readable and directories traversable by existing non-root service users. Source
+remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes. MCP and agent
 smoke jobs remove group/other checkout access before building so the actual
 container smoke tests cover restrictive source permissions.
 

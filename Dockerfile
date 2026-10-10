@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.14
 FROM python:3.11-slim AS python-build
 WORKDIR /app
 RUN python -m venv /opt/venv
@@ -9,15 +9,13 @@ FROM python:3.11-slim AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
-COPY src/ ./src/
-COPY config/ ./config/
+COPY --chmod=u=rwX,go=rX src/ ./src/
+COPY --chmod=u=rwX,go=rX config/ ./config/
 # /app/private-roommate: Roommate DB and contact key, private to the service user (runbook: roommate).
 RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data /app/private-roommate \
     && chown appuser:appuser /app/data /app/private-roommate \
     && chmod 700 /app/private-roommate
-# CI checkouts may have restrictive permissions; runtime source stays root-owned.
-RUN chmod -R a+rX /app/src /app/config
 USER appuser
 
 EXPOSE 8000
