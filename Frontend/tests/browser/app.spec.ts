@@ -588,7 +588,7 @@ test("landing cover keeps the home visible and the primary action readable acros
     const bounds = await cover.boundingBox();
     expect(bounds!.x).toBe(0);
     expect(bounds!.width).toBe(width);
-    const action = await page.getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true }).boundingBox();
+    const action = await page.getByRole("link", { name: "Bắt đầu với AI", exact: true }).boundingBox();
     expect(action!.y + action!.height).toBeLessThanOrEqual(900);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     await page.screenshot({ path: info.outputPath(`home-cover-${width}.png`) });
@@ -599,7 +599,7 @@ test("landing cover keeps the home visible and the primary action readable acros
   await page.screenshot({ path: info.outputPath("home-cover-dark.png") });
   await page.setViewportSize({ width: 320, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
-  await expect(page.getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true })).toBeInViewport();
+  await expect(page.getByRole("link", { name: "Bắt đầu với AI", exact: true })).toBeInViewport();
   await auditAccessibility(page);
   await page.screenshot({ path: info.outputPath("home-cover-dark-mobile.png") });
   expect(turns).toEqual([]);
@@ -623,18 +623,18 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
     .poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth))
     .toBeGreaterThan(0);
   const cta = page.getByRole("link", {
-    name: "Bắt đầu cùng ReloHome",
+    name: "Bắt đầu với AI",
     exact: true,
   });
   const box = await cta.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(
     info.project.name === "mobile" ? 844 : 960,
   );
-  await expect(page.locator("#next")).toContainText("ĐANG HOẠT ĐỘNG");
-  await expect(page.locator("#guide .landing-guide-grid article")).toHaveCount(
+  await expect(page.locator("#next")).toContainText("Bạn tự chọn người đồng hành.");
+  await expect(page.locator("#guide .lp-guide-link")).toHaveCount(
     3,
   );
-  await expect(page.locator("#guide")).toContainText("ĐANG HOẠT ĐỘNG");
+  await expect(page.locator("#guide")).toContainText("ReloHome biên soạn");
   await expect(page.locator("#guide a, #next a").first()).toBeVisible();
   if (info.project.name === "mobile")
     await page.getByRole("button", { name: "Mở điều hướng" }).click();
@@ -659,8 +659,8 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
       page.getByRole("button", { name: "Mở điều hướng" }),
     ).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "EN", exact: true }).click();
-  await expect(page.locator("#guide")).toContainText("AVAILABLE NOW");
-  await expect(page.locator("#next")).toContainText("AVAILABLE NOW");
+  await expect(page.locator("#guide")).toContainText("Short guides written by ReloHome");
+  await expect(page.locator("#next")).toContainText("You choose who to share it with.");
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await page.screenshot({
     path: info.outputPath("landing-dark-en.png"),
@@ -683,7 +683,7 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
     fullPage: true,
   });
   await page
-    .getByRole("link", { name: "Bắt đầu cùng ReloHome", exact: true })
+    .getByRole("link", { name: "Bắt đầu với AI", exact: true })
     .click();
   await expect(page).toHaveURL(/\/ai$/);
   await expect(
@@ -697,7 +697,7 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
   await expect(page.locator(".landing-page")).toBeVisible();
   if (info.project.name === "desktop")
     await expect(
-      page.getByRole("link", { name: "Vào không gian ReloHome" }),
+      page.getByRole("link", { name: "Vào không gian AI" }),
     ).toBeVisible();
   await page
     .getByRole("link", { name: "Trò chuyện với ReloHome", exact: true })
