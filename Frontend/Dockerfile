@@ -22,11 +22,12 @@ COPY src/ ./src/
 COPY config/ ./config/
 RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data && chown appuser:appuser /app/data
-USER appuser
-
 # Every top-level gateway module (server, store, roommate_gateway, ...); tests check imports resolve.
 COPY Frontend/*.py ./Frontend/
 COPY --from=frontend-build /web/dist ./Frontend/dist
+# Normalize source access independently of the checkout umask.
+RUN chmod -R a+rX /app/src /app/config /app/Frontend
+USER appuser
 EXPOSE 8503
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8503/health', timeout=4)"

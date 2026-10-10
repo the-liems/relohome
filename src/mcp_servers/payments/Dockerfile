@@ -40,6 +40,8 @@ COPY src/mcp_servers/payments src/mcp_servers/payments
 RUN useradd --create-home --uid 10001 mcp \
     && mkdir -p /app/data \
     && chown -R mcp:mcp /app/data
+# CI checkouts may have restrictive permissions; runtime source stays root-owned.
+RUN chmod -R a+rX /app/src
 USER mcp
 VOLUME ["/app/data"]
 

@@ -16,6 +16,8 @@ RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data /app/private-roommate \
     && chown appuser:appuser /app/data /app/private-roommate \
     && chmod 700 /app/private-roommate
+# CI checkouts may have restrictive permissions; runtime source stays root-owned.
+RUN chmod -R a+rX /app/src /app/config
 USER appuser
 
 EXPOSE 8000

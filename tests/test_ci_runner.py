@@ -96,14 +96,15 @@ class PythonEnvironmentTests(unittest.TestCase):
             environments = []
             for job in ("first", "second"):
                 env_file, path_file = root / f"{job}.env", root / f"{job}.path"
-                subprocess.run(
+                created = subprocess.run(
                     [BASH, str(ROOT / "scripts/setup-ci-python.sh")],
                     env={
                         **os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
                         "RUNNER_TEMP": str(root), "GITHUB_ENV": str(env_file), "GITHUB_PATH": str(path_file),
                     },
-                    check=True, capture_output=True, timeout=30,
+                    capture_output=True, text=True, timeout=30,
                 )
+                self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
                 venv = Path(env_file.read_text().strip().removeprefix("CI_PYTHON_VENV="))
                 environments.append(venv)
                 self.assertEqual(venv.parent, root)

@@ -61,6 +61,8 @@ jobs:
       - run: npm ci && npm run build --workspace=@lifeflow/contracts
         working-directory: Maps VN/LifeFlow
       - run: node scripts/export-agent-registry.mjs --check
+      - name: Exercise restrictive checkout permissions
+        run: chmod -R go-rwx src config
       - run: docker buildx build --load -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
       - run: docker buildx build --load -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
       - run: python scripts/smoke-agent-containers.py

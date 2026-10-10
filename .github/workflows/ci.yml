@@ -70,6 +70,9 @@ jobs:
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh docker mcp
 
+      - name: Exercise restrictive checkout permissions
+        run: chmod -R go-rwx src
+
       - name: Build Docker image of every MCP server
         run: make mcp-build
 

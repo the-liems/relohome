@@ -124,7 +124,8 @@ class McpToolClient:
             inherited = os.environ
             if ep.service in {"flight", "payment"}:
                 prefixes = ("FLIGHT_",) if ep.service == "flight" else ("PAYMENT_",)
-                system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "COMSPEC", "PATHEXT", "PYTHONPATH", "PYTHONIOENCODING"}
+                # setup-python on self-hosted Linux needs its shared-library path in children.
+                system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "COMSPEC", "PATHEXT", "PYTHONPATH", "PYTHONIOENCODING", "LD_LIBRARY_PATH"}
                 inherited = {k: v for k, v in os.environ.items() if k.upper() in system_keys or k.startswith(prefixes)}
             params = StdioServerParameters(
                 command=sys.executable,

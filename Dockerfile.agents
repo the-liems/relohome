@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -r requirements-agents.txt \
 COPY src/__init__.py ./src/__init__.py
 COPY src/agent_services ./src/agent_services
 COPY config/agent-services ./config/agent-services
+# Normalize source access independently of the checkout umask.
+RUN chmod -R a+rX /app/src /app/config
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 \
