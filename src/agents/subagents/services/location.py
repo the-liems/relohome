@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
+from src.agents.location_names import city_search_text
 from src.agents.models import AgentName, AgentUsage, LocationChoice, Question, Quote
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from src.agents.subagents.services.common import BudgetExceededError, CountingClient, tool_failure
@@ -387,7 +388,9 @@ class LocationSubagent:
             area = {"bounding_box": dict(inp["bounding_box"])}
             area_name = "khu vực đang xem trên bản đồ"
         if not area and inp.get("city") and inp.get("near"):
-            areas = ((await tools.call("search_areas", {"text": inp["city"], "limit": 5})) or {}).get("results") or []
+            areas = ((await tools.call("search_areas", {"text": city_search_text(inp["city"]), "limit": 5})) or {}).get(
+                "results"
+            ) or []
             city_scope = pick_city_area(areas)
             if city_scope is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
@@ -412,7 +415,12 @@ class LocationSubagent:
             area_name = (place.get("parent") or {}).get("name") or place.get("name")
         elif inp.get("city"):
             areas = (
-                (await tools.call("search_areas", {"text": inp["city"], "limit": 5, "include_geometry": True})) or {}
+                (
+                    await tools.call(
+                        "search_areas", {"text": city_search_text(inp["city"]), "limit": 5, "include_geometry": True}
+                    )
+                )
+                or {}
             ).get("results") or []
             found = pick_city_area(areas)
             if found is None:
@@ -797,7 +805,8 @@ class LocationSubagent:
     async def _route(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
         cities = {"hồ chí minh": "hcm", "hà nội": "hanoi", "đà nẵng": "danang"}
-        city = next((v for k, v in cities.items() if k in inp["city"].lower()), None)
+        search_city = city_search_text(inp["city"])
+        city = next((v for k, v in cities.items() if k in search_city.lower()), None)
         if not city:
             return self._result(
                 req,
@@ -809,7 +818,7 @@ class LocationSubagent:
                     )
                 ],
             )
-        areas = (await tools.call("search_areas", {"text": inp["city"], "limit": 5})).get("results") or []
+        areas = (await tools.call("search_areas", {"text": search_city, "limit": 5})).get("results") or []
         area = pick_city_area(areas)
         if not area or not area.get("bounding_box"):
             return self._choose(req, tools, "city", inp["city"], areas)

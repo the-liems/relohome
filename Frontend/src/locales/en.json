@@ -927,6 +927,8 @@
   "Tôi đồng ý gửi hai tọa độ cho OSRM công khai để tính đường.": "I agree to send both coordinates to public OSRM to calculate this route.",
   "Tính đường xa qua OSRM công khai": "Calculate a long-distance route using public OSRM",
   "Đang dùng OSRM công khai sau khi bạn đồng ý; hai tọa độ được gửi tới FOSSGIS, không gửi cho LLM.": "Using public OSRM with your consent; both coordinates are sent to FOSSGIS, not to the LLM.",
+  "Ưu tiên tính đường nội bộ. Khi ngoài vùng hoặc dịch vụ nội bộ không dùng được, hệ thống tự gửi hai tọa độ tới OSRM công khai (FOSSGIS, có ghi log); không gửi cho LLM.": "Local routing is preferred. Outside its coverage or when unavailable, both coordinates are automatically sent to public OSRM (FOSSGIS, which logs requests), not to the LLM.",
+  "Tuyến này được tính bằng OSRM công khai. Thời gian là ước tính, không có giao thông thời gian thực hoặc bảo đảm dịch vụ.": "This route uses public OSRM. Times are estimates, with no live traffic or service guarantee.",
   "Báo lỗi dữ liệu bản đồ": "Report a map data issue",
   "Điểm nối vào đường cách GPS / căn nhà:": "Road connection distance from GPS / home:",
   "Khoảng cách tuyến trên chỉ tính giữa các điểm nối đường, chưa gồm đoạn từ vị trí tới đường.": "The route distance is between road connection points and excludes the off-road segments.",
@@ -1374,5 +1376,14 @@
   "Gửi lại cho chủ nhà": "Resend to the owner",
   "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.": "Could not load the owners' answers right now; confirmation states may be out of date.",
   "Chưa báo được chủ nhà rằng bạn đã hủy hoặc bỏ một lịch xem. ReloHome sẽ thử lại ở thao tác tiếp theo.": "Could not tell the owner that you cancelled or dropped a viewing. ReloHome will retry on your next action.",
-  "Thử lại ngay": "Retry now"
+  "Thử lại ngay": "Retry now",
+  "Chưa nhận được báo giá. Kiểm tra thông tin chuyến và trạng thái dịch vụ trước khi thử lại.": "No quote was received. Check the trip details and service status before retrying.",
+  "Ngày giờ chuyển chưa hợp lệ.": "The moving date or time is invalid.",
+  "Ngày giờ chuyển phải cách hiện tại ít nhất 30 phút (giờ Việt Nam).": "Schedule the move at least 30 minutes from now (Vietnam time).",
+  "Hãy chọn kết quả tìm kiếm hoặc ghim điểm {0} trên bản đồ trước khi lấy báo giá.": "Choose a search result or pin point {0} on the map before requesting a quote.",
+  "Hội thoại đang xử lý. Hãy chờ kết quả.": "The conversation is still processing. Please wait for the result.",
+  "Đang lấy vị trí căn đã chốt. Chờ một chút rồi lấy báo giá.": "Loading the location of your decided home. Wait a moment, then request a quote.",
+  "Chưa có vị trí căn đã chốt. Hãy ghim cổng nhà trên bản đồ làm điểm B.": "The decided home has no location yet. Pin its entrance on the map as point B.",
+  "Điểm B là căn đã chốt.": "Point B is your decided home.",
+  "Điểm B là căn đã chốt. Vị trí tin đăng có thể gần đúng: kiểm tra cổng xe đến, cần thì ghim lại.": "Point B is your decided home. The listing location may be approximate: check where the vehicle should stop and pin again if needed."
 }

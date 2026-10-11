@@ -23,6 +23,7 @@ import { api, compactPrice, housePrice, safeUrl } from "../api";
 import type { Data, House } from "../types";
 import { mergePlaceCandidates } from "../placeCandidates";
 import { searchScopeFeature } from "../searchScope";
+import { OverlayPollGate } from "../overlayPolling";
 import {
   cityForBox,
   scopedMapOptions,
@@ -157,6 +158,9 @@ export function MapWorkspace({
   const [pois, setPois] = useState<Data | null>(null);
   const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
   const [demoAvailable, setDemoAvailable] = useState(false);
+  const [roommateEnabled, setRoommateEnabled] = useState(false);
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
+  const [roomMapRetry, setRoomMapRetry] = useState(0);
   const [includeDemo, setIncludeDemo] = useState(false);
   const [roomMapError, setRoomMapError] = useState("");
   const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
@@ -167,13 +171,20 @@ export function MapWorkspace({
     roommate<Availability>("/availability", "GET", undefined, abort.signal)
       .then((a) => {
         if (!abort.signal.aborted) {
+          setRoomMapError("");
+          setRoommateEnabled(Boolean(a.enabled));
           setDemoAvailable(Boolean(a.demo_enabled));
           setIncludeDemo(Boolean(a.demo_enabled));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!abort.signal.aborted)
+          setRoomMapError(
+            "Chưa kiểm tra được dịch vụ ghép trọ. Không ảnh hưởng danh sách nhà.",
+          );
+      });
     return () => abort.abort();
-  }, []);
+  }, [availabilityRetry]);
   const roomIds = JSON.stringify(
     [
       ...new Set(
@@ -184,11 +195,14 @@ export function MapWorkspace({
   useEffect(() => {
     const abort = new AbortController();
     setRoomMarkers([]);
+    if (!roommateEnabled) return () => abort.abort();
     setRoomMapError("");
     const ids: string[] = JSON.parse(roomIds);
     if (!ids.length) return;
-    const load = () =>
-      roommate<{ items: RoomMarker[] }>(
+    const gate = new OverlayPollGate();
+    const load = () => {
+      if (abort.signal.aborted || !gate.begin()) return;
+      return roommate<{ items: RoomMarker[] }>(
         "/map/rooms",
         "POST",
         {
@@ -205,12 +219,19 @@ export function MapWorkspace({
         })
         .catch(() => {
           if (!abort.signal.aborted) {
+            // Do not send failing optional requests every 30s/visibility change.
+            // A manual retry or a changed listing scope starts a new attempt.
+            gate.finish(true);
             setRoomMarkers([]);
             setRoomMapError(
               "Chưa đọc được nhu cầu ghép trọ. Không ảnh hưởng danh sách nhà.",
             );
           }
+        })
+        .finally(() => {
+          gate.finish();
         });
+    };
     void load();
     const timer = setInterval(() => void load(), 30000);
     const visible = () => {
@@ -222,7 +243,7 @@ export function MapWorkspace({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [roomIds, includeDemo]);
+  }, [roomIds, includeDemo, roommateEnabled, roomMapRetry]);
   const generation = useRef(0);
   const activeSearchScope =
     focus?.searchScope?.area_id &&
@@ -1269,21 +1290,39 @@ export function MapWorkspace({
               chỉ đưa tới các căn tìm được; không giả lập đường bao.
             </div>
           )}
-          <div className="ws-roommate-legend" role="note">
-            <span style={{ color: "#a16207" }}>●</span> Vàng: có nhu cầu ghép
-            trọ công khai.
-            {demoAvailable && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={includeDemo}
-                  onChange={(e) => setIncludeDemo(e.target.checked)}
-                />
-                Hiện phòng DEMO — liên kết minh họa, không phải người thật
-              </label>
-            )}
-            {roomMapError && <small role="status">{roomMapError}</small>}
-          </div>
+          {(roommateEnabled || roomMapError) && (
+            <div className="ws-roommate-legend" role="note">
+              {roommateEnabled && (
+                <>
+                  <span style={{ color: "#a16207" }}>●</span> Vàng: có nhu cầu
+                  ghép trọ công khai.
+                </>
+              )}
+              {demoAvailable && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={includeDemo}
+                    onChange={(e) => setIncludeDemo(e.target.checked)}
+                  />
+                  Hiện phòng DEMO — liên kết minh họa, không phải người thật
+                </label>
+              )}
+              {roomMapError && <small role="status">{roomMapError}</small>}
+              {roomMapError && (
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    roommateEnabled
+                      ? setRoomMapRetry((n) => n + 1)
+                      : setAvailabilityRetry((n) => n + 1)
+                  }
+                >
+                  {uiText("Thử lại ghép trọ")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div ref={container} className="ws-canvas" />
         {mapError && (

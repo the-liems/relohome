@@ -54,7 +54,9 @@ import {
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import { mergePlaceCandidates } from "./placeCandidates";
+import { movingQuoteFeedback, MovingQuoteFeedbackError } from "./movingSubmission";
 import {
+  currentHousingTarget,
   hasSelection,
   nextServiceTarget,
   serviceTargets,
@@ -874,8 +876,12 @@ function Chat() {
     }
   }
   async function send(text: string, extra: Data = {}) {
-    if (inFlight.current || !text.trim()) return;
     const quoteForm = extra.moving_quote_form;
+    if (inFlight.current) {
+      if (quoteForm) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
+      return;
+    }
+    if (!text.trim()) return;
     const formKey = movingSubmission?.formKey || lastAssistant?.id || "new";
     if (quoteForm) {
       setMovingSubmission({ threadId, formKey });
@@ -932,23 +938,10 @@ function Chat() {
       if (currentThread.current === id) {
         setThread(updated);
         if (quoteForm) {
-          const reply = [...updated.messages]
-            .reverse()
-            .find((m) => m.role === "assistant");
-          const hasQuotes =
-            ["ANSWER", "PARTIAL"].includes(
-              reply?.content.response?.kind || "",
-            ) &&
-            (reply?.content.ui?.components || []).some(
-              (c: Component) =>
-                c.type === "relocation" &&
-                c.data?.quotes?.length &&
-                !c.data?.order,
-            );
-          if (hasQuotes) {
-            setMovingSubmission(null);
-            setWorkspace("relocation");
-          }
+          const feedback = movingQuoteFeedback(updated);
+          if (feedback) throw new MovingQuoteFeedbackError(feedback);
+          setMovingSubmission(null);
+          setWorkspace("relocation");
           // A clarification/error keeps the same mounted form and its confirmed pins.
         }
       }
@@ -956,8 +949,10 @@ function Chat() {
       void refresh().catch(() => {});
     } catch (e) {
       setError((e as Error).message);
-      setDraft(text);
-      if (id && currentThread.current === id) {
+      // An accepted graph reply is already authoritative. Do not reload it or
+      // copy a form action into the chat draft just because it needs clarification.
+      if (!(e instanceof MovingQuoteFeedbackError)) setDraft(text);
+      if (!(e instanceof MovingQuoteFeedbackError) && id && currentThread.current === id) {
         try {
           setThread(await api<Thread>("/threads/" + id));
         } catch {}
@@ -1132,11 +1127,7 @@ function Chat() {
     [...allComponents]
       .reverse()
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
-  const latestProperty =
-    (activeTarget?.c.type === "property" ? activeTarget : undefined) ||
-    [...allComponents]
-      .reverse()
-      .find(({ c }) => c.type === "property" && !c.data?.comparison);
+  const latestProperty = currentHousingTarget(thread, workspaceTaskId);
   const latestFlight =
       (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
       latestOf("flight", "offers"),
@@ -1973,7 +1964,9 @@ function Chat() {
               {latestService && !movingQuestions.length && (
                 <button
                   className="secondary open-map"
-                  onClick={() => setWorkspace(latestService.c.type)}
+                  onClick={() =>
+                    openService(latestService.c.task_id, latestService.c.type)
+                  }
                 >
                   <MapPin size={15} />{" "}
                   {

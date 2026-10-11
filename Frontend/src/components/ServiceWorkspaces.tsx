@@ -24,6 +24,10 @@ import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
 import { ContentSkeleton } from "./UiStates";
 import { mergePlaceCandidates } from "../placeCandidates";
 import {
+  movingDestinationPoint,
+  movingScheduleIssue,
+} from "../movingSubmission";
+import {
   cityForPoint,
   scopedMapOptions,
   installMapScope,
@@ -636,6 +640,14 @@ export function MovingWorkspace({
           </small>
         </div>
         <div className="ws-list-body">
+          {chat.kind === "CLARIFY" && chat.questions.length > 0 && (
+            <div className="notice amber" role="status">
+              <p>{chat.questions[0].text}</p>
+              <button type="button" className="text-button" onClick={onExit}>
+                {uiText("Về hội thoại")}
+              </button>
+            </div>
+          )}
           {data.moving_options && (
             <MovingQuoteSummary
               options={data.moving_options}
@@ -1196,17 +1208,16 @@ export function MovingRequestWorkspace({
   const pickup =
     ends.from_address.address.trim() || ends.from_address.pin?.label || "";
   async function confirm() {
+    if (sending || chat.busy) return;
     setError("");
     if (!pickup || !destination) {
       setError("Hãy nhập hoặc chọn trên bản đồ cả điểm lấy và điểm giao.");
       return;
     }
-    if (!date || !time) {
-      setError("Hãy chọn ngày chuyển và giờ xe đến.");
-      return;
-    }
-    if (new Date(date + "T" + time) <= new Date()) {
-      setError("Hãy chọn thời gian chuyển đồ trong tương lai.");
+    const scheduleIssue = movingScheduleIssue(date, time);
+    if (scheduleIssue) {
+      setError(scheduleIssue);
+      goToSection("schedule");
       return;
     }
     const invalidOptions = validateMovingForm(options) || optionsIssue;
@@ -1216,8 +1227,27 @@ export function MovingRequestWorkspace({
     }
     const locations: Data = {};
     for (const field of Object.keys(ENDPOINTS) as EndpointField[]) {
-      const p = ends[field].pin;
-      if (!p) continue;
+      const resolved =
+        field === "to_address"
+          ? movingDestinationPoint(ends[field].pin, {
+              decided: Boolean(useHouse && house),
+              point: housePoint,
+              loading: homeLoading,
+            })
+          : { point: ends[field].pin || undefined, issue: undefined };
+      const p = resolved.point;
+      if (!p) {
+        setError(
+          resolved.issue ||
+            formatUi(
+              "Hãy chọn kết quả tìm kiếm hoặc ghim điểm {0} trên bản đồ trước khi lấy báo giá.",
+              [ENDPOINTS[field].tag],
+            ),
+        );
+        setActive(field);
+        goToSection("locations");
+        return;
+      }
       const address =
         field === "to_address" && useHouse && house
           ? house?.address || house?.title
@@ -1244,20 +1274,14 @@ export function MovingRequestWorkspace({
       await onConfirm(
         `Báo giá chuyển đồ từ ${pickup} đến ${destination} ngày ${date} lúc ${time}. Chưa đặt đơn.`,
         {
-          ...(locations.pickup && locations.destination
-            ? {
-                moving_quote_form: {
-                  pickup: locations.pickup,
-                  destination: locations.destination,
-                  move_date: date,
-                  move_time: time,
-                  moving_options: options,
-                  ...(useHouse && house
-                    ? { destination_listing_id: house.id }
-                    : {}),
-                },
-              }
-            : {}),
+          moving_quote_form: {
+            pickup: locations.pickup,
+            destination: locations.destination,
+            move_date: date,
+            move_time: time,
+            moving_options: options,
+            ...(useHouse && house ? { destination_listing_id: house.id } : {}),
+          },
           ...(Object.keys(locations).length
             ? { moving_locations: locations }
             : {}),
@@ -1474,12 +1498,20 @@ export function MovingRequestWorkspace({
                         ))}
                       </div>
                     )}
-                    <small className={e.pin ? "ok" : "muted"}>
+                    <small
+                      className={e.pin || (home && housePoint) ? "ok" : "muted"}
+                    >
                       {e.pin
                         ? formatUi("Đã ghim: {0}", [e.pin.label])
-                        : uiText(
-                            "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.",
-                          )}
+                        : home && housePoint
+                          ? uiText(
+                              house.location_accuracy === "rooftop"
+                                ? "Điểm B là căn đã chốt."
+                                : "Điểm B là căn đã chốt. Vị trí tin đăng có thể gần đúng: kiểm tra cổng xe đến, cần thì ghim lại.",
+                            )
+                          : uiText(
+                              "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.",
+                            )}
                     </small>
                     {e.pin && (
                       <button

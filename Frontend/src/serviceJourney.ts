@@ -2,6 +2,23 @@ import type { Component, Message, Thread } from "./types";
 
 export type ServiceTarget = { c: Component; version: number };
 
+/** History is opened by its task ID, never silently substituted for a failed new search. */
+export function currentHousingTarget(
+  thread: Thread | null,
+  taskId: string | null,
+): ServiceTarget | undefined {
+  const targets = serviceTargets(thread).filter((t) => t.c.type === "property");
+  if (taskId) return targets.find((t) => t.c.task_id === taskId);
+  return targets
+    .reverse()
+    .find(
+      (t) =>
+        thread?.state.plan?.tasks?.some(
+          (task: { id: string }) => task.id === t.c.task_id,
+        ) && thread?.state.task_status?.[t.c.task_id] === "done",
+    );
+}
+
 /** Current plan results, not historical cards repeated in a later reply. */
 export function serviceTargets(thread: Thread | null): ServiceTarget[] {
   if (!thread) return [];

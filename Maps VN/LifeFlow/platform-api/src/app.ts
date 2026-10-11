@@ -15,6 +15,7 @@ import {
 import {
   HousingQueryService,
   boundedQueries,
+  withinOperation,
   OperationError,
   LocationService,
   NotFoundError,
@@ -108,8 +109,18 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
     return entityRouteService.calculate(EntityRouteRequestSchema.parse(request.body))
   })
 
-  app.post('/v1/routes/device', async (request) => {
-    return entityRouteService.calculateDevice(DeviceRouteRequestSchema.parse(request.body))
+  app.post('/v1/routes/device', async (request, reply) => {
+    const controller = new AbortController()
+    const disconnected = () => {
+      if (!reply.raw.writableFinished) controller.abort()
+    }
+    reply.raw.once('close', disconnected)
+    try {
+      const input = DeviceRouteRequestSchema.parse(request.body)
+      return await withinOperation(() => entityRouteService.calculateDevice(input), controller.signal, 20_000)
+    } finally {
+      reply.raw.removeListener('close', disconnected)
+    }
   })
 
   app.setErrorHandler((error, _request, reply) => {

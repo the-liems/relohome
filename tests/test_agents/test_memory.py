@@ -82,7 +82,7 @@ def test_anchor_change_stops_dependent_prefill():
 
 
 def test_moving_booked_stops_area_prefill_and_saves_hint():
-    session = SessionContext(preferences={"near": mem("Quận 10")})
+    session = SessionContext(preferences={"near": mem("Quận 10"), "district": mem("Quận 10")})
     receipt = Receipt(
         receipt_id="o1",
         action_id="moving_booking:t2",
@@ -97,6 +97,7 @@ def test_moving_booked_stops_area_prefill_and_saves_hint():
     state = state_with({}, {}, session=session, transaction=TransactionResult(status="committed", receipts=[receipt]))
     after = apply_updates(session, memory_updates(state), "th", utcnow())
     assert after.preferences["near"].stop_prefill is True
+    assert after.preferences["district"].stop_prefill is True
     assert after.hints["current_address"].value == "45 Thành Thái"
 
 

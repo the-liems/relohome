@@ -1,13 +1,6 @@
 import { t, uiPreferences } from "./uiPreferences";
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public code = "",
-  ) {
-    super(message);
-  }
-}
+import { apiFailure } from "./apiError";
+export { ApiError, apiFailure } from "./apiError";
 export async function api<T = any>(
   path: string,
   method = "GET",
@@ -21,15 +14,12 @@ export async function api<T = any>(
     headers: { "Content-Type": "application/json", "X-SIU-Request": "1" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new ApiError(
-      response.status,
-      typeof data.detail === "string"
-        ? data.detail
-        : "Không thể hoàn thành yêu cầu. Vui lòng thử lại.",
-      typeof data.code === "string" ? data.code : "",
-    );
+  let isJson = true;
+  const data = await response.json().catch(() => {
+    isJson = false;
+    return null;
+  });
+  if (!response.ok || !isJson) throw apiFailure(response.status, data, isJson);
   return data;
 }
 export const requestId = () => crypto.randomUUID();

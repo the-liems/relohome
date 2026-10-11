@@ -17,6 +17,7 @@ from jsonschema import Draft202012Validator
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskResult
 from src.agents.llm_context import decision_data, result_context
+from src.agents.location_names import city_search_text
 from src.agents.models import AgentName, Question
 from src.agents.subagents.services.common import CountingClient
 from src.agents.subagents.services.location import (
@@ -371,6 +372,8 @@ class DomainToolSession:
 
     async def prepare(self, name, field):
         text = self.req.inputs[field]
+        if field == "city":
+            text = city_search_text(text)
         self.used.add(name + ":" + field)
         if name == "search_airports":
             rows = await self.tools.call(name, {"query": text, "limit": 5})
@@ -392,9 +395,10 @@ class DomainToolSession:
         if "city" in self.anchors:
             bbox = self.anchors["city"].get("bounding_box")
         elif self.req.inputs.get("city") and field != "city":
-            areas = ((await self.tools.call("search_areas", {"text": self.req.inputs["city"], "limit": 5})) or {}).get(
-                "results"
-            ) or []
+            areas = (
+                (await self.tools.call("search_areas", {"text": city_search_text(self.req.inputs["city"]), "limit": 5}))
+                or {}
+            ).get("results") or []
             city = pick_city_area(areas)
             if city is None:
                 self.result = self.adapter._choose(self.req, self.tools, "city", self.req.inputs["city"], areas)

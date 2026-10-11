@@ -25,6 +25,7 @@ Group = Literal["preferences", "traits", "hints"]
 # Mức 1 (tự điền, có thông báo) và mức 2 (chỉ gợi ý). Field không có ở đây thuộc mức 3: không lưu.
 MEMORY_TIERS: dict[str, tuple[int, Group]] = {
     "city": (1, "preferences"),
+    "district": (1, "preferences"),
     "near": (1, "preferences"),
     "max_price_vnd": (1, "preferences"),
     "room_type": (1, "preferences"),
@@ -40,7 +41,8 @@ MEMORY_TIERS: dict[str, tuple[int, Group]] = {
 
 # Field chỉ được tự điền khi mọi anchor của nó cũng lấy từ bộ nhớ (không bị đổi trong lượt này).
 PREFILL_ANCHORS: dict[str, tuple[str, ...]] = {
-    "max_price_vnd": ("city", "near"),
+    "max_price_vnd": ("city", "district", "near"),
+    "district": ("city",),
     # A remembered place only narrows a search in the same city/district the user names now.
     "near": ("city", "district"),
 }
@@ -49,6 +51,7 @@ PREFILL_ANCHORS: dict[str, tuple[str, ...]] = {
 PREFILL_FIELDS_BY_DOMAIN: dict[AgentName, tuple[str, ...]] = {
     AgentName.PROPERTY: (
         "city",
+        "district",
         "near",
         "max_price_vnd",
         "room_type",
@@ -172,7 +175,7 @@ def memory_updates(state: dict) -> list[MemoryUpdate]:
     for receipt in transaction.receipts if transaction else []:
         if receipt.kind != CommitActionKind.MOVING_BOOKING:
             continue
-        for key in ("city", "near"):
+        for key in ("city", "district", "near"):
             if memory_value(session, key) is not None:
                 updates.append(MemoryUpdate(group="preferences", key=key, touch_only=True, stop_prefill=True))
         to_address = receipt.details.get("to_address")

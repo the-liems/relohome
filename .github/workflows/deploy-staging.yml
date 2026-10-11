@@ -18,119 +18,17 @@ permissions:
   actions: read
   packages: read
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   deploy-staging:
-    name: Submit staging deployment
     if: >-
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-    runs-on: [self-hosted, linux, team-44]
-    timeout-minutes: 10
-    concurrency:
-      group: coolify-staging
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - name: Select a published CI release
-        id: release
-        uses: actions/github-script@v8
-        env:
-          CI_RUN_ID: ${{ github.event.workflow_run.id || inputs.ci_run_id }}
-        with:
-          script: |
-            const id = process.env.CI_RUN_ID;
-            if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) {
-              throw new Error('Enter a numeric CI run ID from its Actions URL.');
-            }
-            const {data: run} = await github.rest.actions.getWorkflowRun({
-              ...context.repo, run_id: Number(id)
-            });
-            const repository = `${context.repo.owner}/${context.repo.repo}`;
-            if (run.path !== '.github/workflows/ci.yml' ||
-                run.repository?.full_name !== repository ||
-                run.head_repository?.full_name !== repository ||
-                run.head_branch !== 'main' ||
-                !['push', 'workflow_dispatch'].includes(run.event) ||
-                run.status !== 'completed' || run.conclusion !== 'success' ||
-                !/^[a-f0-9]{40}$/.test(run.head_sha)) {
-              throw new Error('Select a successful, completed main CI run from this repository.');
-            }
-            if (context.eventName === 'workflow_run') {
-              const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
-              if (!/^[a-f0-9]{40}$/.test(branch.commit?.sha)) {
-                throw new Error('Cannot determine main HEAD.');
-              }
-              if (branch.commit.sha !== run.head_sha) {
-                core.setOutput('deploy', 'false');
-                core.info(`Skipping release: main has moved past ${run.head_sha}`);
-                return;
-              }
-            }
-            core.setOutput('deploy', 'true');
-            core.setOutput('sha', run.head_sha);
-            core.setOutput('tag', `${run.head_sha}-${run.id}`);
-            core.info(`Deploying CI run ${run.id}: ${run.head_sha}`);
-
-      # Run deployment tooling from this workflow's revision; only Compose comes
-      # from the selected release, so manual redeployment keeps its infrastructure.
-      - uses: actions/checkout@v4
-        if: steps.release.outputs.deploy == 'true'
-      - name: Load the release Compose definition
-        if: steps.release.outputs.deploy == 'true'
-        run: |
-          git fetch --no-tags --depth=1 origin "$RELEASE_SHA"
-          git show "$RELEASE_SHA:compose.coolify.yaml" > release-compose.yaml
-          echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-        env:
-          RELEASE_SHA: ${{ steps.release.outputs.sha }}
-      - uses: actions/setup-python@v5
-        if: steps.release.outputs.deploy == 'true'
-        with:
-          python-version: "3.11"
-      - name: Create Python environment
-        run: bash scripts/setup-ci-python.sh
-        if: steps.release.outputs.deploy == 'true'
-      - name: Install deployment dependencies
-        run: pip install PyYAML==6.0.3
-        if: steps.release.outputs.deploy == 'true'
-      - name: Authenticate for image availability checks
-        id: registry
-        if: steps.release.outputs.deploy == 'true'
-        run: |
-          command -v docker
-          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-deploy-docker.XXXXXX")
-          export DOCKER_CONFIG
-          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
-          echo "config=$DOCKER_CONFIG" >> "$GITHUB_OUTPUT"
-          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update Compose and submit deployment
-        id: submit
-        if: steps.release.outputs.deploy == 'true'
-        run: python scripts/deploy-coolify.py --compose release-compose.yaml --output coolify-release.yaml
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          COOLIFY_URL: ${{ vars.COOLIFY_URL || 'https://coolify.c4-app-044.io.vn' }}
-          COOLIFY_SERVICE_UUID: ${{ vars.COOLIFY_SERVICE_UUID }}
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-          COOLIFY_CA_CERT: ${{ secrets.COOLIFY_CA_CERT }}
-      - name: Save the release Compose definition
-        if: always() && (steps.submit.outcome == 'success' || steps.submit.outcome == 'failure')
-        uses: actions/upload-artifact@v4
-        with:
-          name: coolify-staging-${{ steps.release.outputs.tag }}
-          path: coolify-release.yaml
-          if-no-files-found: ignore
-      - name: Clean up environment and registry credentials
-        if: always()
-        run: |
-          if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf -- "$CI_PYTHON_VENV"; fi
-          if [ -n "$REGISTRY_CONFIG" ]; then rm -rf -- "$REGISTRY_CONFIG"; fi
-        env:
-          REGISTRY_CONFIG: ${{ steps.registry.outputs.config }}
+    uses: ./.github/workflows/deploy-coolify.yml
+    with:
+      target: staging
+      ci_run_id: ${{ format('{0}', github.event.workflow_run.id || inputs.ci_run_id) }}
+      coolify_url: ${{ vars.COOLIFY_STAGING_URL }}
+      service_uuid: ${{ vars.COOLIFY_STAGING_SERVICE_UUID }}
+    secrets:
+      coolify_token: ${{ secrets.COOLIFY_STAGING_TOKEN }}

@@ -1,9 +1,12 @@
 """Release submission: preserve infrastructure and hand rollout to Coolify."""
 
+import base64
 import importlib.util
 import io
 import json
 import os
+import re
+import ssl
 import subprocess
 import tempfile
 import unittest
@@ -34,7 +37,7 @@ ENV = {"COOLIFY_URL": "https://coolify.example.test",
 
 
 class DeploymentTests(unittest.TestCase):
-    def invoke(self, responses, image_error=None, compose_text=None, **settings):
+    def invoke(self, responses, image_error=None, compose_text=None, artifacts=None, **settings):
         requests = []
 
         def respond(request, **kwargs):
@@ -42,6 +45,8 @@ class DeploymentTests(unittest.TestCase):
             value = next(responses)
             if isinstance(value, Exception):
                 raise value
+            if callable(value):
+                value = value(request)
             return io.BytesIO(json.dumps(value).encode())
 
         with tempfile.TemporaryDirectory() as directory:
@@ -52,7 +57,11 @@ class DeploymentTests(unittest.TestCase):
                     patch.object(DEPLOY, "urlopen", side_effect=respond), \
                     patch.object(DEPLOY.subprocess, "run", side_effect=image_error), \
                     patch("sys.stdout", new_callable=io.StringIO):
-                DEPLOY.deploy(source, output)
+                try:
+                    DEPLOY.deploy(source, output)
+                finally:
+                    if artifacts is not None and output.exists():
+                        artifacts.append(output.read_text())
         return requests
 
     @staticmethod
@@ -76,6 +85,86 @@ class DeploymentTests(unittest.TestCase):
             ("POST", "https://coolify.example.test/api/v1/services/staging-service/restart?latest=true"),
         ])
         self.assertTrue(all(kwargs["context"].check_hostname for _, kwargs in requests))
+        self.assertTrue(all(kwargs["context"].verify_mode == ssl.CERT_REQUIRED for _, kwargs in requests))
+
+    @staticmethod
+    def portable_compose():
+        definition = yaml.safe_load(COMPOSE.read_text())
+        definition["services"]["app"]["labels"] = {
+            "traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule": "Host(`${DEPLOY_HOST}`) && Path(`/health`)"
+        }
+        definition["services"]["app"]["environment"]["APP_URL"] = "${APP_URL:?}"
+        return yaml.safe_dump(definition)
+
+    def test_real_compose_proxy_host_and_router_are_specific_to_each_resource(self):
+        source = (SCRIPTS.parent / "compose.coolify.yaml").read_text()
+        for resource, host in (("staging-service", "staging.example.test"),
+                               ("production-service", "app.example.test")):
+            with self.subTest(resource=resource):
+                saved = {}
+
+                def save(request):
+                    saved["docker_compose_raw"] = base64.b64decode(json.loads(request.data)["docker_compose_raw"]).decode()
+                    return {}
+
+                variables = [{"key": key, "value": "private-test-value"}
+                             for key in set(re.findall(r"\$\{([A-Z0-9_]+):\?", source)) if key != "APP_URL"]
+                variables.extend([{"key": "APP_URL", "value": "{{environment.APP_URL}}",
+                                   "real_value": "https://" + host},
+                                  {"key": "AHAMOVE_USER_TOKEN", "value": "private-test-token"}])
+                artifacts = []
+                requests = self.invoke(iter([self.saved(), variables, save, saved, variables, {}]),
+                                       compose_text=source, artifacts=artifacts, COOLIFY_SERVICE_UUID=resource,
+                                       DEPLOYMENT_ENVIRONMENT="production")
+                submitted = saved["docker_compose_raw"]
+                definition = yaml.safe_load(submitted)
+                labels = definition["services"]["web"]["labels"]
+                router = f"traefik.http.routers.p044-{resource}-internal"
+                self.assertIn(f"{router}.rule=Host(`{host}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))", labels)
+                self.assertIn(f"{router}.service=noop@internal", labels)
+                self.assertNotIn("${DEPLOY_", submitted)
+                self.assertIn("${POSTGRES_ADMIN_PASSWORD:?}", submitted)
+                self.assertNotIn("private-test-", submitted)
+                self.assertEqual(artifacts, [submitted])
+                self.assertTrue(requests[-1][0].full_url.endswith(f"/{resource}/restart?latest=true"))
+
+    def test_resource_placeholder_does_not_require_host_placeholder(self):
+        source = COMPOSE.read_text().replace("custom.label", "router.${DEPLOY_RESOURCE}")
+        saved = {"docker_compose_raw": DEPLOY.render(source, ENV["IMAGE_PREFIX"], TAG).replace(
+            "${DEPLOY_RESOURCE}", "staging-service")}
+        artifacts = []
+        self.invoke(iter([self.saved(), {}, saved, self.variables(), {}]), compose_text=source, artifacts=artifacts)
+        self.assertIn("router.staging-service", artifacts[0])
+        self.assertNotIn("${DEPLOY_RESOURCE}", artifacts[0])
+
+    def test_diagnostic_artifact_survives_early_failures(self):
+        cases = [
+            ([], subprocess.TimeoutExpired("docker", 30)),
+            ([HTTPError("https://coolify.example.test", 401, "Unauthorized", {}, io.BytesIO())], None),
+            ([self.saved(), [{"key": "APP_URL", "value": ""}]], None),
+        ]
+        for responses, image_error in cases:
+            with self.subTest(responses=len(responses)):
+                artifacts = []
+                with self.assertRaises((RuntimeError, ValueError)):
+                    self.invoke(iter(responses), image_error=image_error,
+                                compose_text=self.portable_compose(), artifacts=artifacts)
+                self.assertEqual(len(artifacts), 1)
+                self.assertIn(ENV["IMAGE_PREFIX"] + "/app:" + TAG, artifacts[0])
+                self.assertIn("p044-staging-service-internal", artifacts[0])
+                self.assertIn("${DEPLOY_HOST}", artifacts[0])
+                self.assertNotIn("private-test-token", artifacts[0])
+
+    def test_invalid_public_url_stops_before_compose_mutation(self):
+        for app_url in ("", "https://app.example.test/", "http://app.example.test", "https://app.example.test/path",
+                        "https://user:password@app.example.test", "https://app.example.test/` || true"):
+            with self.subTest(app_url=app_url), self.assertRaisesRegex(ValueError, "Coolify APP_URL"):
+                self.invoke(iter([self.saved(), [{"key": "APP_URL", "value": app_url}]]),
+                            compose_text=self.portable_compose())
+
+    def test_production_rejects_old_staging_only_compose_before_api_access(self):
+        with self.assertRaisesRegex(ValueError, "environment-aware Compose"):
+            self.invoke(iter([]), DEPLOYMENT_ENVIRONMENT="production")
 
     def test_ahamove_accepts_either_complete_credential_form(self):
         for credentials in ({"AHAMOVE_USER_TOKEN": " token "},
@@ -199,6 +288,25 @@ class RepositoryContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.compose = yaml.safe_load((SCRIPTS.parent / "compose.coolify.yaml").read_text())
 
+    def test_environment_entrypoints_use_separate_repository_settings(self):
+        for target in ("staging", "production"):
+            with self.subTest(target=target):
+                workflow = yaml.load((SCRIPTS.parent / f".github/workflows/deploy-{target}.yml").read_text(),
+                                     Loader=yaml.BaseLoader)
+                job = workflow["jobs"][f"deploy-{target}"]
+                self.assertEqual(job["uses"], "./.github/workflows/deploy-coolify.yml")
+                self.assertNotIn("environment", job)
+                self.assertEqual(job["with"]["target"], target)
+                self.assertEqual(job["with"]["coolify_url"], "${{ vars.COOLIFY_" + target.upper() + "_URL }}")
+                self.assertEqual(job["with"]["service_uuid"], "${{ vars.COOLIFY_" + target.upper() + "_SERVICE_UUID }}")
+                self.assertEqual(job["secrets"]["coolify_token"], "${{ secrets.COOLIFY_" + target.upper() + "_TOKEN }}")
+                if target == "production":
+                    self.assertEqual(set(workflow["on"]), {"workflow_dispatch"})
+                else:
+                    self.assertEqual(set(workflow["on"]), {"workflow_dispatch", "workflow_run"})
+        shared = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-coolify.yml").read_text())
+        self.assertNotIn("environment", shared["jobs"]["deploy"])
+
     def test_every_release_image_has_a_workflow_build(self):
         builds = json.loads((SCRIPTS.parent / "config/ci/application-images.json").read_text())
         expected = {service["image"].split("/")[-1].split(":")[0]
@@ -217,11 +325,11 @@ class RepositoryContractTests(unittest.TestCase):
     def test_internal_web_paths_are_blocked_at_the_proxy(self):
         labels = self.compose["services"]["web"]["labels"]
         rule = next(label.split("=", 1)[1] for label in labels
-                    if label.startswith("traefik.http.routers.p044-internal.rule="))
-        self.assertIn("Host(`staging.c4-app-044.io.vn`)", rule)
+                    if label.startswith("traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule="))
+        self.assertIn("Host(`${DEPLOY_HOST}`)", rule)
         for path in ("/health", "/docs", "/redoc", "/openapi.json"):
             self.assertIn(f"(`{path}`)", rule)
-        self.assertIn("traefik.http.routers.p044-internal.service=noop@internal", labels)
+        self.assertIn("traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.service=noop@internal", labels)
 
     def test_tester_payment_control_is_limited_to_configured_accounts(self):
         # payment-design D10: the tester "paid" control never ships to production and
@@ -253,8 +361,8 @@ class ReleaseSelectionTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-staging.yml").read_text())
-        cls.script = next(step["with"]["script"] for step in workflow["jobs"]["deploy-staging"]["steps"]
+        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-coolify.yml").read_text())
+        cls.script = next(step["with"]["script"] for step in workflow["jobs"]["deploy"]["steps"]
                           if step.get("id") == "release")
 
     def select(self, run_id="123", trigger="workflow_dispatch", main_sha=SHA, branch_error=False, **changes):

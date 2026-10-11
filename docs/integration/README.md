@@ -1,5 +1,7 @@
 # Location — đọc trạng thái hiện hành
 
+Landing UX (frontend only): [visitor experience and verification 10/10](landing-page-ux-2026-10-10.md).
+
 Cập nhật 10/10: [Bàn giao QuangDung: tối ưu Housing, triển khai migration và kế hoạch gộp data geocode](quangdung-housing-performance-handoff-2026-10-10.md).
 
 Cập nhật 08/10: [Phạm vi hành chính thật, luồng workspace và Roommate DEMO](search-scope-roommate-2026-10-08.md).

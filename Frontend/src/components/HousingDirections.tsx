@@ -33,8 +33,6 @@ export function HousingDirections({
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [snapRadius, setSnapRadius] = useState(DEVICE_ROUTE_SNAP_M);
-  const [publicRouting, setPublicRouting] = useState(false);
-  const [publicConsent, setPublicConsent] = useState(false);
   useEffect(() => {
     let disposed = false;
     let locationTimer: ReturnType<typeof setTimeout> | undefined;
@@ -95,7 +93,8 @@ export function HousingDirections({
     setError("");
     setErrorCode("");
     setRouting(null);
-    const timer = setTimeout(() => abort.abort(), 15000);
+    // Platform bounds the complete DB/local/public operation at 20s.
+    const timer = setTimeout(() => abort.abort(), 25000);
     void api<Data>(
       "/platform/routes/device",
       "POST",
@@ -106,7 +105,7 @@ export function HousingDirections({
         },
         destination: { type: "housing", listing_id: house.id },
         snap_radius_m: snapRadius,
-        public_routing_consent: publicRouting,
+        routing_policy: "auto",
       },
       abort.signal,
     )
@@ -132,7 +131,7 @@ export function HousingDirections({
       clearTimeout(timer);
       abort.abort();
     };
-  }, [origin, house.id, snapRadius, publicRouting]);
+  }, [origin, house.id, snapRadius]);
   return (
     <Dialog title={t("Từ vị trí của bạn tới căn nhà")} wide onClose={onClose}>
       <p className="muted">{house.title}</p>
@@ -140,6 +139,26 @@ export function HousingDirections({
         {t(
           "Chỉ dùng vị trí bạn cấp quyền cho lần chỉ đường này; không lưu vào hồ sơ hay gửi cho AI.",
         )}
+      </p>
+      <p className="notice small">
+        {t(
+          "Ưu tiên tính đường nội bộ. Khi ngoài vùng hoặc dịch vụ nội bộ không dùng được, hệ thống tự gửi hai tọa độ tới OSRM công khai (FOSSGIS, có ghi log); không gửi cho LLM.",
+        )}{" "}
+        <a
+          href="https://routing.openstreetmap.de/about.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t("Chính sách OSRM công khai")}
+        </a>
+        {" · "}
+        <a
+          href="https://www.openstreetmap.org/fixthemap"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t("Báo lỗi dữ liệu bản đồ")}
+        </a>
       </p>
       {busy && (
         <p role="status">
@@ -160,62 +179,11 @@ export function HousingDirections({
           {Math.round(origin.accuracy)} m
         </p>
       )}
-      {origin && !publicRouting && (
-        <div className="notice">
-          <p>
-            {t(
-              "Cần đường xa/liên tỉnh hoặc dữ liệu đường nội bộ chưa đủ? Có thể dùng OSRM công khai, không giới hạn theo ba thành phố.",
-            )}
-          </p>
-          <p className="small">
-            {t(
-              "OSRM công khai do FOSSGIS vận hành sẽ nhận tọa độ xuất phát và điểm đến, có lưu yêu cầu trong log. Chỉ dùng thử; không bảo đảm dịch vụ hoặc thời gian giao thông thực tế.",
-            )}
-          </p>
-          <a
-            href="https://routing.openstreetmap.de/about.html"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t("Chính sách OSRM công khai")}
-          </a>
-          <label>
-            <input
-              type="checkbox"
-              checked={publicConsent}
-              onChange={(e) => setPublicConsent(e.target.checked)}
-            />
-            {t("Tôi đồng ý gửi hai tọa độ cho OSRM công khai để tính đường.")}
-          </label>
-          <button
-            className="secondary"
-            disabled={!publicConsent || busy}
-            onClick={() => setPublicRouting(true)}
-          >
-            {t("Tính đường xa qua OSRM công khai")}
-          </button>
-        </div>
-      )}
-      {publicRouting && (
+      {routing?.routing_provider === "public_osrm" && (
         <p className="notice small">
           {t(
-            "Đang dùng OSRM công khai sau khi bạn đồng ý; hai tọa độ được gửi tới FOSSGIS, không gửi cho LLM.",
-          )}{" "}
-          <a
-            href="https://routing.openstreetmap.de/about.html"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t("Chính sách OSRM công khai")}
-          </a>
-          {" · "}
-          <a
-            href="https://www.openstreetmap.org/fixthemap"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t("Báo lỗi dữ liệu bản đồ")}
-          </a>
+            "Tuyến này được tính bằng OSRM công khai. Thời gian là ước tính, không có giao thông thời gian thực hoặc bảo đảm dịch vụ.",
+          )}
         </p>
       )}
       {routing?.route && (
