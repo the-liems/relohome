@@ -15,7 +15,7 @@ async def main():
 
     # Explicit allowlist: no application/provider secrets forwarded to the child.
     child_env = {key: os.environ[key] for key in (
-        "PATH", "PYTHONPATH", "OBSERVABILITY_ENABLED", "OBSERVABILITY_CONTENT_MODE",
+        "PATH", "PYTHONPATH", "LD_LIBRARY_PATH", "OBSERVABILITY_ENABLED", "OBSERVABILITY_CONTENT_MODE",
         "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_DEPLOYMENT_ENVIRONMENT",
         "PAYMENT_DB_PATH",
     ) if key in os.environ}
