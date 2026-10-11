@@ -55,6 +55,7 @@ import {
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import { mergePlaceCandidates } from "./placeCandidates";
 import {
+  currentHousingTarget,
   hasSelection,
   nextServiceTarget,
   serviceTargets,
@@ -1132,11 +1133,7 @@ function Chat() {
     [...allComponents]
       .reverse()
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
-  const latestProperty =
-    (activeTarget?.c.type === "property" ? activeTarget : undefined) ||
-    [...allComponents]
-      .reverse()
-      .find(({ c }) => c.type === "property" && !c.data?.comparison);
+  const latestProperty = currentHousingTarget(thread, workspaceTaskId);
   const latestFlight =
       (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
       latestOf("flight", "offers"),
@@ -1973,7 +1970,9 @@ function Chat() {
               {latestService && !movingQuestions.length && (
                 <button
                   className="secondary open-map"
-                  onClick={() => setWorkspace(latestService.c.type)}
+                  onClick={() =>
+                    openService(latestService.c.task_id, latestService.c.type)
+                  }
                 >
                   <MapPin size={15} />{" "}
                   {

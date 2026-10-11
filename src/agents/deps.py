@@ -31,6 +31,7 @@ def _default_prefill_ttl() -> dict[str, timedelta]:
         "city": timedelta(days=90),
         "near": timedelta(days=90),
         "max_price_vnd": timedelta(days=60),
+        "district": timedelta(days=60),
         "room_type": timedelta(days=180),
         "must_have": timedelta(days=180),
         "household_size": timedelta(days=365),

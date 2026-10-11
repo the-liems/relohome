@@ -66,6 +66,7 @@ QUESTION_TEXT = {
 HINT_FOR = {"flight.origin": "origin", "relocation.from_address": "current_address"}
 PREFILL_LABEL = {
     "city": "khu vực",
+    "district": "quận/phường",
     "near": "gần",
     "max_price_vnd": "ngân sách",
     "room_type": "loại phòng",
@@ -105,6 +106,29 @@ def moving_destination_question(question: Question, state: WorkflowState) -> Que
     """Chưa chốt nhà: chuyển đồ chờ chốt (tuần tự, mặc định) hoặc báo giá tới địa chỉ người dùng xác nhận."""
     if question.field != "relocation.selected:property":
         return question
+    plan = state.get("plan")
+    searches = [
+        t
+        for t in (plan.tasks if plan else [])
+        if t.agent == AgentName.PROPERTY and t.inputs.get("housing_mode") != "compare"
+    ]
+    results = state.get("task_results") or {}
+    statuses = state.get("task_status") or {}
+    if (
+        searches
+        and not any(
+            statuses.get(t.id) == TaskStatus.DONE
+            and results.get(t.id) is not None
+            and results[t.id].data.get("candidates")
+            for t in searches
+        )
+        and not state.get("housing_selection")
+    ):
+        return Question(
+            field=question.field,
+            text="Tìm nhà chưa có kết quả để chọn. Mình giữ yêu cầu chuyển đồ và sẽ báo giá sau khi bạn chốt căn.",
+            blocking=False,
+        )
     if state.get("moving_destination_mode") == "wait_for_home":
         return Question(
             field=question.field,
@@ -387,7 +411,9 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             else "Chức năng đặt/huỷ/sửa dịch vụ bạn yêu cầu chưa được bật trong phiên này; "
             "mình chỉ tra cứu thông tin/báo giá, chưa thực hiện giao dịch nào."
         )
-    if intake and intake.prefilled and has_results:
+    # Remembered constraints still affect an attempted search when retrieval fails.
+    # Disclose their provenance instead of making an unstated budget look user-supplied.
+    if intake and intake.prefilled:
         parts = ", ".join(f"{PREFILL_LABEL.get(k, k)} {v.value}" for k, v in intake.prefilled.items())
         if not comparison_only:
             notes.append(f"Mình dùng {parts} như lần trước nhé. Muốn đổi thì bạn cứ nói.")
