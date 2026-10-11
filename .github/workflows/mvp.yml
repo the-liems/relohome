@@ -11,6 +11,7 @@ defaults:
 
 jobs:
   validate:
+    name: Validate local stack
     runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 30
     steps:
@@ -23,10 +24,13 @@ jobs:
         run: bash scripts/setup-ci-python.sh
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh python
-      - run: pip install -r requirements.txt
-      - run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
-      - run: python -m compileall -q src
-      - name: Real SQLite persistence (no provider calls or mocks)
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Lint local stack
+        run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
+      - name: Check Python compilation
+        run: python -m compileall -q src
+      - name: Test SQLite persistence
         run: pytest tests/test_llm_agents/test_runtime_storage.py -q
       - uses: actions/setup-node@v4
         with:
@@ -35,8 +39,9 @@ jobs:
           cache-dependency-path: Maps VN/LifeFlow/package-lock.json
       - name: Verify Node.js
         run: bash scripts/check-ci-runner.sh node22
-      - run: npm ci && npm run build
+      - name: Build TypeScript workspaces
+        run: npm ci && npm run build
         working-directory: Maps VN/LifeFlow
-      - name: Remove job-local Python environment
+      - name: Clean up Python environment
         if: always()
         run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi

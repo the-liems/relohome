@@ -33,6 +33,14 @@ automatic rollout starts. Otherwise existing checkout records will reference
 payment IDs that the new service cannot find. An empty database is only appropriate
 if the staging owner explicitly accepts losing access to the existing payment history.
 
+For a fresh staging rollout approved by the owner, leave `payments-data` empty and
+let the Payment service initialize its database on startup. No copy from
+`agent-data` is needed. Existing checkout records can no longer resolve their old
+payment IDs; create new checkout sessions after deployment. Configure and validate
+the service tokens before merging, then verify Payment health and the backend
+connection after the automatic rollout. The owner approved this fresh-database
+path for the initial dedicated Payment service deployment.
+
 1. Stop the old backend and keep it stopped while copying payment state. Back up
    `agent-data`, including `payments.db` and any `payments.db-wal`/`payments.db-shm`
    companions. Use SQLite's backup API to produce a consistent `payments.db` copy;

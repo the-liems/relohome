@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.14
 ARG NODE_IMAGE=node:24.14.0-bookworm-slim
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
@@ -27,20 +27,20 @@ LABEL org.opencontainers.image.title="LifeFlow Moving" \
       org.opencontainers.image.revision=${RELEASE_SHA}
 ENV NODE_ENV=production RELEASE_SHA=${RELEASE_SHA}
 WORKDIR /app
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/packages/contracts/package.json ./packages/contracts/package.json
-COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
-COPY --from=build /app/packages/mcp-core/package.json ./packages/mcp-core/package.json
-COPY --from=build /app/packages/mcp-core/dist ./packages/mcp-core/dist
-COPY --from=build /app/packages/moving-service/package.json ./packages/moving-service/package.json
-COPY --from=build /app/packages/moving-service/dist ./packages/moving-service/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/node_modules ./node_modules
+COPY --from=build --chmod=u=rwX,go=rX /app/package.json ./package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/package.json ./packages/contracts/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/mcp-core/package.json ./packages/mcp-core/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/mcp-core/dist ./packages/mcp-core/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/moving-service/package.json ./packages/moving-service/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/moving-service/dist ./packages/moving-service/dist
 USER node
 
 FROM runtime AS moving-mcp
 ENV MOVING_MCP_HOST=0.0.0.0 MOVING_MCP_PORT=4400
-COPY --from=build /app/moving-mcp-server/package.json ./moving-mcp-server/package.json
-COPY --from=build /app/moving-mcp-server/dist ./moving-mcp-server/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-mcp-server/package.json ./moving-mcp-server/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-mcp-server/dist ./moving-mcp-server/dist
 EXPOSE 4400
 HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:4400/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
@@ -48,14 +48,14 @@ CMD ["node", "moving-mcp-server/dist/http-server.js"]
 
 FROM runtime AS moving-api
 ENV MOVING_API_HOST=0.0.0.0 MOVING_API_PORT=4200
-COPY --from=build /app/moving-api/package.json ./moving-api/package.json
-COPY --from=build /app/moving-api/dist ./moving-api/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-api/package.json ./moving-api/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-api/dist ./moving-api/dist
 EXPOSE 4200
 HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:4200/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "moving-api/dist/server.js"]
 
 FROM runtime AS moving-migrate
-COPY database/moving/ ./database/moving/
-COPY database/migrations/008_moving_service.sql ./database/migrations/008_moving_service.sql
+COPY --chmod=u=rwX,go=rX database/moving/ ./database/moving/
+COPY --chmod=u=rwX,go=rX database/migrations/008_moving_service.sql ./database/migrations/008_moving_service.sql
 CMD ["node", "packages/moving-service/dist/migrate.js"]

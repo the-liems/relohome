@@ -1,4 +1,4 @@
-name: Standalone Intake and Routing Orchestrator
+name: Intake and routing CI
 on:
   pull_request:
     paths:
@@ -37,6 +37,7 @@ defaults:
 
 jobs:
   contracts-and-images:
+    name: Test contracts and containers
     runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 30
     env:
@@ -50,25 +51,33 @@ jobs:
         run: bash scripts/setup-ci-python.sh
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh python docker buildx
-      - run: pip install -r requirements.txt -r requirements-agents.txt
-      - run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
-      - run: pytest tests/test_agent_services -q
+      - name: Install agent dependencies
+        run: pip install -r requirements.txt -r requirements-agents.txt
+      - name: Lint agent services
+        run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
+      - name: Test agent services
+        run: pytest tests/test_agent_services -q
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Verify Node.js
         run: bash scripts/check-ci-runner.sh node
-      - run: npm ci && npm run build --workspace=@lifeflow/contracts
+      - name: Build shared contracts
+        run: npm ci && npm run build --workspace=@lifeflow/contracts
         working-directory: Maps VN/LifeFlow
-      - run: node scripts/export-agent-registry.mjs --check
-      - run: docker buildx build --load -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
-      - run: docker buildx build --load -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
-      - run: python scripts/smoke-agent-containers.py
-      - name: Remove only this job's containers and images
+      - name: Verify agent registry
+        run: node scripts/export-agent-registry.mjs --check
+      - name: Build intake image
+        run: docker buildx build --load -f Dockerfile.agents --target intake -t "lifeflow-intake:$AGENT_IMAGE_TAG" .
+      - name: Build orchestrator image
+        run: docker buildx build --load -f Dockerfile.agents --target orchestrator -t "lifeflow-orchestrator:$AGENT_IMAGE_TAG" .
+      - name: Smoke test agent containers
+        run: python scripts/smoke-agent-containers.py
+      - name: Clean up containers and images
         if: always()
         run: |
           docker ps -aq --filter "label=lifeflow.ci.agents=$AGENT_IMAGE_TAG" | xargs -r docker rm -fv
           docker image rm "lifeflow-intake:$AGENT_IMAGE_TAG" "lifeflow-orchestrator:$AGENT_IMAGE_TAG" || true
-      - name: Remove job-local Python environment
+      - name: Clean up Python environment
         if: always()
         run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi

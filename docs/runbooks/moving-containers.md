@@ -137,18 +137,21 @@ Kiểm tra native không thay thế kiểm tra image Linux; phải chạy `movin
 
 ## CI và bàn giao
 
-Workflow `Moving containers` kiểm tra file ứng dụng thay đổi, build 3 targets,
-và publish lên GHCR bằng commit SHA khi merge `main`. PR không có credential
-AhaMove. Docs/test-only không publish image. Required check nên chọn
-`Moving container gate`, vì check này luôn kết thúc kể cả không có image cần build.
+Workflow `Moving containers` kiểm tra file ứng dụng thay đổi và validate Moving.
+Workflow `CI` sở hữu build/publish ba image release trên `main`, dùng tag
+`<commit-sha>-<ci-run-id>` cùng với các image ứng dụng khác. PR chỉ build image
+bị ảnh hưởng và không publish GHCR hay dùng credential AhaMove. Required check
+nên chọn `Moving container gate` và `CI results`; các gate luôn kết thúc kể cả
+khi không có image cần build. Không còn publish tag chỉ có commit SHA từ Moving.
 Thay đổi test/Compose vẫn chạy build TypeScript, kiểm tra contract và validate
 Compose; live tests không tự gọi provider khi PR chưa có credential được duyệt.
 
 Muốn chạy container + AhaMove thật trên GitHub, tạo environment `moving-staging`
 có review/access policy của đội và secrets `AHAMOVE_API_KEY`, `AHAMOVE_MOBILE`.
 Chạy workflow thủ công với `verify_staging=true` trên ref đã review. Job tạo DB thật,
-cổng ngẫu nhiên và chỉ cleanup stack của chính job. Image build/publish thành công
-chưa phải bằng chứng staging của cùng digest đã đạt.
+cổng ngẫu nhiên và chỉ cleanup stack của chính job. Job staging tự build stack
+Compose dùng một lần. Image build/publish từ CI
+thành công chưa phải bằng chứng staging của cùng digest đã đạt.
 
 Xem [bàn giao Coolify](../../deploy/coolify/staging/moving.md) để teammate infra
 gắn đúng image, secrets, network, HTTPS callback và migration vào pipeline deploy.

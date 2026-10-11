@@ -1,19 +1,18 @@
 # Self-hosted CI
 
-All jobs in `ci.yml`, `moving-containers.yml`, `agent-services.yml`,
-`map-data.yml`, `mvp.yml`, `postgis-image.yml`, and `deploy-staging.yml` use at least
-`[self-hosted, linux, team-44]`. The runner
-must be available to this repository and carry those three labels.
-The application-image matrix, Moving `images` job, and PostGIS image job additionally require `ARM64`
-so fixed `linux/arm64` builds and runtime probes run on native ARM64 machines. Job/check
-names, existing path filters, dependencies, GHCR push conditions, and the protected
-`moving-staging` environment remain unchanged.
+All validation and deployment jobs use `[self-hosted, linux, team-44]` and can
+run on Linux x64 or ARM64 with the required tools. Application release builds in
+`build-application-images.yml` and PostGIS builds in `postgis-image.yml` use
+`[self-hosted, linux, ARM64, team-44]`. Their runners must carry all four labels.
+When adding x64 capacity, retain available ARM64 capacity for release builds.
+MCP and agent smoke builds use the Docker engine's native architecture; a remote
+engine may differ from its runner host.
 Agent and Map workflows also watch the shared runner preflight; Moving change
 detection requests validation when it changes. Agent CI watches the Python
 environment helper too.
 
 The baseline CI run on 2026-10-05 used `team-44-Doan0904`, Linux ARM64.
-Most checks support Linux ARM64 and x64. The application-image matrix, Moving images, and PostGIS
+Most checks support Linux ARM64 and x64. The application-image matrix and PostGIS
 publisher build ARM64 images and explicitly select an ARM64 runner.
 The other jobs can use either architecture. Selecting only `team-44` does not
 constrain the architecture, even when a Docker build specifies `--platform`. A successful ARM64 build
@@ -25,8 +24,7 @@ In repository Settings → Actions → Runners, verify that an online Linux ARM6
 runner available to this repository carries `self-hosted`, `linux`, `ARM64`, and
 `team-44`. The PostGIS build in run `38039269660` selected `team-44-arm64-2`
 with all four labels and passed. Each ARM64 image job checks `uname -m` before
-building, so an incorrectly labeled x64 runner fails immediately. Moving builds
-also declare `platforms: linux/arm64` and use architecture-specific cache scopes.
+building, so an incorrectly labeled x64 runner fails immediately.
 
 If image jobs remain queued, check runner status and labels first. Restore the
 ARM64 runner's Actions service and GitHub connectivity, or register another Linux
@@ -46,13 +44,12 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | Python CI, agent services, map data, MVP, staging deployment | Python 3.11 and pip, provided by `actions/setup-python` |
 | Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
 | MVP | Node.js 22 and npm (existing workspace validation version) |
-| Application images, PostGIS, MCP images, agent services, Moving validation/images/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
+| Application images, PostGIS, MCP images, agent services, Moving validation/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
 | Agent services | Docker Buildx |
 | MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
 | Application image publisher | Docker Buildx |
 | Moving validation/staging | OpenSSL and Docker Compose >= 2.24.4 (`!override` ports) |
 | Staging deployment | Docker CLI with `docker manifest inspect`; no Docker daemon needed |
-| Moving images | Docker Buildx, provided by `docker/setup-buildx-action` |
 
 `scripts/check-ci-runner.sh` checks tools inside jobs before expensive work.
 The setup actions verify language runtimes; job logs record actual versions
@@ -75,6 +72,50 @@ creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/confi
 readable and directories traversable by existing non-root service users. Source
 remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes.
 The normal MCP and agent smoke checks validate container startup.
+Migration image jobs strip group/other permissions from the build context before
+building, then run each image twice against a disposable database. The checker
+uses PyYAML from the job-local environment to read database image tags from
+`compose.coolify.yaml`. PR jobs also log into GHCR so they can pull private
+PostGIS images; publishing remains limited to main.
+
+## Workflow ownership and release coordination
+
+`CI` is the application-release coordinator. Python tests, MCP container smoke
+checks, and TypeScript validation remain independent jobs. Application builds
+call `build-application-images.yml`, a reusable workflow with an explicit service
+name per matrix job. There is no explicit matrix concurrency cap; available
+ARM64 runners determine how many application-image jobs execute simultaneously.
+The catalog in `config/ci/application-images.json` owns each service's context,
+Dockerfile, target, and build dependencies; add new services there and keep their
+Compose image references in sync.
+
+Pull requests use `scripts/select-ci-images.py` to build affected application
+images. Shared contracts and lockfiles select every TypeScript consumer;
+Dockerfiles, ignore files, and migration inputs select their consumers. Renames
+include both old and new paths. Unknown inputs, CI configuration changes, or an
+unreadable diff select all images. Known documentation and test-only changes can
+skip application images; validation and smoke jobs still run.
+
+Pushes and manual CI runs always build all ten release images. GHCR publishing
+is allowed only on `main`, using `<commit-sha>-<ci-run-id>` tags. `CI results`
+always runs and rejects failed/cancelled validation, failed selection, or skipped
+requested image builds. Only a PR with zero selected images may skip builds.
+`Deploy staging` still consumes a successful complete main CI run and verifies
+every image manifest before submitting the deployment.
+
+`Moving containers` owns domain validation and the explicitly requested provider
+staging check. Application CI owns its release images, so Moving no longer
+publishes separate commit-only tags or repeats the release image matrix. Manual
+Moving staging verification still builds its own disposable Compose stack.
+PostGIS remains an independent infrastructure-image publisher.
+
+Use `CI results` and the existing `Moving container gate` as the stable required
+checks. When adopting these display names, update any ruleset entries referring
+to old job names; workflow/job IDs remain stable except for the removed Moving
+image job. A gate must remain required when its child jobs are conditional.
+Path-filtered workflows such as Map catalog and Intake/routing should not be
+required unconditionally, because a filtered-out workflow can leave its checks
+pending. This PR does not change repository protection settings.
 
 ## Disposable resources
 
@@ -118,7 +159,9 @@ The smoke regression tests exercise failed starts, health timeouts, failed
 HTTP checks, cleanup, and overlapping run isolation using a fake Docker CLI.
 Runner tests cover the Compose minimum-version boundary, diagnostic messages,
 capability-specific prerequisites. The normal CI setup and dependency-install
-steps validate job-local Python environments.
+steps validate job-local Python environments. Image-selection and gate tests
+cover shared dependencies, deleted/renamed paths, unknown-input fallbacks, full
+release builds, and failed/skipped requested jobs.
 Actual container compatibility and runner availability must additionally be
 verified in Actions. Python assertion fixes are tracked separately in #45–#50.
 

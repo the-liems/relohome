@@ -13,8 +13,10 @@ Build từ `Maps VN/LifeFlow/Dockerfile.moving`, context `Maps VN/LifeFlow`:
 | `moving-api` | `node moving-api/dist/server.js` | 4200 | Webhook application |
 | `moving-migrate` | `node packages/moving-service/dist/migrate.js` | Không | One-off migration job |
 
-Workflow publish dưới `ghcr.io/<owner>/<repo>/moving-{mcp,api,migrate}:<commit-sha>`
-(tên registry viết thường). Infra lấy digest thực tế từ build, dùng
+Workflow `CI` publish dưới
+`ghcr.io/<owner>/<repo>/moving-{mcp,api,migrate}:<commit-sha>-<ci-run-id>`
+(tên registry viết thường). `Moving containers` chỉ validate và kiểm tra staging
+thủ công; không còn publish tag chỉ có commit SHA. Infra lấy digest thực tế từ build, dùng
 `image@sha256:<digest>`; không dùng `latest`. Cùng `RELEASE_SHA` cho ba image.
 
 ## Runtime configuration
