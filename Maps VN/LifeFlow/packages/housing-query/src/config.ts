@@ -55,12 +55,21 @@ export interface RuntimeConfig extends ApplicationRuntimeConfig {
   postgresIngestPassword: string
 }
 
-export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
-  loadEnvironment()
-  const publicDrivingOsrmUrl = process.env.OSRM_PUBLIC_DRIVING_URL || undefined
+export function resolvePublicDrivingOsrmUrl(value: string | undefined): string | undefined {
+  // Browser device directions may use public/auto policy without a separate
+  // opt-in checkbox. An explicitly empty value remains an operator kill switch.
+  const publicDrivingOsrmUrl = value === undefined
+    ? 'https://routing.openstreetmap.de/routed-car/'
+    : value || undefined
   if (publicDrivingOsrmUrl && publicDrivingOsrmUrl !== 'https://routing.openstreetmap.de/routed-car/') {
     throw new Error('OSRM_PUBLIC_DRIVING_URL must be the approved HTTPS FOSSGIS driving endpoint.')
   }
+  return publicDrivingOsrmUrl
+}
+
+export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
+  loadEnvironment()
+  const publicDrivingOsrmUrl = resolvePublicDrivingOsrmUrl(process.env.OSRM_PUBLIC_DRIVING_URL)
   const commuteCandidateLimit = Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100)
   if (!Number.isInteger(commuteCandidateLimit) || commuteCandidateLimit < 1 || commuteCandidateLimit > 1_000) {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')

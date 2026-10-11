@@ -6,6 +6,7 @@ import {
 import type { QueryExecutor } from './database.js'
 import { NotFoundError } from './errors.js'
 import { RouteService } from './route-service.js'
+import { deviceRoutingPolicy } from './device-routing-policy.js'
 
 /** Resolves only explicit identifiers; never selects a search candidate on behalf of a caller. */
 export class RouteEndpointService {
@@ -19,12 +20,9 @@ export class RouteEndpointService {
       profile: 'driving' as const, origin: origin.location, destination: destination.location,
       snap_radius_m: request.snap_radius_m, steps: false,
     }
-    const route = request.public_routing_consent
-      ? await this.routes.calculatePublicDriving(routeInput)
-      : await this.routes.calculate({ ...routeInput, city: this.routes.inferCity(destination.location) })
+    const routed = await this.routes.calculateDeviceDriving(routeInput, deviceRoutingPolicy(request))
     return DeviceRouteResponseSchema.parse({
-      profile: 'driving', origin, destination, route,
-      routing_provider: request.public_routing_consent ? 'public_osrm' : 'local_osrm',
+      profile: 'driving', origin, destination, ...routed,
       warnings: (['origin', 'destination'] as const).flatMap((endpoint) => {
         const accuracy = (endpoint === 'origin' ? origin : destination).location_accuracy
         return accuracy === 'rooftop' ? [] : [{

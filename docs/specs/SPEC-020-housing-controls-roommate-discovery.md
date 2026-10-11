@@ -58,17 +58,21 @@ and all backend validation remain unchanged.
   denied GPS. Keep the coordinate visible on a map; preserve typed route errors.
   Default 100 m road snapping can increase to 500 m only through an explicit action;
   disclose actual snap distances and do not count off-road gaps as routed distance.
-- AC-09: Public driving routing requires a distinct coordinate-sharing consent and
-  explicit calculation action. It supports long/intercity routes without local city
-  bounds, re-reads the canonical Housing destination, and discloses the provider's
-  request logging/policy. No key needed; no automatic public fallback. Config is
-  disabled by default; apply rate limits and identify demo-only reliability.
+- AC-09: Clicking Directions selects local-first `routing_policy: auto`; no separate
+  public-sharing checkbox. Preserve browser GPS permission and disclose third-party
+  forwarding/logging before requesting location. Local coverage/connectivity/no-road
+  failures may use one public driving attempt, including long/intercity routes.
+  Re-read canonical Housing destination; preserve GPS and bounded road snapping.
+  Unset config uses the approved provider; explicit empty disables it. Legacy
+  requests without a policy remain local-only unless they explicitly select public.
+  Bound requests/queue, preserve cancellation, and disclose best-effort reliability.
+  See [ADR-024](../adr/ADR-024-auto-public-device-routing.md).
 
 ## Limits and non-goals
 
 Browser geolocation requires HTTPS/localhost and explicit browser/OS permission;
 accuracy is device-dependent. Local route coverage is the configured OSRM city
-datasets, not all Vietnam. Public driving is an explicit opt-in extension, not an
+datasets, not all Vietnam. Public driving is a browser-only automatic fallback, not an
 extension of AhaMove service availability or a live traffic/navigation guarantee.
 No deployment, real transactions, generated replacement
 profiles, fabricated location test fixtures, or accepted ADR in this change.

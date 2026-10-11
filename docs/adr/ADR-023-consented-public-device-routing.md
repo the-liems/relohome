@@ -1,6 +1,7 @@
 # ADR-023 — Opt-in public driving for device-to-home directions
 
-Date: 2026-10-08. Status: Proposed.
+Date: 2026-10-08. Status: Historical proposal; browser policy superseded by
+[ADR-024](ADR-024-auto-public-device-routing.md) for review following the user's 2026-10-11 request.
 Owner: Khoa; reviewers: Map/API, UI and privacy/security owners.
 
 ## Context

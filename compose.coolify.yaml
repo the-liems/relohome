@@ -215,6 +215,9 @@ services:
     image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
     environment:
       <<: *location-env
+      # Browser directions only: local first, public OSRM for unsupported routes.
+      # Explicit empty disables public routing; no external agent/commute fallback.
+      OSRM_PUBLIC_DRIVING_URL: ${OSRM_PUBLIC_DRIVING_URL-https://routing.openstreetmap.de/routed-car/}
       # Housing owner workspace (docs/runbooks/housing-management.md): the web gateway
       # authenticates with the shared token; only these account IDs may moderate.
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
