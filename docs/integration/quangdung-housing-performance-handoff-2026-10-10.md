@@ -78,9 +78,10 @@ nếu cần tháo, dùng `database/rollbacks/housing_query_performance.sql` sau 
 
 ### Đã áp dụng local và thay ZIP ngày 11/10
 
-Theo yêu cầu áp dụng ngay của người dùng, đã dry-run/apply/verify phần kết quả
-có sẵn: 2.729 bản ghi DB, 2.791 tọa độ trong source; 224 khóa cấp đường còn thiếu.
-Giá, units, media và POI giữ nguyên. Cổng 8503 và API detail/map đã kiểm dữ liệu mới.
+Theo yêu cầu áp dụng ngay của người dùng, đã dry-run/apply/verify cả lượt có sẵn
+và lượt cuối sau khi quota dùng lại được: tổng 2.902 bản ghi DB, 2.969 tọa độ source
+so với checkpoint 08/10. Đã tra đủ 16.371 khóa; không còn pending. Giá, units,
+media và POI giữ nguyên. Cổng 8503 và API detail/map đã kiểm dữ liệu mới.
 ZIP chung `data/project-data-quangdung-20261008.zip` đã được thay dump và thêm hai
 JSONL so sánh; tên file lịch sử giữ nguyên, nội dung là release 11/10.
 Xem [bàn giao dữ liệu mới](housing-geocode-live-and-data-handoff-2026-10-11.md).
@@ -168,8 +169,8 @@ Các đường dẫn dưới đây tương đối từ gốc repo, **đều là 
 | `data/housing-geocode/full-candidates.jsonl` | Kết quả/candidate mới nhất, đã bao gồm lượt 10/10 |
 | `data/housing-geocode/full-cache.jsonl` | Cache response đã redacted để không gọi lại API |
 | `data/housing-geocode/full-run.json` | Trạng thái/quota/counter của lượt run mới nhất |
-| `data/housing-geocode/housing-geocoded.jsonl` | Export đầy đủ 38.930 tin đã áp ngày 11/10; còn 224 khóa cấp đường chưa tra |
-| `data/housing-geocode/full-patch.jsonl`, `full-export.json` | Patch/manifest lô một phần đã áp 11/10, cùng version với source và DB |
+| `data/housing-geocode/housing-geocoded.jsonl` | Export đầy đủ 38.930 tin đã áp ngày 11/10; hàng đợi đã tra hết |
+| `data/housing-geocode/full-patch.jsonl`, `full-export.json` | Patch/manifest lô cuối đã áp 11/10, cùng version với source và DB; lượt đầu giữ trong release riêng |
 | `Maps VN/Data/housing_clean_2026-09-26.jsonl` | Source canonical đã cập nhật 11/10; giữ tên để importer dùng đúng đường dẫn |
 | PostGIS `lifeflow`, các bảng Housing và housing anchors trong `catalog.places` | Runtime phục vụ ứng dụng; không tự đổi theo file candidate |
 
