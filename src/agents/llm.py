@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.agents.common import canonical
 from src.agents.llm_provider import client_options, provider_model
+from src.observability import generation
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -62,7 +63,9 @@ class StructuredLLM:
         try:
             for attempt in range(2):
                 try:
-                    result = await self.client.responses.parse(
+                    result = await generation(
+                        self.client.responses.parse,
+                        provider="openrouter" if self.api_key.startswith("sk-or-v1-") else "openai",
                         model=provider_model(self.api_key, self.model),
                         instructions=instructions,
                         input=canonical(data),

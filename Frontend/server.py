@@ -173,6 +173,10 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
+    from src.observability import initialize
+    from src.observability.asgi import TelemetryMiddleware
+
+    initialize("web")
     @asynccontextmanager
     async def lifespan(app):
         app.state.store = Store(database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3")))
@@ -187,7 +191,9 @@ def create_app(database=None, transport=None):
         await app.state.http.aclose()
         app.state.store.db.close()
 
-    app = FastAPI(title="SIU AI Web", lifespan=lifespan)
+    app = FastAPI(title="SIU AI Web", lifespan=lifespan, telemetry={"tracing": False})
+    # Public clients cannot choose our sampling policy or join an internal trace.
+    app.add_middleware(TelemetryMiddleware, service_name="web", trust_incoming=False)
     app.state.store_path = database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3"))
 
     @app.get("/health")

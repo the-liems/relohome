@@ -1,0 +1,1 @@
+{"Rules":[{"ID":"expire-raw-events","Status":"Enabled","Filter":{"Prefix":"events/"},"Expiration":{"Days":8}}]}

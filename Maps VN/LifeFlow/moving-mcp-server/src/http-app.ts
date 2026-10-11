@@ -4,6 +4,7 @@ import { createMcpHandler } from '@modelcontextprotocol/server'
 import { hostHeaderValidation, toNodeHandler } from '@modelcontextprotocol/node'
 import { checkMovingReadiness, type MovingDatabasePool } from '@lifeflow/moving-service'
 import { createMovingMcpServer } from './create-server.js'
+import { observeHttp, traceId } from '@lifeflow/telemetry'
 
 export interface MovingHttpOptions {
   token: string
@@ -59,6 +60,11 @@ export function buildMovingHttpServer(
   }
   const server = createServer(async (req, res) => {
     const started = performance.now()
+    const path = (req.url || '/').split('?')[0] || '/'
+    const route = ['/mcp', '/health', '/ready'].includes(path) ? path : 'unmatched'
+    const id = traceId()
+    if (id) res.setHeader('X-Trace-Id', id)
+    res.once('finish', () => observeHttp(req.method || 'OTHER', route, res.statusCode, performance.now() - started))
     res.once('finish', () => console.error(JSON.stringify({ event: 'moving_mcp_http',
       method: req.method, status: res.statusCode, duration_ms: Math.round(performance.now() - started),
       release: options.release })))

@@ -65,7 +65,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/ scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py
+        run: ruff check src/ tests/ scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/render-observability.py scripts/validate-observability.py deploy/observability/retention.py
 
       - name: Run tests
         run: python -m pytest tests/ Frontend/tests/ -v --tb=short

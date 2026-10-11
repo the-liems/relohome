@@ -2,7 +2,7 @@
 FROM python:3.11-slim AS python-build
 WORKDIR /app
 RUN python -m venv /opt/venv
-COPY requirements.txt ./
+COPY requirements.txt requirements-observability.txt ./
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 FROM python:3.11-slim AS runtime

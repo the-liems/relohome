@@ -1,6 +1,7 @@
 import type { MovingDatabasePool, MovingRuntimeConfig } from '@lifeflow/moving-service'
 import { checkMovingReadiness, MovingService, MovingServiceError } from '@lifeflow/moving-service'
 import Fastify from 'fastify'
+import { observeHttp, traceId } from '@lifeflow/telemetry'
 import { timingSafeEqual } from 'node:crypto'
 import { RegisterMovingApprovalRequestSchema } from '@lifeflow/contracts'
 
@@ -20,6 +21,14 @@ export function buildMovingApp(
     bodyLimit: 1_000_000,
     requestTimeout: 30_000,
     return503OnClosing: true,
+  })
+
+  app.addHook('onRequest', async (request, reply) => {
+    const id = traceId(request.routeOptions.url)
+    if (id) reply.header('X-Trace-Id', id)
+  })
+  app.addHook('onResponse', async (request, reply) => {
+    observeHttp(request.method, request.routeOptions.url || 'unmatched', reply.statusCode, reply.elapsedTime)
   })
 
   app.get('/health', async () => {

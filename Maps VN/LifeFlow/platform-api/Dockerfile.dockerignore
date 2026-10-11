@@ -22,3 +22,9 @@
 **/*.crt
 **/*.sqlite*
 **/*.db
+
+!packages/telemetry/
+!packages/telemetry/**
+**/node_modules
+**/dist
+**/tests

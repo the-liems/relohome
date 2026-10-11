@@ -10,3 +10,8 @@
 **/*.db
 **/*.key
 **/*.pem
+
+!requirements-observability.txt
+!src/observability/
+!src/observability/**
+!src/mcp_servers/http_service.py

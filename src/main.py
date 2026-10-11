@@ -20,7 +20,11 @@ from src.api.sandbox_payments import router as sandbox_payment_router
 from src.api.viewings import router as viewings_router
 from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
+from src.observability import initialize
+from src.observability.asgi import TelemetryMiddleware
 from src.roommate.runtime import RoommateRuntime
+
+initialize("backend")
 
 
 @asynccontextmanager
@@ -48,11 +52,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    telemetry={"tracing": False},
     title="AI20K Agent",
     description="AI Agent built with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
 )
+app.add_middleware(TelemetryMiddleware, service_name="backend")
 
 settings = get_settings()
 app.add_middleware(

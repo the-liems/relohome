@@ -5,9 +5,11 @@ import argparse
 from src.mcp_servers.flights.server import create_server
 from src.mcp_servers.flights.settings import get_flight_settings
 from src.mcp_servers.flights.tools import build_services
+from src.observability import initialize
 
 
 def main() -> None:
+    initialize("flights-mcp")
     parser = argparse.ArgumentParser(description="MCP server đặt vé máy bay nội địa Việt Nam")
     parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="streamable-http")
     args = parser.parse_args()

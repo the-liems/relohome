@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "node --import @lifeflow/telemetry/register --import tsx src/server.ts",
+    "start": "node --import @lifeflow/telemetry/register dist/server.js",
     "test": "vitest run tests --passWithNoTests"
   },
   "dependencies": {
     "@lifeflow/moving-service": "0.1.0",
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.5",
+    "@lifeflow/telemetry": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

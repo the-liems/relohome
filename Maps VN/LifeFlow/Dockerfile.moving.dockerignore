@@ -26,3 +26,9 @@
 **/.env*
 **/*.pem
 **/*.key
+
+!packages/telemetry/
+!packages/telemetry/**
+**/node_modules
+**/dist
+**/tests

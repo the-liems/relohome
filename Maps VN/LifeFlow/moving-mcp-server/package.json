@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/server.ts",
-    "start": "node dist/server.js",
-    "dev:http": "tsx src/http-server.ts",
-    "start:http": "node dist/http-server.js",
+    "dev": "node --import @lifeflow/telemetry/register --import tsx src/server.ts",
+    "start": "node --import @lifeflow/telemetry/register dist/server.js",
+    "dev:http": "node --import @lifeflow/telemetry/register --import tsx src/http-server.ts",
+    "start:http": "node --import @lifeflow/telemetry/register dist/http-server.js",
     "test:http": "vitest run tests/http.live.test.ts",
     "test": "vitest run tests --passWithNoTests",
     "test:live": "vitest run tests/live.staging.test.ts"
@@ -19,7 +19,8 @@
     "@lifeflow/moving-service": "0.1.0",
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.1.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@lifeflow/telemetry": "0.1.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.1.0",

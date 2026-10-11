@@ -8,7 +8,8 @@
       "Frontend/",
       "src/",
       "config/",
-      "requirements.txt"
+      "requirements.txt",
+      "requirements-observability.txt"
     ]
   },
   {
@@ -19,7 +20,8 @@
     "paths": [
       "src/",
       "config/",
-      "requirements.txt"
+      "requirements.txt",
+      "requirements-observability.txt"
     ]
   },
   {
@@ -33,7 +35,8 @@
       "Maps VN/LifeFlow/tsconfig.base.json",
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/housing-query/",
-      "Maps VN/LifeFlow/platform-api/"
+      "Maps VN/LifeFlow/platform-api/",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   },
   {
@@ -48,7 +51,8 @@
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/housing-query/",
       "Maps VN/LifeFlow/mcp-server/",
-      "Maps VN/LifeFlow/packages/mcp-core/"
+      "Maps VN/LifeFlow/packages/mcp-core/",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   },
   {
@@ -63,7 +67,8 @@
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/housing-query/",
       "Maps VN/LifeFlow/platform-api/",
-      "Maps VN/LifeFlow/database/migrations/"
+      "Maps VN/LifeFlow/database/migrations/",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   },
   {
@@ -75,7 +80,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/flights/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "requirements-observability.txt",
+      "src/observability/"
     ]
   },
   {
@@ -87,7 +94,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/payments/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "requirements-observability.txt",
+      "src/observability/"
     ]
   },
   {
@@ -103,7 +112,8 @@
       "Maps VN/LifeFlow/packages/mcp-core/",
       "Maps VN/LifeFlow/packages/moving-service/",
       "Maps VN/LifeFlow/moving-api/",
-      "Maps VN/LifeFlow/moving-mcp-server/"
+      "Maps VN/LifeFlow/moving-mcp-server/",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   },
   {
@@ -119,7 +129,8 @@
       "Maps VN/LifeFlow/packages/mcp-core/",
       "Maps VN/LifeFlow/packages/moving-service/",
       "Maps VN/LifeFlow/moving-api/",
-      "Maps VN/LifeFlow/moving-mcp-server/"
+      "Maps VN/LifeFlow/moving-mcp-server/",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   },
   {
@@ -137,7 +148,8 @@
       "Maps VN/LifeFlow/moving-api/",
       "Maps VN/LifeFlow/moving-mcp-server/",
       "Maps VN/LifeFlow/database/moving/",
-      "Maps VN/LifeFlow/database/migrations/008_moving_service.sql"
+      "Maps VN/LifeFlow/database/migrations/008_moving_service.sql",
+      "Maps VN/LifeFlow/packages/telemetry/"
     ]
   }
 ]

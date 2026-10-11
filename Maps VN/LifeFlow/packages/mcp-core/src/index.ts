@@ -1,4 +1,5 @@
 export { authenticateMcpRequest, requireServiceToken, sendAuthError, validBearerToken } from './auth.js'
+import { toolOperation } from '@lifeflow/telemetry'
 
 export interface AuditExecutor {
   query(sql: string, values?: unknown[]): Promise<unknown>
@@ -31,7 +32,7 @@ export function auditedTool<Input, Output extends Record<string, unknown>>(
   handler: (input: Input) => Promise<Output>,
   classify: (error: unknown) => ToolErrorShape,
 ) {
-  return async (input: Input) => {
+  return async (input: Input, context?: { mcpReq?: { _meta?: unknown } }) => toolOperation(toolName, input, context?.mcpReq?._meta, async () => {
     const started = performance.now()
     try {
       const output = await handler(input)
@@ -42,7 +43,7 @@ export function auditedTool<Input, Output extends Record<string, unknown>>(
       await writeAudit(db, toolName, input, 'error', performance.now() - started, result.code)
       return toolFailure(error, classify)
     }
-  }
+  })
 }
 
 async function writeAudit(

@@ -53,6 +53,7 @@ The [spec index](specs/README.md) lists capability specifications. The dated bas
 - [Internal agent API contracts](api/agent-services.md)
 - Integration contracts: [`api/`](api/)
 - Operational runbooks: [`runbooks/`](runbooks/)
+- [Shared observability, distributed tracing and Grafana alerts](runbooks/observability.md)
 - [Moving containers and HTTP MCP](runbooks/moving-containers.md)
 - [Moving Coolify handoff](../deploy/coolify/staging/moving.md)
 - [Moving internal approval API](api/moving-internal-approvals.md)

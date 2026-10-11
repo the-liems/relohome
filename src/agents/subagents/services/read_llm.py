@@ -20,6 +20,7 @@ from src.agents.models import AgentName
 from src.agents.subagents.base import AgentTransportError
 from src.agents.subagents.services.common import BudgetExceededError
 from src.agents.subagents.services.domain_tools import DomainToolSession
+from src.observability import generation
 from src.services.adapters.mcp import ToolCallError
 
 PROMPT = """Bạn là subagent chuyên môn của LifeFlow, nhận mục tiêu, lời người dùng, ràng buộc và ngữ cảnh từ Orchestrator.
@@ -174,7 +175,9 @@ class ReadLlmAgent:
                 run.reserve()
                 call_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
-                    reply = await self.llm_client.responses.create(
+                    reply = await generation(
+                        self.llm_client.responses.create,
+                        provider="openrouter" if self.api_key.startswith("sk-or-v1-") else "openai",
                         model=provider_model(self.api_key, self.model),
                         instructions=PROMPT + "\n" + DOMAIN_PROMPTS[domain],
                         input=history,

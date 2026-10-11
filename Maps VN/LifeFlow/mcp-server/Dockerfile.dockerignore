@@ -19,3 +19,11 @@
 **/*.crt
 **/*.sqlite*
 **/*.db
+
+!packages/telemetry/
+!packages/telemetry/**
+!packages/mcp-core/
+!packages/mcp-core/**
+**/node_modules
+**/dist
+**/tests

@@ -1,0 +1,109 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  file_storage:
+    directory: /var/lib/otelcol
+    create_directory: true
+  bearertokenauth/app:
+    token: ${env:OTEL_COLLECTOR_TOKEN}
+  basicauth/gateway:
+    client_auth:
+      username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
+      password: ${env:OBSERVABILITY_INGEST_PASSWORD}
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        max_request_body_size: 8388608
+        auth:
+          authenticator: bearertokenauth/app
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  resource/environment:
+    attributes:
+      - {key: deployment.environment.name, value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}", action: upsert}
+      - {key: environment, value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}", action: upsert}
+      - {key: service.namespace, value: lifeflow, action: upsert}
+  transform/privacy:
+    error_mode: propagate
+    trace_statements:
+      - context: resource
+        statements: &resource-statements
+          - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "deployment.environment.name", "environment"])
+      - context: span
+        statements:
+          - keep_keys(attributes, ["http.request.method", "http.method", "http.response.status_code", "http.status_code", "http.route", "db.system", "db.system.name", "db.operation", "db.operation.name", "server.address", "server.port", "rpc.system", "rpc.method", "error.type", "lifeflow.operation", "lifeflow.kind", "lifeflow.outcome", "lifeflow.origin_trace_id", "lifeflow.cache_hit", "langfuse.session.id", "langfuse.observation.type", "langfuse.observation.input", "langfuse.observation.output", "langfuse.observation.level", "gen_ai.system", "gen_ai.provider.name", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens"])
+          - set(attributes["langfuse.environment"], resource.attributes["environment"])
+          - truncate_all(attributes, 16384)
+    log_statements:
+      - context: resource
+        statements: *resource-statements
+      - context: log
+        statements:
+          - keep_keys(attributes, ["operation", "kind", "outcome", "duration_ms", "method", "route", "status", "source", "error_type"])
+          - set(body, "application.log") where body != "http.completed" and body != "operation.completed"
+    metric_statements:
+      - context: resource
+        statements: *resource-statements
+      - context: datapoint
+        statements:
+          - keep_keys(attributes, ["operation", "kind", "outcome", "method", "route", "status", "provider", "model", "direction"])
+  filter/metrics:
+    error_mode: propagate
+    metrics:
+      metric:
+        - not IsMatch(name, "^lifeflow\\.")
+  batch:
+    timeout: 2s
+    send_batch_size: 128
+    send_batch_max_size: 256
+exporters:
+  otlphttp/gateway:
+    endpoint: ${env:OBSERVABILITY_GATEWAY_URL}/${env:OTEL_DEPLOYMENT_ENVIRONMENT}
+    auth:
+      authenticator: basicauth/gateway
+    timeout: 10s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 200
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+    metric_expiration: 5m
+service:
+  extensions: [health_check, file_storage, bearertokenauth/app, basicauth/gateway]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/environment, transform/privacy, batch]
+      exporters: [otlphttp/gateway]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/environment, transform/privacy, batch]
+      exporters: [otlphttp/gateway]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/metrics, resource/environment, transform/privacy, batch]
+      exporters: [prometheus]

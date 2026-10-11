@@ -1,0 +1,201 @@
+name: lifeflow-observability
+x-service: &service
+  restart: unless-stopped
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+x-langfuse: &langfuse-env
+  DATABASE_URL: postgresql://langfuse:${LF_POSTGRES_PASSWORD:?}@postgres:5432/langfuse
+  NEXTAUTH_URL: ${LANGFUSE_URL:-http://localhost:3000}
+  SALT: ${LF_SALT:?}
+  ENCRYPTION_KEY: ${LF_ENCRYPTION_KEY:?}
+  TELEMETRY_ENABLED: "false"
+  CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: langfuse
+  CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD:?}
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_AUTH: ${LF_REDIS_PASSWORD:?}
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+  LANGFUSE_IN_APP_AGENT_ENABLED: "false"
+x-langfuse-depends: &langfuse-depends
+  postgres: {condition: service_healthy}
+  clickhouse: {condition: service_healthy}
+  redis: {condition: service_healthy}
+  minio-init: {condition: service_completed_successfully}
+services:
+  langfuse:
+    <<: *service
+    image: docker.langfuse.com/langfuse/langfuse:4.56.0
+    mem_limit: 2g
+    environment:
+      <<: *langfuse-env
+      NEXTAUTH_SECRET: ${LF_NEXTAUTH_SECRET:?}
+      AUTH_DISABLE_SIGNUP: "true"
+      LANGFUSE_INIT_ORG_ID: lifeflow
+      LANGFUSE_INIT_ORG_NAME: LifeFlow
+      LANGFUSE_INIT_USER_EMAIL: ${OBS_ADMIN_EMAIL:?}
+      LANGFUSE_INIT_USER_NAME: LifeFlow Operator
+      LANGFUSE_INIT_USER_PASSWORD: ${OBS_ADMIN_PASSWORD:?}
+    depends_on: *langfuse-depends
+    ports: ["127.0.0.1:3000:3000"]
+  langfuse-worker:
+    <<: *service
+    image: docker.langfuse.com/langfuse/langfuse-worker:4.56.0
+    mem_limit: 2g
+    environment: *langfuse-env
+    depends_on: *langfuse-depends
+  postgres:
+    <<: *service
+    image: postgres:17.6-bookworm
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_DB: langfuse
+      POSTGRES_PASSWORD: ${LF_POSTGRES_PASSWORD:?}
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -U, langfuse, -d, langfuse]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  clickhouse:
+    <<: *service
+    image: clickhouse/clickhouse-server:25.12.3.21
+    mem_limit: 4g
+    user: "101:101"
+    environment:
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD:?}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes: [clickhouse:/var/lib/clickhouse, clickhouse-logs:/var/log/clickhouse-server]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://localhost:8123/ping]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis:
+    <<: *service
+    image: redis:7.4.6-bookworm
+    mem_limit: 384m
+    environment:
+      REDIS_PASSWORD: ${LF_REDIS_PASSWORD:?}
+    command: [sh, -ec, 'exec redis-server --requirepass "$${REDIS_PASSWORD}" --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes']
+    volumes: [redis:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  minio:
+    <<: *service
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
+    mem_limit: 512m
+    environment: &minio-env
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    entrypoint: [minio]
+    command: [server, --address, ":9000", /data]
+    volumes: [minio:/data]
+    healthcheck:
+      test: [CMD, mc, ready, local]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  minio-init:
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
+    restart: "no"
+    environment: *minio-env
+    entrypoint: [sh, -ec]
+    command:
+      - 'mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null; mc mb --ignore-existing local/langfuse; mc ilm import local/langfuse < /etc/minio/lifecycle.json'
+    volumes: [./minio-lifecycle.json:/etc/minio/lifecycle.json:ro]
+    depends_on:
+      minio: {condition: service_healthy}
+  telemetry-gateway:
+    <<: *service
+    image: caddy:2.11.2-alpine
+    mem_limit: 128m
+    cap_drop: [ALL]
+    # The official binary carries this file capability, even when listening on 8080.
+    cap_add: [NET_BIND_SERVICE]
+    environment:
+      STAGING_INGEST_PASSWORD_HASH: ${STAGING_INGEST_PASSWORD_HASH:?}
+      PRODUCTION_INGEST_PASSWORD_HASH: ${PRODUCTION_INGEST_PASSWORD_HASH:?}
+      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
+      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro]
+    networks: [default, ingestion]
+  loki:
+    <<: *service
+    image: grafana/loki:3.7.8
+    mem_limit: 768m
+    command: [-config.file=/etc/loki/config.yaml]
+    volumes: [./loki.yaml:/etc/loki/config.yaml:ro, ./loki-limits.yaml:/etc/loki/limits.yaml:ro, loki:/loki]
+  prometheus:
+    <<: *service
+    image: prom/prometheus:v3.15.0
+    mem_limit: 768m
+    command: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=30d, --storage.tsdb.retention.size=10GB]
+    volumes: [./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro, ./expected-services.yaml:/etc/prometheus/expected-services.yaml:ro, prometheus:/prometheus]
+    networks: [default, ingestion]
+  grafana:
+    <<: *service
+    image: grafana/grafana:13.2.3
+    mem_limit: 512m
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:?}
+      LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3000}
+      LANGFUSE_STAGING_PROJECT_ID: ${LANGFUSE_STAGING_PROJECT_ID:-lifeflow-staging}
+      LANGFUSE_PRODUCTION_PROJECT_ID: ${LANGFUSE_PRODUCTION_PROJECT_ID:-lifeflow-production}
+    ports: ["127.0.0.1:3001:3000"]
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/lifeflow.yaml:ro
+      - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/lifeflow.yaml:ro
+      - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/lifeflow.yaml:ro
+      - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
+  retention:
+    <<: *service
+    image: python:3.11.16-slim-bookworm
+    mem_limit: 128m
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    command: [python, /app/retention.py, --loop]
+    environment:
+      LANGFUSE_BASE_URL: http://langfuse:3000
+      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
+      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
+      OBSERVABILITY_ENVIRONMENTS: ${OBSERVABILITY_ENVIRONMENTS:-staging}
+    volumes: [./retention.py:/app/retention.py:ro]
+networks:
+  default:
+  ingestion:
+    name: lifeflow-observability-ingest
+volumes:
+  postgres:
+  clickhouse:
+  clickhouse-logs:
+  redis:
+  minio:
+  loki:
+  prometheus:
+  grafana:

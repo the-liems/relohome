@@ -3,21 +3,23 @@ ARG NODE_IMAGE=node:24.14.0-bookworm-slim
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/telemetry/ packages/telemetry/
 COPY packages/contracts/ packages/contracts/
 COPY packages/mcp-core/ packages/mcp-core/
 COPY packages/moving-service/ packages/moving-service/
 COPY moving-api/ moving-api/
 COPY moving-mcp-server/ moving-mcp-server/
 # The root lockfile describes the whole monorepo. Only Moving workspaces are built.
-RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
+RUN npm ci --workspace @lifeflow/telemetry --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
     --workspace @lifeflow/moving-service --workspace @lifeflow/moving-api \
     --workspace @lifeflow/moving-mcp-server --include-workspace-root=false
-RUN npm run build --workspace @lifeflow/contracts \
+RUN npm run build --workspace @lifeflow/telemetry \
+ && npm run build --workspace @lifeflow/contracts \
  && npm run build --workspace @lifeflow/mcp-core \
  && npm run build --workspace @lifeflow/moving-service \
  && npm run build --workspace @lifeflow/moving-api \
  && npm run build --workspace @lifeflow/moving-mcp-server
-RUN npm prune --omit=dev --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
+RUN npm prune --omit=dev --workspace @lifeflow/telemetry --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
     --workspace @lifeflow/moving-service --workspace @lifeflow/moving-api \
     --workspace @lifeflow/moving-mcp-server --include-workspace-root=false
 
@@ -28,6 +30,8 @@ LABEL org.opencontainers.image.title="LifeFlow Moving" \
 ENV NODE_ENV=production RELEASE_SHA=${RELEASE_SHA}
 WORKDIR /app
 COPY --from=build --chmod=u=rwX,go=rX /app/node_modules ./node_modules
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/telemetry/package.json ./packages/telemetry/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/telemetry/dist ./packages/telemetry/dist
 COPY --from=build --chmod=u=rwX,go=rX /app/package.json ./package.json
 COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/dist ./packages/contracts/dist
@@ -44,7 +48,7 @@ COPY --from=build --chmod=u=rwX,go=rX /app/moving-mcp-server/dist ./moving-mcp-s
 EXPOSE 4400
 HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:4400/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "moving-mcp-server/dist/http-server.js"]
+CMD ["node", "--import", "@lifeflow/telemetry/register", "moving-mcp-server/dist/http-server.js"]
 
 FROM runtime AS moving-api
 ENV MOVING_API_HOST=0.0.0.0 MOVING_API_PORT=4200
@@ -53,7 +57,7 @@ COPY --from=build --chmod=u=rwX,go=rX /app/moving-api/dist ./moving-api/dist
 EXPOSE 4200
 HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:4200/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "moving-api/dist/server.js"]
+CMD ["node", "--import", "@lifeflow/telemetry/register", "moving-api/dist/server.js"]
 
 FROM runtime AS moving-migrate
 COPY --chmod=u=rwX,go=rX database/moving/ ./database/moving/

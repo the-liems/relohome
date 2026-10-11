@@ -30,6 +30,7 @@ from src.agents.subagents.services.moving import QuoteContact, order_time, summa
 from src.agents.subagents.services.moving_catalog import MovingCatalogCache
 from src.agents.subagents.services.moving_context import service_details_for_model
 from src.models.moving_options import apply_draft_options, service_selection, validated_options
+from src.observability import generation, operation
 from src.services.adapters.mcp import McpToolClient, ToolCallError
 
 
@@ -284,7 +285,9 @@ class MovingLlmAgent:
                 run.reserve()
                 llm_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
-                    response = await self.client.responses.create(
+                    response = await generation(
+                        self.client.responses.create,
+                        provider="openrouter" if self.api_key.startswith("sk-or-v1-") else "openai",
                         model=provider_model(self.api_key, self.model),
                         instructions=PROMPT,
                         input=history,
@@ -427,7 +430,8 @@ class MovingExecution:
         key = json.dumps([client.endpoint.service, name, args], sort_keys=True)
         if key in self.cache:
             self.run.usage.cached_calls += 1
-            return self.cache[key]
+            with operation(name, "cache", attributes={"lifeflow.cache_hit": True}):
+                return self.cache[key]
         catalog_read = client is self.agent.moving and name == "list_moving_services"
         if catalog_read:
             self.run.remaining()
@@ -436,7 +440,8 @@ class MovingExecution:
                 self.run.usage.cached_calls += 1
                 self.tool_timings.append({"tool": name, "elapsed_ms": 0, "cache_hit": True})
                 self.cache[key] = observed
-                return observed
+                with operation(name, "cache", attributes={"lifeflow.cache_hit": True}):
+                    return observed
         if self.run.usage.provider_calls >= min(self.req.budget.max_provider_calls, 8):
             raise LLMError("LLM_BUDGET", "Hết ngân sách gọi provider.")
         self.run.remaining()

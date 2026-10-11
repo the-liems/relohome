@@ -20,6 +20,8 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 
+from src.observability import operation, trace_metadata
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -129,12 +131,19 @@ class McpToolClient:
     async def call(self, tool: str, arguments: dict[str, Any]) -> Any:
         if tool not in self.endpoint.allowed_tools:
             raise ToolCallError("tool_not_allowed", f"{self.endpoint.service}.{tool} is not in the allowlist")
+        with operation(tool, "tool", inputs=arguments, attributes={"rpc.system": "mcp", "rpc.method": tool}) as op:
+            result = await self._call(tool, arguments)
+            op.output(result)
+            return result
+
+    async def _call(self, tool: str, arguments: dict[str, Any]) -> Any:
         sent = False
         try:
             async with asyncio.timeout(self.endpoint.timeout_s):
                 async with self._session() as session:
                     sent = True
-                    result = await session.call_tool(tool, arguments)
+                    metadata = trace_metadata()
+                    result = await session.call_tool(tool, arguments, **({"meta": metadata} if metadata else {}))
             return unwrap(result)
         except ToolCallError:
             raise

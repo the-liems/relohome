@@ -8,13 +8,14 @@ import {
 } from '@lifeflow/housing-query'
 import { z } from 'zod'
 import type { ServerContext } from '@modelcontextprotocol/server'
+import { toolOperation } from '@lifeflow/telemetry'
 
 export function audited<Input, Output extends Record<string, unknown>>(
   pool: QueryExecutor,
   toolName: string,
   handler: (input: Input) => Promise<Output>,
 ) {
-  return async (input: Input, context?: ServerContext) => {
+  return async (input: Input, context?: ServerContext) => toolOperation(toolName, input, context?.mcpReq._meta, async () => {
     const started = performance.now()
     try {
       const output = await withinOperation(() => handler(input), context?.mcpReq.signal)
@@ -40,7 +41,7 @@ export function audited<Input, Output extends Record<string, unknown>>(
         ],
       }
     }
-  }
+  })
 }
 
 async function writeAudit(

@@ -28,6 +28,7 @@ import {
   type ApplicationRuntimeConfig,
 } from '@lifeflow/housing-query'
 import Fastify from 'fastify'
+import { observeHttp, traceId } from '@lifeflow/telemetry'
 import { z, ZodError } from 'zod'
 import { ManagementError, registerHousingManagement } from './housing-management.js'
 import { registerHousingReviews } from './housing-reviews.js'
@@ -41,6 +42,13 @@ const NearbyRequestSchema = z.object({
 
 export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const app = Fastify({ logger: true })
+  app.addHook('onRequest', async (request, reply) => {
+    const id = traceId(request.routeOptions.url)
+    if (id) reply.header('X-Trace-Id', id)
+  })
+  app.addHook('onResponse', async (request, reply) => {
+    observeHttp(request.method, request.routeOptions.url || 'unmatched', reply.statusCode, reply.elapsedTime)
+  })
   const routeService = new RouteService(config.osrmUrls, config.publicDrivingOsrmUrl)
   const queries = boundedQueries(pool)
   const entityRouteService = new RouteEndpointService(queries, routeService)
