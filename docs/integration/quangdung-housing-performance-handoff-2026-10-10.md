@@ -76,6 +76,15 @@ nếu cần tháo, dùng `database/rollbacks/housing_query_performance.sql` sau 
 
 ## 3. Trạng thái data geocode
 
+### Đã áp dụng local và thay ZIP ngày 11/10
+
+Theo yêu cầu áp dụng ngay của người dùng, đã dry-run/apply/verify phần kết quả
+có sẵn: 2.729 bản ghi DB, 2.791 tọa độ trong source; 224 khóa cấp đường còn thiếu.
+Giá, units, media và POI giữ nguyên. Cổng 8503 và API detail/map đã kiểm dữ liệu mới.
+ZIP chung `data/project-data-quangdung-20261008.zip` đã được thay dump và thêm hai
+JSONL so sánh; tên file lịch sử giữ nguyên, nội dung là release 11/10.
+Xem [bàn giao dữ liệu mới](housing-geocode-live-and-data-handoff-2026-10-11.md).
+
 ### Cập nhật lượt toàn nguồn chiều 10/10
 
 Người dùng yêu cầu tra nốt rồi gộp thành hai bản để so sánh. Lượt `whole_source`
@@ -110,8 +119,9 @@ Không lấy `cache-review.completed == total` làm bằng chứng tra hết, v�
 
 Supervisor đã được duyệt cho inspect/export/dry-run/đóng gói preview; việc tự động
 áp live trước khi người dùng xem pair đã bị automatic approval review từ chối.
-Source/DB live chưa nhận lô mới. Sau khi pair sẵn sàng cần duyệt việc áp vào live
-trên patch/dry-run cụ thể. Xem `data/housing-geocode/finish-workflow.json`.
+Ở checkpoint 10/10, source/DB chưa nhận lô mới. Sau đó người dùng yêu cầu áp
+dụng ngay; lô một phần đã được áp và kiểm chứng ngày 11/10 như mục trên.
+Xem `data/housing-geocode/active-live-release.json` và báo cáo bàn giao mới.
 
 Sửa export nối lô (`159d72f`): preserve khi evidence mới không khớp hoặc va chạm
 phải giữ pin **hiện hành**, không quay lại pin raw trước những lô đã áp. Test RED
@@ -158,13 +168,13 @@ Các đường dẫn dưới đây tương đối từ gốc repo, **đều là 
 | `data/housing-geocode/full-candidates.jsonl` | Kết quả/candidate mới nhất, đã bao gồm lượt 10/10 |
 | `data/housing-geocode/full-cache.jsonl` | Cache response đã redacted để không gọi lại API |
 | `data/housing-geocode/full-run.json` | Trạng thái/quota/counter của lượt run mới nhất |
-| `data/housing-geocode/housing-geocoded.jsonl` | Export đầy đủ 38.930 tin **của lô 08/10**, chưa chứa kết quả mới 10/10 |
-| `data/housing-geocode/full-patch.jsonl`, `full-export.json` | Patch/manifest của export 08/10, cần tạo lại cho lô mới trước apply |
-| `Maps VN/Data/housing_clean_2026-09-26.jsonl` | Source canonical hiện tại, đã cập nhật lô 08/10; tên file giữ để importer dùng đúng đường dẫn |
+| `data/housing-geocode/housing-geocoded.jsonl` | Export đầy đủ 38.930 tin đã áp ngày 11/10; còn 224 khóa cấp đường chưa tra |
+| `data/housing-geocode/full-patch.jsonl`, `full-export.json` | Patch/manifest lô một phần đã áp 11/10, cùng version với source và DB |
+| `Maps VN/Data/housing_clean_2026-09-26.jsonl` | Source canonical đã cập nhật 11/10; giữ tên để importer dùng đúng đường dẫn |
 | PostGIS `lifeflow`, các bảng Housing và housing anchors trong `catalog.places` | Runtime phục vụ ứng dụng; không tự đổi theo file candidate |
 
 Không lấy `housing-address-normalized.jsonl` ghi đè source canonical: nó chưa có tọa
-độ đã được áp ở những lô sau. Không coi export 08/10 là bản mới 10/10 chỉ vì job đã xong.
+độ đã được áp ở những lô sau. Checkpoint cũ và metadata của lô 08/10 được giữ riêng.
 
 ## 5. Đề xuất gộp data sau khi kiểm tra
 

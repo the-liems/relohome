@@ -1,5 +1,11 @@
 # Bàn giao dữ liệu Roommate DEMO — 08/10/2026
 
+> **Cập nhật 11/10:** ZIP tại cùng tên file đã được thay bằng dump Housing mới và
+> hai bản JSONL so sánh, giữ nguyên nội dung Roommate DEMO/routing. Các số hash,
+> kích thước và snapshot 05/10 bên dưới mô tả gói cũ; khi tải ZIP hiện tại, dùng
+> [bàn giao 11/10](housing-geocode-live-and-data-handoff-2026-10-11.md) và checksum
+> mới trong `data/project-data-quangdung-20261008.zip.sha256`.
+
 ## Phạm vi
 
 - `data/roommate-demo-30.json` được lưu trực tiếp trong Git: 30 hồ sơ tổng hợp (15 nam, 15 nữ; 10 hồ sơ mỗi thành phố Hà Nội, TP.HCM, Đà Nẵng). Hồ sơ có nhãn `DEMO`, không có tài khoản, ảnh, số điện thoại hoặc Zalo; không thể gửi yêu cầu kết nối tới các hồ sơ này.
