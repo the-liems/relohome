@@ -2619,20 +2619,37 @@ test("chosen home prefills the moving form; nothing is sent until confirmed", as
   await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(
     "255 Cầu Giấy, Hà Nội",
   );
+  // The decided home is point B without another click; its approximate location stays flagged.
+  await expect(form).toContainText("Điểm B là căn đã chốt.");
+  await expect(form).toContainText("Vị trí tin đăng có thể gần đúng");
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect(form.getByRole("alert")).toContainText("điểm lấy");
   await form.getByLabel("Địa chỉ lấy đồ").fill("Đại học Bách khoa Hà Nội");
-  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
-  await expect(form.getByRole("alert")).toContainText("ngày chuyển");
-  expect(turns).toEqual([]);
   await form.getByLabel("Ngày chuyển").fill(tomorrow());
   await form.getByLabel("Giờ xe đến").fill("09:00");
+  // Typed text without a picked suggestion is not a confirmed point A.
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("ghim điểm A");
+  expect(turns).toEqual([]);
+  const pickup = form.locator(".mv-endpoint").filter({
+    has: page.getByLabel("Địa chỉ lấy đồ"),
+  });
+  await pickup.locator("button.place").first().click();
+  await expect(pickup.locator("small.ok")).toContainText("Đã ghim:");
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect.poll(() => turns.length).toBe(1);
-  expect(turns[0].message).toBe(
-    `Báo giá chuyển đồ từ Đại học Bách khoa Hà Nội đến phòng mình đã chọn ngày ${tomorrow()} lúc 09:00. Chưa đặt đơn.`,
-  );
-  expect(turns[0].moving_locations).toBeUndefined();
+  expect(turns[0]).toMatchObject({
+    destination: {
+      address: "255 Cầu Giấy, Hà Nội",
+      lat: 21.031,
+      lng: 105.799,
+      confirmed: true,
+    },
+    destination_listing_id: "map-only",
+    pickup: { lat: 10.776, lng: 106.697, confirmed: true },
+    move_date: tomorrow(),
+    move_time: "09:00",
+  });
 });
 
 test("map-only selected home is restored into point B after delayed detail and reload", async ({
@@ -2686,7 +2703,8 @@ test("map-only selected home is restored into point B after delayed detail and r
   await expect(homeCard).toContainText(home.address);
   await homeCard.click();
   await expect(form.getByLabel("Địa chỉ giao đồ")).toHaveValue(home.address);
-  // Approximate housing coordinates remain suggestions, never auto-confirmed delivery pins.
+  // The decided home is point B, but an approximate listing location is never shown as a
+  // user-confirmed pin.
   await expect(form).not.toContainText("Đã ghim:");
   await expect(
     page.getByRole("button", {
@@ -2829,9 +2847,21 @@ test("a moving question opens the moving form; a new address needs the pin again
     .fill("Ngõ 43 Phố Trung Kính, Cầu Giấy");
   await form.getByRole("button", { name: /Ngõ 43 Trung Kính/ }).click();
   await form.getByLabel("Ngày chuyển").fill(tomorrow());
+  // Point A arrived from chat as text only; the quote form needs it confirmed as well.
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
+  await expect(form.getByRole("alert")).toContainText("ghim điểm A");
+  expect(turns).toEqual([]);
+  await form.getByLabel("Địa chỉ lấy đồ").click();
+  await form
+    .locator(".mv-endpoint")
+    .filter({ has: page.getByLabel("Địa chỉ lấy đồ") })
+    .locator("button.place")
+    .first()
+    .click();
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect.poll(() => turns.length).toBe(1);
-  expect(turns[0].moving_locations).toEqual({
+  expect(turns[0]).toMatchObject({
+    pickup: { lat: 10.776, lng: 106.697, confirmed: true },
     destination: {
       address: "Ngõ 43 Phố Trung Kính, Cầu Giấy",
       lat: 21.0207,
@@ -2903,17 +2933,29 @@ test("POI picker collapses aliases, labels the city and preserves moving date an
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        results: [
-          {
-            canonical_id: "canonical-area",
-            alias_ids: ["old-way"],
-            name: "Đại học Bách Khoa",
-            display_name: "Đại học Bách Khoa · Trường đại học · Hà Nội",
-            entity_type: "place",
-            category: "university",
-            location: { lat: 21.0003, lng: 105.8403 },
-          },
-        ],
+        results: new URL(route.request().url()).searchParams
+          .get("text")!
+          .includes("Tràng Tiền")
+          ? [
+              {
+                canonical_id: "trang-tien-12",
+                name: "12 Tràng Tiền",
+                display_name: "12 Tràng Tiền · Hoàn Kiếm · Hà Nội",
+                entity_type: "address",
+                location: { lat: 21.0245, lng: 105.8566 },
+              },
+            ]
+          : [
+              {
+                canonical_id: "canonical-area",
+                alias_ids: ["old-way"],
+                name: "Đại học Bách Khoa",
+                display_name: "Đại học Bách Khoa · Trường đại học · Hà Nội",
+                entity_type: "place",
+                category: "university",
+                location: { lat: 21.0003, lng: 105.8403 },
+              },
+            ],
       }),
     }),
   );
@@ -2939,12 +2981,16 @@ test("POI picker collapses aliases, labels the city and preserves moving date an
   await expect(form.getByLabel("Giờ xe đến")).toHaveValue("10:00");
   expect(turns).toEqual([]);
   await form.getByRole("button", { name: /Trường đại học · Hà Nội/ }).click();
+  // No home is decided here, so point B is picked from search just like point A.
+  await form.getByLabel("Địa chỉ giao đồ").click();
+  await form.getByRole("button", { name: /12 Tràng Tiền · Hoàn Kiếm/ }).click();
   await form.getByRole("button", { name: "Xác nhận và lấy báo giá" }).click();
   await expect.poll(() => turns.length).toBe(1);
-  expect(turns[0].moving_locations.pickup).toMatchObject({
-    lat: 21.0003,
-    lng: 105.8403,
-    confirmed: true,
+  expect(turns[0]).toMatchObject({
+    pickup: { lat: 21.0003, lng: 105.8403, confirmed: true },
+    destination: { lat: 21.0245, lng: 105.8566, confirmed: true },
+    move_date: tomorrow(),
+    move_time: "10:00",
   });
   expect(duplicateKeys).toEqual([]);
 });

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { vehicleFamily, vehicleFamilies } from "../../src/movingCatalog";
 
 test.skip(
   process.env.RUN_LIVE_MOVING_BROWSER !== "1",
@@ -38,18 +39,30 @@ for (const rejectFirst of [false, true]) {
       await endpoint.locator("button.place").first().click();
       await expect(endpoint.locator("small.ok")).toBeVisible();
     }
-    const service = page.getByRole("combobox", { name: "Gói dịch vụ AhaMove" });
-    await expect(service).toBeEnabled();
-    await expect
-      .poll(() => service.locator("option").count())
-      .toBeGreaterThan(1);
     // An operator selects a service actually returned by the provider, not a product rule.
     const catalog = await (await discovered).json();
-    const observedId = catalog.services.find(
-      (s: any) => s.delivery_type === "TRUCK",
-    )?.service_id;
+    const observedService = catalog.services.find(
+      (s: any) =>
+        s.delivery_type === "TRUCK" &&
+        vehicleFamilies.some((family) => family.id === vehicleFamily(s)),
+    );
+    const observedId = observedService?.service_id;
     expect(observedId).toBeTruthy();
-    await service.selectOption(observedId!);
+    // The current UI uses vehicle families and service radios, not the old select.
+    const familyLabel = vehicleFamilies.find(
+      (family) => family.id === vehicleFamily(observedService),
+    )!.label;
+    await page
+      .getByRole("group", { name: "Loại xe AhaMove" })
+      .getByRole("button", { name: familyLabel, exact: true })
+      .click();
+    const observed = page.getByRole("radio", {
+      name: `${observedService.name || observedId} · ${observedId}`,
+      exact: true,
+    });
+    if (!(await observed.count()))
+      await page.getByRole("button", { name: /Xem tất cả/ }).click();
+    await observed.check();
     const pickup = await page
       .getByRole("textbox", { name: "Địa chỉ lấy đồ", exact: true })
       .inputValue();
@@ -66,15 +79,24 @@ for (const rejectFirst of [false, true]) {
       const soon = asLocal(Date.now() + 10 * 60 * 1000);
       await date.fill(soon[0]);
       await time.fill(soon[1]);
-      // > now passes the UI but < 30 minutes triggers the real backend's 422 guard.
-      const rejected = page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/moving/quote") && r.request().method() === "POST",
-      );
+      // The same 30-minute guard now rejects locally without spending a provider call.
+      let quoteRequests = 0;
+      const countQuote = (request: import("@playwright/test").Request) => {
+        if (
+          request.url().endsWith("/moving/quote") &&
+          request.method() === "POST"
+        )
+          ++quoteRequests;
+      };
+      page.on("request", countQuote);
       await page
         .getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true })
         .click();
-      expect((await rejected).status()).toBe(422);
+      await expect(page.locator('.mv-confirm [role="alert"]')).toContainText(
+        "30 phút",
+      );
+      expect(quoteRequests).toBe(0);
+      page.off("request", countQuote);
       await expect(
         page.getByRole("button", {
           name: "Xác nhận và lấy báo giá",
@@ -88,7 +110,7 @@ for (const rejectFirst of [false, true]) {
       await expect(
         page.getByRole("textbox", { name: "Địa chỉ giao đồ", exact: true }),
       ).toHaveValue(destination);
-      await expect(service).toHaveValue(observedId!);
+      await expect(observed).toBeChecked();
       await expect(page.locator(".mv-endpoint small.ok")).toHaveCount(2);
     }
 

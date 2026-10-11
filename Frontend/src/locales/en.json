@@ -1376,5 +1376,14 @@
   "Gửi lại cho chủ nhà": "Resend to the owner",
   "Chưa tải được phản hồi của chủ nhà lúc này; trạng thái xác nhận có thể chưa mới nhất.": "Could not load the owners' answers right now; confirmation states may be out of date.",
   "Chưa báo được chủ nhà rằng bạn đã hủy hoặc bỏ một lịch xem. ReloHome sẽ thử lại ở thao tác tiếp theo.": "Could not tell the owner that you cancelled or dropped a viewing. ReloHome will retry on your next action.",
-  "Thử lại ngay": "Retry now"
+  "Thử lại ngay": "Retry now",
+  "Chưa nhận được báo giá. Kiểm tra thông tin chuyến và trạng thái dịch vụ trước khi thử lại.": "No quote was received. Check the trip details and service status before retrying.",
+  "Ngày giờ chuyển chưa hợp lệ.": "The moving date or time is invalid.",
+  "Ngày giờ chuyển phải cách hiện tại ít nhất 30 phút (giờ Việt Nam).": "Schedule the move at least 30 minutes from now (Vietnam time).",
+  "Hãy chọn kết quả tìm kiếm hoặc ghim điểm {0} trên bản đồ trước khi lấy báo giá.": "Choose a search result or pin point {0} on the map before requesting a quote.",
+  "Hội thoại đang xử lý. Hãy chờ kết quả.": "The conversation is still processing. Please wait for the result.",
+  "Đang lấy vị trí căn đã chốt. Chờ một chút rồi lấy báo giá.": "Loading the location of your decided home. Wait a moment, then request a quote.",
+  "Chưa có vị trí căn đã chốt. Hãy ghim cổng nhà trên bản đồ làm điểm B.": "The decided home has no location yet. Pin its entrance on the map as point B.",
+  "Điểm B là căn đã chốt.": "Point B is your decided home.",
+  "Điểm B là căn đã chốt. Vị trí tin đăng có thể gần đúng: kiểm tra cổng xe đến, cần thì ghim lại.": "Point B is your decided home. The listing location may be approximate: check where the vehicle should stop and pin again if needed."
 }
