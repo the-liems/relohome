@@ -79,6 +79,8 @@ import { TenantRequests } from "./components/TenantRequests";
 import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
 import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
+import { ServiceInputPanel } from "./components/ServiceInputPanel";
+import { clarificationServices, guidedReplyText, requestDefaults, type FormService } from "./serviceRequest";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
 import { TravelerProfileForm } from "./components/Checkout";
@@ -145,7 +147,7 @@ const quick = [
     icon: Compass,
     color: "mint",
   },
-];
+] as const;
 
 export default function App() {
   useUiPreferences();
@@ -806,7 +808,7 @@ function Chat() {
           "siu-draft-" + user.id + "-" + (threadId || "new"),
         ) || "",
     ),
-    [form, setForm] = useState<string | null>(null),
+    [form, setForm] = useState<FormService | null>(null),
     [context, setContext] = useState<HouseData | null>(null),
     [newMessage, setNewMessage] = useState(false),
     [workspace, setWorkspace] = useState<string | null>(null);
@@ -828,6 +830,7 @@ function Chat() {
     const version = ++generation.current;
     setError("");
     setContext(null);
+    if (!inFlight.current) setForm(null);
     setWorkspaceTaskId(null);
     reviewedServices.current.clear();
     setDraft(
@@ -1140,6 +1143,12 @@ function Chat() {
   const lastAssistant = [...(thread?.messages || [])]
     .reverse()
     .find((m) => m.role === "assistant");
+  const inputServices = clarificationServices(thread);
+  async function sendForm(text: string) {
+    if (inFlight.current) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
+    if (!status) throw new Error(uiText("Chưa kết nối được AI."));
+    await send(text);
+  }
   // A moving question (pickup, destination, date, time) opens the moving form instead of a
   // plain chat question; what the user already said prefills it.
   const movingQuestions = (
@@ -1272,6 +1281,9 @@ function Chat() {
     } else if (agent === "relocation") {
       setWorkspaceTaskId(taskId);
       setWorkspace("relocation-form");
+    } else if (["property", "flight", "map"].includes(agent)) {
+      setWorkspace(null);
+      setForm(agent as FormService);
     } else {
       setWorkspace(null);
       notify(
@@ -1404,6 +1416,7 @@ function Chat() {
             }).then(() => {})
           }
           onPay={thread?.state?.checkout ? openCheckout : undefined}
+          onEdit={() => setForm("flight")}
           onExit={finishWorkspace}
         />
       ) : workspace === "relocation" && latestMoving ? (
@@ -1550,6 +1563,7 @@ function Chat() {
                   <br className="desktop-only" />
                   {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
+                <p className="welcome-service-help">{uiText("Chọn dịch vụ để điền nhanh, hoặc nhắn yêu cầu của bạn ở bên dưới.")}</p>
                 <div
                   className="quick-grid"
                   role="group"
@@ -1563,6 +1577,7 @@ function Chat() {
                       className="quick-card"
                       aria-label={`${uiText(q.title)} ${uiText(q.subtitle)}`}
                       key={q.kind}
+                      aria-haspopup={q.kind === "relocation" ? undefined : "dialog"}
                       onClick={() =>
                         q.kind === "relocation"
                           ? setWorkspace("relocation-form")
@@ -1696,7 +1711,9 @@ function Chat() {
                           </div>
                           <p className="prose">
                             {closedResultSummary(m, thread) ||
-                              m.content.response.text}
+                              (m.id === lastAssistant?.id && inputServices.length
+                                ? guidedReplyText(m.content.response.text, m.content.response.questions || [], inputServices)
+                                : m.content.response.text)}
                           </p>
                           {closedResultSummary(m, thread) && (
                             <details className="completed-result-detail">
@@ -1799,6 +1816,9 @@ function Chat() {
                       <Receipts
                         receipts={m.content.response?.data?.receipts || []}
                       />
+                      {m.id === lastAssistant?.id && thread && inputServices.length > 0 && (
+                        <ServiceInputPanel services={inputServices} thread={thread} disabled={busy || !status} onSubmit={sendForm} onChat={() => input.current?.focus()} />
+                      )}
                       {(closedResultSummary(m, thread)
                         ? []
                         : m.content.response?.questions || []
@@ -2087,7 +2107,7 @@ function Chat() {
         </>
       )}
       {form && (
-        <TaskForm kind={form} onClose={() => setForm(null)} onSubmit={send} />
+        <TaskForm kind={form} known={requestDefaults(thread, form)} disabled={busy || !status} onClose={() => setForm(null)} onSubmit={sendForm} />
       )}
       {params.get("panel") === "house" && openDetail && thread && (
         <HousingDetail

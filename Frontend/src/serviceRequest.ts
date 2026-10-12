@@ -1,0 +1,206 @@
+import type { Data, Thread } from "./types";
+
+export type FormService = "property" | "flight" | "map";
+export type FlightDraft = {
+  from: string;
+  to: string;
+  date: string;
+  returnDate: string;
+  trip: string;
+  adults: string;
+};
+// Popular options from the existing Flight catalog; free text still goes to Agent resolution.
+export const AIRPORT_OPTIONS = [
+  {
+    code: "HAN",
+    city: "Hà Nội",
+    name: "Nội Bài",
+    aliases: ["hanoi", "ha noi"],
+  },
+  {
+    code: "SGN",
+    city: "TP. Hồ Chí Minh",
+    name: "Tân Sơn Nhất",
+    aliases: [
+      "hcm",
+      "ho chi minh",
+      "thanh pho ho chi minh",
+      "sai gon",
+      "saigon",
+    ],
+  },
+  {
+    code: "DAD",
+    city: "Đà Nẵng",
+    name: "Đà Nẵng",
+    aliases: ["danang", "da nang"],
+  },
+  {
+    code: "CXR",
+    city: "Nha Trang",
+    name: "Cam Ranh",
+    aliases: ["nha trang", "cam ranh"],
+  },
+  { code: "PQC", city: "Phú Quốc", name: "Phú Quốc", aliases: ["phu quoc"] },
+  {
+    code: "HPH",
+    city: "Hải Phòng",
+    name: "Cát Bi",
+    aliases: ["hai phong", "cat bi"],
+  },
+];
+const text = (value: unknown) =>
+  typeof value === "string" && !value.startsWith("selected:") ? value : "";
+const normalize = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+function airportIdentity(value: string) {
+  const n = normalize(value);
+  return (
+    AIRPORT_OPTIONS.find((a) =>
+      [a.code, a.city, a.name, ...a.aliases].some((v) => normalize(v) === n),
+    )?.code || n
+  );
+}
+export function vietnamToday(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+const validDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  Number.isFinite(Date.parse(value)) &&
+  new Date(value).toISOString().slice(0, 10) === value;
+export function flightDefaults(known: Data): FlightDraft {
+  return {
+    from: text(known.origin),
+    to: text(known.destination),
+    date: text(known.flight_date || known.date),
+    returnDate: text(known.return_date),
+    trip: known.trip_type === "round_trip" ? "round_trip" : "one_way",
+    adults: String(known.passengers?.adults ?? known.passengers ?? 1),
+  };
+}
+export function flightRequest(
+  draft: FlightDraft,
+  today = vietnamToday(),
+  continuation = false,
+): string {
+  const from = draft.from.trim(),
+    to = draft.to.trim();
+  if (!from || !to) throw new Error("Hãy nhập nơi đi và nơi đến.");
+  if (airportIdentity(from) === airportIdentity(to))
+    throw new Error("Nơi đi và nơi đến phải khác nhau.");
+  if (!validDate(draft.date) || draft.date < today)
+    throw new Error("Hãy chọn ngày bay hôm nay hoặc trong tương lai.");
+  if (
+    draft.trip === "round_trip" &&
+    (!validDate(draft.returnDate) || draft.returnDate < draft.date)
+  )
+    throw new Error("Ngày về phải cùng hoặc sau ngày đi.");
+  const adults = Number(draft.adults);
+  if (!Number.isInteger(adults) || adults < 1 || adults > 9)
+    throw new Error("Hãy chọn từ 1 đến 9 người lớn.");
+  return `${continuation ? "Bổ sung cho yêu cầu chuyến bay hiện tại: " : "Tìm chuyến bay "}${draft.trip === "round_trip" ? "khứ hồi" : "một chiều"} từ ${from} đến ${to}, ngày đi ${draft.date}${draft.trip === "round_trip" ? `, ngày về ${draft.returnDate}` : ""}, cho ${adults} người lớn. Chỉ tìm chuyến.`;
+}
+
+/** Only the current goal/plan supplies defaults. Historical cards cannot refill a new request. */
+export function requestDefaults(
+  thread: Thread | null,
+  service: FormService,
+  taskId?: string,
+): Data {
+  if (!thread) return {};
+  const task = (thread.state.plan?.tasks || []).find(
+    (t: Data) => t.agent === service && (!taskId || t.id === taskId),
+  );
+  const item = (thread.state.progress?.items || []).find(
+    (i: Data) => i.agent === service && (!taskId || i.task_id === taskId),
+  );
+  const intake = thread.state.intake;
+  const active = intake?.domains?.includes(service);
+  const values = active ? intake?.constraints?.values || {} : {};
+  return { ...(task?.inputs || {}), ...(item?.inputs || {}), ...values };
+}
+const fields: Record<FormService, string[]> = {
+  flight: [
+    "origin",
+    "destination",
+    "date",
+    "flight_date",
+    "return_date",
+    "passengers",
+    "trip_type",
+  ],
+  property: [
+    "city",
+    "district",
+    "near",
+    "room_type",
+    "max_price_vnd",
+    "min_price_vnd",
+    "must_have",
+  ],
+  map: ["city", "route_from", "route_to", "route_profile"],
+};
+export function clarificationServices(thread: Thread | null): FormService[] {
+  const reply = [...(thread?.messages || [])]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content.response;
+  if (!reply || reply.kind !== "CLARIFY") return [];
+  const active = new Set<string>([
+    ...(thread?.state.intake?.domains || []),
+    ...(thread?.state.progress?.items || [])
+      .filter((i: Data) => i.state === "waiting" && !i.chosen)
+      .map((i: Data) => i.agent),
+  ]);
+  const routeRequest =
+    requestDefaults(thread, "map").map_mode === "route" ||
+    (reply.questions || []).some((q) => String(q.field).includes("route_"));
+  return (["flight", "property", "map"] as FormService[]).filter(
+    (service) =>
+      active.has(service) &&
+      (service !== "map" || routeRequest) &&
+      (reply.questions || []).some((q) => {
+        const field = String(q.field || "");
+        const parts = field.split(".");
+        return (
+          (parts.length === 1 || parts[0] === service) &&
+          fields[service].includes(parts.at(-1)!)
+        );
+      }),
+  );
+}
+
+/** Presentation only: retain notices and explanations; replace exact input questions with controls. */
+export function guidedReplyText(
+  text: string,
+  questions: Data[],
+  services: FormService[],
+): string {
+  const handled = questions
+    .filter((q) =>
+      services.some((s) => {
+        const parts = String(q.field || "").split(".");
+        return (
+          (parts.length === 1 || parts[0] === s) &&
+          fields[s].includes(parts.at(-1)!)
+        );
+      }),
+    )
+    .map((q) => String(q.text || "").trim())
+    .filter(Boolean);
+  return text
+    .split("\n")
+    .filter((line) => !handled.includes(line.trim()))
+    .join("\n");
+}

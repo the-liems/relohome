@@ -2027,15 +2027,15 @@ test("flight form validates blank and identical endpoints and preserves input af
   await form.getByLabel("Nơi đi", { exact: true }).fill("   ");
   await form.getByLabel("Nơi đến", { exact: true }).fill("DAD");
   await form.getByLabel("Ngày bay", { exact: true }).fill(tomorrow());
-  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
   await expect(form.getByRole("alert")).toContainText("nhập nơi đi và nơi đến");
   await form.getByLabel("Nơi đi", { exact: true }).fill("HAN");
   await form.getByLabel("Nơi đến", { exact: true }).fill("han ");
-  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
   await expect(form.getByRole("alert")).toContainText("khác nhau");
   expect(turns.length).toBe(0);
   await form.getByLabel("Nơi đến", { exact: true }).fill("DAD");
-  await form.getByRole("button", { name: /Áp dụng/ }).click();
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
   await expect(form.getByRole("alert")).toContainText(
     "Chưa tìm được chuyến bay",
   );

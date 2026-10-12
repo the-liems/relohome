@@ -1,20 +1,30 @@
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
-import { ShieldCheck, ArrowRight, MapPin, Copy } from "lucide-react";
+import { ShieldCheck, ArrowRight, MapPin, Copy, House, Compass } from "lucide-react";
 import { dateTime, money } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
 import { MovingSteps, MovingQuoteSummary } from "./MovingOptionsForm";
+import { FlightSearchForm } from "./FlightSearchForm";
+import { amenities as amenityNames } from "./Housing";
 
 const cities = ["Hà Nội", "Đà Nẵng", "Thành phố Hồ Chí Minh"];
 export function TaskForm({
   kind,
   onClose,
   onSubmit,
+  known = {},
+  embedded = false,
+  disabled = false,
+  questions = [],
 }: {
   kind: string;
   onClose: () => void;
   onSubmit: (text: string, extra?: Data) => Promise<void>;
+  known?: Data;
+  embedded?: boolean;
+  disabled?: boolean;
+  questions?: Data[];
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -23,8 +33,15 @@ export function TaskForm({
     flight: "Tìm chuyến bay cho hành trình của bạn",
     map: "Tính đường đi",
   };
+  const close = () => { if (!busy) onClose(); };
+  if (kind === "flight") {
+    const content = <FlightSearchForm known={known} questions={questions} continuation={embedded} disabled={disabled} onSubmit={onSubmit} onClose={embedded ? undefined : onClose} onBusyChange={setBusy} />;
+    return embedded ? content : <Dialog title={uiText(title.flight)} onClose={close} wide>{content}</Dialog>;
+  }
+  const city = ({ hanoi: cities[0], danang: cities[1], hcm: cities[2] } as Record<string, string>)[known.city] || known.city || "";
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (busy || disabled) return;
     const f = Object.fromEntries(new FormData(e.currentTarget)) as Record<
       string,
       string
@@ -36,44 +53,26 @@ export function TaskForm({
         setError("Giá tối thiểu phải nhỏ hơn hoặc bằng giá tối đa.");
         return;
       }
-      text = `Tìm ${f.type || "nhà cho thuê"} tại ${f.district ? f.district + ", " : ""}${f.city}${f.min ? ", giá từ " + f.min + " đồng/tháng" : ""}${f.max ? ", không quá " + f.max + " đồng/tháng" : ""}${f.bedrooms ? ", có đúng " + f.bedrooms + " phòng ngủ" : ""}${f.area ? ", diện tích ít nhất " + f.area + " m²" : ""}${f.amenities ? ", cần " + f.amenities : ""}.`;
-    }
-    if (kind === "flight") {
-      f.from = f.from.trim();
-      f.to = f.to.trim();
-      if (!f.from || !f.to) {
-        setError("Hãy nhập nơi đi và nơi đến.");
-        return;
-      }
-      if (f.from.toLocaleLowerCase("vi") === f.to.toLocaleLowerCase("vi")) {
-        setError("Nơi đi và nơi đến phải khác nhau.");
-        return;
-      }
-      if (new Date(f.date + "T23:59:59") < new Date()) {
-        setError("Hãy chọn ngày bay trong tương lai.");
-        return;
-      }
-      text = `Tìm chuyến bay một chiều từ ${f.from} đến ${f.to} ngày ${f.date}, cho ${f.adults} người lớn. Chỉ tìm chuyến.`;
+      text = `${embedded ? "Bổ sung cho yêu cầu tìm nhà hiện tại: " : "Tìm "}${f.type || "nhà cho thuê"} tại ${f.district ? f.district + ", " : ""}${f.city}${f.near ? ", gần " + f.near : ""}${f.min ? ", giá từ " + f.min + " đồng/tháng" : ""}${f.max ? ", không quá " + f.max + " đồng/tháng" : ""}${f.bedrooms ? ", có đúng " + f.bedrooms + " phòng ngủ" : ""}${f.area ? ", diện tích ít nhất " + f.area + " m²" : ""}${f.amenities ? ", cần " + f.amenities : ""}.`;
     }
     if (kind === "map") {
-      text = `Tính đường ${f.profile} từ ${f.from} đến ${f.to} tại ${f.city}.`;
+      text = `${embedded ? "Bổ sung cho yêu cầu đường đi hiện tại: " : "Tính đường "}${f.profile} từ ${f.from} đến ${f.to} tại ${f.city}.`;
     }
     setBusy(true);
     try {
       await onSubmit(text);
-      onClose();
+      if (!embedded) onClose();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  return (
-    <Dialog
-      title={uiText(title[kind]) || uiText("Bổ sung yêu cầu")}
-      onClose={onClose}
-    >
-      <form onSubmit={submit} className="task-form">
+  const content = (
+      <form onSubmit={submit} className="task-form service-request" aria-label={uiText(title[kind])} aria-busy={busy}>
+        <div className="request-intro"><span className="request-symbol" aria-hidden="true">{kind === "property" ? <House size={24} /> : <Compass size={24} />}</span><div><h3>{uiText(title[kind])}</h3><p>{uiText("Điền một lần, ReloHome sẽ xử lý yêu cầu và mở kết quả để bạn lựa chọn.")}</p></div></div>
+        <fieldset className="request-fields" disabled={busy || disabled}>
+          <legend className="sr-only">{uiText("Thông tin dịch vụ")}</legend>
         {kind === "property" && (
           <>
             <p className="muted">
@@ -84,7 +83,9 @@ export function TaskForm({
             <div className="form-grid">
               <label>
                 {uiText("Thành phố")}
-                <select name="city">
+                <select name="city" defaultValue={city} required>
+                  <option value="">{uiText("Chọn thành phố")}</option>
+                  {city && !cities.includes(city) && <option>{city}</option>}
                   {cities.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
@@ -92,31 +93,34 @@ export function TaskForm({
               </label>
               <label>
                 {uiText("Quận / khu vực")}
-                <input name="district" placeholder={uiText("Ví dụ: Quận 7")} />
+                <input name="district" defaultValue={known.district || ""} placeholder={uiText("Ví dụ: Quận 7")} />
               </label>
               <label>
-                {uiText("Giá từ · VND/tháng")}
-                <input
-                  name="min"
-                  type="number"
-                  min="0"
-                  step="100000"
-                  placeholder={uiText("Không giới hạn")}
-                />
+                {uiText("Gần địa điểm")}
+                <input name="near" defaultValue={known.near || ""} placeholder={uiText("Trường học, công ty hoặc địa chỉ")} />
               </label>
               <label>
                 {uiText("Đến · VND/tháng")}
                 <input
                   name="max"
+                  defaultValue={known.max_price_vnd ?? known.max_price?.amount ?? ""}
                   type="number"
                   min="0"
                   step="100000"
                   placeholder={uiText("Ví dụ: 5000000")}
                 />
               </label>
+            </div>
+            <details className="request-extra" open={questions.some(q => ["room_type", "must_have", "min_price_vnd"].includes(String(q.field).split(".").at(-1)!)) || undefined}>
+              <summary>{uiText("Tiêu chí chi tiết · loại nhà, diện tích và tiện nghi")}</summary>
+              <div className="form-grid">
+              <label>
+                {uiText("Giá từ · VND/tháng")}
+                <input name="min" defaultValue={known.min_price_vnd ?? known.min_price?.amount ?? ""} type="number" min="0" step="100000" placeholder={uiText("Không giới hạn")} />
+              </label>
               <label>
                 {uiText("Loại nhà")}
-                <select name="type">
+                <select name="type" defaultValue={({ room: "phòng trọ", apartment: "căn hộ", house: "nhà nguyên căn", studio: "studio" } as Record<string, string>)[known.room_type] || known.room_type || "nhà cho thuê"}>
                   <option value="nhà cho thuê">{uiText("nhà cho thuê")}</option>
                   <option value="căn hộ">{uiText("căn hộ")}</option>
                   <option value="phòng trọ">{uiText("phòng trọ")}</option>
@@ -130,6 +134,7 @@ export function TaskForm({
                 {uiText("Số phòng ngủ chính xác")}
                 <input
                   name="bedrooms"
+                  defaultValue={known.min_bedrooms != null && known.min_bedrooms === known.max_bedrooms ? known.min_bedrooms : ""}
                   type="number"
                   min="0"
                   max="20"
@@ -140,6 +145,7 @@ export function TaskForm({
                 {uiText("Diện tích tối thiểu · m²")}
                 <input
                   name="area"
+                  defaultValue={known.min_area_m2 ?? ""}
                   type="number"
                   min="0"
                   placeholder={uiText("Không yêu cầu")}
@@ -149,92 +155,56 @@ export function TaskForm({
                 {uiText("Tiện nghi cần có")}
                 <input
                   name="amenities"
+                  defaultValue={Array.isArray(known.must_have || known.amenities) ? (known.must_have || known.amenities).map((a: string) => amenityNames[a] || a).join(", ") : ""}
                   placeholder={uiText("Ví dụ: chỗ để xe, điều hòa")}
                 />
               </label>
             </div>
+            </details>
           </>
         )}
-        {kind === "flight" && (
-          <>
-            <p className="muted">
-              {uiText(
-                "Tìm kiếm giá chuyến bay một chiều. Hệ thống hiện chưa hỗ trợ xuất vé.",
-              )}
-            </p>
-            <div className="form-grid">
-              <label>
-                {uiText("Nơi đi")}
-                <input
-                  name="from"
-                  placeholder={uiText("Hà Nội hoặc HAN")}
-                  required
-                />
-              </label>
-              <label>
-                {uiText("Nơi đến")}
-                <input
-                  name="to"
-                  placeholder={uiText("Đà Nẵng hoặc DAD")}
-                  required
-                />
-              </label>
-              <label>
-                {uiText("Ngày bay")}
-                <input name="date" type="date" required />
-              </label>
-              <label>
-                {uiText("Người lớn")}
-                <input
-                  name="adults"
-                  type="number"
-                  min="1"
-                  max="9"
-                  defaultValue="1"
-                  required
-                />
-              </label>
-            </div>
-          </>
-        )}
-        {kind === "map" && <MapFields />}
+        {kind === "map" && <MapFields known={known} city={city} />}
+        </fieldset>
         {error && (
           <p className="notice error" role="alert">
             {uiText(error)}
           </p>
         )}
         <div className="form-actions">
-          <button type="button" className="secondary" onClick={onClose}>
-            {uiText("Hủy")}
+          <button type="button" className="secondary" disabled={busy} onClick={close}>
+            {uiText(embedded ? "Tiếp tục bằng chat" : "Hủy")}
           </button>
-          <button className="primary" disabled={busy}>
+          <button className="primary" disabled={busy || disabled}>
             {busy ? uiText("Đang gửi…") : uiText("Áp dụng")}
             <ArrowRight size={16} />
           </button>
         </div>
       </form>
-    </Dialog>
   );
+  return embedded ? content : <Dialog title={uiText(title[kind]) || uiText("Bổ sung yêu cầu")} onClose={close} wide>{content}</Dialog>;
 }
 // Directions only: amenities are a filter of the home search, not a service of their own.
-function MapFields() {
+function MapFields({ known, city }: { known: Data; city: string }) {
   return (
     <div className="form-grid">
       <label>
         {uiText("Điểm đi")}
         <input
           name="from"
+          defaultValue={known.route_from && !String(known.route_from).startsWith("selected:") ? known.route_from : ""}
           placeholder={uiText("Tên địa điểm hoặc căn nhà đã chọn")}
           required
         />
       </label>
       <label>
         {uiText("Điểm đến")}
-        <input name="to" placeholder={uiText("Nơi bạn muốn tới")} required />
+        <input name="to" defaultValue={known.route_to && !String(known.route_to).startsWith("selected:") ? known.route_to : ""} placeholder={uiText("Nơi bạn muốn tới")} required />
       </label>
       <label>
         {uiText("Thành phố")}
-        <select name="city">
+        <select name="city" defaultValue={city} required>
+          <option value="">{uiText("Chọn thành phố")}</option>
+          {city && !cities.includes(city) && <option>{city}</option>}
           {cities.map((c) => (
             <option key={c}>{c}</option>
           ))}
@@ -242,7 +212,7 @@ function MapFields() {
       </label>
       <label>
         {uiText("Phương tiện")}
-        <select name="profile">
+        <select name="profile" defaultValue={({ walking: "đi bộ", motorcycle: "xe máy", driving: "ô tô" } as Record<string, string>)[known.route_profile] || "xe máy"}>
           <option value="đi bộ">{uiText("đi bộ")}</option>
           <option value="xe máy">{uiText("xe máy")}</option>
           <option value="ô tô">{uiText("ô tô")}</option>

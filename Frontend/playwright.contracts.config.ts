@@ -8,6 +8,7 @@ export default defineConfig({
     "housing-controls.contracts.spec.ts",
     "moving-submission.contracts.spec.ts",
     "staging-context.contracts.spec.ts",
+    "service-request.contracts.spec.ts",
   ],
   outputDir: "../data/frontend-contract-results",
   workers: 1,
