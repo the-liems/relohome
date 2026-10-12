@@ -12,6 +12,7 @@ import { ApiError, api, money, requestId } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
 import { ContactThread } from "./ContactThread";
+import { ViewingPreparation } from "./ViewingPreparation";
 
 // Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 // Limits, slot length and suggested deposit come from the server; nothing is fixed here.
@@ -329,13 +330,18 @@ export function ViewingPanel({
   viewing,
   onChanged,
   onMovingForm,
+  availableServices = [],
+  onPrepare,
 }: {
   threadId: string;
   viewing: Data;
   onChanged: () => Promise<void> | void;
   onMovingForm?: () => void;
+  availableServices?: string[];
+  onPrepare?: (service: string, item: Data) => void;
 }) {
   const [chatting, setChatting] = useState<Data | null>(null);
+  const [scheduledSuggestion, setScheduledSuggestion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [deciding, setDeciding] = useState<Data | null>(null),
@@ -349,8 +355,10 @@ export function ViewingPanel({
     try {
       await api(`${base}/${step}`, "POST", body);
       await onChanged();
+      return true;
     } catch (e) {
       setError(errorOf(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -535,9 +543,9 @@ export function ViewingPanel({
                 slots={viewing.slots || []}
                 busy={busy}
                 label={item.viewing ? "Đổi lịch" : "Hẹn xem"}
-                onPick={(slot) =>
-                  void post("schedule", { listing_id: item.listing_id, slot })
-                }
+                onPick={async (slot) => {
+                  if (await post("schedule", { listing_id: item.listing_id, slot })) setScheduledSuggestion(item.listing_id);
+                }}
               />
             )}
           {(!item.landlord ||
@@ -650,6 +658,9 @@ export function ViewingPanel({
               </button>
             )}
           </div>
+          {onPrepare && !viewing.landlord_unavailable && (
+            <ViewingPreparation item={item} available={availableServices} disabled={busy} onOpen={onPrepare} focusAfterSchedule={scheduledSuggestion === item.listing_id} />
+          )}
           {item.status === "agreed" && reporting && (
             <form
               className="agreement"

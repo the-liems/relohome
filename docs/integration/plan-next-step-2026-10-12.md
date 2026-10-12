@@ -31,28 +31,34 @@ Không sửa trạng thái đó để tạo cảm giác kế hoạch hoàn tất
 
 ## Gợi mở dịch vụ bổ sung
 
-Nhóm **Bạn có thể cần** là các entrypoint tùy chọn trên workspace. Quy tắc
-frontend đơn giản, không gọi LLM để chọn gợi ý:
+Gợi ý đặt trong từng căn ở tab **Xem nhà**, ngay sau thao tác/lịch đã lưu.
+Không hiện nhóm gợi ý thường trực trên đầu workspace. Quy tắc frontend đơn
+giản, không gọi LLM để chọn gợi ý:
 
-| Đang dùng | Các gợi ý theo thứ tự |
-| --- | --- |
-| Tìm nhà | Chuyển đồ, Flight, Roommate, Cẩm nang |
-| Flight | Tìm nhà, Chuyển đồ, Cẩm nang |
-| Chuyển đồ | Flight, Tìm nhà, Cẩm nang |
-| Map | Tìm nhà, Roommate, Cẩm nang |
+| Bước hoàn thành | Gợi ý ưu tiên | Lựa chọn thêm |
+| --- | --- | --- |
+| Lưu lịch xem | Đường đi tới căn đó, cẩm nang xem phòng | Flight, Chuyển đồ |
+| Chốt nhà / báo đã trả | Chuyển đồ, Roommate, cẩm nang nhận phòng | Flight |
 
-Lọc bỏ các dịch vụ đã có trong kế hoạch và không nằm trong danh sách domain
-đã bật của Agent (Cẩm nang là trang công khai), rồi chỉ hiện tối đa 3 gợi ý.
-Các bước đã có trong kế hoạch tiếp tục đi qua tab dịch vụ/nút Bước tiếp theo;
-không được gợi như một dịch vụ mới.
+Chỉ hiện domain đang bật của Agent; cẩm nang là nội dung công khai. Chuyển đồ
+đã có trong kế hoạch mở đúng task hiện tại, không tạo một task giả mới. Không
+hiện khối chuẩn bị cho buổi xem khi chưa hẹn, hủy lịch, chủ nhà từ chối/đóng
+yêu cầu, sync gửi lịch lỗi hoặc chưa tải được trạng thái chủ nhà. Lịch chờ chủ
+nhà xác nhận vẫn ghi đúng trạng thái, không coi là đã được chủ nhà đồng ý.
 
-Flight/Housing mở form ngay trên workspace đang dùng; hủy giữ nguyên màn hình
-và lựa chọn. Moving mở workspace A/B; Roommate/Guides mở các route hiện có.
+Sau thao tác lưu lịch thành công, khối gợi ý được cuộn vào vùng nhìn thấy và
+focus để hỗ trợ bàn phím/screen reader. Khi mở lại kế hoạch không tự giành
+focus. Route form điền đích và thành phố từ snapshot của đúng căn được bấm;
+không tự chọn GPS/địa chỉ xuất phát. Flight mở form mới. Hủy form giữ nguyên
+lịch/nhà đã lưu. Moving mở workspace A/B; Roommate mở route hiện có. Cẩm nang
+dẫn trực tiếp tới `xem-phong` hoặc `nhan-phong` theo giai đoạn.
 Bấm gợi ý chưa tạo task, chưa gửi chat/action/quote; chỉ sau submit người dùng
 thì dùng luồng Agent hiện hành. Không sửa backend/schema/recommendation.
 
-`ServiceSuggestions.tsx` trình bày, `relatedServices` trong `serviceJourney.ts`
-lọc danh sách; App nối callbacks. Không thêm endpoint hoặc dependency mới.
+`ViewingPreparation.tsx` trình bày theo trạng thái; Viewings/PlanPeek nối action
+về App. Component/helper gợi ý thường trực đã được thay và gỡ khỏi source,
+tests của cách cũ được thay bằng test hẹn/route/guide/failure phù hợp. Không
+thêm endpoint hoặc dependency mới.
 
 Các luồng xác nhận địa chỉ, báo giá, hẹn lịch, chốt nhà, đặt xe và thanh toán
 tiếp tục dùng backend/API/guards hiện có. Mở bước kế tiếp không gọi Agent,
@@ -65,8 +71,12 @@ không tạo action lựa chọn hoặc bất kỳ giao dịch nào.
 - `Frontend/src/App.tsx`: nối CTA; giữ workspace sau selection; ưu tiên form
   clarification hiện tại trước các bước cũ đang chờ.
 - `Frontend/src/ui/workspaces.css`, `locales/en.json`: bố cục và nhãn.
+- `ViewingPreparation.tsx`, `Viewings.tsx`, `PlanPeek.tsx`: gợi ý theo trạng thái
+  của từng lịch/căn, focus sau lưu thành công, nối callback về form đúng căn.
 - `Frontend/tests/browser/scope-contracts.spec.ts`, `service-input.spec.ts`,
   `runtime-audit.live.spec.ts`: regression và browser thật.
+- `Frontend/tests/browser/viewing-suggestions.spec.ts`: appointment success/error,
+  cancel/decline/sync failure, route prefill, guide route, availability và chốt nhà.
 
 ## Kiểm chứng
 
@@ -86,11 +96,19 @@ không tạo action lựa chọn hoặc bất kỳ giao dịch nào.
   tới Quận 1. Không sửa policy gom nhóm hoặc dữ liệu bản đồ để làm test qua.
 - Frontend build qua, bản mới phục vụ tại cổng 8503.
 
-Sau khi thu gọn CTA và thêm gợi ý: **29 contract pass**, **18 browser pass**.
+Lượt trước khi chuyển gợi ý vào lịch hẹn: **29 contract pass**, **18 browser pass**.
 Browser kiểm nút nhắc cao tối đa 52px/rộng dưới 360px ở desktop, nằm trong
 navigation của workspace; về chat không còn banner. Từ map bấm gợi ý Flight
 mở form, hủy trả về đúng map, không có chat/action phát sinh. Các assertions
 response/draft/retry/selection vẫn giữ.
+
+Lượt thay gợi ý thường trực bằng gợi ý theo hẹn/chốt: **28 contract pass**;
+**32 browser pass** (18 form/next-step, 6 closed-request và 8 preparation).
+Sau bổ sung focus và VI/EN/sáng/tối: 8 preparation test chạy lại đều qua,
+320/768/1440px không tràn, axe và console qua.
+Nút đường đi nằm trong viewport ngay sau schedule success; screenshot ở
+`viewing-suggestions-*/immediately-after-scheduling.png`. Tests chỉ dùng fixture,
+không gửi lịch hoặc liên hệ tới chủ nhà thật. Request schedule/cancel giữ nguyên.
 
 Đây là kiểm chứng có mục tiêu cho lỗi điều hướng. Các ca fail của full suite
 trước đó trong `service-regression-2026-10-12.md` chưa được đóng bởi thay đổi này.

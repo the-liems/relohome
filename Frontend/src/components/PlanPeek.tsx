@@ -45,6 +45,8 @@ export function PlanPeek({
   house,
   busy = false,
   onOpenService,
+  availableServices = [],
+  onPrepare,
 }: {
   progress?: Data;
   threadId?: string;
@@ -57,6 +59,8 @@ export function PlanPeek({
   house?: Data;
   busy?: boolean;
   onOpenService?: (taskId: string, agent: string) => void;
+  availableServices?: string[];
+  onPrepare?: (service: string, item: Data) => void;
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
@@ -345,6 +349,8 @@ export function PlanPeek({
                       await onCheckoutChanged?.();
                     }}
                     onMovingForm={onMovingForm}
+                    availableServices={availableServices}
+                    onPrepare={onPrepare ? (service, item) => { close(); onPrepare(service, item); } : undefined}
                   />
                 </div>
               )}

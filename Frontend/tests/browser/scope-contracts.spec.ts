@@ -10,7 +10,6 @@ import {
   closedResultSummary,
   pendingServiceInput,
   nextPlanStep,
-  relatedServices,
   serviceTargets,
   canSelectServiceResult,
   navigationProgress,
@@ -268,26 +267,6 @@ test("next plan step skips confirmed/comparison/history and never invents a serv
   thread.state.progress.items.pop();
   expect(nextPlanStep(thread)).toBeNull();
   expect(nextPlanStep(null)).toBeNull();
-});
-
-test("related services are optional, supported and exclude services already in the plan", () => {
-  const available = ["property", "flight", "relocation", "roommate", "map"];
-  expect(relatedServices("property", ["property"], available)).toEqual([
-    "relocation",
-    "flight",
-    "roommate",
-  ]);
-  expect(
-    relatedServices(
-      "property",
-      ["property", "relocation", "flight"],
-      available,
-    ),
-  ).toEqual(["roommate", "guides"]);
-  expect(relatedServices("relocation", ["relocation"], ["relocation"])).toEqual(
-    ["guides"],
-  );
-  expect(relatedServices(null, [], available)).toEqual([]);
 });
 
 test("folds only fully chosen results; comparisons and partially chosen multi-service replies stay visible", () => {

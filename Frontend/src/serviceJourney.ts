@@ -158,27 +158,6 @@ export type PlanStep = {
   kind: "input" | "result";
 };
 
-/** Optional entry points, not additions to the authoritative plan. */
-export function relatedServices(
-  current: string | null,
-  planned: string[],
-  available: string[],
-): string[] {
-  const relevant: Record<string, string[]> = {
-    property: ["relocation", "flight", "roommate", "guides"],
-    flight: ["property", "relocation", "guides"],
-    relocation: ["flight", "property", "guides"],
-    map: ["property", "roommate", "guides"],
-  };
-  return (relevant[current || ""] || [])
-    .filter(
-      (service) =>
-        !planned.includes(service) &&
-        (service === "guides" || available.includes(service)),
-    )
-    .slice(0, 3);
-}
-
 /** Navigation only: a viewing basket may be reviewed, but is never a decided destination. */
 export function nextPlanStep(
   thread: Thread | null,

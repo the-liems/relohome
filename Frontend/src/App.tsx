@@ -64,7 +64,6 @@ import {
   canSelectServiceResult,
   navigationProgress,
   nextPlanStep,
-  relatedServices,
 } from "./serviceJourney";
 import type {
   Component,
@@ -82,7 +81,6 @@ import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { ServiceInputPanel } from "./components/ServiceInputPanel";
 import { PlanNextStep } from "./components/PlanNextStep";
-import { ServiceSuggestions } from "./components/ServiceSuggestions";
 import { clarificationServices, guidedReplyText, requestDefaults, type FormService } from "./serviceRequest";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
@@ -820,6 +818,7 @@ function Chat() {
     formKey: string;
   } | null>(null);
   const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
+  const [formPrefill, setFormPrefill] = useState<{ kind: FormService; data: Data } | null>(null);
   const reviewedServices = useRef(new Set<string>());
   const createdThreadForForm = useRef<string | null>(null);
   const submittedInputReply = useRef<string | null>(null);
@@ -835,6 +834,7 @@ function Chat() {
     const version = ++generation.current;
     setError("");
     setContext(null);
+    setFormPrefill(null);
     if (createdThreadForForm.current !== threadId) setForm(null);
     createdThreadForForm.current = null;
     submittedInputReply.current = null;
@@ -1166,12 +1166,22 @@ function Chat() {
   const planStep = nextPlanStep(thread, reviewedServices.current);
   const currentInputService = workspace === "relocation-form" ? "relocation" : workspace || form || inputServices[0];
   const showNextStep = planStep && !!workspace && planStep.agent !== currentInputService && !form;
-  const suggestedServices = relatedServices(workspace === "relocation-form" ? "relocation" : workspace,
-    (navigation.items || []).map((i: Data) => i.agent), status?.domains || []);
-  function openSuggestedService(service: string) {
-    if (service === "guides" || service === "roommate") { navigate("/" + service); return; }
-    if (service === "relocation") { setWorkspaceTaskId(null); setWorkspace("relocation-form"); return; }
-    if (service === "flight" || service === "property") setForm(service);
+  function prepareAfterViewing(service: string, item: Data) {
+    if (service === "guides") { navigate("/guides?article=" + (["agreed", "reported_paid"].includes(item.status) ? "nhan-phong" : "xem-phong")); return; }
+    if (service === "roommate") { navigate("/roommate"); return; }
+    if (service === "relocation") {
+      const existing = (navigation.items || []).find((i: Data) => i.agent === "relocation");
+      if (existing) openService(existing.task_id, service);
+      else { setWorkspaceTaskId(null); setWorkspace("relocation-form"); }
+      return;
+    }
+    if (service === "map" || service === "flight") {
+      setFormPrefill({ kind: service, data: service === "map" ? {
+        route_to: typeof item.snapshot?.address === "string" ? item.snapshot.address : "",
+        city: item.snapshot?.city || requestDefaults(thread, "property").city || "",
+      } : {} });
+      setForm(service);
+    }
   }
   async function sendForm(text: string) {
     if (inFlight.current) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
@@ -1358,8 +1368,10 @@ function Chat() {
         house={selectedHouse}
         busy={busy}
         onOpenService={openService}
+        availableServices={status?.domains || []}
+        onPrepare={prepareAfterViewing}
       />
-      {((navigation.items || []).length > 1 || suggestedServices.length > 0) && (
+      {(navigation.items || []).length > 1 && (
         <nav
           className="service-journey"
           aria-label={uiText("Dịch vụ trong kế hoạch")}
@@ -1385,7 +1397,6 @@ function Chat() {
             <PlanNextStep step={planStep} viewingOnly={viewingItems.length > 0 && !selectedHouse} disabled={busy}
               onContinue={() => openService(planStep.taskId, planStep.agent)} />
           )}
-          <ServiceSuggestions services={suggestedServices} disabled={busy} onOpen={openSuggestedService} />
         </nav>
       )}
       {workspace === "relocation-form" ? (
@@ -2122,7 +2133,7 @@ function Chat() {
         </>
       )}
       {form && (
-        <TaskForm kind={form} known={requestDefaults(thread, form)} disabled={busy || !status} onClose={() => setForm(null)} onSubmit={sendForm} />
+        <TaskForm kind={form} known={formPrefill?.kind === form ? formPrefill.data : requestDefaults(thread, form)} disabled={busy || !status} onClose={() => { setForm(null); setFormPrefill(null); }} onSubmit={sendForm} />
       )}
       {params.get("panel") === "house" && openDetail && thread && (
         <HousingDetail

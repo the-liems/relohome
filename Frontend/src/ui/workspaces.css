@@ -1082,18 +1082,20 @@
   min-width: 0;
 }
 .service-journey .plan-next-button { min-height: 44px; background: var(--ui-accent-soft); color: var(--ui-accent); border-color: var(--ui-accent); font-size: 13px; font-weight: 600; }
-.service-journey:has(.service-suggestions) { flex-wrap: wrap; }
-.service-suggestions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
-.service-suggestions > span { font-size: 12px; color: var(--ui-muted); }
-.service-journey .service-suggestions button { min-height: 44px; padding: 6px 10px; font-size: 13px; background: transparent; border-color: transparent; color: var(--ui-accent); }
-.service-journey .service-suggestions button:hover { background: var(--ui-accent-soft); border-color: var(--ui-line); }
 .chat-page > .svc-workspace { height: auto; flex: 1 1 0; }
 @media (max-width: 800px) {
   .service-journey:has(.plan-next-step) { flex-wrap: wrap; }
   .plan-next-step { margin-left: 0; max-width: 100%; }
-  .service-suggestions { margin-left: 0; }
   .service-journey .plan-next-button { white-space: normal; text-align: left; }
 }
+.viewing-preparation { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ui-line); }
+.viewing-preparation > strong { font-size: 14px; color: var(--ui-text); }
+.viewing-preparation > p { font-size: 13px; line-height: 1.5; color: var(--ui-muted); margin: 6px 0 12px; }
+.viewing-preparation-actions, .viewing-preparation-optional { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.viewing-preparation button { min-height: 44px; font-size: 13px; }
+.viewing-preparation-optional { margin-top: 8px; }
+.viewing-preparation-optional > span { font-size: 12px; color: var(--ui-muted); }
+.viewing-preparation-optional button { border-color: transparent; background: transparent; padding: 6px 8px; color: var(--ui-accent); }
 .chat-service-summary {
   display: flex;
   justify-content: space-between;
