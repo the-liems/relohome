@@ -3,7 +3,8 @@
 from datetime import timedelta
 
 from src.agents.common import utcnow
-from src.agents.memory import apply_updates, memory_updates
+from src.agents.deps import GraphSettings
+from src.agents.memory import apply_updates, memory_updates, prefill_from_memory
 from src.agents.models import (
     AgentName,
     CommitActionKind,
@@ -107,3 +108,22 @@ def test_save_is_idempotent():
     once = apply_updates(SessionContext(), memory_updates(state), "th", now)
     twice = apply_updates(once, memory_updates(state), "th", now)
     assert once == twice
+
+
+def test_named_search_does_not_silently_reapply_old_scope_or_amenities():
+    session = SessionContext(
+        preferences={
+            "city": mem("Hà Nội"),
+            "district": mem("Hoàng Mai"),
+            "near": mem("Bách Khoa"),
+            "must_have": mem(["air_conditioning"]),
+            "room_type": mem("studio"),
+            "max_price_vnd": mem(5_000_000),
+        }
+    )
+    args = (session, [AgentName.PROPERTY], {AgentName.PROPERTY: "cheap"}, GraphSettings().prefill_ttl, utcnow())
+    for stated in ({"city": "Hà Nội", "max_price_vnd": 5_000_000}, {"district": "Hoàng Mai"}, {"near": "Bách Khoa"}):
+        result = prefill_from_memory(stated, *args)
+        assert not {"district", "near", "must_have", "room_type", "max_price_vnd"} & result.keys()
+    # Memory still helps a genuinely unspecified search; it is not deleted.
+    assert "must_have" in prefill_from_memory({}, *args)

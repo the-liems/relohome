@@ -246,6 +246,8 @@ export const HousingDetailSchema = HousingSearchResultSchema.extend({
 export const HousingMapRequestSchema = z.object({
   bounding_box: BoundingBoxSchema,
   zoom: z.number().finite().min(0).max(24),
+  // Omitted preserves existing clients; false requests individual listings.
+  cluster: z.boolean().optional(),
   listing_ids: z.array(z.uuid()).min(1).max(2_000).optional(),
   property_type: z.array(PropertyTypeSchema).min(1).max(20).optional(),
   listing_type: z.array(ListingTypeSchema).min(1).max(10).optional(),

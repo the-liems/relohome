@@ -50,6 +50,7 @@
   font-size: 12px;
 }
 .ws-card {
+  cursor: pointer;
   grid-template-columns: 104px minmax(0, 1fr);
   gap: 12px;
   padding: 16px 0;
@@ -58,6 +59,41 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+.ws-card:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+.ws-filterbar .ws-back-chat {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent, #fff);
+  border: 1px solid var(--ui-accent);
+  min-height: 44px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ws-filter-toggle {
+  display: none;
+}
+.ws-filterbar .ws-back-chat:hover {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent, #fff);
+  filter: brightness(1.1);
+}
+.ws-poi-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.ws-poi-heading h3 {
+  flex: 1;
+  margin: 0;
+}
+.ws-poi-detail {
+  height: auto;
+  max-height: calc(100% - 32px);
 }
 .ws-card:hover,
 .ws-card.active {
@@ -882,6 +918,25 @@
   .ws-filterbar {
     padding: 8px;
     gap: 8px;
+  }
+  .ws-filterbar .ws-filter-toggle {
+    display: inline-flex;
+    min-height: 44px;
+  }
+  .ws-filterbar .ws-filter-label {
+    display: none;
+  }
+  .ws-filterbar:not(.expanded) > select,
+  .ws-filterbar:not(.expanded) > .chip,
+  .ws-filterbar:not(.expanded) > .ws-spacer {
+    display: none;
+  }
+  .ws-filterbar.expanded {
+    max-height: min(45dvh, 320px);
+    overflow-y: auto;
+  }
+  .ws-filterbar .ws-back-chat {
+    margin-left: auto;
   }
   .ws-filterbar select {
     font-size: 14px;

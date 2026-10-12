@@ -1,5 +1,9 @@
 # ADR-001 — Polyglot LifeFlow workspace
 
+Pending layout revision: [ADR-025](ADR-025-monorepo-layout.md) proposes to
+supersede only the source-layout portions on acceptance. Existing status and
+domain decisions remain unchanged while ADR-025 is Proposed.
+
 - Date: 2026-09-25
 - Status: Accepted
 - Related specs: SPEC-004

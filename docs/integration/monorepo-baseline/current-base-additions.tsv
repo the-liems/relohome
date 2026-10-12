@@ -1,0 +1,48 @@
+old_path	target_path	owner	action
+.github/workflows/build-application-images.yml	.github/workflows/build-application-images.yml	existing domain / CODEOWNERS	retain; update references if affected
+.github/workflows/deploy-coolify.yml	.github/workflows/deploy-coolify.yml	existing domain / CODEOWNERS	retain; update references if affected
+.github/workflows/deploy-production.yml	.github/workflows/deploy-production.yml	existing domain / CODEOWNERS	retain; update references if affected
+Frontend/playwright.landing.config.ts	apps/web/playwright.landing.config.ts	web	relocate
+Frontend/src/apiError.ts	apps/web/src/apiError.ts	web	relocate
+Frontend/src/landing-experience.css	apps/web/src/landing-experience.css	web	relocate
+Frontend/src/movingSubmission.ts	apps/web/src/movingSubmission.ts	web	relocate
+Frontend/src/overlayPolling.ts	apps/web/src/overlayPolling.ts	web	relocate
+Frontend/tests/browser/landing.public.spec.ts	apps/web/tests/browser/landing.public.spec.ts	web	relocate
+Frontend/tests/browser/moving-submission.contracts.spec.ts	apps/web/tests/browser/moving-submission.contracts.spec.ts	web	relocate
+Frontend/tests/browser/staging-context.contracts.spec.ts	apps/web/tests/browser/staging-context.contracts.spec.ts	web	relocate
+Frontend/tests/browser/viewing-closed-request.spec.ts	apps/web/tests/browser/viewing-closed-request.spec.ts	web	relocate
+Maps VN/LifeFlow/database/migrations/019_housing_map_points.sql	deploy/database/migrations/019_housing_map_points.sql	database	relocate
+Maps VN/LifeFlow/database/migrations/020_housing_map_display.sql	deploy/database/migrations/020_housing_map_display.sql	database	relocate
+Maps VN/LifeFlow/database/migrations/021_housing_text_indexes.sql	deploy/database/migrations/021_housing_text_indexes.sql	database	relocate
+Maps VN/LifeFlow/database/migrations/022_normalize_search_path_independent.sql	deploy/database/migrations/022_normalize_search_path_independent.sql	database	relocate
+Maps VN/LifeFlow/database/rollbacks/housing_query_performance.sql	deploy/database/rollbacks/housing_query_performance.sql	database	relocate
+Maps VN/LifeFlow/moving-mcp-server/tests/auth.test.ts	apps/moving-mcp/tests/auth.test.ts	moving	relocate
+Maps VN/LifeFlow/packages/housing-query/src/current-offer.ts	packages/housing-query/src/current-offer.ts	TS package domains	relocate
+Maps VN/LifeFlow/packages/housing-query/src/device-routing-policy.ts	packages/housing-query/src/device-routing-policy.ts	TS package domains	relocate
+Maps VN/LifeFlow/packages/housing-query/tests/device-routing-policy.test.ts	packages/housing-query/tests/device-routing-policy.test.ts	TS package domains	relocate
+Maps VN/LifeFlow/packages/housing-query/tests/map-points.integration.test.ts	packages/housing-query/tests/map-points.integration.test.ts	TS package domains	relocate
+Maps VN/LifeFlow/packages/mcp-core/src/auth.ts	packages/mcp-core/src/auth.ts	TS package domains	relocate
+Maps VN/LifeFlow/packages/mcp-core/tests/auth.test.ts	packages/mcp-core/tests/auth.test.ts	TS package domains	relocate
+Maps VN/LifeFlow/scripts/check-device-provider.mjs	scripts/relohome/check-device-provider.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	scripts/relohome/verify-housing-query-performance.mjs	operations	relocate; final source name per #118
+config/ci/application-images.json	config/ci/application-images.json	existing domain / CODEOWNERS	retain; update references if affected
+deploy/coolify/production/README.md	deploy/coolify/production/README.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/adr/ADR-024-auto-public-device-routing.md	docs/adr/ADR-024-auto-public-device-routing.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/design/housing-query-performance.md	docs/design/housing-query-performance.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/integration/device-routing-auto-2026-10-11.md	docs/integration/device-routing-auto-2026-10-11.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/integration/landing-page-ux-2026-10-10.md	docs/integration/landing-page-ux-2026-10-10.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/integration/moving-quote-feedback-2026-10-11.md	docs/integration/moving-quote-feedback-2026-10-11.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/integration/staging-housing-context-2026-10-11.md	docs/integration/staging-housing-context-2026-10-11.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/runbooks/dedicated-payment-service.md	docs/runbooks/dedicated-payment-service.md	existing domain / CODEOWNERS	retain; update references if affected
+docs/specs/internal-mcp-auth.md	docs/specs/internal-mcp-auth.md	existing domain / CODEOWNERS	retain; update references if affected
+scripts/select-ci-images.py	scripts/select-ci-images.py	existing domain / CODEOWNERS	retain; update references if affected
+scripts/test-migration-image.py	scripts/test-migration-image.py	existing domain / CODEOWNERS	retain; update references if affected
+src/agents/location_names.py	apps/agent-api/src/relohome_agent/agents/location_names.py	agent	relocate; final source name per #118
+src/mcp_servers/http_service.py	packages/python/mcp-http/src/relohome_mcp_http/__init__.py	MCP transport/auth	extract shared Flight/Payment HTTP auth; final source name per #118
+tests/fixtures/internal-mcp-auth.json	tests/fixtures/internal-mcp-auth.json	existing domain / CODEOWNERS	retain; update references if affected
+tests/mcp_http.py	tests/mcp_http.py	existing domain / CODEOWNERS	retain; update references if affected
+tests/test_agents/test_dedicated_mcp_services.py	tests/test_agents/test_dedicated_mcp_services.py	existing domain / CODEOWNERS	retain; update references if affected
+tests/test_agents/test_staging_context_policy.py	apps/agent-api/tests/test_agents/test_staging_context_policy.py	agent	relocate application tests
+tests/test_ci_images.py	tests/test_ci_images.py	existing domain / CODEOWNERS	retain; update references if affected
+tests/test_internal_mcp_auth.py	tests/test_internal_mcp_auth.py	existing domain / CODEOWNERS	retain; update references if affected

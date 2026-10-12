@@ -165,7 +165,12 @@ def _folded(text: str) -> str:
 
 
 def describe_result(
-    agent: AgentName, data: dict, titles: dict[str, str] | None = None, asked_city: str | None = None
+    agent: AgentName,
+    data: dict,
+    titles: dict[str, str] | None = None,
+    asked_city: str | None = None,
+    *,
+    selected_property: bool = False,
 ) -> list[str]:
     lines = []
     if agent == AgentName.ROOMMATE:
@@ -198,24 +203,28 @@ def describe_result(
                     else f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh."
                 ) + " Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
             ]
-        if data.get("search_radius_m"):
+        candidates = data.get("candidates") or []
+        if selected_property and candidates:
+            chosen = candidates[0]
             lines.append(
-                f"Phạm vi tìm nhà: {data['search_radius_m']} m đường thẳng quanh địa điểm"
-                + (" (bán kính mặc định, bạn có thể đổi)." if data.get("radius_is_default") else ".")
+                f"Căn bạn đã chọn: {chosen.get('title') or chosen.get('id')}"
+                f" — {vnd(chosen.get('price_vnd'))}/tháng."
             )
-        for i, c in enumerate(data.get("candidates", [])[:5], 1):
-            lines.append(
-                f"{i}. {c.get('title')} — {vnd(c.get('price_vnd'))}/tháng — {c.get('address') or 'chưa có địa chỉ'}"
-                + (f" — {c['bedrooms']} phòng ngủ" if c.get("bedrooms") is not None else "")
-                + (" — giá có cảnh báo chất lượng, chưa đưa vào tổng ngân sách" if c.get("price_unverified") else "")
-                + "".join(
-                    f" — gần {n.get('name') or n.get('category')} ({int(n['distance_m'])}m đường thẳng)"
-                    for n in c.get("nearby") or []
-                    if n.get("distance_m") is not None
-                )
-            )
-        if not data.get("candidates"):
+        elif candidates:
+            # The map receives the complete candidates via results_view. Chat
+            # describes this page, not a duplicated catalogue or market total.
+            lines.append(f"Đã tìm được {len(candidates)} căn trong lượt này. Mở bản đồ để xem và chọn.")
+        else:
             lines.append("Chưa tìm thấy phòng phù hợp.")
+        if data.get("search_radius_m") and not selected_property:
+            lines.append(
+                f"Bán kính tìm: {data['search_radius_m']} m đường thẳng"
+                + (" (mặc định, có thể đổi)." if data.get("radius_is_default") else ".")
+            )
+        if any(c.get("price_unverified") for c in candidates):
+            lines.append(
+                "Có giá chưa xác minh, chưa tính vào tổng ngân sách; xem cảnh báo trên từng tin."
+            )
     elif agent == AgentName.MAP:
         routing = data.get("routing") or {}
         if route := routing.get("route"):
@@ -288,10 +297,17 @@ DATA_NOTES = {
 }
 
 
-def data_notes(data: dict) -> list[str]:
-    notes = [DATA_NOTES[k] for k in ("has_more", "approximate_origins") if data.get(k)]
-    notes += [DATA_NOTES[w] for w in data.get("warnings") or [] if w in DATA_NOTES]
-    return notes
+def data_notes(data: dict, agent: AgentName | None = None) -> list[str]:
+    labels = DATA_NOTES
+    if agent == AgentName.PROPERTY:
+        labels = {
+            **DATA_NOTES,
+            "has_more": "Còn kết quả khác; đây không phải toàn bộ thị trường.",
+            "approximate_origins": "Có vị trí gần đúng; khoảng cách tới tiện ích là ước lượng.",
+        }
+    notes = [labels[k] for k in ("has_more", "approximate_origins") if data.get(k)]
+    notes += [labels[w] for w in data.get("warnings") or [] if w in labels]
+    return list(dict.fromkeys(notes))
 
 
 def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[str]]:
@@ -331,20 +347,21 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
         }
         target = lines if fresh else earlier
         display_data = result.data
+        selected_property = False
         intake = state.get("intake")
         selected = intake.user_confirmed_facts.get(f"selected:{task.agent.value}") if intake else None
         if selected and task.agent == AgentName.PROPERTY and not result.data.get("comparison"):
             chosen = [c for c in result.data.get("candidates", []) if c.get("id") == selected.value]
             if chosen:
                 display_data = {**result.data, "candidates": chosen}
-                target.append("Căn bạn đã chọn:")
+                selected_property = True
                 # Keep the full result for workflow dependencies, but expose which
                 # options actually appeared to support the next ordinal reference.
                 view[task.id]["displayed_option_ids"] = [c["id"] for c in chosen]
         asked_city = intake.constraints.values.get("city") if intake and task.agent == AgentName.RELOCATION else None
-        target.extend(describe_result(task.agent, display_data, titles, asked_city))
+        target.extend(describe_result(task.agent, display_data, titles, asked_city, selected_property=selected_property))
         if fresh:
-            notes.extend(data_notes(result.data))
+            notes.extend(data_notes(display_data, task.agent))
         if fresh:
             if result.source_kind != "live":
                 kinds.add(result.source_kind)
@@ -537,7 +554,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 limited[task.id] = assessment
                 explanation = str(assessment.get("reason", ""))[:400]
                 next_step = str(assessment.get("next_step", ""))[:300]
-                if not result.data.get("comparison"):
+                if task.agent == AgentName.PROPERTY and not result.data.get("comparison"):
+                    # Keep the full model rationale in the structured result;
+                    # it must not turn a short search reply back into an essay.
+                    notes.append("Kết quả còn hạn chế theo đánh giá của AI, chưa phải xác nhận từ nhà cung cấp.")
+                elif not result.data.get("comparison"):
                     notes.append(
                         f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
                         + " ".join(p for p in (explanation, next_step) if p)
