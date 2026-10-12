@@ -118,3 +118,26 @@ restore dump cũ đè lên database đã nhận bài/tài khoản mới.
 Backups chưa đủ nếu chưa thử restore. Lưu lịch backup ngoài host và định kỳ chạy
 smoke test trên staging tách biệt; không chạy integration tests dùng dữ liệu test
 trực tiếp trên database production.
+
+## Release qua Coolify hiện có của repo
+
+Xác nhận ngày 13/10/2026: repo có các biến `COOLIFY_STAGING_URL`,
+`COOLIFY_STAGING_SERVICE_UUID`, `COOLIFY_PRODUCTION_URL`,
+`COOLIFY_PRODUCTION_SERVICE_UUID` và secrets tương ứng. Giữ secrets trên GitHub/
+Coolify; không cố đọc hoặc copy chúng vào `.env` local.
+
+1. Tạo PR từ nhánh nâng cấp vào main. CI PR kiểm tra và build các image bị ảnh
+   hưởng; chưa publish/deploy bản PR.
+2. Sau review và merge, CI main publish toàn bộ release.
+   [deploy-staging.yml](../../.github/workflows/deploy-staging.yml) tự deploy khi
+   CI thành công; workflow kiểm main HEAD để tránh đẩy release cũ.
+3. Cấp tài khoản operator trong web container staging bằng công cụ ở bước 3,
+   lấy **ID từ database staging**, append vào `HOUSING_MODERATOR_IDS` của Platform
+   staging. ID local chỉ dùng khi chính database local được restore có chủ đích
+   vào resource đó. Cấu hình key Vietmap ở Platform và chạy smoke test.
+4. Production dùng [deploy-production.yml](../../.github/workflows/deploy-production.yml)
+   với CI run ID đã kiểm trên staging. Chọn đúng resource và backup trước rollout;
+   account/role/config của production thuộc database production.
+
+Không merge vào main chỉ để vượt deploy guard: merge làm thay đổi code chung và
+khởi động deploy staging tự động. PR phải được review trước bước này.

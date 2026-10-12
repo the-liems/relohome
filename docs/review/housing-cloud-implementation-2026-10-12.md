@@ -74,11 +74,15 @@ flight8765, payment8766, agent8000.
 
 - Máy local chưa có `VIETMAP_API_KEY`, nên integration với tài khoản Vietmap thật
   chưa được thử; flow/schema/error cases được kiểm qua provider fixture.
-- Chưa có `HOUSING_MODERATOR_IDS` local. Chọn/tạo tài khoản operator theo
-  `Frontend.admin_provision`, thêm ID vào Platform. Không nâng quyền một account
-  hiện hữu khi chưa được chỉ định. Container tests dùng account riêng trong DB test.
-- Chưa có resource/domain cloud được chọn cho release này. Code/images được kiểm
-  local bằng Docker; chưa push release hay đổi service cloud của nhóm. Coolify
+- Cập nhật 13/10/2026: tài khoản operator người dùng chỉ định đã được tạo trên
+  local, thêm ID vào Platform và kiểm tra Admin login/queue 200; login thường
+  của cùng account nhận 403 khi gọi moderation. Mật khẩu nằm trong file local
+  ignored, quyền 0600; không ghi vào Git. Account/ID trên cloud được cấp riêng
+  theo database web của resource, không dùng nhầm ID local.
+- Cập nhật 13/10/2026: người dùng chọn Coolify hiện hữu của repo. Các biến
+  staging/production và secrets deploy đã có trên GitHub; CI/deploy staging của
+  main `df4999b` đã thành công. Bản nâng cấp cần được review/merge vào main để
+  pipeline build và deploy staging; chưa thay đổi service cloud của nhóm. Coolify
   hiện có image PostGIS/routing ARM64; chọn host tương thích hoặc chuẩn bị image
   và graph phù hợp trước khi dùng AMD64.
 
