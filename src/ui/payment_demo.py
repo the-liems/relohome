@@ -20,10 +20,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import segno  # noqa: E402
 import streamlit as st  # noqa: E402
+from relohome_payment.privacy import redact_secrets  # noqa: E402
+from relohome_payment.schemas import MAX_AMOUNT, MIN_AMOUNT  # noqa: E402
+from relohome_payment.settings import PaymentSettings, now_vn  # noqa: E402
 
-from src.mcp_servers.payments.privacy import redact_secrets  # noqa: E402
-from src.mcp_servers.payments.schemas import MAX_AMOUNT, MIN_AMOUNT  # noqa: E402
-from src.mcp_servers.payments.settings import PaymentSettings, now_vn  # noqa: E402
 from src.ui.payment_client import CallRecord, Mode, ServerInfo, call_tool, inspect_server  # noqa: E402
 
 MODE_NAMES: dict[Mode, str] = {"mock": "Mock (giả lập)", "zalopay": "ZaloPay sandbox"}

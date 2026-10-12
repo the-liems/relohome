@@ -14,15 +14,14 @@ import httpx
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.conformance import _result_problems
-from src.agents.subagents.services.moving import QuoteContact
-from src.agents.subagents.services.moving_llm import MovingLlmAgent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import MOVING_READ_TOOLS
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.conformance import _result_problems
+from relohome_agent.agents.subagents.services.moving import QuoteContact
+from relohome_agent.agents.subagents.services.moving_llm import MovingLlmAgent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import MOVING_READ_TOOLS
 
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")

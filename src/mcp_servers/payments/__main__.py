@@ -1,10 +1,10 @@
-"""Chạy server: `python -m src.mcp_servers.payments [--transport stdio|streamable-http]`."""
+"""Chạy server: `python -m relohome_payments_mcp [--transport stdio|streamable-http]`."""
 
 import argparse
 
-from src.mcp_servers.payments.server import create_server
-from src.mcp_servers.payments.settings import get_payment_settings
-from src.mcp_servers.payments.tools import build_services
+from relohome_payment.settings import get_payment_settings
+from relohome_payments_mcp.server import create_server
+from relohome_payments_mcp.tools import build_services
 
 
 def main() -> None:

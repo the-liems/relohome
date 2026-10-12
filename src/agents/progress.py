@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agents.housing_operations import is_housing_comparison
-from src.agents.models import AgentName, Plan, RequestKind, TaskResult, TaskStatus
-from src.agents.selections import option_ids, option_is_expired, selected_option, selection_is_current
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.housing_operations import is_housing_comparison
+from relohome_agent.agents.models import AgentName, Plan, RequestKind, TaskResult, TaskStatus
+from relohome_agent.agents.selections import option_ids, option_is_expired, selected_option, selection_is_current
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
 # Lĩnh vực không hiện trên dải tiến trình. Thanh toán qua chat đang tắt; tổng tiền thay bằng tổng đã chốt.
 HIDDEN_DOMAINS = frozenset({AgentName.PAYMENT})

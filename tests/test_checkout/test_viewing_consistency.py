@@ -4,11 +4,10 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.checkout.models import CheckoutError, ServiceTransaction
-from src.checkout.store import CheckoutStore
-from src.checkout.viewing import ViewingService, ViewingSettings
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.checkout.models import CheckoutError, ServiceTransaction
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 def service_and_records():

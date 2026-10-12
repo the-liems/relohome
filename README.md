@@ -85,3 +85,6 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The current [.githu
 ## License
 
 [MIT](LICENSE).
+
+Python package installation, runtime paths, wheel validation and compatibility removal:
+[Python packaging guide](docs/integration/python-packaging.md).

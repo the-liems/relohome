@@ -4,13 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import Field, StrictBool, StringConstraints
-
-from src.api.roommate_access import Context, TrustedActor, perform
-from src.roommate.api_models import SearchInput
-from src.roommate.models import RoommateModel
-from src.roommate.policy import ProfileState
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
+from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_roommate.api_models import SearchInput
+from relohome_roommate.models import RoommateModel
+from relohome_roommate.policy import ProfileState
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

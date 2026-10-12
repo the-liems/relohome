@@ -9,12 +9,11 @@ import logging
 import re
 
 from langchain_core.messages import HumanMessage
-
-from src.agents.cost import call_graph_component, llm_calls_left
-from src.agents.deps import GraphDeps
-from src.agents.housing_constraints import HOUSING_INPUT_KEYS
-from src.agents.housing_operations import is_housing_comparison
-from src.agents.intake import (
+from relohome_agent.agents.cost import call_graph_component, llm_calls_left
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS
+from relohome_agent.agents.housing_operations import is_housing_comparison
+from relohome_agent.agents.intake import (
     MAP_ENTITY_ANCHORS,
     MAP_VIEW_REF,
     PLACE_CHOICE_FIELDS,
@@ -27,8 +26,8 @@ from src.agents.intake import (
     redact_pii,
     resolve_missing,
 )
-from src.agents.llm import LLMError
-from src.agents.models import (
+from relohome_agent.agents.llm import LLMError
+from relohome_agent.agents.models import (
     AgentName,
     CommitActionKind,
     ConfirmedFact,
@@ -40,9 +39,9 @@ from src.agents.models import (
     active_commits,
     error_record,
 )
-from src.agents.selections import selection_is_current
-from src.agents.state import WorkflowState
-from src.agents.subagents.capabilities import operation_selector_keys
+from relohome_agent.agents.selections import selection_is_current
+from relohome_agent.agents.state import WorkflowState
+from relohome_agent.agents.subagents.capabilities import operation_selector_keys
 
 logger = logging.getLogger(__name__)
 

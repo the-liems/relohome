@@ -6,14 +6,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from src.agents.contracts import AgentTaskRequest
-from src.agents.llm_runtime import Invocation
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.location import MIN_SUGGESTION_SCORE, LocationSubagent, to_candidate
-from src.agents.subagents.services.moving_llm import MovingExecution, MovingLlmAgent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.llm_runtime import Invocation
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.location import MIN_SUGGESTION_SCORE, LocationSubagent, to_candidate
+from relohome_agent.agents.subagents.services.moving_llm import MovingExecution, MovingLlmAgent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real PostGIS/MCP opt-in")
 ROOT = Path(__file__).resolve().parents[2]

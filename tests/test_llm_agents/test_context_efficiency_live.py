@@ -22,10 +22,9 @@ from pathlib import Path
 import httpx
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.graph import checkpoint_serde
 from test_domain_missions_live import ROOT, live_environment
-
-from src.agents.common import utcnow
-from src.agents.graph import checkpoint_serde
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real providers and paid LLM opt-in")
 
@@ -139,7 +138,7 @@ def actual_run():
     env = live_environment()
     env.update(
         AGENT_STATE_DIR=str(directory),
-        PYTHONPATH=str(source_root),
+        RELOHOME_RUNTIME_ROOT=str(source_root),
         FLIGHT_DB_PATH=str(ROOT / "data/integration-flights.db"),
     )
     if attempts := os.getenv("RUN_EFFICIENCY_MAX_ATTEMPTS"):
@@ -150,12 +149,10 @@ def actual_run():
         port = probe.getsockname()[1]
     process = subprocess.Popen(
         [
-            sys.executable,
+            os.getenv("RUN_EFFICIENCY_PYTHON", sys.executable),
             "-m",
             "uvicorn",
-            "src.main:app",
-            "--app-dir",
-            str(source_root),
+            os.getenv("RUN_EFFICIENCY_APP", "relohome_agent.main:app"),
             "--host",
             "127.0.0.1",
             "--port",

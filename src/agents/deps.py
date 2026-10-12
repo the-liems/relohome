@@ -8,22 +8,21 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentCapability
-from src.agents.intake import Intake, PassThroughIntake
-from src.agents.models import AgentName, CommitActionKind, CostTier
-from src.agents.planning import NotImplementedPlanner, Planner
-from src.agents.subagents.base import DomainAgent
-from src.agents.subagents.fake import FakeAgent
-from src.services.adapters.fakes import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentCapability
+from relohome_agent.agents.intake import Intake, PassThroughIntake
+from relohome_agent.agents.models import AgentName, CommitActionKind, CostTier
+from relohome_agent.agents.planning import NotImplementedPlanner, Planner
+from relohome_agent.agents.subagents.base import DomainAgent
+from relohome_agent.agents.subagents.fake import FakeAgent
+from relohome_agent.services.adapters.fakes import (
     FakeTransaction,
     InMemoryApprovalStore,
     InMemoryPiiStore,
     InMemorySessionPort,
     InMemoryUsageMeter,
 )
-from src.services.adapters.ports import ApprovalPort, PiiPort, SessionPort, TransactionPort, UsageMeter
+from relohome_agent.services.adapters.ports import ApprovalPort, PiiPort, SessionPort, TransactionPort, UsageMeter
 
 
 def _default_prefill_ttl() -> dict[str, timedelta]:

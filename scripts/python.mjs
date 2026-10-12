@@ -10,6 +10,6 @@ const fallback = windows ? 'python' : 'python3';
 const python = process.env.PYTHON || (
   process.env.VIRTUAL_ENV ? fallback : existsSync(venv) ? venv : fallback
 );
-const result = spawnSync(python, process.argv.slice(2), { cwd: root, stdio: 'inherit' });
+const result = spawnSync(python, process.argv.slice(2), { cwd: root, stdio: 'inherit', env: { ...process.env, RELOHOME_RUNTIME_ROOT: process.env.RELOHOME_RUNTIME_ROOT || root } });
 if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);

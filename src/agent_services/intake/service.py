@@ -4,10 +4,9 @@ from typing import TypedDict
 from unicodedata import normalize as unicode_normalize
 
 from langgraph.graph import END, START, StateGraph
-
-from src.agent_services.common import ServiceError
-from src.agent_services.intake.models import IntakeRequest, IntakeResult, Understanding
-from src.agent_services.llm import StructuredLLM
+from relohome_agent_services.common import ServiceError
+from relohome_agent_services.intake_models import IntakeRequest, IntakeResult, Understanding
+from relohome_agent_services.llm import StructuredLLM
 
 PROMPT = """Bạn là bộ phận Intake của LifeFlow. Chỉ hiểu yêu cầu; không lập kế hoạch,
 không chọn tool, không gọi service, không phê duyệt giao dịch. Trả tiếng Việt.

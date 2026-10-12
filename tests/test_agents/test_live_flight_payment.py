@@ -9,17 +9,17 @@ chờ PAID → xuất vé.
 from datetime import date, timedelta
 
 import pytest
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind
+from relohome_agent.agents.planning import TemplatePlanner
+from relohome_agent.agents.wiring import live_deps
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, CommitActionKind, RequestKind
-from src.agents.planning import TemplatePlanner
-from src.agents.wiring import live_deps
 from src.mcp_servers.flights.server import create_server as flight_server
 from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.payments.server import create_server as payment_server
 from src.mcp_servers.payments.settings import PaymentSettings
 from src.mcp_servers.payments.tools import build_services as payment_services
-from src.services.adapters.registry import ServiceSettings
 from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 

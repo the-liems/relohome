@@ -1,12 +1,12 @@
 """Subagent Location theo phản hồi của service Location (Dũng, 2026-09-29)."""
 
 import pytest
+from relohome_agent.agents.contracts import UpstreamResult
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.subagents.conformance import sample_request
+from relohome_agent.agents.subagents.services.location import LocationSubagent, format_address
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
-from src.agents.contracts import UpstreamResult
-from src.agents.models import AgentName
-from src.agents.subagents.conformance import sample_request
-from src.agents.subagents.services.location import LocationSubagent, format_address
-from src.services.adapters.registry import LOCATION_READ_TOOLS
 from tests.test_agents.test_service_subagents import FakeToolClient, listing
 
 

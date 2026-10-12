@@ -63,3 +63,6 @@ Lỗ hổng bảo mật thì **không** mở issue công khai — làm theo [SEC
 
 Tham gia repo này đồng nghĩa với việc bạn đồng ý tuân thủ
 [Quy tắc ứng xử](CODE_OF_CONDUCT.md).
+
+Python package installation, runtime paths, wheel validation and compatibility removal:
+[Python packaging guide](docs/integration/python-packaging.md).

@@ -7,12 +7,10 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
-
-from src.agents.cost import paid_slots_left, subagent_llm_calls_left
-from src.agents.deps import AgentRegistry
-from src.agents.graph import make_agent_node, run_config
-from src.agents.intake import redact_pii
-from src.agents.models import (
+from relohome_agent.agents.cost import paid_slots_left, subagent_llm_calls_left
+from relohome_agent.agents.deps import AgentRegistry
+from relohome_agent.agents.graph import make_agent_node, run_config
+from relohome_agent.agents.models import (
     AgentName,
     ConfirmedFact,
     IntakeResult,
@@ -26,14 +24,15 @@ from src.agents.models import (
     ValidationReport,
     active_commits,
 )
-from src.agents.nodes.change_impact import downstream_closure
-from src.agents.nodes.cost_summary import make_cost_summary
-from src.agents.nodes.respond import make_respond
-from src.agents.nodes.validator import DEFAULT_RULES, check_task
-from src.agents.planning import plan_confirmed_moving_quote, validate_plan
-from src.agents.subagents.services.moving import order_time
-from src.api.routes import Service, UserId, _lock, _pending, _to_response, authenticate
-from src.models.schemas import MovingQuoteForm
+from relohome_agent.agents.nodes.change_impact import downstream_closure
+from relohome_agent.agents.nodes.cost_summary import make_cost_summary
+from relohome_agent.agents.nodes.respond import make_respond
+from relohome_agent.agents.nodes.validator import DEFAULT_RULES, check_task
+from relohome_agent.agents.planning import plan_confirmed_moving_quote, validate_plan
+from relohome_agent.agents.subagents.services.moving import order_time
+from relohome_agent.api.routes import Service, UserId, _lock, _pending, _to_response, authenticate
+from relohome_contracts.schemas import MovingQuoteForm
+from relohome_privacy import redact_pii
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 

@@ -16,11 +16,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st  # noqa: E402
+from relohome_flight.catalog import load_airports  # noqa: E402
+from relohome_flight.schemas import FlightSearchRequest  # noqa: E402
+from relohome_flight.search.serpapi import build_params  # noqa: E402
+from relohome_flight.settings import now_vn  # noqa: E402
 
-from src.mcp_servers.flights.catalog import load_airports  # noqa: E402
-from src.mcp_servers.flights.schemas import FlightSearchRequest  # noqa: E402
-from src.mcp_servers.flights.search.serpapi import build_params  # noqa: E402
-from src.mcp_servers.flights.settings import now_vn  # noqa: E402
 from src.ui.flight_client import (  # noqa: E402
     CallRecord,
     Mode,

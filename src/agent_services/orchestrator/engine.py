@@ -4,9 +4,9 @@ import asyncio
 from datetime import timedelta
 from uuid import UUID, uuid4
 
-from src.agent_services.common import ServiceError, ServiceSettings, fingerprint, now
-from src.agent_services.intake.models import IntakeResult
-from src.agent_services.orchestrator.models import (
+from relohome_agent_services.common import ServiceError, ServiceSettings, fingerprint, now
+from relohome_agent_services.intake_models import IntakeResult
+from relohome_orchestrator.models import (
     ApprovalRequest,
     PlanDraft,
     PlanRequest,
@@ -15,10 +15,10 @@ from src.agent_services.orchestrator.models import (
     ToolResult,
     Workflow,
 )
-from src.agent_services.orchestrator.planner import Planner
-from src.agent_services.orchestrator.registry import Registry, arguments, planning_schema, validate_json, validate_plan
-from src.agent_services.orchestrator.runtime import DisconnectedGateway, ToolGateway
-from src.agent_services.orchestrator.store import WorkflowStore
+from relohome_orchestrator.planner import Planner
+from relohome_orchestrator.registry import Registry, arguments, planning_schema, validate_json, validate_plan
+from relohome_orchestrator.runtime import DisconnectedGateway, ToolGateway
+from relohome_orchestrator.store import WorkflowStore
 
 
 def resolve_pointer(value, pointer: str):

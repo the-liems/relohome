@@ -21,16 +21,24 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.graph import run_config
-from src.agents.models import AgentBudget, AgentName, IntakeResult, Intent, Plan, RequestKind, Task, TaskStatus
-from src.agents.subagents.base import to_task_result
-from src.agents.subagents.services.location import LocationSubagent
-from src.agents.wiring import AgentService
-from src.main import app
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import (
+    AgentBudget,
+    AgentName,
+    IntakeResult,
+    Intent,
+    Plan,
+    RequestKind,
+    Task,
+    TaskStatus,
+)
+from relohome_agent.agents.subagents.base import to_task_result
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.main import app
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -171,8 +179,8 @@ async def test_real_form_quote_selection_requote_and_rejections(runtime):
 
 
 async def test_real_catalog_cache_scope_expiry_and_detail_projection(runtime):
-    from src.agents.llm_context import model_json
-    from src.agents.subagents.services.moving_context import service_details_for_model
+    from relohome_agent.agents.llm_context import model_json
+    from relohome_agent.agents.subagents.services.moving_context import service_details_for_model
 
     service, http, body, _ = runtime
     moving = service.deps.agents.get(AgentName.RELOCATION)

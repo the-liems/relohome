@@ -1,11 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
-
-from src.agent_services.common import ServiceError, ServiceSettings, install_http, require_token, token_configured
-from src.agent_services.intake.models import IntakeRequest, IntakeResult
-from src.agent_services.intake.service import IntakeService
-from src.agent_services.llm import StructuredLLM
+from relohome_agent_services.common import ServiceError, ServiceSettings, install_http, require_token, token_configured
+from relohome_agent_services.intake_models import IntakeRequest, IntakeResult
+from relohome_agent_services.llm import StructuredLLM
+from relohome_intake.service import IntakeService
 
 
 def create_app(settings: ServiceSettings | None = None) -> FastAPI:

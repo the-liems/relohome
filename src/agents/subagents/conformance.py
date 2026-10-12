@@ -15,11 +15,10 @@ from datetime import timedelta
 from typing import Any
 
 from jsonschema import Draft202012Validator
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.base import DomainAgent
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.base import DomainAgent
 
 
 def sample_request(agent: AgentName, inputs: dict[str, Any], upstream: dict | None = None, **kw) -> AgentTaskRequest:

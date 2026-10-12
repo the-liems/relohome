@@ -1,17 +1,17 @@
 import pytest
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.intake import FixedIntake
+from relohome_agent.agents.llm_context import result_context
+from relohome_agent.agents.models import AgentName, TaskResult
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 from Frontend.server import presentation
-from src.agents.common import utcnow
-from src.agents.intake import FixedIntake
-from src.agents.llm_context import result_context
-from src.agents.models import AgentName, TaskResult
-from src.agents.wiring import AgentService
 from src.roommate.ports import Actor
 from src.roommate.services.access import AccessService
 from src.roommate.services.discovery import DiscoveryService
 from src.roommate.services.profiles import ProfileService
 from src.roommate.services.safety import SafetyService
-from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import Session, fact, intake_result
 from tests.test_roommate.test_discovery_api import make_app
 from tests.test_roommate.test_profile_lifecycle import complete

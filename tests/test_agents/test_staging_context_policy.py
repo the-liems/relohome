@@ -3,11 +3,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.agents.deps import GraphSettings
-from src.agents.location_names import city_search_text
-from src.agents.memory import prefill_from_memory
-from src.agents.models import (
+from relohome_agent.agents.deps import GraphSettings
+from relohome_agent.agents.location_names import city_search_text
+from relohome_agent.agents.memory import prefill_from_memory
+from relohome_agent.agents.models import (
     AgentName,
     IntakeResult,
     MemoryValue,
@@ -21,7 +20,7 @@ from src.agents.models import (
     Task,
     TaskStatus,
 )
-from src.agents.nodes.respond import compose, moving_destination_question
+from relohome_agent.agents.nodes.respond import compose, moving_destination_question
 
 AT = datetime(2026, 10, 11, 3, tzinfo=UTC)
 

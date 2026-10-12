@@ -1,8 +1,5 @@
-from src.roommate.access import RoommateContext
-from src.roommate.services.lifecycle import reconcile_profiles
+"""Temporary compatibility import; removal gate: #115 (see python-packaging.md)."""
+import importlib as _importlib
+import sys as _sys
 
-
-def reconcile(context: RoommateContext) -> None:
-    """Called inside the caller's transaction; reads also enforce deadlines independently."""
-    reconcile_profiles(context)
-    context.connections.expire(context.clock.now())
+_sys.modules[__name__] = _importlib.import_module('relohome_roommate.maintenance')

@@ -7,8 +7,8 @@ Receipts live in ``committed`` and are deliberately not interpreted as quotes.
 from datetime import datetime
 from typing import Any
 
-from src.agents.common import utcnow
-from src.agents.models import AgentName, TaskResult, TaskStatus
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import AgentName, TaskResult, TaskStatus
 
 
 def option_ids(result: TaskResult | None) -> set[str]:

@@ -7,16 +7,16 @@ from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
+from relohome_intake.models import IntakeRequest
+from relohome_intake.service import normalize
+from relohome_orchestrator.engine import Orchestrator
+from relohome_orchestrator.models import ApprovalRequest, PlanTask, Workflow
+from relohome_orchestrator.planner import Planner
+from relohome_orchestrator.registry import Registry
+from relohome_orchestrator.store import WorkflowStore
 
 from src.agent_services.common import ServiceError, ServiceSettings, fingerprint, now
-from src.agent_services.intake.models import IntakeRequest
-from src.agent_services.intake.service import normalize
 from src.agent_services.llm import StructuredLLM
-from src.agent_services.orchestrator.engine import Orchestrator
-from src.agent_services.orchestrator.models import ApprovalRequest, PlanTask, Workflow
-from src.agent_services.orchestrator.planner import Planner
-from src.agent_services.orchestrator.registry import Registry
-from src.agent_services.orchestrator.store import WorkflowStore
 from tests.test_agent_services.test_contracts import catalog_task, draft, understanding
 
 

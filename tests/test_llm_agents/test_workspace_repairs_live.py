@@ -15,14 +15,13 @@ from uuid import uuid4
 import httpx
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-from src.agents.contracts import AgentTaskRequest
-from src.agents.graph import checkpoint_serde
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.domain_tools import DomainToolSession
-from src.agents.subagents.services.location import LocationSubagent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.graph import checkpoint_serde
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_WORKSPACE_REPAIRS_LIVE") != "1", reason="Opt-in actual read services")
 ROOT = Path(__file__).resolve().parents[2]

@@ -10,7 +10,9 @@
       "config/",
       "requirements.txt",
       "package.json",
-      "package-lock.json"
+      "package-lock.json",
+      "packages/python/",
+      "requirements-runtime.txt"
     ]
   },
   {
@@ -21,7 +23,9 @@
     "paths": [
       "src/",
       "config/",
-      "requirements.txt"
+      "requirements.txt",
+      "packages/python/",
+      "requirements-runtime.txt"
     ]
   },
   {

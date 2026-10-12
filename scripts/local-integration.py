@@ -23,6 +23,7 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         **{k: v for k, v in dotenv_values(ROOT / ".env").items() if v is not None},
         **{k: v for k, v in dotenv_values(ROOT / "data/integration.env").items() if v is not None},
     }
+    env.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))
     if component in {"api", "ui"} and env.get("APP_ENV", "development") != "production":
         # Local-only opt-out default. Runtime still requires the trusted token,
         # and explicit ROOMMATE_ENABLED=false is respected. Do not grant any
@@ -64,7 +65,6 @@ def environment(component, sandbox_writes=False, payment_demo=False):
         )
     # Children must not re-load the broad root .env after scoped credentials are removed.
     env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
-    env["PYTHONPATH"] = str(ROOT)
     env["PYTHONIOENCODING"] = "utf-8"
     if component in {"api", "ui"}:
         # Provider credentials and provider databases belong to their services.
@@ -132,15 +132,15 @@ def main():
         "platform": ["node", "platform-api/dist/server.js"],
         "moving": ["node", "moving-mcp-server/dist/http-server.js"],
         "moving-api": ["node", "moving-api/dist/server.js"],
-        "flight": [sys.executable, "-m", "src.mcp_servers.flights", "--transport", "streamable-http"],
-        "payment": [sys.executable, "-m", "src.mcp_servers.payments", "--transport", "streamable-http"],
+        "flight": [sys.executable, "-m", "relohome_flights_mcp", "--transport", "streamable-http"],
+        "payment": [sys.executable, "-m", "relohome_payments_mcp", "--transport", "streamable-http"],
         "migrate": ["node", "platform-api/dist/migrate.js"],
         "check": ["node", "scripts/check-local-schema.mjs"],
         "api": [
             sys.executable,
             "-m",
             "uvicorn",
-            "src.main:app",
+            "relohome_agent.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -152,7 +152,7 @@ def main():
             sys.executable,
             "-m",
             "uvicorn",
-            "Frontend.server:app",
+            "relohome_gateway.server:app",
             "--host",
             "127.0.0.1",
             "--port",

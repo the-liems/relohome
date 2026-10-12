@@ -17,3 +17,6 @@ eval/
 .dockerignore
 Dockerfile
 docker-compose.yml
+
+**/build
+**/*.egg-info

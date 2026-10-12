@@ -23,19 +23,24 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from src.agents.deps import AgentRegistry, GraphDeps, GraphSettings, default_deps
-from src.agents.graph import build_graph, checkpoint_serde, default_checkpointer
-from src.agents.intake import Intake, PassThroughIntake
-from src.agents.models import AgentName, PendingPayment, Receipt
-from src.agents.planning import Planner, TemplatePlanner
-from src.agents.subagents.base import DomainAgent
-from src.agents.subagents.services.flight import FlightSubagent
-from src.agents.subagents.services.location import LocationSubagent
-from src.agents.subagents.services.moving import MovingSubagent, QuoteContact
-from src.services.adapters.commit import McpTransaction
-from src.services.adapters.fakes import InMemoryApprovalStore, InMemoryPiiStore, InMemorySessionPort, InMemoryUsageMeter
-from src.services.adapters.moving_approval import HttpMovingApprovalBridge
-from src.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.agents.deps import AgentRegistry, GraphDeps, GraphSettings, default_deps
+from relohome_agent.agents.graph import build_graph, checkpoint_serde, default_checkpointer
+from relohome_agent.agents.intake import Intake, PassThroughIntake
+from relohome_agent.agents.models import AgentName, PendingPayment, Receipt
+from relohome_agent.agents.planning import Planner, TemplatePlanner
+from relohome_agent.agents.subagents.base import DomainAgent
+from relohome_agent.agents.subagents.services.flight import FlightSubagent
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.agents.subagents.services.moving import MovingSubagent, QuoteContact
+from relohome_agent.services.adapters.commit import McpTransaction
+from relohome_agent.services.adapters.fakes import (
+    InMemoryApprovalStore,
+    InMemoryPiiStore,
+    InMemorySessionPort,
+    InMemoryUsageMeter,
+)
+from relohome_agent.services.adapters.moving_approval import HttpMovingApprovalBridge
+from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
 
 def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
@@ -110,17 +115,16 @@ class AgentService:
     # LLM domain fanout shares this local lock so budgets cannot be oversubscribed.
     writes_enabled: bool = False
     sandbox_payment_client: Any = None
-    checkout: Any = None  # src.checkout.service.CheckoutService khi bật thanh toán của app
-    viewing: Any = None  # src.checkout.viewing.ViewingService khi bật chọn nhiều căn để hẹn xem
+    checkout: Any = None  # relohome_agent.checkout.service.CheckoutService khi bật thanh toán của app
+    viewing: Any = None  # relohome_agent.checkout.viewing.ViewingService khi bật chọn nhiều căn để hẹn xem
 
     @classmethod
     async def open(cls, services: ServiceSettings | None = None, *, roommate_runtime=None):
         """Application entrypoint: real LLMs + configured services + durable local stores."""
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-        from src.agents.llm_components import build_llm_components
-        from src.agents.planner_llm import CapabilityRegistry
-        from src.services.adapters.sqlite_runtime import (
+        from relohome_agent.agents.llm_components import build_llm_components
+        from relohome_agent.agents.planner_llm import CapabilityRegistry
+        from relohome_agent.services.adapters.sqlite_runtime import (
             DurableModels,
             RuntimeDatabase,
             SqliteApprovalStore,
@@ -146,7 +150,7 @@ class AgentService:
             registry = ServiceRegistry.from_settings(services)
             agents = live_agents(registry)
             if roommate_runtime is not None:
-                from src.agents.subagents.services.roommate import RoommateSubagent
+                from relohome_agent.agents.subagents.services.roommate import RoommateSubagent
 
                 agents[AgentName.ROOMMATE] = RoommateSubagent(roommate_runtime)
             if components.moving:
@@ -161,8 +165,8 @@ class AgentService:
             components.planner.registry = CapabilityRegistry({n: a.capability for n, a in agents.items()})
             db = RuntimeDatabase(services.agent_state_dir)
             stack.callback(db.close)
-            from src.agents.subagents.services.payment import PaymentSubagent
-            from src.agents.subagents.services.read_llm import ReadLlmAgent
+            from relohome_agent.agents.subagents.services.payment import PaymentSubagent
+            from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
 
             payment_read = registry.payment.read_client()
             if payment_read and services.payment_source_kind == "sandbox":
@@ -263,7 +267,7 @@ class AgentService:
             approvals, pii = base.approvals, base.pii
             deps = GraphDeps(**{**base.__dict__, "intake": intake, "planner": planner})
         if roommate_runtime is not None:
-            from src.agents.subagents.services.roommate import RoommateSubagent
+            from relohome_agent.agents.subagents.services.roommate import RoommateSubagent
 
             agents = {name: deps.agents.get(name) for name in deps.agents.names()}
             agents[AgentName.ROOMMATE] = RoommateSubagent(roommate_runtime)
@@ -303,8 +307,8 @@ async def verify_sandbox_payment_service(services: ServiceSettings):
 
 def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, checkout=None):
     """Chọn nhiều căn để hẹn xem; dùng chung kho giao dịch với thanh toán của app nếu có."""
-    from src.checkout.store import CheckoutStore
-    from src.checkout.viewing import ViewingService, ViewingSettings
+    from relohome_agent.checkout.store import CheckoutStore
+    from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
 
     return ViewingService(
         store=checkout.store if checkout is not None else CheckoutStore(db.connection),
@@ -315,9 +319,9 @@ def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, chec
 
 def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii):
     """Thanh toán của app: chỉ ZaloPay sandbox chính thức và đặt vé mô phỏng; production không có nút tester."""
-    from src.checkout.service import CheckoutService, CheckoutSettings
-    from src.checkout.store import CheckoutStore
-    from src.config import get_settings
+    from relohome_agent.checkout.service import CheckoutService, CheckoutSettings
+    from relohome_agent.checkout.store import CheckoutStore
+    from relohome_agent.config import get_settings
     if not services.payment_mcp_url or services.payment_source_kind != "sandbox":
         raise ValueError("App payment demo requires a dedicated sandbox Payment HTTP service")
     production = get_settings().app_env == "production"

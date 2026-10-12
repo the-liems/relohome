@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from src.agents.deps import GraphDeps
-from src.agents.models import AgentName, ChangeContext, Plan, TaskStatus, active_commits
-from src.agents.state import WorkflowState
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.models import AgentName, ChangeContext, Plan, TaskStatus, active_commits
+from relohome_agent.agents.state import WorkflowState
 
 
 def downstream_closure(plan: Plan, targets: set[str]) -> set[str]:

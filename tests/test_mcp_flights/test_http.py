@@ -1,7 +1,7 @@
 import pytest
+from relohome_agent.agents.tools import flight_mcp
 from starlette.testclient import TestClient
 
-from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import SERVER_NAME, create_server
 from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.tools import FlightServices

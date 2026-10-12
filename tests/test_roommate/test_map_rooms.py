@@ -5,8 +5,8 @@ from datetime import timedelta
 import httpx
 import pytest
 from pydantic import ValidationError
+from relohome_agent.api.roommate_map import router
 
-from src.api.roommate_map import router
 from src.roommate.clock import FrozenClock
 from src.roommate.models import RoommateProfile
 from src.roommate.policy import TERMS_VERSION
@@ -112,7 +112,7 @@ async def test_map_lifecycle_consent_blocks_expiry_and_minimal_disclosure(tmp_pa
 
 @pytest.mark.asyncio
 async def test_room_binding_fails_closed_without_housing_service(tmp_path):
-    from src.api.roommate_profiles import router as profile_router
+    from relohome_agent.api.roommate_profiles import router as profile_router
 
     app, runtime = make_app(tmp_path)
     app.include_router(profile_router, prefix="/api/v1")
@@ -134,8 +134,8 @@ async def test_room_binding_fails_closed_without_housing_service(tmp_path):
 
 @pytest.mark.parametrize("app_env,path", [("production", "demo.json"), ("test", None)])
 def test_demo_runtime_requires_explicit_nonproduction_configuration(tmp_path, app_env, path):
-    from src.config import Settings
-    from src.roommate.runtime import RoommateRuntime
+    from relohome_agent.config import Settings
+    from relohome_agent.roommate_runtime import RoommateRuntime
 
     with pytest.raises(ValueError, match="explicit dataset and a non-production"):
         RoommateRuntime.open(

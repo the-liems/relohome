@@ -13,13 +13,13 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
-from src.agents.models import AgentUsage, Question, Quote, SourceKind
-from src.agents.subagents.capabilities import RELOCATION
-from src.agents.subagents.services.common import BudgetExceededError, CountingClient, first, tool_failure
-from src.models.moving_options import apply_draft_options, service_selection, validated_options
-from src.services.adapters.mcp import McpToolClient, ToolCallError
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
+from relohome_agent.agents.models import AgentUsage, Question, Quote, SourceKind
+from relohome_agent.agents.subagents.capabilities import RELOCATION
+from relohome_agent.agents.subagents.services.common import BudgetExceededError, CountingClient, first, tool_failure
+from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
+from relohome_contracts.moving_options import apply_draft_options, service_selection, validated_options
 
 SOURCE = "ahamove"
 VN_TZ = timezone(timedelta(hours=7))
@@ -138,7 +138,7 @@ class MovingSubagent:
             )
         selected = None
         if inp.get("selected_listing_id"):
-            from src.agents.subagents.services.location import to_candidate
+            from relohome_agent.agents.subagents.services.location import to_candidate
 
             if geo:
                 detail = await geo.call("get_housing", {"listing_id": inp["selected_listing_id"]})

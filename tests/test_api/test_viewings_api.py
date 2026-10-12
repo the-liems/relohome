@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytest_asyncio
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, RequestKind
+from relohome_agent.agents.planning import TemplatePlanner
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, RequestKind
-from src.agents.planning import TemplatePlanner
-from src.agents.wiring import AgentService
-from src.checkout.store import CheckoutStore
-from src.checkout.viewing import ViewingService, ViewingSettings
-from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import intake_result
 
 HEADERS = {"X-User-Id": "u1"}
@@ -44,7 +44,7 @@ async def api(api_client_factory, monkeypatch):
     async def reread(_service, listing_id):  # tin còn trên Location
         return {"id": listing_id, "lat": 10.76, "lng": 106.70}
 
-    monkeypatch.setattr("src.api.web_actions.explored_listing", reread)
+    monkeypatch.setattr("relohome_agent.api.web_actions.explored_listing", reread)
     async with api_client_factory(service) as client:
         yield client, service, clock
 

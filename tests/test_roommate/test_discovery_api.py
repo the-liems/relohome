@@ -3,13 +3,13 @@ from datetime import timedelta
 import httpx
 import pytest
 from fastapi import FastAPI
+from relohome_agent.api.roommate_access import router as access_router
+from relohome_agent.api.roommate_discovery import router as discovery_router
+from relohome_agent.config import Settings
+from relohome_agent.roommate_runtime import RoommateRuntime
 
-from src.api.roommate_access import router as access_router
-from src.api.roommate_discovery import router as discovery_router
-from src.config import Settings
 from src.roommate.models import RoommateProfile
 from src.roommate.ports import ProfileRecord
-from src.roommate.runtime import RoommateRuntime
 
 
 def make_app(tmp_path):

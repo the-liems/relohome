@@ -1,11 +1,10 @@
 """validate_plan và TemplatePlanner: phạm vi yêu cầu S1–S10 (agent-graph.md §6.2, §10.2)."""
 
 import pytest
-
-from src.agents.common import utcnow
-from src.agents.deps import fake_registry, test_deps
-from src.agents.intake import ScriptedIntake
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.deps import fake_registry, test_deps
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import (
     AgentName,
     CommitAction,
     CommitActionKind,
@@ -15,7 +14,8 @@ from src.agents.models import (
     SessionContext,
     Task,
 )
-from src.agents.planning import PlannerInput, TemplatePlanner, validate_plan
+from relohome_agent.agents.planning import PlannerInput, TemplatePlanner, validate_plan
+
 from tests.test_agents.helpers import Session, commit_fact, fact, intake_result
 
 REG = fake_registry()
@@ -129,7 +129,7 @@ async def test_refine_adds_domain_and_keeps_task_ids_s5():
 
 @pytest.mark.asyncio
 async def test_prefilled_filters_go_to_soft_filters():
-    from src.agents.models import PrefilledValue
+    from relohome_agent.agents.models import PrefilledValue
 
     intake = intake_result(domains=[AgentName.PROPERTY], values={"near": "Quận 10", "max_price_vnd": 5_000_000})
     intake = intake.model_copy(

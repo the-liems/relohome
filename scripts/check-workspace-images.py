@@ -32,7 +32,7 @@ def check(image, name):
             command += ["--target", image["target"]]
         docker(*command, image["context"])
         if name == "web":
-            docker("run", "--rm", "--network", "none", "--entrypoint", "python", tag, "-c", "import Frontend.server")
+            docker("run", "--rm", "--network", "none", "--entrypoint", "python", tag, "-c", "import relohome_gateway.server")
         if name.endswith("-migrate"):
             resource = "database/migrations" if name == "location-migrate" else "database/moving"
             entry = (

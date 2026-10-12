@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-
-from src.agents.wiring import AgentService
-from src.main import app
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.main import app
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.fixture

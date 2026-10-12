@@ -1,10 +1,9 @@
 import pytest
 from langchain_core.messages import HumanMessage
-
-from src.agents.common import utcnow
-from src.agents.intake import IntakeInput, ground_facts
-from src.agents.intake_llm import DraftFact, IntakeDraft, LlmIntake, valid_value
-from src.agents.models import AgentName, ConfirmedFact, RequestKind, SessionContext
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.intake import IntakeInput, ground_facts
+from relohome_agent.agents.intake_llm import DraftFact, IntakeDraft, LlmIntake, valid_value
+from relohome_agent.agents.models import AgentName, ConfirmedFact, RequestKind, SessionContext
 
 
 @pytest.mark.parametrize("text", ["Tôi muốn tìm người ở cùng", "Tôi muốn ghép trọ", "Có ai đang tìm roommate không?"])

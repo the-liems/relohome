@@ -3,12 +3,11 @@
 import httpx
 import pytest
 from fastapi import FastAPI
-
-from src.agents.graph import run_config
-from src.agents.models import MemoryUpdate
-from src.agents.wiring import AgentService
-from src.api.routes import router
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import MemoryUpdate
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api.routes import router
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.mark.asyncio

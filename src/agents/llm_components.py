@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.agents.intake_llm import LlmIntake
-from src.agents.llm import LLMError, StructuredLLM
-from src.agents.planner_llm import LlmPlanner
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
-from src.agents.subagents.services.moving import QuoteContact
-from src.agents.subagents.services.moving_llm import MovingLlmAgent
-from src.agents.subagents.services.read_llm import ReadLlmAgent
-from src.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.agents.intake_llm import LlmIntake
+from relohome_agent.agents.llm import LLMError, StructuredLLM
+from relohome_agent.agents.planner_llm import LlmPlanner
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.subagents.services.moving import QuoteContact
+from relohome_agent.agents.subagents.services.moving_llm import MovingLlmAgent
+from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
+from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
 
 @dataclass

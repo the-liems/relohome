@@ -10,7 +10,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from time import monotonic
 
-from src.services.adapters.mcp import McpToolClient
+from relohome_agent.services.adapters.mcp import McpToolClient
 
 
 class MovingCatalogCache:

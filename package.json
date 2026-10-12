@@ -29,7 +29,7 @@
     "build:map": "npm run build --workspace \"Maps VN/LifeFlow/map-app\"",
     "build:moving": "npm run build --workspace \"Maps VN/LifeFlow/packages/contracts\" && npm run build --workspace \"Maps VN/LifeFlow/packages/mcp-core\" && npm run build --workspace \"Maps VN/LifeFlow/packages/moving-service\" && npm run build --workspace \"Maps VN/LifeFlow/moving-api\" && npm run build --workspace \"Maps VN/LifeFlow/moving-mcp-server\"",
     "lint": "npm run lint:python && npm run lint:ts",
-    "lint:python": "node scripts/python.mjs -m ruff check src/ tests/ scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/check-workspace-images.py",
+    "lint:python": "node scripts/python.mjs -m ruff check src/ packages/python/ tests/ scripts/check-python-packages.py scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/check-workspace-images.py",
     "lint:ts": "npm run lint --workspaces --if-present",
     "format:check": "node scripts/python.mjs -m ruff format --check src/ tests/",
     "format": "node scripts/python.mjs -m ruff format src/ tests/",
@@ -55,14 +55,15 @@
     "dev:moving-api": "npm run dev --workspace \"Maps VN/LifeFlow/moving-api\"",
     "dev:moving-mcp": "npm run dev --workspace \"Maps VN/LifeFlow/moving-mcp-server\"",
     "dev:moving-mcp:http": "npm run dev:http --workspace \"Maps VN/LifeFlow/moving-mcp-server\"",
-    "dev:agent": "node scripts/python.mjs -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000",
-    "dev:gateway": "node scripts/python.mjs -m uvicorn Frontend.server:app --host 0.0.0.0 --port 8503 --workers 1",
+    "dev:agent": "node scripts/python.mjs -m uvicorn relohome_agent.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:gateway": "node scripts/python.mjs -m uvicorn relohome_gateway.server:app --host 0.0.0.0 --port 8503 --workers 1",
     "dev:flight-demo": "node scripts/python.mjs -m streamlit run src/ui/flight_demo.py",
     "dev:payment-demo": "node scripts/python.mjs -m streamlit run src/ui/payment_demo.py --server.port 8502",
     "dev:agent-chat": "node scripts/python.mjs -m streamlit run src/ui/agent_chat.py",
-    "dev:flights-mcp": "node scripts/python.mjs -m src.mcp_servers.flights --transport stdio",
-    "dev:payments-mcp": "node scripts/python.mjs -m src.mcp_servers.payments --transport stdio",
-    "dev:intake": "node scripts/python.mjs -m uvicorn src.agent_services.intake.app:app --host 0.0.0.0 --port 8011",
-    "dev:orchestrator": "node scripts/python.mjs -m uvicorn src.agent_services.orchestrator.app:app --host 0.0.0.0 --port 8012"
+    "dev:flights-mcp": "node scripts/python.mjs -m relohome_flights_mcp --transport stdio",
+    "dev:payments-mcp": "node scripts/python.mjs -m relohome_payments_mcp --transport stdio",
+    "dev:intake": "node scripts/python.mjs -m uvicorn relohome_intake.app:app --host 0.0.0.0 --port 8011",
+    "dev:orchestrator": "node scripts/python.mjs -m uvicorn relohome_orchestrator.app:app --host 0.0.0.0 --port 8012",
+    "test:packages": "node scripts/python.mjs scripts/check-python-packages.py"
   }
 }

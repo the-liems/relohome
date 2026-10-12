@@ -20,11 +20,10 @@ from time import perf_counter
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
 
 
 async def catalog_check():
-    from src.services.adapters.registry import ServiceRegistry
+    from relohome_agent.services.adapters.registry import ServiceRegistry
 
     client = ServiceRegistry.from_settings().flight.read_client()
     if not client:
@@ -40,14 +39,13 @@ async def catalog_check():
 
 async def measure_live():
     import httpx
-
-    from src.agents.common import utcnow
-    from src.agents.contracts import AgentTaskRequest
-    from src.agents.models import AgentBudget, AgentName
-    from src.agents.subagents.services.domain_tools import DomainToolSession
-    from src.agents.subagents.services.location import LocationSubagent
-    from src.main import app
-    from src.services.adapters.registry import ServiceRegistry, ServiceSettings
+    from relohome_agent.agents.common import utcnow
+    from relohome_agent.agents.contracts import AgentTaskRequest
+    from relohome_agent.agents.models import AgentBudget, AgentName
+    from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
+    from relohome_agent.agents.subagents.services.location import LocationSubagent
+    from relohome_agent.main import app
+    from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
     run_id = uuid.uuid4().hex[:10]
     run_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y%m%d")
@@ -125,9 +123,9 @@ async def measure_ui(report_path):
     if folder.parent != ROOT / "data" or not re.fullmatch(r"read-latency-\d{8}-[a-f0-9]{10}", folder.name):
         raise ValueError("Use a report from this script's own ignored data directory.")
     os.environ["AGENT_STATE_DIR"] = str(folder / "runtime")
-    from src.agents.graph import run_config
-    from src.main import app
-    from src.services.adapters.registry import ServiceSettings
+    from relohome_agent.agents.graph import run_config
+    from relohome_agent.main import app
+    from relohome_agent.services.adapters.registry import ServiceSettings
 
     reports = json.loads(report_path.read_text(encoding="utf-8"))
     settings = ServiceSettings()

@@ -1,11 +1,10 @@
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
-
-from src.agent_services.intake.models import IntakeResult
-from src.agent_services.llm import StructuredLLM
-from src.agent_services.orchestrator.models import PlanDraft
-from src.agent_services.orchestrator.registry import Registry, planning_schema, validate_plan
+from relohome_agent_services.intake_models import IntakeResult
+from relohome_agent_services.llm import StructuredLLM
+from relohome_orchestrator.models import PlanDraft
+from relohome_orchestrator.registry import Registry, planning_schema, validate_plan
 
 PROMPT = """Bạn là Routing Orchestrator của LifeFlow, lập kế hoạch từ IntakeResult.
 Chỉ chọn service/tool trong registry được cấp. Registry là metadata hợp đồng, không

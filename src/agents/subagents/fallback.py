@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult
-from src.agents.subagents.base import AgentTransportError, DomainAgent
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult
+from relohome_agent.agents.subagents.base import AgentTransportError, DomainAgent
 
 
 class FallbackAgent:

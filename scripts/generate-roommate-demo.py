@@ -8,17 +8,15 @@ import argparse
 import asyncio
 import json
 import runpy
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
 
 
 def build_dataset(anchors, now, *, count=100, valid_days=30):
     """Build repeatable profile variety without accounts, contacts, or LLM calls."""
-    from src.roommate.demo import DemoDataset
+    from relohome_roommate.demo import DemoDataset
 
     if not 30 <= count <= 100:
         raise ValueError("Demo dataset must contain 30 to 100 profiles")
@@ -119,8 +117,8 @@ def build_dataset(anchors, now, *, count=100, valid_days=30):
 async def generate(focus_areas=(), *, count=100, valid_days=30):
     import os
 
-    from src.agents.subagents.services.location import pick_city_area, pick_clear
-    from src.services.adapters.registry import ServiceRegistry, ServiceSettings
+    from relohome_agent.agents.subagents.services.location import pick_city_area, pick_clear
+    from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
     os.environ.update(runpy.run_path(str(ROOT / "scripts/local-integration.py"))["environment"]("api"))
     client = ServiceRegistry.from_settings(ServiceSettings()).location.read_client()
@@ -180,7 +178,7 @@ def main():
         parser.error("Use a private .json dataset outside frontend assets")
     if output.exists():
         parser.error("Dataset already exists; choose a new filename rather than overwriting")
-    from src.roommate.policy import City
+    from relohome_roommate.policy import City
 
     focus_areas = []
     for scope in args.area:

@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import Field, StrictBool
+from relohome_agent.api.roommate_access import PRIVATE_HEADERS, Context, TrustedActor, perform
+from relohome_roommate.api_models import ReasonText
+from relohome_roommate.media import MAX_IMAGE_BYTES, MediaService
+from relohome_roommate.models import RoommateModel
 from starlette.concurrency import run_in_threadpool
-
-from src.api.roommate_access import PRIVATE_HEADERS, Context, TrustedActor, perform
-from src.roommate.api_models import ReasonText
-from src.roommate.media import MAX_IMAGE_BYTES, MediaService
-from src.roommate.models import RoommateModel
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

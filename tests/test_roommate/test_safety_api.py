@@ -1,7 +1,7 @@
 import httpx
 import pytest
+from relohome_agent.api.roommate_safety import router
 
-from src.api.roommate_safety import router
 from tests.test_roommate.test_discovery_api import headers, make_app
 
 

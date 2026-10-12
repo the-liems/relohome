@@ -1,6 +1,6 @@
 """SIU browser gateway. HttpOnly sessions; service secrets never reach JavaScript.
 
-Run from repository root: python -m uvicorn Frontend.server:app --port 8503
+Run from repository root: npm run dev:gateway
 The built Vite app is served here; development Vite proxies /web/api here.
 """
 
@@ -24,24 +24,26 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-
-from Frontend.roommate_gateway import attach_roommate_gateway
-from Frontend.store import Store, TravelerProfiles, password_hash
-from src.agents.intake import redact_pii
-from src.mcp_servers.flights.schemas import Contact, Passenger
-from src.models.moving_options import MovingOptions
-from src.models.schemas import MovingQuoteForm
-from src.roommate.access import RoommateError
-from src.roommate.agent_projection import history_projection
-from src.roommate.media import MAX_IMAGE_BYTES, sanitized_image
+from relohome_contracts.moving_options import MovingOptions
+from relohome_contracts.schemas import MovingQuoteForm
+from relohome_flight.schemas import Contact, Passenger
+from relohome_gateway.roommate_gateway import attach_roommate_gateway
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.store import Store, TravelerProfiles, password_hash
+from relohome_privacy import redact_pii
+from relohome_roommate.access import RoommateError
+from relohome_roommate.agent_projection import history_projection
+from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
 
 ROOT = Path(__file__).resolve().parent
+# Only the legacy source launcher supplies a checkout default. Wheels require explicit configuration.
+LEGACY_ROOT = ROOT.parent if (ROOT / "pyproject.toml").is_file() else None
 COOKIE = "siu_session"
 
 
 def housing_media_dir() -> Path:
     """Owner-uploaded listing images; mount persistently in production (runbook: housing-management)."""
-    return Path(os.getenv("SIU_HOUSING_MEDIA_DIR", str(ROOT / "data" / "housing-media")))
+    return media_path(runtime_root(LEGACY_ROOT))
 
 
 HOUSING_MANAGEMENT_PATHS = (
@@ -175,10 +177,16 @@ def presentation(payload, state):
 def create_app(database=None, transport=None):
     @asynccontextmanager
     async def lifespan(app):
-        app.state.store = Store(database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3")))
+        root = runtime_root(LEGACY_ROOT)
+        path = database_path(root, database)
+        key_path = traveler_key_path(path, root)
+        if path.exists() and not os.getenv("SIU_TRAVELER_KEY") and not key_path.exists():
+            raise ValueError("Existing gateway database requires its original traveler encryption key")
+        app.state.store_path = str(path)
+        app.state.store = Store(path)
         app.state.travelers = TravelerProfiles(
             app.state.store,
-            os.getenv("SIU_TRAVELER_KEY_FILE", str(Path(app.state.store_path).parent / "siu-web-traveler.key")),
+            key_path,
         )
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(250, connect=10), transport=transport)
         app.state.locks = {}
@@ -188,7 +196,7 @@ def create_app(database=None, transport=None):
         app.state.store.db.close()
 
     app = FastAPI(title="SIU AI Web", lifespan=lifespan)
-    app.state.store_path = database or os.getenv("SIU_WEB_DB", str(ROOT.parent / "data/siu-web.sqlite3"))
+    app.state.store_path = database
 
     @app.get("/health")
     async def health():
@@ -1022,7 +1030,7 @@ def create_app(database=None, transport=None):
     async def static(path: str):
         if path.startswith("web/api"):
             raise HTTPException(404)
-        dist = ROOT / "dist"
+        dist = runtime_root(LEGACY_ROOT) / "Frontend" / "dist"
         target = (dist / path).resolve()
         if target.is_relative_to(dist.resolve()) and target.is_file():
             return FileResponse(target)

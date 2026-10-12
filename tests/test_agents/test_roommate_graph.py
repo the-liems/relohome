@@ -1,15 +1,15 @@
 import json
 
 import pytest
+from relohome_agent.agents.intake import FixedIntake
+from relohome_agent.agents.models import AgentName, RequestKind, TaskStatus
+from relohome_agent.agents.planner_llm import LlmPlanner, PlanDraft, TaskDraft
+from relohome_agent.agents.planning import PlannerInput, TemplatePlanner, validate_plan
+from relohome_agent.agents.progress import plan_progress
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.intake import FixedIntake
-from src.agents.models import AgentName, RequestKind, TaskStatus
-from src.agents.planner_llm import LlmPlanner, PlanDraft, TaskDraft
-from src.agents.planning import PlannerInput, TemplatePlanner, validate_plan
-from src.agents.progress import plan_progress
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
-from src.agents.wiring import AgentService
-from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import Session, intake_result
 from tests.test_roommate.test_discovery_api import make_app
 

@@ -3,11 +3,10 @@
 from datetime import timedelta
 
 import pytest
-
-from src.agents.approval import approval_problems, confirmation_hash
-from src.agents.common import utcnow
-from src.agents.models import Approval, CommitAction, CommitActionKind, CostSummary, UserDecision
-from src.services.adapters.fakes import InMemoryApprovalStore
+from relohome_agent.agents.approval import approval_problems, confirmation_hash
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import Approval, CommitAction, CommitActionKind, CostSummary, UserDecision
+from relohome_agent.services.adapters.fakes import InMemoryApprovalStore
 
 NOW = utcnow()
 ACTION = CommitAction(

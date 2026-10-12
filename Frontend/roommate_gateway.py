@@ -6,8 +6,7 @@ import re
 import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-
-from src.roommate.media import MAX_IMAGE_BYTES
+from relohome_roommate.media import MAX_IMAGE_BYTES
 
 IDENTIFIER = r"[A-Za-z0-9_.:-]{1,128}"
 ROUTES = {

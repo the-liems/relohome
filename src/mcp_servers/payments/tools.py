@@ -2,12 +2,11 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from pydantic import Field
-
-from src.mcp_servers.payments.engine import PaymentEngine
-from src.mcp_servers.payments.gateways import create_gateway
-from src.mcp_servers.payments.schemas import MAX_AMOUNT, MIN_AMOUNT, Payment, RefundResult, SimulatedOutcome
-from src.mcp_servers.payments.settings import PaymentSettings, get_payment_settings
-from src.mcp_servers.payments.storage import PaymentDatabase
+from relohome_payment.engine import PaymentEngine
+from relohome_payment.gateways import create_gateway
+from relohome_payment.schemas import MAX_AMOUNT, MIN_AMOUNT, Payment, RefundResult, SimulatedOutcome
+from relohome_payment.settings import PaymentSettings, get_payment_settings
+from relohome_payment.storage import PaymentDatabase
 
 # order_ref/customer_ref cố ý KHÔNG dùng ràng buộc Pydantic (pattern, max_length): lỗi validate của
 # Pydantic in lại giá trị đầu vào, có thể làm lộ email/SĐT. Engine tự kiểm tra và báo lỗi không kèm giá trị.

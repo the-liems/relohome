@@ -6,12 +6,11 @@ from uuid import uuid4
 
 import httpx
 import pytest
-
-from src.agents.contracts import AgentTaskRequest
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.location import LocationSubagent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_HOUSING_MAP_SCOPE_LIVE") != "1", reason="Actual read services opt-in")
 

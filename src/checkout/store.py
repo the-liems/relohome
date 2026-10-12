@@ -7,7 +7,7 @@ import sqlite3
 from contextlib import contextmanager
 from uuid import uuid4
 
-from src.checkout.models import FulfilmentJob, PaymentAttempt, ServiceTransaction
+from relohome_agent.checkout.models import FulfilmentJob, PaymentAttempt, ServiceTransaction
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS checkout_transactions (

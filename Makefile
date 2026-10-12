@@ -5,7 +5,7 @@ MCP_SERVERS := $(notdir $(patsubst %/Dockerfile,%,$(wildcard src/mcp_servers/*/D
 MCP_IMAGE_TAG ?= latest
 
 run:
-	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+	npm run dev:agent
 
 ui:
 	streamlit run src/ui/flight_demo.py
@@ -103,3 +103,7 @@ gateway:
 .PHONY: ui-agent-chat
 ui-agent-chat:
 	npm run dev:agent-chat
+
+.PHONY: test-packages
+test-packages:
+	npm run test:packages

@@ -4,11 +4,10 @@ from datetime import datetime
 from typing import Annotated
 
 from pydantic import Field
-
-from src.mcp_servers.flights.booking_engine import BookingEngine
-from src.mcp_servers.flights.catalog import fare_rules_for, find_airports, load_airlines, load_airports
-from src.mcp_servers.flights.errors import InvalidRequestError
-from src.mcp_servers.flights.schemas import (
+from relohome_flight.booking_engine import BookingEngine
+from relohome_flight.catalog import fare_rules_for, find_airports, load_airlines, load_airports
+from relohome_flight.errors import InvalidRequestError
+from relohome_flight.schemas import (
     Airline,
     Airport,
     Booking,
@@ -18,10 +17,10 @@ from src.mcp_servers.flights.schemas import (
     OfferDetail,
     SearchFlightsResult,
 )
-from src.mcp_servers.flights.search import FlightSearchProvider, create_search_provider, sort_and_limit, validate_search
-from src.mcp_servers.flights.search.base import returns_after_arrival
-from src.mcp_servers.flights.settings import FlightSettings, get_flight_settings, now_vn
-from src.mcp_servers.flights.storage import FlightDatabase, OfferCache
+from relohome_flight.search import FlightSearchProvider, create_search_provider, sort_and_limit, validate_search
+from relohome_flight.search.base import returns_after_arrival
+from relohome_flight.settings import FlightSettings, get_flight_settings, now_vn
+from relohome_flight.storage import FlightDatabase, OfferCache
 
 BookingRef = Annotated[str, Field(min_length=1, description="booking_id (bk_...) hoặc mã PNR 6 ký tự")]
 

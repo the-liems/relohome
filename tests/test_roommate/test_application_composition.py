@@ -1,16 +1,15 @@
 import httpx
 import pytest
-
-from src.agents.models import AgentName
-from src.agents.wiring import AgentService
-from src.config import Settings
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.config import Settings
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [False, True])
 async def test_application_lifespan_wires_roommate_and_private_validation(tmp_path, monkeypatch, enabled):
-    import src.main as main
+    import relohome_agent.main as main
 
     settings = Settings(
         _env_file=None,

@@ -9,8 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-from src.agents.graph import checkpoint_serde
+from relohome_agent.agents.graph import checkpoint_serde
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]

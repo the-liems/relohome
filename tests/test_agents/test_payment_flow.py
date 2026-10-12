@@ -1,12 +1,12 @@
 """Đặt vé + thanh toán bất đồng bộ, huỷ, hết hạn, compensate (agent-graph.md §6.9, §10.2 dòng 3, 11a)."""
 
 import pytest
+from relohome_agent.agents.deps import test_deps
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind
+from relohome_agent.agents.planning import TemplatePlanner
+from relohome_agent.services.adapters.fakes import FakeTransaction
 
-from src.agents.deps import test_deps
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, CommitActionKind, RequestKind
-from src.agents.planning import TemplatePlanner
-from src.services.adapters.fakes import FakeTransaction
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 
 MSG = "Đặt vé Hà Nội – Sài Gòn sáng 15/11 cho 1 người"
