@@ -26,7 +26,7 @@ def docker(*args, capture=False, timeout=180, check=True, quiet=False):
     return result.stdout if capture else result.returncode
 
 
-def verify(kind, image):
+def verify(kind, image, database_image=None):
     name = "migration-test-" + uuid.uuid4().hex[:12]
     database = name + "-db"
     migration = name + "-run"
@@ -34,7 +34,7 @@ def verify(kind, image):
     location = kind == "location-migrate"
     # Read raw YAML: Coolify adds fields that Docker Compose does not accept.
     compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "compose.coolify.yaml").read_text())
-    database_image = compose["services"]["postgis" if location else "moving-db"]["image"]
+    database_image = database_image or compose["services"]["postgis" if location else "moving-db"]["image"]
     history = "public.lifeflow_schema_migrations" if location else "moving.schema_migrations"
     env = (
         {
@@ -181,11 +181,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=["location-migrate", "moving-migrate"])
     parser.add_argument("image")
+    parser.add_argument("--database-image", help="Override the test database image for the current host architecture.")
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
     try:
-        verify(args.kind, args.image)
+        verify(args.kind, args.image, args.database_image)
     except subprocess.TimeoutExpired:
         raise SystemExit("Migration integration test timed out") from None
     except subprocess.CalledProcessError as error:

@@ -103,7 +103,7 @@ def environment(component, sandbox_writes=False, payment_demo=False):
                 {"POSTGRES_ADMIN_USER", "POSTGRES_ADMIN_PASSWORD", "POSTGRES_INGEST_USER", "POSTGRES_INGEST_PASSWORD"}
             )
             # Housing owner workspace: trusted gateway token and moderator account IDs.
-            allowed.update({"AGENT_API_TOKEN", "HOUSING_MODERATOR_IDS", "HOST_TERMS_VERSION", "HOUSING_MESSAGE_RATE_PER_MINUTE"})
+            allowed.update({"AGENT_API_TOKEN", "VIETMAP_API_KEY", "HOUSING_MODERATOR_IDS", "HOST_TERMS_VERSION", "HOUSING_MESSAGE_RATE_PER_MINUTE"})
             allowed.update({"HOUSING_REVIEW_MIN_COUNT", "HOUSING_REVIEW_PATTERN_DAYS", "HOUSING_REVIEW_LOW_STARS",
                             "HOUSING_REVIEW_PATTERN_PROPERTIES", "HOUSING_REVIEW_PATTERN_AUTHORS"})
         env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}

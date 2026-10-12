@@ -29,6 +29,7 @@ export interface PropertySummary {
 }
 
 export interface ManagedUnit {
+  unit_revision: number;
   id: string;
   unit_code: string;
   bedrooms: number | null;
@@ -75,12 +76,15 @@ export interface ManagedListing {
   rejection_reason: string | null;
   revision: number;
   updated_at: string;
+  issues?: Record<string, string>;
   fees: ListingFee[];
   media: ListingMedia[];
 }
 
 export interface PropertyDetail extends PropertySummary {
   management_status: ManagementStatus;
+  location_metadata?: Record<string, unknown>;
+  location_confirmed_at?: string | null;
   units: ManagedUnit[];
 }
 
@@ -103,6 +107,10 @@ export interface ContactRequest {
 }
 
 export interface ModerationProperty {
+  revision: number;
+  lat?: number;
+  lng?: number;
+  location_confirmed_at?: string | null;
   id: string;
   name: string;
   property_type: string;
@@ -115,6 +123,8 @@ export interface ModerationProperty {
 }
 
 export interface ModerationListing {
+  revision: number;
+  publication_status: PublicationStatus;
   id: string;
   title: string;
   description: string | null;
@@ -163,6 +173,7 @@ export interface HostProfilePage {
 }
 
 export interface ModerationHost {
+  revision: number;
   user_id: string;
   poster_type: PosterType;
   display_name: string;

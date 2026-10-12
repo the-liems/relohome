@@ -66,7 +66,7 @@ export class RouteEndpointService {
       JOIN housing.properties p ON p.id = l.property_id
       JOIN catalog.places cp ON cp.id = p.place_id
       JOIN housing.current_offers o ON o.listing_id = l.id
-      WHERE l.id = $1 AND l.status = 'active' AND l.deleted_at IS NULL
+      WHERE l.id = $1 AND NOT EXISTS(SELECT 1 FROM housing.managed_listing_visibility v WHERE v.listing_id=l.id AND NOT v.is_public) AND l.status = 'active' AND l.deleted_at IS NULL
         AND p.deleted_at IS NULL AND cp.status = 'active' AND cp.deleted_at IS NULL
     ` : `
       SELECT COALESCE(legacy.alias_place_id,cp.id) AS canonical_id,

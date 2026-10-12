@@ -1,0 +1,203 @@
+{
+  "baseline": "c1de7d48626c1bb84e6bce3fdd08686046f7cee5",
+  "archive_source": {
+    "archive_bytes": 806587570,
+    "archive_sha256": "0bab81c0b1e27e6fe1dd4c9d910ea238c876a2794dbba48253cb916f182767ab",
+    "entries": 198,
+    "duplicate_entries": 0,
+    "unsafe_paths": 0,
+    "root": "project-data-2026-10-11/",
+    "checksum_manifest_entries": 197,
+    "checksum_mismatches": [],
+    "missing_manifest_files": [],
+    "crc_all_entries_ok": true,
+    "metadata_files": [
+      "roommate/roommate-demo-30.json",
+      "roommate/manifest.json",
+      "ROOMMATE-ADDENDUM-2026-10-08.md",
+      "housing/review.csv",
+      "housing/manifest.json",
+      "housing/README.md",
+      "README.md",
+      "UPDATE-DATA.md",
+      "manifest.json"
+    ],
+    "missing_archive_files": [],
+    "source_comparison": {
+      "rows": 38930,
+      "identity_order_mismatches": 0,
+      "duplicate_before_ids": 0,
+      "duplicate_after_ids": 0,
+      "non_geocode_changes": 0,
+      "addresses_changed": 590,
+      "coordinates_changed": 16184,
+      "invalid_coordinates": 0,
+      "outside_vietnam_box": 0,
+      "independently_verified_geocodes": 0,
+      "changed_geocodes_marked_rooftop": 0,
+      "protected_location_or_address_changed": 0
+    },
+    "decisions": {
+      "update_street_position": 13019,
+      "preserve_building_conflict": 1497,
+      "preserve_street_unresolved": 13315,
+      "preserve_missing_address": 390,
+      "preserve_outside_scope": 117,
+      "update_address_position": 3145,
+      "preserve_unresolved": 6901,
+      "preserve_large_displacement": 511,
+      "preserve_provider_shared_pin": 35
+    },
+    "location_methods": {
+      "vietmap_street_v4": 13039,
+      "source_map": 21697,
+      "vietmap_geocode_v4": 3145,
+      "source_api": 1049
+    },
+    "location_accuracy": {
+      "approximate": 27664,
+      "rooftop": 11266
+    },
+    "listing_status": {
+      "active": 38930
+    },
+    "verification_status": {
+      "unverified": 38930
+    },
+    "same_pin_groups": 4193,
+    "listings_in_same_pin_groups": 32212,
+    "pins_with_distinct_address_keys": 2195,
+    "after_sha256": "48bac15cfd6a88fbfea792c05491d71fab45eb5bf875d9724cbf50898a437e67",
+    "review_columns": [
+      "source_identity",
+      "city",
+      "district",
+      "ward",
+      "housenumber",
+      "street",
+      "decision",
+      "before_lat",
+      "before_lng",
+      "after_lat",
+      "after_lng",
+      "moved_m",
+      "address_changed",
+      "accuracy"
+    ],
+    "review_rows": 38930
+  },
+  "database": {
+    "restore_ok": true,
+    "container": "relohome-pr127-audit-20261012",
+    "isolated": true,
+    "table_counts": {
+      "catalog.place_categories": 55,
+      "catalog.place_media": 0,
+      "catalog.place_sources": 203546,
+      "catalog.places": 169413,
+      "catalog.poi_aliases": 20853,
+      "geo.administrative_areas": 8736,
+      "geo.import_runs": 14,
+      "housing.listing_media": 247527,
+      "housing.listings": 38222,
+      "housing.offers": 38222,
+      "housing.properties": 38222,
+      "housing.units": 38222,
+      "mobility.pricing_rules": 0,
+      "mobility.service_areas": 0,
+      "public.lifeflow_schema_migrations": 23,
+      "housing.map_points": 38222
+    },
+    "manifest_count_mismatches": {},
+    "private_runtime_nonempty_tables": {},
+    "private_runtime_tables_checked": 19,
+    "active_pois": 131191,
+    "active_listings": 38222,
+    "map_source_parity": {
+      "missing_map_points": 0,
+      "extra_map_points": 0,
+      "mismatched_core_fields": 0,
+      "mismatched_display_fields": 0,
+      "invalid_place_points": 0
+    },
+    "source_vs_db": {
+      "db_rows": 38222,
+      "coordinates_match_source": 38222,
+      "coordinates_mismatch_source": 0,
+      "method_mismatch_source": 0,
+      "accuracy_mismatch_source": 0,
+      "status_mismatch_source": 0,
+      "non_housing_anchors": 0
+    },
+    "source_rows_absent_from_db": 708,
+    "coordinate_mismatch_methods": {},
+    "db_verification_statuses": {
+      "unverified": 38222
+    },
+    "db_source_types": {
+      "partner": 38222
+    },
+    "same_pin_listings": {
+      "groups": 4126,
+      "listings": 31580
+    },
+    "rollback_trigger_checks": {
+      "hide_sync": true,
+      "reactivate_sync": true,
+      "unit_sync": true,
+      "fixed_search_path": true,
+      "rolled_back": true
+    },
+    "counts_after_rollback": {
+      "housing.listings": 38222,
+      "housing.map_points": 38222,
+      "housing.units": 38222
+    },
+    "temporary_container_removed": true
+  },
+  "migrations": {
+    "applied_migrations": 23,
+    "missing_in_pr127_source": [],
+    "checksum_mismatches": []
+  },
+  "completeness": {
+    "missing_description": 173,
+    "missing_area": 3286,
+    "nonpositive_price": 0,
+    "listings_without_media": 22,
+    "address_raw_empty": 0,
+    "current_offers": 38222,
+    "properties_by_type": {
+      "apartment": 9407,
+      "homestay": 133,
+      "house": 10533,
+      "other": 1044,
+      "room": 10766,
+      "serviced_apartment": 2492,
+      "studio": 3847
+    }
+  },
+  "absent_source": {
+    "absent_source_reasons": {
+      "source_rows_absent_from_db": 708,
+      "quality_publishable_false": 0,
+      "likely_commercial": 708
+    },
+    "quality_flags": {
+      "likely_commercial": 708,
+      "status_restored": 5,
+      "shared_pin_centroid": 168,
+      "price_outlier_high": 31,
+      "area_outlier_high": 23,
+      "pii_removed": 674,
+      "rooms_inconsistent": 2,
+      "price_per_m2_outlier_high": 6,
+      "deposit_as_months": 18,
+      "city_normalized": 559,
+      "price_per_m2_outlier_low": 14,
+      "contact_redacted": 3,
+      "deposit_implausible": 2,
+      "sale_keyword": 1
+    }
+  }
+}

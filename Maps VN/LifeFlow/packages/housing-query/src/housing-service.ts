@@ -76,7 +76,8 @@ function qualityFlags(attributes: unknown): string[] {
 
 function candidateConditions(request: ParsedHousingSearchRequest, sql: SqlBuilder, listingId?: string, indexed = false): string[] {
   const p = indexed ? 'l' : 'p', u = indexed ? 'l' : 'u', cp = indexed ? 'l' : 'cp'
-  const conditions = indexed ? [] : [
+  const conditions = indexed ? ["NOT EXISTS(SELECT 1 FROM housing.managed_listing_visibility v WHERE v.listing_id=l.id AND NOT v.is_public)"] : [
+    "NOT EXISTS(SELECT 1 FROM housing.managed_listing_visibility v WHERE v.listing_id=l.id AND NOT v.is_public)",
     "l.status = 'active'",
     'l.deleted_at IS NULL',
     'p.deleted_at IS NULL',
@@ -280,7 +281,7 @@ export class HousingQueryService {
     const [media, fees, management] = await Promise.all([
       this.pool.query(
         `SELECT url, alt_text FROM housing.listing_media
-         WHERE listing_id = $1 AND moderation_status='approved' ORDER BY position, id`,
+         WHERE listing_id = $1 AND moderation_status='approved' AND deleted_at IS NULL ORDER BY position, id`,
         [listingId],
       ),
       this.pool.query(
@@ -391,7 +392,7 @@ export class HousingQueryService {
        JOIN page o ON o.listing_id=l.id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
-         WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
+         WHERE lm.listing_id = l.id AND lm.moderation_status='approved' AND lm.deleted_at IS NULL ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
        ) thumbnail ON true
        ORDER BY l.updated_at DESC, l.id`,
       sql.values,
@@ -491,7 +492,7 @@ export class HousingQueryService {
        JOIN catalog.places cp ON cp.id = p.place_id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
-         WHERE lm.listing_id = l.id ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
+         WHERE lm.listing_id = l.id AND lm.moderation_status='approved' AND lm.deleted_at IS NULL ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
        ) thumbnail ON true
        ORDER BY ${orderBy}`,
       sql.values,

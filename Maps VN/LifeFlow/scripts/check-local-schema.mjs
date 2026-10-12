@@ -11,6 +11,12 @@ try {
   pool = createDatabasePool(getApplicationRuntimeConfig().databaseUrl, 1)
   const required = [
     ['housing.listings', 'id'],
+    ['housing.properties','location_confirmed_at'],
+    ['housing.units','revision'],
+    ['housing.managed_listings','approved_revision'],
+    ['housing.listing_media','storage_key'],
+    ['housing.managed_listing_visibility','is_public'],
+    ['housing.listing_reviews','reviewed_revision'],
     ['catalog.places', 'id'],
     ['catalog.poi_aliases', 'canonical_place_id'],
     ['catalog.poi_aliases', 'legacy_name'],
@@ -28,7 +34,7 @@ try {
     console.error('Run from the repository root: .venv/Scripts/python.exe scripts/local-integration.py migrate')
     process.exitCode = 1
   } else {
-    console.log('Database reachable; Housing/Location schema (011-012) is compatible. No data changed.')
+    console.log('Database reachable; Housing/Location schema (through 023) is compatible. No data changed.')
   }
 } catch {
   // Never print a connection URL, environment or database exception containing credentials.

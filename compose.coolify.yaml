@@ -222,6 +222,8 @@ services:
       # authenticates with the shared token; only these account IDs may moderate.
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
+      # Server-only address lookup for owner forms; never put this key in VITE_* settings.
+      VIETMAP_API_KEY: ${VIETMAP_API_KEY:-}
       # Empty: no poster-terms step (team has not published terms yet).
       HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
       HOUSING_MESSAGE_RATE_PER_MINUTE: ${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
