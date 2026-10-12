@@ -1,7 +1,11 @@
 // Pure contracts: no network interception, invented provider result, LLM or UI fixture.
 import { expect, test } from "@playwright/test";
 import { searchScopeFeature } from "../../src/searchScope";
-import { filtersFromSearch, mapRequest } from "../../src/mapWorkspace";
+import {
+  filtersFromSearch,
+  mapRequest,
+  individualListings,
+} from "../../src/mapWorkspace";
 import {
   closedResultSummary,
   pendingServiceInput,
@@ -10,6 +14,34 @@ import {
   navigationProgress,
 } from "../../src/serviceJourney";
 import type { Message, Thread } from "../../src/types";
+import type { House } from "../../src/types";
+
+test("individual markers preserve IDs and coordinates even when source pins coincide", () => {
+  const homes = [
+    { id: "one", lat: 21, lng: 105 },
+    { id: "two", lat: 21, lng: 105 },
+    { id: "three", lat: 21.000001, lng: 105 },
+  ] as House[];
+  const markers = individualListings(homes);
+  expect(markers.map((m) => m.key)).toEqual(["one", "two", "three"]);
+  expect(markers.every((m) => m.houses.length === 1)).toBe(true);
+  expect(markers.map((m) => m.lat)).toEqual(homes.map((h) => h.lat));
+});
+
+test("housing workspace opts out of aggregation without altering user filters or actual zoom", () => {
+  const filters = filtersFromSearch({ max_price: 5000000 });
+  const body = mapRequest(
+    filters,
+    { west: 105, south: 20, east: 106, north: 22 },
+    10,
+  );
+  expect(body.cluster).toBe(false);
+  expect(body.zoom).toBe(10);
+  expect(body.max_price).toBe(5000000);
+  expect(body.amenities).toBeUndefined();
+  expect(body.district).toBeUndefined();
+  expect(body.administrative_area_ids).toBeUndefined();
+});
 
 test("comparison is not a service target; search/map identity survives even legacy reused IDs", () => {
   const thread = {

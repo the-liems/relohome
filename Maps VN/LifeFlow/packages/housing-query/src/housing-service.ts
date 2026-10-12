@@ -329,8 +329,9 @@ export class HousingQueryService {
 
   private async mapWithinBudget(input: unknown): Promise<HousingMapResponse> {
     const request = HousingMapRequestSchema.parse(input)
+    const aggregate = request.cluster !== false && request.zoom < 13
     if (definitelyDisjointScope(request)) return HousingMapResponseSchema.parse({
-      features: [], meta: { mode: request.zoom < 13 ? 'clusters' : 'listings', returned_count: 0, truncated: false },
+      features: [], meta: { mode: aggregate ? 'clusters' : 'listings', returned_count: 0, truncated: false },
     })
     const sql = createSqlBuilder()
     // Text keeps its exact title/description/address semantics on source tables.
@@ -340,7 +341,7 @@ export class HousingQueryService {
     if (request.listing_ids) conditions.push(`l.id = ANY(${sql.parameter(request.listing_ids)}::uuid[])`)
 
     const limit = request.limit + 1
-    if (request.zoom < 13) {
+    if (aggregate) {
       const gridSize = Math.max(0.002, 60 * 360 / (256 * 2 ** request.zoom))
       const result = await this.pool.query(
         `WITH candidates AS (

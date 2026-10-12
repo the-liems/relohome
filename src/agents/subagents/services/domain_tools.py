@@ -23,7 +23,7 @@ from src.agents.subagents.services.common import CountingClient
 from src.agents.subagents.services.location import (
     bbox_of_points,
     pick_city_area,
-    pick_clear,
+    pick_named_area,
     to_candidate,
     union_bbox,
 )
@@ -416,7 +416,7 @@ class DomainToolSession:
             found = (
                 pick_city_area(options)
                 if field == "city"
-                else pick_clear([o for o in options if o.get("match_type") != "fuzzy"])
+                else pick_named_area(options, text, bbox)
             )
         else:
             found, options = await self.adapter._resolve(self.tools, text, bbox)

@@ -1384,6 +1384,9 @@
   "Hội thoại đang xử lý. Hãy chờ kết quả.": "The conversation is still processing. Please wait for the result.",
   "Đang lấy vị trí căn đã chốt. Chờ một chút rồi lấy báo giá.": "Loading the location of your decided home. Wait a moment, then request a quote.",
   "Chưa có vị trí căn đã chốt. Hãy ghim cổng nhà trên bản đồ làm điểm B.": "The decided home has no location yet. Pin its entrance on the map as point B.",
+  "Chi tiết tiện ích": "Place details",
+  "Giờ mở cửa": "Opening hours",
+  "Thông tin theo dữ liệu bản đồ; hãy kiểm tra lại trước khi đến.": "Information from map data; please check before visiting.",
   "Điểm B là căn đã chốt.": "Point B is your decided home.",
   "Điểm B là căn đã chốt. Vị trí tin đăng có thể gần đúng: kiểm tra cổng xe đến, cần thì ghim lại.": "Point B is your decided home. The listing location may be approximate: check where the vehicle should stop and pin again if needed."
 }

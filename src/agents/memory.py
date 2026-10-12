@@ -86,10 +86,18 @@ def prefill_from_memory(
 ) -> dict[str, PrefilledValue]:
     """Giá trị mức 1 được tự điền cho lượt này. Tin nhắn luôn thắng bộ nhớ."""
     candidates: dict[str, PrefilledValue] = {}
+    # An explicitly scoped search is complete enough to run as stated. Past
+    # searches are suggestions, not permission to narrow this one, even when
+    # the city has not changed. Conversation refinements are carried by Intake
+    # separately; this policy concerns cross-goal/session memory only.
+    explicit_housing_scope = any(key in stated for key in ("city", "district", "near", "bounding_box"))
+    remembered_search_filters = {"district", "near", "max_price_vnd", "room_type", "must_have"}
     for domain in domains:
         if cost_tiers.get(domain) != "cheap":
             continue
         for key in PREFILL_FIELDS_BY_DOMAIN.get(domain, ()):
+            if domain == AgentName.PROPERTY and explicit_housing_scope and key in remembered_search_filters:
+                continue
             tier = MEMORY_TIERS.get(key)
             memory = memory_value(session, key)
             if key in stated or key not in ttl or tier is None or tier[0] != 1:
