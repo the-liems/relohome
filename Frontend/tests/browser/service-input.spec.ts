@@ -287,6 +287,14 @@ test("a pending Moving task never steals Flight input; choosing a flight offers 
   ).toBeVisible();
   expect(turns).toHaveLength(1);
   expect(actions).toHaveLength(1);
+  await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+  await expect(page.locator(".composer textarea")).toBeVisible();
+  await expect(
+    page.getByRole("region", {
+      name: "Bước tiếp theo trong kế hoạch",
+      exact: true,
+    }),
+  ).toHaveCount(0);
 });
 
 test("a home chosen for viewing offers Moving explicitly and keeps the destination undecided", async ({
@@ -410,6 +418,36 @@ test("a home chosen for viewing offers Moving explicitly and keeps the destinati
     exact: true,
   });
   await expect(step).toContainText("Nhà mới được chọn để hẹn xem");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Dịch vụ trong kế hoạch" })
+      .getByRole("region", { name: "Bước tiếp theo trong kế hoạch" }),
+  ).toBeVisible();
+  const reminderBox = await step.boundingBox();
+  expect(reminderBox!.height).toBeLessThanOrEqual(52);
+  expect(reminderBox!.width).toBeLessThan(360);
+  const suggestions = page.getByRole("group", {
+    name: "Gợi ý dịch vụ liên quan",
+    exact: true,
+  });
+  await expect(
+    suggestions.getByRole("button", { name: "Chuyển đồ", exact: true }),
+  ).toHaveCount(0);
+  await suggestions
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
+  const optionalFlight = page.getByRole("dialog");
+  await expect(
+    optionalFlight.getByLabel("Nơi đi", { exact: true }),
+  ).toBeVisible();
+  expect(turns).toHaveLength(0);
+  expect(actions).toHaveLength(0);
+  await optionalFlight
+    .getByRole("button", { name: "Hủy", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Bản đồ nhà ở", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("complementary", {
       name: "Thông tin chuyển đồ",

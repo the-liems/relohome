@@ -15,13 +15,11 @@ export function PlanNextStep({
   viewingOnly,
   disabled,
   onContinue,
-  onPlan,
 }: {
   step: PlanStep;
   viewingOnly: boolean;
   disabled: boolean;
   onContinue: () => void;
-  onPlan: () => void;
 }) {
   const Icon =
     {
@@ -36,32 +34,29 @@ export function PlanNextStep({
       className="plan-next-step"
       aria-label={uiText("Bước tiếp theo trong kế hoạch")}
     >
-      <span className="plan-next-icon" aria-hidden="true">
-        <Icon size={22} />
-      </span>
-      <div className="plan-next-copy">
-        <strong>{uiText("Tiếp tục kế hoạch của bạn")}</strong>
-        <p>
+      <button
+        className="plan-next-button"
+        onClick={onContinue}
+        disabled={disabled}
+        title={uiText(
+          viewingOnly && step.agent === "relocation"
+            ? "Nhà mới được chọn để hẹn xem. Bạn sẽ xác nhận điểm giao khi lấy báo giá."
+            : "Bổ sung thông tin cho bước kế tiếp khi bạn sẵn sàng.",
+        )}
+      >
+        <Icon size={16} aria-hidden="true" />
+        {formatUi("Bước tiếp theo: {0}", [
+          uiText(domainLabels[step.agent] || step.agent),
+        ])}
+        <ArrowRight size={16} />
+      </button>
+      {viewingOnly && step.agent === "relocation" && (
+        <span className="sr-only">
           {uiText(
-            viewingOnly && step.agent === "relocation"
-              ? "Nhà mới được chọn để hẹn xem. Bạn sẽ xác nhận điểm giao khi lấy báo giá."
-              : step.kind === "input"
-                ? "Bổ sung thông tin cho bước kế tiếp khi bạn sẵn sàng."
-                : "Xem và chọn phương án cho bước kế tiếp khi bạn sẵn sàng.",
+            "Nhà mới được chọn để hẹn xem. Bạn sẽ xác nhận điểm giao khi lấy báo giá.",
           )}
-        </p>
-      </div>
-      <div className="plan-next-actions">
-        <button className="text-button" onClick={onPlan} disabled={disabled}>
-          {uiText("Xem kế hoạch")}
-        </button>
-        <button className="primary" onClick={onContinue} disabled={disabled}>
-          {formatUi("Bước tiếp theo: {0}", [
-            uiText(domainLabels[step.agent] || step.agent),
-          ])}
-          <ArrowRight size={16} />
-        </button>
-      </div>
+        </span>
+      )}
     </section>
   );
 }

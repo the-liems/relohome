@@ -14,8 +14,10 @@ Không sửa trạng thái đó để tạo cảm giác kế hoạch hoàn tất
 
 - Chọn nhà hẹn xem vẫn ở bản đồ, giữ giỏ và nút hẹn lịch xem hiện có.
 - Chọn chuyến bay/phương án xe vẫn ở workspace đó, giữ lựa chọn hiển thị.
-- Khi có bước khác trong kế hoạch, thanh **Tiếp tục kế hoạch của bạn** hiển thị
-  **Bước tiếp theo: [dịch vụ]** và **Xem kế hoạch**. Chỉ bấm mới mở bước kế tiếp.
+- Khi có bước khác trong kế hoạch, nút nhắc nhỏ **Bước tiếp theo: [dịch vụ]**
+  nằm cạnh các tab dịch vụ trên workspace. Chỉ bấm mới mở bước kế tiếp.
+  Không hiện banner lớn và không hiện nhắc riêng ở màn hình chat. Lý do/giới hạn
+  chọn nhà được giữ trong tooltip và nội dung hỗ trợ screen reader.
 - CTA dùng progress/current plan và đúng task ID. Bỏ qua lịch sử, so sánh,
   phương án đã chọn, kết quả đã duyệt và dịch vụ không có trong kế hoạch.
 - Nhà trong giỏ hẹn xem được coi là đã xem qua ở tầng điều hướng để có thể
@@ -26,6 +28,31 @@ Không sửa trạng thái đó để tạo cảm giác kế hoạch hoàn tất
   form và che Flight. Moving-only clarification vẫn mở form như trước.
 - Nút **Về hội thoại** vẫn quay về chat khi người dùng chủ động bấm.
 - Dùng cùng token hiện hành; CTA 44px, responsive, VI/EN và sáng/tối.
+
+## Gợi mở dịch vụ bổ sung
+
+Nhóm **Bạn có thể cần** là các entrypoint tùy chọn trên workspace. Quy tắc
+frontend đơn giản, không gọi LLM để chọn gợi ý:
+
+| Đang dùng | Các gợi ý theo thứ tự |
+| --- | --- |
+| Tìm nhà | Chuyển đồ, Flight, Roommate, Cẩm nang |
+| Flight | Tìm nhà, Chuyển đồ, Cẩm nang |
+| Chuyển đồ | Flight, Tìm nhà, Cẩm nang |
+| Map | Tìm nhà, Roommate, Cẩm nang |
+
+Lọc bỏ các dịch vụ đã có trong kế hoạch và không nằm trong danh sách domain
+đã bật của Agent (Cẩm nang là trang công khai), rồi chỉ hiện tối đa 3 gợi ý.
+Các bước đã có trong kế hoạch tiếp tục đi qua tab dịch vụ/nút Bước tiếp theo;
+không được gợi như một dịch vụ mới.
+
+Flight/Housing mở form ngay trên workspace đang dùng; hủy giữ nguyên màn hình
+và lựa chọn. Moving mở workspace A/B; Roommate/Guides mở các route hiện có.
+Bấm gợi ý chưa tạo task, chưa gửi chat/action/quote; chỉ sau submit người dùng
+thì dùng luồng Agent hiện hành. Không sửa backend/schema/recommendation.
+
+`ServiceSuggestions.tsx` trình bày, `relatedServices` trong `serviceJourney.ts`
+lọc danh sách; App nối callbacks. Không thêm endpoint hoặc dependency mới.
 
 Các luồng xác nhận địa chỉ, báo giá, hẹn lịch, chốt nhà, đặt xe và thanh toán
 tiếp tục dùng backend/API/guards hiện có. Mở bước kế tiếp không gọi Agent,
@@ -59,6 +86,30 @@ không tạo action lựa chọn hoặc bất kỳ giao dịch nào.
   tới Quận 1. Không sửa policy gom nhóm hoặc dữ liệu bản đồ để làm test qua.
 - Frontend build qua, bản mới phục vụ tại cổng 8503.
 
+Sau khi thu gọn CTA và thêm gợi ý: **29 contract pass**, **18 browser pass**.
+Browser kiểm nút nhắc cao tối đa 52px/rộng dưới 360px ở desktop, nằm trong
+navigation của workspace; về chat không còn banner. Từ map bấm gợi ý Flight
+mở form, hủy trả về đúng map, không có chat/action phát sinh. Các assertions
+response/draft/retry/selection vẫn giữ.
+
 Đây là kiểm chứng có mục tiêu cho lỗi điều hướng. Các ca fail của full suite
 trước đó trong `service-regression-2026-10-12.md` chưa được đóng bởi thay đổi này.
 Push/PR vẫn tạm dừng theo yêu cầu người dùng để họ kiểm tra bản sửa local.
+
+## Checkout local
+
+Tab Thanh toán được render từ `state.checkout`; không bị xóa trong redesign.
+Launcher `start-local-mvp.ps1` dùng chế độ đọc mặc định, nên lần bật app trước
+không có checkout, khác cấu hình demo trên staging. Ngày 12/10 đã restart đúng
+API và Flight với `scripts/local-integration.py <component> --payment-demo`:
+`app_payment=true`, Flight giữ chỗ/vé mô phỏng, Payment vẫn ZaloPay sandbox,
+Moving writes vẫn tắt. Không sửa `.env`, không tạo đơn/thu tiền, không tự thêm
+tài khoản tester. `PAYMENT_TESTER_CONFIRM_ENABLED=false` được truyền riêng
+cho lần khởi động để không bật nút giả lập xác nhận đã trả.
+
+Read endpoint checkout của chính hội thoại được báo trả HTTP 200/enabled,
+state projection có checkout. Tải lại trang để gateway đọc trạng thái mới.
+Browser build thật sau restart: form Flight tìm được offers, tab Thanh toán
+có trong Kế hoạch và mở được bảng tổng: **1 pass**, không tạo thanh toán.
+Khi khởi động lại sau này, chạy API và Flight với `--payment-demo` nếu muốn
+test cùng cấu hình này; launcher mặc định không tự bật giao dịch/demo.

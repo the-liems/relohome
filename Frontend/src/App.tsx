@@ -64,6 +64,7 @@ import {
   canSelectServiceResult,
   navigationProgress,
   nextPlanStep,
+  relatedServices,
 } from "./serviceJourney";
 import type {
   Component,
@@ -81,6 +82,7 @@ import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { ServiceInputPanel } from "./components/ServiceInputPanel";
 import { PlanNextStep } from "./components/PlanNextStep";
+import { ServiceSuggestions } from "./components/ServiceSuggestions";
 import { clarificationServices, guidedReplyText, requestDefaults, type FormService } from "./serviceRequest";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
@@ -1163,7 +1165,14 @@ function Chat() {
   const inputServices = clarificationServices(inputThread);
   const planStep = nextPlanStep(thread, reviewedServices.current);
   const currentInputService = workspace === "relocation-form" ? "relocation" : workspace || form || inputServices[0];
-  const showNextStep = planStep && planStep.agent !== currentInputService && !form && !(inputServices.length && !workspace);
+  const showNextStep = planStep && !!workspace && planStep.agent !== currentInputService && !form;
+  const suggestedServices = relatedServices(workspace === "relocation-form" ? "relocation" : workspace,
+    (navigation.items || []).map((i: Data) => i.agent), status?.domains || []);
+  function openSuggestedService(service: string) {
+    if (service === "guides" || service === "roommate") { navigate("/" + service); return; }
+    if (service === "relocation") { setWorkspaceTaskId(null); setWorkspace("relocation-form"); return; }
+    if (service === "flight" || service === "property") setForm(service);
+  }
   async function sendForm(text: string) {
     if (inFlight.current) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
     if (!status) throw new Error(uiText("Chưa kết nối được AI."));
@@ -1350,7 +1359,7 @@ function Chat() {
         busy={busy}
         onOpenService={openService}
       />
-      {(navigation.items || []).length > 1 && (
+      {((navigation.items || []).length > 1 || suggestedServices.length > 0) && (
         <nav
           className="service-journey"
           aria-label={uiText("Dịch vụ trong kế hoạch")}
@@ -1372,12 +1381,12 @@ function Chat() {
               )}
             </button>
           ))}
+          {showNextStep && planStep && (
+            <PlanNextStep step={planStep} viewingOnly={viewingItems.length > 0 && !selectedHouse} disabled={busy}
+              onContinue={() => openService(planStep.taskId, planStep.agent)} />
+          )}
+          <ServiceSuggestions services={suggestedServices} disabled={busy} onOpen={openSuggestedService} />
         </nav>
-      )}
-      {showNextStep && planStep && (
-        <PlanNextStep step={planStep} viewingOnly={viewingItems.length > 0 && !selectedHouse} disabled={busy}
-          onContinue={() => openService(planStep.taskId, planStep.agent)}
-          onPlan={() => setParams(p => { const next = new URLSearchParams(p); next.set("panel", "plan"); next.set("planTab", "progress"); return next; })} />
       )}
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace

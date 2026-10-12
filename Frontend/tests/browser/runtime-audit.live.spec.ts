@@ -45,6 +45,14 @@ test("real built gateway UI: flight tile form reaches the live provider without 
   await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   await page.screenshot({ path: info.outputPath("flight-form-live-desktop.png"), fullPage: true });
+  // Launcher checkout configuration must reach the plan, even before a fare is selected.
+  expect(data.state.checkout).toBeTruthy();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch", exact: true }).click();
+  const plan = page.getByRole("region", { name: "Kế hoạch trong cuộc trò chuyện", exact: true });
+  await expect(plan.getByRole("tab", { name: "Thanh toán", exact: true })).toBeVisible();
+  await plan.getByRole("tab", { name: "Thanh toán", exact: true }).click();
+  await expect(plan.locator(".checkout-totals")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("checkout-tab-live.png"), fullPage: true });
 });
 
 test("real built gateway UI: housing answer renders map and keeps service navigation", async ({
