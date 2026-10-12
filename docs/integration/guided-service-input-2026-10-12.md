@@ -89,3 +89,11 @@ ghi rõ các ca còn fail trong suite cũ. Chưa kiểm tra lại deployment clo
 Form dùng số người lớn theo contract Agent hiện tại; không thêm hạng vé/trẻ em
 khi Agent chưa truyền các trường đó. Bản nháp ở form có scope của lượt hỏi;
 không ghi riêng vào DB hay trộn sang cuộc trò chuyện khác.
+
+## Mở rộng Xem nhà: lịch hẹn theo nhóm
+
+Tab Xem nhà có card gọn và flow chọn căn → chọn giờ riêng → xem lại → một
+nút xác nhận chung. Footer nằm ngoài vùng cuộn, map được giữ khi lưu lịch.
+Các thao tác hủy/chốt/liên hệ vẫn dùng logic và API hiện có trong Chi tiết.
+Xem [bàn giao bulk scheduling](viewing-bulk-scheduling-2026-10-12.md) để biết
+contract, xử lý lỗi từng phần, test và nguồn UX tham khảo.

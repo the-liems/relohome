@@ -43,6 +43,14 @@ trạng thái và việc gửi/chờ chủ nhà. `unselect` có thể hủy lị
 
 ## Design contract
 
+### Nguồn tham khảo sản phẩm
+
+- [Zillow — Tour houses](https://www.zillow.com/buy/touring/): chọn căn → ngày/giờ → kết nối để hẹn xem; Touring Hub có checklist. Áp dụng vào các bước rõ ràng và gợi ý chuẩn bị sau khi lưu.
+- [Zillow Rental Manager — Tour scheduling FAQ](https://help.zillowrentalmanager.com/hc/en-us/articles/47479822560275-Instant-tour-scheduling-FAQ-for-landlords): phân biệt Instant Book với Review and Confirm. ReloHome giữ xác nhận chủ nhà hiện có; không giả định availability thật hay booking tức thì.
+- [Airbnb — Reservation requests](https://www.airbnb.com/help/article/85): nhập thông tin, xem lại trước khi gửi; phân biệt request với xác nhận. Áp dụng bảng review và trạng thái từng căn.
+
+Đọc nguồn chính thức ngày 12/10/2026. Bulk tối đa 3 căn, footer cố định và xử lý lỗi từng phần là thiết kế cho contract của ReloHome; không tuyên bố các nền tảng trên dùng cùng batch flow.
+
 Xanh lá/token cũ; checkbox/control >=44px; card border gọn, không thêm gradient.
 Body cuộn; footer sticky theo đúng scroll container, không đè nội dung hay nút
 footer của PlanPeek. Mobile 320px: ngày/giờ xếp dọc, CTA full width; desktop
