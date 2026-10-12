@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 import base from "./playwright.config";
 export default defineConfig({
   ...base,
-  testMatch: ["roommate.spec.ts", "app.spec.ts"],
+  testMatch: ["roommate.spec.ts", "roommate-production.spec.ts", "app.spec.ts"],
   outputDir: "test-results/roommate-ui",
   use: { ...base.use, baseURL: "http://127.0.0.1:18574" },
   webServer: {

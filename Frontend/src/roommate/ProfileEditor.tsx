@@ -3,6 +3,7 @@ import { FactsForm } from "./FactsForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { rt } from "./text";
 import { useEffect, useState } from "react";
+import { RoomPicker } from "./RoomPicker";
 export function ProfileEditor({
   value,
   change,
@@ -17,7 +18,7 @@ export function ProfileEditor({
     if (value.room) setRoomId(value.room.listing_id);
   }, [value.room?.listing_id]);
   useEffect(() => {
-    if (value.facts.need?.kind !== "has_room") setRoomId("");
+    setRoomId(value.room?.listing_id || "");
   }, [value.facts.city, value.facts.need?.kind]);
   return (
     <>
@@ -90,20 +91,19 @@ export function ProfileEditor({
             )}
           </summary>
           <p className="rm-hint">
-            Chỉ khai báo phòng bạn đang có quyền ở. Vị trí căn được công khai
-            khi đăng nhu cầu; không tự lấy từ nhà đã chọn trong chat.
+            {rt(
+              "Vị trí căn chỉ được công khai khi bạn đồng ý và đăng nhu cầu.",
+              "The room location appears only when you consent and publish your profile.",
+            )}
           </p>
-          <label>
-            Mã tin nhà (listing ID)
-            <input
-              maxLength={200}
-              value={roomId}
-              onChange={(e) => {
-                setRoomId(e.target.value);
-                change({ ...value, room: null });
-              }}
-            />
-          </label>
+          <RoomPicker
+            city={value.facts.city}
+            identifier={roomId}
+            select={(id) => {
+              setRoomId(id);
+              change({ ...value, room: null });
+            }}
+          />
           <label>
             <input
               type="checkbox"
@@ -121,11 +121,16 @@ export function ProfileEditor({
                 })
               }
             />
-            Tôi đồng ý công khai vị trí phòng này và xác nhận đang tìm bạn trọ.
+            {rt(
+              "Tôi đồng ý công khai vị trí phòng này và xác nhận đang tìm bạn trọ.",
+              "I consent to showing this room location and confirm I am looking for a roommate.",
+            )}
           </label>
           <small>
-            Đây là khai báo của bạn, không phải chứng nhận quyền sở hữu từ
-            ReloHome. Để trống mã tin nếu không muốn hiện vị trí.
+            {rt(
+              "Để trống nếu không muốn hiện vị trí. Hồ sơ vẫn tìm được người phù hợp.",
+              "Leave this empty to keep the location private. You can still find suitable roommates.",
+            )}
           </small>
         </details>
       )}

@@ -1,4 +1,46 @@
 import { test, expect } from "@playwright/test";
+
+test("real photo upload, moderator review and explicit avatar selection", async ({
+  page,
+}) => {
+  await page.goto("/roommate?signin=1");
+  await page.getByLabel("Email", { exact: true }).fill("anna@roommate.test");
+  await page
+    .getByLabel("Mật khẩu", { exact: true })
+    .fill("roommate-test-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.getByRole("link", { name: "Hồ sơ của tôi", exact: true }).click();
+  await page.getByLabel("Chọn ảnh JPEG hoặc PNG · tối đa 5 MB").setInputFiles({
+    name: "synthetic-test.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNeUAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(page.getByText("Đang chờ duyệt", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Dùng ảnh này", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("link", { name: "Quản lý cộng đồng", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Ảnh hồ sơ", exact: true }).click();
+  await page.getByRole("button", { name: "Duyệt ảnh", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Lý do xử lý")
+    .fill("Synthetic test image; no contact data.");
+  await page
+    .getByRole("button", { name: "Lưu kết quả duyệt", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("link", { name: "Hồ sơ của tôi", exact: true }).click();
+  await page.getByRole("button", { name: "Dùng ảnh này", exact: true }).click();
+  await expect(
+    page.getByText("Ảnh đại diện hiện tại", { exact: true }),
+  ).toBeVisible();
+});
 test("private introduction does not publish; profile publication, pause and resume require review", async ({
   page,
 }) => {
@@ -175,4 +217,35 @@ test("real browser -> session gateway -> Roommate API -> SQLite: send, accept, r
     await senderContext.close();
     await recipientContext.close();
   }
+});
+
+test("owner privacy erasure clears stale contact views while retaining the session", async ({
+  page,
+}) => {
+  await page.goto("/roommate?signin=1");
+  await page.getByLabel("Email", { exact: true }).fill("anna@roommate.test");
+  await page
+    .getByLabel("Mật khẩu", { exact: true })
+    .fill("roommate-test-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.getByRole("link", { name: "Cài đặt", exact: true }).click();
+  const status = await page.request.get("/web/api/roommate/me/privacy");
+  expect(status.status()).toBe(200);
+  expect((await status.json()).version).toBeGreaterThan(0);
+  await expect(
+    page.getByText("0901234567", { exact: false }).first(),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Xóa thông tin Roommate", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Xác nhận xóa thông tin", exact: true })
+    .click();
+  await expect(
+    page.getByText("Đã xóa hồ sơ và thông tin riêng Roommate.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("0901234567", { exact: false })).toHaveCount(0);
+  expect((await page.request.get("/web/api/session")).status()).toBe(200);
 });
