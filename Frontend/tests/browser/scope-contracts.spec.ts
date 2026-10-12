@@ -10,12 +10,29 @@ import {
   closedResultSummary,
   pendingServiceInput,
   nextPlanStep,
+  hasMultipleRequestedServices,
   serviceTargets,
   canSelectServiceResult,
   navigationProgress,
 } from "../../src/serviceJourney";
 import type { Message, Thread } from "../../src/types";
 import type { House } from "../../src/types";
+
+test("next-step mode follows requested services, ignoring unrelated history and duplicate tasks", () => {
+  const thread = { messages: [], state: { plan: { tasks: [] }, progress: { items: [
+    { task_id: "current", agent: "flight" },
+    { task_id: "old", agent: "property", historical_search: true },
+  ] }, intake: { intent: { domains: ["flight"] } } } } as unknown as Thread;
+  expect(hasMultipleRequestedServices(thread)).toBe(false);
+  thread.state.intake.intent.domains = ["flight", "relocation"];
+  expect(hasMultipleRequestedServices(thread)).toBe(true);
+  delete thread.state.intake.intent;
+  expect(hasMultipleRequestedServices(thread)).toBe(false);
+  thread.state.progress.items.push({ task_id: "second-flight", agent: "flight" });
+  expect(hasMultipleRequestedServices(thread)).toBe(false);
+  thread.state.progress.items.push({ task_id: "pending:map", agent: "map" });
+  expect(hasMultipleRequestedServices(thread)).toBe(true);
+});
 
 test("individual markers preserve IDs and coordinates even when source pins coincide", () => {
   const homes = [

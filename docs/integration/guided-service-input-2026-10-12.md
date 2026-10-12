@@ -99,3 +99,10 @@ Các thao tác hủy/chốt/liên hệ hiện trực tiếp trên card, dùng lo
 hiện có. Bỏ phần giới thiệu lặp đầu tab, nới bảng desktop lên 560px.
 Xem [bàn giao bulk scheduling](viewing-bulk-scheduling-2026-10-12.md) để biết
 contract, xử lý lỗi từng phần, test và nguồn UX tham khảo.
+
+## Gợi ý dịch vụ đơn và điều hướng đa dịch vụ
+
+Đã audit Housing, Flight, Moving, Map, Roommate và Guides. Đa dịch vụ theo
+intent hiện có dùng nút Bước tiếp theo; dùng riêng có gợi ý tùy chọn sau
+chọn/kết quả, chỉ mở form/page khi bấm. Xem [báo cáo và bàn giao](service-followup-2026-10-12.md)
+cho điều kiện hiển thị, contract và 48 ca browser/35 contracts đã kiểm.
