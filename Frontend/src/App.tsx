@@ -64,6 +64,7 @@ import {
   canSelectServiceResult,
   navigationProgress,
   nextPlanStep,
+  hasMultipleRequestedServices,
 } from "./serviceJourney";
 import type {
   Component,
@@ -95,6 +96,7 @@ import {
 } from "./components/ServiceWorkspaces";
 import { filtersFromSearch } from "./mapWorkspace";
 import { PlanPeek } from "./components/PlanPeek";
+import { ServiceSuggestions } from "./components/ServiceSuggestions";
 import { RequestHistory } from "./components/RequestHistory";
 import { LandingPage } from "./components/LandingPage";
 import { AppearanceControls, useUiPreferences } from "./uiPreferences";
@@ -1139,7 +1141,7 @@ function Chat() {
   const navigation = navigationProgress(thread);
   const activeTarget = journey.find((t) => t.c.task_id === workspaceTaskId);
   // Each service result opens its own workspace (map for housing, flights, moving quotes).
-  // Choosing an option there returns to the chat so the user can continue with other services.
+  // Choosing keeps its workspace open; further navigation requires an explicit click.
   const latestOf = (type: string, field: string) =>
     [...allComponents]
       .reverse()
@@ -1167,9 +1169,43 @@ function Chat() {
     ? { ...thread, messages: thread.messages.slice(0, thread.messages.indexOf(retainedInputReply) + 1) }
     : thread;
   const inputServices = clarificationServices(inputThread);
-  const planStep = nextPlanStep(thread, reviewedServices.current);
+  const mapHasResult = activeTarget?.c.type === "map" && (
+    !!activeTarget.c.data.routing?.route ||
+    Object.values(activeTarget.c.data.nearby || {}).some(
+      (points) => Array.isArray(points) && points.length > 0,
+    )
+  );
+  const reviewedForNavigation = new Set(reviewedServices.current);
+  if (workspace === "map" && mapHasResult && activeTarget) reviewedForNavigation.add(activeTarget.c.id);
+  const planStep = nextPlanStep(thread, reviewedForNavigation);
+  const multiServicePlan = hasMultipleRequestedServices(thread);
   const currentInputService = workspace === "relocation-form" ? "relocation" : workspace || form || inputServices[0];
-  const showNextStep = planStep && !!workspace && planStep.agent !== currentInputService && !form;
+  const showNextStep = multiServicePlan && planStep && !!workspace && planStep.agent !== currentInputService && !form;
+  const suggestedService = !multiServicePlan && !busy
+    ? workspace === "flight" && latestFlight && hasSelection(thread, latestFlight) ? "flight"
+      : workspace === "relocation" && latestMoving && hasSelection(thread, latestMoving) ? "relocation"
+      : workspace === "map" && mapHasResult ? "map" : null
+    : null;
+  function openSuggestedService(service: string, to: string) {
+    if (busy) return;
+    if (service === "guides") { navigate(to); return; }
+    if (service === "property" || service === "map") {
+      const known = service === "map" && suggestedService === "relocation" ? {
+        route_from: latestMoving?.c.data.from_address || latestMoving?.c.data.route?.pickup?.address || "",
+        route_to: latestMoving?.c.data.to_address || latestMoving?.c.data.route?.destination?.address || "",
+      } : {};
+      setFormPrefill({ kind: service, data: known });
+      setForm(service);
+    }
+  }
+  const serviceEntry = params.get("service");
+  useEffect(() => {
+    if (threadId || !["property", "map", "flight"].includes(serviceEntry || "")) return;
+    setForm(serviceEntry as FormService);
+    const next = new URLSearchParams(params);
+    next.delete("service");
+    setParams(next, { replace: true });
+  }, [serviceEntry, threadId]);
   function prepareAfterViewing(service: string, item: Data) {
     if (service === "guides") { navigate("/guides?article=" + (["agreed", "reported_paid"].includes(item.status) ? "nhan-phong" : "xem-phong")); return; }
     if (service === "roommate") { navigate("/roommate"); return; }
@@ -1407,6 +1443,14 @@ function Chat() {
           )}
         </nav>
       )}
+      {suggestedService && (
+        <ServiceSuggestions
+          service={suggestedService}
+          available={status?.domains || []}
+          disabled={busy}
+          onOpen={openSuggestedService}
+        />
+      )}
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
           key={movingSubmission?.formKey || lastAssistant?.id || "new"}
@@ -1471,7 +1515,7 @@ function Chat() {
             selectIn(
               latestMoving,
               id,
-              "Đã chọn phương án chuyển đồ. Nhắn yêu cầu đặt khi bạn sẵn sàng.",
+              "Đã chọn phương án chuyển đồ vào kế hoạch.",
             )
           }
           onExit={finishWorkspace}
@@ -1479,7 +1523,7 @@ function Chat() {
       ) : workspace === "map" && activeTarget ? (
         <section className="service-map-result" key={activeTarget.c.id}>
           <button className="secondary" onClick={finishWorkspace}>
-            {uiText("Tiếp tục kế hoạch")}
+            {uiText("Về hội thoại")}
           </button>
           <Results
             payload={{

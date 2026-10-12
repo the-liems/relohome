@@ -11,6 +11,7 @@ import { ContactPicker } from "./ContactPicker";
 import { ErrorNotice } from "./ErrorNotice";
 import type { Contact, RequestDetail } from "./types";
 import { dateLabel, deadlineLabel, rt, stateName } from "./text";
+import { ServiceSuggestions } from "../components/ServiceSuggestions";
 export function ConnectionDetail() {
   const { requestId = "" } = useParams(),
     detail = useResource<RequestDetail>(
@@ -173,6 +174,7 @@ export function ConnectionDetail() {
                 {rt("Tải lại trạng thái", "Refresh status")}
               </button>
             </div>
+            {record.state === "accepted" && record.grant_state === "active" && <ServiceSuggestions service="roommate" />}
           </aside>
         </div>
       ) : (

@@ -75,6 +75,7 @@ export const compactPrice = (h: any) => {
 export const domainLabels: Record<string, string> = {
   property: "Tìm nhà",
   map: "Đường đi",
+  roommate: "Ở ghép",
   flight: "Chuyến bay",
   relocation: "Chuyển đồ",
   payment: "Thanh toán",

@@ -158,6 +158,20 @@ export type PlanStep = {
   kind: "input" | "result";
 };
 
+/** Agent intake owns the requested domains. Older threads fall back to current plan goals. */
+export function hasMultipleRequestedServices(thread: Thread | null): boolean {
+  if (!thread) return false;
+  const requested = thread.state.intake?.intent?.domains ?? thread.state.intake?.domains;
+  const domains = Array.isArray(requested) && requested.length
+    ? requested
+    : navigationProgress(thread).items
+      .filter((item: any) => !item.historical_search && item.inputs?.housing_mode !== "compare")
+      .map((item: any) => item.agent);
+  return new Set(domains.filter((domain: string) =>
+    ["property", "flight", "relocation", "map", "roommate"].includes(domain),
+  )).size > 1;
+}
+
 /** Navigation only: a viewing basket may be reviewed, but is never a decided destination. */
 export function nextPlanStep(
   thread: Thread | null,
