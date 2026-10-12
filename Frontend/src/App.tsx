@@ -820,6 +820,7 @@ function Chat() {
     formKey: string;
   } | null>(null);
   const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
+  const [formTaskId, setFormTaskId] = useState<string | null>(null);
   const [formPrefill, setFormPrefill] = useState<{ kind: FormService; data: Data } | null>(null);
   const reviewedServices = useRef(new Set<string>());
   const viewingBatchBusy = useRef(false);
@@ -838,6 +839,7 @@ function Chat() {
     setError("");
     setContext(null);
     setFormPrefill(null);
+    setFormTaskId(null);
     if (createdThreadForForm.current !== threadId) setForm(null);
     createdThreadForForm.current = null;
     submittedInputReply.current = null;
@@ -1195,6 +1197,7 @@ function Chat() {
         route_to: latestMoving?.c.data.to_address || latestMoving?.c.data.route?.destination?.address || "",
       } : {};
       setFormPrefill({ kind: service, data: known });
+      setFormTaskId(null);
       setForm(service);
     }
   }
@@ -1202,6 +1205,7 @@ function Chat() {
   useEffect(() => {
     if (threadId || !["property", "map", "flight"].includes(serviceEntry || "")) return;
     setForm(serviceEntry as FormService);
+    setFormTaskId(null);
     const next = new URLSearchParams(params);
     next.delete("service");
     setParams(next, { replace: true });
@@ -1220,6 +1224,7 @@ function Chat() {
         route_to: typeof item.snapshot?.address === "string" ? item.snapshot.address : "",
         city: item.snapshot?.city || requestDefaults(thread, "property").city || "",
       } : {} });
+      setFormTaskId(null);
       setForm(service);
     }
   }
@@ -1344,6 +1349,8 @@ function Chat() {
       setWorkspace("relocation-form");
     } else if (["property", "flight", "map"].includes(agent)) {
       setWorkspace(null);
+      setFormPrefill(null);
+      setFormTaskId(taskId);
       setForm(agent as FormService);
     } else {
       setWorkspace(null);
@@ -1495,7 +1502,7 @@ function Chat() {
             }).then(() => {})
           }
           onPay={thread?.state?.checkout ? openCheckout : undefined}
-          onEdit={() => setForm("flight")}
+          onEdit={() => { setFormPrefill(null); setFormTaskId(latestFlight.c.task_id); setForm("flight"); }}
           onExit={finishWorkspace}
         />
       ) : workspace === "relocation" && latestMoving ? (
@@ -1656,11 +1663,15 @@ function Chat() {
                       aria-label={`${uiText(q.title)} ${uiText(q.subtitle)}`}
                       key={q.kind}
                       aria-haspopup={q.kind === "relocation" ? undefined : "dialog"}
-                      onClick={() =>
-                        q.kind === "relocation"
-                          ? setWorkspace("relocation-form")
-                          : setForm(q.kind)
-                      }
+                      onClick={() => {
+                        if (q.kind === "relocation") {
+                          setWorkspace("relocation-form");
+                        } else {
+                          setFormPrefill(null);
+                          setFormTaskId(null);
+                          setForm(q.kind);
+                        }
+                      }}
                       disabled={unavailable(q.kind)}
                       title={
                         unavailable(q.kind)
@@ -2185,7 +2196,7 @@ function Chat() {
         </>
       )}
       {form && (
-        <TaskForm kind={form} known={formPrefill?.kind === form ? formPrefill.data : requestDefaults(thread, form)} disabled={busy || !status} onClose={() => { setForm(null); setFormPrefill(null); }} onSubmit={sendForm} />
+        <TaskForm key={`${form}:${formTaskId || "current"}`} kind={form} known={formPrefill?.kind === form ? formPrefill.data : requestDefaults(thread, form, formTaskId || undefined)} disabled={busy || !status} onClose={() => { setForm(null); setFormPrefill(null); setFormTaskId(null); }} onSubmit={sendForm} />
       )}
       {params.get("panel") === "house" && openDetail && thread && (
         <HousingDetail
