@@ -7,6 +7,10 @@ Hai cách sử dụng phải cùng dẫn tới luồng Agent hiện có:
 1. Bấm các ô dịch vụ trên màn hình bắt đầu, điền thông tin, xem và lựa chọn kết quả.
 2. Nhắn nhu cầu; khi Agent cần thêm thông tin, thao tác trên form ngay trong hội thoại.
 
+Với kế hoạch nhiều dịch vụ, lựa chọn thành công giữ màn hình hiện tại và hiển thị
+nút **Bước tiếp theo**. Không tự kéo người dùng sang dịch vụ đang chờ cũ.
+[Thiết kế và kiểm chứng điều hướng bước tiếp theo](plan-next-step-2026-10-12.md).
+
 Giữ sáu ô dịch vụ cùng cấp và palette/token ReloHome. Form có label rõ, control
 tối thiểu 44–48px, bố cục một cột trên mobile, hỗ trợ VI/EN và sáng/tối.
 Không làm lại màn hình map, danh sách kết quả, thanh toán hoặc workspace chủ nhà.

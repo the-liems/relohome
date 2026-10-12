@@ -9,6 +9,7 @@ import {
 import {
   closedResultSummary,
   pendingServiceInput,
+  nextPlanStep,
   serviceTargets,
   canSelectServiceResult,
   navigationProgress,
@@ -184,6 +185,88 @@ test("pending service is found from progress even when computed intake.domains i
   expect(pendingServiceInput(thread, "flight")).toBe(false);
   thread.state.progress.items[0].chosen = { label: "contract choice" };
   expect(pendingServiceInput(thread, "relocation")).toBe(false);
+});
+
+test("next plan step treats a viewing choice as reviewed navigation, never as a decided home", () => {
+  const thread = {
+    messages: [],
+    state: {
+      plan: { tasks: [{ id: "home", agent: "property" }] },
+      progress: {
+        items: [
+          {
+            task_id: "home",
+            agent: "property",
+            state: "reviewed",
+            task_status: "done",
+            chosen: null,
+          },
+          {
+            task_id: "pending:relocation",
+            agent: "relocation",
+            state: "waiting",
+            task_status: "needs_input",
+            after: ["home"],
+            chosen: null,
+          },
+        ],
+      },
+      viewing: {
+        items: [
+          { task_id: "home", status: "selected", listing_id: "viewing-only" },
+        ],
+      },
+      intake: { user_confirmed_facts: {} },
+    },
+  } as unknown as Thread;
+  expect(nextPlanStep(thread)).toMatchObject({
+    taskId: "pending:relocation",
+    agent: "relocation",
+    kind: "input",
+  });
+  expect(thread.state.intake.user_confirmed_facts).toEqual({});
+  expect(thread.state.progress.items[0].chosen).toBeNull();
+});
+
+test("next plan step skips confirmed/comparison/history and never invents a service", () => {
+  const thread = {
+    messages: [],
+    state: {
+      plan: { tasks: [{ id: "flight", agent: "flight" }] },
+      progress: {
+        items: [
+          {
+            task_id: "historic",
+            agent: "property",
+            historical_search: true,
+            state: "reviewed",
+          },
+          {
+            task_id: "comparison",
+            agent: "property",
+            inputs: { housing_mode: "compare" },
+          },
+          {
+            task_id: "flight",
+            agent: "flight",
+            state: "confirmed",
+            task_status: "done",
+            chosen: { id: "selected" },
+          },
+          {
+            task_id: "pending:relocation",
+            agent: "relocation",
+            state: "waiting",
+            task_status: "needs_input",
+          },
+        ],
+      },
+    },
+  } as unknown as Thread;
+  expect(nextPlanStep(thread)?.agent).toBe("relocation");
+  thread.state.progress.items.pop();
+  expect(nextPlanStep(thread)).toBeNull();
+  expect(nextPlanStep(null)).toBeNull();
 });
 
 test("folds only fully chosen results; comparisons and partially chosen multi-service replies stay visible", () => {

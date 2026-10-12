@@ -94,6 +94,36 @@ test("real built gateway UI: housing answer renders map and keeps service naviga
   expect(errors).toEqual([]);
 });
 
+test("real built gateway UI: viewing selection offers an explicit Moving next step without deciding the home", async ({ page }, info) => {
+  await signIn(page);
+  await page.goto("/ai");
+  await page.locator(".composer textarea").fill("Tôi muốn tìm phòng trọ tại Quận 1, Thành phố Hồ Chí Minh dưới 5 triệu đồng/tháng và báo giá chuyển đồ tới căn tôi chọn. Chỉ tìm kiếm, chưa đặt xe.");
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await page.getByRole("button", { name: "Gửi tin nhắn", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở", exact: true })).toBeVisible();
+  const list = page.getByRole("complementary", { name: "Nhà trong vùng bản đồ", exact: true });
+  await expect(list.getByRole("button", { name: "Chọn căn này", exact: true }).first()).toBeVisible({ timeout: 45000 });
+  const selected = page.waitForResponse(r => r.url().endsWith("/action") && r.request().method() === "POST", { timeout: 45000 });
+  await list.getByRole("button", { name: "Chọn căn này", exact: true }).first().click();
+  const selection = await selected;
+  expect(selection.status()).toBe(200);
+  const next = await selection.json();
+  expect(next.state.viewing.items.length).toBeGreaterThan(0);
+  expect(next.state.intake.user_confirmed_facts["selected:property"]).toBeUndefined();
+  expect(next.state.plan.commit_actions).toEqual([]);
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở", exact: true })).toBeVisible();
+  const step = page.getByRole("region", { name: "Bước tiếp theo trong kế hoạch", exact: true });
+  await expect(step.getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Thông tin chuyển đồ", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("housing-moving-next-step-live.png"), fullPage: true });
+  await step.getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true }).click();
+  await expect(page.getByRole("complementary", { name: "Thông tin chuyển đồ", exact: true })).toBeVisible();
+  expect(data.state.plan.commit_actions).toEqual([]);
+});
+
 test("real built gateway UI: incomplete flight chat opens an inline form and reaches live offers", async ({ page }, info) => {
   await signIn(page);
   await page.goto("/ai");

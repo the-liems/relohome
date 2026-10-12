@@ -2,7 +2,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-async function fixture(page: Page, pending = false) {
+async function fixture(page: Page, pending = false, withMoving = false) {
   const turns: any[] = [],
     actions: any[] = [];
   let fail = false;
@@ -58,6 +58,22 @@ async function fixture(page: Page, pending = false) {
         },
       },
     ];
+  }
+  const movingStep = {
+    task_id: "pending:relocation",
+    agent: "relocation",
+    state: "waiting",
+    task_status: "needs_input",
+    inputs: {},
+    chosen: null,
+  };
+  if (withMoving && pending) {
+    thread.state.intake.domains.push("relocation");
+    thread.state.progress.items.push(movingStep);
+    thread.messages[0].content.response.questions.push({
+      field: "relocation.from_address",
+      text: "Bạn chuyển đồ từ đâu?",
+    });
   }
   await page.route("**/web/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace(
@@ -116,7 +132,19 @@ async function fixture(page: Page, pending = false) {
         },
       ];
       thread.state.task_status = { "flight-search": "done" };
-      thread.state.progress.items = [];
+      thread.state.progress.items = withMoving
+        ? [
+            {
+              task_id: "flight-search",
+              agent: "flight",
+              state: "ready",
+              task_status: "done",
+              inputs: {},
+              chosen: null,
+            },
+            movingStep,
+          ]
+        : [];
       thread.messages.push(
         {
           id: "user-search",
@@ -130,7 +158,18 @@ async function fixture(page: Page, pending = false) {
           created: Date.now() / 1000,
           content: {
             status: "done",
-            response: { kind: "ANSWER", text: "Kết quả giao diện kiểm thử." },
+            response: {
+              kind: withMoving ? "CLARIFY" : "ANSWER",
+              text: "Kết quả giao diện kiểm thử.",
+              questions: withMoving
+                ? [
+                    {
+                      field: "relocation.from_address",
+                      text: "Bạn chuyển đồ từ đâu?",
+                    },
+                  ]
+                : [],
+            },
             ui: {
               version: 1,
               plan_version: 1,
@@ -169,6 +208,14 @@ async function fixture(page: Page, pending = false) {
       thread.state.intake.user_confirmed_facts["selected:flight"] = {
         value: body.entity_id,
       };
+      const flightStep = thread.state.progress.items.find(
+        (i: any) => i.task_id === "flight-search",
+      );
+      if (flightStep)
+        Object.assign(flightStep, {
+          state: "confirmed",
+          chosen: { id: body.entity_id, label: "Fixture Air" },
+        });
       data = thread;
     }
     await route.fulfill({ json: data });
@@ -186,7 +233,254 @@ async function fixture(page: Page, pending = false) {
   };
 }
 
-test("HTTP 200 Agent errors keep the flight form and its draft until a successful retry", async ({ page }) => {
+test("a pending Moving task never steals Flight input; choosing a flight offers an explicit next step", async ({
+  page,
+}) => {
+  const { turns, actions } = await fixture(page, true, true);
+  await page.goto("/ai/th_input");
+  const form = page.getByRole("region", {
+    name: "Bổ sung thông tin dịch vụ",
+    exact: true,
+  });
+  await expect(form.getByLabel("Nơi đến", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
+  const flights = page.getByRole("region", { name: "Chuyến bay", exact: true });
+  await expect(flights).toBeVisible();
+  await flights
+    .getByRole("button", { name: "Chọn chuyến này", exact: true })
+    .click();
+  await expect.poll(() => actions.length).toBe(1);
+  await expect(flights).toBeVisible();
+  const next = page.getByRole("region", {
+    name: "Bước tiếp theo trong kế hoạch",
+    exact: true,
+  });
+  await expect(
+    next.getByRole("button", {
+      name: "Bước tiếp theo: Chuyển đồ",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await next
+    .getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true })
+    .click();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(turns).toHaveLength(1);
+  expect(actions).toHaveLength(1);
+});
+
+test("a home chosen for viewing offers Moving explicitly and keeps the destination undecided", async ({
+  page,
+}, info) => {
+  const { thread, turns, actions } = await fixture(page);
+  const home = {
+    id: "viewing-only-home",
+    title: "Căn đã chọn để hẹn xem",
+    address: "Hà Nội",
+    lat: 21.028,
+    lng: 105.836,
+    price_vnd: 4000000,
+  };
+  thread.state.plan.tasks = [
+    { id: "home", agent: "property", inputs: { city: "Hà Nội" } },
+  ];
+  thread.state.task_status = { home: "done" };
+  thread.state.progress.items = [
+    {
+      task_id: "home",
+      agent: "property",
+      state: "reviewed",
+      task_status: "done",
+      inputs: { city: "Hà Nội" },
+      chosen: null,
+    },
+    {
+      task_id: "pending:relocation",
+      agent: "relocation",
+      state: "waiting",
+      task_status: "needs_input",
+      inputs: { to_address: "selected:property" },
+      after: ["home"],
+      chosen: null,
+    },
+  ];
+  thread.state.viewing = {
+    items: [
+      {
+        task_id: "home",
+        listing_id: home.id,
+        status: "selected",
+        title: home.title,
+        snapshot: home,
+      },
+    ],
+    max_selected: 3,
+    slots: [],
+  };
+  thread.messages = [
+    {
+      id: "housing-result",
+      role: "assistant",
+      created: Date.now() / 1000,
+      content: {
+        status: "done",
+        response: {
+          kind: "ANSWER",
+          text: "Đã tìm nhà. Bạn chọn căn để hẹn xem.",
+        },
+        ui: {
+          version: 1,
+          plan_version: 1,
+          components: [
+            {
+              id: "home-result",
+              task_id: "home",
+              type: "property",
+              fetched_at: new Date().toISOString(),
+              data: {
+                candidates: [home],
+                area_name: "Hà Nội",
+                search_request: { city: "Hà Nội" },
+                map_context: {
+                  viewport: {
+                    west: 105.82,
+                    south: 21.02,
+                    east: 105.85,
+                    north: 21.04,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  ];
+  await page.route("**/web/api/platform/**", (route) =>
+    route.fulfill({
+      json: {
+        type: "FeatureCollection",
+        features: [],
+        results: [],
+        page: { returned_count: 0, next_cursor: null },
+      },
+    }),
+  );
+  await page.route("https://tiles.openfreemap.org/**", (route) =>
+    route.fulfill({
+      json: {
+        version: 8,
+        sources: {},
+        layers: [
+          {
+            id: "background",
+            type: "background",
+            paint: { "background-color": "#edf3ef" },
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/ai/th_input");
+  await expect(
+    page.getByRole("region", { name: "Bản đồ nhà ở", exact: true }),
+  ).toBeVisible();
+  const step = page.getByRole("region", {
+    name: "Bước tiếp theo trong kế hoạch",
+    exact: true,
+  });
+  await expect(step).toContainText("Nhà mới được chọn để hẹn xem");
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(
+      await step.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+    ).toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include(".plan-next-step")
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+  }
+  await page.screenshot({
+    path: info.outputPath("home-next-step.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
+    .click();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 960 });
+  const englishStep = page.getByRole("region", {
+    name: "Next step in your plan",
+    exact: true,
+  });
+  await expect(
+    englishStep.getByRole("button", { name: "Next step: Moving", exact: true }),
+  ).toBeVisible();
+  expect(
+    await englishStep.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+  ).toBe(true);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include(".plan-next-step")
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({
+    path: info.outputPath("home-next-step-dark-en-320.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "VI", exact: true }).click();
+  await step
+    .getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true })
+    .click();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(
+    thread.state.intake.user_confirmed_facts["selected:property"],
+  ).toBeUndefined();
+  expect(turns).toHaveLength(0);
+  expect(actions).toHaveLength(0);
+});
+
+test("HTTP 200 Agent errors keep the flight form and its draft until a successful retry", async ({
+  page,
+}) => {
   const { turns, setGraphError } = await fixture(page);
   setGraphError(true);
   await page.goto("/ai");
@@ -198,17 +492,27 @@ test("HTTP 200 Agent errors keep the flight form and its draft until a successfu
   await form.getByLabel("Khứ hồi", { exact: true }).check();
   await form.getByLabel("Ngày về", { exact: true }).fill("2027-02-13");
   await form.getByLabel("Người lớn", { exact: true }).selectOption("2");
-  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
   await expect(form).toBeVisible();
-  await expect(form.getByRole("alert")).toContainText("Hệ thống chưa xử lý được yêu cầu");
+  await expect(form.getByRole("alert")).toContainText(
+    "Hệ thống chưa xử lý được yêu cầu",
+  );
   await expect(form.getByLabel("Nơi đi", { exact: true })).toHaveValue("SGN");
-  await expect(form.getByLabel("Ngày về", { exact: true })).toHaveValue("2027-02-13");
+  await expect(form.getByLabel("Ngày về", { exact: true })).toHaveValue(
+    "2027-02-13",
+  );
   await expect(form.getByLabel("Người lớn", { exact: true })).toHaveValue("2");
   expect(turns).toHaveLength(1);
   setGraphError(false);
-  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
   await expect(form).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Chuyến bay", exact: true }),
+  ).toBeVisible();
   expect(turns).toHaveLength(2);
 });
 
@@ -262,19 +566,32 @@ test("direct flight entry submits complete details through chat and opens select
   });
 });
 
-test("inline clarification preserves entered fields when the Agent returns HTTP 200 ERROR", async ({ page }) => {
+test("inline clarification preserves entered fields when the Agent returns HTTP 200 ERROR", async ({
+  page,
+}) => {
   const { setGraphError, turns } = await fixture(page, true);
   setGraphError(true);
   await page.goto("/ai/th_input");
-  const panel = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ", exact: true });
+  const panel = page.getByRole("region", {
+    name: "Bổ sung thông tin dịch vụ",
+    exact: true,
+  });
   await panel.getByLabel("Nơi đến", { exact: true }).fill("HAN");
-  await panel.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
-  await expect(panel.getByRole("alert")).toContainText("Hệ thống chưa xử lý được yêu cầu");
+  await panel
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
+  await expect(panel.getByRole("alert")).toContainText(
+    "Hệ thống chưa xử lý được yêu cầu",
+  );
   await expect(panel.getByLabel("Nơi đến", { exact: true })).toHaveValue("HAN");
   await expect(panel.getByLabel("Người lớn", { exact: true })).toHaveValue("2");
   setGraphError(false);
-  await panel.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  await panel
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Chuyến bay", exact: true }),
+  ).toBeVisible();
   expect(turns).toHaveLength(2);
 });
 

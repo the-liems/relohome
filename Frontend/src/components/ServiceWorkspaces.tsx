@@ -48,8 +48,8 @@ import {
   validateMovingForm,
 } from "./MovingOptionsForm";
 
-// Selecting an option is the same structured action as in the chat cards; the parent returns to
-// the conversation afterwards so the user can continue with other services.
+// Selecting an option uses the same structured action as chat cards. The parent keeps
+// the selection visible and offers an explicit button for the next plan step.
 interface WorkspaceProps {
   readOnly?: boolean;
   data: Data;

@@ -60,10 +60,10 @@ import {
   hasSelection,
   nextServiceTarget,
   serviceTargets,
-  pendingServiceInput,
   closedResultSummary,
   canSelectServiceResult,
   navigationProgress,
+  nextPlanStep,
 } from "./serviceJourney";
 import type {
   Component,
@@ -80,6 +80,7 @@ import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
 import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { ServiceInputPanel } from "./components/ServiceInputPanel";
+import { PlanNextStep } from "./components/PlanNextStep";
 import { clarificationServices, guidedReplyText, requestDefaults, type FormService } from "./serviceRequest";
 import { Results } from "./components/Results";
 import { Receipts, PendingPayment } from "./components/Transactions";
@@ -1160,6 +1161,9 @@ function Chat() {
     ? { ...thread, messages: thread.messages.slice(0, thread.messages.indexOf(retainedInputReply) + 1) }
     : thread;
   const inputServices = clarificationServices(inputThread);
+  const planStep = nextPlanStep(thread, reviewedServices.current);
+  const currentInputService = workspace === "relocation-form" ? "relocation" : workspace || form || inputServices[0];
+  const showNextStep = planStep && planStep.agent !== currentInputService && !form && !(inputServices.length && !workspace);
   async function sendForm(text: string) {
     if (inFlight.current) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
     if (!status) throw new Error(uiText("Chưa kết nối được AI."));
@@ -1226,8 +1230,7 @@ function Chat() {
     setWorkspace(
       lastHasService && !latestService?.c.data?.comparison
         ? (latestService?.c.type ?? null)
-        : movingQuestions.length ||
-            (!lastHasComparison && pendingServiceInput(thread, "relocation"))
+        : !inputServices.length && !lastHasComparison && movingQuestions.length
           ? "relocation-form"
           : null,
     );
@@ -1253,7 +1256,7 @@ function Chat() {
     id: string,
     message: string,
   ) {
-    const next = await mutate("action", {
+    await mutate("action", {
       kind: "select",
       task_id: target.c.task_id,
       plan_version: target.version,
@@ -1261,34 +1264,12 @@ function Chat() {
       entity_id: id,
     });
     notify(message);
+    reviewedServices.current.add(target.c.id);
     // Viewing mode: keep the map open so several homes can be chosen; "done" moves on.
     if (viewing && target.c.type === "property") return;
-    advanceAfter(target, next);
-  }
-  function advanceAfter(
-    target: { c: Component; version: number },
-    next?: Thread | void,
-  ) {
-    reviewedServices.current.add(target.c.id);
-    const remaining = nextServiceTarget(
-      next || thread,
-      reviewedServices.current,
-    );
-    setWorkspaceTaskId(remaining?.c.task_id || null);
-    const nextAssistant = [...(next?.messages || thread?.messages || [])]
-      .reverse()
-      .find((m) => m.role === "assistant");
-    const hasMovingInput = (
-      nextAssistant?.content.response?.questions || []
-    ).some((q: Data) =>
-      (MOVING_FIELDS as readonly string[]).includes(movingField(q.field)),
-    );
-    setWorkspace(
-      remaining?.c.type ||
-        (hasMovingInput || pendingServiceInput(next || thread, "relocation")
-          ? "relocation-form"
-          : null),
-    );
+    // Selection stays in its workspace. The next plan step requires an explicit click.
+    setWorkspaceTaskId(target.c.task_id);
+    setWorkspace(target.c.type);
   }
   function openService(taskId: string, agent: string) {
     if (agent === "roommate") {
@@ -1315,7 +1296,7 @@ function Chat() {
   function finishWorkspace() {
     const target = activeTarget || journey.find((t) => t.c.type === workspace);
     if (target) reviewedServices.current.add(target.c.id);
-    // Back means chat. Automatic next-service navigation belongs to selection.
+    // Back means chat; continuing the plan requires the next-step button.
     setWorkspaceTaskId(null);
     setWorkspace(null);
   }
@@ -1392,6 +1373,11 @@ function Chat() {
             </button>
           ))}
         </nav>
+      )}
+      {showNextStep && planStep && (
+        <PlanNextStep step={planStep} viewingOnly={viewingItems.length > 0 && !selectedHouse} disabled={busy}
+          onContinue={() => openService(planStep.taskId, planStep.agent)}
+          onPlan={() => setParams(p => { const next = new URLSearchParams(p); next.set("panel", "plan"); next.set("planTab", "progress"); return next; })} />
       )}
       {workspace === "relocation-form" ? (
         <MovingRequestWorkspace
@@ -1992,7 +1978,7 @@ function Chat() {
                   {uiText("Có phản hồi mới")}
                 </button>
               )}
-              {movingQuestions.length > 0 && (
+              {movingQuestions.length > 0 && !inputServices.length && !(showNextStep && planStep?.agent === "relocation") && (
                 <button
                   className="secondary open-map"
                   onClick={() => setWorkspace("relocation-form")}

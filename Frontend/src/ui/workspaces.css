@@ -1074,6 +1074,29 @@
   border-color: var(--ui-accent);
   color: var(--ui-accent);
 }
+.plan-next-step {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 16px;
+  background: var(--ui-surface);
+  border-bottom: 1px solid var(--ui-line);
+  border-left: 3px solid var(--ui-accent);
+  min-width: 0;
+}
+.plan-next-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; background: var(--ui-accent-soft); color: var(--ui-accent); border-radius: var(--radius-control); }
+.plan-next-copy { flex: 1; min-width: 0; }
+.plan-next-copy strong { font-size: 14px; color: var(--ui-text); }
+.plan-next-copy p { margin: 3px 0 0; font-size: 13px; color: var(--ui-muted); line-height: 1.5; }
+.plan-next-actions { display: flex; align-items: center; flex: 0 0 auto; gap: var(--space-3); }
+.plan-next-actions button { min-height: 44px; }
+.chat-page:has(.plan-next-step) > .svc-workspace { height: auto; flex: 1 1 0; }
+@media (max-width: 800px) {
+  .plan-next-step { flex-wrap: wrap; }
+  .plan-next-actions { flex-basis: 100%; justify-content: flex-end; }
+  .plan-next-actions .primary { flex: 1; }
+}
 .chat-service-summary {
   display: flex;
   justify-content: space-between;
