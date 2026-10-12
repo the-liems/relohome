@@ -12,3 +12,7 @@ Kết quả: 34 contracts, 52 browser scenarios liên quan qua (50 regression +
 2 progress kiểm lại), 2 journal reload/GET kiểm lại qua; build và health local
 qua. [Bàn giao](../../docs/integration/viewing-bulk-scheduling-2026-10-12.md).
 Chưa push phạm vi bulk vào PR #127; CI của PR đó thuộc checkpoint trước.
+
+- [x] Phản hồi mới: ngày/giờ luôn hiện trên card, bỏ bước Chọn giờ và stepper
+- [x] Chọn giờ tự tick, không vượt giới hạn; bỏ tick giữ draft
+- [x] 34 regression + 2 ca chọn giờ trực tiếp qua trên desktop/mobile

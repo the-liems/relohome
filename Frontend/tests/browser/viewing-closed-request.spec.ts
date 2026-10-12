@@ -69,7 +69,6 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
       ).toBeVisible();
       await expect(record).toHaveCount(0);
       await panel.getByRole("checkbox", {name: `Đặt lịch cho ${item.title}`, exact: true}).check();
-      await page.getByRole("button", {name: "Đặt lịch cho 1 căn", exact: true}).click();
       await page.getByLabel(`Giờ xem · ${item.title}`, {exact: true}).selectOption(nextSlot);
       await page.getByRole("button", {name: "Xem lại lịch", exact: true}).click();
       await page.getByRole("button", {name: "Xác nhận 1 lịch", exact: true}).click();

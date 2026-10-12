@@ -88,7 +88,7 @@ export function useViewingScheduler(
   externalBusy = false,
 ) {
   const initial = useRef(journal(threadId));
-  const [step, setStep] = useState<"selection" | "slots" | "review" | "result">(
+  const [step, setStep] = useState<"selection" | "review" | "result">(
     initial.current.rows.length ? "result" : "selection",
   );
   const [checked, setChecked] = useState<string[]>([]),
@@ -123,6 +123,28 @@ export function useViewingScheduler(
     listing_id,
     slot: drafts[listing_id]?.slot || "",
   }));
+  function draftFor(id: string): SlotDraft {
+    const slot =
+      items.find((item) => item.listing_id === id)?.viewing?.slot || "";
+    return (
+      drafts[id] || {
+        day: slot.slice(0, 10) || viewing.slots?.[0]?.slice(0, 10) || "",
+        slot,
+      }
+    );
+  }
+  function changeDraft(id: string, draft: SlotDraft) {
+    if (
+      busy ||
+      externalBusy ||
+      unresolved.length ||
+      !eligible.some((item) => item.listing_id === id)
+    )
+      return;
+    if (!selected.includes(id) && selected.length >= limit) return;
+    setDrafts((old) => ({ ...old, [id]: draft }));
+    if (!selected.includes(id)) setChecked([...selected, id]);
+  }
   function toggle(id: string) {
     if (busy || externalBusy || unresolved.includes(id)) return;
     if (!eligible.some((item) => item.listing_id === id)) return;
@@ -168,16 +190,25 @@ export function useViewingScheduler(
         }),
       ),
     }));
-    setStep("slots");
+    setStep("selection");
   }
   function review() {
     if (busy || externalBusy) return;
-    const issues = scheduleIssues(viewing, entries);
+    const nextEntries = selected.map((listing_id) => ({
+      listing_id,
+      slot: draftFor(listing_id).slot,
+    }));
+    const issues = scheduleIssues(viewing, nextEntries);
     setErrors(issues);
     setNotice("");
     if (Object.keys(issues).length) return;
+    setTargets(selected);
+    setDrafts((old) => ({
+      ...old,
+      ...Object.fromEntries(selected.map((id) => [id, draftFor(id)])),
+    }));
     reviewed.current = Object.fromEntries(
-      targets.map((id) => [
+      selected.map((id) => [
         id,
         scheduleFingerprint(items.find((i) => i.listing_id === id)!),
       ]),
@@ -211,7 +242,7 @@ export function useViewingScheduler(
         setNotice(
           "Danh sách hoặc lịch đã thay đổi. Hãy xem lại trước khi xác nhận.",
         );
-        setStep("slots");
+        setStep("selection");
         await onChanged();
         return;
       }
@@ -348,7 +379,8 @@ export function useViewingScheduler(
     eligible,
     limit,
     drafts,
-    setDrafts,
+    draftFor,
+    changeDraft,
     targets,
     errors,
     notice,

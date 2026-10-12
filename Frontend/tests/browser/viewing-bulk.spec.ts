@@ -103,9 +103,6 @@ async function chooseAll(page: Page) {
   await page
     .getByRole("checkbox", { name: "Chọn tất cả", exact: true })
     .check();
-  await page
-    .getByRole("button", { name: "Đặt lịch cho 3 căn", exact: true })
-    .click();
 }
 async function fillTimes(page: Page, indices = [0, 1, 2]) {
   for (const index of indices)
@@ -123,9 +120,9 @@ test("three compact homes, draft preservation, review and one confirmation with 
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
   await expect(page.locator(".viewing-item")).toHaveCount(3);
-  await expect(page.locator(".viewing-item select")).toHaveCount(0);
+  await expect(page.locator(".viewing-item select")).toHaveCount(6);
   await expect(
-    page.getByRole("button", { name: "Đặt lịch cho 0 căn", exact: true }),
+    page.getByRole("button", { name: "Xem lại lịch", exact: true }),
   ).toBeDisabled();
   await chooseAll(page);
   await fillTimes(page);
@@ -203,13 +200,11 @@ test("overlapping/missing times stop before a request and back keeps drafts", as
     }),
   ).toHaveCount(3);
   expect(posts).toHaveLength(0);
-  await page.getByRole("button", { name: "Chọn lại căn", exact: true }).click();
+
   await page
     .getByRole("checkbox", { name: `Đặt lịch cho ${titles[2]}`, exact: true })
     .uncheck();
-  await page
-    .getByRole("button", { name: "Đặt lịch cho 2 căn", exact: true })
-    .click();
+
   await expect(
     page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true }),
   ).toHaveValue(slots[0]);
@@ -325,7 +320,7 @@ test("changed shared basket at preflight requires review instead of scheduling s
     "Danh sách hoặc lịch đã thay đổi",
   );
   await expect(
-    page.getByRole("heading", { name: "Chọn giờ cho từng căn", exact: true }),
+    page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true }),
   ).toBeVisible();
   expect(f.posts).toHaveLength(0);
 });
@@ -354,6 +349,37 @@ test("server cap is respected and unchecking never unselects the shared housing 
     .getByRole("checkbox", { name: `Đặt lịch cho ${titles[0]}`, exact: true })
     .uncheck();
   await expect(page.locator(".viewing-item")).toHaveCount(3);
+  expect(f.posts).toHaveLength(0);
+});
+
+test("inline time selection checks the home without extra steps or losing drafts when unchecked", async ({
+  page,
+}) => {
+  const f = await fixture(page, 2);
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  await page
+    .getByLabel(`Giờ xem · ${titles[0]}`, { exact: true })
+    .selectOption(slots[0]);
+  const checkbox = page.getByRole("checkbox", {
+    name: `Đặt lịch cho ${titles[0]}`,
+    exact: true,
+  });
+  await expect(checkbox).toBeChecked();
+  await checkbox.uncheck();
+  await expect(
+    page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true }),
+  ).toHaveValue(slots[0]);
+  await checkbox.check();
+  await page
+    .getByLabel(`Giờ xem · ${titles[1]}`, { exact: true })
+    .selectOption(slots[1]);
+  await expect(
+    page.getByLabel(`Giờ xem · ${titles[2]}`, { exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Xác nhận 2 lịch", exact: true }),
+  ).toBeVisible();
   expect(f.posts).toHaveLength(0);
 });
 
@@ -402,9 +428,7 @@ test("green compact cards, accessible keyboard controls and pinned footer across
     path: info.outputPath("bulk-selection.png"),
     fullPage: true,
   });
-  await page
-    .getByRole("button", { name: "Đặt lịch cho 3 căn", exact: true })
-    .click();
+
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(
@@ -437,10 +461,7 @@ test("green compact cards, accessible keyboard controls and pinned footer across
     .getByRole("button", { name: "Quick plan view", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", {
-      name: "Choose a time for each home",
-      exact: true,
-    }),
+    page.getByLabel(`Viewing time · ${titles[0]}`, { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Review viewings", exact: true }),

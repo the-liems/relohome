@@ -163,7 +163,6 @@ async function fixture(
 
 async function scheduleOne(page: Page, slot: string) {
   await page.getByRole("checkbox", { name: "Đặt lịch cho Phòng hẹn xem", exact: true }).check();
-  await page.getByRole("button", { name: "Đặt lịch cho 1 căn", exact: true }).click();
   await page.getByLabel("Giờ xem · Phòng hẹn xem", { exact: true }).selectOption(slot);
   await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
   await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();

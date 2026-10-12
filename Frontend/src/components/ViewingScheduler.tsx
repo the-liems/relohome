@@ -10,7 +10,6 @@ import {
 import { formatUi, t as uiText } from "../uiPreferences";
 import type { Data } from "../types";
 import type { ViewingSchedulerState } from "../useViewingScheduler";
-import { ViewingSlotPicker } from "./ViewingSlotPicker";
 
 const states = {
   saved: "Đã lưu lịch",
@@ -38,18 +37,12 @@ export function ViewingScheduler({
   disabled?: boolean;
 }) {
   const focus = useRef<HTMLHeadingElement>(null);
-  const region = useRef<HTMLElement>(null);
   useEffect(() => {
     if (s.step !== "selection") {
       focus.current?.scrollIntoView({ block: "start" });
       focus.current?.focus({ preventScroll: true });
     }
   }, [s.step]);
-  useEffect(() => {
-    region.current
-      ?.querySelector<HTMLSelectElement>('select[aria-invalid="true"]')
-      ?.focus();
-  }, [s.errors]);
   const items: Data[] = viewing.items || [];
   const itemFor = (id: string) => items.find((i) => i.listing_id === id);
   const remaining = s.rows.filter((r) =>
@@ -57,41 +50,18 @@ export function ViewingScheduler({
   );
   return (
     <section
-      ref={region}
       className="viewing-scheduler"
       aria-label={uiText("Đặt lịch xem theo nhóm")}
       aria-busy={s.busy}
     >
       {s.step !== "selection" && (
-        <>
-          <ol
-            className="bulk-steps"
-            aria-label={uiText("Các bước đặt lịch xem")}
-          >
-            {["Chọn căn", "Chọn giờ", "Xem lại"].map((label, index) => (
-              <li
-                key={label}
-                aria-current={
-                  (s.step === "slots" ? index === 1 : index === 2)
-                    ? "step"
-                    : undefined
-                }
-              >
-                <span>{index + 1}</span>
-                {uiText(label)}
-              </li>
-            ))}
-          </ol>
-          <h4 ref={focus} tabIndex={-1}>
-            {uiText(
-              s.step === "slots"
-                ? "Chọn giờ cho từng căn"
-                : s.step === "review"
-                  ? "Xem lại lịch trước khi gửi"
-                  : "Kết quả đặt lịch",
-            )}
-          </h4>
-        </>
+        <h4 ref={focus} tabIndex={-1}>
+          {uiText(
+            s.step === "review"
+              ? "Xem lại lịch trước khi gửi"
+              : "Kết quả đặt lịch",
+          )}
+        </h4>
       )}
       {s.notice && (
         <p className="notice amber small" role="alert">
@@ -102,35 +72,6 @@ export function ViewingScheduler({
         <p className="notice error small" role="alert">
           {uiText(s.errors._selection)}
         </p>
-      )}
-      {s.step === "slots" && (
-        <>
-          <p className="muted small">
-            {uiText(
-              "Mỗi căn có ngày và giờ riêng. Hệ thống kiểm tra khoảng cách giữa các lịch khi lưu.",
-            )}
-          </p>
-          {s.targets.map((id) => {
-            const item = itemFor(id);
-            return (
-              <section className="bulk-time-row" key={id}>
-                <strong>
-                  {item?.title || uiText("Căn không còn trong danh sách")}
-                </strong>
-                <ViewingSlotPicker
-                  title={item?.title || id}
-                  slots={viewing.slots || []}
-                  disabled={s.busy || s.blocked || disabled}
-                  value={s.drafts[id] || { day: "", slot: "" }}
-                  onChange={(draft) =>
-                    s.setDrafts((old) => ({ ...old, [id]: draft }))
-                  }
-                  error={s.errors[id]}
-                />
-              </section>
-            );
-          })}
-        </>
       )}
       {s.step === "review" && (
         <>
@@ -222,29 +163,10 @@ export function ViewingScheduler({
                     disabled ||
                     s.unresolved.length > 0
                   }
-                  onClick={() => s.start()}
-                >
-                  {formatUi("Đặt lịch cho {0} căn", [s.selected.length])}
-                  <ArrowRight size={16} />
-                </button>
-              </>
-            ) : s.step === "slots" ? (
-              <>
-                <button
-                  className="secondary"
-                  disabled={s.busy || s.blocked || disabled}
-                  onClick={() => s.setStep("selection")}
-                >
-                  <ArrowLeft size={15} />
-                  {uiText("Chọn lại căn")}
-                </button>
-                <button
-                  className="primary"
-                  disabled={s.busy || s.blocked || disabled}
                   onClick={s.review}
                 >
                   {uiText("Xem lại lịch")}
-                  <ArrowRight size={15} />
+                  <ArrowRight size={16} />
                 </button>
               </>
             ) : s.step === "review" ? (
@@ -252,7 +174,7 @@ export function ViewingScheduler({
                 <button
                   className="secondary"
                   disabled={s.busy || s.blocked || disabled}
-                  onClick={() => s.setStep("slots")}
+                  onClick={() => s.setStep("selection")}
                 >
                   <ArrowLeft size={15} />
                   {uiText("Sửa giờ")}

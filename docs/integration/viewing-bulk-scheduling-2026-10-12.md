@@ -10,7 +10,8 @@ Kế hoạch và checklist: [plan](../../tasks/viewing-bulk-scheduling/plan.md),
    lịch hiện tại. **Chi tiết và thao tác** mở thông tin/liên hệ/hủy/chốt cũ.
 2. Tick các căn muốn đặt giờ, tối đa 3 căn/lượt và không vượt giới hạn server.
    **Chọn tất cả** áp dụng cho tập căn đủ điều kiện nằm trong giới hạn này.
-3. Bấm **Đặt lịch cho N căn** ở footer. Chọn ngày/giờ riêng từng căn.
+3. Chọn ngày/giờ ngay trên từng card; không có màn hình Chọn giờ riêng.
+   Thay đổi ngày/giờ tự tick căn đó nếu chưa vượt giới hạn. Bỏ tick giữ draft.
 4. **Xem lại lịch** cho thấy toàn bộ căn, địa chỉ và giờ hẹn. Có thể quay lại
    sửa hoặc đóng/mở bảng mà giữ draft trong cùng cuộc trò chuyện.
 5. Một nút **Xác nhận N lịch** gửi lượt đặt lịch. Kết quả hiện riêng từng căn.
@@ -90,6 +91,14 @@ thì tiếp tục chặn gửi mới, không tự coi là thất bại rồi g�
 - `ui/workspaces.css`, `locales/en.json`: layout có scope và labels.
 
 ## Kiểm chứng
+
+Cập nhật giao diện đơn giản theo phản hồi người dùng: **36 browser cases
+desktop/mobile qua** (34 regression và 2 ca chọn giờ trực tiếp kiểm riêng).
+Ô ngày/giờ hiện ngay khi mở Xem nhà, bỏ nút bắt đầu và stepper 3 bước.
+Vẫn kiểm lỗi trùng giờ, preflight, partial/unknown, map và hẹn lại request đóng.
+Kiểm responsive/axe sáng/tối VI/EN được chạy lại trên giao diện mới.
+
+Kết quả checkpoint trước khi đơn giản hóa:
 
 - `npm run test:contracts`: **34 qua**, gồm 6 test lịch nhóm: eligibility,
   slot/overlap, exact payload/order, partial failure, ambiguous/sync failure,

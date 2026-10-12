@@ -4,6 +4,14 @@ Ngày 12/10/2026. Phạm vi: frontend; giữ backend, payload, xác nhận chủ
 trạng thái hẹn/chốt, travel/overlap validation, map và dữ liệu chung hiện có.
 Checklist riêng tại `todo.md`; không ghi đè kế hoạch Roommate ở tasks root.
 
+## Điều chỉnh đã triển khai theo phản hồi người dùng
+
+Ngày/giờ hiện ngay trên card trong danh sách; không cần bước Chọn giờ riêng.
+Chọn giờ tự tick căn đó trong giới hạn, bỏ tick vẫn giữ draft. Footer chỉ còn
+Xem lại lịch → Xác nhận chung; không còn stepper 3 bước. Các yêu cầu nghiệp vụ,
+API, lỗi từng phần và đồng bộ phía dưới giữ nguyên. Phần flow/task wizard bên
+dưới mô tả checkpoint thiết kế trước khi người dùng yêu cầu đơn giản hóa.
+
 ## Audit và hướng thiết kế
 
 `ViewingPanel` hiện lặp giải thích dài, date/time picker và submit ở từng card.

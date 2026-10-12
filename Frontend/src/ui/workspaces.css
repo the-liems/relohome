@@ -1119,14 +1119,7 @@
 .viewing-more[open] { border-top: 1px solid var(--ui-line); }
 .viewing-more .form-actions { flex-wrap: wrap; }
 .viewing-more .form-actions button { min-height: 44px; }
-.bulk-steps { display: flex; padding: 0; margin: 0 0 16px; list-style: none; justify-content: space-between; gap: 8px; }
-.bulk-steps li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ui-muted); }
-.bulk-steps li > span { display: grid; place-items: center; width: 24px; height: 24px; background: var(--ui-soft); border-radius: 50%; font-weight: 700; }
-.bulk-steps li[aria-current="step"] { color: var(--ui-accent); font-weight: 700; }
-.bulk-steps li[aria-current="step"] > span { color: var(--ui-surface); background: var(--ui-accent); }
 .viewing-scheduler h4 { margin: 0 0 8px; font-size: 17px; scroll-margin-top: 8px; }
-.bulk-time-row { padding: 16px 0; border-bottom: 1px solid var(--ui-line); }
-.bulk-time-row > strong { display: block; font-size: 14px; line-height: 1.5; }
 .bulk-slot-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .bulk-slot-fields label { display: grid; gap: 6px; margin: 0; min-width: 0; font-size: 12px; font-weight: 600; }
 .bulk-slot-fields select { width: 100%; min-width: 0; min-height: 44px; }
@@ -1144,7 +1137,6 @@
   .bulk-footer button { flex: 1 1 120px; padding-inline: 8px; }
   .bulk-footer > span + button { flex-basis: 100%; }
   .bulk-slot-fields { grid-template-columns: 1fr; gap: 8px; }
-  .bulk-steps li { gap: 4px; font-size: 11px; }
 }
 .chat-service-summary {
   display: flex;

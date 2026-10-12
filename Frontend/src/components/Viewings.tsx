@@ -1,5 +1,5 @@
 import { formatUi, t as uiText } from "../uiPreferences";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   Check,
@@ -16,6 +16,7 @@ import { ViewingPreparation } from "./ViewingPreparation";
 import { ViewingScheduler } from "./ViewingScheduler";
 import type { ViewingSchedulerState } from "../useViewingScheduler";
 import { scheduleEligible } from "../viewingSchedule";
+import { ViewingSlotPicker } from "./ViewingSlotPicker";
 
 // Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
 // Backend controls slots, duration and deposit; the grouped UI caps each round at three.
@@ -291,6 +292,10 @@ export function ViewingPanel({
   footerHost: HTMLElement | null;
 }) {
   const [chatting, setChatting] = useState<Data | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scheduler.step === "selection") panel.current?.querySelector<HTMLSelectElement>('select[aria-invalid="true"]')?.focus();
+  }, [scheduler.errors, scheduler.step]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [deciding, setDeciding] = useState<Data | null>(null),
@@ -320,7 +325,7 @@ export function ViewingPanel({
     .map((row) => items.find((item) => item.listing_id === row.listing_id))
     .find(Boolean);
   return (
-    <div className="viewing-panel">
+    <div className="viewing-panel" ref={panel}>
       {scheduler.step === "selection" && <>
       <p className="muted small">{uiText("Chọn căn cho lượt đặt lịch. Bỏ dấu chọn không xóa căn khỏi kế hoạch.")}</p>
       <details className="viewing-help"><summary>{uiText("Cách hẹn và chốt nhà")}</summary>
@@ -420,6 +425,14 @@ export function ViewingPanel({
             <span className="bulk-card-address">{item.snapshot?.address}</span>
           </p>
           {item.viewing?.slot && <p className="small bulk-card-slot"><CalendarClock size={14}/>{formatUi("Lịch xem {0}", [when(item.viewing.slot)])}</p>}
+          {scheduleEligible(item) && <ViewingSlotPicker
+            title={item.title}
+            slots={viewing.slots || []}
+            value={scheduler.draftFor(item.listing_id)}
+            disabled={busy || scheduler.busy || scheduler.blocked || scheduler.unresolved.length > 0 || (!scheduler.selected.includes(item.listing_id) && scheduler.selected.length >= scheduler.limit)}
+            onChange={draft => scheduler.changeDraft(item.listing_id, draft)}
+            error={scheduler.errors[item.listing_id]}
+          />}
           <details className="viewing-more"><summary>{uiText("Chi tiết và thao tác")}</summary>
           {item.snapshot?.location_accuracy &&
             item.snapshot.location_accuracy !== "rooftop" && (
@@ -494,15 +507,6 @@ export function ViewingPanel({
               )}
             </p>
           )}
-          {(["selected", "viewing_scheduled", "backup"].includes(item.status) ||
-            (item.status === "visit_due" &&
-              item.landlord &&
-              landlordClosed(item.landlord))) &&
-            !(item.status === "backup" && item.backup_from === "visited") && (
-              <button className="secondary" disabled={busy || scheduler.busy || scheduler.blocked || scheduler.unresolved.includes(item.listing_id)} onClick={() => scheduler.start([item.listing_id])}>
-                <CalendarClock size={15}/>{uiText(item.viewing ? "Đổi lịch" : "Đặt lịch cho căn này")}
-              </button>
-            )}
           {(!item.landlord ||
             (item.landlord.viewing_status === "confirmed" &&
               !landlordClosed(item.landlord))) &&
