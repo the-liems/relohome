@@ -1,16 +1,2 @@
--r requirements-runtime.txt
-
-# Local distributions (run pip from the repository root).
-./packages/python/agent-services
-./packages/python/contracts
-./packages/python/flight
-./packages/python/mcp-http
-./packages/python/payment
-./packages/python/privacy
-./packages/python/roommate
-./src
-./Frontend
-./src/mcp_servers/flights
-./src/mcp_servers/payments
-./src/agent_services/intake
-./src/agent_services/orchestrator
+# Backward-compatible developer setup. Images use requirements-runtime.txt.
+-r requirements-dev.txt

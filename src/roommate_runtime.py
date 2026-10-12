@@ -39,9 +39,9 @@ class RoommateRuntime:
         if not moderators:
             raise ValueError("Roommate requires at least one configured moderator")
         configured_root = os.getenv("RELOHOME_RUNTIME_ROOT")
-        if not configured_root or not Path(configured_root).is_absolute():
+        if not configured_root or not Path(configured_root).expanduser().is_absolute():
             raise ValueError("RELOHOME_RUNTIME_ROOT must be an absolute path for Roommate")
-        root = Path(configured_root).resolve()
+        root = Path(configured_root).expanduser().resolve()
 
         def runtime_path(value: Path) -> Path:
             return (value if value.is_absolute() else root / value).resolve()

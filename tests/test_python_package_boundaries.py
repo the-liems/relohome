@@ -35,6 +35,9 @@ def test_internal_imports_have_declared_dependencies_and_no_app_to_app_edges():
 
 
 def test_shared_compatibility_modules_preserve_type_identity():
+    from relohome_agent.agents.graph import checkpoint_serde
+
+    checkpoint_serde()  # Registers the persisted-checkpoint alias even without source shims.
     aliases = json.loads((ROOT / "packages/python/compatibility.json").read_text())
     package_aliases = {"src.models", "src.mcp_servers.flights.search", "src.mcp_servers.payments.gateways"}
     for old, new in aliases.items():

@@ -7,6 +7,7 @@ Topology cố định; kế hoạch (Dependency DAG) là dữ liệu trong state
 from __future__ import annotations
 
 import inspect
+import sys
 import time
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -43,13 +44,18 @@ from relohome_agent.agents.state import AgentInput, WorkflowState
 from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
 
+LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
+
 
 def checkpoint_serde() -> JsonPlusSerializer:
     """Serializer chỉ cho phép khôi phục kiểu dữ liệu của graph (không mở cho mọi class)."""
+    # Persisted identifiers outlive source shims; retain until old checkpoints expire.
+    sys.modules[LEGACY_MODELS_MODULE] = models
     allowed = [
-        (models.__name__, name)
+        (module, name)
         for name, obj in inspect.getmembers(models)
-        if inspect.isclass(obj) and obj.__module__ == models.__name__
+        if inspect.isclass(obj) and obj.__module__ in {models.__name__, LEGACY_MODELS_MODULE}
+        for module in (models.__name__, LEGACY_MODELS_MODULE)
     ]
     return JsonPlusSerializer(allowed_msgpack_modules=allowed)
 

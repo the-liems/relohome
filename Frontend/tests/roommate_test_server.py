@@ -30,6 +30,7 @@ from src.roommate.services.profiles import ProfileService
 from relohome_agent.services.adapters.registry import ServiceSettings
 
 ROOT = Path(__file__).resolve().parents[2]
+os.environ.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))
 STATE = (ROOT / "logs/local" / os.environ.get("ROOMMATE_BROWSER_RUN", "roommate-browser-dev")).resolve()
 if not STATE.is_relative_to(ROOT / "logs/local"):
     raise ValueError("Browser fixture state must stay in logs/local")

@@ -43,6 +43,14 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("src/mcp_servers/http_service.py"),
                          {"web", "backend", "flights-mcp", "payments-mcp"})
 
+    def test_extracted_python_domains_rebuild_their_mcp_images(self):
+        self.assertEqual(self.selected("packages/python/flight/src/relohome_flight/schemas.py"),
+                         {"web", "backend", "flights-mcp"})
+        self.assertEqual(self.selected("packages/python/payment/src/relohome_payment/engine.py"),
+                         {"web", "backend", "payments-mcp"})
+        self.assertEqual(self.selected("packages/python/mcp-http/src/relohome_mcp_http/__init__.py"),
+                         {"web", "backend", "flights-mcp", "payments-mcp"})
+
     def test_shared_mcp_core_rebuilds_location_and_moving(self):
         self.assertEqual(self.selected("Maps VN/LifeFlow/packages/mcp-core/src/index.ts"),
                          {"location", *MOVING})

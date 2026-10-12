@@ -87,7 +87,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/flights/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "packages/python/flight/",
+      "packages/python/mcp-http/"
     ]
   },
   {
@@ -99,7 +101,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/payments/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "packages/python/payment/",
+      "packages/python/mcp-http/"
     ]
   },
   {

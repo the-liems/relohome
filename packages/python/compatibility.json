@@ -60,5 +60,6 @@
   "src.agent_services.common": "relohome_agent_services.common",
   "src.agent_services.llm": "relohome_agent_services.llm",
   "src.agent_services.intake.models": "relohome_agent_services.intake_models",
-  "src.mcp_servers.http_service": "relohome_mcp_http"
+  "src.mcp_servers.http_service": "relohome_mcp_http",
+  "src.agents.models": "relohome_agent.agents.models"
 }

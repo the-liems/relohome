@@ -26,16 +26,15 @@ Owner = Annotated[str, Header(alias="X-Owner-ID", min_length=1, max_length=128)]
 def create_app(settings: ServiceSettings | None = None) -> FastAPI:
     settings = settings or ServiceSettings()
     runtime_root = os.getenv("RELOHOME_RUNTIME_ROOT")
-    if runtime_root:
-        root = Path(runtime_root)
-        if not root.is_absolute():
-            raise ValueError("RELOHOME_RUNTIME_ROOT must be an absolute path")
-        paths = {}
-        for field in ("orchestrator_registry_path", "orchestrator_db_path"):
-            value = getattr(settings, field)
-            if value != ":memory:" and not Path(value).is_absolute():
-                paths[field] = str(root / value)
-        settings = settings.model_copy(update=paths)
+    if not runtime_root or not Path(runtime_root).expanduser().is_absolute():
+        raise ValueError("RELOHOME_RUNTIME_ROOT must be an absolute path for Orchestrator")
+    root = Path(runtime_root).expanduser().resolve()
+    paths = {}
+    for field in ("orchestrator_registry_path", "orchestrator_db_path"):
+        value = getattr(settings, field)
+        if value != ":memory:" and not Path(value).is_absolute():
+            paths[field] = str(root / value)
+    settings = settings.model_copy(update=paths)
     registry = Registry.load(settings.orchestrator_registry_path)
     llm = StructuredLLM(settings, settings.orchestrator_model)
     store = WorkflowStore(settings.orchestrator_db_path)

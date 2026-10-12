@@ -54,8 +54,8 @@ npm run dev:gateway
 ```
 
 Use `.venv/Scripts/python.exe` on Windows. `requirements-dev.txt` installs the
-local projects editable so source edits are visible immediately. Runtime
-`requirements.txt` installs ordinary wheels for all supported applications;
+local projects editable so source edits are visible immediately. The legacy
+`requirements.txt` command delegates to this same editable developer setup;
 `requirements-runtime.txt` contains the existing common third-party runtime
 ranges. Ruff, pytest, pytest-asyncio and deployment-test PyYAML moved to the dev
 file without changing their constraints. Standalone dependency pins are retained
@@ -69,8 +69,11 @@ routes, volume identities and same-origin web serving remain unchanged.
 `packages/python/manifest.json` is the reviewed, exact Python/JSON content list
 for every wheel, including Flight catalogs, subagent fixtures, Roommate services
 and subagent services. `npm run test:packages` builds wheels, compares their
-contents, creates a fresh venv, installs declared dependencies, runs `pip check`,
-and imports every module outside the checkout without `PYTHONPATH`. It exercises
+contents, then independently installs every wheel in its own fresh venv with only
+its declared dependencies, runs `pip check`, and imports every module outside the
+checkout without `PYTHONPATH`. Function-local dependencies are checked too. Builds
+use temporary source copies excluding old `build/` and `*.egg-info` artifacts;
+deleted modules cannot leak back into a wheel from previous build output. It exercises
 catalog/fixture loading, privacy behavior and gateway persistence. The
 Orchestrator registry is copied as explicit external configuration, not bundled
 as package data. `tests/test_python_package_boundaries.py` enforces dependency
@@ -112,6 +115,11 @@ path remains unchanged. Opening an existing database without its encryption key
 fails before opening the store; it never creates a replacement key. Copy the
 existing paired key when restoring a database.
 
+All three application resolvers expand `~`, require an absolute configured root,
+and resolve it before use (the explicit gateway source-launch fallback remains).
+They stay application-owned to avoid adding a generic shared package outside the
+ADR scope; their deployment configuration contract is the same.
+
 Orchestrator registry/database relative paths resolve against the configured
 root, preserving `config/agent-services/registry.json` and
 `data/orchestrator.sqlite3`. Roommate public-path rejection uses the configured
@@ -147,6 +155,17 @@ new consumers must import the canonical installed namespaces. Retained source
 entrypoints are launch compatibility only. Parent `src` and `src.mcp_servers`
 remain owned by #112/#114 during migration.
 
+`src.agents.models` is additionally a **persisted checkpoint identifier**, owned
+by the agent maintainers. LangGraph accepts both the legacy and canonical names
+with an explicit class allowlist. Canonical imports expose the same model classes,
+but their stored type identifiers remain `src.agents.models`, so an older image
+can read newly written checkpoints during rollback. A frozen SQLite checkpoint
+from base `09ac457` is resumed in regression tests and in the isolated agent wheel
+(no source `src` package); rewritten model payloads match the old bytes exactly.
+This persistence alias is **not** removable with ordinary source-shim cleanup in
+#115. Retire it only through an explicit persisted-format transition after old
+checkpoints/backups have expired or migrated and older rollback images are retired.
+
 Remove shims/source entrypoints only after the owning moves migrate known
 callers, the #118 external-consumer assessment permits removal, repository
 searches show no remaining operational callers, and installed-wheel plus image
@@ -162,8 +181,8 @@ its installed entrypoint from a temporary directory. The package boundary tests
 add two checks; a Roommate test covers root-relative private state and public-path
 rejection from an unrelated working directory. Final head and image results are recorded in the PR.
 
-Final local validation: **859 passed, 96 skipped, 137 subtests**; all 13 exact
-wheel manifests/imports/dependency checks passed; all six Python images
+Final local validation: **863 passed, 96 skipped, 137 subtests**; all 13 exact
+wheel manifests/imports/dependency checks passed in independent environments; all six Python images
 (backend, web, Flight, Payment, Intake, Orchestrator) built and passed installed
 imports from `/tmp` plus default-CMD `/health` checks. Containers had no external
 network or persistent mounts and used only dummy startup credentials. CI-scope
