@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from src.api.roommate_access import Context, TrustedActor, perform
 from src.roommate.api_models import BlockInput, ModerationInput, ReportInput
@@ -33,8 +33,32 @@ def report(body: ReportInput, actor: TrustedActor, ctx: Context):
 
 
 @router.get("/moderation/reports")
-def reports(actor: TrustedActor, ctx: Context):
-    return {"items": perform(ModerationService(ctx).reports, actor)}
+def reports(
+    actor: TrustedActor,
+    ctx: Context,
+    offset: int | None = Query(None, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    status: str | None = None,
+):
+    if offset is None and status is None:
+        return {"items": perform(ModerationService(ctx).reports, actor)}
+    return perform(ModerationService(ctx).queue, actor, "reports", status=status, offset=offset or 0, limit=limit)
+
+
+@router.get("/moderation/summary")
+def moderation_summary(actor: TrustedActor, ctx: Context):
+    return perform(ModerationService(ctx).summary, actor)
+
+
+@router.get("/moderation/profiles")
+def moderation_profiles(
+    actor: TrustedActor,
+    ctx: Context,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    status: str | None = None,
+):
+    return perform(ModerationService(ctx).queue, actor, "profiles", status=status, offset=offset, limit=limit)
 
 
 @router.post("/moderation/profiles/{identifier}")

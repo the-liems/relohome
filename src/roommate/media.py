@@ -65,7 +65,7 @@ class MediaService:
             return result
 
     def read(self, actor: Actor, identifier: str) -> bytes:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             row = self.ctx.storage.connection.execute("SELECT * FROM media WHERE id=?", (identifier,)).fetchone()
             if row is None:
                 raise RoommateError("image_unavailable", status=404)
@@ -114,12 +114,23 @@ class MediaService:
             return {"media_id": identifier, "status": "approved" if approved else "rejected"}
 
     def queue(self, actor: Actor) -> list[dict]:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require_moderator(actor)
             return [
                 dict(row)
                 for row in self.ctx.storage.connection.execute(
                     "SELECT id AS media_id,owner,status,mime,created FROM media ORDER BY created,id"
+                )
+            ]
+
+    def own(self, actor: Actor) -> list[dict]:
+        with self.ctx.read_transaction():
+            self.access.require(actor)
+            return [
+                dict(row)
+                for row in self.ctx.storage.connection.execute(
+                    "SELECT id AS media_id,status,mime,created FROM media WHERE owner=? ORDER BY created DESC,id",
+                    (actor.id,),
                 )
             ]
 

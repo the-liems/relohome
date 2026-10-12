@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import Field, StrictBool
 from starlette.concurrency import run_in_threadpool
 
@@ -8,6 +8,11 @@ from src.roommate.media import MAX_IMAGE_BYTES, MediaService
 from src.roommate.models import RoommateModel
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
+
+
+@router.get("/me/media")
+def own_media(actor: TrustedActor, ctx: Context):
+    return {"items": perform(MediaService(ctx).own, actor)}
 
 
 class ImageReview(RoommateModel):
@@ -47,8 +52,18 @@ def review(identifier: str, body: ImageReview, actor: TrustedActor, ctx: Context
 
 
 @router.get("/moderation/media")
-def queue(actor: TrustedActor, ctx: Context):
-    return {"items": perform(MediaService(ctx).queue, actor)}
+def queue(
+    actor: TrustedActor,
+    ctx: Context,
+    offset: int | None = Query(None, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    status: str | None = None,
+):
+    from src.roommate.services.moderation import ModerationService
+
+    if offset is None and status is None:
+        return {"items": perform(MediaService(ctx).queue, actor)}
+    return perform(ModerationService(ctx).queue, actor, "media", status=status, offset=offset or 0, limit=limit)
 
 
 @router.put("/me/profile/avatar")

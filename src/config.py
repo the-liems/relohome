@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     roommate_moderators: str = ""
     roommate_demo_enabled: bool = False
     roommate_demo_dataset: Path | None = None
+    roommate_storage: Literal["sqlite", "postgres"] = "sqlite"
+    roommate_database_url: SecretStr = SecretStr("")
+    roommate_contact_key: SecretStr = SecretStr("")
+    roommate_database_schema: str = "roommate"
+    roommate_database_pool_size: int = Field(default=8, ge=1, le=32)
     agent_api_token: SecretStr = SecretStr("")
 
 
