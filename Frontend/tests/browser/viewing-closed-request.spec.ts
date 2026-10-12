@@ -59,7 +59,6 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
       exact: true,
     });
     if (requestStatus === "viewing") {
-      await panel.locator(".viewing-more summary").click();
       await expect(record).toBeVisible();
     } else {
       await expect(

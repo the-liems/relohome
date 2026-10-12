@@ -16,3 +16,4 @@ Chưa push phạm vi bulk vào PR #127; CI của PR đó thuộc checkpoint trư
 - [x] Phản hồi mới: ngày/giờ luôn hiện trên card, bỏ bước Chọn giờ và stepper
 - [x] Chọn giờ tự tick, không vượt giới hạn; bỏ tick giữ draft
 - [x] 34 regression + 2 ca chọn giờ trực tiếp qua trên desktop/mobile
+- [x] Bỏ mục thu gọn và nội dung mở đầu, nới bảng desktop 560px; giữ action cũ

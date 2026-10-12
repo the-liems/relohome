@@ -227,7 +227,7 @@ export function PlanPeek({
               role="tabpanel"
               aria-labelledby={panelId + tab}
             >
-              {thread && <p className="plan-panel-title">{thread.title}</p>}
+              {thread && tab !== "viewing" && <p className="plan-panel-title">{thread.title}</p>}
               {tab === "progress" && (
                 <>
                   {items.length ? (

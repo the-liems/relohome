@@ -707,6 +707,7 @@
   min-height: 44px;
 }
 .plan-peek-panel {
+  width: min(560px, calc(100vw - 62px));
   animation: none;
   background: var(--ui-surface);
   color: var(--ui-text);
@@ -1114,11 +1115,8 @@
 .bulk-card-price { color: var(--ui-accent); font-weight: 700; font-size: 14px; }
 .bulk-card-address { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .viewing-panel .bulk-card-slot { display: flex; gap: 6px; align-items: center; margin: 0; font-size: 12px; }
-.viewing-help summary, .viewing-more summary { color: var(--ui-accent); cursor: pointer; min-height: 44px; align-content: center; font-size: 12px; font-weight: 600; }
-.viewing-help p { margin-top: 4px; }
-.viewing-more[open] { border-top: 1px solid var(--ui-line); }
-.viewing-more .form-actions { flex-wrap: wrap; }
-.viewing-more .form-actions button { min-height: 44px; }
+.viewing-item > .form-actions { flex-wrap: wrap; }
+.viewing-item > .form-actions button, .viewing-item > .text-button { min-height: 44px; }
 .viewing-scheduler h4 { margin: 0 0 8px; font-size: 17px; scroll-margin-top: 8px; }
 .bulk-slot-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .bulk-slot-fields label { display: grid; gap: 6px; margin: 0; min-width: 0; font-size: 12px; font-weight: 600; }

@@ -327,15 +327,6 @@ export function ViewingPanel({
   return (
     <div className="viewing-panel" ref={panel}>
       {scheduler.step === "selection" && <>
-      <p className="muted small">{uiText("Chọn căn cho lượt đặt lịch. Bỏ dấu chọn không xóa căn khỏi kế hoạch.")}</p>
-      <details className="viewing-help"><summary>{uiText("Cách hẹn và chốt nhà")}</summary>
-      <p className="muted small">
-        {formatUi(
-          "Chọn tối đa {0} căn để hẹn xem. Với tin do chủ nhà quản lý trên ReloHome, giờ hẹn được gửi tới chủ nhà để xác nhận; tin từ nguồn khác vẫn là lịch thử, app chưa liên hệ chủ nhà. Chỉ chốt sau khi đã gặp chủ nhà.",
-          [scheduler.limit],
-        )}
-      </p>
-      </details>
       <div className="bulk-selection-tools">
         <label className="bulk-all"><input type="checkbox" aria-label={uiText("Chọn tất cả")}
           checked={scheduler.eligible.length > 0 && scheduler.selected.length === scheduler.eligible.length}
@@ -433,7 +424,6 @@ export function ViewingPanel({
             onChange={draft => scheduler.changeDraft(item.listing_id, draft)}
             error={scheduler.errors[item.listing_id]}
           />}
-          <details className="viewing-more"><summary>{uiText("Chi tiết và thao tác")}</summary>
           {item.snapshot?.location_accuracy &&
             item.snapshot.location_accuracy !== "rooftop" && (
               <p className="muted small">
@@ -464,7 +454,7 @@ export function ViewingPanel({
           {item.landlord && landlordClosed(item.landlord) && (
             <p className="notice amber small">
               {uiText(
-                "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.",
+                "Yêu cầu đã đóng. Chọn lại ngày/giờ để gửi lịch mới.",
               )}
             </p>
           )}
@@ -472,15 +462,7 @@ export function ViewingPanel({
             !landlordClosed(item.landlord) && (
               <p className="notice amber small">
                 {uiText(
-                  "Chủ nhà không nhận giờ này. Chọn giờ khác bên dưới, ReloHome sẽ gửi lại cho chủ nhà.",
-                )}
-              </p>
-            )}
-          {item.landlord?.viewing_status === "requested" &&
-            !landlordClosed(item.landlord) && (
-              <p className="muted small">
-                {uiText(
-                  "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Chủ nhà xác nhận thì bạn mới ghi kết quả buổi xem và chốt được.",
+                  "Chủ nhà không nhận giờ này. Chọn ngày/giờ khác để gửi lại.",
                 )}
               </p>
             )}
@@ -491,21 +473,6 @@ export function ViewingPanel({
                 <span className="unread-badge">{item.landlord.unread}</span>
               )}
             </button>
-          )}
-          {item.status === "viewing_scheduled" && (
-            <p className="muted small">
-              {formatUi(
-                "Từ {0}, ghi kết quả gặp chủ nhà tại đây; đã gặp và chủ nhà đồng ý thì mới chốt được.",
-                [when(item.viewing?.slot)],
-              )}
-            </p>
-          )}
-          {item.status === "selected" && (
-            <p className="muted small">
-              {uiText(
-                "Hẹn lịch xem trước; sau buổi gặp chủ nhà bạn ghi kết quả rồi mới chốt.",
-              )}
-            </p>
           )}
           {(!item.landlord ||
             (item.landlord.viewing_status === "confirmed" &&
@@ -671,7 +638,6 @@ export function ViewingPanel({
               </div>
             </form>
           )}
-          </details>
         </section>
       ))}
       </>}

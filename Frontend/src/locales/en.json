@@ -1496,5 +1496,8 @@
   "Danh sách hoặc lịch đã thay đổi. Hãy xem lại trước khi xác nhận.": "The list or schedule has changed. Review it before confirming.",
   "Lịch đã được xử lý; chưa tải lại được kế hoạch. Hãy kiểm tra trạng thái.": "The bookings were processed, but the plan could not refresh. Check status.",
   "Kết quả vẫn chưa rõ. Không gửi lại lịch này; hãy kiểm tra sau.": "The result is still uncertain. Do not resend this booking; check again later.",
-  "Chưa nhận được phản hồi.": "No response received yet."
+  "Chưa nhận được phản hồi.": "No response received yet.",
+  "Yêu cầu đã đóng. Chọn lại ngày/giờ để gửi lịch mới.": "The request is closed. Choose a date and time to send a new viewing request.",
+  "Chủ nhà không nhận giờ này. Chọn ngày/giờ khác để gửi lại.": "The owner declined this time. Choose another date and time to resend.",
+  "Bấm Xem danh sách căn để gửi lại cho chủ nhà. Không đặt lại lịch đã lưu.": "Choose View homes to follow up with the owner. Do not rebook a saved viewing."
 }

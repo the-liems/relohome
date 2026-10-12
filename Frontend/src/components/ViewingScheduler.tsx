@@ -137,7 +137,7 @@ export function ViewingScheduler({
           {s.rows.some((r) => r.status === "sync_pending") && (
             <p className="notice amber small">
               {uiText(
-                "Mở Chi tiết và thao tác để gửi lại cho chủ nhà. Không đặt lại lịch đã lưu.",
+                "Bấm Xem danh sách căn để gửi lại cho chủ nhà. Không đặt lại lịch đã lưu.",
               )}
             </p>
           )}

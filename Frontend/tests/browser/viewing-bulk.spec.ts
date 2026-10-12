@@ -121,6 +121,22 @@ test("three compact homes, draft preservation, review and one confirmation with 
   await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
   await expect(page.locator(".viewing-item")).toHaveCount(3);
   await expect(page.locator(".viewing-item select")).toHaveCount(6);
+  await expect(page.locator(".viewing-panel summary")).toHaveCount(0);
+  await expect(page.locator(".plan-panel-title")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Chọn căn cho lượt đặt lịch. Bỏ dấu chọn không xóa căn khỏi kế hoạch.",
+      { exact: true },
+    ),
+  ).toHaveCount(0);
+  if (info.project.name === "desktop") {
+    expect(
+      await page
+        .locator(".plan-peek-panel")
+        .evaluate((el) => el.getBoundingClientRect().width),
+    ).toBe(560);
+  }
+
   await expect(
     page.getByRole("button", { name: "Xem lại lịch", exact: true }),
   ).toBeDisabled();
@@ -299,7 +315,6 @@ test("owner sync failure is visible, stops the batch and retains the legacy retr
   await page
     .getByRole("button", { name: "Xem danh sách căn", exact: true })
     .click();
-  await page.locator(".viewing-item").first().locator("summary").click();
   await expect(
     page.getByRole("button", { name: "Gửi lại cho chủ nhà", exact: true }),
   ).toBeVisible();

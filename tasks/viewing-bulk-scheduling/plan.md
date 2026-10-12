@@ -12,6 +12,11 @@ Xem lại lịch → Xác nhận chung; không còn stepper 3 bước. Các yêu
 API, lỗi từng phần và đồng bộ phía dưới giữ nguyên. Phần flow/task wizard bên
 dưới mô tả checkpoint thiết kế trước khi người dùng yêu cầu đơn giản hóa.
 
+Phản hồi tiếp theo: bỏ mục Chi tiết và thao tác, đoạn hướng dẫn và tên hội
+thoại lặp ở đầu Xem nhà. Hành động cũ hiện trực tiếp theo trạng thái, bỏ chữ
+giải thích lặp từng card; giữ cảnh báo và điều kiện. Bảng desktop 560px,
+mobile vẫn vừa màn hình. Không thay API, slots hoặc nghiệp vụ.
+
 ## Audit và hướng thiết kế
 
 `ViewingPanel` hiện lặp giải thích dài, date/time picker và submit ở từng card.

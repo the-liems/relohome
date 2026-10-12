@@ -351,7 +351,6 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     .getByRole("button", { name: "Xem nhanh kế hoạch", exact: true })
     .click();
   await page.getByRole("button", { name: "Xong", exact: true }).click();
-  await page.locator(".viewing-more summary").click();
   await page.getByRole("button", { name: "Hủy lịch", exact: true }).click();
   await expect(preparation).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -362,7 +361,6 @@ test("only enabled services are offered; the guide opens the actual viewing chec
 }) => {
   const { requests } = await fixture(page, "viewing_scheduled", ["property"]);
   await page.goto("/ai/th_viewing?panel=plan&planTab=viewing");
-  await page.locator(".viewing-more summary").click();
   const preparation = page.getByRole("region", {
     name: "Chuẩn bị cho buổi xem nhà",
     exact: true,
@@ -412,7 +410,6 @@ test("a decided home prioritizes moving and roommate services without booking ei
 }) => {
   const { requests } = await fixture(page, "agreed");
   await page.goto("/ai/th_viewing?panel=plan&planTab=viewing");
-  await page.locator(".viewing-more summary").click();
   const preparation = page.getByRole("region", {
     name: "Chuẩn bị chuyển đến",
     exact: true,

@@ -7,7 +7,8 @@ Kế hoạch và checklist: [plan](../../tasks/viewing-bulk-scheduling/plan.md),
 ## Trải nghiệm người dùng
 
 1. Vào **Kế hoạch → Xem nhà**. Card chỉ hiện tên, giá, địa chỉ, trạng thái và
-   lịch hiện tại. **Chi tiết và thao tác** mở thông tin/liên hệ/hủy/chốt cũ.
+   lịch hiện tại. Các thao tác liên hệ/hủy/chốt hiện trực tiếp theo trạng thái;
+   không còn mục thu gọn Chi tiết và thao tác.
 2. Tick các căn muốn đặt giờ, tối đa 3 căn/lượt và không vượt giới hạn server.
    **Chọn tất cả** áp dụng cho tập căn đủ điều kiện nằm trong giới hạn này.
 3. Chọn ngày/giờ ngay trên từng card; không có màn hình Chọn giờ riêng.
@@ -18,9 +19,12 @@ Kế hoạch và checklist: [plan](../../tasks/viewing-bulk-scheduling/plan.md),
    Map vẫn còn; gợi ý chuẩn bị/dịch vụ tiếp theo không tự chuyển workspace.
 
 Checkbox chọn mục tiêu của lượt đặt giờ, không gọi `unselect`. **Bỏ chọn**
-trong Chi tiết vẫn dùng API cũ để gỡ căn khỏi giỏ chung. Những căn đã xem,
+trên card vẫn dùng API cũ để gỡ căn khỏi giỏ chung. Những căn đã xem,
 đã chốt hoặc đã báo trả không bị đưa trở lại nhóm đặt giờ.
 
+Đã bỏ tên hội thoại lặp lại, đoạn hướng dẫn và Cách hẹn và chốt nhà ở đầu
+tab Xem nhà. Bảng Kế hoạch rộng 560px trên desktop (trước 480px); mobile
+vẫn co vừa màn hình. Cảnh báo/lỗi và trạng thái chủ nhà vẫn hiện khi cần.
 Footer dùng vùng cố định ngoài scroll body của PlanPeek; không che controls.
 Ngày/giờ dùng native select và slots server. Mobile 320px xếp dọc, control
 44px; sáng/tối, VI/EN dùng token và translation hiện có.
@@ -55,7 +59,7 @@ lỗi từng phần là lựa chọn riêng phù hợp API ReloHome.
   click ngoài hoặc đổi tab trong lúc xử lý. Rời thread dừng các căn chưa gửi.
 - Sau lượt gửi, refresh thread một lần qua callback cũ. Không reset map.
 - Nút hủy, gửi lại chủ nhà, ghi kết quả xem, chốt, báo trả, mở lại và chat
-  chủ nhà vẫn nằm trong disclosure và dùng endpoint/điều kiện hiện có.
+  chủ nhà hiện trực tiếp trên card và dùng endpoint/điều kiện hiện có.
   Các tab Chi phí, Thanh toán, Cần phản hồi giữ điều kiện hiển thị cũ.
 
 ## Lỗi từng phần
@@ -97,6 +101,9 @@ desktop/mobile qua** (34 regression và 2 ca chọn giờ trực tiếp kiểm r
 Ô ngày/giờ hiện ngay khi mở Xem nhà, bỏ nút bắt đầu và stepper 3 bước.
 Vẫn kiểm lỗi trùng giờ, preflight, partial/unknown, map và hẹn lại request đóng.
 Kiểm responsive/axe sáng/tối VI/EN được chạy lại trên giao diện mới.
+Lượt bỏ mục thu gọn và nới bảng: chạy lại đủ 36 ca; kiểm desktop 560px,
+không còn summary/đoạn mở đầu, các nút gửi lại chủ nhà/hủy/ghi kết quả
+vẫn dùng trực tiếp, footer và panel không tràn mobile.
 
 Kết quả checkpoint trước khi đơn giản hóa:
 
@@ -125,7 +132,7 @@ Chưa publish phần bulk vào PR #127 hoặc triển khai cloud.
 
 Mở `http://127.0.0.1:8503/ai`, tìm/chọn 2–3 căn trên map rồi mở Xem nhà.
 Tick căn, chọn các giờ đủ khoảng cách, xem lại và xác nhận một lần. Kiểm tra
-trạng thái từng căn, mở Chi tiết để đổi/hủy nếu cần. Với tin chủ nhà quản lý
+trạng thái từng căn, dùng ngày/giờ và nút hủy trên card nếu cần. Với tin chủ nhà quản lý
 trên ReloHome, chờ chủ nhà xác nhận; tin nguồn khác vẫn là lịch thử như trước.
 
 Nạp lại trang bằng Ctrl+F5 để lấy bundle frontend mới. Không cần migration,
