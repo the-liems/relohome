@@ -1,4 +1,4 @@
-"""Internal MCP bearer authentication; matches @lifeflow/mcp-core's contract."""
+"""Internal MCP bearer authentication; matches @relohome/mcp-core's contract."""
 
 import re
 import secrets

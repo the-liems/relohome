@@ -1,5 +1,5 @@
 /** Read-only compatibility check. Never migrates, cleans or imports data. */
-import { createDatabasePool, getApplicationRuntimeConfig } from '@lifeflow/housing-query'
+import { createDatabasePool, getApplicationRuntimeConfig } from '@relohome/housing-query'
 
 if (Number(process.versions.node.split('.')[0]) < 24) {
   console.error('Node.js 24+ is required by LifeFlow.')

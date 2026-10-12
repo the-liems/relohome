@@ -27,7 +27,7 @@ Ngoài phạm vi: hợp đồng thuê, thu tiền thuê/cọc trong ứng dụng
 
 ## Giao diện và dữ liệu chuẩn
 
-- Read contract hiện hữu: `Maps VN/LifeFlow/packages/contracts/src/housing.ts`.
+- Read contract hiện hữu: `packages/contracts/src/housing.ts`.
 - Contract bổ sung: module Housing Landlord riêng; trường mới trên search/detail là optional/default để client cũ tiếp tục parse.
 - Persistence: schema `housing` trong PostGIS hiện tại; không tạo database hay microservice mới.
 - Browser identity: session hiện tại → gateway → trusted `X-User-Id`; browser không được tự khai actor.

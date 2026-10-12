@@ -36,12 +36,11 @@ docker start "$container"
 docker cp ../../package.json "$container:/workspace/package.json"
 docker cp ../../node_modules "$container:/workspace/node_modules"
 docker exec "$container" mkdir -p '/workspace/Maps VN/LifeFlow'
-for path in packages scripts; do
-  docker cp "$path" "$container:/workspace/Maps VN/LifeFlow/$path"
-done
+docker cp ../../packages "$container:/workspace/packages"
+docker cp scripts "$container:/workspace/Maps VN/LifeFlow/scripts"
 if [ "${1:-}" = --check-imports ]; then
   # Exercise copying and dependency resolution without any provider/network call.
-  docker exec "$container" node --input-type=module -e "await import('@modelcontextprotocol/client'); await import('@lifeflow/moving-service')"
+  docker exec "$container" node --input-type=module -e "await import('@modelcontextprotocol/client'); await import('@relohome/moving-service')"
 else
   docker exec --workdir "/workspace/Maps VN/LifeFlow" "$container" node scripts/verify-moving-deployment.mjs
 fi

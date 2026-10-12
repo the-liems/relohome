@@ -56,7 +56,7 @@ nên không chạy tự động khi deploy.
 Trong thư mục `Maps VN/LifeFlow`, với env trỏ đúng database:
 
 ```sh
-npm run db:migrate --workspace @lifeflow/platform-api
+npm run db:migrate --workspace @relohome/platform-api
 npm run build
 node scripts/verify-housing-query-performance.mjs 9b2b2db
 ```

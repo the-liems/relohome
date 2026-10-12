@@ -1,24 +1,26 @@
 # Root-context allowlist; keep local credentials, data and generated output out.
 **
+!apps/
+!packages/
 !package.json
 !package-lock.json
 !scripts/
 !scripts/docker-npm.mjs
 !Maps VN/
 !Maps VN/LifeFlow/
-!Maps VN/LifeFlow/tsconfig.base.json
+!tsconfig.base.json
 !Maps VN/LifeFlow/Dockerfile.moving
-!Maps VN/LifeFlow/packages/
-!Maps VN/LifeFlow/packages/contracts/
-!Maps VN/LifeFlow/packages/contracts/**
-!Maps VN/LifeFlow/packages/mcp-core/
-!Maps VN/LifeFlow/packages/mcp-core/**
-!Maps VN/LifeFlow/packages/moving-service/
-!Maps VN/LifeFlow/packages/moving-service/**
-!Maps VN/LifeFlow/moving-api/
-!Maps VN/LifeFlow/moving-api/**
-!Maps VN/LifeFlow/moving-mcp-server/
-!Maps VN/LifeFlow/moving-mcp-server/**
+!packages/
+!packages/contracts/
+!packages/contracts/**
+!packages/mcp-core/
+!packages/mcp-core/**
+!packages/moving-service/
+!packages/moving-service/**
+!apps/moving-api/
+!apps/moving-api/**
+!apps/moving-mcp/
+!apps/moving-mcp/**
 !Maps VN/LifeFlow/database/
 !Maps VN/LifeFlow/database/moving/
 !Maps VN/LifeFlow/database/moving/**

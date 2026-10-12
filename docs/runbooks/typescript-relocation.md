@@ -1,0 +1,79 @@
+# TypeScript relocation (#111)
+
+The eight private TypeScript workspaces now live in `apps/` and `packages/`.
+Install from repository root with Node 24/npm 11: `npm ci`, then `npm run build:ts`.
+The single root lockfile retains external dependency versions and integrity hashes.
+
+| Former path under Maps VN/LifeFlow | Canonical path / npm package |
+| --- | --- |
+| platform-api | apps/platform-api / @relohome/platform-api |
+| mcp-server | apps/location-mcp / @relohome/location-mcp |
+| moving-api | apps/moving-api / @relohome/moving-api |
+| moving-mcp-server | apps/moving-mcp / @relohome/moving-mcp |
+| packages/contracts | packages/contracts / @relohome/contracts |
+| packages/housing-query | packages/housing-query / @relohome/housing-query |
+| packages/mcp-core | packages/mcp-core / @relohome/mcp-core |
+| packages/moving-service | packages/moving-service / @relohome/moving-service |
+
+Root commands include `dev:api`, `dev:mcp`, `dev:mcp:http`, `dev:moving-api`,
+`dev:moving-mcp`, `dev:moving-mcp:http`, `db:migrate`, the existing `db:import:*`
+commands, and `moving:up/down/status/verify`. Per-service commands work with
+`npm run <command> --workspace @relohome/<package>`.
+
+The legacy nested manifest contains only forwarding/operational scripts, no
+workspace definitions or lockfile. Its identified consumers are the retained
+PowerShell launchers, local Moving tooling, `scripts/live-checks.mjs`, and existing
+runbooks. #115 owns retiring it together with those callers. There are no duplicate
+source implementations or speculative old-name npm aliases. No new external
+consumer was found in the repository scan; the private-consumer limitations of
+[#118's assessment](../integration/monorepo-baseline/naming-inventory.md#external-consumers-and-identifiers-without-this-spelling)
+still apply. Location exports are `ReloHomeMcpDependencies`,
+`createReloHomeMcpServer`, and `createReloHomeMcpRuntime`, updated with all internal
+callers. PR #107 telemetry is not merged in this base and is not relocated here.
+
+## Retained assets and compatibility
+
+SQL, data, map demo, Dockerfile.moving, Compose files, scripts, `.env`, `.runtime`,
+and routing assets remain under their existing directories until #115. Never
+move local credentials or databases to `apps/`. Environment lookup retains
+`LIFEFLOW_ENV_FILE` first, then a working-directory `.env`, the legacy service
+environment, and parent fallbacks. Relative importer paths launched through the
+platform npm workspace keep the former workspace base; explicit launcher working
+directories keep their existing meaning. SQL and report defaults resolve to the
+retained asset directory.
+
+Docker uses repository-root contexts and allowlists. Its disposable manifest/lock
+adapter preserves `/app/{platform-api,mcp-server,moving-api,moving-mcp-server,packages}`;
+image-local TypeScript configs reflect that depth. Image commands and SQL paths,
+service/DNS names, ports, health endpoints, volume/project/image identities,
+environment names, MCP identifiers, persisted enums, migration history/locks, and
+operational logs are unchanged (M10–M21/M24–M25). SQL files are byte-identical.
+
+## Validation and rollback
+
+```sh
+npm ci
+npm run build
+npm run test:ts
+npm run test:ts:database
+npm run deployment:check
+npm run image:check -- platform location moving-api moving-mcp location-migrate moving-migrate
+```
+
+The database runner requires Docker and access to the existing private PostGIS
+image. It creates random test containers with tmpfs storage and ephemeral loopback
+ports, imports synthetic POIs/administrative areas using the real importers, runs
+all location suites including canonicalization, dataset roundtrip and POI v2, and
+removes only its own container. It never connects to an existing database.
+Provider-dependent Moving checks remain opt-in (`test:moving:live`).
+
+The existing `scripts/test-migration-image.py <kind> <built-image>` verifies both
+migration images against isolated databases, including repeat-run history and
+runtime grants. Runtime liveness checks alone do not claim staging data continuity.
+
+Rollback is a code revert plus redeployment of the previously published image
+digest through the existing release process. Do not restore/reset a database,
+rerun imports, regenerate credentials, or rename volumes to undo this move.
+Windows launcher execution and staging existing-data/digest rollback require their
+respective environments and remain explicit #116 evidence gates. No production
+rollout is part of this change.

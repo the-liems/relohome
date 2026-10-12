@@ -5,9 +5,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const require = createRequire(resolve(root, 'Maps VN/LifeFlow/package.json'));
+const require = createRequire(resolve(root, 'package.json'));
 const { z } = require('zod');
-const c = await import(new URL('../Maps%20VN/LifeFlow/packages/contracts/dist/index.js', import.meta.url));
+const c = await import(new URL('../packages/contracts/dist/index.js', import.meta.url));
 const rows = [];
 const envelope = fields => z.object({ meta: c.MovingToolMetaSchema, ...fields });
 function add(name, description, input, output, intent = null, trusted = {}) {
@@ -53,11 +53,11 @@ cancel.input_schema.oneOf = [
   { required: ['order_id'], not: { required: ['tracking_number'] } },
   { required: ['tracking_number'], not: { required: ['order_id'] } },
 ];
-const source = readFileSync(resolve(root, 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'), 'utf8');
+const source = readFileSync(resolve(root, 'apps/moving-mcp/src/create-server.ts'), 'utf8');
 const names = [...source.matchAll(/server\.registerTool\('([^']+)'/g)].map(m => m[1]).sort();
 if (JSON.stringify(names) !== JSON.stringify(rows.map(t => t.name).sort())) throw Error('Moving tool inventory drift');
 const output = JSON.stringify({ version: '1.0.0',
-  source: 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts + packages/contracts/src/moving.ts; offline metadata only',
+  source: 'apps/moving-mcp/src/create-server.ts + packages/contracts/src/moving.ts; offline metadata only',
   tools: rows }, null, 2) + '\n';
 const path = resolve(root, 'config/agent-services/registry.json');
 if (process.argv.includes('--check')) {

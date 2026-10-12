@@ -74,8 +74,8 @@ uvicorn src.main:app --reload                # API tại /api/v1
 
 | Lĩnh vực | Service | Biến |
 |---|---|---|
-| property, map | Location (`Maps VN/LifeFlow/mcp-server`) | `LOCATION_MCP_URL`, `LOCATION_MCP_AUTH_TOKEN` |
-| relocation | Moving / AhaMove (`Maps VN/LifeFlow/moving-mcp-server`) | `MOVING_MCP_URL`, `MOVING_MCP_AUTH_TOKEN`, `MOVING_QUOTE_CONTACT_*`, `MOVING_APPROVAL_URL` |
+| property, map | Location (`apps/location-mcp`) | `LOCATION_MCP_URL`, `LOCATION_MCP_AUTH_TOKEN` |
+| relocation | Moving / AhaMove (`apps/moving-mcp`) | `MOVING_MCP_URL`, `MOVING_MCP_AUTH_TOKEN`, `MOVING_QUOTE_CONTACT_*`, `MOVING_APPROVAL_URL` |
 | flight | Flight (`src/mcp_servers/flights`) | `FLIGHT_MCP_URL` |
 | thanh toán | Payment ZaloPay sandbox (`src/mcp_servers/payments`) | `PAYMENT_MCP_URL` |
 

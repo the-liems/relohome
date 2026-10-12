@@ -35,7 +35,7 @@ flowchart LR
 | Agent workflow | `src/agents/` | LLM intake/planning, domain execution, validation, cost summary, approval, and response |
 | Service adapters | `src/services/adapters/` | MCP boundaries, moving approvals, transactions, and local persistence |
 | Location platform | `Maps VN/LifeFlow/` | Housing/POI queries, geographic data, routes, REST API, and MCP tools |
-| Moving service | `Maps VN/LifeFlow/packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
+| Moving service | `packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
 | Flight and Payment | `src/mcp_servers/` | Flight search and payment tools with provider-specific configuration |
 | Standalone agent services | `src/agent_services/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
 

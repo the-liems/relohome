@@ -57,7 +57,7 @@ and writes protocol output only to stdout; diagnostics go to stderr.
   "command": "node",
   "args": [
     "--env-file=<repository>/.env.local",
-    "<repository>/Maps VN/LifeFlow/moving-mcp-server/dist/server.js"
+    "<repository>/apps/moving-mcp/dist/server.js"
   ]
 }
 ```

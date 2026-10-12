@@ -1,7 +1,7 @@
 # Moving: đăng ký approval từ backend
 
 Schema chuẩn: `RegisterMovingApprovalRequestSchema` và `MovingApprovalPayloadSchema`
-trong `Maps VN/LifeFlow/packages/contracts/src/moving.ts`. Tài liệu này chỉ mô tả
+trong `packages/contracts/src/moving.ts`. Tài liệu này chỉ mô tả
 ngữ nghĩa; không thay thế schema. Liên quan SPEC-004/AC-19, ADR-003.
 
 ## Endpoint và quyền

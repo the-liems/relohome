@@ -90,13 +90,13 @@ def main():
     if args.port is not None and (args.component not in {"api", "ui"} or not 1 <= args.port <= 65535):
         parser.error("--port is valid only for api/ui and must be between 1 and 65535")
     commands = {
-        "location": ["node", "mcp-server/dist/http-server.js"],
-        "platform": ["node", "platform-api/dist/server.js"],
-        "moving": ["node", "moving-mcp-server/dist/http-server.js"],
-        "moving-api": ["node", "moving-api/dist/server.js"],
+        "location": ["node", "../../apps/location-mcp/dist/http-server.js"],
+        "platform": ["node", "../../apps/platform-api/dist/server.js"],
+        "moving": ["node", "../../apps/moving-mcp/dist/http-server.js"],
+        "moving-api": ["node", "../../apps/moving-api/dist/server.js"],
         "flight": [sys.executable, "-m", "src.mcp_servers.flights", "--transport", "streamable-http"],
         "payment": [sys.executable, "-m", "src.mcp_servers.payments", "--transport", "streamable-http"],
-        "migrate": ["node", "platform-api/dist/migrate.js"],
+        "migrate": ["node", "../../apps/platform-api/dist/migrate.js"],
         "check": ["node", "scripts/check-local-schema.mjs"],
         "api": [
             sys.executable,

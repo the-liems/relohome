@@ -24,7 +24,7 @@ class McpClientError(RuntimeError):
 class LifeFlowMcpClient:
     def __init__(self, lifeflow_root: Path) -> None:
         self.lifeflow_root = lifeflow_root.resolve()
-        self.server_path = self.lifeflow_root / "mcp-server" / "dist" / "server.js"
+        self.server_path = self.lifeflow_root.parents[1] / "apps" / "location-mcp" / "dist" / "server.js"
         self.env_path = self.lifeflow_root.parents[1] / ".env.local"
         self._request_id = 0
         self._stderr: deque[str] = deque(maxlen=30)

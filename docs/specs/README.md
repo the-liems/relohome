@@ -61,7 +61,7 @@ là nơi tra code, kiểm thử và dữ liệu đã xác nhận.
 | Công cụ cho agent khác gọi | [013 - MCP](SPEC-013-mcp-vi-tri.md) | MCP `stdio` / Streamable HTTP |
 
 Field/giới hạn chính xác lấy từ Zod tại
-[`packages/contracts/src/`](../../Maps%20VN/LifeFlow/packages/contracts/src/),
+[`packages/contracts/src/`](../../packages/contracts/src),
 không chép lại schema vào SPEC. Mẫu cho tính năng mới:
 [`_template.md`](_template.md).
 

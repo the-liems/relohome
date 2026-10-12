@@ -108,3 +108,7 @@ Maps\ VN/Routing/**
 
 # Local pytest/tool scratch directories (never commit generated keys)
 .tmp/
+
+# Canonical TypeScript workspaces (#111)
+apps/*/dist/
+packages/*/dist/
