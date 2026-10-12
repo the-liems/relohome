@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host '[1/5] Starting isolated LifeFlow PostGIS...' -ForegroundColor Cyan
 Set-Location -LiteralPath $rootPath
-Invoke-Checked node ../../scripts/dev.mjs database -- docker compose -f infra/compose.yaml up -d --wait postgis
+Invoke-Checked docker compose --env-file ../../.env.local -f infra/compose.yaml up -d --wait postgis
 
 Write-Host '[2/5] Starting the nine OSRM city/profile containers...' -ForegroundColor Cyan
 foreach ($container in $containers) {
@@ -80,8 +80,8 @@ Write-Host '[4/5] Starting Platform API at http://127.0.0.1:4100/ ...' -Foregrou
 New-Item -ItemType Directory -Path $runtimePath -Force | Out-Null
 if (-not (Test-PlatformApi)) {
     $nodePath = (Get-Command node).Source
-    $serverPath = Join-Path $repoPath 'scripts\dev.mjs'
-    $quotedServerPath = '"' + $serverPath + '" platform -- node platform-api/dist/server.js'
+    $serverPath = Join-Path $rootPath 'platform-api\dist\server.js'
+    $quotedServerPath = '--env-file="' + (Join-Path $repoPath '.env.local') + '" "' + $serverPath + '"'
     $apiProcess = Start-Process -FilePath $nodePath -ArgumentList $quotedServerPath -WorkingDirectory $rootPath -WindowStyle Hidden -RedirectStandardOutput $apiOutLog -RedirectStandardError $apiErrorLog -PassThru
     Set-Content -LiteralPath $apiPidPath -Value $apiProcess.Id -Encoding ascii
 

@@ -8,8 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-
-from scripts.local_env import load_config
+from dotenv import dotenv_values
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,7 +16,7 @@ BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
 
 
 def test_existing_owned_payment_and_foreign_owner():
-    env = load_config()
+    env = dotenv_values(Path(__file__).resolve().parents[2] / ".env.local")
     path = (ROOT / env.get("AGENT_STATE_DIR", "data/agent-runtime") / "runtime.sqlite3").resolve()
     if not path.exists():
         pytest.skip("No real runtime database available")

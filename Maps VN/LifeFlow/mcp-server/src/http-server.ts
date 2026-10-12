@@ -17,7 +17,7 @@ const allowedHosts = commaSeparated(
 const allowedOriginHosts = commaSeparated(
   process.env.MCP_ALLOWED_ORIGIN_HOSTS || 'localhost,127.0.0.1,[::1]',
 )
-const authToken = requireServiceToken(process.env.MCP_AUTH_TOKEN || '')
+const authToken = requireServiceToken(process.env.MCP_AUTH_TOKEN || process.env.LOCATION_MCP_AUTH_TOKEN || '')
 
 const validateHost = hostHeaderValidation(allowedHosts)
 const validateOrigin = originValidation(allowedOriginHosts)

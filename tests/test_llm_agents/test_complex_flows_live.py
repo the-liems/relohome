@@ -8,15 +8,14 @@ from pathlib import Path
 
 import httpx
 import pytest
-
-from scripts.local_env import load_config
+from dotenv import dotenv_values
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def execute(message, **extra):
-    env = load_config()
+    env = dotenv_values(Path(__file__).resolve().parents[2] / ".env.local")
     with httpx.Client(
         base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1"),
         headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "complex_" + uuid.uuid4().hex},
@@ -76,7 +75,7 @@ def test_housing_flight_parallel_then_map():
 
 
 def test_moving_flight_route_independent():
-    env = load_config()
+    env = dotenv_values(Path(__file__).resolve().parents[2] / ".env.local")
     assert env.get("MOVING_LIVE_QUOTE_INPUTS"), "Operator-approved real route required"
     route = json.loads(env["MOVING_LIVE_QUOTE_INPUTS"])
     pins = {

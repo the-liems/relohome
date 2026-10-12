@@ -1,4 +1,4 @@
-// Run through the local launcher; all credentials come from its scoped environment.
+// Start with node --env-file=../../.env.local; Compose inherits the native environment.
 import { devNull } from 'node:os'
 import { resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'

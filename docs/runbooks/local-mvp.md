@@ -2,63 +2,72 @@
 
 ## One local configuration file
 
-`.env.example` is the committed template. `.env.local` at repository root is the only
-local source of actual values and is ignored by Git. Services and libraries read
-only their process environment; production/Coolify injects the same service names.
+`.env.example` is the committed template; root `.env.local` is the ignored local
+configuration file. Run `npm run dev:init` on a fresh checkout, enter provider keys,
+then use `npm run dev:mcp:http`, `npm run dev:agent`, or another documented dev script.
+Initialization creates internal credentials once and refuses to overwrite existing
+files or rotate credentials when legacy configuration exists.
 
-For a fresh checkout:
+For existing installations, copy the template and transfer the actual values from
+root `.env`, `data/integration.env`, the old `Maps VN/LifeFlow/.env`, and (if used)
+`.runtime/moving-secrets.json`. Preserve the credentials of the running database.
+Keep the Location token once as `LOCATION_MCP_AUTH_TOKEN`; remove the old generic
+`MCP_AUTH_TOKEN` and the previous PR's `LOCATION_MCP_TOKEN` from the local file.
+The Location server accepts the prefixed name; production's explicit `MCP_AUTH_TOKEN`
+continues to take precedence. Moving, Flight and Payment retain their prefixed tokens.
 
-```sh
-npm run dev:init
-# Edit .env.local and enter the provider keys you need.
-npm run dev:mcp:http
-npm run dev:agent
-# Choose an alternate file explicitly (relative paths are relative to your cwd):
-npm run dev:mcp:http -- --env-file /absolute/path/to/team.env
-python scripts/local-integration.py location --env-file /absolute/path/to/team.env
-```
-
-The initializer creates internal credentials once with private file permissions.
-It refuses to overwrite a file or generate replacements when legacy configuration
-exists. For an existing installation, copy the template manually and transfer the
-values from root `.env`, `data/integration.env`, the old service `.env`, and (if used)
-`.runtime/moving-secrets.json`. Resolve any differences using the credentials of the
-actual running database/service. Do not regenerate passwords for existing volumes.
-Replace the two Location token names with one `LOCATION_MCP_TOKEN`; remove
-`MCP_AUTH_TOKEN` and `LOCATION_MCP_AUTH_TOKEN` from local files and shell exports.
-The launcher supplies those runtime aliases. Never paste secret values into Git or logs.
-
-`--env-file` selects exactly one file, with no fallback; missing files fail before
-launch. Without it, the path is anchored to this repository, independent of cwd.
-Shell variables override file values. `${VAR}` expansion is deliberately disabled.
-Each service receives only its configuration group and required shared values.
-Location and Moving runtime processes never receive the backend `DATABASE_URL`.
-Database admin credentials are supplied to migrations, not application processes.
-
-Local service URLs are derived from `MCP_PORT`, `MOVING_MCP_PORT`, `FLIGHT_MCP_PORT`,
-`PAYMENT_MCP_PORT` and `MOVING_API_PORT`; configure an explicit URL only for a remote
-service. After changing a token or port, restart both client and server. Token aliases
-that conflict with the canonical Location token fail with a variable-name-only error.
-The `check` component additionally checks the actual database/schema connection.
-
-All npm `dev:*` commands and workspace database scripts use `scripts/dev.py` through
-its Node shim. `scripts/local-integration.py` is the built-service launcher and adds
-its existing local sandbox safety policies. Both share `scripts/local_env.py` for
-file selection, mapping and filtering. For an ad hoc command:
+Local startup uses native `--env-file` options, with no custom launcher or environment
+allowlists. npm runs workspace scripts from their package directory, so their paths
+are stable whether invoked from root or the legacy workspace. Node loads the file before the existing Python executable shim for all Python dev
+commands. Unlike uvicorn alone, Node fails if the selected file is missing.
+For an alternate file, invoke the native entrypoint with that file instead:
 
 ```sh
-node scripts/dev.mjs platform -- node "Maps VN/LifeFlow/platform-api/dist/server.js"
-node scripts/dev.mjs database -- docker compose -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+# From repository root (exactly one selected env file):
+node --env-file=/absolute/path/team.env "Maps VN/LifeFlow/mcp-server/dist/http-server.js"
+node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
+node --env-file=/absolute/path/team.env scripts/python.mjs -m src.mcp_servers.flights --transport stdio
+docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
+# Existing integration launcher also accepts a replacement file:
+python scripts/local-integration.py location --env-file /absolute/path/team.env
 ```
 
-Compose gets the launcher's environment and disables its implicit `.env` discovery.
-Native Moving defaults to the shared Location database. The optional containerized
-Moving stack consumes the same file's `MOVING_DB_*` secrets; it no longer generates
-`.runtime/moving-secrets.json`. For a separate native Moving database, configure
-`MOVING_DB_HOST`, port, name, users and passwords; the launcher derives its URLs.
-Do not run native and containerized servers on the same ports simultaneously.
-`start-local-mvp.ps1` and `Start-LifeFlow.ps1` retain their documented default-port
-readiness checks; use individual launcher commands when customizing ports.
+Do not append `--env-file` after a Node application path: those arguments belong to
+the application. npm shortcuts select root `.env.local`; use the direct commands
+above to replace it. Missing explicit files fail, and exported shell values take
+precedence. Keep values literal and avoid `${VAR}` references inside the shared file
+because native loaders differ in interpolation behavior.
+
+**Development-only visibility:** each native local process receives all variables
+from the file. Only variables prefixed `VITE_` are exposed to browser code by Vite;
+never put secrets under that prefix. Compose's CLI uses the file for substitution;
+explicit `environment` entries still scope values per container. The legacy root
+`docker-compose.yml` also imports `.env.local` into its development containers.
+Production/Coolify configuration and image file exclusions are unchanged. Application
+settings and shared libraries read only process variables and never search for files.
+Location uses `POSTGRES_*`; Moving uses `MOVING_DATABASE_URL` or `POSTGRES_*` and never
+the Python backend's generic `DATABASE_URL`.
+
+URLs are explicit in `.env.local`: when changing a service port, update its matching
+client URL and restart both sides. There is no hidden URL derivation or token copying.
+For a separate native Moving database, set `MOVING_DATABASE_URL` (runtime) and
+`MOVING_DATABASE_ADMIN_URL` (one-off migration). The containerized Moving stack maps
+its `MOVING_DB_*` secrets in Compose and does not generate another secrets file.
+Changing a password in the file does not rotate it inside an existing database volume.
+Use `local-integration.py check` to verify the actual database/schema connection.
+
+`local-integration.py` remains an optional built-service runner with explicit
+staging-only safety overrides; it reads the selected file directly and preserves the
+host environment. Windows bulk-start scripts retain their default-port readiness
+checks; use individual commands when customizing ports.
+
+Local Compose commands (no custom environment filtering):
+
+```sh
+make mcp-up
+make agents-up
+docker compose --env-file .env.local -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+```
 
 ## Đã nối những gì?
 
@@ -110,7 +119,7 @@ Không chạy lại import/restore/init nếu đã có `.env.local` và DB.
 Chạy từ gốc repo, sau khi Docker Desktop sẵn sàng:
 
 ```powershell
-node scripts/dev.mjs database -- docker compose -f config/local-integration.compose.yaml up -d
+docker compose --env-file .env.local -f config/local-integration.compose.yaml up -d
 docker compose -f config/local-routing.compose.yaml up -d
 ```
 
@@ -206,7 +215,7 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
    `pg_restore` không mang theo thống kê của planner PostgreSQL; thiếu bước này thì tìm
    nhà quanh một điểm (center + bán kính) chạm statement timeout 8 s và graph báo
    `Database query timed out`. DB đã restore bằng bản script cũ: chạy một lần
-   `node scripts/dev.mjs database -- docker compose -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
+   `docker compose --env-file .env.local -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
 7. Khởi động OSRM và các process như phần trên.
 
 Nếu restore thất bại, không chạy migrations chồng lên restore chưa xong.

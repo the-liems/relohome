@@ -7,6 +7,7 @@ Generated human prompts are test inputs; all model outputs come from OpenAI.
 import asyncio
 import os
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -22,7 +23,7 @@ from src.agents.planner_llm import LlmPlanner
 from src.agents.planning import PlannerInput, validate_plan
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env.local")
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real OpenAI opt-in")]
 
 

@@ -6,7 +6,7 @@ policy. Bản này chưa có MCP adapter kết nối domain, nên không tạo �
 
 ## 1. Cấu hình
 
-Chạy từ thư mục gốc repository. Trong `.env` gốc, điền:
+Chạy từ thư mục gốc repository. Trong `.env.local` gốc, điền:
 
 ```dotenv
 OPENAI_API_KEY=
@@ -32,8 +32,8 @@ restart; không cần cài PostgreSQL. Docker dùng volume `orchestrator-state`.
 ## 2. Chạy Docker
 
 ```powershell
-docker compose -f compose.agents.yaml up -d --build
-docker compose -f compose.agents.yaml ps
+docker compose --env-file .env.local -f compose.agents.yaml up -d --build
+docker compose --env-file .env.local -f compose.agents.yaml ps
 ```
 
 - Intake: `http://localhost:8011/docs`

@@ -5,20 +5,23 @@ Keep each long-running component in its own terminal. Ctrl+C stops that componen
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.local_env import load_config, scope_environment
+from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
 MAPS = ROOT / "Maps VN" / "LifeFlow"
 
 
 def environment(component, sandbox_writes=False, payment_demo=False, env_file=None):
-    env = load_config(env_file)
+    path = Path(env_file).expanduser().resolve() if env_file is not None else ROOT / ".env.local"
+    if not path.is_file():
+        raise ValueError(f"Missing local configuration: {path}. Run npm run dev:init or pass --env-file PATH.")
+    env = {**{k: v for k, v in dotenv_values(path, interpolate=False).items() if v is not None}, **os.environ}
     if component in {"api", "ui"} and env.get("APP_ENV", "development") != "production":
         # Local-only opt-out default. Runtime still requires the trusted token,
         # and explicit ROOMMATE_ENABLED=false is respected. Do not grant any
@@ -60,7 +63,7 @@ def environment(component, sandbox_writes=False, payment_demo=False, env_file=No
         )
     env["PYTHONPATH"] = str(ROOT)
     env["PYTHONIOENCODING"] = "utf-8"
-    return scope_environment(component, env)
+    return env
 
 
 def main():

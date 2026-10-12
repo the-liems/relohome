@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 async def test_real_api_decision_retry_concurrency_and_paid_protection(tmp_path):
     env_file = Path(os.environ["VIEWING_ENV_FILE"])
     settings = ServiceSettings(
-        _env_file=(env_file, env_file.parent / "data/integration.env"),
+        _env_file=env_file,
         agent_subagents="live",
         agent_state_dir=str(tmp_path / "runtime"),
         agent_writes_enabled=False,

@@ -22,7 +22,6 @@ function enabled(name: string, fallback = false) {
 
 function applicationDatabaseUrl() {
   if (process.env.MOVING_DATABASE_URL) return process.env.MOVING_DATABASE_URL
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
   const user = required('POSTGRES_APP_USER')
   const password = required('POSTGRES_APP_PASSWORD')
   const host = process.env.POSTGRES_HOST || '127.0.0.1'

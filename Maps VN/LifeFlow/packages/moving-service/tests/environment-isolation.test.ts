@@ -16,7 +16,7 @@ describe('process-only configuration', () => {
       mkdirSync(workspace)
       writeFileSync(join(workspace, '.env'), 'DATABASE_URL=postgresql://wrong/workspace\n')
       vi.stubEnv('LIFEFLOW_ENV_FILE', join(root, '.env'))
-      vi.stubEnv('DATABASE_URL', '')
+      vi.stubEnv('DATABASE_URL', 'sqlite:///backend.db')
       vi.stubEnv('MOVING_DATABASE_URL', '')
       vi.stubEnv('POSTGRES_HOST', '127.0.0.1')
       vi.stubEnv('POSTGRES_PORT', '5433')

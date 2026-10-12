@@ -7,15 +7,14 @@ lets the demo use that real server without introducing a second tool layer.
 from __future__ import annotations
 
 import json
-import sys
+import os
 import subprocess
 import threading
 from collections import deque
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from scripts.local_env import load_config, scope_environment
+from dotenv import dotenv_values
 
 
 class McpClientError(RuntimeError):
@@ -37,7 +36,7 @@ class LifeFlowMcpClient:
         if not self.env_path.exists():
             raise McpClientError(f"Thiếu cấu hình LifeFlow: {self.env_path}")
 
-        child_env = scope_environment("location", load_config(self.env_path))
+        child_env = {**{k: v for k, v in dotenv_values(self.env_path).items() if v is not None}, **os.environ}
 
         self.process = subprocess.Popen(
             ["node", str(self.server_path)],

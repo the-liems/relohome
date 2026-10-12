@@ -11,12 +11,10 @@ import os
 import re
 import runpy
 import subprocess
-import sys
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.local_env import load_config, scope_environment
+from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / "data/teammate-snapshot"
@@ -30,8 +28,10 @@ def main():
     parser.add_argument("--database", help="Restore to a NEW DB without changing .env.local.")
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env.local")
     args = parser.parse_args()
-    config = load_config(args.env_file)
-    os.environ.update(scope_environment("database", config))
+    args.env_file = args.env_file.expanduser().resolve()
+    if not args.env_file.is_file():
+        parser.error(f"Missing local configuration: {args.env_file}")
+    config = {**{k: v for k, v in dotenv_values(args.env_file).items() if v is not None}, **os.environ}
     database, user = args.database or config.get("POSTGRES_DB", ""), config.get("POSTGRES_ADMIN_USER", "")
     if not all(re.fullmatch(r"[a-z][a-z0-9_]{1,62}", x) for x in (database, user)):
         raise SystemExit("Set safe local DB/user names in .env.local first.")
@@ -49,7 +49,7 @@ def main():
         "docker",
         "compose",
         "--env-file",
-        os.devnull,
+        str(args.env_file),
         "-f",
         "config/local-integration.compose.yaml",
         "exec",
