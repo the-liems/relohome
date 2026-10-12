@@ -77,7 +77,7 @@ Chạy bằng `npx playwright test --grep 'POI candidate|POI picker|a moving que
 
 ## Chạy Playwright
 
-Yêu cầu: đã cài dependencies bằng `npm ci` trong `Frontend/`, có Chrome trên máy. [playwright.config.ts](../playwright.config.ts) sử dụng `channel: "chrome"` và tự khởi động Vite tại **127.0.0.1:5174**. Dừng dev server đang dùng cổng này trước khi chạy; cấu hình không tái sử dụng server có sẵn.
+Yêu cầu: đã cài dependencies bằng `npm ci` tại gốc repository, có Chrome trên máy. [playwright.config.ts](../playwright.config.ts) sử dụng `channel: "chrome"` và tự khởi động Vite tại **127.0.0.1:5174**. Dừng dev server đang dùng cổng này trước khi chạy; cấu hình không tái sử dụng server có sẵn.
 
 Từ `Frontend/`:
 

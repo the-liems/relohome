@@ -367,11 +367,14 @@ async def test_real_browser_form_stays_open_and_retains_inputs(runtime):
                 await asyncio.sleep(0.02)
         frontend = Path(__file__).resolve().parents[2] / "Frontend"
         env = {**os.environ, "MOVING_BROWSER_BASE_URL": f"http://127.0.0.1:{gateway_port}"}
+        playwright_cli = subprocess.check_output(
+            ["node", "-p", "require.resolve('@playwright/test/cli')"], cwd=frontend, text=True
+        ).strip()
         result = await asyncio.to_thread(
             subprocess.run,
             [
                 "node",
-                str(frontend / "node_modules/@playwright/test/cli.js"),
+                playwright_cli,
                 "test",
                 "--config=playwright.live.config.ts",
             ],

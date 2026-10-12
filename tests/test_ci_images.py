@@ -48,9 +48,14 @@ class ImageSelectionTests(unittest.TestCase):
                          {"location", *MOVING})
 
     def test_shared_contracts_and_lockfile_rebuild_all_typescript_images(self):
-        for path in ("packages/contracts/src/moving.ts", "package-lock.json", "package.json", "tsconfig.base.json"):
+        for path in ("packages/contracts/src/moving.ts", "package.json", "tsconfig.base.json"):
             with self.subTest(path=path):
                 self.assertEqual(self.selected("Maps VN/LifeFlow/" + path), TYPESCRIPT)
+
+    def test_root_workspace_lock_rebuilds_web_and_all_typescript_images(self):
+        for path in ("package.json", "package-lock.json"):
+            self.assertEqual(self.selected(path), {"web", *TYPESCRIPT})
+        self.assertEqual(self.selected("scripts/docker-npm.mjs"), TYPESCRIPT)
 
     def test_domain_dependencies_and_migration_inputs(self):
         self.assertEqual(self.selected("Maps VN/LifeFlow/packages/housing-query/src/query.ts"),
@@ -63,7 +68,7 @@ class ImageSelectionTests(unittest.TestCase):
     def test_dockerfiles_and_ignore_files_rebuild_their_consumers(self):
         self.assertEqual(self.selected("Maps VN/LifeFlow/Dockerfile.moving.dockerignore"), MOVING)
         self.assertEqual(self.selected("Maps VN/LifeFlow/platform-api/Dockerfile"), {"platform", "location-migrate"})
-        self.assertEqual(self.selected("Maps VN/LifeFlow/.dockerignore"), TYPESCRIPT)
+        self.assertEqual(self.selected("Maps VN/LifeFlow/.dockerignore"), ALL_SERVICES)
         self.assertEqual(self.selected(".dockerignore"), ALL_SERVICES)
 
     def test_unknown_paths_and_shared_ci_changes_rebuild_everything(self):

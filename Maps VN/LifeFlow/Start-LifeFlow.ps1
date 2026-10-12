@@ -49,11 +49,9 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
     throw 'Node.js and npm are required to start LifeFlow.'
 }
-if (-not (Test-Path -LiteralPath (Join-Path $rootPath 'node_modules'))) {
-    throw "Backend dependencies are missing. Run npm install in $rootPath"
-}
-if (-not (Test-Path -LiteralPath (Join-Path $mapPath 'node_modules'))) {
-    throw "Frontend dependencies are missing. Run npm install in $mapPath"
+$repoPath = Split-Path -Parent (Split-Path -Parent $rootPath)
+if (-not (Test-Path -LiteralPath (Join-Path $repoPath 'node_modules'))) {
+    throw "Dependencies are missing. Run npm ci in $repoPath"
 }
 
 docker info *> $null

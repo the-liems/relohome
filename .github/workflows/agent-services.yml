@@ -12,6 +12,8 @@ on:
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
+      - 'package.json'
+      - 'package-lock.json'
       - 'Maps VN/LifeFlow/packages/contracts/**'
       - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
   push:
@@ -27,6 +29,8 @@ on:
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
+      - 'package.json'
+      - 'package-lock.json'
       - 'Maps VN/LifeFlow/packages/contracts/**'
       - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
 permissions:
@@ -64,7 +68,6 @@ jobs:
         run: bash scripts/check-ci-runner.sh node
       - name: Build shared contracts
         run: npm ci && npm run build --workspace=@lifeflow/contracts
-        working-directory: Maps VN/LifeFlow
       - name: Verify agent registry
         run: node scripts/export-agent-registry.mjs --check
       - name: Build intake image

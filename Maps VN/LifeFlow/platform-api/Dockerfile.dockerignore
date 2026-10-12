@@ -1,17 +1,22 @@
+# Root-context allowlist; keep local credentials, data and generated output out.
 **
 !package.json
 !package-lock.json
-!tsconfig.base.json
-!packages/
-!packages/contracts/
-!packages/contracts/**
-!packages/housing-query/
-!packages/housing-query/**
-!platform-api/
-!platform-api/**
-!database/
-!database/migrations/
-!database/migrations/**
+!scripts/
+!scripts/docker-npm.mjs
+!Maps VN/
+!Maps VN/LifeFlow/
+!Maps VN/LifeFlow/tsconfig.base.json
+!Maps VN/LifeFlow/packages/
+!Maps VN/LifeFlow/packages/contracts/
+!Maps VN/LifeFlow/packages/contracts/**
+!Maps VN/LifeFlow/packages/housing-query/
+!Maps VN/LifeFlow/packages/housing-query/**
+!Maps VN/LifeFlow/platform-api/
+!Maps VN/LifeFlow/platform-api/**
+!Maps VN/LifeFlow/database/
+!Maps VN/LifeFlow/database/migrations/
+!Maps VN/LifeFlow/database/migrations/**
 **/node_modules
 **/dist
 **/__pycache__

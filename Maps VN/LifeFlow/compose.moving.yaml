@@ -41,7 +41,7 @@ services:
 
   moving-migrate:
     image: lifeflow/moving-migrate:${RELEASE_SHA:-local}
-    build: { context: ., dockerfile: Dockerfile.moving, target: moving-migrate, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    build: { context: ../.., dockerfile: Maps VN/LifeFlow/Dockerfile.moving, target: moving-migrate, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
     environment:
       MOVING_DATABASE_ADMIN_URL: postgresql://moving_admin:${MOVING_DB_ADMIN_PASSWORD:?Set MOVING_DB_ADMIN_PASSWORD}@moving-db:5432/moving
       MOVING_DB_APP_USER: moving_app
@@ -53,7 +53,7 @@ services:
   moving-mcp:
     <<: *runtime
     image: lifeflow/moving-mcp:${RELEASE_SHA:-local}
-    build: { context: ., dockerfile: Dockerfile.moving, target: moving-mcp, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    build: { context: ../.., dockerfile: Maps VN/LifeFlow/Dockerfile.moving, target: moving-mcp, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
     environment:
       <<: *provider
       MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?Set MOVING_MCP_AUTH_TOKEN}
@@ -64,7 +64,7 @@ services:
   moving-api:
     <<: *runtime
     image: lifeflow/moving-api:${RELEASE_SHA:-local}
-    build: { context: ., dockerfile: Dockerfile.moving, target: moving-api, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    build: { context: ../.., dockerfile: Maps VN/LifeFlow/Dockerfile.moving, target: moving-api, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
     environment:
       <<: *provider
       AHAMOVE_WEBHOOK_AUTH_MODE: ${AHAMOVE_WEBHOOK_AUTH_MODE:-api-key}

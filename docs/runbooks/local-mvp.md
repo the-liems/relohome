@@ -52,7 +52,7 @@ docker compose --env-file data/integration.env -f config/local-integration.compo
 docker compose -f config/local-routing.compose.yaml up -d
 ```
 
-Build UI một lần: `cd Frontend`, `npm ci`, `npm run build`, rồi trở về gốc repo.
+Build UI một lần: từ gốc repo chạy `npm ci`, `npm run build:web`.
 
 ### Khởi động nhanh trên Windows
 
@@ -137,7 +137,7 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
 ./scripts/import-teammate-snapshot.ps1 -ArchivePath '<duong-dan-ZIP-cua-nhom>'
 ```
 
-5. Trong `Maps VN/LifeFlow`, chạy `npm ci`, `npm run build`.
+5. Tại gốc repo, chạy `npm ci`, `npm run build:ts`.
 6. Khởi động PostGIS bằng lệnh Compose ở trên, rồi
    `python scripts/restore-local-snapshot.py`. DB đích phải chưa tồn tại.
    Script kiểm checksum, chờ restore xong, chạy `ANALYZE` rồi mới migrate. Không drop DB cũ.

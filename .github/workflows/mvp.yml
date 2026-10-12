@@ -34,14 +34,13 @@ jobs:
         run: pytest tests/test_llm_agents/test_runtime_storage.py -q
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
-          cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+          cache-dependency-path: package-lock.json
       - name: Verify Node.js
-        run: bash scripts/check-ci-runner.sh node22
+        run: bash scripts/check-ci-runner.sh node
       - name: Build TypeScript workspaces
         run: npm ci && npm run build
-        working-directory: Maps VN/LifeFlow
       - name: Clean up Python environment
         if: always()
         run: if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf "$CI_PYTHON_VENV"; fi

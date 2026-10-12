@@ -23,8 +23,8 @@ services:
     image: lifeflow-location-mcp:${MCP_IMAGE_TAG:-0.1.0}
     container_name: lifeflow-location-mcp
     build:
-      context: ..
-      dockerfile: mcp-server/Dockerfile
+      context: ../../..
+      dockerfile: Maps VN/LifeFlow/mcp-server/Dockerfile
     restart: unless-stopped
     depends_on:
       postgis:
