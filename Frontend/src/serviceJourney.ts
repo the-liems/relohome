@@ -136,10 +136,12 @@ export function nextServiceTarget(
 export function pendingServiceInput(
   thread: Thread | null,
   agent: string,
+  taskId?: string,
 ): boolean {
   return (thread?.state.progress?.items || []).some(
     (item: any) =>
       item.agent === agent &&
+      (!taskId || item.task_id === taskId) &&
       (item.task_id.startsWith("pending:") ||
         (thread?.state.plan?.tasks || []).some(
           (t: any) => t.id === item.task_id,
@@ -148,6 +150,69 @@ export function pendingServiceInput(
       !item.chosen &&
       ["pending", "blocked", "needs_input", "stale"].includes(item.task_status),
   );
+}
+
+export type PlanStep = {
+  taskId: string;
+  agent: string;
+  kind: "input" | "result";
+};
+
+/** Agent intake owns the requested domains. Older threads fall back to current plan goals. */
+export function hasMultipleRequestedServices(thread: Thread | null): boolean {
+  if (!thread) return false;
+  const requested = thread.state.intake?.intent?.domains ?? thread.state.intake?.domains;
+  const domains = Array.isArray(requested) && requested.length
+    ? requested
+    : navigationProgress(thread).items
+      .filter((item: any) => !item.historical_search && item.inputs?.housing_mode !== "compare")
+      .map((item: any) => item.agent);
+  return new Set(domains.filter((domain: string) =>
+    ["property", "flight", "relocation", "map", "roommate"].includes(domain),
+  )).size > 1;
+}
+
+/** Navigation only: a viewing basket may be reviewed, but is never a decided destination. */
+export function nextPlanStep(
+  thread: Thread | null,
+  reviewed: ReadonlySet<string> = new Set(),
+): PlanStep | null {
+  if (!thread) return null;
+  const targets = serviceTargets(thread);
+  for (const item of navigationProgress(thread).items) {
+    if (item.historical_search || item.inputs?.housing_mode === "compare")
+      continue;
+    if (
+      !["property", "flight", "relocation", "map", "roommate"].includes(
+        item.agent,
+      )
+    )
+      continue;
+    if (
+      item.chosen ||
+      ["confirmed", "completed", "cancelled"].includes(item.state)
+    )
+      continue;
+    if (
+      !item.task_id?.startsWith("pending:") &&
+      !thread.state.plan?.tasks?.some((t: any) => t.id === item.task_id)
+    )
+      continue;
+    const viewingChoice =
+      item.agent === "property" &&
+      (thread.state.viewing?.items || []).some(
+        (v: any) =>
+          v.task_id === item.task_id &&
+          !["cancelled", "declined", "backup"].includes(v.status),
+      );
+    if (viewingChoice) continue;
+    if (pendingServiceInput(thread, item.agent, item.task_id))
+      return { taskId: item.task_id, agent: item.agent, kind: "input" };
+    const target = targets.find((t) => t.c.task_id === item.task_id);
+    if (target && !target.c.data?.order && !reviewed.has(target.c.id))
+      return { taskId: item.task_id, agent: item.agent, kind: "result" };
+  }
+  return null;
 }
 
 /** Fold long result narratives after choice, keeping original text accessible. */

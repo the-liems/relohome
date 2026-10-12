@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { vietnamToday } from "../../src/serviceRequest";
 
 test.skip(
   process.env.RUN_RUNTIME_AUDIT !== "1",
@@ -17,6 +18,42 @@ async function signIn(page: Page) {
   });
   expect(response.ok()).toBeTruthy();
 }
+
+test("real built gateway UI: flight tile form reaches the live provider without a second input turn", async ({ page }, info) => {
+  await signIn(page);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/ai");
+  await page.getByRole("button", { name: /Tìm chuyến bay Sẵn sàng/ }).click();
+  const form = page.getByRole("dialog");
+  const date = vietnamToday(new Date(Date.now() + 86400000));
+  await form.getByLabel("Nơi đi", { exact: true }).fill("SGN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form.getByLabel("Ngày bay", { exact: true }).fill(date);
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  const content = [...data.messages].reverse().find((m: any) => m.role === "assistant")?.content;
+  expect(content?.response?.kind).not.toBe("ERROR");
+  expect(content?.response?.kind).not.toBe("CLARIFY");
+  expect(data.state.plan.commit_actions).toEqual([]);
+  const flights = (content?.ui?.components || []).filter((c: any) => c.type === "flight");
+  expect(flights.flatMap((c: any) => c.data.offers || []).length).toBeGreaterThan(0);
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+  await page.screenshot({ path: info.outputPath("flight-form-live-desktop.png"), fullPage: true });
+  // Launcher checkout configuration must reach the plan, even before a fare is selected.
+  expect(data.state.checkout).toBeTruthy();
+  await page.getByRole("button", { name: "Xem nhanh kế hoạch", exact: true }).click();
+  const plan = page.getByRole("region", { name: "Kế hoạch trong cuộc trò chuyện", exact: true });
+  await expect(plan.getByRole("tab", { name: "Thanh toán", exact: true })).toBeVisible();
+  await plan.getByRole("tab", { name: "Thanh toán", exact: true }).click();
+  await expect(plan.locator(".checkout-totals")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("checkout-tab-live.png"), fullPage: true });
+});
 
 test("real built gateway UI: housing answer renders map and keeps service navigation", async ({
   page,
@@ -63,6 +100,63 @@ test("real built gateway UI: housing answer renders map and keeps service naviga
     fullPage: true,
   });
   expect(errors).toEqual([]);
+});
+
+test("real built gateway UI: viewing selection offers an explicit Moving next step without deciding the home", async ({ page }, info) => {
+  await signIn(page);
+  await page.goto("/ai");
+  await page.locator(".composer textarea").fill("Tôi muốn tìm phòng trọ tại Quận 1, Thành phố Hồ Chí Minh dưới 5 triệu đồng/tháng và báo giá chuyển đồ tới căn tôi chọn. Chỉ tìm kiếm, chưa đặt xe.");
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await page.getByRole("button", { name: "Gửi tin nhắn", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở", exact: true })).toBeVisible();
+  const list = page.getByRole("complementary", { name: "Nhà trong vùng bản đồ", exact: true });
+  await expect(list.getByRole("button", { name: "Chọn căn này", exact: true }).first()).toBeVisible({ timeout: 45000 });
+  const selected = page.waitForResponse(r => r.url().endsWith("/action") && r.request().method() === "POST", { timeout: 45000 });
+  await list.getByRole("button", { name: "Chọn căn này", exact: true }).first().click();
+  const selection = await selected;
+  expect(selection.status()).toBe(200);
+  const next = await selection.json();
+  expect(next.state.viewing.items.length).toBeGreaterThan(0);
+  expect(next.state.intake.user_confirmed_facts["selected:property"]).toBeUndefined();
+  expect(next.state.plan.commit_actions).toEqual([]);
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở", exact: true })).toBeVisible();
+  const step = page.getByRole("region", { name: "Bước tiếp theo trong kế hoạch", exact: true });
+  await expect(step.getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Thông tin chuyển đồ", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("housing-moving-next-step-live.png"), fullPage: true });
+  await step.getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true }).click();
+  await expect(page.getByRole("complementary", { name: "Thông tin chuyển đồ", exact: true })).toBeVisible();
+  expect(data.state.plan.commit_actions).toEqual([]);
+});
+
+test("real built gateway UI: incomplete flight chat opens an inline form and reaches live offers", async ({ page }, info) => {
+  await signIn(page);
+  await page.goto("/ai");
+  await page.locator(".composer textarea").fill("Tôi muốn tìm chuyến bay, chỉ tìm kiếm chưa đặt vé.");
+  const clarification = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await page.getByRole("button", { name: "Gửi tin nhắn", exact: true }).click();
+  expect((await clarification).status()).toBe(200);
+  const form = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ", exact: true });
+  await expect(form).toBeVisible();
+  await form.getByLabel("Nơi đi", { exact: true }).fill("SGN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form.getByLabel("Ngày bay", { exact: true }).fill(vietnamToday(new Date(Date.now() + 86400000)));
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  const content = [...data.messages].reverse().find((m: any) => m.role === "assistant")?.content;
+  expect(content?.response?.kind).not.toBe("ERROR");
+  expect(content?.response?.kind).not.toBe("CLARIFY");
+  expect(data.state.plan.commit_actions).toEqual([]);
+  const offers = (content?.ui?.components || []).flatMap((c: any) => c.type === "flight" ? c.data.offers || [] : []);
+  expect(offers.length).toBeGreaterThan(0);
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("flight-inline-live-desktop.png"), fullPage: true });
 });
 
 test("real built UI: Moving geocodes A/B and loads real provider vehicle catalog", async ({

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Clock3, Search } from "lucide-react";
 import { AppearanceControls, useUiPreferences } from "../uiPreferences";
 import { guides } from "./content";
+import { ServiceSuggestions } from "../components/ServiceSuggestions";
 import "./guides.css";
 
 const normalize = (value: string) =>
@@ -72,6 +73,7 @@ export function GuidesPage({ standalone = false }: { standalone?: boolean }) {
                     <p>{article.remember}</p>
                   </aside>
                   <Link className="guides-next" to="/guides"><ArrowLeft size={16} aria-hidden="true" /> {t("Xem các cẩm nang khác", "Explore more guides")}</Link>
+                  <ServiceSuggestions service="guides" />
                 </div>
               </div>
             </article>
