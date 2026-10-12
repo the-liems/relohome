@@ -42,3 +42,10 @@ có đánh đổi đáng kể.
 
 Device-to-home long-distance routing: [ADR-023 — public routing with explicit consent](ADR-023-consented-public-device-routing.md)
 (Proposed; issue #81; browser-only trial, no automatic MCP/commute fallback).
+
+Automatic routing: [ADR-024 — automatic public device routing](ADR-024-auto-public-device-routing.md)
+(Proposed / awaiting PR review; follows and revises ADR-023’s explicit-consent
+trial with local-first routing and automatic public fallback).
+
+Monorepo migration: [ADR-025 — application layout and migration contract](ADR-025-monorepo-layout.md)
+(Proposed; #108/#109; includes tracked-path inventory and validation baseline).

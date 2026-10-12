@@ -1,5 +1,9 @@
 # ADR-013: Tách chức năng vé máy bay thành MCP server riêng trong `src/mcp_servers/`
 
+Pending layout revision: [ADR-025](ADR-025-monorepo-layout.md) proposes to
+supersede only the source-layout portions on acceptance. Existing status and
+domain decisions remain unchanged while ADR-025 is Proposed.
+
 **Ngày:** 2026-09-25
 **Trạng thái:** Proposed (chờ nhóm review trong PR; chuyển thành Accepted khi merge)
 **Liên quan:** [ADR-012](ADR-012-flight-data-source.md) ·
