@@ -30,8 +30,8 @@ npm run dev:lifeflow
 ```
 
 Khi chạy theo cách này, Platform API và các OSRM container phải được bật trước.
-Chỉ cần chạy `npm install` khi `node_modules` bị xóa hoặc khi cài project trên
-máy khác.
+Chạy `npm ci` tại gốc repository khi cài project hoặc thay lockfile.
+Dùng Node 24/npm 11; xem [root tooling](../../../docs/runbooks/root-tooling.md).
 
 Các cổng đang dùng:
 
@@ -54,6 +54,6 @@ npm run test:e2e
 `public/data/accommodations.geojson` là bản Point GeoJSON được tạo từ file
 nguồn. Quá trình chạy frontend không thay đổi dữ liệu gốc.
 
-`public/maplibre/` không được lưu trong Git. `npm ci`, `npm run dev` và
+`public/maplibre/` không được lưu trong Git. Root `npm ci`, `npm run dev` và
 `npm run build` tự chạy `prepare:worker` để copy worker từ phiên bản MapLibre
 đã cài. Khi build thủ công, chạy `npm run prepare:worker` trước khi đóng gói.

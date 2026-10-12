@@ -45,7 +45,7 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | Every job | Bash and Git |
 | Python CI, agent services, map data, MVP, Coolify deployment | Python 3.11 and pip, provided by `actions/setup-python` |
 | Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
-| MVP | Node.js 22 and npm (existing workspace validation version) |
+| MVP | Node.js 24 and npm 11, matching root tooling |
 | Application images, PostGIS, MCP images, agent services, Moving validation/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
 | Agent services | Docker Buildx |
 | MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
@@ -196,3 +196,7 @@ actionlint -ignore 'unexpected key "queue" for "concurrency" section'
 Keep `queue: max` with `cancel-in-progress: false`; GitHub rejects `queue: max`
 with cancellation enabled. Other lint diagnostics remain enabled. Remove the
 exception when actionlint supports the property.
+
+Root installation/build/test commands and browser prerequisites are documented in
+[root tooling](root-tooling.md). npm CI caches use the single root lockfile; the
+`lifeflow-typescript` job key remains unchanged for branch protection.

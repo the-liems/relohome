@@ -1,20 +1,24 @@
+# Build with the repository root as context; runtime paths remain unchanged.
 FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/contracts/package.json packages/contracts/package.json
-COPY packages/housing-query/package.json packages/housing-query/package.json
-COPY packages/mcp-core/package.json packages/mcp-core/package.json
-COPY mcp-server/package.json mcp-server/package.json
+COPY package.json package-lock.json ./
+COPY ["Maps VN/LifeFlow/tsconfig.base.json", "./"]
+COPY scripts/docker-npm.mjs /tmp/docker-npm.mjs
+COPY ["Maps VN/LifeFlow/packages/contracts/package.json", "packages/contracts/package.json"]
+COPY ["Maps VN/LifeFlow/packages/housing-query/package.json", "packages/housing-query/package.json"]
+COPY ["Maps VN/LifeFlow/packages/mcp-core/package.json", "packages/mcp-core/package.json"]
+COPY ["Maps VN/LifeFlow/mcp-server/package.json", "mcp-server/package.json"]
 
+RUN node /tmp/docker-npm.mjs --image-build
 RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/housing-query --workspace @lifeflow/mcp-core \
     --workspace @lifeflow/mcp-server --include-workspace-root=false
 
-COPY packages/contracts packages/contracts
-COPY packages/housing-query packages/housing-query
-COPY packages/mcp-core packages/mcp-core
-COPY mcp-server mcp-server
+COPY ["Maps VN/LifeFlow/packages/contracts", "packages/contracts"]
+COPY ["Maps VN/LifeFlow/packages/housing-query", "packages/housing-query"]
+COPY ["Maps VN/LifeFlow/packages/mcp-core", "packages/mcp-core"]
+COPY ["Maps VN/LifeFlow/mcp-server", "mcp-server"]
 
 RUN npm run build --workspace @lifeflow/contracts \
  && npm run build --workspace @lifeflow/housing-query \

@@ -2,6 +2,7 @@
 // Creates a fresh isolated cluster, runs migrations twice, verifies actual HTTP
 // and provider calls, then stops PostgreSQL. Data is retained in the printed temp
 // directory for inspection; no existing local database is changed.
+import { createRequire } from 'node:module'
 import { mkdtemp, writeFile, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -43,7 +44,7 @@ try {
   started = true
   run(process.execPath, ['packages/moving-service/dist/migrate.js'])
   run(process.execPath, ['packages/moving-service/dist/migrate.js'])
-  run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'moving-mcp-server/tests/http.live.test.ts'])
+  run(process.execPath, [resolve(createRequire(import.meta.url).resolve('vitest/package.json'), '..', 'vitest.mjs'), 'run', 'moving-mcp-server/tests/http.live.test.ts'])
   if (process.env.MOVING_TEST_AGENT_PYTHON) {
     run(process.env.MOVING_TEST_AGENT_PYTHON, ['-m', 'pytest', 'tests/test_llm_agents/test_moving_live.py', '-q', '--tb=short'], {
       cwd: resolve(root, '../..'), env: { ...env, RUN_LIVE_MOVING_AGENT: '1' },

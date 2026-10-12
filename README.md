@@ -27,7 +27,7 @@ Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies,
 
 The [Moving container runbook](docs/runbooks/moving-containers.md) covers the isolated Moving stack. The root `docker-compose.yml` starts the backend and Flight/Payment MCP containers; Location, Moving, and the frontend have separate setup instructions.
 
-Use `ruff check src/ tests/` and `pytest tests/ -v` for the Python checks. Build and test the TypeScript services with `npm ci`, `npm run build`, and `npm run test:ci` from `Maps VN/LifeFlow/`. Live tests require their documented opt-in settings and provider configuration. Do not commit `.env` or API keys.
+Use the [root tooling runbook](docs/runbooks/root-tooling.md) with Node 24 and Python 3.11. From the repository root, `make install`, `make build`, `make lint`, and `make test` cover the supported workspaces and Python suites. `make test-browser` runs Chrome journeys; live provider checks require explicit opt-in. `make check` never formats files. Existing baseline failures and rollback instructions are recorded in the runbook. Do not commit `.env` or API keys.
 
 ## Product scope and delivery
 

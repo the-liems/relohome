@@ -1,0 +1,7 @@
+# Python 3.11 developer environment, including the existing test toolchain.
+-r requirements.txt
+-r requirements-agents.txt
+mypy>=1.0
+# Optional location Streamlit UI (test_demo.py itself is provider-free).
+streamlit-searchbox>=0.1.24
+pydeck>=0.9.1

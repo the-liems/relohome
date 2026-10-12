@@ -26,20 +26,80 @@ mcp-down:
 	docker compose down
 
 test:
-	pytest tests/ -v
+	npm test
 
 lint:
-	ruff check src/ tests/
+	npm run lint
 
 format:
-	ruff format src/ tests/
+	npm run format
 
 typecheck:
-	mypy src/
+	npm run typecheck
 
-check: lint format test
+check: lint format-check test
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .pytest_cache -exec rm -rf {} +
 	find . -type d -name .ruff_cache -exec rm -rf {} +
+
+.PHONY: install
+install:
+	npm run setup
+
+.PHONY: build
+build:
+	npm run build
+
+.PHONY: format-check
+format-check:
+	npm run format:check
+
+.PHONY: test-python
+test-python:
+	npm run test:python
+
+.PHONY: test-ts
+test-ts:
+	npm run test:ts
+
+.PHONY: test-browser
+test-browser:
+	npm run test:browser
+
+.PHONY: test-map
+test-map:
+	npm run test:map
+
+.PHONY: test-integration
+test-integration:
+	npm run test:integration
+
+.PHONY: test-live
+test-live:
+	npm run test:live -- $(SUITE)
+
+.PHONY: image-check
+image-check:
+	npm run image:check
+
+.PHONY: deployment-check
+deployment-check:
+	npm run deployment:check
+
+.PHONY: web
+web:
+	npm run dev:web
+
+.PHONY: map
+map:
+	npm run dev:map
+
+.PHONY: gateway
+gateway:
+	npm run dev:gateway
+
+.PHONY: ui-agent-chat
+ui-agent-chat:
+	npm run dev:agent-chat

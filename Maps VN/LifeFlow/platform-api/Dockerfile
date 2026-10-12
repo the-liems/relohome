@@ -1,19 +1,23 @@
 # syntax=docker/dockerfile:1.14
+# Build with the repository root as context; runtime paths remain unchanged.
 FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/contracts/package.json packages/contracts/package.json
-COPY packages/housing-query/package.json packages/housing-query/package.json
-COPY platform-api/package.json platform-api/package.json
+COPY package.json package-lock.json ./
+COPY ["Maps VN/LifeFlow/tsconfig.base.json", "./"]
+COPY scripts/docker-npm.mjs /tmp/docker-npm.mjs
+COPY ["Maps VN/LifeFlow/packages/contracts/package.json", "packages/contracts/package.json"]
+COPY ["Maps VN/LifeFlow/packages/housing-query/package.json", "packages/housing-query/package.json"]
+COPY ["Maps VN/LifeFlow/platform-api/package.json", "platform-api/package.json"]
 
+RUN node /tmp/docker-npm.mjs --image-build
 RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/housing-query \
     --workspace @lifeflow/platform-api --include-workspace-root=false
 
-COPY packages/contracts packages/contracts
-COPY packages/housing-query packages/housing-query
-COPY platform-api platform-api
+COPY ["Maps VN/LifeFlow/packages/contracts", "packages/contracts"]
+COPY ["Maps VN/LifeFlow/packages/housing-query", "packages/housing-query"]
+COPY ["Maps VN/LifeFlow/platform-api", "platform-api"]
 
 RUN npm run build --workspace @lifeflow/contracts \
  && npm run build --workspace @lifeflow/housing-query \
@@ -41,7 +45,7 @@ COPY --from=build --chown=node:node /app/platform-api/dist ./platform-api/dist
 USER node
 
 FROM runtime AS location-migrate
-COPY --chmod=u=rwX,go=rX database/migrations/ ./database/migrations/
+COPY --chmod=u=rwX,go=rX ["Maps VN/LifeFlow/database/migrations/", "./database/migrations/"]
 CMD ["node", "platform-api/dist/migrate.js"]
 
 FROM runtime AS platform

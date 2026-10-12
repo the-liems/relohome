@@ -1,14 +1,18 @@
 # syntax=docker/dockerfile:1.14
+# Build with the repository root as context; runtime paths remain unchanged.
 ARG NODE_IMAGE=node:24.14.0-bookworm-slim
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
-COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/contracts/ packages/contracts/
-COPY packages/mcp-core/ packages/mcp-core/
-COPY packages/moving-service/ packages/moving-service/
-COPY moving-api/ moving-api/
-COPY moving-mcp-server/ moving-mcp-server/
+COPY package.json package-lock.json ./
+COPY ["Maps VN/LifeFlow/tsconfig.base.json", "./"]
+COPY scripts/docker-npm.mjs /tmp/docker-npm.mjs
+COPY ["Maps VN/LifeFlow/packages/contracts/", "packages/contracts/"]
+COPY ["Maps VN/LifeFlow/packages/mcp-core/", "packages/mcp-core/"]
+COPY ["Maps VN/LifeFlow/packages/moving-service/", "packages/moving-service/"]
+COPY ["Maps VN/LifeFlow/moving-api/", "moving-api/"]
+COPY ["Maps VN/LifeFlow/moving-mcp-server/", "moving-mcp-server/"]
 # The root lockfile describes the whole monorepo. Only Moving workspaces are built.
+RUN node /tmp/docker-npm.mjs --image-build
 RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
     --workspace @lifeflow/moving-service --workspace @lifeflow/moving-api \
     --workspace @lifeflow/moving-mcp-server --include-workspace-root=false
@@ -56,6 +60,6 @@ HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
 CMD ["node", "moving-api/dist/server.js"]
 
 FROM runtime AS moving-migrate
-COPY --chmod=u=rwX,go=rX database/moving/ ./database/moving/
-COPY --chmod=u=rwX,go=rX database/migrations/008_moving_service.sql ./database/migrations/008_moving_service.sql
+COPY --chmod=u=rwX,go=rX ["Maps VN/LifeFlow/database/moving/", "./database/moving/"]
+COPY --chmod=u=rwX,go=rX ["Maps VN/LifeFlow/database/migrations/008_moving_service.sql", "./database/migrations/008_moving_service.sql"]
 CMD ["node", "packages/moving-service/dist/migrate.js"]

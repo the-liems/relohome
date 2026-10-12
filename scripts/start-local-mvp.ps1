@@ -9,7 +9,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'data/integration.env'))) 
     throw 'Missing data/integration.env. Do not reinitialize an existing database; check the local runbook.'
 }
 if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'Frontend/dist/index.html'))) {
-    throw 'Missing frontend build. In Frontend, run npm ci and npm run build first.'
+    throw 'Missing frontend build. At repository root, run npm ci and npm run build first.'
 }
 if ($StartupTimeoutSeconds -lt 1 -or $StartupTimeoutSeconds -gt 60) { throw 'StartupTimeoutSeconds must be 1-60.' }
 Push-Location $repoRoot

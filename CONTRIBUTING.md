@@ -20,6 +20,13 @@ không cần làm gì thêm.
 
 Khi sửa nội dung sách, mô tả rõ trong PR: **chương nào**, **sửa gì**, và **vì sao**.
 
+## Môi trường phát triển
+
+Dùng Node 24/npm 11 và Python 3.11. Cài đặt từ gốc repo theo
+[root tooling](docs/runbooks/root-tooling.md); chỉ root `package-lock.json` là lockfile npm.
+`make format-check` không sửa file; `make format` là lệnh sửa tường minh.
+Runbook ghi rõ các lỗi baseline, browser prerequisites và opt-in provider tests.
+
 ## Quy trình
 
 1. Fork repo, tạo nhánh từ `main`: `git checkout -b docs/sua-chuong-04`
@@ -27,8 +34,11 @@ Khi sửa nội dung sách, mô tả rõ trong PR: **chương nào**, **sửa g�
    `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`
 3. Chạy kiểm tra trước khi push:
    ```bash
-   ruff check .
-   pytest
+   make build
+   make lint
+   make test
+   make test-browser
+   make format-check
    ```
 4. Mở PR vào `main`. CI (`.github/workflows/ci.yml`) phải xanh.
 

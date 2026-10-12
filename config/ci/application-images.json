@@ -8,7 +8,9 @@
       "Frontend/",
       "src/",
       "config/",
-      "requirements.txt"
+      "requirements.txt",
+      "package.json",
+      "package-lock.json"
     ]
   },
   {
@@ -24,46 +26,52 @@
   },
   {
     "service": "platform",
-    "context": "Maps VN/LifeFlow",
+    "context": ".",
     "dockerfile": "Maps VN/LifeFlow/platform-api/Dockerfile",
     "target": "platform",
     "paths": [
       "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
-      "Maps VN/LifeFlow/tsconfig.base.json",
-      "Maps VN/LifeFlow/packages/contracts/",
-      "Maps VN/LifeFlow/packages/housing-query/",
-      "Maps VN/LifeFlow/platform-api/"
-    ]
-  },
-  {
-    "service": "location",
-    "context": "Maps VN/LifeFlow",
-    "dockerfile": "Maps VN/LifeFlow/mcp-server/Dockerfile",
-    "target": "",
-    "paths": [
-      "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
-      "Maps VN/LifeFlow/tsconfig.base.json",
-      "Maps VN/LifeFlow/packages/contracts/",
-      "Maps VN/LifeFlow/packages/housing-query/",
-      "Maps VN/LifeFlow/mcp-server/",
-      "Maps VN/LifeFlow/packages/mcp-core/"
-    ]
-  },
-  {
-    "service": "location-migrate",
-    "context": "Maps VN/LifeFlow",
-    "dockerfile": "Maps VN/LifeFlow/platform-api/Dockerfile",
-    "target": "location-migrate",
-    "paths": [
-      "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
       "Maps VN/LifeFlow/tsconfig.base.json",
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/housing-query/",
       "Maps VN/LifeFlow/platform-api/",
-      "Maps VN/LifeFlow/database/migrations/"
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
+    ]
+  },
+  {
+    "service": "location",
+    "context": ".",
+    "dockerfile": "Maps VN/LifeFlow/mcp-server/Dockerfile",
+    "target": "",
+    "paths": [
+      "Maps VN/LifeFlow/package.json",
+      "Maps VN/LifeFlow/tsconfig.base.json",
+      "Maps VN/LifeFlow/packages/contracts/",
+      "Maps VN/LifeFlow/packages/housing-query/",
+      "Maps VN/LifeFlow/mcp-server/",
+      "Maps VN/LifeFlow/packages/mcp-core/",
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
+    ]
+  },
+  {
+    "service": "location-migrate",
+    "context": ".",
+    "dockerfile": "Maps VN/LifeFlow/platform-api/Dockerfile",
+    "target": "location-migrate",
+    "paths": [
+      "Maps VN/LifeFlow/package.json",
+      "Maps VN/LifeFlow/tsconfig.base.json",
+      "Maps VN/LifeFlow/packages/contracts/",
+      "Maps VN/LifeFlow/packages/housing-query/",
+      "Maps VN/LifeFlow/platform-api/",
+      "Maps VN/LifeFlow/database/migrations/",
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
     ]
   },
   {
@@ -92,44 +100,47 @@
   },
   {
     "service": "moving-api",
-    "context": "Maps VN/LifeFlow",
+    "context": ".",
     "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
     "target": "moving-api",
     "paths": [
       "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
       "Maps VN/LifeFlow/tsconfig.base.json",
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/mcp-core/",
       "Maps VN/LifeFlow/packages/moving-service/",
       "Maps VN/LifeFlow/moving-api/",
-      "Maps VN/LifeFlow/moving-mcp-server/"
+      "Maps VN/LifeFlow/moving-mcp-server/",
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
     ]
   },
   {
     "service": "moving-mcp",
-    "context": "Maps VN/LifeFlow",
+    "context": ".",
     "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
     "target": "moving-mcp",
     "paths": [
       "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
       "Maps VN/LifeFlow/tsconfig.base.json",
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/mcp-core/",
       "Maps VN/LifeFlow/packages/moving-service/",
       "Maps VN/LifeFlow/moving-api/",
-      "Maps VN/LifeFlow/moving-mcp-server/"
+      "Maps VN/LifeFlow/moving-mcp-server/",
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
     ]
   },
   {
     "service": "moving-migrate",
-    "context": "Maps VN/LifeFlow",
+    "context": ".",
     "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
     "target": "moving-migrate",
     "paths": [
       "Maps VN/LifeFlow/package.json",
-      "Maps VN/LifeFlow/package-lock.json",
       "Maps VN/LifeFlow/tsconfig.base.json",
       "Maps VN/LifeFlow/packages/contracts/",
       "Maps VN/LifeFlow/packages/mcp-core/",
@@ -137,7 +148,10 @@
       "Maps VN/LifeFlow/moving-api/",
       "Maps VN/LifeFlow/moving-mcp-server/",
       "Maps VN/LifeFlow/database/moving/",
-      "Maps VN/LifeFlow/database/migrations/008_moving_service.sql"
+      "Maps VN/LifeFlow/database/migrations/008_moving_service.sql",
+      "package.json",
+      "package-lock.json",
+      "scripts/docker-npm.mjs"
     ]
   }
 ]

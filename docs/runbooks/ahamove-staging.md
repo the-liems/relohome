@@ -32,8 +32,8 @@ authentication mode with AhaMove.
 ## Build and migrate
 
 ```powershell
+npm ci # repository root
 Set-Location "Maps VN/LifeFlow"
-npm ci
 npm run db:up
 npm run db:migrate
 npm run build

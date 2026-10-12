@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.use({
   launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH,
     args: [
       "--use-gl=angle",
       "--use-angle=swiftshader",
@@ -20,7 +21,7 @@ test("map allows nationwide Vietnam navigation and fits cross-city points", asyn
   const result = await page.evaluate(async () => {
     // Exercise the real MapLibre camera with a local blank style; no tiles/providers needed.
     const { Map, LngLat, setWorkerUrl } =
-      await import("/node_modules/maplibre-gl/dist/maplibre-gl.mjs");
+      await import("/@id/maplibre-gl");
     const scope = await import("/src/mapScope.ts");
     setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
     const container = document.createElement("div");

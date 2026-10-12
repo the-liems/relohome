@@ -166,7 +166,7 @@ def main():
         if shutil.which("node") is None:
             parser.error("Node.js is not on PATH. Install Node.js 24+ and reopen the terminal.")
         if not (MAPS / command[1]).is_file():
-            parser.error("Missing LifeFlow build. In 'Maps VN/LifeFlow', run npm ci and npm run build.")
+            parser.error("Missing LifeFlow build. At repository root, run npm ci and npm run build.")
     sys.exit(
         subprocess.call(
             command,

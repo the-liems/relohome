@@ -1,0 +1,42 @@
+project	file	line	title	first_error
+desktop	app.spec.ts	192	layout regression: flight timeline, housing and history inputs keep separate text and controls	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	333	production: keyboard tabs, native modal focus and readonly flight detail preserve contracts	Error: expect(locator).toBeFocused() failed
+desktop	app.spec.ts	468	production: moving and flight panes fit narrow, tablet and desktop screens	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	1803	moving PARTIAL reply opens usable quotes despite housing warnings	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	1882	flight stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+desktop	app.spec.ts	1950	flight also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	1882	moving stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+desktop	app.spec.ts	1950	moving also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	2177	map handles structured provider warnings and approximate POIs	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	2230	AhaMove quote fee breakdown, order amount and tracking use provider fields	Error: expect(locator).toHaveAttribute(expected) failed
+desktop	app.spec.ts	2515	chat, housing details, selection, saved, plan and reload	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3079	housing answer opens the map workspace with viewport list, filters and chat dock	Error: expect(locator).toContainText(expected) failed
+desktop	app.spec.ts	3164	choosing a home from the map list returns to chat; chat dock can hide	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3223	flight results open a flight workspace with sorting and selection	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3295	flight detail keeps the latest request, shows provider airport codes and stays closed	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	3390	a failed workspace selection shows its error without opening chat manually	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3435	moving quotes open a moving workspace with A/B points and fee details	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	192	layout regression: flight timeline, housing and history inputs keep separate text and controls	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	333	production: keyboard tabs, native modal focus and readonly flight detail preserve contracts	Error: expect(locator).toBeFocused() failed
+mobile	app.spec.ts	468	production: moving and flight panes fit narrow, tablet and desktop screens	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	1803	moving PARTIAL reply opens usable quotes despite housing warnings	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	1882	flight stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+mobile	app.spec.ts	1950	flight also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	1882	moving stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+mobile	app.spec.ts	1950	moving also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	2177	map handles structured provider warnings and approximate POIs	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	2230	AhaMove quote fee breakdown, order amount and tracking use provider fields	Error: expect(locator).toHaveAttribute(expected) failed
+mobile	app.spec.ts	2515	chat, housing details, selection, saved, plan and reload	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3079	housing answer opens the map workspace with viewport list, filters and chat dock	Error: expect(locator).toContainText(expected) failed
+mobile	app.spec.ts	3164	choosing a home from the map list returns to chat; chat dock can hide	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3223	flight results open a flight workspace with sorting and selection	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3295	flight detail keeps the latest request, shows provider airport codes and stays closed	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	3390	a failed workspace selection shows its error without opening chat manually	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3435	moving quotes open a moving workspace with A/B points and fee details	Error: expect(locator).toBeVisible() failed
+desktop	housing-product.spec.ts	97	moderators see the review queue and send decisions	Error: expect(received).toEqual(expected) // deep equality
+mobile	housing-product.spec.ts	97	moderators see the review queue and send decisions	Error: expect(received).toEqual(expected) // deep equality
+mobile	landing.public.spec.ts	156	responsive layout and WCAG checks (dark, desktop/mobile, VI/EN)	Error: frame.evaluate: Execution context was destroyed, most likely because of a navigation.
+desktop	map-scope.spec.ts	13	map allows nationwide Vietnam navigation and fits cross-city points	Error: browserType.launch: Chromium distribution 'chrome' is not found at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+desktop	map-scope.spec.ts	152	moving preview uses OSRM geometry and never routes across cities	Error: browserType.launch: Chromium distribution 'chrome' is not found at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+mobile	map-scope.spec.ts	13	map allows nationwide Vietnam navigation and fits cross-city points	Error: browserType.launch: Chromium distribution 'chrome' is not found at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+mobile	map-scope.spec.ts	152	moving preview uses OSRM geometry and never routes across cities	Error: browserType.launch: Chromium distribution 'chrome' is not found at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome

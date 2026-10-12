@@ -33,12 +33,15 @@ docker create --name "$container" --network "$network" \
 docker start "$container"
 # Docker bind mounts resolve on the daemon host, not the runner. Copy only the
 # verifier and its built dependencies; do not copy .env files or local data.
-for path in package.json node_modules packages scripts; do
-  docker cp "$path" "$container:/workspace/$path"
+docker cp ../../package.json "$container:/workspace/package.json"
+docker cp ../../node_modules "$container:/workspace/node_modules"
+docker exec "$container" mkdir -p '/workspace/Maps VN/LifeFlow'
+for path in packages scripts; do
+  docker cp "$path" "$container:/workspace/Maps VN/LifeFlow/$path"
 done
 if [ "${1:-}" = --check-imports ]; then
   # Exercise copying and dependency resolution without any provider/network call.
   docker exec "$container" node --input-type=module -e "await import('@modelcontextprotocol/client'); await import('@lifeflow/moving-service')"
 else
-  docker exec "$container" npm run test:moving:deployment
+  docker exec --workdir "/workspace/Maps VN/LifeFlow" "$container" node scripts/verify-moving-deployment.mjs
 fi

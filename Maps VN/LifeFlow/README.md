@@ -45,11 +45,9 @@ Yêu cầu: Docker Desktop đang chạy, Node.js/npm đã cài và PowerShell.
 ### Cài lần đầu
 
 ```powershell
-Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
-npm install
-Set-Location .\map-app
-npm install
-Set-Location ..
+Set-Location "D:\DEMO_AI\DEMO_1" # repository root; Node 24/npm 11
+npm ci
+Set-Location "Maps VN/LifeFlow"
 ```
 
 Nếu các container OSRM chưa từng được tạo trên máy, tạo và kiểm tra graph một

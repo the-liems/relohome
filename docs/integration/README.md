@@ -45,3 +45,6 @@ Các checkpoint 24–26/09 giữ lại để truy vết. Ưu tiên hai trang sta
 đọc thông tin mâu thuẫn; schema và registry trong code là nguồn chuẩn cho field/tool.
 Khi cập nhật tiếp, ghi ngày, môi trường, nguồn bằng chứng và phạm vi đếm; không
 chép số liệu local thành cam kết của mọi deployment.
+
+- [Root workspace tooling validation (#110)](monorepo-tooling/validation.md):
+  exact-base/head commands, lock replay, Chrome failure IDs, image startup checks.
