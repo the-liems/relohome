@@ -1,5 +1,65 @@
 # Chạy MVP tích hợp trên máy — không deploy
 
+## One local configuration file
+
+`.env.example` is the committed template. `.env.local` at repository root is the only
+local source of actual values and is ignored by Git. Services and libraries read
+only their process environment; production/Coolify injects the same service names.
+
+For a fresh checkout:
+
+```sh
+npm run dev:init
+# Edit .env.local and enter the provider keys you need.
+npm run dev:mcp:http
+npm run dev:agent
+# Choose an alternate file explicitly (relative paths are relative to your cwd):
+npm run dev:mcp:http -- --env-file /absolute/path/to/team.env
+python scripts/local-integration.py location --env-file /absolute/path/to/team.env
+```
+
+The initializer creates internal credentials once with private file permissions.
+It refuses to overwrite a file or generate replacements when legacy configuration
+exists. For an existing installation, copy the template manually and transfer the
+values from root `.env`, `data/integration.env`, the old service `.env`, and (if used)
+`.runtime/moving-secrets.json`. Resolve any differences using the credentials of the
+actual running database/service. Do not regenerate passwords for existing volumes.
+Replace the two Location token names with one `LOCATION_MCP_TOKEN`; remove
+`MCP_AUTH_TOKEN` and `LOCATION_MCP_AUTH_TOKEN` from local files and shell exports.
+The launcher supplies those runtime aliases. Never paste secret values into Git or logs.
+
+`--env-file` selects exactly one file, with no fallback; missing files fail before
+launch. Without it, the path is anchored to this repository, independent of cwd.
+Shell variables override file values. `${VAR}` expansion is deliberately disabled.
+Each service receives only its configuration group and required shared values.
+Location and Moving runtime processes never receive the backend `DATABASE_URL`.
+Database admin credentials are supplied to migrations, not application processes.
+
+Local service URLs are derived from `MCP_PORT`, `MOVING_MCP_PORT`, `FLIGHT_MCP_PORT`,
+`PAYMENT_MCP_PORT` and `MOVING_API_PORT`; configure an explicit URL only for a remote
+service. After changing a token or port, restart both client and server. Token aliases
+that conflict with the canonical Location token fail with a variable-name-only error.
+The `check` component additionally checks the actual database/schema connection.
+
+All npm `dev:*` commands and workspace database scripts use `scripts/dev.py` through
+its Node shim. `scripts/local-integration.py` is the built-service launcher and adds
+its existing local sandbox safety policies. Both share `scripts/local_env.py` for
+file selection, mapping and filtering. For an ad hoc command:
+
+```sh
+node scripts/dev.mjs platform -- node "Maps VN/LifeFlow/platform-api/dist/server.js"
+node scripts/dev.mjs database -- docker compose -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+```
+
+Compose gets the launcher's environment and disables its implicit `.env` discovery.
+Native Moving defaults to the shared Location database. The optional containerized
+Moving stack consumes the same file's `MOVING_DB_*` secrets; it no longer generates
+`.runtime/moving-secrets.json`. For a separate native Moving database, configure
+`MOVING_DB_HOST`, port, name, users and passwords; the launcher derives its URLs.
+Do not run native and containerized servers on the same ports simultaneously.
+`start-local-mvp.ps1` and `Start-LifeFlow.ps1` retain their documented default-port
+readiness checks; use individual launcher commands when customizing ports.
+
 ## Đã nối những gì?
 
 React (Frontend/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
@@ -40,15 +100,17 @@ không tự ghi đè spec hoặc coi mọi đề xuất trong đó là quyết �
 
 ## Máy đang có dữ liệu
 
-Nếu đã có database Location từ `Maps VN/LifeFlow` (ví dụ container `lifeflow-postgis`, DB `lifeflow`, cổng 5433), dùng lại kết nối trong `Maps VN/LifeFlow/.env`. Script khởi tạo mới sẽ lấy cấu hình PostgreSQL này; không import/restore sang database khác. Kiểm tra `data/integration.env` trỏ đúng database đang dùng trước khi chạy các service. Container hiện có có thể khởi động bằng `docker start lifeflow-postgis`; không chạy thêm bộ Compose database ở cổng đó.
+Existing installations: migrate existing values into root `.env.local` before starting services.
+Keep the current database names, users, ports and passwords; initialization does not rotate them.
+Start existing containers with `docker start` when appropriate; do not initialize a replacement database.
 
 Các lệnh Compose/restore bên dưới dành cho bộ snapshot local riêng khi chưa có database Location.
 
-Không chạy lại import/restore/init nếu đã có `data/integration.env` và DB.
+Không chạy lại import/restore/init nếu đã có `.env.local` và DB.
 Chạy từ gốc repo, sau khi Docker Desktop sẵn sàng:
 
 ```powershell
-docker compose --env-file data/integration.env -f config/local-integration.compose.yaml up -d
+node scripts/dev.mjs database -- docker compose -f config/local-integration.compose.yaml up -d
 docker compose -f config/local-routing.compose.yaml up -d
 ```
 
@@ -76,7 +138,7 @@ Kiểm tra schema riêng, không gọi LLM:
 ```
 
 Script tái sử dụng service đã chạy và ready, **không tự nạp code/cấu hình mới**.
-Sau khi pull code, đổi DB hoặc `.env`, dừng đúng process cũ rồi chạy lại; không
+Sau khi pull code, đổi DB hoặc `.env.local`, dừng đúng process cũ rồi chạy lại; không
 mở process thứ hai cùng cổng. Có thể dùng các terminal riêng bên dưới để dễ dừng.
 Lệnh `Start-Process` cũ vẫn dùng được nhưng không có redirect log/readiness nên
 khó biết service nào thoát sớm.
@@ -127,10 +189,10 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
 ## Thiết lập trên máy mới
 
 1. Python 3.11+, Node 24+, Docker; tạo `.venv`, cài `requirements.txt`.
-2. Sao chép `.env.example` thành `.env`, điền key thật riêng: OpenAI, AhaMove staging,
-   SerpApi và ZaloPay sandbox. Liên hệ báo giá phải là liên hệ thật được phép sử dụng.
-3. Chạy `python scripts/init-local-integration.py` sinh token và mật khẩu riêng.
+2. Chạy `npm run dev:init` để tạo `.env.local` và sinh token/mật khẩu nội bộ.
    Script từ chối ghi đè cấu hình đã tồn tại; không in secret.
+3. Điền key provider trong `.env.local`: OpenAI, AhaMove staging, SerpApi và ZaloPay sandbox.
+   Liên hệ báo giá phải là liên hệ thật được phép sử dụng.
 4. Nhập ZIP bằng PowerShell:
 
 ```powershell
@@ -144,7 +206,7 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
    `pg_restore` không mang theo thống kê của planner PostgreSQL; thiếu bước này thì tìm
    nhà quanh một điểm (center + bán kính) chạm statement timeout 8 s và graph báo
    `Database query timed out`. DB đã restore bằng bản script cũ: chạy một lần
-   `docker compose --env-file data/integration.env -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
+   `node scripts/dev.mjs database -- docker compose -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
 7. Khởi động OSRM và các process như phần trên.
 
 Nếu restore thất bại, không chạy migrations chồng lên restore chưa xong.
@@ -167,10 +229,10 @@ dump cũ đang mount), restore, `ANALYZE` và migrate/grant cho DB mới. Tham s
 không tự xóa DB hay volume.
 
 Sau khi kiểm số lượng/nguồn, sửa **chỉ** `POSTGRES_DB` trong
-`data/integration.env`, rồi khởi động lại sáu service. Ngày 05/10 đã chuyển từ
+`.env.local`, rồi khởi động lại sáu service. Ngày 05/10 đã chuyển từ
 `lifeflow_verified` sang `lifeflow_quangdung_20261005`; DB cũ vẫn còn.
 Muốn quay lại: đặt `POSTGRES_DB=lifeflow_verified` rồi restart service.
-Không đổi key/mật khẩu trong `.env` chỉ để đổi tên DB.
+Không đổi key/mật khẩu trong `.env.local` chỉ để đổi tên DB.
 
 ZIP mới không mang lịch sử quote/order Moving của DB cũ. Đổi lại DB cũ có thể
 đọc lịch sử đó; việc chuyển DB không tự sao chép lịch sử. Không coi checkpoint

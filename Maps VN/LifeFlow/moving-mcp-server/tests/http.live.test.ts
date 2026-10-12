@@ -1,5 +1,5 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import { AhaMoveClient, createMovingDatabasePool, getMovingRuntimeConfig, loadMovingEnvironment,
+import { AhaMoveClient, createMovingDatabasePool, getMovingRuntimeConfig,
   MovingRepository, MovingService } from '@lifeflow/moving-service'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { request } from 'node:http'
@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildMovingHttpServer } from '../src/http-app.js'
 import { buildMovingApp } from '../../moving-api/src/app.js'
 
-loadMovingEnvironment()
 const live = process.env.RUN_AHAMOVE_STAGING_INTEGRATION === '1'
 const token = randomBytes(32).toString('hex')
 const writeToken = randomBytes(32).toString('hex')

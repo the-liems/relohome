@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import { loadMovingEnvironment } from './config.js'
 import { createMovingDatabasePool } from './database.js'
 
-loadMovingEnvironment()
 const url = process.env.MOVING_DATABASE_ADMIN_URL
 if (!url) throw new Error('MOVING_DATABASE_ADMIN_URL is required for the one-off migration process.')
 const role = process.env.MOVING_DB_APP_USER || 'moving_app'

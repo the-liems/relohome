@@ -18,7 +18,6 @@ describe.runIf(live)('Moving MCP against AhaMove staging without mocks', () => {
       cwd: rootDirectory,
       env: {
         ...getDefaultEnvironment(),
-        LIFEFLOW_ENV_FILE: process.env.LIFEFLOW_ENV_FILE || resolve(rootDirectory, '.env'),
       },
       stderr: 'inherit',
     }))

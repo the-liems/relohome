@@ -7,7 +7,7 @@
     "postinstall": "node scripts/prepare-map.mjs",
     "predev": "node scripts/prepare-map.mjs",
     "prebuild": "node scripts/prepare-map.mjs",
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node ../scripts/dev.mjs web -- vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test"

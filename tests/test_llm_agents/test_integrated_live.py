@@ -10,7 +10,8 @@ from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from scripts.local_env import load_config
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,7 +20,7 @@ BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
 
 @pytest.fixture
 def client():
-    env = dotenv_values(ROOT / "data/integration.env")
+    env = load_config()
     with httpx.Client(
         base_url=BASE_URL,
         timeout=240,
@@ -149,7 +150,7 @@ def test_moving_quote_graph(client):
 
 
 def test_moving_confirmed_pins_quote(client):
-    env = dotenv_values(ROOT / ".env")
+    env = load_config()
     assert env.get("MOVING_LIVE_QUOTE_INPUTS"), "Configure the operator-approved real route first"
     route = json.loads(env["MOVING_LIVE_QUOTE_INPUTS"])
     pins = {

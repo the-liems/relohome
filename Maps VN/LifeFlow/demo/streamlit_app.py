@@ -15,7 +15,7 @@ from demo.mcp_client import LifeFlowMcpClient
 
 LIFEFLOW_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = LIFEFLOW_ROOT.parents[1]
-load_dotenv(REPOSITORY_ROOT / ".env")
+load_dotenv(REPOSITORY_ROOT / ".env.local")
 
 TOOL_HELP = {
     "housing_map_subagent": (

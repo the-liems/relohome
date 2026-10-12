@@ -7,13 +7,16 @@ existing target, checks the dump's SHA256, awaits pg_restore, refreshes planner 
 
 import argparse
 import hashlib
+import os
 import re
 import runpy
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
-from dotenv import dotenv_values
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.local_env import load_config, scope_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / "data/teammate-snapshot"
@@ -21,13 +24,17 @@ SNAPSHOT = ROOT / "data/teammate-snapshot"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot", type=Path, default=SNAPSHOT, help="Verified snapshot directory; never overwritten.")
-    parser.add_argument("--database", help="Restore to a NEW DB without changing data/integration.env.")
+    parser.add_argument(
+        "--snapshot", type=Path, default=SNAPSHOT, help="Verified snapshot directory; never overwritten."
+    )
+    parser.add_argument("--database", help="Restore to a NEW DB without changing .env.local.")
+    parser.add_argument("--env-file", type=Path, default=ROOT / ".env.local")
     args = parser.parse_args()
-    config = dotenv_values(ROOT / "data/integration.env")
+    config = load_config(args.env_file)
+    os.environ.update(scope_environment("database", config))
     database, user = args.database or config.get("POSTGRES_DB", ""), config.get("POSTGRES_ADMIN_USER", "")
     if not all(re.fullmatch(r"[a-z][a-z0-9_]{1,62}", x) for x in (database, user)):
-        raise SystemExit("Set safe local DB/user names in data/integration.env first.")
+        raise SystemExit("Set safe local DB/user names in .env.local first.")
     manifests = {}
     snapshot = args.snapshot.resolve()
     for line in (snapshot / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
@@ -42,7 +49,7 @@ def main():
         "docker",
         "compose",
         "--env-file",
-        "data/integration.env",
+        os.devnull,
         "-f",
         "config/local-integration.compose.yaml",
         "exec",
@@ -66,8 +73,10 @@ def main():
     subprocess.run(prefix[:6] + ["cp", str(dump_path), "postgis:" + remote_dump], cwd=ROOT, check=True)
     try:
         subprocess.run(
-            prefix + ["pg_restore", "--exit-on-error", "--no-owner", "--no-acl", "-U", user, "-d", database, remote_dump],
-            cwd=ROOT, check=True,
+            prefix
+            + ["pg_restore", "--exit-on-error", "--no-owner", "--no-acl", "-U", user, "-d", database, remote_dump],
+            cwd=ROOT,
+            check=True,
         )
     finally:
         # Only the unique temporary copy created above, never a database/volume
@@ -76,12 +85,16 @@ def main():
     # pg_restore does not restore planner statistics. Without them spatial housing/POI
     # queries pick bad plans and hit the 8 s statement timeout.
     subprocess.run(prefix + ["psql", "-U", user, "-d", database, "-c", "ANALYZE"], cwd=ROOT, check=True)
-    migration_env = runpy.run_path(str(ROOT / "scripts/local-integration.py"))["environment"]("platform")
+    migration_env = runpy.run_path(str(ROOT / "scripts/local-integration.py"))["environment"](
+        "migrate", env_file=args.env_file
+    )
     migration_env["POSTGRES_DB"] = database
     subprocess.run(
         ["node", "platform-api/dist/migrate.js"], cwd=ROOT / "Maps VN/LifeFlow", env=migration_env, check=True
     )
-    print(f"Snapshot restored into {database}; ANALYZE/migrations completed. Existing DBs unchanged; temporary dump copy removed.")
+    print(
+        f"Snapshot restored into {database}; ANALYZE/migrations completed. Existing DBs unchanged; temporary dump copy removed."
+    )
 
 
 if __name__ == "__main__":

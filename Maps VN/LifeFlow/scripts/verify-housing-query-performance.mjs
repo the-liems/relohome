@@ -20,7 +20,6 @@ writeFileSync(resolve(cache, 'housing-service.js'), ts.transpileModule(original,
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText)
 const { HousingQueryService: ReferenceService } = await import(pathToFileURL(resolve(cache, 'housing-service.js')))
-process.env.LIFEFLOW_ENV_FILE ||= resolve(root, '.env')
 const config = getRuntimeConfig(), pool = createDatabasePool(config.databaseUrl, 1), db = await pool.connect()
 const bbox = { west: 106.69, south: 10.77, east: 106.71, north: 10.79 }
 const city = { west: 106.34, south: 10.34, east: 107.05, north: 11.2 }

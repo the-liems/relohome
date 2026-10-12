@@ -6,14 +6,15 @@ from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from scripts.local_env import load_config
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_selected_house_nearby_then_reverse_route():
-    env = dotenv_values(ROOT / "data/integration.env")
+    env = load_config()
     headers = {"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "map_" + uuid.uuid4().hex}
     with httpx.Client(base_url="http://127.0.0.1:18000/api/v1", headers=headers, timeout=240) as client:
         thread = None
@@ -69,7 +70,7 @@ def test_selected_house_nearby_then_reverse_route():
 
 
 def test_ambiguous_post_office_route_does_not_guess():
-    env = dotenv_values(ROOT / "data/integration.env")
+    env = load_config()
     headers = {"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "map_" + uuid.uuid4().hex}
     with httpx.Client(base_url="http://127.0.0.1:18000/api/v1", headers=headers, timeout=240) as client:
         reply = client.post(

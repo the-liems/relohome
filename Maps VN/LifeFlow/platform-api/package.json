@@ -5,15 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/server.ts",
+    "dev": "node ../../../scripts/dev.mjs platform -- tsx src/server.ts",
     "start": "node dist/server.js",
-    "db:migrate": "tsx src/migrate.ts",
-    "db:import:places": "tsx src/import-places.ts",
-    "db:import:pois:v2": "tsx src/import-pois-v2.ts",
-    "db:import:housing": "tsx src/import-housing.ts",
-    "db:report:pois": "tsx src/report-poi-coverage.ts",
-    "db:deduplicate:pois": "tsx src/deduplicate-pois.ts",
-    "db:import:areas": "tsx src/import-admin-areas.ts",
+    "db:migrate": "node ../../../scripts/dev.mjs migration -- tsx src/migrate.ts",
+    "db:import:places": "node ../../../scripts/dev.mjs migration -- tsx src/import-places.ts",
+    "db:import:pois:v2": "node ../../../scripts/dev.mjs migration -- tsx src/import-pois-v2.ts",
+    "db:import:housing": "node ../../../scripts/dev.mjs migration -- tsx src/import-housing.ts",
+    "db:report:pois": "node ../../../scripts/dev.mjs migration -- tsx src/report-poi-coverage.ts",
+    "db:deduplicate:pois": "node ../../../scripts/dev.mjs migration -- tsx src/deduplicate-pois.ts",
+    "db:import:areas": "node ../../../scripts/dev.mjs migration -- tsx src/import-admin-areas.ts",
     "test": "vitest run tests"
   },
   "dependencies": {

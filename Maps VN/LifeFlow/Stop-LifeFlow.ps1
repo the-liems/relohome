@@ -13,7 +13,9 @@ if (Test-Path -LiteralPath $apiPidPath) {
     $apiPid = [int](Get-Content -LiteralPath $apiPidPath -Raw)
     $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $apiPid" -ErrorAction SilentlyContinue
     if ($processInfo -and $processInfo.CommandLine -like '*platform-api*dist*server.js*') {
-        Stop-Process -Id $apiPid
+        # The local launcher owns a Python/Node child; stop only this verified tree.
+        & taskkill /PID $apiPid /T /F | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to stop the LifeFlow API process tree.' }
         Write-Host 'Stopped LifeFlow Platform API.' -ForegroundColor Green
     }
     elseif ($processInfo) {
@@ -45,7 +47,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
             }
         }
         Set-Location -LiteralPath $rootPath
-        docker compose --env-file .env -f infra/compose.yaml stop postgis
+        node ../../scripts/dev.mjs database -- docker compose -f infra/compose.yaml stop postgis
         if ($LASTEXITCODE -ne 0) {
             throw 'Failed to stop the LifeFlow PostGIS container.'
         }

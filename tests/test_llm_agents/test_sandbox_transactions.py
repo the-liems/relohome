@@ -11,7 +11,8 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from scripts.local_env import load_config
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(os.getenv("RUN_SANDBOX_WRITES") != "1", reason="Operator-approved sandbox writes only")
@@ -19,7 +20,7 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_SANDBOX_WRITES") != "1", reason="
 
 @pytest.fixture
 def client():
-    config = dotenv_values(ROOT / "data/integration.env")
+    config = load_config()
     with httpx.Client(
         base_url="http://127.0.0.1:8000/api/v1",
         timeout=240,
@@ -50,7 +51,7 @@ def test_zalopay_create_query_and_idempotency(client):
 
 
 def test_moving_create_then_cancel(client):
-    config = dotenv_values(ROOT / ".env")
+    config = load_config()
     route = json.loads(config["MOVING_LIVE_QUOTE_INPUTS"])
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},

@@ -374,7 +374,7 @@ def geocode(output, max_requests, rpm, selection="sample", limit=None):
         keys = [k for k, t in all_tasks.items() if t["kind"] == "numbered"]
     if limit is not None:
         keys = keys[:limit]
-    key = clean(dotenv_values(ROOT / ".env").get("VIETMAP_API_KEY"))
+    key = clean(dotenv_values(ROOT / ".env.local").get("VIETMAP_API_KEY"))
     if not key:
         raise ValueError("VIETMAP_API_KEY missing")
     cache_path = output / "cache.json"

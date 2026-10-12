@@ -8,7 +8,8 @@ from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from scripts.local_env import load_config
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,7 +17,7 @@ BASE = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1")
 
 
 def client_for(user_id):
-    config = dotenv_values(ROOT / "data/integration.env")
+    config = load_config()
     return httpx.Client(
         base_url=BASE,
         timeout=300,
@@ -64,7 +65,7 @@ def test_housing_selection_to_route_and_flight():
 
 
 def test_moving_time_change_and_owned_payment_status():
-    env = dotenv_values(ROOT / "data/integration.env")
+    env = load_config()
     db_path = (ROOT / env.get("AGENT_STATE_DIR", "data/agent-runtime") / "runtime.sqlite3").resolve()
     if not db_path.exists():
         pytest.skip("No existing runtime DB")
@@ -73,7 +74,7 @@ def test_moving_time_change_and_owned_payment_status():
     if not payment:
         pytest.skip("No owned real sandbox payment; never create a test payment")
     payment_id, owner = payment[0], json.loads(payment[1])["owner"]
-    route_config = dotenv_values(ROOT / ".env")
+    route_config = load_config()
     route = json.loads(route_config["MOVING_LIVE_QUOTE_INPUTS"])
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},

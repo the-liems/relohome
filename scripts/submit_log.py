@@ -23,7 +23,7 @@ from log_privacy import redact_transcript_path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env.local")
 except ImportError:
     pass
 

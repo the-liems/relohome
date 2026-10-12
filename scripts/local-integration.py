@@ -5,24 +5,20 @@ Keep each long-running component in its own terminal. Ctrl+C stops that componen
 """
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from dotenv import dotenv_values
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.local_env import load_config, scope_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 MAPS = ROOT / "Maps VN" / "LifeFlow"
 
 
-def environment(component, sandbox_writes=False, payment_demo=False):
-    env = {
-        **os.environ,
-        **{k: v for k, v in dotenv_values(ROOT / ".env").items() if v is not None},
-        **{k: v for k, v in dotenv_values(ROOT / "data/integration.env").items() if v is not None},
-    }
+def environment(component, sandbox_writes=False, payment_demo=False, env_file=None):
+    env = load_config(env_file)
     if component in {"api", "ui"} and env.get("APP_ENV", "development") != "production":
         # Local-only opt-out default. Runtime still requires the trusted token,
         # and explicit ROOMMATE_ENABLED=false is respected. Do not grant any
@@ -62,59 +58,18 @@ def environment(component, sandbox_writes=False, payment_demo=False):
             PAYMENT_TESTER_CONFIRM_ENABLED=env.get("PAYMENT_TESTER_CONFIRM_ENABLED", "true"),
             APP_ENV="development",
         )
-    # Children must not re-load the broad root .env after scoped credentials are removed.
-    env["LIFEFLOW_ENV_FILE"] = str(ROOT / "data/empty.env")
     env["PYTHONPATH"] = str(ROOT)
     env["PYTHONIOENCODING"] = "utf-8"
-    if component in {"api", "ui"}:
-        # Provider credentials and provider databases belong to their services.
-        for key in list(env):
-            if key.startswith("PAYMENT_ZALOPAY_") or key in {
-                "FLIGHT_SERPAPI_API_KEY", "FLIGHT_SEARCH_PROVIDER", "FLIGHT_DB_PATH",
-                "FLIGHT_SIMULATION_ENABLED", "PAYMENT_PROVIDER", "PAYMENT_DB_PATH", "PAYMENT_REDIRECT_URL",
-            }:
-                env.pop(key)
-    if component in {"flight", "payment"}:
-        prefix = "FLIGHT_" if component == "flight" else "PAYMENT_"
-        system_keys = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATHEXT", "COMSPEC",
-                       "PYTHONPATH", "PYTHONIOENCODING", "LD_LIBRARY_PATH"}
-        env = {key: value for key, value in env.items() if key in system_keys or key.startswith(prefix)}
-        env["MCP_AUTH_TOKEN"] = env.get(prefix + "MCP_AUTH_TOKEN", "")
-    if component in {"location", "platform", "moving", "moving-api"}:
-        allowed = {
-            "PATH",
-            "SYSTEMROOT",
-            "WINDIR",
-            "TEMP",
-            "TMP",
-            "PATHEXT",
-            "COMSPEC",
-            "LIFEFLOW_ENV_FILE",
-            "POSTGRES_HOST",
-            "POSTGRES_PORT",
-            "POSTGRES_DB",
-            "POSTGRES_APP_USER",
-            "POSTGRES_APP_PASSWORD",
-            "HOUSING_REVIEW_MIN_COUNT",
-        }
-        prefixes = ("MCP_", "OSRM_", "PLATFORM_") if component in {"location", "platform"} else ("AHAMOVE_", "MOVING_")
-        if component == "platform":
-            allowed.update(
-                {"POSTGRES_ADMIN_USER", "POSTGRES_ADMIN_PASSWORD", "POSTGRES_INGEST_USER", "POSTGRES_INGEST_PASSWORD"}
-            )
-            # Housing owner workspace: trusted gateway token and moderator account IDs.
-            allowed.update({"AGENT_API_TOKEN", "HOUSING_MODERATOR_IDS", "HOST_TERMS_VERSION", "HOUSING_MESSAGE_RATE_PER_MINUTE"})
-            allowed.update({"HOUSING_REVIEW_MIN_COUNT", "HOUSING_REVIEW_PATTERN_DAYS", "HOUSING_REVIEW_LOW_STARS",
-                            "HOUSING_REVIEW_PATTERN_PROPERTIES", "HOUSING_REVIEW_PATTERN_AUTHORS"})
-        env = {k: v for k, v in env.items() if k.upper() in allowed or k.startswith(prefixes)}
-        if component == "moving":
-            env["MCP_AUTH_TOKEN"] = env.get("MOVING_MCP_AUTH_TOKEN", "")
-    return env
+    return scope_environment(component, env)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("component", choices=["location", "platform", "moving", "moving-api", "flight", "payment", "api", "migrate", "ui", "check"])
+    parser.add_argument(
+        "component",
+        choices=["location", "platform", "moving", "moving-api", "flight", "payment", "api", "migrate", "ui", "check"],
+    )
+    parser.add_argument("--env-file", type=Path, help="Use this file instead of repository-root .env.local")
     parser.add_argument("--port", type=int, help="Override API/UI port to avoid other local applications")
     parser.add_argument(
         "--sandbox-writes", action="store_true", help="Allow explicit confirmed sandbox transactions; never production"
@@ -125,6 +80,10 @@ def main():
         help="App checkout demo: ZaloPay sandbox payments, simulated flight tickets, tester 'paid' control",
     )
     args = parser.parse_args()
+    try:
+        child_env = environment(args.component, args.sandbox_writes, args.payment_demo, args.env_file)
+    except ValueError as error:
+        parser.error(str(error))
     if args.port is not None and (args.component not in {"api", "ui"} or not 1 <= args.port <= 65535):
         parser.error("--port is valid only for api/ui and must be between 1 and 65535")
     commands = {
@@ -170,11 +129,7 @@ def main():
     sys.exit(
         subprocess.call(
             command,
-            env=environment(
-                "platform" if args.component == "check" else args.component,
-                args.sandbox_writes,
-                args.payment_demo,
-            ),
+            env=child_env,
             cwd=ROOT if args.component in {"api", "ui", "flight", "payment"} else MAPS,
         )
     )

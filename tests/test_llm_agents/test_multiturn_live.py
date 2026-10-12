@@ -2,11 +2,11 @@
 
 import os
 import uuid
-from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from scripts.local_env import load_config
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
@@ -14,7 +14,7 @@ BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
 
 @pytest.fixture
 def client():
-    env = dotenv_values(Path(__file__).resolve().parents[2] / "data/integration.env")
+    env = load_config()
     with httpx.Client(
         base_url=BASE_URL,
         timeout=240,
