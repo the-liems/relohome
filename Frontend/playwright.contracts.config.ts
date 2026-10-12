@@ -9,6 +9,7 @@ export default defineConfig({
     "moving-submission.contracts.spec.ts",
     "staging-context.contracts.spec.ts",
     "service-request.contracts.spec.ts",
+    "viewing-schedule.contracts.spec.ts",
   ],
   outputDir: "../data/frontend-contract-results",
   workers: 1,
