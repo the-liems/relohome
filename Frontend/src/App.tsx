@@ -881,7 +881,11 @@ function Chat() {
   }, [thread?.messages?.length, busy]);
   async function reload() {
     if (threadId) {
-      setThread(await api<Thread>("/threads/" + threadId));
+      const next = await api<Thread>("/threads/" + threadId);
+      if (currentThread.current !== threadId) return;
+      // Refreshing saved viewing/checkout state must not navigate the current workspace.
+      manualWorkspaceReply.current = [...next.messages].reverse().find(m => m.role === "assistant")?.id || null;
+      setThread(next);
       void refresh().catch(() => {});
     }
   }
@@ -1023,7 +1027,6 @@ function Chat() {
     .filter((i) => !["agreed", "reported_paid"].includes(i.status))
     .map((i) => ({ listing_id: i.listing_id, ...i.snapshot }));
   function openViewings() {
-    setWorkspace(null);
     setParams((p) => {
       const next = new URLSearchParams(p);
       next.set("panel", "plan");
@@ -1532,7 +1535,7 @@ function Chat() {
           onSelectionDone={
             viewing
               ? () => {
-                  // Close the map and go straight to booking viewings.
+                  // Open viewings as an overlay; keep the current map and its camera.
                   reviewedServices.current.add(latestProperty.c.id);
                   openViewings();
                 }

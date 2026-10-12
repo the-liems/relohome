@@ -5,6 +5,8 @@ async function fixture(
   page: Page,
   stage = "selected",
   available = ["property", "relocation", "flight", "map", "roommate"],
+  mapBackground = false,
+  replyAfterSchedule = false,
 ) {
   const slot = "2027-02-10T09:00:00+07:00";
   const item: any = {
@@ -40,6 +42,60 @@ async function fixture(
     },
   };
   const requests: { path: string; body: any }[] = [];
+  if (mapBackground) {
+    thread.state.task_status = { home: "done" };
+    thread.messages = [
+      {
+        id: "home-result",
+        role: "assistant",
+        created: Date.now() / 1000,
+        content: {
+          status: "done",
+          response: { kind: "ANSWER", text: "Kết quả tìm phòng." },
+          ui: {
+            version: 1,
+            plan_version: 1,
+            components: [
+              {
+                id: "home-map",
+                task_id: "home",
+                type: "property",
+                fetched_at: new Date().toISOString(),
+                data: {
+                  area_name: "Hà Nội",
+                  candidates: [],
+                  search_request: { city: "Hà Nội" },
+                  map_context: {
+                    viewport: {
+                      west: 105.82,
+                      south: 21.02,
+                      east: 105.85,
+                      north: 21.04,
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    ];
+    await page.route("https://tiles.openfreemap.org/**", (route) =>
+      route.fulfill({
+        json: {
+          version: 8,
+          sources: {},
+          layers: [
+            {
+              id: "background",
+              type: "background",
+              paint: { "background-color": "#edf3ef" },
+            },
+          ],
+        },
+      }),
+    );
+  }
   let fail = false;
   await page.route("**/web/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace(
@@ -54,6 +110,13 @@ async function fixture(
     else if (path === "/status") data = { domains: available };
     else if (path === "/threads" || path === "/saved") data = [];
     else if (path === "/threads/th_viewing") data = thread;
+    else if (path.startsWith("/platform/"))
+      data = {
+        type: "FeatureCollection",
+        features: [],
+        results: [],
+        page: { returned_count: 0, next_cursor: null },
+      };
     else if (path.endsWith("/viewings/schedule")) {
       if (fail)
         return route.fulfill({
@@ -65,6 +128,16 @@ async function fixture(
         viewing: { slot },
         landlord: { viewing_status: "requested", request_status: "new" },
       });
+      if (replyAfterSchedule)
+        thread.messages.push({
+          id: "saved-appointment",
+          role: "assistant",
+          created: Date.now() / 1000,
+          content: {
+            status: "done",
+            response: { kind: "ANSWER", text: "Lịch đã được lưu." },
+          },
+        });
       data = thread.state.viewing;
     } else if (path.endsWith("/viewings/cancel")) {
       Object.assign(item, {
@@ -80,11 +153,95 @@ async function fixture(
     item,
     requests,
     slot,
+    thread,
     setFail: (value: boolean) => {
       fail = value;
     },
   };
 }
+
+test("opening and saving viewings preserves the mounted housing map until another service is chosen", async ({
+  page,
+}, info) => {
+  const { requests, slot } = await fixture(
+    page,
+    "selected",
+    ["property", "relocation", "flight", "map", "roommate"],
+    true,
+    true,
+  );
+  await page.goto("/ai/th_viewing");
+  const map = page.getByRole("region", { name: "Bản đồ nhà ở", exact: true });
+  await expect(map).toBeVisible();
+  await page
+    .locator(".maplibregl-canvas")
+    .first()
+    .evaluate((el) => {
+      el.setAttribute("data-continuity-check", "original-map");
+    });
+  await page
+    .getByRole("button", { name: "Xong, hẹn lịch xem", exact: true })
+    .click();
+  await expect(map).toBeVisible();
+  await expect(
+    page.locator('[data-continuity-check="original-map"]'),
+  ).toHaveCount(1);
+  await page.getByLabel("Giờ xem", { exact: true }).selectOption(slot);
+  await page.getByRole("button", { name: "Hẹn xem", exact: true }).click();
+  const preparation = page.getByRole("region", {
+    name: "Chuẩn bị cho buổi xem nhà",
+    exact: true,
+  });
+  await expect(preparation).toBeVisible();
+  await expect(map).toBeVisible();
+  await expect(
+    page.locator('[data-continuity-check="original-map"]'),
+  ).toHaveCount(1);
+  await expect(page.locator(".composer textarea")).toHaveCount(0);
+  await page.screenshot({
+    path: info.outputPath("map-retained-after-scheduling.png"),
+    fullPage: true,
+  });
+  await preparation
+    .getByRole("button", { name: "Tìm chuyến bay", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Nơi đi", { exact: true }),
+  ).toBeVisible();
+  await expect(map).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Hủy", exact: true })
+    .click();
+  await expect(map).toBeVisible();
+  await page
+    .getByRole("button", { name: "Xem nhanh kế hoạch", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Xem nhà", exact: true }).click();
+  await preparation
+    .getByRole("button", { name: "Chuyển đồ", exact: true })
+    .click();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Thông tin chuyển đồ",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(map).toHaveCount(0);
+  expect(requests.filter((r) => r.path.includes("/viewings/schedule"))).toEqual(
+    [
+      {
+        path: "/threads/th_viewing/viewings/schedule",
+        body: { listing_id: "viewing-home", slot },
+      },
+    ],
+  );
+  expect(
+    requests.some(
+      (r) => r.path.endsWith("/chat") || r.path.endsWith("/moving/quote"),
+    ),
+  ).toBe(false);
+});
 
 test("saved viewing shows contextual preparation; route form uses that home's address without sending chat", async ({
   page,
@@ -102,8 +259,13 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
   await page.getByRole("button", { name: "Hẹn xem", exact: true }).click();
   await expect(preparation).toBeVisible();
   await expect(preparation).toBeFocused();
-  await expect(preparation.getByRole("button", { name: "Xem đường đi", exact: true })).toBeInViewport();
-  await page.screenshot({ path: info.outputPath("immediately-after-scheduling.png"), fullPage: true });
+  await expect(
+    preparation.getByRole("button", { name: "Xem đường đi", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({
+    path: info.outputPath("immediately-after-scheduling.png"),
+    fullPage: true,
+  });
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(
@@ -150,7 +312,9 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     .click();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   // Appearance controls sit outside the plan popover and close it by design.
-  await page.getByRole("button", { name: "Quick plan view", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Quick plan view", exact: true })
+    .click();
   const english = page.getByRole("region", {
     name: "Prepare for your viewing",
     exact: true,
@@ -176,7 +340,9 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     fullPage: true,
   });
   await page.getByRole("button", { name: "VI", exact: true }).click();
-  await page.getByRole("button", { name: "Xem nhanh kế hoạch", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Xem nhanh kế hoạch", exact: true })
+    .click();
   await page.getByRole("button", { name: "Hủy lịch", exact: true }).click();
   await expect(preparation).toHaveCount(0);
   expect(errors).toEqual([]);

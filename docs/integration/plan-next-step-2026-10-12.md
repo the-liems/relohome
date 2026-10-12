@@ -13,6 +13,10 @@ Không sửa trạng thái đó để tạo cảm giác kế hoạch hoàn tất
 ## Trải nghiệm hiện tại
 
 - Chọn nhà hẹn xem vẫn ở bản đồ, giữ giỏ và nút hẹn lịch xem hiện có.
+- **Xong, hẹn lịch xem** mở bảng kế hoạch phủ lên map, không đóng workspace.
+  Lưu/đổi/hủy lịch và tải lại trạng thái checkout không tự đổi màn hình. Map
+  đang mở giữ nguyên instance/camera; chọn dịch vụ khác hoặc **Về hội thoại**
+  mới đổi màn hình theo thao tác của người dùng.
 - Chọn chuyến bay/phương án xe vẫn ở workspace đó, giữ lựa chọn hiển thị.
 - Khi có bước khác trong kế hoạch, nút nhắc nhỏ **Bước tiếp theo: [dịch vụ]**
   nằm cạnh các tab dịch vụ trên workspace. Chỉ bấm mới mở bước kế tiếp.
@@ -113,6 +117,23 @@ không gửi lịch hoặc liên hệ tới chủ nhà thật. Request schedule/
 Đây là kiểm chứng có mục tiêu cho lỗi điều hướng. Các ca fail của full suite
 trước đó trong `service-regression-2026-10-12.md` chưa được đóng bởi thay đổi này.
 Push/PR vẫn tạm dừng theo yêu cầu người dùng để họ kiểm tra bản sửa local.
+
+### Regression giữ map khi hẹn lịch
+
+Phát hiện `openViewings` còn `setWorkspace(null)` từ luồng cũ. Đã bỏ lệnh đóng
+map khi mở tab Xem nhà và đánh dấu refresh read-only là thao tác giữ workspace,
+để reply mới trong snapshot không tự điều hướng về chat/Moving. Response muộn
+của thread khác không được thay trạng thái của thread hiện tại.
+
+Test tích hợp UI bắt đầu từ map: bấm Xong → hẹn lịch → gợi ý → mở rồi hủy
+Flight → mở lại kế hoạch → bấm Moving. Assertion kiểm canvas vẫn là instance
+ban đầu sau mở/lưu lịch; composer chat không xuất hiện. Kể cả fixture refresh
+có assistant reply mới cũng không mất map. Chỉ bấm Moving mới bỏ map, không
+gửi chat/quote tự động. Nhóm lịch/gợi ý/closed-request: **16 pass** desktop/mobile.
+Đã chạy build và cập nhật bản phục vụ tại 8503; screenshot
+`viewing-suggestions-*/map-retained-after-scheduling.png`.
+Nhóm form/multi-service chạy lại: **18 pass**; tổng 34 browser assertions theo
+các ca đã chạy, không thay thế kết quả full suite còn mở trong báo cáo trước.
 
 ## Checkout local
 
