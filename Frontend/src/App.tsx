@@ -818,6 +818,8 @@ function Chat() {
   } | null>(null);
   const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
   const reviewedServices = useRef(new Set<string>());
+  const createdThreadForForm = useRef<string | null>(null);
+  const submittedInputReply = useRef<string | null>(null);
   const manualWorkspaceReply = useRef<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
@@ -830,7 +832,9 @@ function Chat() {
     const version = ++generation.current;
     setError("");
     setContext(null);
-    if (!inFlight.current) setForm(null);
+    if (createdThreadForForm.current !== threadId) setForm(null);
+    createdThreadForForm.current = null;
+    submittedInputReply.current = null;
     setWorkspaceTaskId(null);
     reviewedServices.current.clear();
     setDraft(
@@ -878,13 +882,14 @@ function Chat() {
       void refresh().catch(() => {});
     }
   }
-  async function send(text: string, extra: Data = {}) {
+  async function send(text: string, extra: Data = {}, onReply?: (reply: Thread) => void) {
     const quoteForm = extra.moving_quote_form;
     if (inFlight.current) {
       if (quoteForm) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
       return;
     }
     if (!text.trim()) return;
+    if (!onReply) submittedInputReply.current = null;
     const formKey = movingSubmission?.formKey || lastAssistant?.id || "new";
     if (quoteForm) {
       setMovingSubmission({ threadId, formKey });
@@ -903,6 +908,7 @@ function Chat() {
         id = created.id;
         if (quoteForm) setMovingSubmission({ threadId: id, formKey });
         setThread(created);
+        if (form) createdThreadForForm.current = id;
         navigate("/ai/" + id, { replace: true });
         currentThread.current = id;
       }
@@ -950,6 +956,7 @@ function Chat() {
       }
       // The updated thread is authoritative; sidebar refresh is not part of quote latency.
       void refresh().catch(() => {});
+      onReply?.(updated);
     } catch (e) {
       setError((e as Error).message);
       // An accepted graph reply is already authoritative. Do not reload it or
@@ -1143,11 +1150,25 @@ function Chat() {
   const lastAssistant = [...(thread?.messages || [])]
     .reverse()
     .find((m) => m.role === "assistant");
-  const inputServices = clarificationServices(thread);
+  // Keep the exact mounted clarification form after its submission fails. Do not
+  // recover an unrelated historical form when the user sends a new chat request.
+  const retainedInputReply = lastAssistant?.content.response?.kind === "ERROR"
+    ? thread?.messages.find(m => m.id === submittedInputReply.current && m.role === "assistant")
+    : undefined;
+  const inputReply = retainedInputReply || lastAssistant;
+  const inputThread = retainedInputReply && thread
+    ? { ...thread, messages: thread.messages.slice(0, thread.messages.indexOf(retainedInputReply) + 1) }
+    : thread;
+  const inputServices = clarificationServices(inputThread);
   async function sendForm(text: string) {
     if (inFlight.current) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
     if (!status) throw new Error(uiText("Chưa kết nối được AI."));
-    await send(text);
+    if (!form) submittedInputReply.current = inputReply?.id || null;
+    const result: { thread?: Thread } = {};
+    await send(text, {}, updated => { result.thread = updated; });
+    const reply = [...(result.thread?.messages || [])].reverse().find(m => m.role === "assistant")?.content.response;
+    // A graph ERROR is transported as HTTP 200; keep the form draft for a manual retry.
+    if (reply?.kind === "ERROR") throw new Error(reply.text || uiText("Chưa nhận được kết quả từ dịch vụ. Hãy thử lại sau."));
   }
   // A moving question (pickup, destination, date, time) opens the moving form instead of a
   // plain chat question; what the user already said prefills it.
@@ -1563,7 +1584,6 @@ function Chat() {
                   <br className="desktop-only" />
                   {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
-                <p className="welcome-service-help">{uiText("Chọn dịch vụ để điền nhanh, hoặc nhắn yêu cầu của bạn ở bên dưới.")}</p>
                 <div
                   className="quick-grid"
                   role="group"
@@ -1711,7 +1731,7 @@ function Chat() {
                           </div>
                           <p className="prose">
                             {closedResultSummary(m, thread) ||
-                              (m.id === lastAssistant?.id && inputServices.length
+                              (m.id === inputReply?.id && inputServices.length
                                 ? guidedReplyText(m.content.response.text, m.content.response.questions || [], inputServices)
                                 : m.content.response.text)}
                           </p>
@@ -1816,8 +1836,8 @@ function Chat() {
                       <Receipts
                         receipts={m.content.response?.data?.receipts || []}
                       />
-                      {m.id === lastAssistant?.id && thread && inputServices.length > 0 && (
-                        <ServiceInputPanel services={inputServices} thread={thread} disabled={busy || !status} onSubmit={sendForm} onChat={() => input.current?.focus()} />
+                      {m.id === inputReply?.id && inputThread && inputServices.length > 0 && (
+                        <ServiceInputPanel services={inputServices} thread={inputThread} disabled={busy || !status} onSubmit={sendForm} onChat={() => input.current?.focus()} />
                       )}
                       {(closedResultSummary(m, thread)
                         ? []

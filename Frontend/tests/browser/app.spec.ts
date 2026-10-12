@@ -1264,6 +1264,8 @@ test("appearance: login, welcome and map are readable in both themes without ove
     name: "What kind of home are you looking for?",
   });
   await expect(homeForm).toBeVisible();
+  await homeForm.getByLabel("City", { exact: true }).selectOption("Hà Nội");
+  await homeForm.locator(".request-extra > summary").click();
   await homeForm.getByLabel("Min price · VND/month").fill("9000000");
   await homeForm.getByLabel("Max price · VND/month").fill("5000000");
   await homeForm.getByRole("button", { name: "Apply", exact: true }).click();
@@ -2449,6 +2451,7 @@ test("service failure preserves user form input", async ({ page }) => {
   await page.goto("/ai");
   await page.getByRole("button", { name: /Tìm nhà/ }).click();
   const modal = page.getByRole("dialog");
+  await modal.getByLabel("Thành phố", { exact: true }).selectOption("Thành phố Hồ Chí Minh");
   await modal.getByLabel("Quận / khu vực", { exact: true }).fill("Quận 7");
   await modal.getByRole("button", { name: /Áp dụng/ }).click();
   await expect(modal.getByText("Dịch vụ chưa phản hồi")).toBeVisible();

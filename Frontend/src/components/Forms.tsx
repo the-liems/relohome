@@ -83,7 +83,7 @@ export function TaskForm({
             <div className="form-grid">
               <label>
                 {uiText("Thành phố")}
-                <select name="city" defaultValue={city} required>
+                <select name="city" defaultValue={city} aria-label={uiText("Thành phố")} required>
                   <option value="">{uiText("Chọn thành phố")}</option>
                   {city && !cities.includes(city) && <option>{city}</option>}
                   {cities.map((c) => (
@@ -202,7 +202,7 @@ function MapFields({ known, city }: { known: Data; city: string }) {
       </label>
       <label>
         {uiText("Thành phố")}
-        <select name="city" defaultValue={city} required>
+        <select name="city" defaultValue={city} aria-label={uiText("Thành phố")} required>
           <option value="">{uiText("Chọn thành phố")}</option>
           {city && !cities.includes(city) && <option>{city}</option>}
           {cities.map((c) => (

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { vietnamToday } from "../../src/serviceRequest";
 
 test.skip(
   process.env.RUN_RUNTIME_AUDIT !== "1",
@@ -17,6 +18,34 @@ async function signIn(page: Page) {
   });
   expect(response.ok()).toBeTruthy();
 }
+
+test("real built gateway UI: flight tile form reaches the live provider without a second input turn", async ({ page }, info) => {
+  await signIn(page);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/ai");
+  await page.getByRole("button", { name: /Tìm chuyến bay Sẵn sàng/ }).click();
+  const form = page.getByRole("dialog");
+  const date = vietnamToday(new Date(Date.now() + 86400000));
+  await form.getByLabel("Nơi đi", { exact: true }).fill("SGN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form.getByLabel("Ngày bay", { exact: true }).fill(date);
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  const content = [...data.messages].reverse().find((m: any) => m.role === "assistant")?.content;
+  expect(content?.response?.kind).not.toBe("ERROR");
+  expect(content?.response?.kind).not.toBe("CLARIFY");
+  expect(data.state.plan.commit_actions).toEqual([]);
+  const flights = (content?.ui?.components || []).filter((c: any) => c.type === "flight");
+  expect(flights.flatMap((c: any) => c.data.offers || []).length).toBeGreaterThan(0);
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+  await page.screenshot({ path: info.outputPath("flight-form-live-desktop.png"), fullPage: true });
+});
 
 test("real built gateway UI: housing answer renders map and keeps service navigation", async ({
   page,
@@ -63,6 +92,33 @@ test("real built gateway UI: housing answer renders map and keeps service naviga
     fullPage: true,
   });
   expect(errors).toEqual([]);
+});
+
+test("real built gateway UI: incomplete flight chat opens an inline form and reaches live offers", async ({ page }, info) => {
+  await signIn(page);
+  await page.goto("/ai");
+  await page.locator(".composer textarea").fill("Tôi muốn tìm chuyến bay, chỉ tìm kiếm chưa đặt vé.");
+  const clarification = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await page.getByRole("button", { name: "Gửi tin nhắn", exact: true }).click();
+  expect((await clarification).status()).toBe(200);
+  const form = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ", exact: true });
+  await expect(form).toBeVisible();
+  await form.getByLabel("Nơi đi", { exact: true }).fill("SGN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form.getByLabel("Ngày bay", { exact: true }).fill(vietnamToday(new Date(Date.now() + 86400000)));
+  const answered = page.waitForResponse(r => r.url().endsWith("/chat") && r.request().method() === "POST", { timeout: 150000 });
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  const response = await answered;
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  const content = [...data.messages].reverse().find((m: any) => m.role === "assistant")?.content;
+  expect(content?.response?.kind).not.toBe("ERROR");
+  expect(content?.response?.kind).not.toBe("CLARIFY");
+  expect(data.state.plan.commit_actions).toEqual([]);
+  const offers = (content?.ui?.components || []).flatMap((c: any) => c.type === "flight" ? c.data.offers || [] : []);
+  expect(offers.length).toBeGreaterThan(0);
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("flight-inline-live-desktop.png"), fullPage: true });
 });
 
 test("real built UI: Moving geocodes A/B and loads real provider vehicle catalog", async ({

@@ -78,7 +78,10 @@ Map nearby/explore không bị mở nhầm form directions.
 Screenshot và output test ở `Frontend/test-results/` và
 `data/frontend-contract-results/` (ignored).
 
-Chưa test lại search Flight có trả phí/LLM thật trên cloud hoặc booking/payment.
+Lượt kiểm tra đầu chỉ dùng fixtures; lần kiểm tra tiếp theo đã thử Agent/provider
+thật tại local, gồm Flight từ ô dịch vụ và từ form clarification trong chat,
+Housing map và catalog Moving. [Báo cáo lỗi, bản sửa và regression toàn dịch vụ](service-regression-2026-10-12.md)
+ghi rõ các ca còn fail trong suite cũ. Chưa kiểm tra lại deployment cloud hoặc booking/payment.
 Form dùng số người lớn theo contract Agent hiện tại; không thêm hạng vé/trẻ em
 khi Agent chưa truyền các trường đó. Bản nháp ở form có scope của lượt hỏi;
 không ghi riêng vào DB hay trộn sang cuộc trò chuyện khác.

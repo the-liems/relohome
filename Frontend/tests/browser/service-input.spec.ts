@@ -6,6 +6,7 @@ async function fixture(page: Page, pending = false) {
   const turns: any[] = [],
     actions: any[] = [];
   let fail = false;
+  let graphError = false;
   const thread: any = {
     id: "th_input",
     title: "Hành trình của bạn",
@@ -91,6 +92,22 @@ async function fixture(page: Page, pending = false) {
           status: 502,
           json: { detail: "Dịch vụ đang bận. Hãy thử lại." },
         });
+      if (graphError) {
+        thread.messages.push({
+          id: "failed-search",
+          role: "assistant",
+          created: Date.now() / 1000,
+          content: {
+            status: "done",
+            response: {
+              kind: "ERROR",
+              text: "Hệ thống chưa xử lý được yêu cầu trong lượt này. Không có giao dịch nào được thực hiện; bạn có thể thử lại.",
+              data: { error: { node: "intake", code: "ERROR" } },
+            },
+          },
+        });
+        return route.fulfill({ status: 200, json: thread });
+      }
       thread.state.plan.tasks = [
         {
           id: "flight-search",
@@ -163,8 +180,37 @@ async function fixture(page: Page, pending = false) {
     setFail: (value: boolean) => {
       fail = value;
     },
+    setGraphError: (value: boolean) => {
+      graphError = value;
+    },
   };
 }
+
+test("HTTP 200 Agent errors keep the flight form and its draft until a successful retry", async ({ page }) => {
+  const { turns, setGraphError } = await fixture(page);
+  setGraphError(true);
+  await page.goto("/ai");
+  await page.getByRole("button", { name: /Tìm chuyến bay Sẵn sàng/ }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Nơi đi", { exact: true }).fill("SGN");
+  await form.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await form.getByLabel("Ngày bay", { exact: true }).fill("2027-02-10");
+  await form.getByLabel("Khứ hồi", { exact: true }).check();
+  await form.getByLabel("Ngày về", { exact: true }).fill("2027-02-13");
+  await form.getByLabel("Người lớn", { exact: true }).selectOption("2");
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await expect(form).toBeVisible();
+  await expect(form.getByRole("alert")).toContainText("Hệ thống chưa xử lý được yêu cầu");
+  await expect(form.getByLabel("Nơi đi", { exact: true })).toHaveValue("SGN");
+  await expect(form.getByLabel("Ngày về", { exact: true })).toHaveValue("2027-02-13");
+  await expect(form.getByLabel("Người lớn", { exact: true })).toHaveValue("2");
+  expect(turns).toHaveLength(1);
+  setGraphError(false);
+  await form.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  expect(turns).toHaveLength(2);
+});
 
 test("direct flight entry submits complete details through chat and opens selectable results", async ({
   page,
@@ -214,6 +260,22 @@ test("direct flight entry submits complete details through chat and opens select
     entity_id: "test-offer",
     plan_version: 1,
   });
+});
+
+test("inline clarification preserves entered fields when the Agent returns HTTP 200 ERROR", async ({ page }) => {
+  const { setGraphError, turns } = await fixture(page, true);
+  setGraphError(true);
+  await page.goto("/ai/th_input");
+  const panel = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ", exact: true });
+  await panel.getByLabel("Nơi đến", { exact: true }).fill("HAN");
+  await panel.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Hệ thống chưa xử lý được yêu cầu");
+  await expect(panel.getByLabel("Nơi đến", { exact: true })).toHaveValue("HAN");
+  await expect(panel.getByLabel("Người lớn", { exact: true })).toHaveValue("2");
+  setGraphError(false);
+  await panel.getByRole("button", { name: "Tìm chuyến bay", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  expect(turns).toHaveLength(2);
 });
 
 test("chat clarification shows a prefilled form; closing/reopening and network failure retain edits", async ({
