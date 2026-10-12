@@ -783,3 +783,37 @@ test("multi-service clarification keeps edits when switching forms and preserves
   expect(audit.violations.map((v) => v.id)).toEqual([]);
   await page.screenshot({ path: info.outputPath("inline-criteria.png") });
 });
+
+test("new housing form reads the serialized current goal, not historical budget and amenities", async ({ page }) => {
+  const { thread, turns } = await fixture(page, true);
+  thread.state.intake = { intent: { domains: ["property"] }, constraints: { values: { city: "hcm" } }, user_confirmed_facts: {} };
+  thread.state.plan.tasks = [{ id: "new-home", agent: "property", inputs: { city: "hcm" } }];
+  thread.state.progress.items = [
+    { task_id: "old-home", agent: "property", state: "reviewed", inputs: { city: "hanoi", max_price_vnd: 5000000, must_have: ["air_conditioning"] } },
+    { task_id: "new-home", agent: "property", state: "waiting", inputs: { city: "hcm" } },
+  ];
+  thread.messages[0].content.response.questions = [{ field: "property.near", text: "Bạn muốn tìm gần nơi nào?" }];
+  await page.goto("/ai/th_input");
+  const panel = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ" });
+  await expect(panel.getByLabel("Thành phố", { exact: true })).toHaveValue("Thành phố Hồ Chí Minh");
+  await expect(panel.locator('input[name="max"]')).toHaveValue("");
+  await expect(panel.locator('input[name="amenities"]')).toHaveValue("");
+  expect(turns).toHaveLength(0);
+});
+
+test("explicit service navigation binds its form to the clicked task among two routes", async ({ page }) => {
+  const { thread, turns } = await fixture(page, true);
+  thread.state.intake = { intent: { domains: ["map"] }, constraints: { values: {} }, user_confirmed_facts: {} };
+  thread.state.plan.tasks = [
+    { id: "route-a", agent: "map", inputs: { city: "hanoi", route_from: "A", route_to: "B" } },
+    { id: "route-b", agent: "map", inputs: { city: "hanoi", route_from: "C", route_to: "D" } },
+  ];
+  thread.state.progress.items = thread.state.plan.tasks.map((t: any) => ({ task_id: t.id, agent: t.agent, inputs: t.inputs, state: "waiting" }));
+  thread.messages[0].content.response = { kind: "ANSWER", text: "Hai tuyến cần bổ sung thông tin.", questions: [] };
+  await page.goto("/ai/th_input");
+  await page.getByRole("navigation", { name: "Dịch vụ trong kế hoạch" }).getByRole("button", { name: /Đường đi/ }).nth(1).click();
+  const form = page.getByRole("dialog");
+  await expect(form.getByLabel("Điểm đi", { exact: true })).toHaveValue("C");
+  await expect(form.getByLabel("Điểm đến", { exact: true })).toHaveValue("D");
+  expect(turns).toHaveLength(0);
+});

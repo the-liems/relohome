@@ -120,16 +120,33 @@ export function requestDefaults(
   taskId?: string,
 ): Data {
   if (!thread) return {};
-  const task = (thread.state.plan?.tasks || []).find(
-    (t: Data) => t.agent === service && (!taskId || t.id === taskId),
-  );
-  const item = (thread.state.progress?.items || []).find(
-    (i: Data) => i.agent === service && (!taskId || i.task_id === taskId),
-  );
   const intake = thread.state.intake;
-  const active = intake?.domains?.includes(service);
-  const values = active ? intake?.constraints?.values || {} : {};
-  return { ...(task?.inputs || {}), ...(item?.inputs || {}), ...values };
+  // domains is a Python property, not a serialized field. Prefer the actual
+  // API shape; support older client snapshots without borrowing old progress.
+  const domains = intake?.intent?.domains ?? intake?.domains;
+  const active = Array.isArray(domains) && domains.includes(service);
+  if (!taskId && Array.isArray(domains) && !active) return {};
+  const usable = (t: Data) =>
+    t.agent === service &&
+    !t.historical_search &&
+    !["compare", "search_compare"].includes(t.inputs?.housing_mode);
+  const tasks = (thread.state.plan?.tasks || []).filter(usable);
+  const progress = (thread.state.progress?.items || []).filter(usable);
+  const targets = tasks.filter((t: Data) => intake?.target_task_ids?.includes(t.id));
+  const currentId = targets.length === 1 ? targets[0].id
+    : tasks.length === 1 ? tasks[0].id
+    : tasks.length === 0 && progress.some((i: Data) => i.task_id === `pending:${service}`)
+      ? `pending:${service}` : undefined;
+  const id = taskId || currentId;
+  const task = id ? tasks.find((t: Data) => t.id === id) : undefined;
+  const item = id ? progress.find((i: Data) => i.task_id === id) : undefined;
+  if (taskId && !task && !item) return {};
+  // Constraints belong to the current request, not another explicitly opened
+  // historical task. Multiple tasks need an ID rather than a first-match guess.
+  const values = active && (!taskId || taskId === currentId)
+    ? intake?.constraints?.values || {} : {};
+  // The current plan is authoritative over its own historical progress entry.
+  return { ...(task?.inputs || item?.inputs || {}), ...values };
 }
 const fields: Record<FormService, string[]> = {
   flight: [
@@ -158,7 +175,7 @@ export function clarificationServices(thread: Thread | null): FormService[] {
     .find((m) => m.role === "assistant")?.content.response;
   if (!reply || reply.kind !== "CLARIFY") return [];
   const active = new Set<string>([
-    ...(thread?.state.intake?.domains || []),
+    ...(thread?.state.intake?.intent?.domains ?? thread?.state.intake?.domains ?? []),
     ...(thread?.state.progress?.items || [])
       .filter((i: Data) => i.state === "waiting" && !i.chosen)
       .map((i: Data) => i.agent),

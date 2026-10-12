@@ -9,6 +9,75 @@ import {
 } from "../../src/serviceRequest";
 import type { Thread } from "../../src/types";
 
+test("backend-shaped intake supplies active form values without a serialized domains property", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["flight"] }, constraints: { values: { origin: "SGN", flight_date: "2027-02-10" } } },
+    progress: { items: [{ task_id: "pending:flight", agent: "flight", inputs: { destination: "HAN" } }] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "flight")).toEqual({ origin: "SGN", destination: "HAN", flight_date: "2027-02-10" });
+});
+
+test("a new housing scope never inherits historical city, budget or amenities", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["property"] }, constraints: { values: { city: "hcm" } } },
+    plan: { tasks: [{ id: "new", agent: "property", inputs: { city: "hcm" } }] },
+    progress: { items: [
+      { task_id: "old", agent: "property", inputs: { city: "hanoi", max_price_vnd: 5000000, must_have: ["air_conditioning"] } },
+      { task_id: "new", agent: "property", inputs: { city: "hcm" } },
+    ] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "property")).toEqual({ city: "hcm" });
+  expect(requestDefaults(thread, "property", "old")).toEqual({ city: "hanoi", max_price_vnd: 5000000, must_have: ["air_conditioning"] });
+});
+
+test("the current plan replaces stale progress for the same task, including removed criteria", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["property"] }, constraints: { values: {} } },
+    plan: { tasks: [{ id: "search", agent: "property", inputs: { city: "hcm" } }] },
+    progress: { items: [{ task_id: "search", agent: "property", inputs: { city: "hanoi", max_price_vnd: 5000000 } }] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "property")).toEqual({ city: "hcm" });
+});
+
+test("pending defaults skip completed history and unrequested services stay blank", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["flight"] }, constraints: { values: { origin: "HAN" } } },
+    progress: { items: [
+      { task_id: "old-flight", agent: "flight", inputs: { origin: "SGN", destination: "DAD" } },
+      { task_id: "pending:flight", agent: "flight", inputs: { destination: "CXR" } },
+      { task_id: "old-home", agent: "property", inputs: { city: "hanoi", max_price_vnd: 5000000 } },
+    ] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "flight")).toEqual({ origin: "HAN", destination: "CXR" });
+  expect(requestDefaults(thread, "property")).toEqual({});
+});
+
+test("multiple same-domain tasks require identity and cannot override each other with global constraints", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["map"] }, constraints: { values: {} } },
+    plan: { tasks: [
+      { id: "route-a", agent: "map", inputs: { route_from: "A", route_to: "B" } },
+      { id: "route-b", agent: "map", inputs: { route_from: "C", route_to: "D" } },
+    ] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "map")).toEqual({});
+  expect(requestDefaults(thread, "map", "route-b")).toEqual({ route_from: "C", route_to: "D" });
+  thread.state.intake.constraints.values = { route_from: "Updated A" };
+  thread.state.intake.target_task_ids = ["route-a"];
+  expect(requestDefaults(thread, "map")).toEqual({ route_from: "Updated A", route_to: "B" });
+  expect(requestDefaults(thread, "map", "route-b")).toEqual({ route_from: "C", route_to: "D" });
+});
+
+test("invalid IDs and comparison tasks do not silently open a different search", () => {
+  const thread = { state: {
+    intake: { intent: { domains: ["property"] }, constraints: { values: { city: "hcm" } } },
+    plan: { tasks: [{ id: "compare", agent: "property", inputs: { housing_mode: "compare", city: "hanoi" } }] },
+    progress: { items: [{ task_id: "compare", agent: "property", inputs: { housing_mode: "compare", city: "hanoi" } }] },
+  } } as unknown as Thread;
+  expect(requestDefaults(thread, "property", "missing")).toEqual({});
+  expect(requestDefaults(thread, "property", "compare")).toEqual({});
+});
+
 test("flight requests preserve a complete round trip through the existing chat message contract", () => {
   const message = flightRequest(
     {
