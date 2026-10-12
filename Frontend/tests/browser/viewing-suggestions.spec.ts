@@ -110,6 +110,7 @@ async function fixture(
     else if (path === "/status") data = { domains: available };
     else if (path === "/threads" || path === "/saved") data = [];
     else if (path === "/threads/th_viewing") data = thread;
+    else if (path === "/threads/th_viewing/viewings") data = thread.state.viewing;
     else if (path.startsWith("/platform/"))
       data = {
         type: "FeatureCollection",
@@ -120,7 +121,7 @@ async function fixture(
     else if (path.endsWith("/viewings/schedule")) {
       if (fail)
         return route.fulfill({
-          status: 502,
+          status: 409,
           json: { detail: "Chưa lưu được lịch." },
         });
       Object.assign(item, {
@@ -160,6 +161,14 @@ async function fixture(
   };
 }
 
+async function scheduleOne(page: Page, slot: string) {
+  await page.getByRole("checkbox", { name: "Đặt lịch cho Phòng hẹn xem", exact: true }).check();
+  await page.getByRole("button", { name: "Đặt lịch cho 1 căn", exact: true }).click();
+  await page.getByLabel("Giờ xem · Phòng hẹn xem", { exact: true }).selectOption(slot);
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+}
+
 test("opening and saving viewings preserves the mounted housing map until another service is chosen", async ({
   page,
 }, info) => {
@@ -186,8 +195,7 @@ test("opening and saving viewings preserves the mounted housing map until anothe
   await expect(
     page.locator('[data-continuity-check="original-map"]'),
   ).toHaveCount(1);
-  await page.getByLabel("Giờ xem", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Hẹn xem", exact: true }).click();
+  await scheduleOne(page, slot);
   const preparation = page.getByRole("region", {
     name: "Chuẩn bị cho buổi xem nhà",
     exact: true,
@@ -255,10 +263,10 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     exact: true,
   });
   await expect(preparation).toHaveCount(0);
-  await page.getByLabel("Giờ xem", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Hẹn xem", exact: true }).click();
+  await scheduleOne(page, slot);
   await expect(preparation).toBeVisible();
-  await expect(preparation).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Kết quả đặt lịch", exact: true })).toBeFocused();
+  await preparation.scrollIntoViewIfNeeded();
   await expect(
     preparation.getByRole("button", { name: "Xem đường đi", exact: true }),
   ).toBeInViewport();
@@ -343,6 +351,8 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
   await page
     .getByRole("button", { name: "Xem nhanh kế hoạch", exact: true })
     .click();
+  await page.getByRole("button", { name: "Xong", exact: true }).click();
+  await page.locator(".viewing-more summary").click();
   await page.getByRole("button", { name: "Hủy lịch", exact: true }).click();
   await expect(preparation).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -353,6 +363,7 @@ test("only enabled services are offered; the guide opens the actual viewing chec
 }) => {
   const { requests } = await fixture(page, "viewing_scheduled", ["property"]);
   await page.goto("/ai/th_viewing?panel=plan&planTab=viewing");
+  await page.locator(".viewing-more summary").click();
   const preparation = page.getByRole("region", {
     name: "Chuẩn bị cho buổi xem nhà",
     exact: true,
@@ -378,10 +389,10 @@ test("failed schedule keeps input and no preparation; declined or unsynced appoi
   const { item, slot, setFail } = await fixture(page);
   setFail(true);
   await page.goto("/ai/th_viewing?panel=plan&planTab=viewing");
-  await page.getByLabel("Giờ xem", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Hẹn xem", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Chưa lưu được lịch");
-  await expect(page.getByLabel("Giờ xem", { exact: true })).toHaveValue(slot);
+  await scheduleOne(page, slot);
+  await expect(page.locator(".bulk-result.failed")).toContainText("Chưa lưu được lịch");
+  await page.getByRole("button", { name: "Sửa các lịch chưa gửi", exact: true }).click();
+  await expect(page.getByLabel("Giờ xem · Phòng hẹn xem", { exact: true })).toHaveValue(slot);
   await expect(page.locator(".viewing-preparation")).toHaveCount(0);
   for (const landlord of [
     { viewing_status: "declined", request_status: "new" },
@@ -402,6 +413,7 @@ test("a decided home prioritizes moving and roommate services without booking ei
 }) => {
   const { requests } = await fixture(page, "agreed");
   await page.goto("/ai/th_viewing?panel=plan&planTab=viewing");
+  await page.locator(".viewing-more summary").click();
   const preparation = page.getByRole("region", {
     name: "Chuẩn bị chuyển đến",
     exact: true,

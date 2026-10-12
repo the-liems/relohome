@@ -820,6 +820,7 @@ function Chat() {
   const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
   const [formPrefill, setFormPrefill] = useState<{ kind: FormService; data: Data } | null>(null);
   const reviewedServices = useRef(new Set<string>());
+  const viewingBatchBusy = useRef(false);
   const createdThreadForForm = useRef<string | null>(null);
   const submittedInputReply = useRef<string | null>(null);
   const manualWorkspaceReply = useRef<string | null>(null);
@@ -891,7 +892,7 @@ function Chat() {
   }
   async function send(text: string, extra: Data = {}, onReply?: (reply: Thread) => void) {
     const quoteForm = extra.moving_quote_form;
-    if (inFlight.current) {
+    if (inFlight.current || viewingBatchBusy.current) {
       if (quoteForm) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
       return;
     }
@@ -981,7 +982,7 @@ function Chat() {
     }
   }
   async function mutate(path: string, body: Data) {
-    if (!threadId || inFlight.current) return;
+    if (!threadId || inFlight.current || viewingBatchBusy.current) return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -1361,7 +1362,7 @@ function Chat() {
       <PlanPeek
         key={threadId || "new"}
         progress={navigation}
-        threadId={thread?.id}
+        threadId={threadId || thread?.id}
         thread={thread}
         writesEnabled={!!status?.writes_enabled}
         onDecision={(body) => mutate("decision", body).then(() => {})}
@@ -1373,6 +1374,10 @@ function Chat() {
         onOpenService={openService}
         availableServices={status?.domains || []}
         onPrepare={prepareAfterViewing}
+        onBatchBusyChange={(value) => {
+          viewingBatchBusy.current = value;
+          setBusy(value);
+        }}
       />
       {(navigation.items || []).length > 1 && (
         <nav

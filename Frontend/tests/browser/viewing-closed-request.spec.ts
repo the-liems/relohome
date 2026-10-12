@@ -41,6 +41,7 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
         data = { status: "ok", domains: ["property"] };
       else if (path === "/threads" || path === "/saved") data = [];
       else if (path === "/threads/th_viewing") data = thread;
+      else if (path === "/threads/th_viewing/viewings") data = thread.state.viewing;
       else if (path.endsWith("/viewings/schedule")) {
         schedules.push(route.request().postDataJSON());
         item.status = "viewing_scheduled";
@@ -58,6 +59,7 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
       exact: true,
     });
     if (requestStatus === "viewing") {
+      await panel.locator(".viewing-more summary").click();
       await expect(record).toBeVisible();
     } else {
       await expect(
@@ -66,10 +68,11 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
         }),
       ).toBeVisible();
       await expect(record).toHaveCount(0);
-      await panel.getByLabel("Giờ xem", { exact: true }).selectOption(nextSlot);
-      await panel
-        .getByRole("button", { name: "Đổi lịch", exact: true })
-        .click();
+      await panel.getByRole("checkbox", {name: `Đặt lịch cho ${item.title}`, exact: true}).check();
+      await page.getByRole("button", {name: "Đặt lịch cho 1 căn", exact: true}).click();
+      await page.getByLabel(`Giờ xem · ${item.title}`, {exact: true}).selectOption(nextSlot);
+      await page.getByRole("button", {name: "Xem lại lịch", exact: true}).click();
+      await page.getByRole("button", {name: "Xác nhận 1 lịch", exact: true}).click();
       await expect
         .poll(() => schedules)
         .toEqual([{ listing_id: item.listing_id, slot: nextSlot }]);
