@@ -23,8 +23,8 @@ Maps VN/LifeFlow/packages/housing-query/tests/device-routing-policy.test.ts	pack
 Maps VN/LifeFlow/packages/housing-query/tests/map-points.integration.test.ts	packages/housing-query/tests/map-points.integration.test.ts	TS package domains	relocate
 Maps VN/LifeFlow/packages/mcp-core/src/auth.ts	packages/mcp-core/src/auth.ts	TS package domains	relocate
 Maps VN/LifeFlow/packages/mcp-core/tests/auth.test.ts	packages/mcp-core/tests/auth.test.ts	TS package domains	relocate
-Maps VN/LifeFlow/scripts/check-device-provider.mjs	scripts/lifeflow/check-device-provider.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	scripts/lifeflow/verify-housing-query-performance.mjs	operations	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/scripts/check-device-provider.mjs	scripts/relohome/check-device-provider.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	scripts/relohome/verify-housing-query-performance.mjs	operations	relocate; final source name per #118
 config/ci/application-images.json	config/ci/application-images.json	existing domain / CODEOWNERS	retain; update references if affected
 deploy/coolify/production/README.md	deploy/coolify/production/README.md	existing domain / CODEOWNERS	retain; update references if affected
 docs/adr/ADR-024-auto-public-device-routing.md	docs/adr/ADR-024-auto-public-device-routing.md	existing domain / CODEOWNERS	retain; update references if affected
@@ -38,8 +38,8 @@ docs/runbooks/dedicated-payment-service.md	docs/runbooks/dedicated-payment-servi
 docs/specs/internal-mcp-auth.md	docs/specs/internal-mcp-auth.md	existing domain / CODEOWNERS	retain; update references if affected
 scripts/select-ci-images.py	scripts/select-ci-images.py	existing domain / CODEOWNERS	retain; update references if affected
 scripts/test-migration-image.py	scripts/test-migration-image.py	existing domain / CODEOWNERS	retain; update references if affected
-src/agents/location_names.py	apps/agent-api/src/lifeflow_agent/agents/location_names.py	agent	relocate; proposed source name subject to #118
-src/mcp_servers/http_service.py	packages/python/mcp-http/src/lifeflow_mcp_http/__init__.py	MCP transport/auth	extract shared Flight/Payment HTTP auth; proposed source name subject to #118
+src/agents/location_names.py	apps/agent-api/src/relohome_agent/agents/location_names.py	agent	relocate; final source name per #118
+src/mcp_servers/http_service.py	packages/python/mcp-http/src/relohome_mcp_http/__init__.py	MCP transport/auth	extract shared Flight/Payment HTTP auth; final source name per #118
 tests/fixtures/internal-mcp-auth.json	tests/fixtures/internal-mcp-auth.json	existing domain / CODEOWNERS	retain; update references if affected
 tests/mcp_http.py	tests/mcp_http.py	existing domain / CODEOWNERS	retain; update references if affected
 tests/test_agents/test_dedicated_mcp_services.py	tests/test_agents/test_dedicated_mcp_services.py	existing domain / CODEOWNERS	retain; update references if affected

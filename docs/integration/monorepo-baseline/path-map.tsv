@@ -48,7 +48,7 @@ Frontend/README.md	apps/web/README.md	web	relocate
 Frontend/ROOMMATE_UI_HANDOFF.md	docs/web/ROOMMATE_UI_HANDOFF.md	web	relocate
 Frontend/RUNTIME_CHECK_2026-10-07.md	docs/web/RUNTIME_CHECK_2026-10-07.md	web	relocate
 Frontend/SERVICE_AUDIT.md	docs/web/SERVICE_AUDIT.md	web	relocate
-Frontend/__init__.py	apps/browser-gateway/src/lifeflow_gateway/__init__.py	gateway	relocate; proposed source name subject to #118
+Frontend/__init__.py	apps/browser-gateway/src/relohome_gateway/__init__.py	gateway	relocate; final source name per #118
 Frontend/index.html	apps/web/index.html	web	relocate
 Frontend/package-lock.json	package-lock.json	root tooling	merge locks; review resolutions
 Frontend/package.json	apps/web/package.json	web	relocate
@@ -66,11 +66,11 @@ Frontend/public/favicon.svg	apps/web/public/favicon.svg	web	relocate
 Frontend/public/images/README.md	apps/web/public/images/README.md	web	relocate
 Frontend/public/images/relohome-hero-home.png	apps/web/public/images/relohome-hero-home.png	web	relocate
 Frontend/public/images/siu-home-hero.png	apps/web/public/images/siu-home-hero.png	web	relocate
-Frontend/roommate_gateway.py	apps/browser-gateway/src/lifeflow_gateway/roommate_gateway.py	gateway	relocate; proposed source name subject to #118
+Frontend/roommate_gateway.py	apps/browser-gateway/src/relohome_gateway/roommate_gateway.py	gateway	relocate; final source name per #118
 Frontend/scripts/check-services.py	scripts/check-services.py	integration	relocate
 Frontend/scripts/map-dialogue-live.mjs	apps/web/scripts/map-dialogue-live.mjs	web	relocate
 Frontend/scripts/prepare-map.mjs	apps/web/scripts/prepare-map.mjs	web	relocate
-Frontend/server.py	apps/browser-gateway/src/lifeflow_gateway/server.py	gateway	relocate; proposed source name subject to #118
+Frontend/server.py	apps/browser-gateway/src/relohome_gateway/server.py	gateway	relocate; final source name per #118
 Frontend/src/App.tsx	apps/web/src/App.tsx	web	relocate
 Frontend/src/api.ts	apps/web/src/api.ts	web	relocate
 Frontend/src/components/Checkout.tsx	apps/web/src/components/Checkout.tsx	web	relocate
@@ -164,7 +164,7 @@ Frontend/src/ui/workspaces.css	apps/web/src/ui/workspaces.css	web	relocate
 Frontend/src/uiPreferences.tsx	apps/web/src/uiPreferences.tsx	web	relocate
 Frontend/src/useUiMotion.ts	apps/web/src/useUiMotion.ts	web	relocate
 Frontend/src/visual-polish.css	apps/web/src/visual-polish.css	web	relocate
-Frontend/store.py	apps/browser-gateway/src/lifeflow_gateway/store.py	gateway	relocate; proposed source name subject to #118
+Frontend/store.py	apps/browser-gateway/src/relohome_gateway/store.py	gateway	relocate; final source name per #118
 Frontend/tests/README.md	tests/browser_gateway/README.md	gateway + integration	relocate
 Frontend/tests/browser/app.spec.ts	apps/web/tests/browser/app.spec.ts	web	relocate
 Frontend/tests/browser/housing-comparison.live.spec.ts	apps/web/tests/browser/housing-comparison.live.spec.ts	web	relocate
@@ -201,17 +201,17 @@ Maps VN/Cities/boundaries/danang.geojson	Maps VN/Cities/boundaries/danang.geojso
 Maps VN/Cities/boundaries/hanoi.geojson	Maps VN/Cities/boundaries/hanoi.geojson	existing domain / CODEOWNERS	retain; update references if affected
 Maps VN/Cities/boundaries/hcm.geojson	Maps VN/Cities/boundaries/hcm.geojson	existing domain / CODEOWNERS	retain; update references if affected
 Maps VN/Cities/catalog.json	Maps VN/Cities/catalog.json	existing domain / CODEOWNERS	retain; update references if affected
-Maps VN/LifeFlow/.dockerignore	Maps VN/LifeFlow/.dockerignore	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
-Maps VN/LifeFlow/.env.example	Maps VN/LifeFlow/.env.example	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
-Maps VN/LifeFlow/.gitignore	Maps VN/LifeFlow/.gitignore	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
+Maps VN/LifeFlow/.dockerignore	.dockerignore	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
+Maps VN/LifeFlow/.env.example	.env.example	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
+Maps VN/LifeFlow/.gitignore	.gitignore	root tooling	merge applicable entries into root equivalent; retire only after #115 audit
 Maps VN/LifeFlow/Dockerfile.moving	deploy/moving/Dockerfile.moving	moving	relocate
 Maps VN/LifeFlow/Dockerfile.moving.dockerignore	deploy/moving/Dockerfile.moving.dockerignore	moving	relocate
-Maps VN/LifeFlow/Extract-Poi-V2.ps1	scripts/lifeflow/Extract-Poi-V2.ps1	operations	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/Extract-Poi-V2.ps1	scripts/relohome/Extract-Poi-V2.ps1	operations	relocate; final source name per #118
 Maps VN/LifeFlow/README.md	docs/location/README.md	location docs	relocate
 Maps VN/LifeFlow/STREAMLIT_MVP.md	docs/location/STREAMLIT_MVP.md	location docs	relocate
-Maps VN/LifeFlow/Setup-Routing.ps1	scripts/lifeflow/Setup-Routing.ps1	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/Start-LifeFlow.ps1	scripts/lifeflow/Start-LifeFlow.ps1	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/Stop-LifeFlow.ps1	scripts/lifeflow/Stop-LifeFlow.ps1	operations	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/Setup-Routing.ps1	scripts/relohome/Setup-Routing.ps1	operations	relocate; final source name per #118
+Maps VN/LifeFlow/Start-LifeFlow.ps1	scripts/relohome/Start-ReloHome.ps1	operations	relocate; final source name per #118
+Maps VN/LifeFlow/Stop-LifeFlow.ps1	scripts/relohome/Stop-ReloHome.ps1	operations	relocate; final source name per #118
 Maps VN/LifeFlow/compose.moving.ci.yaml	deploy/moving/compose.moving.ci.yaml	moving	relocate
 Maps VN/LifeFlow/compose.moving.staging-write.yaml	deploy/moving/compose.moving.staging-write.yaml	moving	relocate
 Maps VN/LifeFlow/compose.moving.yaml	deploy/moving/compose.moving.yaml	moving	relocate
@@ -236,18 +236,18 @@ Maps VN/LifeFlow/database/migrations/016_self_service_places_are_housing_anchors
 Maps VN/LifeFlow/database/migrations/017_housing_contact_messages.sql	deploy/database/migrations/017_housing_contact_messages.sql	database	relocate
 Maps VN/LifeFlow/database/migrations/018_housing_landlord_reviews.sql	deploy/database/migrations/018_housing_landlord_reviews.sql	database	relocate
 Maps VN/LifeFlow/database/moving/001_audit.sql	deploy/database/moving/001_audit.sql	database	relocate
-Maps VN/LifeFlow/demo/__init__.py	examples/location-streamlit/demo/__init__.py	location demo	relocate
-Maps VN/LifeFlow/demo/agent.py	examples/location-streamlit/demo/agent.py	location demo	relocate
-Maps VN/LifeFlow/demo/mcp_client.py	examples/location-streamlit/demo/mcp_client.py	location demo	relocate
-Maps VN/LifeFlow/demo/requirements.txt	examples/location-streamlit/demo/requirements.txt	location demo	relocate
-Maps VN/LifeFlow/demo/streamlit_app.py	examples/location-streamlit/demo/streamlit_app.py	location demo	relocate
-Maps VN/LifeFlow/demo/test_demo.py	examples/location-streamlit/demo/test_demo.py	location demo	relocate
-Maps VN/LifeFlow/demo/tool_lab_app.py	examples/location-streamlit/demo/tool_lab_app.py	location demo	relocate
+Maps VN/LifeFlow/demo/__init__.py	examples/location-streamlit/src/relohome_location_demo/__init__.py	location demo	relocate
+Maps VN/LifeFlow/demo/agent.py	examples/location-streamlit/src/relohome_location_demo/agent.py	location demo	relocate
+Maps VN/LifeFlow/demo/mcp_client.py	examples/location-streamlit/src/relohome_location_demo/mcp_client.py	location demo	relocate
+Maps VN/LifeFlow/demo/requirements.txt	examples/location-streamlit/src/relohome_location_demo/requirements.txt	location demo	relocate
+Maps VN/LifeFlow/demo/streamlit_app.py	examples/location-streamlit/src/relohome_location_demo/streamlit_app.py	location demo	relocate
+Maps VN/LifeFlow/demo/test_demo.py	examples/location-streamlit/src/relohome_location_demo/test_demo.py	location demo	relocate
+Maps VN/LifeFlow/demo/tool_lab_app.py	examples/location-streamlit/src/relohome_location_demo/tool_lab_app.py	location demo	relocate
 Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	docs/location/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	location docs	relocate
 Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	docs/location/HOUSING-CRAWL-PLAYBOOK.md	location docs	relocate
 Maps VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md	docs/location/HOUSING-DATA-IMPORT.md	location docs	relocate
 Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	docs/location/HOUSING-QUERY-IMPLEMENTATION.md	location docs	relocate
-Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	docs/location/LIFEFLOW-MCP-POSTGIS-PLAN.md	location docs	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	docs/location/LIFEFLOW-MCP-POSTGIS-PLAN.md	location docs	relocate; final source name per #118
 Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	docs/location/MAP-FILE-AUDIT-AND-HANDOFF.md	location docs	relocate
 Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	docs/location/MCP-CONTAINER-HANDOFF.md	location docs	relocate
 Maps VN/LifeFlow/docs/POI-CANONICALIZATION.md	docs/location/POI-CANONICALIZATION.md	location docs	relocate
@@ -288,7 +288,7 @@ Maps VN/LifeFlow/map-app/src/services/platform-housing.ts	examples/map-app/src/s
 Maps VN/LifeFlow/map-app/src/services/platform-poi.ts	examples/map-app/src/services/platform-poi.ts	map demo	relocate
 Maps VN/LifeFlow/map-app/src/services/poi.ts	examples/map-app/src/services/poi.ts	map demo	relocate
 Maps VN/LifeFlow/map-app/src/types/index.ts	examples/map-app/src/types/index.ts	map demo	relocate
-Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	examples/map-app/tests/lifeflow.spec.ts	map demo	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	examples/map-app/tests/relohome.spec.ts	map demo	relocate; final source name per #118
 Maps VN/LifeFlow/map-app/tsconfig.app.json	examples/map-app/tsconfig.app.json	map demo	relocate
 Maps VN/LifeFlow/map-app/tsconfig.json	examples/map-app/tsconfig.json	map demo	relocate
 Maps VN/LifeFlow/map-app/tsconfig.node.json	examples/map-app/tsconfig.node.json	map demo	relocate
@@ -402,13 +402,13 @@ Maps VN/LifeFlow/platform-api/tests/poi-normalization.test.ts	apps/platform-api/
 Maps VN/LifeFlow/platform-api/tests/poi-v2.integration.test.ts	apps/platform-api/tests/poi-v2.integration.test.ts	location	relocate
 Maps VN/LifeFlow/platform-api/tsconfig.json	apps/platform-api/tsconfig.json	location	relocate
 Maps VN/LifeFlow/reports/poi-coverage-v2.json	eval/location/poi-coverage-v2.json	historical evidence	relocate
-Maps VN/LifeFlow/scripts/check-device-routing.mjs	scripts/lifeflow/check-device-routing.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/check-local-schema.mjs	scripts/lifeflow/check-local-schema.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/inspect-moving-estimate.mjs	scripts/lifeflow/inspect-moving-estimate.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/moving-stack.mjs	scripts/lifeflow/moving-stack.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/test-moving-native.mjs	scripts/lifeflow/test-moving-native.mjs	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/verify-moving-ci.sh	scripts/lifeflow/verify-moving-ci.sh	operations	relocate; proposed source name subject to #118
-Maps VN/LifeFlow/scripts/verify-moving-deployment.mjs	scripts/lifeflow/verify-moving-deployment.mjs	operations	relocate; proposed source name subject to #118
+Maps VN/LifeFlow/scripts/check-device-routing.mjs	scripts/relohome/check-device-routing.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/check-local-schema.mjs	scripts/relohome/check-local-schema.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/inspect-moving-estimate.mjs	scripts/relohome/inspect-moving-estimate.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/moving-stack.mjs	scripts/relohome/moving-stack.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/test-moving-native.mjs	scripts/relohome/test-moving-native.mjs	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/verify-moving-ci.sh	scripts/relohome/verify-moving-ci.sh	operations	relocate; final source name per #118
+Maps VN/LifeFlow/scripts/verify-moving-deployment.mjs	scripts/relohome/verify-moving-deployment.mjs	operations	relocate; final source name per #118
 Maps VN/LifeFlow/tsconfig.base.json	tsconfig.base.json	root tooling	relocate
 README.md	README.md	existing domain / CODEOWNERS	retain; update references if affected
 README_boilerplate.md	README_boilerplate.md	existing domain / CODEOWNERS	retain; update references if affected
@@ -670,209 +670,209 @@ scripts/submit_log.py	scripts/submit_log.py	existing domain / CODEOWNERS	retain;
 scripts/test-map-data.py	scripts/test-map-data.py	existing domain / CODEOWNERS	retain; update references if affected
 scripts/test-map-dialogue-live.py	scripts/test-map-dialogue-live.py	existing domain / CODEOWNERS	retain; update references if affected
 scripts/verify-map-data.py	scripts/verify-map-data.py	existing domain / CODEOWNERS	retain; update references if affected
-src/__init__.py	apps/agent-api/src/lifeflow_agent/__init__.py	agent	relocate; proposed source name subject to #118
-src/agent_services/__init__.py	packages/python/agent-services/src/lifeflow_agent_services/__init__.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/common.py	packages/python/agent-services/src/lifeflow_agent_services/common.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/intake/__init__.py	apps/intake-api/src/lifeflow_intake/__init__.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/intake/app.py	apps/intake-api/src/lifeflow_intake/app.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/intake/models.py	packages/python/agent-services/src/lifeflow_agent_services/intake_models.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/intake/service.py	apps/intake-api/src/lifeflow_intake/service.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/llm.py	packages/python/agent-services/src/lifeflow_agent_services/llm.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/__init__.py	apps/orchestrator-api/src/lifeflow_orchestrator/__init__.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/app.py	apps/orchestrator-api/src/lifeflow_orchestrator/app.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/engine.py	apps/orchestrator-api/src/lifeflow_orchestrator/engine.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/models.py	apps/orchestrator-api/src/lifeflow_orchestrator/models.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/planner.py	apps/orchestrator-api/src/lifeflow_orchestrator/planner.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/registry.py	apps/orchestrator-api/src/lifeflow_orchestrator/registry.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/runtime.py	apps/orchestrator-api/src/lifeflow_orchestrator/runtime.py	standalone agents	relocate; proposed source name subject to #118
-src/agent_services/orchestrator/store.py	apps/orchestrator-api/src/lifeflow_orchestrator/store.py	standalone agents	relocate; proposed source name subject to #118
-src/agents/README.md	apps/agent-api/src/lifeflow_agent/agents/README.md	agent	relocate; proposed source name subject to #118
-src/agents/__init__.py	apps/agent-api/src/lifeflow_agent/agents/__init__.py	agent	relocate; proposed source name subject to #118
-src/agents/approval.py	apps/agent-api/src/lifeflow_agent/agents/approval.py	agent	relocate; proposed source name subject to #118
-src/agents/common.py	apps/agent-api/src/lifeflow_agent/agents/common.py	agent	relocate; proposed source name subject to #118
-src/agents/contracts/__init__.py	apps/agent-api/src/lifeflow_agent/agents/contracts/__init__.py	agent	relocate; proposed source name subject to #118
-src/agents/contracts/agent_task.py	apps/agent-api/src/lifeflow_agent/agents/contracts/agent_task.py	agent	relocate; proposed source name subject to #118
-src/agents/contracts/export_schema.py	apps/agent-api/src/lifeflow_agent/agents/contracts/export_schema.py	agent	relocate; proposed source name subject to #118
-src/agents/cost.py	apps/agent-api/src/lifeflow_agent/agents/cost.py	agent	relocate; proposed source name subject to #118
-src/agents/deps.py	apps/agent-api/src/lifeflow_agent/agents/deps.py	agent	relocate; proposed source name subject to #118
-src/agents/graph.py	apps/agent-api/src/lifeflow_agent/agents/graph.py	agent	relocate; proposed source name subject to #118
-src/agents/housing_constraints.py	apps/agent-api/src/lifeflow_agent/agents/housing_constraints.py	agent	relocate; proposed source name subject to #118
-src/agents/housing_operations.py	apps/agent-api/src/lifeflow_agent/agents/housing_operations.py	agent	relocate; proposed source name subject to #118
-src/agents/intake.py	apps/agent-api/src/lifeflow_agent/agents/intake.py	agent + privacy	split redact_pii, looks_like_pii, contains_contact_pii and private regex constants to packages/python/privacy/src/lifeflow_privacy/__init__.py; proposed source name subject to #118
-src/agents/intake_llm.py	apps/agent-api/src/lifeflow_agent/agents/intake_llm.py	agent	relocate; proposed source name subject to #118
-src/agents/llm.py	apps/agent-api/src/lifeflow_agent/agents/llm.py	agent	relocate; proposed source name subject to #118
-src/agents/llm_cli.py	apps/agent-api/src/lifeflow_agent/agents/llm_cli.py	agent	relocate; proposed source name subject to #118
-src/agents/llm_components.py	apps/agent-api/src/lifeflow_agent/agents/llm_components.py	agent	relocate; proposed source name subject to #118
-src/agents/llm_context.py	apps/agent-api/src/lifeflow_agent/agents/llm_context.py	agent	relocate; proposed source name subject to #118
-src/agents/llm_provider.py	apps/agent-api/src/lifeflow_agent/agents/llm_provider.py	agent	relocate; proposed source name subject to #118
-src/agents/llm_runtime.py	apps/agent-api/src/lifeflow_agent/agents/llm_runtime.py	agent	relocate; proposed source name subject to #118
-src/agents/memory.py	apps/agent-api/src/lifeflow_agent/agents/memory.py	agent	relocate; proposed source name subject to #118
-src/agents/models.py	apps/agent-api/src/lifeflow_agent/agents/models.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/__init__.py	apps/agent-api/src/lifeflow_agent/agents/nodes/__init__.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/await_payment.py	apps/agent-api/src/lifeflow_agent/agents/nodes/await_payment.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/change_impact.py	apps/agent-api/src/lifeflow_agent/agents/nodes/change_impact.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/confirm.py	apps/agent-api/src/lifeflow_agent/agents/nodes/confirm.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/cost_summary.py	apps/agent-api/src/lifeflow_agent/agents/nodes/cost_summary.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/executor.py	apps/agent-api/src/lifeflow_agent/agents/nodes/executor.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/intake.py	apps/agent-api/src/lifeflow_agent/agents/nodes/intake.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/load_context.py	apps/agent-api/src/lifeflow_agent/agents/nodes/load_context.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/orchestrator.py	apps/agent-api/src/lifeflow_agent/agents/nodes/orchestrator.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/respond.py	apps/agent-api/src/lifeflow_agent/agents/nodes/respond.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/transaction.py	apps/agent-api/src/lifeflow_agent/agents/nodes/transaction.py	agent	relocate; proposed source name subject to #118
-src/agents/nodes/validator.py	apps/agent-api/src/lifeflow_agent/agents/nodes/validator.py	agent	relocate; proposed source name subject to #118
-src/agents/planner_llm.py	apps/agent-api/src/lifeflow_agent/agents/planner_llm.py	agent	relocate; proposed source name subject to #118
-src/agents/planning.py	apps/agent-api/src/lifeflow_agent/agents/planning.py	agent	relocate; proposed source name subject to #118
-src/agents/progress.py	apps/agent-api/src/lifeflow_agent/agents/progress.py	agent	relocate; proposed source name subject to #118
-src/agents/routing.py	apps/agent-api/src/lifeflow_agent/agents/routing.py	agent	relocate; proposed source name subject to #118
-src/agents/selections.py	apps/agent-api/src/lifeflow_agent/agents/selections.py	agent	relocate; proposed source name subject to #118
-src/agents/state.py	apps/agent-api/src/lifeflow_agent/agents/state.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/__init__.py	apps/agent-api/src/lifeflow_agent/agents/subagents/__init__.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/base.py	apps/agent-api/src/lifeflow_agent/agents/subagents/base.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/capabilities.py	apps/agent-api/src/lifeflow_agent/agents/subagents/capabilities.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/conformance.py	apps/agent-api/src/lifeflow_agent/agents/subagents/conformance.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fake.py	apps/agent-api/src/lifeflow_agent/agents/subagents/fake.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fallback.py	apps/agent-api/src/lifeflow_agent/agents/subagents/fallback.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/flight.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/flight.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/map.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/map.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/payment.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/payment.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/property.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/property.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/relocation.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/relocation.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/fixtures/roommate.json	apps/agent-api/src/lifeflow_agent/agents/subagents/fixtures/roommate.json	agent	relocate; proposed source name subject to #118
-src/agents/subagents/local.py	apps/agent-api/src/lifeflow_agent/agents/subagents/local.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/remote.py	apps/agent-api/src/lifeflow_agent/agents/subagents/remote.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/common.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/common.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/domain_tools.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/domain_tools.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/flight.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/flight.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/location.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/location.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/moving.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/moving.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/moving_catalog.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/moving_catalog.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/moving_context.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/moving_context.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/moving_llm.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/moving_llm.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/payment.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/payment.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/read_llm.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/read_llm.py	agent	relocate; proposed source name subject to #118
-src/agents/subagents/services/roommate.py	apps/agent-api/src/lifeflow_agent/agents/subagents/services/roommate.py	agent	relocate; proposed source name subject to #118
-src/agents/suggestions.py	apps/agent-api/src/lifeflow_agent/agents/suggestions.py	agent	relocate; proposed source name subject to #118
-src/agents/tools/__init__.py	apps/agent-api/src/lifeflow_agent/agents/tools/__init__.py	agent	relocate; proposed source name subject to #118
-src/agents/tools/flight_mcp.py	apps/agent-api/src/lifeflow_agent/agents/tools/flight_mcp.py	agent	relocate; proposed source name subject to #118
-src/agents/tools/payment_mcp.py	apps/agent-api/src/lifeflow_agent/agents/tools/payment_mcp.py	agent	relocate; proposed source name subject to #118
-src/agents/wiring.py	apps/agent-api/src/lifeflow_agent/agents/wiring.py	agent	relocate; proposed source name subject to #118
-src/api/__init__.py	apps/agent-api/src/lifeflow_agent/api/__init__.py	agent	relocate; proposed source name subject to #118
-src/api/checkout.py	apps/agent-api/src/lifeflow_agent/api/checkout.py	agent	relocate; proposed source name subject to #118
-src/api/moving_quotes.py	apps/agent-api/src/lifeflow_agent/api/moving_quotes.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_access.py	apps/agent-api/src/lifeflow_agent/api/roommate_access.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_connections.py	apps/agent-api/src/lifeflow_agent/api/roommate_connections.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_discovery.py	apps/agent-api/src/lifeflow_agent/api/roommate_discovery.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_map.py	apps/agent-api/src/lifeflow_agent/api/roommate_map.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_media.py	apps/agent-api/src/lifeflow_agent/api/roommate_media.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_profiles.py	apps/agent-api/src/lifeflow_agent/api/roommate_profiles.py	agent	relocate; proposed source name subject to #118
-src/api/roommate_safety.py	apps/agent-api/src/lifeflow_agent/api/roommate_safety.py	agent	relocate; proposed source name subject to #118
-src/api/routes.py	apps/agent-api/src/lifeflow_agent/api/routes.py	agent	relocate; proposed source name subject to #118
-src/api/sandbox_payments.py	apps/agent-api/src/lifeflow_agent/api/sandbox_payments.py	agent	relocate; proposed source name subject to #118
-src/api/viewings.py	apps/agent-api/src/lifeflow_agent/api/viewings.py	agent	relocate; proposed source name subject to #118
-src/api/web_actions.py	apps/agent-api/src/lifeflow_agent/api/web_actions.py	agent	relocate; proposed source name subject to #118
-src/checkout/__init__.py	apps/agent-api/src/lifeflow_agent/checkout/__init__.py	agent	relocate; proposed source name subject to #118
-src/checkout/models.py	apps/agent-api/src/lifeflow_agent/checkout/models.py	agent	relocate; proposed source name subject to #118
-src/checkout/service.py	apps/agent-api/src/lifeflow_agent/checkout/service.py	agent	relocate; proposed source name subject to #118
-src/checkout/store.py	apps/agent-api/src/lifeflow_agent/checkout/store.py	agent	relocate; proposed source name subject to #118
-src/checkout/viewing.py	apps/agent-api/src/lifeflow_agent/checkout/viewing.py	agent	relocate; proposed source name subject to #118
-src/config.py	apps/agent-api/src/lifeflow_agent/config.py	agent	relocate; proposed source name subject to #118
-src/main.py	apps/agent-api/src/lifeflow_agent/main.py	agent	relocate; proposed source name subject to #118
+src/__init__.py	apps/agent-api/src/relohome_agent/__init__.py	agent	relocate; final source name per #118
+src/agent_services/__init__.py	packages/python/agent-services/src/relohome_agent_services/__init__.py	standalone agents	relocate; final source name per #118
+src/agent_services/common.py	packages/python/agent-services/src/relohome_agent_services/common.py	standalone agents	relocate; final source name per #118
+src/agent_services/intake/__init__.py	apps/intake-api/src/relohome_intake/__init__.py	standalone agents	relocate; final source name per #118
+src/agent_services/intake/app.py	apps/intake-api/src/relohome_intake/app.py	standalone agents	relocate; final source name per #118
+src/agent_services/intake/models.py	packages/python/agent-services/src/relohome_agent_services/intake_models.py	standalone agents	relocate; final source name per #118
+src/agent_services/intake/service.py	apps/intake-api/src/relohome_intake/service.py	standalone agents	relocate; final source name per #118
+src/agent_services/llm.py	packages/python/agent-services/src/relohome_agent_services/llm.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/__init__.py	apps/orchestrator-api/src/relohome_orchestrator/__init__.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/app.py	apps/orchestrator-api/src/relohome_orchestrator/app.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/engine.py	apps/orchestrator-api/src/relohome_orchestrator/engine.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/models.py	apps/orchestrator-api/src/relohome_orchestrator/models.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/planner.py	apps/orchestrator-api/src/relohome_orchestrator/planner.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/registry.py	apps/orchestrator-api/src/relohome_orchestrator/registry.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/runtime.py	apps/orchestrator-api/src/relohome_orchestrator/runtime.py	standalone agents	relocate; final source name per #118
+src/agent_services/orchestrator/store.py	apps/orchestrator-api/src/relohome_orchestrator/store.py	standalone agents	relocate; final source name per #118
+src/agents/README.md	apps/agent-api/src/relohome_agent/agents/README.md	agent	relocate; final source name per #118
+src/agents/__init__.py	apps/agent-api/src/relohome_agent/agents/__init__.py	agent	relocate; final source name per #118
+src/agents/approval.py	apps/agent-api/src/relohome_agent/agents/approval.py	agent	relocate; final source name per #118
+src/agents/common.py	apps/agent-api/src/relohome_agent/agents/common.py	agent	relocate; final source name per #118
+src/agents/contracts/__init__.py	apps/agent-api/src/relohome_agent/agents/contracts/__init__.py	agent	relocate; final source name per #118
+src/agents/contracts/agent_task.py	apps/agent-api/src/relohome_agent/agents/contracts/agent_task.py	agent	relocate; final source name per #118
+src/agents/contracts/export_schema.py	apps/agent-api/src/relohome_agent/agents/contracts/export_schema.py	agent	relocate; final source name per #118
+src/agents/cost.py	apps/agent-api/src/relohome_agent/agents/cost.py	agent	relocate; final source name per #118
+src/agents/deps.py	apps/agent-api/src/relohome_agent/agents/deps.py	agent	relocate; final source name per #118
+src/agents/graph.py	apps/agent-api/src/relohome_agent/agents/graph.py	agent	relocate; final source name per #118
+src/agents/housing_constraints.py	apps/agent-api/src/relohome_agent/agents/housing_constraints.py	agent	relocate; final source name per #118
+src/agents/housing_operations.py	apps/agent-api/src/relohome_agent/agents/housing_operations.py	agent	relocate; final source name per #118
+src/agents/intake.py	apps/agent-api/src/relohome_agent/agents/intake.py	agent + privacy	split redact_pii, looks_like_pii, contains_contact_pii and private regex constants to packages/python/privacy/src/lifeflow_privacy/__init__.py; final source name per #118
+src/agents/intake_llm.py	apps/agent-api/src/relohome_agent/agents/intake_llm.py	agent	relocate; final source name per #118
+src/agents/llm.py	apps/agent-api/src/relohome_agent/agents/llm.py	agent	relocate; final source name per #118
+src/agents/llm_cli.py	apps/agent-api/src/relohome_agent/agents/llm_cli.py	agent	relocate; final source name per #118
+src/agents/llm_components.py	apps/agent-api/src/relohome_agent/agents/llm_components.py	agent	relocate; final source name per #118
+src/agents/llm_context.py	apps/agent-api/src/relohome_agent/agents/llm_context.py	agent	relocate; final source name per #118
+src/agents/llm_provider.py	apps/agent-api/src/relohome_agent/agents/llm_provider.py	agent	relocate; final source name per #118
+src/agents/llm_runtime.py	apps/agent-api/src/relohome_agent/agents/llm_runtime.py	agent	relocate; final source name per #118
+src/agents/memory.py	apps/agent-api/src/relohome_agent/agents/memory.py	agent	relocate; final source name per #118
+src/agents/models.py	apps/agent-api/src/relohome_agent/agents/models.py	agent	relocate; final source name per #118
+src/agents/nodes/__init__.py	apps/agent-api/src/relohome_agent/agents/nodes/__init__.py	agent	relocate; final source name per #118
+src/agents/nodes/await_payment.py	apps/agent-api/src/relohome_agent/agents/nodes/await_payment.py	agent	relocate; final source name per #118
+src/agents/nodes/change_impact.py	apps/agent-api/src/relohome_agent/agents/nodes/change_impact.py	agent	relocate; final source name per #118
+src/agents/nodes/confirm.py	apps/agent-api/src/relohome_agent/agents/nodes/confirm.py	agent	relocate; final source name per #118
+src/agents/nodes/cost_summary.py	apps/agent-api/src/relohome_agent/agents/nodes/cost_summary.py	agent	relocate; final source name per #118
+src/agents/nodes/executor.py	apps/agent-api/src/relohome_agent/agents/nodes/executor.py	agent	relocate; final source name per #118
+src/agents/nodes/intake.py	apps/agent-api/src/relohome_agent/agents/nodes/intake.py	agent	relocate; final source name per #118
+src/agents/nodes/load_context.py	apps/agent-api/src/relohome_agent/agents/nodes/load_context.py	agent	relocate; final source name per #118
+src/agents/nodes/orchestrator.py	apps/agent-api/src/relohome_agent/agents/nodes/orchestrator.py	agent	relocate; final source name per #118
+src/agents/nodes/respond.py	apps/agent-api/src/relohome_agent/agents/nodes/respond.py	agent	relocate; final source name per #118
+src/agents/nodes/transaction.py	apps/agent-api/src/relohome_agent/agents/nodes/transaction.py	agent	relocate; final source name per #118
+src/agents/nodes/validator.py	apps/agent-api/src/relohome_agent/agents/nodes/validator.py	agent	relocate; final source name per #118
+src/agents/planner_llm.py	apps/agent-api/src/relohome_agent/agents/planner_llm.py	agent	relocate; final source name per #118
+src/agents/planning.py	apps/agent-api/src/relohome_agent/agents/planning.py	agent	relocate; final source name per #118
+src/agents/progress.py	apps/agent-api/src/relohome_agent/agents/progress.py	agent	relocate; final source name per #118
+src/agents/routing.py	apps/agent-api/src/relohome_agent/agents/routing.py	agent	relocate; final source name per #118
+src/agents/selections.py	apps/agent-api/src/relohome_agent/agents/selections.py	agent	relocate; final source name per #118
+src/agents/state.py	apps/agent-api/src/relohome_agent/agents/state.py	agent	relocate; final source name per #118
+src/agents/subagents/__init__.py	apps/agent-api/src/relohome_agent/agents/subagents/__init__.py	agent	relocate; final source name per #118
+src/agents/subagents/base.py	apps/agent-api/src/relohome_agent/agents/subagents/base.py	agent	relocate; final source name per #118
+src/agents/subagents/capabilities.py	apps/agent-api/src/relohome_agent/agents/subagents/capabilities.py	agent	relocate; final source name per #118
+src/agents/subagents/conformance.py	apps/agent-api/src/relohome_agent/agents/subagents/conformance.py	agent	relocate; final source name per #118
+src/agents/subagents/fake.py	apps/agent-api/src/relohome_agent/agents/subagents/fake.py	agent	relocate; final source name per #118
+src/agents/subagents/fallback.py	apps/agent-api/src/relohome_agent/agents/subagents/fallback.py	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/flight.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/flight.json	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/map.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/map.json	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/payment.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/payment.json	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/property.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/property.json	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/relocation.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/relocation.json	agent	relocate; final source name per #118
+src/agents/subagents/fixtures/roommate.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/roommate.json	agent	relocate; final source name per #118
+src/agents/subagents/local.py	apps/agent-api/src/relohome_agent/agents/subagents/local.py	agent	relocate; final source name per #118
+src/agents/subagents/remote.py	apps/agent-api/src/relohome_agent/agents/subagents/remote.py	agent	relocate; final source name per #118
+src/agents/subagents/services/common.py	apps/agent-api/src/relohome_agent/agents/subagents/services/common.py	agent	relocate; final source name per #118
+src/agents/subagents/services/domain_tools.py	apps/agent-api/src/relohome_agent/agents/subagents/services/domain_tools.py	agent	relocate; final source name per #118
+src/agents/subagents/services/flight.py	apps/agent-api/src/relohome_agent/agents/subagents/services/flight.py	agent	relocate; final source name per #118
+src/agents/subagents/services/location.py	apps/agent-api/src/relohome_agent/agents/subagents/services/location.py	agent	relocate; final source name per #118
+src/agents/subagents/services/moving.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving.py	agent	relocate; final source name per #118
+src/agents/subagents/services/moving_catalog.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_catalog.py	agent	relocate; final source name per #118
+src/agents/subagents/services/moving_context.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_context.py	agent	relocate; final source name per #118
+src/agents/subagents/services/moving_llm.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_llm.py	agent	relocate; final source name per #118
+src/agents/subagents/services/payment.py	apps/agent-api/src/relohome_agent/agents/subagents/services/payment.py	agent	relocate; final source name per #118
+src/agents/subagents/services/read_llm.py	apps/agent-api/src/relohome_agent/agents/subagents/services/read_llm.py	agent	relocate; final source name per #118
+src/agents/subagents/services/roommate.py	apps/agent-api/src/relohome_agent/agents/subagents/services/roommate.py	agent	relocate; final source name per #118
+src/agents/suggestions.py	apps/agent-api/src/relohome_agent/agents/suggestions.py	agent	relocate; final source name per #118
+src/agents/tools/__init__.py	apps/agent-api/src/relohome_agent/agents/tools/__init__.py	agent	relocate; final source name per #118
+src/agents/tools/flight_mcp.py	apps/agent-api/src/relohome_agent/agents/tools/flight_mcp.py	agent	relocate; final source name per #118
+src/agents/tools/payment_mcp.py	apps/agent-api/src/relohome_agent/agents/tools/payment_mcp.py	agent	relocate; final source name per #118
+src/agents/wiring.py	apps/agent-api/src/relohome_agent/agents/wiring.py	agent	relocate; final source name per #118
+src/api/__init__.py	apps/agent-api/src/relohome_agent/api/__init__.py	agent	relocate; final source name per #118
+src/api/checkout.py	apps/agent-api/src/relohome_agent/api/checkout.py	agent	relocate; final source name per #118
+src/api/moving_quotes.py	apps/agent-api/src/relohome_agent/api/moving_quotes.py	agent	relocate; final source name per #118
+src/api/roommate_access.py	apps/agent-api/src/relohome_agent/api/roommate_access.py	agent	relocate; final source name per #118
+src/api/roommate_connections.py	apps/agent-api/src/relohome_agent/api/roommate_connections.py	agent	relocate; final source name per #118
+src/api/roommate_discovery.py	apps/agent-api/src/relohome_agent/api/roommate_discovery.py	agent	relocate; final source name per #118
+src/api/roommate_map.py	apps/agent-api/src/relohome_agent/api/roommate_map.py	agent	relocate; final source name per #118
+src/api/roommate_media.py	apps/agent-api/src/relohome_agent/api/roommate_media.py	agent	relocate; final source name per #118
+src/api/roommate_profiles.py	apps/agent-api/src/relohome_agent/api/roommate_profiles.py	agent	relocate; final source name per #118
+src/api/roommate_safety.py	apps/agent-api/src/relohome_agent/api/roommate_safety.py	agent	relocate; final source name per #118
+src/api/routes.py	apps/agent-api/src/relohome_agent/api/routes.py	agent	relocate; final source name per #118
+src/api/sandbox_payments.py	apps/agent-api/src/relohome_agent/api/sandbox_payments.py	agent	relocate; final source name per #118
+src/api/viewings.py	apps/agent-api/src/relohome_agent/api/viewings.py	agent	relocate; final source name per #118
+src/api/web_actions.py	apps/agent-api/src/relohome_agent/api/web_actions.py	agent	relocate; final source name per #118
+src/checkout/__init__.py	apps/agent-api/src/relohome_agent/checkout/__init__.py	agent	relocate; final source name per #118
+src/checkout/models.py	apps/agent-api/src/relohome_agent/checkout/models.py	agent	relocate; final source name per #118
+src/checkout/service.py	apps/agent-api/src/relohome_agent/checkout/service.py	agent	relocate; final source name per #118
+src/checkout/store.py	apps/agent-api/src/relohome_agent/checkout/store.py	agent	relocate; final source name per #118
+src/checkout/viewing.py	apps/agent-api/src/relohome_agent/checkout/viewing.py	agent	relocate; final source name per #118
+src/config.py	apps/agent-api/src/relohome_agent/config.py	agent	relocate; final source name per #118
+src/main.py	apps/agent-api/src/relohome_agent/main.py	agent	relocate; final source name per #118
 src/mcp_servers/__init__.py	src/mcp_servers/__init__.py	root tooling (#112/#114 transition; #115 removal)	retain parent src shim if needed; #115 removes namespace after consumer migration, installed-wheel/image gates and #118 alias criteria
 src/mcp_servers/flights/Dockerfile	apps/flights-mcp/Dockerfile	flights	relocate
 src/mcp_servers/flights/Dockerfile.dockerignore	apps/flights-mcp/Dockerfile.dockerignore	flights	relocate
 src/mcp_servers/flights/README.md	apps/flights-mcp/README.md	flights	relocate
-src/mcp_servers/flights/__init__.py	apps/flights-mcp/src/lifeflow_flights_mcp/__init__.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/__main__.py	apps/flights-mcp/src/lifeflow_flights_mcp/__main__.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/booking_engine.py	packages/python/flight/src/lifeflow_flight/booking_engine.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/catalog.py	packages/python/flight/src/lifeflow_flight/catalog.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/catalog_data/airlines.json	packages/python/flight/src/lifeflow_flight/catalog_data/airlines.json	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/catalog_data/airports.json	packages/python/flight/src/lifeflow_flight/catalog_data/airports.json	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/errors.py	packages/python/flight/src/lifeflow_flight/errors.py	flights	relocate; proposed source name subject to #118
+src/mcp_servers/flights/__init__.py	apps/flights-mcp/src/relohome_flights_mcp/__init__.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/__main__.py	apps/flights-mcp/src/relohome_flights_mcp/__main__.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/booking_engine.py	packages/python/flight/src/relohome_flight/booking_engine.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/catalog.py	packages/python/flight/src/relohome_flight/catalog.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/catalog_data/airlines.json	packages/python/flight/src/relohome_flight/catalog_data/airlines.json	flights	relocate; final source name per #118
+src/mcp_servers/flights/catalog_data/airports.json	packages/python/flight/src/relohome_flight/catalog_data/airports.json	flights	relocate; final source name per #118
+src/mcp_servers/flights/errors.py	packages/python/flight/src/relohome_flight/errors.py	flights	relocate; final source name per #118
 src/mcp_servers/flights/requirements.txt	apps/flights-mcp/requirements.txt	flights	relocate
-src/mcp_servers/flights/schemas.py	packages/python/flight/src/lifeflow_flight/schemas.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/search/__init__.py	packages/python/flight/src/lifeflow_flight/search/__init__.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/search/base.py	packages/python/flight/src/lifeflow_flight/search/base.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/search/mock.py	packages/python/flight/src/lifeflow_flight/search/mock.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/search/serpapi.py	packages/python/flight/src/lifeflow_flight/search/serpapi.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/server.py	apps/flights-mcp/src/lifeflow_flights_mcp/server.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/settings.py	packages/python/flight/src/lifeflow_flight/settings.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/storage.py	packages/python/flight/src/lifeflow_flight/storage.py	flights	relocate; proposed source name subject to #118
-src/mcp_servers/flights/tools.py	apps/flights-mcp/src/lifeflow_flights_mcp/tools.py	flights	relocate; proposed source name subject to #118
+src/mcp_servers/flights/schemas.py	packages/python/flight/src/relohome_flight/schemas.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/search/__init__.py	packages/python/flight/src/relohome_flight/search/__init__.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/search/base.py	packages/python/flight/src/relohome_flight/search/base.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/search/mock.py	packages/python/flight/src/relohome_flight/search/mock.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/search/serpapi.py	packages/python/flight/src/relohome_flight/search/serpapi.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/server.py	apps/flights-mcp/src/relohome_flights_mcp/server.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/settings.py	packages/python/flight/src/relohome_flight/settings.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/storage.py	packages/python/flight/src/relohome_flight/storage.py	flights	relocate; final source name per #118
+src/mcp_servers/flights/tools.py	apps/flights-mcp/src/relohome_flights_mcp/tools.py	flights	relocate; final source name per #118
 src/mcp_servers/payments/Dockerfile	apps/payments-mcp/Dockerfile	payments	relocate
 src/mcp_servers/payments/README.md	apps/payments-mcp/README.md	payments	relocate
-src/mcp_servers/payments/__init__.py	apps/payments-mcp/src/lifeflow_payments_mcp/__init__.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/__main__.py	apps/payments-mcp/src/lifeflow_payments_mcp/__main__.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/engine.py	packages/python/payment/src/lifeflow_payment/engine.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/errors.py	packages/python/payment/src/lifeflow_payment/errors.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/gateways/__init__.py	packages/python/payment/src/lifeflow_payment/gateways/__init__.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/gateways/base.py	packages/python/payment/src/lifeflow_payment/gateways/base.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/gateways/mock.py	packages/python/payment/src/lifeflow_payment/gateways/mock.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/gateways/zalopay.py	packages/python/payment/src/lifeflow_payment/gateways/zalopay.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/privacy.py	packages/python/payment/src/lifeflow_payment/privacy.py	payments	relocate; proposed source name subject to #118
+src/mcp_servers/payments/__init__.py	apps/payments-mcp/src/relohome_payments_mcp/__init__.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/__main__.py	apps/payments-mcp/src/relohome_payments_mcp/__main__.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/engine.py	packages/python/payment/src/relohome_payment/engine.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/errors.py	packages/python/payment/src/relohome_payment/errors.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/gateways/__init__.py	packages/python/payment/src/relohome_payment/gateways/__init__.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/gateways/base.py	packages/python/payment/src/relohome_payment/gateways/base.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/gateways/mock.py	packages/python/payment/src/relohome_payment/gateways/mock.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/gateways/zalopay.py	packages/python/payment/src/relohome_payment/gateways/zalopay.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/privacy.py	packages/python/payment/src/relohome_payment/privacy.py	payments	relocate; final source name per #118
 src/mcp_servers/payments/requirements.txt	apps/payments-mcp/requirements.txt	payments	relocate
-src/mcp_servers/payments/schemas.py	packages/python/payment/src/lifeflow_payment/schemas.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/server.py	apps/payments-mcp/src/lifeflow_payments_mcp/server.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/settings.py	packages/python/payment/src/lifeflow_payment/settings.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/storage.py	packages/python/payment/src/lifeflow_payment/storage.py	payments	relocate; proposed source name subject to #118
-src/mcp_servers/payments/tools.py	apps/payments-mcp/src/lifeflow_payments_mcp/tools.py	payments	relocate; proposed source name subject to #118
-src/models/__init__.py	packages/python/contracts/src/lifeflow_contracts/__init__.py	API contracts	relocate; proposed source name subject to #118
-src/models/moving_options.py	packages/python/contracts/src/lifeflow_contracts/moving_options.py	API contracts	relocate; proposed source name subject to #118
-src/models/schemas.py	packages/python/contracts/src/lifeflow_contracts/schemas.py	API contracts	relocate; proposed source name subject to #118
-src/roommate/access.py	packages/python/roommate/src/lifeflow_roommate/access.py	roommate	relocate; proposed source name subject to #118
-src/roommate/agent_projection.py	packages/python/roommate/src/lifeflow_roommate/agent_projection.py	roommate	relocate; proposed source name subject to #118
-src/roommate/api_models.py	packages/python/roommate/src/lifeflow_roommate/api_models.py	roommate	relocate; proposed source name subject to #118
-src/roommate/clock.py	packages/python/roommate/src/lifeflow_roommate/clock.py	roommate	relocate; proposed source name subject to #118
-src/roommate/connection_repository.py	packages/python/roommate/src/lifeflow_roommate/connection_repository.py	roommate	relocate; proposed source name subject to #118
-src/roommate/connections.py	packages/python/roommate/src/lifeflow_roommate/connections.py	roommate	relocate; proposed source name subject to #118
-src/roommate/contact_vault.py	packages/python/roommate/src/lifeflow_roommate/contact_vault.py	roommate	relocate; proposed source name subject to #118
-src/roommate/demo.py	packages/python/roommate/src/lifeflow_roommate/demo.py	roommate	relocate; proposed source name subject to #118
-src/roommate/eligibility.py	packages/python/roommate/src/lifeflow_roommate/eligibility.py	roommate	relocate; proposed source name subject to #118
-src/roommate/factors.py	packages/python/roommate/src/lifeflow_roommate/factors.py	roommate	relocate; proposed source name subject to #118
-src/roommate/location_catalog.py	packages/python/roommate/src/lifeflow_roommate/location_catalog.py	roommate	relocate; proposed source name subject to #118
-src/roommate/maintenance.py	packages/python/roommate/src/lifeflow_roommate/maintenance.py	roommate	relocate; proposed source name subject to #118
-src/roommate/media.py	packages/python/roommate/src/lifeflow_roommate/media.py	roommate	relocate; proposed source name subject to #118
-src/roommate/migrations.py	packages/python/roommate/src/lifeflow_roommate/migrations.py	roommate	relocate; proposed source name subject to #118
-src/roommate/models.py	packages/python/roommate/src/lifeflow_roommate/models.py	roommate	relocate; proposed source name subject to #118
-src/roommate/normalization.py	packages/python/roommate/src/lifeflow_roommate/normalization.py	roommate	relocate; proposed source name subject to #118
-src/roommate/policy.py	packages/python/roommate/src/lifeflow_roommate/policy.py	roommate	relocate; proposed source name subject to #118
-src/roommate/ports.py	packages/python/roommate/src/lifeflow_roommate/ports.py	roommate	relocate; proposed source name subject to #118
-src/roommate/profile_repository.py	packages/python/roommate/src/lifeflow_roommate/profile_repository.py	roommate	relocate; proposed source name subject to #118
-src/roommate/ranking.py	packages/python/roommate/src/lifeflow_roommate/ranking.py	roommate	relocate; proposed source name subject to #118
-src/roommate/runtime.py	apps/agent-api/src/lifeflow_agent/roommate_runtime.py	agent + roommate	relocate; proposed source name subject to #118
-src/roommate/safety_repository.py	packages/python/roommate/src/lifeflow_roommate/safety_repository.py	roommate	relocate; proposed source name subject to #118
-src/roommate/scoring.py	packages/python/roommate/src/lifeflow_roommate/scoring.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/access.py	packages/python/roommate/src/lifeflow_roommate/services/access.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/consent.py	packages/python/roommate/src/lifeflow_roommate/services/consent.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/contacts.py	packages/python/roommate/src/lifeflow_roommate/services/contacts.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/discovery.py	packages/python/roommate/src/lifeflow_roommate/services/discovery.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/inbox.py	packages/python/roommate/src/lifeflow_roommate/services/inbox.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/lifecycle.py	packages/python/roommate/src/lifeflow_roommate/services/lifecycle.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/limits.py	packages/python/roommate/src/lifeflow_roommate/services/limits.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/moderation.py	packages/python/roommate/src/lifeflow_roommate/services/moderation.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/profiles.py	packages/python/roommate/src/lifeflow_roommate/services/profiles.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/requests.py	packages/python/roommate/src/lifeflow_roommate/services/requests.py	roommate	relocate; proposed source name subject to #118
-src/roommate/services/safety.py	packages/python/roommate/src/lifeflow_roommate/services/safety.py	roommate	relocate; proposed source name subject to #118
-src/roommate/storage.py	packages/python/roommate/src/lifeflow_roommate/storage.py	roommate	relocate; proposed source name subject to #118
-src/roommate/views.py	packages/python/roommate/src/lifeflow_roommate/views.py	roommate	relocate; proposed source name subject to #118
-src/services/__init__.py	apps/agent-api/src/lifeflow_agent/services/__init__.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/__init__.py	apps/agent-api/src/lifeflow_agent/services/adapters/__init__.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/commit.py	apps/agent-api/src/lifeflow_agent/services/adapters/commit.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/fakes.py	apps/agent-api/src/lifeflow_agent/services/adapters/fakes.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/mcp.py	apps/agent-api/src/lifeflow_agent/services/adapters/mcp.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/moving_approval.py	apps/agent-api/src/lifeflow_agent/services/adapters/moving_approval.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/ports.py	apps/agent-api/src/lifeflow_agent/services/adapters/ports.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/registry.py	apps/agent-api/src/lifeflow_agent/services/adapters/registry.py	agent	relocate; proposed source name subject to #118
-src/services/adapters/sqlite_runtime.py	apps/agent-api/src/lifeflow_agent/services/adapters/sqlite_runtime.py	agent	relocate; proposed source name subject to #118
-src/services/llm.py	apps/agent-api/src/lifeflow_agent/services/llm.py	agent	relocate; proposed source name subject to #118
-src/ui/__init__.py	examples/streamlit/src/lifeflow_demos/__init__.py	demos	relocate; proposed source name subject to #118
-src/ui/agent_chat.py	examples/streamlit/src/lifeflow_demos/agent_chat.py	demos	relocate; proposed source name subject to #118
-src/ui/flight_client.py	examples/streamlit/src/lifeflow_demos/flight_client.py	demos	relocate; proposed source name subject to #118
-src/ui/flight_demo.py	examples/streamlit/src/lifeflow_demos/flight_demo.py	demos	relocate; proposed source name subject to #118
-src/ui/map_picker.py	examples/streamlit/src/lifeflow_demos/map_picker.py	demos	relocate; proposed source name subject to #118
-src/ui/mcp_client.py	examples/streamlit/src/lifeflow_demos/mcp_client.py	demos	relocate; proposed source name subject to #118
-src/ui/mvp_components.py	examples/streamlit/src/lifeflow_demos/mvp_components.py	demos	relocate; proposed source name subject to #118
-src/ui/payment_client.py	examples/streamlit/src/lifeflow_demos/payment_client.py	demos	relocate; proposed source name subject to #118
-src/ui/payment_demo.py	examples/streamlit/src/lifeflow_demos/payment_demo.py	demos	relocate; proposed source name subject to #118
+src/mcp_servers/payments/schemas.py	packages/python/payment/src/relohome_payment/schemas.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/server.py	apps/payments-mcp/src/relohome_payments_mcp/server.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/settings.py	packages/python/payment/src/relohome_payment/settings.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/storage.py	packages/python/payment/src/relohome_payment/storage.py	payments	relocate; final source name per #118
+src/mcp_servers/payments/tools.py	apps/payments-mcp/src/relohome_payments_mcp/tools.py	payments	relocate; final source name per #118
+src/models/__init__.py	packages/python/contracts/src/relohome_contracts/__init__.py	API contracts	relocate; final source name per #118
+src/models/moving_options.py	packages/python/contracts/src/relohome_contracts/moving_options.py	API contracts	relocate; final source name per #118
+src/models/schemas.py	packages/python/contracts/src/relohome_contracts/schemas.py	API contracts	relocate; final source name per #118
+src/roommate/access.py	packages/python/roommate/src/relohome_roommate/access.py	roommate	relocate; final source name per #118
+src/roommate/agent_projection.py	packages/python/roommate/src/relohome_roommate/agent_projection.py	roommate	relocate; final source name per #118
+src/roommate/api_models.py	packages/python/roommate/src/relohome_roommate/api_models.py	roommate	relocate; final source name per #118
+src/roommate/clock.py	packages/python/roommate/src/relohome_roommate/clock.py	roommate	relocate; final source name per #118
+src/roommate/connection_repository.py	packages/python/roommate/src/relohome_roommate/connection_repository.py	roommate	relocate; final source name per #118
+src/roommate/connections.py	packages/python/roommate/src/relohome_roommate/connections.py	roommate	relocate; final source name per #118
+src/roommate/contact_vault.py	packages/python/roommate/src/relohome_roommate/contact_vault.py	roommate	relocate; final source name per #118
+src/roommate/demo.py	packages/python/roommate/src/relohome_roommate/demo.py	roommate	relocate; final source name per #118
+src/roommate/eligibility.py	packages/python/roommate/src/relohome_roommate/eligibility.py	roommate	relocate; final source name per #118
+src/roommate/factors.py	packages/python/roommate/src/relohome_roommate/factors.py	roommate	relocate; final source name per #118
+src/roommate/location_catalog.py	packages/python/roommate/src/relohome_roommate/location_catalog.py	roommate	relocate; final source name per #118
+src/roommate/maintenance.py	packages/python/roommate/src/relohome_roommate/maintenance.py	roommate	relocate; final source name per #118
+src/roommate/media.py	packages/python/roommate/src/relohome_roommate/media.py	roommate	relocate; final source name per #118
+src/roommate/migrations.py	packages/python/roommate/src/relohome_roommate/migrations.py	roommate	relocate; final source name per #118
+src/roommate/models.py	packages/python/roommate/src/relohome_roommate/models.py	roommate	relocate; final source name per #118
+src/roommate/normalization.py	packages/python/roommate/src/relohome_roommate/normalization.py	roommate	relocate; final source name per #118
+src/roommate/policy.py	packages/python/roommate/src/relohome_roommate/policy.py	roommate	relocate; final source name per #118
+src/roommate/ports.py	packages/python/roommate/src/relohome_roommate/ports.py	roommate	relocate; final source name per #118
+src/roommate/profile_repository.py	packages/python/roommate/src/relohome_roommate/profile_repository.py	roommate	relocate; final source name per #118
+src/roommate/ranking.py	packages/python/roommate/src/relohome_roommate/ranking.py	roommate	relocate; final source name per #118
+src/roommate/runtime.py	apps/agent-api/src/relohome_agent/roommate_runtime.py	agent + roommate	relocate; final source name per #118
+src/roommate/safety_repository.py	packages/python/roommate/src/relohome_roommate/safety_repository.py	roommate	relocate; final source name per #118
+src/roommate/scoring.py	packages/python/roommate/src/relohome_roommate/scoring.py	roommate	relocate; final source name per #118
+src/roommate/services/access.py	packages/python/roommate/src/relohome_roommate/services/access.py	roommate	relocate; final source name per #118
+src/roommate/services/consent.py	packages/python/roommate/src/relohome_roommate/services/consent.py	roommate	relocate; final source name per #118
+src/roommate/services/contacts.py	packages/python/roommate/src/relohome_roommate/services/contacts.py	roommate	relocate; final source name per #118
+src/roommate/services/discovery.py	packages/python/roommate/src/relohome_roommate/services/discovery.py	roommate	relocate; final source name per #118
+src/roommate/services/inbox.py	packages/python/roommate/src/relohome_roommate/services/inbox.py	roommate	relocate; final source name per #118
+src/roommate/services/lifecycle.py	packages/python/roommate/src/relohome_roommate/services/lifecycle.py	roommate	relocate; final source name per #118
+src/roommate/services/limits.py	packages/python/roommate/src/relohome_roommate/services/limits.py	roommate	relocate; final source name per #118
+src/roommate/services/moderation.py	packages/python/roommate/src/relohome_roommate/services/moderation.py	roommate	relocate; final source name per #118
+src/roommate/services/profiles.py	packages/python/roommate/src/relohome_roommate/services/profiles.py	roommate	relocate; final source name per #118
+src/roommate/services/requests.py	packages/python/roommate/src/relohome_roommate/services/requests.py	roommate	relocate; final source name per #118
+src/roommate/services/safety.py	packages/python/roommate/src/relohome_roommate/services/safety.py	roommate	relocate; final source name per #118
+src/roommate/storage.py	packages/python/roommate/src/relohome_roommate/storage.py	roommate	relocate; final source name per #118
+src/roommate/views.py	packages/python/roommate/src/relohome_roommate/views.py	roommate	relocate; final source name per #118
+src/services/__init__.py	apps/agent-api/src/relohome_agent/services/__init__.py	agent	relocate; final source name per #118
+src/services/adapters/__init__.py	apps/agent-api/src/relohome_agent/services/adapters/__init__.py	agent	relocate; final source name per #118
+src/services/adapters/commit.py	apps/agent-api/src/relohome_agent/services/adapters/commit.py	agent	relocate; final source name per #118
+src/services/adapters/fakes.py	apps/agent-api/src/relohome_agent/services/adapters/fakes.py	agent	relocate; final source name per #118
+src/services/adapters/mcp.py	apps/agent-api/src/relohome_agent/services/adapters/mcp.py	agent	relocate; final source name per #118
+src/services/adapters/moving_approval.py	apps/agent-api/src/relohome_agent/services/adapters/moving_approval.py	agent	relocate; final source name per #118
+src/services/adapters/ports.py	apps/agent-api/src/relohome_agent/services/adapters/ports.py	agent	relocate; final source name per #118
+src/services/adapters/registry.py	apps/agent-api/src/relohome_agent/services/adapters/registry.py	agent	relocate; final source name per #118
+src/services/adapters/sqlite_runtime.py	apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py	agent	relocate; final source name per #118
+src/services/llm.py	apps/agent-api/src/relohome_agent/services/llm.py	agent	relocate; final source name per #118
+src/ui/__init__.py	examples/streamlit/src/relohome_demos/__init__.py	demos	relocate; final source name per #118
+src/ui/agent_chat.py	examples/streamlit/src/relohome_demos/agent_chat.py	demos	relocate; final source name per #118
+src/ui/flight_client.py	examples/streamlit/src/relohome_demos/flight_client.py	demos	relocate; final source name per #118
+src/ui/flight_demo.py	examples/streamlit/src/relohome_demos/flight_demo.py	demos	relocate; final source name per #118
+src/ui/map_picker.py	examples/streamlit/src/relohome_demos/map_picker.py	demos	relocate; final source name per #118
+src/ui/mcp_client.py	examples/streamlit/src/relohome_demos/mcp_client.py	demos	relocate; final source name per #118
+src/ui/mvp_components.py	examples/streamlit/src/relohome_demos/mvp_components.py	demos	relocate; final source name per #118
+src/ui/payment_client.py	examples/streamlit/src/relohome_demos/payment_client.py	demos	relocate; final source name per #118
+src/ui/payment_demo.py	examples/streamlit/src/relohome_demos/payment_demo.py	demos	relocate; final source name per #118
 tasks/housing-product-v1.md	tasks/housing-product-v1.md	existing domain / CODEOWNERS	retain; update references if affected
 tasks/plan.md	tasks/plan.md	existing domain / CODEOWNERS	retain; update references if affected
 tasks/todo.md	tasks/todo.md	existing domain / CODEOWNERS	retain; update references if affected

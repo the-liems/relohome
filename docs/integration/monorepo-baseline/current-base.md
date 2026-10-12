@@ -10,9 +10,8 @@ The old test results are not results for the publication base.
 
 The subsequently updated #109 adds a case-insensitive LifeFlow naming inventory;
 see [the matrix and complete occurrence evidence](naming-inventory.md).
-#118 must finalize ReloHome names and aliases before #110–#116 implementation.
-The `lifeflow_*` distribution/import and source-destination spellings in this
-addendum and the layout maps are provisional, not final naming decisions.
+#118 records final ReloHome names and aliases in ADR-025 before #110–#116
+implementation. Target columns use those names; original path evidence stays exact.
 Preserved operational identities remain compatibility exceptions.
 
 ## Complete source mapping
@@ -28,8 +27,8 @@ shared Python MCP HTTP authentication, MCP-core authentication, housing-query
 helpers/tests, four SQL migrations and a rollback script, new operations scripts,
 image selection/reusable build configuration, production CD and documentation.
 The target prefix rules remain the same; shared MCP HTTP has the explicit target
-`packages/python/mcp-http/src/lifeflow_mcp_http/__init__.py`, distribution
-`lifeflow-mcp-http`. Both MCP apps depend on it; it cannot import applications.
+`packages/python/mcp-http/src/relohome_mcp_http/__init__.py`, distribution
+`relohome-mcp-http`. Both MCP apps depend on it; it cannot import applications.
 Its authentication helpers remain owned by the MCP transport maintainers.
 
 ADR-024 was allocated by the intervening routing change, so this PR uses

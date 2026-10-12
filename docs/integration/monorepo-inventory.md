@@ -21,8 +21,7 @@ Executed results below still belong only to the original revision.
 
 The map starts from `git ls-files` at the source revision. Each file has exactly
 one row, including retained roots and historical evidence; mappings are proposed
-until ADR review and the #118 naming decision. `lifeflow_*` namespaces and
-LifeFlow-containing proposed source destinations are provisional, while existing
+subject to ADR review. #118 fixes source names in the naming contract; existing
 runtime identities are preserved. No filesystem-wide glob is authorized for automated moves.
 Verify coverage against the pinned commit, not the current working tree:
 
@@ -182,18 +181,18 @@ Roommate demo JSON and local ignored extracts remain in place. The map demo's
 ## Follow-on scope register
 
 These are concrete additions to the linked issues, recorded here for review;
-the linked GitHub issue bodies have not been changed by this inventory.
+the linked GitHub issue bodies also carry the concrete #118 naming handoff.
 
 | Work item | Findings added to its required scope / gate |
 | --- | --- |
-| [#118](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/118) | Finalize the [rename/preserve naming matrix](monorepo-baseline/naming-inventory.md), external-consumer assessment, Python/npm names and alias ownership/removal criteria before implementation |
-| [#110](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/110) | After #118 approves names, reconcile three npm locks including map-app; fix both worker-copy scripts for hoisting; root tests include gateway/demo contracts; separate format from check; choose/document Node 24 versus legacy MVP 22; provision browser prerequisites and track [B2/B3/B5 baseline failures](monorepo-baseline/validation.md#failure-and-coverage-register) |
-| [#111](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/111) | Apply #118-approved npm/source names with compatible exports; preserve deployed identities; TS Docker root contexts; Moving shell filters and SQL dependencies; registry export; retain migration targets and image suffixes; coordinate telemetry package if #107 lands |
-| [#112](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/112) | Use #118-approved Python namespaces when extracting privacy, contracts, Roommate, Flight, Payment and standalone shared modules from ADR; include function-local imports, catalog package data, Settings/runtime separation; verify wheels outside repo and persistent-path compatibility |
+| [#118](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/118) | Record the final [rename/preserve naming matrix](monorepo-baseline/naming-inventory.md), external-consumer assessment, Python/npm names and alias ownership/removal criteria before implementation |
+| [#110](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/110) | Root `relohome`; keep child names until owning moves; preserve `lifeflow-typescript` CI key. After #118 merges, reconcile three npm locks including map-app; fix both worker-copy scripts for hoisting; root tests include gateway/demo contracts; separate format from check; choose/document Node 24 versus legacy MVP 22; provision browser prerequisites and track [B2/B3/B5 baseline failures](monorepo-baseline/validation.md#failure-and-coverage-register) |
+| [#111](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/111) | Apply `@relohome/*`, with `location-mcp` and `moving-mcp` suffixes; rename internal M05 symbols with all consumers; add shims only for identified external consumers and record removal evidence; preserve deployed identities; TS Docker root contexts; Moving shell filters and SQL dependencies; registry export; retain migration targets and image suffixes; coordinate telemetry package if #107 lands |
+| [#112](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/112) | Use final `relohome-*` distributions / `relohome_*` imports when extracting privacy, contracts, Roommate, Flight, Payment and standalone shared modules from ADR; include function-local imports, catalog package data, Settings/runtime separation; verify wheels outside repo and persistent-path compatibility |
 | [#113](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/113) | Apply approved ReloHome display names; same combined web image, same-origin/static serving; preserve housing media default and traveler key; update every browser config, gateway test helper and source-inspection test; coordinate #76 before web renames; re-establish the current-base browser baseline and reconcile the 36 historical supplemental failures before comparing move PRs |
-| [#114](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/114) | Apply #118-approved Python/app display names; retain both standalone harnesses, images, registry path and volume; install distributions in MCP/backend images; remove cross-app imports, update local-integration/Docker launchers and preserve layout-test health/non-root/transport checks; coordinate #107 HTTP/telemetry changes |
-| [#115](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/115) | Apply #118 names to supported demos/scripts/current docs; retain historical/compatibility exceptions and all demos/static references; move SQL/config/scripts with explicit persistent bind resolution; map prepare:data configuration; keep DVC/LFS/Cities/runtime data fixed; audit all old paths and retire owned shims |
-| [#116](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/116) | Audit naming against #118 and documented exceptions; repeat exact suites without coverage loss; full deterministic browser baseline; isolated DB/HTTP checks distinct from portable skips; existing-data staging smoke and prior digest rollback; no production promotion |
+| [#114](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/114) | Apply final `relohome_*` imports / ReloHome display titles; preserve M08 response value and M07 provider comment; retain both standalone harnesses, images, registry path and volume; install distributions in MCP/backend images; remove cross-app imports, update local-integration/Docker launchers and preserve layout-test health/non-root/transport checks; coordinate #107 HTTP/telemetry changes |
+| [#115](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/115) | Use `@relohome/map-app`, `relohome_location_demo`, `scripts/relohome/`, renamed launchers and `dev:relohome`; retain M20 hooks and M21 safety prefixes; retain historical/compatibility exceptions and all demos/static references; move SQL/config/scripts with explicit persistent bind resolution; map prepare:data configuration; keep DVC/LFS/Cities/runtime data fixed; audit all old paths and retire owned shims |
+| [#116](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/116) | Audit all M01–M26 decisions and every retained alias against #118; require an owned follow-up for any alias without satisfied removal gates; repeat exact suites without coverage loss; full deterministic browser baseline; isolated DB/HTTP checks distinct from portable skips; existing-data staging smoke and prior digest rollback; no production promotion |
 
 ## Open PR coordination
 
@@ -204,12 +203,12 @@ all runtime Docker contexts, gateway/backend/graph and Node services. Its prospe
 `deploy/observability` and rendering/validation scripts. Shared
 `src/mcp_servers/http_service.py` and `config/ci/application-images.json` already
 exist at the publication base; #107 modifies those contracts. Proposed destinations:
-Python telemetry → `packages/python/observability/src/lifeflow_observability/`;
-shared MCP HTTP → `packages/python/mcp-http/src/lifeflow_mcp_http/`;
-TS telemetry → `packages/telemetry/`; deployment/config/scripts retain their roots.
+Python telemetry → `packages/python/observability/src/relohome_observability/`;
+shared MCP HTTP → `packages/python/mcp-http/src/relohome_mcp_http/`;
+TS telemetry → `packages/telemetry/` (`@relohome/telemetry`); deployment/config/scripts retain their roots.
 Telemetry additions are conditional; shared MCP HTTP is already mapped in the
 publication-base additions and the image catalog retains its existing path. The Python
-namespace spellings and source-directory labels above are provisional until #118;
+namespace spellings and source-directory labels above follow #118;
 telemetry service identities stay unchanged. Preserve OTEL service
 names, disabled-by-default behavior and its matrix source of truth. Prefer merging
 #107 before shared package/Docker moves; otherwise rebase it through the reviewed

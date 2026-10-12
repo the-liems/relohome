@@ -30,19 +30,49 @@ image COPY instructions and persistent paths. Introducing a new build orchestrat
 adds an unrelated dependency/tool migration. Choose incremental relocation with
 npm workspaces and installable Python distributions, preserving existing tools.
 
-## Naming decision gate (#118)
+## Naming contract (#118)
 
-The updated #108/#109 scope requires the [naming inventory](../integration/monorepo-baseline/naming-inventory.md)
-to feed #118 before implementation. The intended direction is ReloHome for
-display names, relohome for source names and proposed npm scope `@relohome/*`.
-**All `lifeflow_*` import namespaces, `lifeflow-*` distribution names and
-`scripts/lifeflow/` destinations below are provisional boundary labels. They
-are not the final naming contract or instructions to introduce legacy names.**
-#118 resolves exact names, consumers, aliases and exceptions and updates target
-maps before dependent implementation. Existing deployed/persisted identifiers
-remain preserved. Historical source-path columns and baseline commands stay exact.
+The final naming choice is **ReloHome** for display text, **relohome** for
+machine-facing source names, **@relohome/** for private npm workspaces, and
+hyphenated `relohome-*` Python distributions with underscore `relohome_*`
+imports. This contract is ready for review; acceptance occurs when this ADR
+change merges. It does not authorize publishing packages or renaming deployed
+identities. The broader layout ADR retains its review status.
 
-## Proposed locations (names subject to #118)
+The [exact rename/preserve matrix and package map](../integration/monorepo-baseline/naming-inventory.md)
+are a **normative part of this ADR**: M01–M26 and the token decisions in
+`naming-occurrences.tsv` cover the complete pinned inventory. Rename source
+references using the target maps, never by replacing a directory recursively.
+M08, M10–M21 and M24–M25 preserve compatibility; M07 separates new prompt text
+from provider audit comments; M23 preserves historical evidence. M05 renames
+internal symbols and their consumers atomically, without speculative aliases.
+No persisted or external interface is renamed merely because its spelling includes LifeFlow.
+
+Exact npm suffix changes are `@lifeflow/mcp-server` → `@relohome/location-mcp`
+and `@lifeflow/moving-mcp-server` → `@relohome/moving-mcp`; the other six scoped
+suffixes are unchanged. Root `lifeflow-platform` becomes `relohome` through
+#110's root consolidation; `lifeflow-map-app` becomes `@relohome/map-app` in
+#115. Existing `siu-ai-web` remains unchanged (no broader SIU rename).
+
+Python application distributions/imports and shared-library targets below are
+final names, not provisional LifeFlow packages to introduce first. Shared MCP
+HTTP is `relohome-mcp-http` / `relohome_mcp_http`; conditional PR #107 telemetry
+is `relohome-observability` / `relohome_observability`, without changing telemetry
+service/resource identities. Conditional TS telemetry is `@relohome/telemetry`
+with unchanged `.` and `./register` exports (#111). Scripts move to `scripts/relohome/`;
+`Start-LifeFlow.ps1` / `Stop-LifeFlow.ps1` become `Start-ReloHome.ps1` /
+`Stop-ReloHome.ps1`; `dev:lifeflow` / `predev:lifeflow` become `dev:relohome` /
+`predev:relohome`; the map browser test becomes `tests/relohome.spec.ts`.
+
+#110–#116 implementation and alias/removal ownership are recorded in the
+[naming handoff](../integration/monorepo-baseline/naming-inventory.md#handoff-and-sequencing).
+The external-consumer assessment found no published instance of the eight
+scoped packages in the public registry, but private consumers remain unknown.
+Preserve TS exported behavior; add compatibility shims only for identified
+consumers and use the documented consumer gate before removing any shim.
+Historical paths and baseline commands below remain exact.
+
+## Target locations
 
 The [inventory](../integration/monorepo-inventory.md) and its
 [file-by-file map](../integration/monorepo-baseline/path-map.tsv) are part of this
@@ -56,24 +86,24 @@ Untracked/ignored files are excluded, including `design-comparison/`, local data
 | Existing root | Target | Ownership / disposition |
 | --- | --- | --- |
 | `Frontend/` browser TS, assets, npm/Playwright/Vite config | `apps/web/` | Web; supported product |
-| `Frontend/{__init__,server,store,roommate_gateway}.py` | `apps/browser-gateway/src/lifeflow_gateway/` | Gateway; supported, same web image |
-| `src/{main.py,config.py,api,agents,checkout,services}` | `apps/agent-api/src/lifeflow_agent/` | Agent/API; exceptions below |
+| `Frontend/{__init__,server,store,roommate_gateway}.py` | `apps/browser-gateway/src/relohome_gateway/` | Gateway; supported, same web image |
+| `src/{main.py,config.py,api,agents,checkout,services}` | `apps/agent-api/src/relohome_agent/` | Agent/API; exceptions below |
 | `Maps VN/LifeFlow/platform-api/` | `apps/platform-api/` | Housing/location HTTP API |
 | `Maps VN/LifeFlow/mcp-server/` | `apps/location-mcp/` | Location MCP |
 | `Maps VN/LifeFlow/moving-api/` | `apps/moving-api/` | Moving HTTP API |
 | `Maps VN/LifeFlow/moving-mcp-server/` | `apps/moving-mcp/` | Moving MCP |
-| `Maps VN/LifeFlow/packages/{contracts,housing-query,mcp-core,moving-service}/` | `packages/{contracts,housing-query,mcp-core,moving-service}/` | Existing domain owners; npm renames decided in #118 |
-| `src/mcp_servers/flights/` transport and tool assembly | `apps/flights-mcp/src/lifeflow_flights_mcp/` | Flight MCP; domain library below |
-| `src/mcp_servers/payments/` transport and tool assembly | `apps/payments-mcp/src/lifeflow_payments_mcp/` | Payment MCP; domain library below |
-| `src/agent_services/intake/` except models | `apps/intake-api/src/lifeflow_intake/` | Standalone-agent maintainers |
-| `src/agent_services/orchestrator/` | `apps/orchestrator-api/src/lifeflow_orchestrator/` | Standalone-agent maintainers |
-| `src/ui/` | `examples/streamlit/src/lifeflow_demos/` | Retained supported Flight, Payment and agent-chat demos |
-| `Maps VN/LifeFlow/demo/` | `examples/location-streamlit/demo/` | Retained supported Streamlit location agent/tool lab |
+| `Maps VN/LifeFlow/packages/{contracts,housing-query,mcp-core,moving-service}/` | `packages/{contracts,housing-query,mcp-core,moving-service}/` | Existing domain owners; npm names fixed by the naming contract above |
+| `src/mcp_servers/flights/` transport and tool assembly | `apps/flights-mcp/src/relohome_flights_mcp/` | Flight MCP; domain library below |
+| `src/mcp_servers/payments/` transport and tool assembly | `apps/payments-mcp/src/relohome_payments_mcp/` | Payment MCP; domain library below |
+| `src/agent_services/intake/` except models | `apps/intake-api/src/relohome_intake/` | Standalone-agent maintainers |
+| `src/agent_services/orchestrator/` | `apps/orchestrator-api/src/relohome_orchestrator/` | Standalone-agent maintainers |
+| `src/ui/` | `examples/streamlit/src/relohome_demos/` | Retained supported Flight, Payment and agent-chat demos |
+| `Maps VN/LifeFlow/demo/` | `examples/location-streamlit/src/relohome_location_demo/` | Retained supported Streamlit location agent/tool lab |
 | `Maps VN/LifeFlow/map-app/` | `examples/map-app/` | Retained supported map demo; npm workspace |
 | `Maps VN/LifeFlow/database/` | `deploy/database/` | SQL migration/ingestion owners; preserve ordering and both `008_*` files |
 | `Maps VN/LifeFlow/infra/` | `deploy/location/` | Location infrastructure; bind sources explicitly preserved |
 | `Maps VN/LifeFlow/compose.moving*.yaml`, `Dockerfile.moving*` | `deploy/moving/` (same basenames) | Moving infrastructure |
-| `Maps VN/LifeFlow/scripts/`, `*.ps1` | `scripts/lifeflow/` | Maintainers of invoked services |
+| `Maps VN/LifeFlow/scripts/`, `*.ps1` | `scripts/relohome/` | Maintainers of invoked services |
 | `Maps VN/LifeFlow/config/` | `config/location/` | POI extraction configuration |
 | `Maps VN/LifeFlow/docs/`, README, STREAMLIT_MVP | `docs/location/` | Current operational documentation |
 | `Maps VN/LifeFlow/reports/` | `eval/location/` | Historical evidence; no runtime dependency |
@@ -96,25 +126,25 @@ checkout. Root requirements remain the compatible developer installation entry.
 
 | Existing modules / symbols | Distribution → import namespace | Exact target root | Consumers / accountable domain |
 | --- | --- | --- | --- |
-| `src.models.*` | `lifeflow-contracts` → `lifeflow_contracts.*` | `packages/python/contracts/src/lifeflow_contracts/` | Gateway, agent; API contracts |
-| `src.agents.intake.{redact_pii,looks_like_pii}` plus public `contains_contact_pii(value)`; private `_EMAIL`, `_LONG_DIGITS`, `_ID_NUMBER`, `_PHONE` constants | `lifeflow-privacy` → `lifeflow_privacy.{redact_pii,looks_like_pii,contains_contact_pii}` | `packages/python/privacy/src/lifeflow_privacy/__init__.py` | Gateway, MovingOptions, intake; agent privacy owner |
-| `src.roommate.*` except `runtime.py` | `lifeflow-roommate` → `lifeflow_roommate.*` | `packages/python/roommate/src/lifeflow_roommate/` | Gateway media/error/projection and agent domain services; Roommate |
-| `src.roommate.runtime` | `lifeflow-agent` → `lifeflow_agent.roommate_runtime` | `apps/agent-api/src/lifeflow_agent/roommate_runtime.py` | Backend composition of Settings, private store and domain library |
-| Flight `booking_engine`, `catalog`, `catalog_data/`, `errors`, `schemas`, `search/`, `settings`, `storage` | `lifeflow-flight` → `lifeflow_flight.*` | `packages/python/flight/src/lifeflow_flight/` | Checkout age rules, gateway passengers, Flight MCP and demo; Flight |
-| Payment `engine`, `errors`, `gateways/`, `privacy`, `schemas`, `settings`, `storage` | `lifeflow-payment` → `lifeflow_payment.*` | `packages/python/payment/src/lifeflow_payment/` | Payment MCP and retained demo; Payment |
-| `src.agent_services.common`, `.llm`, `.intake.models` | `lifeflow-agent-services` → `lifeflow_agent_services.{common,llm,intake_models}` | `packages/python/agent-services/src/lifeflow_agent_services/` | Both standalone services; standalone-agent contracts |
+| `src.models.*` | `relohome-contracts` → `relohome_contracts.*` | `packages/python/contracts/src/relohome_contracts/` | Gateway, agent; API contracts |
+| `src.agents.intake.{redact_pii,looks_like_pii}` plus public `contains_contact_pii(value)`; private `_EMAIL`, `_LONG_DIGITS`, `_ID_NUMBER`, `_PHONE` constants | `relohome-privacy` → `relohome_privacy.{redact_pii,looks_like_pii,contains_contact_pii}` | `packages/python/privacy/src/relohome_privacy/__init__.py` | Gateway, MovingOptions, intake; agent privacy owner |
+| `src.roommate.*` except `runtime.py` | `relohome-roommate` → `relohome_roommate.*` | `packages/python/roommate/src/relohome_roommate/` | Gateway media/error/projection and agent domain services; Roommate |
+| `src.roommate.runtime` | `relohome-agent` → `relohome_agent.roommate_runtime` | `apps/agent-api/src/relohome_agent/roommate_runtime.py` | Backend composition of Settings, private store and domain library |
+| Flight `booking_engine`, `catalog`, `catalog_data/`, `errors`, `schemas`, `search/`, `settings`, `storage` | `relohome-flight` → `relohome_flight.*` | `packages/python/flight/src/relohome_flight/` | Checkout age rules, gateway passengers, Flight MCP and demo; Flight |
+| Payment `engine`, `errors`, `gateways/`, `privacy`, `schemas`, `settings`, `storage` | `relohome-payment` → `relohome_payment.*` | `packages/python/payment/src/relohome_payment/` | Payment MCP and retained demo; Payment |
+| `src.agent_services.common`, `.llm`, `.intake.models` | `relohome-agent-services` → `relohome_agent_services.{common,llm,intake_models}` | `packages/python/agent-services/src/relohome_agent_services/` | Both standalone services; standalone-agent contracts |
 
-`lifeflow-agent`, `lifeflow-browser-gateway`, `lifeflow-flights-mcp`,
-`lifeflow-payments-mcp`, `lifeflow-intake-api`, `lifeflow-orchestrator-api` and
-`lifeflow-demos` are provisional application/example distribution names. Their provisional imports
-are respectively `lifeflow_agent`, `lifeflow_gateway`, `lifeflow_flights_mcp`,
-`lifeflow_payments_mcp`, `lifeflow_intake`, `lifeflow_orchestrator`,
-`lifeflow_demos`. The location Streamlit project currently uses `demo`; its proposed
-`lifeflow-location-demo` distribution/import spelling also awaits #118.
+`relohome-agent`, `relohome-browser-gateway`, `relohome-flights-mcp`,
+`relohome-payments-mcp`, `relohome-intake-api`, `relohome-orchestrator-api` and
+`relohome-demos` are the final application/example distribution names. Their imports
+are respectively `relohome_agent`, `relohome_gateway`, `relohome_flights_mcp`,
+`relohome_payments_mcp`, `relohome_intake`, `relohome_orchestrator`,
+`relohome_demos`. The location Streamlit distribution is `relohome-location-demo`
+and its collision-free import is `relohome_location_demo` (replacing `demo`).
 
 Applications depend on shared packages; packages never import applications.
-`lifeflow_contracts` depends on `lifeflow_privacy` (MovingOptions currently lazily
-imports intake). `lifeflow_roommate` is independent of backend Settings after
+`relohome_contracts` depends on `relohome_privacy` (MovingOptions currently lazily
+imports intake). `relohome_roommate` is independent of backend Settings after
 moving the runtime composer into the agent app. Flight and Payment packages
 contain reusable domain code, including existing provider implementations, but
 not MCP server creation. This avoids splitting every demonstrated demo import
@@ -126,9 +156,9 @@ Agent graph, checkout and adapters stay together: their internal coupling is not
 evidence of cross-application reuse. Agent-task schema exports retain one owner;
 this migration must not redesign the TypeScript/Python contract authority.
 
-Subject to #118 renaming, the proposed gateway import boundaries are `lifeflow_privacy.redact_pii`,
-`lifeflow_flight.schemas.{Contact,Passenger}`, `lifeflow_contracts.*`, and
-`lifeflow_roommate.{access,agent_projection,media}`. Gateway-to-agent business
+The final gateway import boundaries are `relohome_privacy.redact_pii`,
+`relohome_flight.schemas.{Contact,Passenger}`, `relohome_contracts.*`, and
+`relohome_roommate.{access,agent_projection,media}`. Gateway-to-agent business
 operations continue over HTTP. Browser TS cannot import gateway/server modules.
 No app-to-app Python imports are permitted in the final layout.
 
@@ -147,9 +177,9 @@ different long-digit behavior of `looks_like_pii`; do not copy patterns or impor
 private library constants across the boundary.
 
 #112 adds explicit `__init__.py` files for currently implicit namespaces at
-`packages/python/roommate/src/lifeflow_roommate/{__init__.py,services/__init__.py}`
-and `apps/agent-api/src/lifeflow_agent/agents/subagents/services/__init__.py`
-(names provisional until #118). These are planned new files, absent from the
+`packages/python/roommate/src/relohome_roommate/{__init__.py,services/__init__.py}`
+and `apps/agent-api/src/relohome_agent/agents/subagents/services/__init__.py`
+(final #118 names). These are planned new files, absent from the
 baseline map. Each wheel must have an expected module/JSON manifest and be
 import-tested outside the checkout without PYTHONPATH, including Roommate
 services and subagent services. #112/#114 own any transitional `src.mcp_servers`
@@ -165,7 +195,7 @@ CMDs. Flight checkout still consumes schemas and booking age rules;
 
 ## Root command contract
 
-After #118 finalizes names, #110 adds commands before moves, preserving existing Make targets and component
+After this naming contract merges, #110 adds commands before moves, preserving existing Make targets and component
 flags. Root `npm ci` installs all TS applications/packages/examples from one
 lockfile. Preserve versions from all three locks; explicitly review incompatible
 resolutions. Frontend and map-app worker preparation must resolve MapLibre from
