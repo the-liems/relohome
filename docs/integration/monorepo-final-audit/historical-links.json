@@ -1,0 +1,134 @@
+[
+  {
+    "path": "docs/adr/ADR-008-contract-ownership.md",
+    "target": "../../src/models/schemas.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/adr/ADR-016-agent-graph-with-domain-subagents.md",
+    "target": "../../src/agents/",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/architecture/agent-graph.md",
+    "target": "../../src/models/schemas.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/architecture/mvp-architecture.md",
+    "target": "../../src/mcp_servers/flights/",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/architecture/mvp-architecture.md",
+    "target": "../../src/mcp_servers/payments/",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/ideas/housing-platform-upgrade.md",
+    "target": "../../Frontend/server.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/ideas/housing-platform-upgrade.md",
+    "target": "../../Frontend/store.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/integration/siu-ai-agent-first-frontend-plan.md",
+    "target": "../../src/main.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/integration/siu-ai-agent-first-frontend-plan.md",
+    "target": "../../src/models/schemas.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/integration/siu-ai-agent-first-frontend-plan.md",
+    "target": "../../src/agents/models.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/integration/siu-ai-agent-first-frontend-plan.md",
+    "target": "../../src/ui/agent_chat.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/storage.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/migrations.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/runtime.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/discovery.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/profiles.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/consent.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/contacts.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/media.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/moderation.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../src/roommate/services/inbox.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  },
+  {
+    "path": "docs/review/roommate-product-readiness-2026-10-12.md",
+    "target": "../../Frontend/roommate_gateway.py",
+    "reason": "M23 unchanged historical source/layout link; original text retained per #115, current DEVELOPMENT.md notice added where appropriate",
+    "historical_revision": "b714b7bbd57c521598191f0d958b48a17b270f47"
+  }
+]

@@ -559,7 +559,7 @@ Only executable/build-input changes invoke the corresponding delivery helper rul
 
 | Inputs changed | Validation / delivery behavior |
 |---|---|
-| `src/`, dependencies, Dockerfile, build inputs | Application checks; successful main release builds and deploys staging |
+| `apps/`, `packages/`, dependencies, Dockerfile, build inputs | Application checks; successful main release builds and deploys staging |
 | Tests or Compose test configuration | Relevant tests; do not publish solely because tests changed |
 | Approved YAML/JSON runtime inputs under `deploy/coolify/staging/` | Validate a complete candidate with known images and automatically apply staging configuration |
 | Approved YAML/JSON runtime inputs under `deploy/coolify/prod/` | Validate; apply the approved configuration through production promotion |

@@ -1,5 +1,8 @@
 # Roommate Discovery — Bàn giao backend/API/Agent
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 - Ngày: 2026-10-07, Asia/Saigon; branch local `QuangDung`.
 - Phạm vi được xác nhận: hoàn tất backend, API và Agent trước; chưa làm frontend.
 - Baseline: [product spec v1.0](../ideas/roommate-service.md), [plan](../../tasks/plan.md), [checklist](../../tasks/todo.md).

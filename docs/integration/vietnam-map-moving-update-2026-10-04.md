@@ -1,5 +1,8 @@
 # Map Việt Nam, hai ô Moving A/B và khởi động local — 04/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Yêu cầu hiện hành
 
 - Mở camera xem Việt Nam, thay giới hạn riêng ba thành phố ở đợt trước.

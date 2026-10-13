@@ -1,5 +1,8 @@
 # Python package boundaries (#112)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `09ac457` (root tooling #124). Naming contract: #118 / #121 and ADR-025.
 This slice extracts shared libraries before the physical application moves in
 #113/#114. It introduces no database migration or deployment identity change.

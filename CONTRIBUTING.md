@@ -22,6 +22,9 @@ Khi sửa nội dung sách, mô tả rõ trong PR: **chương nào**, **sửa g�
 
 ## Môi trường phát triển
 
+[Development map](DEVELOPMENT.md) là hướng dẫn gốc về ownership, cài đặt,
+lệnh từng app, test modes, dữ liệu và delivery.
+
 Dùng Node 24/npm 11 và Python 3.11. Cài đặt từ gốc repo theo
 [root tooling](docs/runbooks/root-tooling.md); chỉ root `package-lock.json` là lockfile npm.
 `make format-check` không sửa file; `make format` là lệnh sửa tường minh.

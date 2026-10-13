@@ -1,5 +1,8 @@
 # Bàn giao nhánh QuangDung — 08/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Phạm vi bàn giao
 
 Nhánh `QuangDung` chứa các commit Roommate backend/API/Agent đã có trước đợt này, cùng phần frontend, Cẩm nang, giao diện ReloHome, sửa tiến trình kế hoạch và công cụ chuẩn hóa tọa độ Housing đang chờ commit. Đây là bàn giao mã nguồn để review và tiếp tục phát triển, chưa phải xác nhận phát hành production.

@@ -1,5 +1,8 @@
 # Kiểm tra dịch vụ và giao diện từ phía người dùng — 05/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## 1. Phạm vi và kết luận
 
 Nền kiểm tra: nhánh **QuangDung**, commit **1c22ab6**. Kiểm tra các luồng hiện có

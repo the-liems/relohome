@@ -1,5 +1,8 @@
 # Bàn giao QuangDung: Housing performance và geocode — 10/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## 1. Phạm vi code được bàn giao
 
 Nền code là main `9b2b2db` (merge PR #88). Giữ các thay đổi của nhóm; không rebase

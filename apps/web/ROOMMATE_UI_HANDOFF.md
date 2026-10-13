@@ -1,5 +1,8 @@
 # Roommate Discovery — Frontend handoff
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 **Mở rộng 12/10/2026:** [Roommate production handoff](../../docs/integration/roommate-production-2026-10-12.md) bổ sung Inbox/notifications, media/settings, moderator workspace, linked-room picker và recovery sau reload. Các nội dung dưới đây là baseline 07/10, vẫn giữ nguyên policy; evidence mới ở tài liệu mở rộng và task checklist.
 
 Ngày: 2026-10-07, Asia/Saigon. Phạm vi: frontend theo contract backend đã có; không sửa backend, database, scoring, API schemas hoặc nghiệp vụ service khác.

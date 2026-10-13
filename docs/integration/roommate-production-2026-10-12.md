@@ -1,5 +1,8 @@
 # Roommate — bàn giao nâng cấp vận hành và trải nghiệm
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày bắt đầu: 12/10/2026. Phạm vi: mở rộng Roommate hiện có; chuẩn bị triển khai cloud, chưa triển khai vào cloud hoặc chuyển dữ liệu live trong đợt này.
 
 ## 1. Người dùng nhận được gì?

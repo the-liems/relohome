@@ -48,3 +48,15 @@ chép số liệu local thành cam kết của mọi deployment.
 
 - [Root workspace tooling validation (#110)](monorepo-tooling/validation.md):
   exact-base/head commands, lock replay, Chrome failure IDs, image startup checks.
+
+## Monorepo consolidation
+
+- [Root development map](../../DEVELOPMENT.md): functional ownership, install,
+  per-app commands, test modes, persistent data and delivery.
+- [Final #115 consolidation audit](monorepo-final-audit.md): acceptance-to-evidence
+  checklist, combined-tree reference counts, compatibility exceptions, ADR status
+  and owned #116 follow-ups.
+- [Location relocation slice (#141)](location-relocation.md): source accounting,
+  data/Compose identities and reviewed validation.
+- [Python examples and shim retirement slice (#142)](python-examples-and-shims.md):
+  installed demos, caller migration and the sole persisted checkpoint alias.

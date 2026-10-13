@@ -40,12 +40,12 @@ listing đáp ứng mọi điều kiện hay tự đổi danh sách để đạt
 
 Không duy trì DTO khác trong Markdown. Nguồn chuẩn:
 
-- `src/agents/models.py`: Task, TaskResult, IntakeResult.
-- `src/agents/subagents/capabilities.py`: schema Housing compare/listing_ids.
-- `src/agents/housing_operations.py`: phân biệt operation search và compare.
-- `src/agents/subagents/services/location.py`: bảng dữ kiện và kiểm min/max.
-- `src/api/web_actions.py`: kiểm ownership/version/fetched_at, từ chối chọn bảng.
-- `Frontend/src/serviceJourney.ts`: target map và khả năng chọn kết quả.
+- `apps/agent-api/src/relohome_agent/agents/models.py`: Task, TaskResult, IntakeResult.
+- `apps/agent-api/src/relohome_agent/agents/subagents/capabilities.py`: schema Housing compare/listing_ids.
+- `apps/agent-api/src/relohome_agent/agents/housing_operations.py`: phân biệt operation search và compare.
+- `apps/agent-api/src/relohome_agent/agents/subagents/services/location.py`: bảng dữ kiện và kiểm min/max.
+- `apps/agent-api/src/relohome_agent/api/web_actions.py`: kiểm ownership/version/fetched_at, từ chối chọn bảng.
+- `apps/web/src/serviceJourney.ts`: target map và khả năng chọn kết quả.
 
 Quyền chọn nhà vẫn bị backend kiểm; ẩn nút UI không thay thế kiểm quyền. Không nhận
 ID/tọa độ/giá LLM bịa. Không thêm transaction hay mở approval từ kết quả so sánh.

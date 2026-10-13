@@ -51,18 +51,19 @@ No persisted or external interface is renamed merely because its spelling includ
 Exact npm suffix changes are `@lifeflow/mcp-server` → `@relohome/location-mcp`
 and `@lifeflow/moving-mcp-server` → `@relohome/moving-mcp`; the other six scoped
 suffixes are unchanged. Root `lifeflow-platform` becomes `relohome` through
-#110's root consolidation; `lifeflow-map-app` becomes `@relohome/map-app` in
-#115. Existing `siu-ai-web` remains unchanged (no broader SIU rename).
+#110's root consolidation; #115 has relocated `lifeflow-map-app` to
+`examples/map-app/` as `@relohome/map-app`. Existing `siu-ai-web` remains unchanged
+(no broader SIU rename).
 
 Python application distributions/imports and shared-library targets below are
 final names, not provisional LifeFlow packages to introduce first. Shared MCP
 HTTP is `relohome-mcp-http` / `relohome_mcp_http`; conditional PR #107 telemetry
 is `relohome-observability` / `relohome_observability`, without changing telemetry
 service/resource identities. Conditional TS telemetry is `@relohome/telemetry`
-with unchanged `.` and `./register` exports (#111). Scripts move to `scripts/relohome/`;
-`Start-LifeFlow.ps1` / `Stop-LifeFlow.ps1` become `Start-ReloHome.ps1` /
-`Stop-ReloHome.ps1`; `dev:lifeflow` / `predev:lifeflow` become `dev:relohome` /
-`predev:relohome`; the map browser test becomes `tests/relohome.spec.ts`.
+with unchanged `.` and `./register` exports (#111). Scripts now live in `scripts/relohome/`;
+`Start-LifeFlow.ps1` / `Stop-LifeFlow.ps1` have become `Start-ReloHome.ps1` /
+`Stop-ReloHome.ps1`; `dev:lifeflow` / `predev:lifeflow` have become `dev:relohome` /
+`predev:relohome`; the map browser test is now `tests/relohome.spec.ts`.
 
 #110–#116 implementation and alias/removal ownership are recorded in the
 [naming handoff](../integration/monorepo-baseline/naming-inventory.md#handoff-and-sequencing).
@@ -164,10 +165,12 @@ No app-to-app Python imports are permitted in the final layout.
 
 Ownership above is functional accountability, not a new GitHub approval rule.
 Existing `.github/CODEOWNERS` remains authoritative; each move author must obtain
-the affected domain review. Any temporary `src.*`/`Frontend.*` forwarding shim is
-owned by the author of #112/#113/#114, recorded with consumers and removed by
-#115 only after #118 alias criteria, consumer migration and installed-package/image
-checks are satisfied; external consumers can require a longer compatibility window. No indefinite shims.
+the affected domain review. The #115 slices have retired the temporary
+`src.*`/`Frontend.*` source forwarders after caller migration and installed-package/image
+checks. The sole retained `src.agents.models` alias is an in-memory persisted-checkpoint
+contract, owned by agent/checkpoint maintainers. #116 owns the private-consumer
+census and staging existing-data/digest rollback gates; see the
+[final audit](../integration/monorepo-final-audit.md).
 
 Privacy extraction in #112 moves `looks_like_pii` with `redact_pii`. Keep all
 regexes private in the library. Add public `contains_contact_pii(value)` with the
@@ -183,8 +186,9 @@ and `apps/agent-api/src/relohome_agent/agents/subagents/services/__init__.py`
 baseline map. Each wheel must have an expected module/JSON manifest and be
 import-tested outside the checkout without PYTHONPATH, including Roommate
 services and subagent services. #112/#114 own any transitional `src.mcp_servers`
-namespace and its parent `src` shim; #115 removes both only after all consumers,
-installed-wheel and image gates pass and #118 alias criteria permit removal.
+namespace and its parent `src` shim; #115 has removed both on-disk namespaces.
+Installed-wheel/image evidence and the retained persisted alias are recorded in
+the final audit.
 
 #114 updates `tests/test_mcp_servers_layout.py` to discover the new application
 roots while retaining health, non-root USER, EXPOSE, transport and entrypoint

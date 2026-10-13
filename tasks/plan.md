@@ -1,5 +1,8 @@
 # Implementation Plan — ReloHome Roommate Discovery
 
+> Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
+
+
 ## Đợt phát hành người dùng thật — 12/10/2026
 
 Chủ sản phẩm đã yêu cầu triển khai theo [audit](../docs/review/roommate-product-readiness-2026-10-12.md) và bàn giao deploy cloud. Baseline lịch sử bên dưới được giữ nguyên; checklist mới ở đầu `todo.md`.

@@ -24,6 +24,9 @@ The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](doc
 
 ## Run locally
 
+Start with the [development map](DEVELOPMENT.md) for app ownership, installation,
+per-app commands, test modes, persistent data and delivery runbooks.
+
 After pulling a Python source relocation, run `npm run setup:python` from the
 repository root before launching services or tests. All Python callers use
 installed `relohome_*` namespaces. See the

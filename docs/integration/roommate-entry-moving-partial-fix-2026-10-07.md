@@ -1,5 +1,8 @@
 # ReloHome — Bật Ở ghép, thêm Cẩm nang và sửa chuyển màn Moving
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày 07/10/2026, Asia/Saigon. Theo yêu cầu mới, chỉ bổ sung chức năng và sửa lỗi cần thiết; giữ nguyên các form/layout/logic service cũ.
 
 ## Đã thay đổi

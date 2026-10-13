@@ -1,5 +1,8 @@
 # ReloHome landing page: visitor experience
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Issue: [#95](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/95).
 Review: [PR #98](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/98).
 Branch: `feat/95-landing-ux`, based on `main` at `e9c1df8`.

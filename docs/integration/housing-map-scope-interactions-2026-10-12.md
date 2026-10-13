@@ -1,5 +1,8 @@
 # Housing map: scope and interactions — 2026-10-12
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Issue: [#119](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/119).
 Branch: `fix/housing-map-scope-interactions`, based on `main` (`481288a`).
 

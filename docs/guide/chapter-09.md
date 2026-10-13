@@ -34,7 +34,9 @@ project-root/
 │   ├── journal.md         ← Deliverable #8
 │   ├── worklog.md         ← Deliverable #9
 │   └── evaluation.md      ← Deliverable #10
-├── src/                   ← Deliverable #1 (Source Code)
+├── apps/                  ← Deliverable #1 (Runnable applications)
+├── packages/              ← Shared libraries
+├── examples/              ← Supported demos / static references
 ├── tests/                 ← Cho Evaluation Evidence
 ├── .github/workflows/     ← Bonus cho DevOps
 ├── Dockerfile             ← Bonus cho DevOps
@@ -340,10 +342,10 @@ Kinh nghiệm từ các đội đạt kết quả cao cho thấy những điểm
 
 **1. Đủ 10 deliverables.** Các đội đạt điểm cao nộp đủ hoặc gần đủ tất cả deliverables (9-10/10). Đội yếu chỉ nộp 4-5/10. Deliverables hoàn chỉnh = tín hiệu chuyên nghiệp.
 
-**2. Code có cấu trúc rõ ràng.** Top teams tổ chức code theo cấu trúc module: `apps/agent-api/src/relohome_agent/api/`, `apps/agent-api/src/relohome_agent/agents/`, `src/core/`, `src/models/`. Không dump tất cả code vào 1-2 file. Mỗi module có `__init__.py` và trách nhiệm rõ ràng.
+**2. Code có cấu trúc rõ ràng.** Top teams tổ chức code theo cấu trúc module: `apps/agent-api/src/relohome_agent/api/`, `apps/agent-api/src/relohome_agent/agents/`, `packages/python/` (shared libraries/contracts). Không dump tất cả code vào 1-2 file. Mỗi module có `__init__.py` và trách nhiệm rõ ràng.
 
 ```text
-# Cấu trúc tốt (ví dụ)
+# Ví dụ template lịch sử; layout P-044 hiện hành: DEVELOPMENT.md
 src/
 ├── __init__.py
 ├── main.py              # FastAPI app

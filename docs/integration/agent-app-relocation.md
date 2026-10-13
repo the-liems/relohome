@@ -1,5 +1,8 @@
 # Python application relocation (#114)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `9bc9dfc` (main, merged #112/#113). This slice changes source ownership and
 installed entrypoints; it does not change topology or deploy services.
 

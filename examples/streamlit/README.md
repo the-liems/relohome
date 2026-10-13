@@ -28,7 +28,7 @@ does not enable writes or provider calls. The chat token stays server-side;
 local chat is not a public browser gateway. Existing write/sandbox opt-ins remain.
 
 `examples/design-reference/` contains static HTML/image references only; it is
-not a supported app or deployed asset bundle. Location examples under
-`Maps VN/LifeFlow/` belong to a separate migration slice.
+not a supported app or deployed asset bundle. Location examples now live in
+`examples/location-streamlit/`; see the [location guide](../../docs/location/STREAMLIT_MVP.md).
 
 See [migration/rollback evidence](../../docs/integration/python-examples-and-shims.md).

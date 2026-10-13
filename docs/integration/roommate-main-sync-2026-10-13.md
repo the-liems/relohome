@@ -1,5 +1,8 @@
 # Roommate — đối chiếu main và bàn giao PR (13/10/2026)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Baseline đã đối chiếu
 
 - `origin/main`: `df4999b7e3c127020ca9a4a373d2da23d74e6f35`, merge PR #127.

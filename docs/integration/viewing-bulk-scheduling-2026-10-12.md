@@ -1,5 +1,8 @@
 # Xem nhà: đặt lịch theo nhóm
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày 12/10/2026. Phạm vi frontend của ReloHome, mở rộng luồng hẹn xem hiện có.
 Kế hoạch và checklist: [plan](../../tasks/viewing-bulk-scheduling/plan.md),
 [todo](../../tasks/viewing-bulk-scheduling/todo.md).

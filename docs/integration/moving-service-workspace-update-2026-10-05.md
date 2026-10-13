@@ -1,5 +1,8 @@
 # Moving: form dịch vụ và kiểm thử — 05/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Phạm vi được duyệt
 
 Người dùng cho phép nối thêm trường qua Agent, **giữ nguyên quy trình xác nhận**.

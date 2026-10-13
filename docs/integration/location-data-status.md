@@ -1,5 +1,8 @@
 # Location — dữ liệu, snapshot và backup
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Cập nhật tài liệu: **29/09/2026**. Số liệu dưới đây có mốc đo riêng.
 Lượt đồng bộ tài liệu này kiểm tra file/report/đường dẫn, **không chạy lại import,
 restore hoặc đếm lại DB**. Bằng chứng DB/test ngày 29/09 đến từ lượt triển khai
