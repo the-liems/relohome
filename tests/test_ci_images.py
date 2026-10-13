@@ -27,9 +27,11 @@ class ImageSelectionTests(unittest.TestCase):
 
     def test_docs_and_test_only_changes_need_no_application_images(self):
         self.assertEqual(self.selected("docs/runbooks/self-hosted-ci.md", "tests/test_ci_images.py",
-                                       "Frontend/tests/test_gateway.py"), set())
+                                       "apps/browser-gateway/tests/test_gateway.py", "apps/web/tests/browser/app.spec.ts"), set())
 
     def test_frontend_and_python_consumers(self):
+        self.assertEqual(self.selected("apps/browser-gateway/src/relohome_gateway/server.py"), {"web"})
+        self.assertEqual(self.selected("apps/web/src/App.tsx"), {"web"})
         self.assertEqual(self.selected("Frontend/server.py"), {"web"})
         self.assertEqual(self.selected("requirements.txt", "config/agents.yaml"), {"web", "backend"})
         self.assertEqual(self.selected("src/services/storage.py"), {"web", "backend"})
@@ -86,7 +88,7 @@ class ImageSelectionTests(unittest.TestCase):
                 self.assertEqual(self.selected(path), ALL_SERVICES)
 
     def test_no_similarly_named_directory_matches(self):
-        self.assertEqual(self.selected("Frontend-extra/build.js"), ALL_SERVICES)
+        self.assertEqual(self.selected("apps/web-extra/build.js"), ALL_SERVICES)
 
     def run_selector(self, event, paths=(), base="a" * 40, diff_error=None):
         with tempfile.TemporaryDirectory() as directory:
@@ -106,7 +108,7 @@ class ImageSelectionTests(unittest.TestCase):
             self.assertFalse(diff_called)
 
     def test_pr_outputs_contain_only_build_fields_and_allow_no_images(self):
-        matrix, count, _ = self.run_selector("pull_request", ["Frontend/server.py"])
+        matrix, count, _ = self.run_selector("pull_request", ["apps/browser-gateway/src/relohome_gateway/server.py"])
         self.assertEqual(count, 1)
         self.assertEqual(matrix["include"][0]["service"], "web")
         self.assertEqual(set(matrix["include"][0]), {"service", "context", "dockerfile", "target"})
@@ -133,14 +135,14 @@ class ImageSelectionTests(unittest.TestCase):
             git("add", ".")
             git("commit", "-qm", "base")
             base = git("rev-parse", "HEAD")
-            new = root / "Frontend/new.ts"
+            new = root / "apps/web/new.ts"
             new.parent.mkdir()
             old.rename(new)
             git("add", "-A")
             git("commit", "-qm", "move")
             with patch.object(IMAGES, "ROOT", root):
                 paths = IMAGES.changed_paths(base)
-            self.assertCountEqual(paths, ["apps/moving-api/old.ts", "Frontend/new.ts"])
+            self.assertCountEqual(paths, ["apps/moving-api/old.ts", "apps/web/new.ts"])
             self.assertEqual(self.selected(*paths), {"web", *MOVING})
 
 

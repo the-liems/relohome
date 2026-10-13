@@ -75,6 +75,11 @@ Maps\ VN/LifeFlow/**/dist/
 Maps\ VN/LifeFlow/.env
 Maps\ VN/LifeFlow/**/*.local
 test-results/
+apps/web/dist/
+apps/web/playwright-report/
+apps/web/*.tsbuildinfo
+apps/web/public/maplibre/
+# Retain ignored pre-migration outputs; source relocation never deletes local artifacts.
 Frontend/dist/
 Frontend/playwright-report/
 Frontend/*.tsbuildinfo

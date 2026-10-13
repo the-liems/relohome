@@ -80,7 +80,7 @@ node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.te
 # Needs a migrated local PostGIS (DATABASE_URL / ADMIN_DATABASE_URL); creates and removes its own test rows.
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1
 
-cd ../../Frontend
+cd ../../apps/web
 npm run build
 npx playwright test tests/browser/housing-product.spec.ts --project=desktop
 ```

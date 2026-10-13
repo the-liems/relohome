@@ -52,7 +52,7 @@ chat và các quyết định chuyên môn vẫn do LLM thực hiện.
 ```mermaid
 flowchart LR
   UI["React + Vite<br/>Chat, map, Housing/Flight/Moving workspace"]
-  GW["UI gateway :8503<br/>Frontend/server.py"]
+  GW["UI gateway :8503<br/>apps/browser-gateway/src/relohome_gateway/server.py"]
   WEB[("Web SQLite<br/>user, session, thread, message, run")]
   API["Agent API :8000<br/>FastAPI + LangGraph + LLM agents"]
   STATE[("Checkpoint + runtime SQLite<br/>state, memory, usage, approval, PII, receipts")]
@@ -112,8 +112,8 @@ flowchart LR
 
 | Thành phần | File/thư mục |
 | --- | --- |
-| UI/workspace, trạng thái đang submit | [App.tsx](../../Frontend/src/App.tsx), [ServiceWorkspaces.tsx](../../Frontend/src/components/ServiceWorkspaces.tsx), [MovingOptionsForm.tsx](../../Frontend/src/components/MovingOptionsForm.tsx) |
-| Gateway, cookie HttpOnly, CSRF, request replay | [server.py](../../Frontend/server.py), [store.py](../../Frontend/store.py) |
+| UI/workspace, trạng thái đang submit | [App.tsx](../../apps/web/src/App.tsx), [ServiceWorkspaces.tsx](../../apps/web/src/components/ServiceWorkspaces.tsx), [MovingOptionsForm.tsx](../../apps/web/src/components/MovingOptionsForm.tsx) |
+| Gateway, cookie HttpOnly, CSRF, request replay | [server.py](../../apps/browser-gateway/src/relohome_gateway/server.py), [store.py](../../apps/browser-gateway/src/relohome_gateway/store.py) |
 | Khởi tạo runtime thật và lifecycle | [wiring.py](../../src/agents/wiring.py), [llm_components.py](../../src/agents/llm_components.py) |
 | Graph topology và payload fan-out | [graph.py](../../src/agents/graph.py), [state.py](../../src/agents/state.py), [routing.py](../../src/agents/routing.py) |
 | Intake | [intake_llm.py](../../src/agents/intake_llm.py), [nodes/intake.py](../../src/agents/nodes/intake.py) |
@@ -561,7 +561,7 @@ Launcher kiểm Docker, DB/schema **read-only**, readiness của 6 process và g
 riêng dưới `data/local-mvp-logs/`. Nó không restore/migrate lại DB tự động,
 không kill process lạ, không restart process đã chạy khi source đổi.
 
-Nếu UI chưa build hoặc vừa đổi React, chạy trong thư mục `Frontend`:
+Nếu UI chưa build hoặc vừa đổi React, chạy trong thư mục `apps/web`:
 
 ```powershell
 npm.cmd run build

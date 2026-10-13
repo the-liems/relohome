@@ -2,17 +2,19 @@
   {
     "service": "web",
     "context": ".",
-    "dockerfile": "Frontend/Dockerfile",
+    "dockerfile": "apps/web/Dockerfile",
     "target": "",
     "paths": [
-      "Frontend/",
+      "apps/web/",
       "src/",
       "config/",
       "requirements.txt",
       "package.json",
       "package-lock.json",
       "packages/python/",
-      "requirements-runtime.txt"
+      "requirements-runtime.txt",
+      "apps/browser-gateway/",
+      "Frontend/"
     ]
   },
   {

@@ -49,7 +49,10 @@ class RoommateRuntime:
             return (value if value.is_absolute() else root / value).resolve()
 
         directory = runtime_path(settings.roommate_state_dir)
-        if directory.is_relative_to(root / "data") or directory.is_relative_to(root / "Frontend" / "public"):
+        if directory.is_relative_to(root / "data") or any(
+            directory.is_relative_to(root / public)
+            for public in ("Frontend/public", "apps/web/public", "apps/web/dist")
+        ):
             raise ValueError("Roommate state must be outside public data and frontend assets")
         path = directory / "roommate.sqlite3"
         membership = (
@@ -63,7 +66,7 @@ class RoommateRuntime:
             if settings.app_env == "production" or settings.roommate_demo_dataset is None:
                 raise ValueError("Roommate demo requires an explicit dataset and a non-production environment")
             demo_path = runtime_path(settings.roommate_demo_dataset)
-            if demo_path.is_relative_to(root / "Frontend" / "public"):
+            if any(demo_path.is_relative_to(root / public) for public in ("Frontend/public", "apps/web/public", "apps/web/dist")):
                 raise ValueError("Demo dataset must not be a public frontend asset")
             demo = DemoDataset.load(demo_path)
         postgres = None

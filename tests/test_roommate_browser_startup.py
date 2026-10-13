@@ -17,7 +17,7 @@ def test_roommate_browser_server_bootstraps_runtime_root():
         subprocess.run([sys.executable, '-c', '''
 import os
 from fastapi.testclient import TestClient
-from Frontend.tests.roommate_test_server import ROOT, app
+from tests.browser_gateway.roommate_test_server import ROOT, app
 assert os.environ['RELOHOME_RUNTIME_ROOT'] == str(ROOT)
 with TestClient(app) as client:
     assert client.get('/health').status_code == 200

@@ -13,17 +13,22 @@ The [product brief](docs/product.md) defines the intended customer flow and open
 
 ## Current application
 
-- React browser application and authenticated Python gateway in [`Frontend/`](Frontend/README.md).
+- React browser application in [`apps/web/`](apps/web/README.md), with the authenticated Python gateway in [`apps/browser-gateway/`](apps/browser-gateway/README.md).
 - FastAPI agent API and LangGraph workflow in [`src/agents/`](src/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
 - Location/Housing/Map and Moving services in [`Maps VN/LifeFlow/`](Maps%20VN/LifeFlow/README.md).
 - Flight search and Payment MCP servers in `src/mcp_servers/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
 - Separate Intake and Routing services in `src/agent_services/`; their execution gateway is disconnected by default.
 
-The [frontend service audit](Frontend/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
+The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
 
 ## Run locally
 
-Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies, provider credentials, database snapshots, service startup, and recovery. Follow the [frontend README](Frontend/README.md) to build and run the browser application at port 8503. The agent runtime requires an LLM API key and a trusted gateway token; copying `.env.example` alone does not configure the services.
+After pulling the web/gateway relocation (#113) into an existing checkout, run
+`npm ci` and `npm run setup:python` from the repository root before launching
+services or tests. This updates the old editable gateway mapping; see the
+[migration instructions](docs/integration/web-gateway-relocation.md#development-and-tests).
+
+Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies, provider credentials, database snapshots, service startup, and recovery. Follow the [frontend README](apps/web/README.md) to build and run the browser application at port 8503. The agent runtime requires an LLM API key and a trusted gateway token; copying `.env.example` alone does not configure the services.
 
 The [Moving container runbook](docs/runbooks/moving-containers.md) covers the isolated Moving stack. The root `docker-compose.yml` starts the backend and Flight/Payment MCP containers; Location, Moving, and the frontend have separate setup instructions.
 

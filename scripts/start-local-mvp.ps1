@@ -8,7 +8,7 @@ if (-not (Test-Path -LiteralPath $pythonPath)) { throw 'Missing .venv. Install t
 if (-not (Test-Path -LiteralPath (Join-Path $repoRoot '.env.local'))) {
     throw 'Missing .env.local. Do not reinitialize an existing database; check the local runbook.'
 }
-if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'Frontend/dist/index.html'))) {
+if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'apps/web/dist/index.html'))) {
     throw 'Missing frontend build. At repository root, run npm ci and npm run build first.'
 }
 if ($StartupTimeoutSeconds -lt 1 -or $StartupTimeoutSeconds -gt 60) { throw 'StartupTimeoutSeconds must be 1-60.' }
