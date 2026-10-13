@@ -1,5 +1,9 @@
 # Jev guardrails — đợt 1: quan sát, chưa chặn
 
+> Historical rollout description. Follow-up #155 changes runtime to structured-only
+> projection and records narrative assessment privacy skips, credential validation and
+> coverage metrics. Read [current hardening notes](jev-hardening-2026-10-14.md) first.
+
 Issue: #143. Nhánh: `feat/143-jev-guardrails`. Nền: `main` tại `faae3c6` (đã có relocation #139/#141).
 
 ## Đã triển khai

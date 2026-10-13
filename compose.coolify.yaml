@@ -101,7 +101,7 @@ services:
     environment:
       # Team test phase: "staging" allows the tester payment control below. Set
       # "production" (and remove the tester variables) before outside users try it.
-      APP_ENV: staging
+      APP_ENV: ${APP_ENV:-staging}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       AGENT_GUARDRAIL_MODE: ${AGENT_GUARDRAIL_MODE:-off}
@@ -138,6 +138,8 @@ services:
       APP_PAYMENT_DEMO_ENABLED: "true"
       # Choose several homes, schedule test-mode viewings, decide one (housing-viewing-design).
       HOUSING_VIEWING_ENABLED: "true"
+      # Operator opt-in; production ignores this even when configured true.
+      HOUSING_VIEWING_TEST_VISIT_ANYTIME: ${HOUSING_VIEWING_TEST_VISIT_ANYTIME:-false}
       PAYMENT_TESTER_CONFIRM_ENABLED: "true"
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
       # Background ZaloPay checks while an order is payable (seconds); see deploy guide.

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import math
 import re
+import unicodedata
+from datetime import date, time
 
 from relohome_agent.agents.intake import redact_pii
 from relohome_agent.agents.models import RequestKind
@@ -144,6 +146,84 @@ class ProjectionLimitError(ValueError):
     """Skip observation rather than judging silently truncated evidence."""
 
 
+class ProjectionPrivacyError(ValueError):
+    """Required narrative evidence cannot safely be forwarded by the runtime."""
+
+
+# No general-purpose NER/regex can promise removal of names and private addresses.
+# Runtime therefore drops narrative fields and aliases every non-schema string.
+NARRATIVE_FIELDS = frozenset(
+    {"latest_user_request", "user_request", "evidence", "reason", "next_step", "description", "address", "label"}
+)
+SCHEMA_VALUES = {
+    "domain": frozenset({"property", "map", "flight", "relocation", "payment", "roommate"}),
+    "requested_domains": frozenset({"property", "map", "flight", "relocation", "payment", "roommate"}),
+    "request_kind": frozenset(kind.value for kind in RequestKind),
+    "room_type": frozenset({"room", "studio", "apartment", "house", "shared", "dormitory"}),
+    "must_have": frozenset(
+        {"air_conditioning", "wifi", "parking", "balcony", "elevator", "furnished", "kitchen", "pet_allowed"}
+    ),
+    "trip_type": frozenset({"one_way", "round_trip"}),
+    "route_profile": frozenset({"driving", "walking", "cycling"}),
+    "currency": frozenset({"VND", "USD"}),
+    "period": frozenset({"month", "night", "week", "year"}),
+}
+DATE_FIELDS = frozenset({"date", "flight_date", "return_date", "move_date"})
+
+
+def structured_projection(state: dict) -> dict:
+    aliases: dict[str, str] = {}
+
+    def visit(value, field=""):
+        if isinstance(value, dict):
+            return {
+                key: visit(item, field if key == "value" else key)
+                for key, item in value.items()
+                if key not in NARRATIVE_FIELDS
+            }
+        if isinstance(value, list):
+            return [visit(item, field) for item in value]
+        if not isinstance(value, str):
+            return value
+        if value in SCHEMA_VALUES.get(field, ()):
+            return value
+        if field in DATE_FIELDS:
+            try:
+                if date.fromisoformat(value).isoformat() == value:
+                    return value
+            except ValueError:
+                pass
+        if field == "move_time":
+            try:
+                if re.fullmatch(r"\d{2}:\d{2}(?::\d{2})?", value):
+                    time.fromisoformat(value)
+                    return value
+            except ValueError:
+                pass
+        # Same-value comparison only, NOT a location resolver or global identifier.
+        normalized = unicodedata.normalize("NFKD", value.casefold())
+        normalized = "".join(c for c in normalized if c.isalnum() and not unicodedata.combining(c))
+        return aliases.setdefault(normalized, f"opaque_{len(aliases) + 1}")
+
+    projected = visit(state)
+    # These fields are internal, typed values, never taken from free user/provider text.
+    for key in ("request_kind", "requested_domains", "proposed_commit_kinds"):
+        if key in state:
+            projected[key] = state[key]
+    for key in ("previous_plan", "proposed_plan"):
+        for original, safe in zip(state.get(key, []), projected.get(key, []), strict=True):
+            safe["reference"] = original["reference"]
+            safe["depends_on"] = original["depends_on"]
+    projected["privacy_mode"] = "structured_only"
+    projected["free_text_available"] = False
+    projected["projection_note"] = (
+        "Narrative user evidence, names and addresses are omitted. Opaque values support equality only; "
+        "different aliases do not prove different places. Check consistency with structured Intake facts, "
+        "NOT faithfulness to the original user message. No injection-text or narrative grounding coverage."
+    )
+    return bounded(projected)
+
+
 def safe_text(value: str) -> str:
     if len(value) > MAX_TEXT_CHARS:
         raise ProjectionLimitError("text_limit")
@@ -180,7 +260,7 @@ def bounded(state: dict) -> dict:
     return state
 
 
-def plan_projection(state, plan) -> dict:
+def plan_projection(state, plan, *, synthetic_text: bool = False) -> dict:
     intake = state["intake"]
     messages = state.get("messages") or []
     latest = next((m.content for m in reversed(messages) if getattr(m, "type", None) == "human"), "")
@@ -205,10 +285,11 @@ def plan_projection(state, plan) -> dict:
     previous = state.get("plan") if intake.kind != RequestKind.NEW_GOAL else None
     if previous and len(previous.tasks) > 12:
         raise ProjectionLimitError("item_limit")
-    return bounded(
+    projected = bounded(
         {
             "latest_user_request": safe_text(latest),
             "request_kind": intake.kind.value,
+            "requested_domains": [domain.value for domain in intake.intent.domains] if intake.intent else [],
             "confirmed_facts": {
                 key: {"value": safe_value(fact.value, INPUT_FIELDS), "evidence": safe_text(fact.evidence)}
                 for key, fact in intake.user_confirmed_facts.items()
@@ -225,15 +306,21 @@ def plan_projection(state, plan) -> dict:
             "projection_note": "Allowlisted projection, not complete provider data; omitted fields cannot be verified.",
         }
     )
+    # This explicit opt-in exists only for the synthetic, non-runtime evaluation harness.
+    return projected if synthetic_text else structured_projection(projected)
 
 
-def assessment_projection(inp, result) -> dict | None:
+def assessment_projection(inp, result, *, synthetic_text: bool = False) -> dict | None:
     assessment = result.data.get("agent_assessment")
     if result.status != "done" or not isinstance(assessment, dict):
         return None
     # Only these domains expose a provider-fact schema audited for this projection.
     if result.agent.value not in {"property", "flight"}:
         return None
+    if not synthetic_text:
+        # The current agent assessment contract has reason/next_step narrative, not
+        # typed factual claims. Dropping it then judging 'grounded/clean' would lie.
+        raise ProjectionPrivacyError("assessment_text_omitted")
     data = result.data
     facts = safe_value({key: value for key, value in data.items() if key in FACT_FIELDS}, FACT_FIELDS)
     # Detail maps use provider IDs as keys. Send their VALUES only, never user/transaction IDs.

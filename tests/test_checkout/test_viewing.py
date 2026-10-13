@@ -296,6 +296,15 @@ async def test_test_mode_can_record_the_visit_before_the_slot(monkeypatch):
     assert service.visit(USER, THREAD, "a", "met_agreed")["status"] == "visited"
 
 
+def test_test_mode_still_requires_a_booked_viewing():
+    service, *_ = make(housing_viewing_test_visit_anytime=True)
+    service.select(USER, THREAD, "t1", row("a"))
+    with pytest.raises(CheckoutError) as error:
+        service.visit(USER, THREAD, "a", "met_agreed")
+    assert error.value.code == "visit_state_conflict"
+    assert service.item_view(service._item(USER, THREAD, "a"))["status"] == "selected"
+
+
 def test_test_visit_anytime_is_ignored_in_production(monkeypatch):
     from relohome_agent.config import get_settings
 
