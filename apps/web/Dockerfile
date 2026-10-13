@@ -10,12 +10,14 @@ COPY apps/web/ ./apps/web/
 RUN npm run build --workspace apps/web
 
 FROM python:3.11-slim AS python-build
+# Build isolation subprocesses inherit the same registry read timeout.
+ENV PIP_DEFAULT_TIMEOUT=120
 WORKDIR /app
 RUN python -m venv /opt/venv
 COPY requirements-runtime.txt ./
 COPY packages/python/ ./packages/python/
 COPY apps/browser-gateway/ ./apps/browser-gateway/
-RUN /opt/venv/bin/pip install --no-cache-dir --timeout 120 -r requirements-runtime.txt \
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
     ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/browser-gateway
 
 FROM python:3.11-slim AS runtime

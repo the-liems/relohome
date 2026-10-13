@@ -134,5 +134,13 @@ npm exec --offline --workspace apps/web -- playwright test --config playwright.r
 npm exec --offline --workspace apps/web -- playwright test --config playwright.roommate-ui.config.ts app.spec.ts --grep 'relocation preserves' --workers=2
 ```
 
-Image and final browser comparison results follow below.
+Full head browser comparison: **322 passed, 40 failed, 34 skipped, 396 collected**
+(13.1 minutes), with **zero new failure IDs**. The unchanged source plus four
+base-only timing failures do not constitute UI fixes. [Exact head failures](web-gateway-relocation/browser-head-failures.tsv)
+keep all 40 known failures visible. The two new persisted-browser-state cases
+were run separately after this full collection and both passed.
 
+The unchanged deterministic suites exercise login, conversation/account history,
+housing/viewing, moving, checkout approval and Roommate fixtures. Provider flags
+remain disabled. The existing broad UI failures still require #116 triage;
+no visual/product behavior changes are mixed into this relocation.
