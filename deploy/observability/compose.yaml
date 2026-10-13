@@ -140,7 +140,7 @@ services:
     volumes:
       - ./cortex.yaml:/etc/cortex/config.yaml:ro
       - ./cortex-rules/staging/expected-services.yaml:/etc/cortex/rules/staging/expected-services.yaml:ro
-      - ./cortex-rules/production/expected-services.yaml:/etc/cortex/rules/production/expected-services.yaml:ro
+      - ./cortex-rules/disabled.yaml:/etc/cortex/rules/production/expected-services.yaml:ro
       - cortex:/cortex
   grafana:
     <<: *service
@@ -162,7 +162,9 @@ services:
       - grafana:/var/lib/grafana
       - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/relohome.yaml:ro
       - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/relohome.yaml:ro
-      - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/relohome.yaml:ro
+      - ./grafana/alerts/staging.yaml:/etc/grafana/provisioning/alerting/relohome-staging.yaml:ro
+      - ./grafana/alerts/disabled/production.yaml:/etc/grafana/provisioning/alerting/relohome-production.yaml:ro
+      - ./grafana/alerts/legacy.yaml:/etc/grafana/provisioning/alerting/relohome-legacy.yaml:ro
       - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
   retention:
     <<: *service

@@ -1,0 +1,400 @@
+{
+  "uid": "relohome-overview",
+  "title": "ReloHome operations",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "relohome"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "custom",
+        "query": "staging,production",
+        "current": {
+          "text": "staging",
+          "value": "staging"
+        },
+        "options": [
+          {
+            "text": "staging",
+            "value": "staging",
+            "selected": true
+          },
+          {
+            "text": "production",
+            "value": "production",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP requests / second",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(relohome_http_requests_total{environment=\"$environment\"}[5m]))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "HTTP 5xx / second",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(relohome_http_requests_total{environment=\"$environment\",status=~\"5..\"}[5m]))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Request p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95,sum by (le,service_name) (rate(relohome_http_duration_seconds_bucket{environment=\"$environment\"}[5m])))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Agent and tool outcomes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind,outcome) (rate(relohome_operations_total{environment=\"$environment\"}[5m]))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "LLM tokens",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model,direction) (increase(relohome_llm_tokens_total{environment=\"$environment\"}[1h]))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Provider rate limits",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (provider) (increase(relohome_provider_rate_limits_total{environment=\"$environment\"}[10m]))",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Service heartbeat age",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max by (service_name) (relohome_heartbeat_seconds{environment=\"$environment\"})",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Collector queues",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "otelcol_exporter_queue_size{environment=\"$environment\"}",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Collector memory",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "otelcol_process_memory_rss{environment=\"$environment\"}",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Trace cleanup",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cortex-${environment}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "relohome_retention_last_run_success{environment=\"$environment\"}",
+          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Operational logs \u2014 click trace_id to open Langfuse",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-${environment}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{environment=\"$environment\"}",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true
+      }
+    }
+  ]
+}

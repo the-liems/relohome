@@ -31,7 +31,10 @@ Collector and, after staging validation, the production Collector. Application
 releases use the existing GHCR/image-only workflow. The renderer embeds config
 files into Coolify bind-mount `content` fields, so the host needs no repository
 checkout. Generated files are deployment artifacts; edit the sources in
-`deploy/observability/` and `scripts/render-observability.py`.
+`deploy/observability/`. Grafana reads the committed JSON/YAML through its native
+file provisioning. `scripts/render-observability.py` only selects the enabled
+environment files and packages their existing contents; it does not construct
+dashboards, data sources or alert rules, or expand environment variables.
 Coolify writes inline `content` verbatim before invoking Docker Compose. Preserve
 the file's original dollar signs: Collector and Caddy expand their own environment
 references, and Grafana provisioning retains its own `$$` escape for trace links.
@@ -217,7 +220,7 @@ open. External provider internals remain outside our traces. Langfuse pricing
 depends on available model definitions; an unpriced model must not be interpreted
 as a zero-cost call.
 
-Before enabling production, render the shared stack again with
+Before enabling production, package the shared stack again with
 `--environments staging production` and set
 `OBSERVABILITY_ENVIRONMENTS=staging,production`. This adds production alert rules,
 expected heartbeat inventory in its Cortex tenant and trace retention. Deploy the production
@@ -257,6 +260,95 @@ Prolonged outages, full queues, permanent rejection and disk exhaustion can drop
 telemetry. Application requests and payments remain independent of export.
 
 ## Dashboards and alerts
+
+### Configuration stored in Git
+
+Edit the following files directly; their contents are the provisioning source:
+
+| Source under `deploy/observability/` | Purpose |
+| --- | --- |
+| `grafana/overview.json` | Dashboard panels, queries, layout and environment selector |
+| `grafana/dashboards.yaml` | File-provider settings and dashboard folder |
+| `grafana/datasources.yaml` | Fixed-tenant Cortex/Loki connections and Langfuse trace links |
+| `grafana/alerts/staging.yaml`, `grafana/alerts/production.yaml` | Alert groups and queries for each environment |
+| `grafana/alerts/disabled/staging.yaml`, `grafana/alerts/disabled/production.yaml` | Removal of this deployment's alert rules when an environment is disabled |
+| `grafana/alerts/legacy.yaml` | Removal of the previous global alert-rule UIDs |
+| `cortex-rules/{staging,production}/expected-services.yaml` | Expected-service recording rules for each tenant |
+| `cortex-rules/disabled.yaml` | Empty recording-rule inventory for a disabled environment |
+
+The packager defaults to staging. It selects the active staging files and
+disabled production files; `--environments staging production` selects both
+active sets. It copies selected files unchanged into the output or Coolify bind
+mounts. Data-source tenant headers, dashboard defaults and environment-specific
+alert UIDs stay explicit in the reviewed source files. No Terraform or additional
+provisioning framework is needed.
+
+Keep credentials and deployment-specific values in the resource's environment
+variables. Grafana resolves provisioning YAML references such as `LANGFUSE_URL`
+and the two Langfuse project IDs at runtime. Keep the trace-link
+`$${__value.raw}` escape in YAML and the dashboard's `$environment` variable in
+JSON. Dashboard JSON does not expand process environment variables; put runtime
+values in provisioning YAML instead. For secret values containing `$`, use
+`$VARIABLE` references to avoid a second expansion. See
+[Grafana environment-variable provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/#use-environment-variables).
+
+### Review and apply changes
+
+1. Edit the source JSON/YAML and review the configuration change in a PR. Keep
+   queries, tenant routing and related data-source UIDs consistent. When adding,
+   removing or renaming alert rules, update the matching UIDs in the disabled
+   cleanup files as well.
+2. Run the focused configuration checks:
+
+   ```bash
+   python -m pytest tests/test_observability_render.py -q
+   ```
+
+3. Re-run `scripts/render-observability.py` with the deployment's current
+   `--environments` selection. For Coolify, replace that resource's Compose
+   definition with the newly packaged `compose.coolify.yaml`; its inline files
+   are a snapshot, so editing Git alone does not update them. For local Compose,
+   deploy the updated output files and Compose definition together. Preserve the
+   existing resource identity, volumes and deployment secrets.
+4. Deploy the updated resource. Grafana provisions the mounted files. Check that
+   the dashboard shows application data for the selected environment and that a
+   log's trace link opens the correct Langfuse project.
+
+Choose the apply method according to the changed file:
+
+| Change | Apply method |
+| --- | --- |
+| Dashboard JSON, with the new bytes already visible in the running container | The file provider polls every 30 seconds; no Grafana restart is needed. |
+| Dashboard provider YAML | Restart Grafana or `POST /api/admin/provisioning/dashboards/reload`. |
+| Data-source YAML | Restart Grafana or `POST /api/admin/provisioning/datasources/reload`. |
+| Alert-rule YAML, with the new bytes already visible in the running container | Restart Grafana or `POST /api/admin/provisioning/alerting/reload`. |
+| Enabled/disabled environment selection | Recreate/redeploy the container: the selection changes bind-mount source paths, which a provisioning reload cannot update. |
+| Container environment values, including credentials, URLs or project IDs | Recreate/redeploy the container with the new environment; a provisioning reload does not change the process environment. |
+
+Coolify redeployment is the normal path because it updates the inline files and
+container configuration together. Admin reload endpoints require Basic
+Authentication with a Grafana server administrator; a service-account token is
+not sufficient. Reloading dashboard provisioning also refreshes its file-provider
+configuration. See the
+[Admin provisioning reload API](https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/api-legacy/admin/#reload-provisioning-configurations),
+[data-source management](https://grafana.com/docs/grafana/latest/administration/data-source-management/#provisioned-data-sources)
+and [alert file provisioning](https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/).
+
+The dashboard provider uses `allowUiUpdates: false`: UI changes cannot be saved
+over the provisioned dashboard. To experiment, edit a separate copy, export its
+JSON and review the intended changes into `overview.json`. **UI edits never
+update Git automatically.** Keep the source dashboard UID when replacing its
+definition. `disableDeletion: true` preserves an existing dashboard if its source
+file disappears; retirement needs an explicit operator action. These settings
+and polling behavior are described in
+[Grafana dashboard provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards).
+
+Contact points and notification policies remain outside these files. Configure
+them later in Grafana's UI or separate provisioning files; deploying this stack
+requires no Discord webhook. UI-managed notifications are stored in Grafana's
+database, not written back to this repository.
+
+### Metrics, queries and alert evaluation
 
 Cortex receives metrics over native OTLP. Its suffix normalization produces
 application counters such as `relohome_http_requests_total` and histograms such

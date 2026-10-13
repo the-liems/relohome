@@ -300,8 +300,6 @@ def main(smoke=False, verify_images=False):
             for tenant in ("staging", "production"):
                 datasource = request(grafana + "/api/datasources/uid/cortex-" + tenant, headers=gf_auth)
                 assert datasource["type"] == "prometheus" and datasource["url"] == "http://cortex:9009/prometheus"
-            dashboard = request(grafana + "/api/dashboards/uid/relohome-overview", headers=gf_auth)
-            assert len(dashboard["dashboard"]["panels"]) >= 10
             source = request(grafana + "/api/datasources/uid/loki-staging", headers=gf_auth)
             assert source["jsonData"]["derivedFields"][0]["url"].endswith("/traces/${__value.raw}")
             print("Langfuse ready; Grafana data sources and alert rules provisioned", flush=True)

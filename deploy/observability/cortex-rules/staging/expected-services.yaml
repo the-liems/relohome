@@ -1,0 +1,44 @@
+groups:
+- name: relohome-inventory
+  interval: 30s
+  rules:
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: web
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: backend
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: platform
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: location
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: moving-api
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: moving-mcp
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: flights-mcp
+      environment: staging
+  - record: relohome_expected_service_info
+    expr: vector(1)
+    labels:
+      service_name: payments-mcp
+      environment: staging

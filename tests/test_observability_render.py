@@ -1,6 +1,7 @@
 """Deployment files must reach their consumers unchanged through Coolify storage."""
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -12,33 +13,35 @@ renderer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(renderer)
 
 
-@pytest.mark.parametrize("kind", ["stack", "collector"])
-def test_coolify_storage_matches_local_runtime_files(tmp_path, kind):
-    local = tmp_path / "local"
-    renderer.render(local, kind=kind)
-    compose = renderer.render(tmp_path / "coolify", kind=kind, coolify=True)
+def runtime_files(compose):
+    """Read file mounts by their consumer path for either packaging mode."""
+    files = {}
     definition = yaml.safe_load(compose.read_text())
-    inline_files = [mount for service in definition["services"].values()
-                    for mount in service.get("volumes", []) if isinstance(mount, dict) and "content" in mount]
-    assert inline_files
-    for mount in inline_files:
-        # Coolify writes these bytes to storage before Compose sees the bind mount.
-        expected = (local / mount["source"].removeprefix("./")).read_text()
-        assert mount["content"] == expected, mount["target"]
+    for service in definition["services"].values():
+        for mount in service.get("volumes", []):
+            if isinstance(mount, dict) and "content" in mount:
+                files[mount["target"]] = (mount["source"], mount["content"])
+            elif isinstance(mount, str) and mount.startswith("./"):
+                source, target, *_ = mount.split(":")
+                files[target] = (source, (compose.parent / source).read_text())
+    return files
 
 
-def test_coolify_keeps_consumer_environment_and_dashboard_interpolation(tmp_path):
+@pytest.mark.parametrize("kind", ["stack", "collector"])
+@pytest.mark.parametrize("coolify", [False, True])
+def test_packaged_files_match_git_sources(tmp_path, kind, coolify):
+    files = runtime_files(renderer.render(tmp_path, kind=kind, coolify=coolify))
+    assert files
+    for source, content in files.values():
+        # Packaging must preserve consumer interpolation and directly editable source files.
+        assert content.encode() == (renderer.SOURCE / source).read_bytes(), source
+
+
+def test_coolify_keeps_gateway_and_collector_interpolation(tmp_path):
     stack = yaml.safe_load(renderer.render(tmp_path / "stack", coolify=True).read_text())
     mounts = {mount["source"]: mount["content"] for service in stack["services"].values()
               for mount in service.get("volumes", []) if isinstance(mount, dict) and "content" in mount}
     assert "staging {$STAGING_INGEST_PASSWORD_HASH}" in mounts["./Caddyfile"]
-    datasources = yaml.safe_load(mounts["./grafana/datasources.yaml"])
-    assert datasources["datasources"][1]["jsonData"]["derivedFields"][0]["url"] == (
-        "${LANGFUSE_URL}/project/${LANGFUSE_STAGING_PROJECT_ID}/traces/$${__value.raw}"
-    )
-    dashboard = yaml.safe_load(mounts["./grafana/overview.json"])
-    assert '{environment="$environment"}' in dashboard["panels"][0]["targets"][0]["expr"]
-
     collector = yaml.safe_load(renderer.render(tmp_path / "collector", kind="collector", coolify=True).read_text())
     config = yaml.safe_load(collector["services"]["collector"]["volumes"][0]["content"])
     assert config["extensions"]["bearertokenauth/app"]["token"] == "${env:OTEL_COLLECTOR_TOKEN}"
@@ -73,51 +76,96 @@ def test_existing_bucket_configuration_stays_in_deployment_environment(tmp_path,
     assert not (tmp_path / "minio-lifecycle.json").exists()
 
 
-@pytest.mark.parametrize("environments", [("staging",), ("production",), ("staging", "production")])
-def test_metrics_queries_rules_and_inventory_use_matching_tenants(tmp_path, environments):
-    stack = yaml.safe_load(renderer.render(tmp_path, environments=environments).read_text())
+@pytest.mark.parametrize("environments", [None, ("production",), ("staging", "production")])
+@pytest.mark.parametrize("coolify", [False, True])
+def test_metrics_queries_rules_and_inventory_use_matching_tenants(tmp_path, environments, coolify):
+    options = {} if environments is None else {"environments": environments}
+    environments = environments or ("staging",)
+    compose = renderer.render(tmp_path, coolify=coolify, **options)
+    stack = yaml.safe_load(compose.read_text())
+    files = runtime_files(compose)
     assert "cortex" in stack["services"]
     assert "prometheus" not in stack["services"]
     assert "prometheus" not in stack["volumes"]
-    assert not (tmp_path / "prometheus.yaml").exists()
 
-    sources = yaml.safe_load((tmp_path / "grafana/datasources.yaml").read_text())
+    sources = yaml.safe_load(files["/etc/grafana/provisioning/datasources/relohome.yaml"][1])
     by_uid = {source["uid"]: source for source in sources["datasources"]}
     assert sources["deleteDatasources"] == [{"name": "Prometheus", "orgId": 1}]
     for environment in ("staging", "production"):
         source = by_uid["cortex-" + environment]
         assert source["type"] == "prometheus"  # Grafana's query protocol, not a separate server.
         assert source["url"] == "http://cortex:9009/prometheus"
-        assert source["jsonData"]["httpHeaderName1"] == "X-Scope-OrgID"
-        assert source["secureJsonData"]["httpHeaderValue1"] == environment
-        inventory = yaml.safe_load((tmp_path / "cortex-rules" / environment / "expected-services.yaml").read_text())
+        for uid in ("cortex-" + environment, "loki-" + environment):
+            assert by_uid[uid]["jsonData"]["httpHeaderName1"] == "X-Scope-OrgID"
+            assert by_uid[uid]["secureJsonData"]["httpHeaderValue1"] == environment
+
+        inventory_source, inventory_content = files[f"/etc/cortex/rules/{environment}/expected-services.yaml"]
+        inventory = yaml.safe_load(inventory_content)
+        alert_source, alert_content = files[f"/etc/grafana/provisioning/alerting/relohome-{environment}.yaml"]
+        alerts = yaml.safe_load(alert_content)
+        for source_path, content in ((inventory_source, inventory_content), (alert_source, alert_content)):
+            assert content.encode() == (renderer.SOURCE / source_path).read_bytes()
         if environment not in environments:
+            assert inventory_source == "./cortex-rules/disabled.yaml"
             assert inventory == {"groups": []}
-        else:
-            rules = [rule for group in inventory["groups"] for rule in group["rules"]]
-            assert {rule["labels"]["service_name"] for rule in rules} == set(renderer.SERVICES)
-            assert all(rule["labels"]["environment"] == environment for rule in rules)
-            assert all(rule["record"] == "relohome_expected_service_info" for rule in rules)
+            assert alert_source == f"./grafana/alerts/disabled/{environment}.yaml"
+            assert not alerts.get("groups")
+            active = yaml.safe_load((renderer.SOURCE / f"grafana/alerts/{environment}.yaml").read_text())
+            active_uids = {rule["uid"] for group in active["groups"] for rule in group["rules"]}
+            assert {rule["uid"] for rule in alerts["deleteRules"]} == active_uids
+            continue
 
-    alerts = yaml.safe_load((tmp_path / "grafana/alerts.yaml").read_text())
-    assert {group["name"] for group in alerts["groups"]} == {"relohome-" + env for env in environments}
-    deleted = {rule["uid"] for rule in alerts["deleteRules"]}
-    for group in alerts["groups"]:
-        assert group["rules"]
-        for rule in group["rules"]:
-            environment = rule["labels"]["environment"]
-            assert environment in environments
-            assert rule["uid"].startswith("rh-" + environment + "-")
-            assert rule["uid"] not in deleted
-            query = next(item for item in rule["data"] if item["refId"] == "A")
-            assert query["datasourceUid"] == "cortex-" + environment
-            assert query["model"]["datasource"]["uid"] == query["datasourceUid"]
-    for environment in {"staging", "production"} - set(environments):
-        assert "rh-" + environment + "-heartbeat" in deleted
+        assert inventory_source == f"./cortex-rules/{environment}/expected-services.yaml"
+        inventory_rules = [rule for group in inventory["groups"] for rule in group["rules"]]
+        assert inventory_rules
+        assert all(rule["labels"]["environment"] == environment for rule in inventory_rules)
+        assert all(rule["record"] == "relohome_expected_service_info" for rule in inventory_rules)
+        assert alert_source == f"./grafana/alerts/{environment}.yaml"
+        assert {group["name"] for group in alerts["groups"]} == {"relohome-" + environment}
+        assert not alerts.get("deleteRules")
+        for group in alerts["groups"]:
+            assert group["rules"]
+            for rule in group["rules"]:
+                assert rule["labels"]["environment"] == environment
+                assert rule["uid"].startswith("rh-" + environment + "-")
+                query = next(item for item in rule["data"] if item["refId"] == "A")
+                assert query["datasourceUid"] == "cortex-" + environment
+                assert query["model"]["datasource"]["uid"] == query["datasourceUid"]
 
-    dashboard = yaml.safe_load((tmp_path / "grafana/overview.json").read_text())
-    assert all(panel["datasource"]["uid"] == "cortex-${environment}" for panel in dashboard["panels"]
-               if panel["type"] == "timeseries")
+    legacy = yaml.safe_load(files["/etc/grafana/provisioning/alerting/relohome-legacy.yaml"][1])
+    assert not legacy.get("groups")
+    assert all(not rule["uid"].startswith(("rh-staging-", "rh-production-")) for rule in legacy["deleteRules"])
+
+    dashboard = json.loads(files["/var/lib/grafana/dashboards/overview.json"][1])
+    for panel in dashboard["panels"]:
+        assert all('{environment="$environment"' in target["expr"] for target in panel["targets"])
+        for environment in ("staging", "production"):
+            assert panel["datasource"]["uid"].replace("${environment}", environment) in by_uid
+    variable = next(item for item in dashboard["templating"]["list"] if item["name"] == "environment")
+    assert variable["current"]["value"] == "staging"
+
+
+@pytest.mark.parametrize("coolify", [False, True])
+def test_grafana_runtime_values_are_not_embedded_in_artifacts(tmp_path, monkeypatch, coolify):
+    for name in ("GRAFANA_ADMIN_PASSWORD", "LANGFUSE_URL", "LANGFUSE_STAGING_PROJECT_ID",
+                 "LANGFUSE_PRODUCTION_PROJECT_ID", "DISCORD_WEBHOOK_URL"):
+        monkeypatch.setenv(name, "deployment-value-must-not-be-rendered")
+    compose = renderer.render(tmp_path, coolify=coolify)
+    files = runtime_files(compose)
+    assert "deployment-value-must-not-be-rendered" not in compose.read_text()
+    assert all("deployment-value-must-not-be-rendered" not in content for _, content in files.values())
+    assert "DISCORD_WEBHOOK_URL" not in compose.read_text()
+    for target, (_, content) in files.items():
+        if target.startswith("/etc/grafana/provisioning/alerting/"):
+            config = yaml.safe_load(content)
+            assert not ({"contactPoints", "policies", "deleteContactPoints"} & config.keys())
+    sources = yaml.safe_load(files["/etc/grafana/provisioning/datasources/relohome.yaml"][1])
+    for source in sources["datasources"]:
+        if source["type"] == "loki":
+            environment = source["secureJsonData"]["httpHeaderValue1"]
+            assert source["jsonData"]["derivedFields"][0]["url"] == (
+                "${LANGFUSE_URL}/project/${LANGFUSE_" + environment.upper() + "_PROJECT_ID}/traces/$${__value.raw}"
+            )
 
 
 @pytest.mark.parametrize("coolify", [False, True])
