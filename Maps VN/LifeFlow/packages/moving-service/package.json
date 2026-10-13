@@ -14,11 +14,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run tests",
-    "test:live": "vitest run tests/live.staging.test.ts"
+    "test:live": "node --env-file=../../../../.env.local ../../../../node_modules/vitest/vitest.mjs run tests/live.staging.test.ts"
   },
   "dependencies": {
     "@lifeflow/contracts": "0.1.0",
-    "dotenv": "^17.2.3",
     "pg": "^8.23.0",
     "zod": "^4.1.12"
   },

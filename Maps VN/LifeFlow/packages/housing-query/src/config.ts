@@ -1,28 +1,3 @@
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { config as loadDotEnv } from 'dotenv'
-
-let environmentLoaded = false
-
-function loadEnvironment() {
-  if (environmentLoaded) return
-  environmentLoaded = true
-
-  const candidates = [
-    process.env.LIFEFLOW_ENV_FILE,
-    resolve(process.cwd(), '.env'),
-    resolve(process.cwd(), '../.env'),
-    resolve(process.cwd(), '../../.env'),
-  ].filter((value): value is string => Boolean(value))
-
-  for (const path of candidates) {
-    if (existsSync(path)) {
-      loadDotEnv({ path, quiet: true })
-      return
-    }
-  }
-}
-
 function required(name: string) {
   const value = process.env[name]
   if (!value) throw new Error(`Missing required environment variable: ${name}`)
@@ -68,15 +43,15 @@ export function resolvePublicDrivingOsrmUrl(value: string | undefined): string |
 }
 
 export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
-  loadEnvironment()
   const publicDrivingOsrmUrl = resolvePublicDrivingOsrmUrl(process.env.OSRM_PUBLIC_DRIVING_URL)
   const commuteCandidateLimit = Number(process.env.COMMUTE_CANDIDATE_LIMIT || 100)
   if (!Number.isInteger(commuteCandidateLimit) || commuteCandidateLimit < 1 || commuteCandidateLimit > 1_000) {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
   }
 
-  const configuredDatabaseUrl = process.env.DATABASE_URL
-  const resolvedDatabaseUrl = configuredDatabaseUrl || databaseUrl(
+  // LOCATION_* names come from the shared local environment and win over a generic
+  // inherited DATABASE_URL; containers may still set the generic runtime names.
+  const resolvedDatabaseUrl = process.env.LOCATION_DATABASE_URL || process.env.DATABASE_URL || databaseUrl(
     required('POSTGRES_APP_USER'),
     required('POSTGRES_APP_PASSWORD'),
   )
@@ -115,9 +90,13 @@ export function getRuntimeConfig(): RuntimeConfig {
   return {
     ...applicationConfig,
     adminDatabaseUrl:
+      process.env.LOCATION_ADMIN_DATABASE_URL ||
       process.env.ADMIN_DATABASE_URL ||
       databaseUrl(required('POSTGRES_ADMIN_USER'), required('POSTGRES_ADMIN_PASSWORD')),
-    ingestDatabaseUrl: process.env.INGEST_DATABASE_URL || databaseUrl(ingestUser, ingestPassword),
+    ingestDatabaseUrl:
+      process.env.LOCATION_INGEST_DATABASE_URL ||
+      process.env.INGEST_DATABASE_URL ||
+      databaseUrl(ingestUser, ingestPassword),
     postgresAppUser: appUser,
     postgresAppPassword: appPassword,
     postgresIngestUser: ingestUser,

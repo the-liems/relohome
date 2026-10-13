@@ -10,7 +10,6 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
 from src.agents.common import utcnow
@@ -22,7 +21,6 @@ from src.agents.planner_llm import LlmPlanner
 from src.agents.planning import PlannerInput, validate_plan
 from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
-load_dotenv()
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real OpenAI opt-in")]
 
 

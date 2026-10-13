@@ -20,11 +20,17 @@ beforeAll(async () => {
     env: {
       ...process.env,
       DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
+      POSTGRES_APP_USER: 'unused',
+      POSTGRES_APP_PASSWORD: 'unused',
+      POSTGRES_HOST: '127.0.0.1',
+      POSTGRES_PORT: '1',
+      POSTGRES_DB: 'unused',
       MCP_HOST: '127.0.0.1',
       MCP_PORT: String(port),
       MCP_ALLOWED_HOSTS: '127.0.0.1,localhost',
       MCP_ALLOWED_ORIGIN_HOSTS: '127.0.0.1,localhost',
-      MCP_AUTH_TOKEN: authToken,
+      MCP_AUTH_TOKEN: '',
+      LOCATION_MCP_AUTH_TOKEN: authToken,
     },
     stdio: 'inherit',
   })

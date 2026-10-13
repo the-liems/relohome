@@ -423,7 +423,7 @@ async def run(output, budget, rpm, workers, limit=None, include_streets=False, s
     source = BASE.prepared_source(inventory)
     if BASE.sha256(source) != inventory["source_sha256"]:
         raise ValueError("Source changed; regenerate inventory first")
-    key_pool = KeyPool(dotenv_values(BASE.ROOT / ".env"), output / "api-key-state.json")
+    key_pool = KeyPool(dotenv_values(BASE.ROOT / ".env.local"), output / "api-key-state.json")
     task_list = list(BASE.read_jsonl(output / "tasks.jsonl"))
     # Resolve conflicting shared pins first, using the current runtime data.
     # Keep frozen original evidence and completed cache; no artificial pin spread.

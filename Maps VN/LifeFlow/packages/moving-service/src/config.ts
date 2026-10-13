@@ -1,26 +1,4 @@
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { config as loadDotEnv } from 'dotenv'
 import { MovingServiceError } from './errors.js'
-
-let loaded = false
-
-export function loadMovingEnvironment() {
-  if (loaded) return
-  loaded = true
-  const candidates = [
-    process.env.LIFEFLOW_ENV_FILE,
-    resolve(process.cwd(), '.env'),
-    resolve(process.cwd(), '../.env'),
-    resolve(process.cwd(), '../../.env'),
-  ].filter((value): value is string => Boolean(value))
-  for (const path of candidates) {
-    if (existsSync(path)) {
-      loadDotEnv({ path, quiet: true })
-      break
-    }
-  }
-}
 
 function required(name: string) {
   const value = process.env[name]?.trim()
@@ -70,7 +48,6 @@ export interface MovingRuntimeConfig {
 }
 
 export function getMovingRuntimeConfig(): MovingRuntimeConfig {
-  loadMovingEnvironment()
   const environment = (process.env.AHAMOVE_ENV || 'staging') as 'staging' | 'production'
   if (!['staging', 'production'].includes(environment)) {
     throw new MovingServiceError('CONFIGURATION_ERROR', 'AHAMOVE_ENV must be staging or production.')

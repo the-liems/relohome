@@ -25,7 +25,7 @@ class LifeFlowMcpClient:
     def __init__(self, lifeflow_root: Path) -> None:
         self.lifeflow_root = lifeflow_root.resolve()
         self.server_path = self.lifeflow_root / "mcp-server" / "dist" / "server.js"
-        self.env_path = self.lifeflow_root / ".env"
+        self.env_path = self.lifeflow_root.parents[1] / ".env.local"
         self._request_id = 0
         self._stderr: deque[str] = deque(maxlen=30)
 
@@ -36,21 +36,7 @@ class LifeFlowMcpClient:
         if not self.env_path.exists():
             raise McpClientError(f"Thiếu cấu hình LifeFlow: {self.env_path}")
 
-        child_env = os.environ.copy()
-        # The repository-level .env belongs to the Python starter and may
-        # define a placeholder DATABASE_URL (for example user/password).
-        # LifeFlow owns separate Postgres credentials, so never leak those
-        # generic URLs into the MCP child process.
-        for key in ("DATABASE_URL", "ADMIN_DATABASE_URL", "INGEST_DATABASE_URL"):
-            child_env.pop(key, None)
-        child_env.update(
-            {
-                key: value
-                for key, value in dotenv_values(self.env_path).items()
-                if value is not None
-            }
-        )
-        child_env["LIFEFLOW_ENV_FILE"] = str(self.env_path)
+        child_env = {**{k: v for k, v in dotenv_values(self.env_path).items() if v is not None}, **os.environ}
 
         self.process = subprocess.Popen(
             ["node", str(self.server_path)],
