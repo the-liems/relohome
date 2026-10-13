@@ -1,4 +1,5 @@
 """Explicit deployment paths, independent of wheel location and working directory."""
+
 import os
 from pathlib import Path
 
@@ -18,11 +19,11 @@ def database_path(root: Path, override=None) -> Path:
     return value if value.is_absolute() else root / value
 
 
-def media_path(root: Path) -> Path:
-    value = Path(os.getenv("SIU_HOUSING_MEDIA_DIR", "Frontend/data/housing-media"))
+def media_path(root: Path, override=None) -> Path:
+    value = Path(override or os.getenv("SIU_HOUSING_MEDIA_DIR", "Frontend/data/housing-media"))
     return value if value.is_absolute() else root / value
 
 
-def traveler_key_path(database: Path, root: Path) -> Path:
-    value = Path(os.getenv("SIU_TRAVELER_KEY_FILE", str(database.parent / "siu-web-traveler.key")))
+def traveler_key_path(database: Path, root: Path, override=None) -> Path:
+    value = Path(override or os.getenv("SIU_TRAVELER_KEY_FILE", str(database.parent / "siu-web-traveler.key")))
     return value if value.is_absolute() else root / value

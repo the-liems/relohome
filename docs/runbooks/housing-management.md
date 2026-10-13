@@ -23,6 +23,8 @@ the same PostGIS schemas and only become public after moderation.
 | `HOUSING_REVIEW_PATTERN_AUTHORS` | Default 3. Minimum independent authors for an alert. |
 | `SIU_PLATFORM_API_URL` | Platform API base, normally `http://127.0.0.1:4100/v1` on a host. |
 | `SIU_PUBLIC_BASE_URL` | Public HTTPS origin used for uploaded listing image URLs. |
+| `RELOHOME_RUNTIME_ROOT` | Absolute existing checkout/deployment root for the installed gateway and operator CLIs; `/app` in the web image. |
+| `SIU_WEB_DB` | Account/session SQLite path, relative to runtime root or absolute; Coolify uses `/app/data/siu-web.sqlite3` on `web-data`. |
 
 Run `npm run db:migrate` at repository root before starting the new workspace.
 Migrations `013_housing_product_v1.sql`, `014_housing_host_profiles.sql` and `015_housing_viewing_requests.sql`, `016`, `017_housing_contact_messages.sql` are additive and grant the
@@ -32,7 +34,10 @@ Migration `018_housing_landlord_reviews.sql` adds reviews, reports and host flag
 ## Media storage
 
 The gateway validates JPEG/PNG input, strips metadata and writes normalized PNG
-files under `Frontend/data/housing-media` (override with `SIU_HOUSING_MEDIA_DIR`). Production deployments must mount that
+files under `Frontend/data/housing-media`, relative to `RELOHOME_RUNTIME_ROOT`
+(override with `SIU_HOUSING_MEDIA_DIR`). This is the preserved local data path,
+not a Python source namespace. Coolify explicitly uses `/app/data/housing-media`
+on `web-data`; backup uses the gateway's same configured paths. Production deployments must mount that
 directory on persistent storage and include it in backup/restore. Files use random
 identifiers and are served with `nosniff`; listing media stays pending until the
 listing is reviewed.

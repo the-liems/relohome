@@ -6,11 +6,11 @@ in HOUSING_MODERATOR_IDS on Platform. Passwords are prompted, never CLI argument
 
 import argparse
 import getpass
-import os
 import secrets
 import sqlite3
 from pathlib import Path
 
+from relohome_gateway.runtime_paths import database_path, runtime_root
 from relohome_gateway.store import Store, password_hash
 
 
@@ -51,24 +51,27 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--email", required=True)
     parser.add_argument("--name", default="ReloHome Admin")
-    parser.add_argument(
-        "--database", type=Path, default=Path(os.environ.get("SIU_WEB_DB", "/app/data/siu-web.sqlite3"))
-    )
+    parser.add_argument("--database", type=Path, help="Override SIU_WEB_DB; relative paths use RELOHOME_RUNTIME_ROOT.")
     parser.add_argument(
         "--existing", action="store_true", help="Select an existing account without changing its password."
     )
     args = parser.parse_args()
+    try:
+        database = database_path(runtime_root(), args.database)
+    except ValueError as error:
+        parser.error(str(error))
     password = None
     if not args.existing:
         password = getpass.getpass("New Admin password (12+ characters): ")
         if password != getpass.getpass("Confirm password: "):
             parser.error("Passwords differ.")
     try:
-        identifier = provision(args.database, args.email, args.name, password, args.existing)
+        identifier = provision(database, args.email, args.name, password, args.existing)
     except ValueError as error:
         parser.error(str(error))
     print("Operator account ID: " + identifier)
-    print("Append this ID to HOUSING_MODERATOR_IDS on Platform, then restart Platform.")
+    print("Append this ID to HOUSING_MODERATOR_IDS in the target Coolify resource, preserving existing IDs.")
+    print("Save and redeploy/recreate Platform to apply the updated environment.")
     print("Sign in through /admin using this account. Existing sessions retain their workspace.")
 
 
