@@ -9,12 +9,14 @@ services:
       - .env.local
     environment:
       # Agent gọi flight MCP server trong container qua HTTP thay vì tự mở process stdio
+      - ROOMMATE_STATE_DIR=/app/private-roommate
       - FLIGHT_MCP_URL=http://flights-mcp:8765/mcp
       - FLIGHT_MCP_AUTH_TOKEN=${FLIGHT_MCP_AUTH_TOKEN:?}
       - PAYMENT_MCP_URL=http://payments-mcp:8766/mcp
       - PAYMENT_MCP_AUTH_TOKEN=${PAYMENT_MCP_AUTH_TOKEN:?}
     volumes:
       - ./data:/app/data
+      - roommate-private:/app/private-roommate
     depends_on:
       flights-mcp:
         condition: service_healthy
@@ -66,5 +68,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  roommate-private:
   flights-data:
   payments-data:

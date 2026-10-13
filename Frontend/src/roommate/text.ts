@@ -100,4 +100,7 @@ export const stateName = (state: string) =>
     deleted: rt("Đã xóa", "Deleted"),
     restricted: rt("Bị hạn chế", "Restricted"),
     revoked: rt("Đã thu hồi", "Revoked"),
+    open: rt("Chờ xử lý", "Open"),
+    reviewed: rt("Đã xem xét", "Reviewed"),
+    approved: rt("Đã duyệt", "Approved"),
   })[state] || state;

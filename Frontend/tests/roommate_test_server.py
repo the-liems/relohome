@@ -16,6 +16,9 @@ from src.api import (
     roommate_connections,
     roommate_discovery,
     roommate_media,
+    roommate_notifications,
+    roommate_operations,
+    roommate_privacy,
     roommate_profiles,
     roommate_safety,
     routes,
@@ -45,6 +48,9 @@ for router in (
     roommate_connections.router,
     roommate_safety.router,
     roommate_media.router,
+    roommate_notifications.router,
+    roommate_operations.router,
+    roommate_privacy.router,
 ):
     api.include_router(router, prefix="/api/v1")
 

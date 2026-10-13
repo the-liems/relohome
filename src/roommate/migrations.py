@@ -24,17 +24,42 @@ SCHEMA = (
     "CREATE TABLE media(id TEXT PRIMARY KEY, owner TEXT NOT NULL, content BLOB NOT NULL, mime TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created REAL NOT NULL)",
 )
 
+SCHEMA_VERSION = 2
+EXPANSION = (
+    "CREATE INDEX profiles_expiry ON profiles(state,expires)",
+    "CREATE INDEX profiles_room ON profiles(json_extract(content,'$.content.room.listing_id'),state,expires)",
+    "CREATE INDEX requests_expiry ON requests(state,expires)",
+    "CREATE INDEX requests_recipient_time ON requests(recipient,created,id)",
+    "CREATE INDEX grants_expiry ON grants(state,expires)",
+    "CREATE INDEX blocks_reverse ON blocks(target,actor)",
+    "CREATE INDEX reports_queue ON reports(status,created,id)",
+    "CREATE INDEX media_queue ON media(status,created,id)",
+    "CREATE TABLE notifications(id TEXT NOT NULL,actor TEXT NOT NULL,kind TEXT NOT NULL,resource TEXT NOT NULL,created REAL NOT NULL,read_at REAL,PRIMARY KEY(actor,id))",
+    "CREATE INDEX notifications_inbox ON notifications(actor,created,id)",
+    "CREATE TABLE operation_times(actor TEXT NOT NULL,key TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(actor,key),FOREIGN KEY(actor,key) REFERENCES operations(actor,key))",
+    "CREATE TABLE rate_buckets(actor TEXT NOT NULL,bucket TEXT NOT NULL,bucket_start INTEGER NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(actor,bucket,bucket_start))",
+    "CREATE TABLE operation_drafts(actor TEXT NOT NULL,key TEXT NOT NULL,fingerprint TEXT NOT NULL,ciphertext BLOB NOT NULL,created REAL NOT NULL,expires REAL NOT NULL,PRIMARY KEY(actor,key))",
+    "CREATE INDEX operation_drafts_expiry ON operation_drafts(expires)",
+    "CREATE TABLE private_metadata(name TEXT PRIMARY KEY,value TEXT NOT NULL)",
+)
+
 
 def migrate(connection: sqlite3.Connection, statements: tuple[str, ...] = SCHEMA) -> None:
+    if connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION:
+        return
     connection.execute("BEGIN IMMEDIATE")
     try:
         version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version > 1:
+        if version > SCHEMA_VERSION:
             raise ValueError("Unsupported Roommate schema version")
         if version == 0:
             for statement in statements:
                 connection.execute(statement)
             connection.execute("PRAGMA user_version=1")
+        if version < 2:
+            for statement in EXPANSION:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version=2")
         connection.commit()
     except BaseException:
         connection.rollback()

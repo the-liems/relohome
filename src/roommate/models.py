@@ -19,7 +19,7 @@ from src.roommate.policy import (
 )
 
 Value = TypeVar("Value")
-AreaId = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1)]
+AreaId = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class RoommateModel(BaseModel):
@@ -32,7 +32,7 @@ class Preference(RoommateModel, Generic[Value]):
 
 
 class AreaSelection(RoommateModel):
-    area_ids: tuple[AreaId, ...] = Field(min_length=1)
+    area_ids: tuple[AreaId, ...] = Field(min_length=1, max_length=100)
 
     @model_validator(mode="after")
     def distinct_areas(self) -> Self:
@@ -128,7 +128,7 @@ class ProfileFacts(RoommateModel):
     """Self-declared target housing situation; missing fields remain unknown."""
 
     city: City | None = None
-    area_ids: tuple[AreaId, ...] = ()
+    area_ids: tuple[AreaId, ...] = Field(default=(), max_length=100)
     budget: BudgetRange | None = None
     need: HousingNeed | None = None
     move_in: MoveInWindow | None = None
