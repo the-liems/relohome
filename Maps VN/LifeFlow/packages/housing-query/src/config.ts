@@ -49,7 +49,9 @@ export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
   }
 
-  const resolvedDatabaseUrl = process.env.DATABASE_URL || databaseUrl(
+  // LOCATION_* names come from the shared local environment and win over a generic
+  // inherited DATABASE_URL; containers may still set the generic runtime names.
+  const resolvedDatabaseUrl = process.env.LOCATION_DATABASE_URL || process.env.DATABASE_URL || databaseUrl(
     required('POSTGRES_APP_USER'),
     required('POSTGRES_APP_PASSWORD'),
   )
@@ -88,9 +90,13 @@ export function getRuntimeConfig(): RuntimeConfig {
   return {
     ...applicationConfig,
     adminDatabaseUrl:
+      process.env.LOCATION_ADMIN_DATABASE_URL ||
       process.env.ADMIN_DATABASE_URL ||
       databaseUrl(required('POSTGRES_ADMIN_USER'), required('POSTGRES_ADMIN_PASSWORD')),
-    ingestDatabaseUrl: process.env.INGEST_DATABASE_URL || databaseUrl(ingestUser, ingestPassword),
+    ingestDatabaseUrl:
+      process.env.LOCATION_INGEST_DATABASE_URL ||
+      process.env.INGEST_DATABASE_URL ||
+      databaseUrl(ingestUser, ingestPassword),
     postgresAppUser: appUser,
     postgresAppPassword: appPassword,
     postgresIngestUser: ingestUser,

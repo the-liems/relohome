@@ -27,11 +27,11 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
     # Database
-    # BACKEND_DATABASE_URL is the unique name in the shared local environment;
-    # containers and production may still set DATABASE_URL.
+    # BACKEND_DATABASE_URL is the unique name in the shared local environment and wins
+    # over a generic inherited DATABASE_URL; containers may still set DATABASE_URL.
     database_url: str = Field(
         default="sqlite:///./data/app.db",
-        validation_alias=AliasChoices("DATABASE_URL", "BACKEND_DATABASE_URL", "database_url"),
+        validation_alias=AliasChoices("BACKEND_DATABASE_URL", "DATABASE_URL", "database_url"),
     )
 
     # Vector Store

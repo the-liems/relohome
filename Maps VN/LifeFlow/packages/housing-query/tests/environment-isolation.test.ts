@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getApplicationRuntimeConfig } from '../src/config.js'
+import { getApplicationRuntimeConfig, getRuntimeConfig } from '../src/config.js'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -18,6 +18,7 @@ describe('process-only configuration', () => {
       writeFileSync(join(workspace, '.env'), 'DATABASE_URL=postgresql://wrong/workspace\n')
       vi.stubEnv('LIFEFLOW_ENV_FILE', join(root, '.env'))
       vi.stubEnv('DATABASE_URL', '')
+      vi.stubEnv('LOCATION_DATABASE_URL', '')
       vi.stubEnv('MOVING_DATABASE_URL', '')
       vi.stubEnv('POSTGRES_HOST', '127.0.0.1')
       vi.stubEnv('POSTGRES_PORT', '5433')
@@ -36,6 +37,26 @@ describe('process-only configuration', () => {
       process.chdir(cwd)
       rmSync(root, { recursive: true, force: true })
     }
+  })
+
+  it('prefers Location names over generic inherited URLs and never falls back silently', () => {
+    for (const [name, value] of Object.entries({
+      POSTGRES_APP_USER: 'app', POSTGRES_APP_PASSWORD: 'app-secret',
+      POSTGRES_ADMIN_USER: 'admin', POSTGRES_ADMIN_PASSWORD: 'admin-secret',
+      POSTGRES_INGEST_USER: 'ingest', POSTGRES_INGEST_PASSWORD: 'ingest-secret',
+      DATABASE_URL: 'sqlite:///backend.db',
+      ADMIN_DATABASE_URL: 'postgresql://generic/admin',
+      INGEST_DATABASE_URL: 'postgresql://generic/ingest',
+      LOCATION_DATABASE_URL: 'postgresql://configured-host/location?sslmode=require',
+      LOCATION_ADMIN_DATABASE_URL: 'postgresql://configured-host/admin?sslmode=require',
+      LOCATION_INGEST_DATABASE_URL: 'postgresql://configured-host/ingest?sslmode=require',
+    })) vi.stubEnv(name, value)
+    const config = getRuntimeConfig()
+    expect(config.databaseUrl).toBe('postgresql://configured-host/location?sslmode=require')
+    expect(config.adminDatabaseUrl).toBe('postgresql://configured-host/admin?sslmode=require')
+    expect(config.ingestDatabaseUrl).toBe('postgresql://configured-host/ingest?sslmode=require')
+    vi.stubEnv('LOCATION_DATABASE_URL', '')
+    expect(getApplicationRuntimeConfig().databaseUrl).toBe('sqlite:///backend.db')
   })
 })
 

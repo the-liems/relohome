@@ -13,12 +13,14 @@ unique names instead, and each place that starts a service translates them:
 
 | Shared name | Service reads | Translated by |
 | --- | --- | --- |
-| `BACKEND_DATABASE_URL` | Backend `DATABASE_URL` | Backend settings (accepts both names) |
+| `BACKEND_DATABASE_URL` | Backend `DATABASE_URL` | Backend settings (unique name wins) |
+| `LOCATION_DATABASE_URL`, `LOCATION_ADMIN_/INGEST_DATABASE_URL` (optional) | Location `DATABASE_URL`, `ADMIN_/INGEST_DATABASE_URL` | Location config (unique name wins) |
 | `LOCATION_MCP_AUTH_TOKEN` | Location `MCP_AUTH_TOKEN`; backend client reads it as is | Location server (accepts both names); Compose `environment:` |
 | `FLIGHT_/PAYMENT_/MOVING_MCP_AUTH_TOKEN` | Each server's `MCP_AUTH_TOKEN` | Server settings (accept both names); Compose `environment:` |
 
-Location and Moving use `POSTGRES_*` / `MOVING_DATABASE_URL`; they read `DATABASE_URL`
-only when a container, test or production sets it explicitly.
+Without the optional URLs, Location uses `POSTGRES_*` and Moving uses
+`MOVING_DATABASE_URL`. Where both are present, the unique name wins over a generic
+name inherited from the shell; containers and tests may still set the generic names.
 
 Startup passes the file natively, with no launcher or allowlist: npm dev scripts use
 `node --env-file=…` / `tsx --env-file=…` (Python commands go through Node and inherit
@@ -62,8 +64,8 @@ Do not add dotenv loading to a test module or a global conftest.
 Transfer existing values from root `.env`, `data/integration.env`, the old service
 `.env`, and (if used) `.runtime/moving-secrets.json`. Rename the backend's
 `DATABASE_URL` to `BACKEND_DATABASE_URL` and keep the Location token once as
-`LOCATION_MCP_AUTH_TOKEN`; remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the
-file. Preserve running database credentials and use the connection preflight
+`LOCATION_MCP_AUTH_TOKEN`; move a custom Location URL to `LOCATION_DATABASE_URL` (and the
+admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the file. Preserve running database credentials and use the connection preflight
 (`local-integration.py check`) before starting services.
 
 ```sh

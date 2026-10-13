@@ -82,14 +82,14 @@ def test_python_settings_do_not_read_cwd_dotenv(tmp_path, monkeypatch):
     assert ServiceSettings().agent_api_token.get_secret_value() != "wrong"
 
 
-def test_backend_reads_unique_database_name(monkeypatch):
+def test_backend_prefers_unique_database_name_over_inherited_generic(monkeypatch):
     from src.config import Settings
 
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setenv("BACKEND_DATABASE_URL", "sqlite:///shared-env.db")
-    assert Settings().database_url == "sqlite:///shared-env.db"
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///container.db")
-    assert Settings().database_url == "sqlite:///container.db"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://location-user@localhost/location")
+    monkeypatch.setenv("BACKEND_DATABASE_URL", "sqlite:///backend.db")
+    assert Settings().database_url == "sqlite:///backend.db"
+    monkeypatch.delenv("BACKEND_DATABASE_URL")
+    assert Settings().database_url == "postgresql://location-user@localhost/location"
 
 
 def test_initializer_is_private_and_never_overwrites(tmp_path, monkeypatch):
