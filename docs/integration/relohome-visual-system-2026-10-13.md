@@ -77,3 +77,4 @@ Build lại thành công. Kiểm tra bổ sung 36 trường hợp (9 màn hình 
 - `MapPanel.tsx` tự merge được: giữ comment đường dẫn `examples/map-app` từ main và bổ sung `data-service` của UI. Không phát sinh conflict cần chọn phiên bản hoặc ghi đè file.
 - Npm dependencies được cài theo lockfile mới. Backend, package layout, API, database và `.github/` không có diff so với main.
 - Bàn giao qua nhánh `QuangDung` → PR vào `main`; push fast-forward, không force-push lịch sử nhánh dùng chung.
+- Kiểm tra lại trên nhánh ổn định sau tích hợp: `npm run build:web` pass; `npm run test:contracts` 42/42 pass; bảy suite browser liên quan 110/110 pass trong một lượt chạy. Lượt trước bị gián đoạn do checkout khi Vite còn chạy, đã bỏ kết quả lượt đó và chạy lại đầy đủ.
