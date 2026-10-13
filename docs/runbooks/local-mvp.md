@@ -1,5 +1,8 @@
 # Chạy MVP tích hợp trên máy — không deploy
 
+Để test ghi kết quả xem nhà ngay mà không chờ tới giờ hẹn, dùng
+[cờ test lịch xem](housing-viewing-test.md) qua environment local/staging.
+
 ## Local configuration
 
 Use root `.env.example` as the committed template and ignored `.env.local` as the
