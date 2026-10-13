@@ -281,15 +281,18 @@ async def test_rebooking_same_time_resends_cancelled_or_closed_requests(
 
 
 @pytest.mark.asyncio
-async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, monkeypatch):
+@pytest.mark.parametrize("test_anytime", [False, True])
+async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, monkeypatch, test_anytime):
     monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    monkeypatch.setenv("HOUSING_VIEWING_TEST_VISIT_ANYTIME", "true" if test_anytime else "false")
     managed, crawled = "aaaaaaaa-1111-4111-8111-111111111111", "bbbbbbbb-1111-4111-8111-111111111111"
     slot = "2026-10-10T13:00:00+07:00"
     view = {
+        "test_visit_anytime": test_anytime,
         "items": [
             {"listing_id": managed, "status": "visit_due", "viewing": {"slot": slot}},
             {"listing_id": crawled, "status": "visit_due", "viewing": {"slot": slot}},
-        ]
+        ],
     }
     row = {
         "id": "r1",
@@ -340,6 +343,10 @@ async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, mon
             "request_id": "r1",
             "unread": 2,
         }
+        # Even a confirmed contact cannot stand in for a missing booked slot.
+        view["items"][0].pop("viewing")
+        missing = await client.post(url, json={"listing_id": managed, "outcome": "met_agreed"})
+        assert missing.status_code == 409 and visits == [crawled, managed]
 
 
 @pytest.mark.asyncio
