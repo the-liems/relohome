@@ -2,7 +2,7 @@
 !package.json
 !package-lock.json
 !requirements.txt
-!requirements-observability.txt
+!requirements-runtime.txt
 !src/
 !src/**
 !config/
@@ -19,3 +19,10 @@
 **/*.crt
 **/*.sqlite*
 **/*.db
+
+!packages/
+!packages/python/
+!packages/python/**
+**/__pycache__
+**/build
+**/*.egg-info

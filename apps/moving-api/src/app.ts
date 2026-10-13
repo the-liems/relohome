@@ -1,7 +1,7 @@
 import type { MovingDatabasePool, MovingRuntimeConfig } from '@relohome/moving-service'
 import { checkMovingReadiness, MovingService, MovingServiceError } from '@relohome/moving-service'
 import Fastify from 'fastify'
-import { observeHttp, traceId } from '@relohome/telemetry'
+import { registerFastifyTelemetry } from '@relohome/telemetry'
 import { timingSafeEqual } from 'node:crypto'
 import { RegisterMovingApprovalRequestSchema } from '@relohome/contracts'
 
@@ -23,13 +23,7 @@ export function buildMovingApp(
     return503OnClosing: true,
   })
 
-  app.addHook('onRequest', async (request, reply) => {
-    const id = traceId(request.routeOptions.url)
-    if (id) reply.header('X-Trace-Id', id)
-  })
-  app.addHook('onResponse', async (request, reply) => {
-    observeHttp(request.method, request.routeOptions.url || 'unmatched', reply.statusCode, reply.elapsedTime)
-  })
+  registerFastifyTelemetry(app)
 
   app.get('/health', async () => {
     return { status: 'ok', service: 'lifeflow-moving-api', environment: config.environment,

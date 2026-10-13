@@ -12,10 +12,9 @@ from datetime import datetime
 from typing import Any
 
 from jsonschema import Draft202012Validator
-
-from src.agents.contracts import AgentCapability
-from src.agents.deps import GraphDeps
-from src.agents.models import (
+from relohome_agent.agents.contracts import AgentCapability
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.models import (
     IntakeResult,
     Outcome,
     OutcomeCode,
@@ -26,7 +25,7 @@ from src.agents.models import (
     ValidationIssue,
     ValidationReport,
 )
-from src.agents.state import WorkflowState
+from relohome_agent.agents.state import WorkflowState
 
 S = TaskStatus
 

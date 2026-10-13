@@ -1,8 +1,8 @@
 """compute_ready và downstream_closure (agent-graph.md §6.4, §6.8)."""
 
-from src.agents.models import AgentName, Plan, Task, TaskStatus
-from src.agents.nodes.change_impact import downstream_closure
-from src.agents.nodes.executor import compute_ready
+from relohome_agent.agents.models import AgentName, Plan, Task, TaskStatus
+from relohome_agent.agents.nodes.change_impact import downstream_closure
+from relohome_agent.agents.nodes.executor import compute_ready
 
 S = TaskStatus
 P = AgentName.PROPERTY

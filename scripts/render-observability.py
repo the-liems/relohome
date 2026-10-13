@@ -43,7 +43,7 @@ def alert_config():
                          "exporter_enqueue_failed_spans", "exporter_enqueue_failed_log_records",
                          "receiver_refused_spans", "receiver_refused_log_records", "receiver_refused_metric_points",
                          "receiver_failed_spans", "receiver_failed_log_records", "receiver_failed_metric_points"]
-    # Collector 0.162's configured internal reader exposes these without a _total suffix.
+    # The Collector reader explicitly disables type/unit suffixes for these queries.
     delivery_errors = " or ".join(f"(rate(otelcol_{name}[5m]) > 0)" for name in delivery_counters)
     rules = [
         alert("lf-http-errors", "LifeFlow HTTP error rate", f'({http_failed} / {http_total} > 0.05) and ({http_total} >= 20)'),
@@ -146,8 +146,10 @@ def render(output: Path, *, kind="stack", coolify=False, environments=("staging"
             relative = relative.removeprefix("./")
             content = extra[relative] if relative in extra else (SOURCE / relative).read_text()
             if coolify:
+                # Coolify extracts and writes content verbatim before Compose runs.
+                # Keep each consumer's own interpolation/escaping (including Grafana $$).
                 mounts.append({"type": "bind", "source": "./" + relative, "target": target,
-                               "read_only": True, "content": content.replace("$", "$$")})
+                               "read_only": True, "content": content})
             else:
                 destination = output / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)

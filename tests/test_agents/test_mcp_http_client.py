@@ -7,8 +7,8 @@ import sys
 
 import httpx
 import pytest
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
 
-from src.services.adapters.mcp import PROJECT_ROOT, McpEndpoint, McpToolClient, ToolCallError
 from tests.mcp_http import TEST_MCP_TOKEN
 
 
@@ -32,10 +32,10 @@ async def test_http_client_calls_tool_and_enforces_allowlist(tmp_path):
     process = await asyncio.create_subprocess_exec(
         sys.executable,
         "-m",
-        "src.mcp_servers.flights",
+        "relohome_flights_mcp",
         "--transport",
         "streamable-http",
-        cwd=str(PROJECT_ROOT),
+        cwd=tmp_path,
         env=env,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,

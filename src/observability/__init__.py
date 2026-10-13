@@ -1,13 +1,7 @@
-"""Optional, fail-open application telemetry. No credentials for backends live here."""
+"""Temporary compatibility import; removal gate: #115 (see python-packaging.md)."""
+import importlib as _importlib
+import sys as _sys
 
-from .runtime import (
-    current_context,
-    generation,
-    initialize,
-    operation,
-    session,
-    trace_metadata,
-    traced_node,
-)
-
-__all__ = ["current_context", "generation", "initialize", "operation", "session", "trace_metadata", "traced_node"]
+for _module in ("runtime", "privacy", "sqlite", "asgi"):
+    _sys.modules[f"{__name__}.{_module}"] = _importlib.import_module(f"relohome_observability.{_module}")
+_sys.modules[__name__] = _importlib.import_module("relohome_observability")

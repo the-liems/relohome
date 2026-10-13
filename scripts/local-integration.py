@@ -61,7 +61,7 @@ def environment(component, sandbox_writes=False, payment_demo=False, env_file=No
             PAYMENT_TESTER_CONFIRM_ENABLED=env.get("PAYMENT_TESTER_CONFIRM_ENABLED", "true"),
             APP_ENV="development",
         )
-    env["PYTHONPATH"] = str(ROOT)
+    env.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 
@@ -94,15 +94,15 @@ def main():
         "platform": ["node", "../../apps/platform-api/dist/server.js"],
         "moving": ["node", "../../apps/moving-mcp/dist/http-server.js"],
         "moving-api": ["node", "../../apps/moving-api/dist/server.js"],
-        "flight": [sys.executable, "-m", "src.mcp_servers.flights", "--transport", "streamable-http"],
-        "payment": [sys.executable, "-m", "src.mcp_servers.payments", "--transport", "streamable-http"],
+        "flight": [sys.executable, "-m", "relohome_flights_mcp", "--transport", "streamable-http"],
+        "payment": [sys.executable, "-m", "relohome_payments_mcp", "--transport", "streamable-http"],
         "migrate": ["node", "../../apps/platform-api/dist/migrate.js"],
         "check": ["node", "scripts/check-local-schema.mjs"],
         "api": [
             sys.executable,
             "-m",
             "uvicorn",
-            "src.main:app",
+            "relohome_agent.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -114,7 +114,7 @@ def main():
             sys.executable,
             "-m",
             "uvicorn",
-            "Frontend.server:app",
+            "relohome_gateway.server:app",
             "--host",
             "127.0.0.1",
             "--port",

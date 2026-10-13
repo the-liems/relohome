@@ -1,6 +1,6 @@
 """Contract subagent (§6.3)."""
 
-from src.agents.contracts.agent_task import (
+from relohome_agent.agents.contracts.agent_task import (
     CONTRACT_VERSION,
     AgentCapability,
     AgentManifest,

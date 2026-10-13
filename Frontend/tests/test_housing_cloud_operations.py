@@ -4,10 +4,9 @@ import sqlite3
 import subprocess
 
 import pytest
-
-from Frontend.admin_provision import provision
-from Frontend.cloud_backup import _restrict_windows_directory, backup
-from Frontend.store import Store, password_hash
+from relohome_gateway.admin_provision import provision
+from relohome_gateway.cloud_backup import _restrict_windows_directory, backup
+from relohome_gateway.store import Store, password_hash
 
 
 def test_operator_provisioning_preserves_existing_accounts_and_never_grants_public_roles(tmp_path):
@@ -84,7 +83,7 @@ def test_windows_backup_acl_uses_operator_sid_and_disables_inheritance(tmp_path,
         calls.append((command, options))
         return subprocess.CompletedProcess(command, 0, '"test-user","S-1-5-21-1-2-3-1001"\n', "")
 
-    monkeypatch.setattr("Frontend.cloud_backup.subprocess.run", run)
+    monkeypatch.setattr("relohome_gateway.cloud_backup.subprocess.run", run)
     _restrict_windows_directory(tmp_path)
     assert calls[0][0] == ["whoami.exe", "/user", "/fo", "csv", "/nh"]
     assert calls[1][0] == [
@@ -109,7 +108,7 @@ def test_windows_backup_acl_failure_is_explicit(tmp_path, monkeypatch, outcome):
         sid = "not-a-sid" if outcome == "invalid_sid" else "S-1-5-21-1-2-3-1001"
         return subprocess.CompletedProcess(command, 0, f'"test-user","{sid}"\n', "")
 
-    monkeypatch.setattr("Frontend.cloud_backup.subprocess.run", run)
+    monkeypatch.setattr("relohome_gateway.cloud_backup.subprocess.run", run)
     with pytest.raises(ValueError, match="Cannot secure the Windows backup directory"):
         _restrict_windows_directory(tmp_path)
 
@@ -134,7 +133,7 @@ def test_backup_does_not_copy_data_when_windows_acl_cannot_be_secured(tmp_path, 
     def denied(directory):
         raise ValueError("Cannot secure the Windows backup directory")
 
-    monkeypatch.setattr("Frontend.cloud_backup._restrict_windows_directory", denied)
+    monkeypatch.setattr("relohome_gateway.cloud_backup._restrict_windows_directory", denied)
     destination = tmp_path / "backup"
     with pytest.raises(ValueError, match="Cannot secure"):
         backup(destination, database, tmp_path / "media", key)

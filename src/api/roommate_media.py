@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import Field, StrictBool
+from relohome_agent.api.roommate_access import PRIVATE_HEADERS, Context, TrustedActor, perform
+from relohome_roommate.api_models import ReasonText
+from relohome_roommate.media import MAX_IMAGE_BYTES, MediaService
+from relohome_roommate.models import RoommateModel
 from starlette.concurrency import run_in_threadpool
-
-from src.api.roommate_access import PRIVATE_HEADERS, Context, TrustedActor, perform
-from src.roommate.api_models import ReasonText
-from src.roommate.media import MAX_IMAGE_BYTES, MediaService
-from src.roommate.models import RoommateModel
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 
@@ -59,7 +58,7 @@ def queue(
     limit: int = Query(20, ge=1, le=50),
     status: str | None = None,
 ):
-    from src.roommate.services.moderation import ModerationService
+    from relohome_roommate.services.moderation import ModerationService
 
     if offset is None and status is None:
         return {"items": perform(MediaService(ctx).queue, actor)}

@@ -13,10 +13,10 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from relohome_observability import current_context, generation, operation, runtime, session
+from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.privacy import content
 
-from src.observability import current_context, generation, operation, runtime, session
-from src.observability.asgi import TelemetryMiddleware
-from src.observability.privacy import content
 from tests.mcp_http import running_mcp
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,8 +167,8 @@ async def test_asgi_route_template_trace_header_and_untrusted_parent(spans):
 
 @pytest.mark.asyncio
 async def test_mcp_http_metadata_connects_tool_server_to_client(spans):
-    from src.mcp_servers.http_service import HttpServiceMCP
-    from src.services.adapters.mcp import McpEndpoint, McpToolClient
+    from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+    from relohome_mcp_http import HttpServiceMCP
 
     token = "test-credential-" + "a" * 32
     server = HttpServiceMCP("trace-test", service_token=token)
@@ -235,7 +235,7 @@ def test_stack_render_keeps_discord_only_in_grafana_and_separate_tenants(tmp_pat
     alerts = next(mount["content"] for mount in grafana["volumes"] if isinstance(mount, dict) and "alerting" in mount["target"])
     assert "type: discord" in alerts
     assert "disableResolveMessage: false" in alerts
-    assert "$$DISCORD_WEBHOOK_URL" in alerts
+    assert "url: $DISCORD_WEBHOOK_URL" in alerts
     assert "staging" in path.read_text() and "production" in path.read_text()
     gateway = next(mount["content"] for mount in stack["services"]["telemetry-gateway"]["volumes"] if isinstance(mount, dict))
     assert "X-Scope-OrgID staging" in gateway
@@ -245,9 +245,9 @@ def test_stack_render_keeps_discord_only_in_grafana_and_separate_tenants(tmp_pat
 def test_payment_context_is_persisted_but_not_exposed(tmp_path, spans):
     import sqlite3
 
-    from src.checkout.models import FulfilmentJob, PaymentAttempt
-    from src.checkout.service import CheckoutService
-    from src.checkout.store import CheckoutStore
+    from relohome_agent.checkout.models import FulfilmentJob, PaymentAttempt
+    from relohome_agent.checkout.service import CheckoutService
+    from relohome_agent.checkout.store import CheckoutStore
     now = datetime.now(UTC)
     attempt = PaymentAttempt(attempt_id="a", transaction_id="t", user_id="u", thread_id="th",
         idempotency_key="i", payload_hash="h", option_version=1, amount_vnd=1, created_at=now, updated_at=now)
@@ -279,15 +279,248 @@ def test_payment_context_is_persisted_but_not_exposed(tmp_path, spans):
 def test_sqlite_shortcuts_preserve_transactions_and_rows(spans):
     import sqlite3
 
-    from src.observability.sqlite import Connection
-    connection = Connection(sqlite3.connect(":memory:"))
+    from relohome_observability.sqlite import Connection
+    connection = Connection(":memory:")
     connection.row_factory = sqlite3.Row
     connection.execute("CREATE TABLE sample (value TEXT)")
-    with connection as transaction:
-        transaction.executemany("INSERT INTO sample VALUES (?)", [("first",), ("second",)])
-    with pytest.raises(ValueError), connection as transaction:
-        transaction.execute("DELETE FROM sample")
-        raise ValueError("rollback")
-    assert [row["value"] for row in connection.execute("SELECT value FROM sample")] == ["first", "second"]
+    with operation("database.request"):
+        with connection as transaction:
+            transaction.executemany("INSERT INTO sample VALUES (?)", [("first",), ("second",)])
+        with pytest.raises(ValueError), connection as transaction:
+            transaction.execute("DELETE FROM sample")
+            raise ValueError("rollback")
+        assert [row["value"] for row in connection.execute("SELECT value FROM sample")] == ["first", "second"]
     connection.close()
     assert {span.name for span in spans.get_finished_spans()} >= {"db.SELECT", "db.INSERT", "db.DELETE"}
+
+
+@pytest.mark.parametrize("remote", [None, {}, {"progressToken": "progress-1"},
+                                  {"traceparent": "invalid"}, {"tracestate": "vendor=value"}])
+def test_mcp_metadata_without_valid_traceparent_preserves_active_parent(spans, remote):
+    with operation("http.request"):
+        with operation("mcp.tool", "tool", remote=remote):
+            pass
+    tool, parent = spans.get_finished_spans()
+    assert tool.parent.span_id == parent.context.span_id
+    assert tool.context.trace_id == parent.context.trace_id
+
+
+def test_mcp_valid_remote_context_overrides_active_parent(spans):
+    remote = {"traceparent": "00-11111111111111111111111111111111-2222222222222222-01"}
+    with operation("unrelated.request"):
+        with operation("mcp.tool", "tool", remote=remote):
+            pass
+    tool, parent = spans.get_finished_spans()
+    assert tool.parent.span_id == int("2" * 16, 16)
+    assert tool.context.trace_id == int("1" * 32, 16)
+    assert tool.context.trace_id != parent.context.trace_id
+
+
+@pytest.mark.parametrize("level,expected", [(20, "INFO"), (30, "WARN"), (40, "ERROR"), (50, "FATAL")])
+def test_logging_handler_preserves_python_severity(monkeypatch, level, expected):
+    import logging
+
+    events = []
+    monkeypatch.setattr(runtime, "_logger", SimpleNamespace(emit=lambda **event: events.append(event)))
+    record = logging.LogRecord("application", level, __file__, 1, "private message", (), None)
+    runtime.MetadataLogHandler().emit(record)
+    assert events[0]["severity_number"].name == expected
+    assert events[0]["severity_text"] == record.levelname
+    assert events[0]["body"] == "application.log"
+    assert "private message" not in str(events)
+
+
+@pytest.fixture
+def sqlite_instrumentation(monkeypatch):
+    import sqlite3
+
+    import aiosqlite
+    from relohome_observability import sqlite
+
+    # Restore process-wide wrappers after each test, including the async queue.
+    for module in (sqlite3, sqlite3.dbapi2):
+        monkeypatch.setattr(module, "connect", module.connect)
+    monkeypatch.setattr(aiosqlite.Connection, "_execute", aiosqlite.Connection._execute)
+    monkeypatch.setattr(sqlite, "_instrumented", False)
+    sqlite.instrument_shortcuts()
+
+
+def test_sqlite_idle_polls_do_not_export_but_request_queries_do(spans, sqlite_instrumentation):
+    import sqlite3
+
+    from relohome_agent.checkout.store import CheckoutStore
+
+    connection = sqlite3.connect(":memory:")
+    try:
+        store = CheckoutStore(connection)
+        assert store.open_attempts() == store.pending_jobs() == []
+        assert not spans.get_finished_spans()
+        with operation("request"):
+            store.open_attempts()
+            cursor = connection.cursor()
+            assert cursor.execute("SELECT 1") is cursor
+            assert cursor.fetchone() == (1,)
+            with pytest.raises(sqlite3.OperationalError):
+                cursor.execute("SELECT * FROM missing_private_table")
+        exported = spans.get_finished_spans()
+        parent = exported[-1]
+        database = exported[:-1]
+        assert len(database) == 3
+        assert all(item.name == "db.SELECT" and item.parent.span_id == parent.context.span_id for item in database)
+        assert database[-1].status.status_code.name == "ERROR"
+        assert "missing_private_table" not in str(database[-1].attributes)
+        assert not database[-1].events
+    finally:
+        connection.close()
+
+
+@pytest.mark.asyncio
+async def test_aiosqlite_queue_preserves_each_concurrent_request_context(spans, sqlite_instrumentation):
+    import aiosqlite
+
+    async with aiosqlite.connect(":memory:") as connection:
+        await connection.execute("CREATE TABLE sample (value INTEGER)")
+
+        async def request(name):
+            with session(name), operation(name):
+                await connection.execute("INSERT INTO sample VALUES (1)")
+                async with connection.cursor() as cursor:
+                    await cursor.execute("SELECT value FROM sample")
+                    assert await cursor.fetchone() == (1,)
+
+        await asyncio.gather(request("first"), request("second"))
+        count = len(spans.get_finished_spans())
+        await connection.execute("SELECT 1")  # Worker context must not leak after either request.
+        assert len(spans.get_finished_spans()) == count
+    exported = spans.get_finished_spans()
+    parents = {item.name: item for item in exported if item.name in {"first", "second"}}
+    database = [item for item in exported if item.name.startswith("db.")]
+    assert len(database) == 4
+    for item in database:
+        parent = parents[item.attributes["langfuse.session.id"]]
+        assert item.parent.span_id == parent.context.span_id
+        assert item.context.trace_id == parent.context.trace_id
+
+
+def test_sqlite_respects_disabled_and_unsampled_context(spans, sqlite_instrumentation, monkeypatch):
+    import sqlite3
+
+    from opentelemetry.instrumentation.utils import suppress_instrumentation
+
+    connection = sqlite3.connect(":memory:")
+    try:
+        with operation("request"), suppress_instrumentation():
+            connection.execute("SELECT 1")
+        with operation("unsampled", remote={
+            "traceparent": "00-11111111111111111111111111111111-2222222222222222-00",
+        }):
+            connection.cursor().execute("SELECT 1")
+        monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+        with trace.get_tracer("external").start_as_current_span("external"):
+            connection.execute("SELECT 1")
+        assert [item.name for item in spans.get_finished_spans()] == ["request", "external"]
+    finally:
+        connection.close()
+
+
+@pytest.mark.asyncio
+async def test_metric_instruments_are_created_once_for_repeated_requests(spans, monkeypatch):
+    from collections import Counter
+
+    created, records = Counter(), []
+
+    def instrument(name, **kwargs):
+        created[name] += 1
+        return SimpleNamespace(add=lambda value, labels: records.append((name, value)),
+                               record=lambda value, labels: records.append((name, value)))
+
+    meter = SimpleNamespace(create_counter=instrument, create_histogram=instrument)
+
+    class Provider:
+        def get_meter(self, name):
+            return meter
+
+    provider = Provider()
+    monkeypatch.setattr(runtime.metrics, "get_meter_provider", lambda: provider)
+    runtime._instruments.cache_clear()
+    try:
+        for _ in range(3):
+            with operation("request"):
+                pass
+        assert len(created) == 6
+        assert set(created.values()) == {1}
+        assert records.count(("lifeflow.operations", 1)) == 3
+        provider = Provider()
+        with operation("replacement.provider"):
+            pass
+        assert set(created.values()) == {2}
+    finally:
+        runtime._instruments.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_disabled_operations_and_generation_do_not_create_instruments(monkeypatch):
+    monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+
+    def unexpected():
+        raise AssertionError("Disabled telemetry must not create metric instruments")
+
+    monkeypatch.setattr(runtime, "instruments", unexpected)
+    reply = SimpleNamespace(usage=SimpleNamespace(input_tokens=1, output_tokens=2), output=[])
+
+    async def call(**kwargs):
+        return reply
+
+    with operation("disabled"):
+        assert await generation(call, provider="test", model="test") is reply
+
+
+def test_observability_compatibility_imports_share_runtime_state():
+    import importlib
+
+    for suffix in ("", ".runtime", ".privacy", ".sqlite", ".asgi"):
+        assert importlib.import_module("src.observability" + suffix) is importlib.import_module(
+            "relohome_observability" + suffix)
+
+
+@pytest.mark.parametrize("raw_source,raw_target", [(True, False), (False, True), (False, False)])
+def test_sqlite_backups_accept_native_and_instrumented_connections(spans, sqlite_instrumentation,
+                                                                  raw_source, raw_target):
+    import sqlite3
+
+    source = (sqlite3.Connection if raw_source else sqlite3.connect)(":memory:")
+    target = (sqlite3.Connection if raw_target else sqlite3.connect)(":memory:")
+    try:
+        source.execute("CREATE TABLE sample (value TEXT)")
+        source.execute("INSERT INTO sample VALUES ('preserved')")
+        source.commit()
+        source.backup(target)
+        assert target.execute("SELECT value FROM sample").fetchall() == [("preserved",)]
+        assert source.cursor().connection is source
+        assert target.cursor().connection is target
+    finally:
+        source.close()
+        target.close()
+
+
+def test_sqlite_preserves_application_factories_and_instruments_explicit_default(spans, sqlite_instrumentation):
+    import sqlite3
+
+    class CustomConnection(sqlite3.Connection):
+        pass
+
+    class CustomCursor(sqlite3.Cursor):
+        pass
+
+    with sqlite3.connect(":memory:", factory=CustomConnection) as custom:
+        assert type(custom) is CustomConnection
+        assert type(custom.cursor(factory=CustomCursor)) is CustomCursor
+    custom.close()
+    # The legacy positional factory argument remains supported, too.
+    connection = sqlite3.dbapi2.connect(":memory:", 5.0, 0, "", True, sqlite3.Connection)
+    try:
+        with operation("request"):
+            assert connection.execute("SELECT 1").fetchone() == (1,)
+        assert [item.name for item in spans.get_finished_spans()] == ["db.SELECT", "request"]
+    finally:
+        connection.close()

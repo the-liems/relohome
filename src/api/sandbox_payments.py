@@ -10,9 +10,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-
-from src.api.routes import Service, UserId, _lock, authenticate
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.api.routes import Service, UserId, _lock, authenticate
+from relohome_agent.services.adapters.mcp import ToolCallError
 
 router = APIRouter(prefix="/sandbox/payments", dependencies=[Depends(authenticate)])
 

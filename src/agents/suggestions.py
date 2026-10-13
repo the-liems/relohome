@@ -6,11 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from src.agents.intake import selected_fact_key
-from src.agents.models import AgentName, CommitActionKind, Suggestion, TaskStatus
+from relohome_agent.agents.intake import selected_fact_key
+from relohome_agent.agents.models import AgentName, CommitActionKind, Suggestion, TaskStatus
 
 if TYPE_CHECKING:
-    from src.agents.deps import AgentRegistry
+    from relohome_agent.agents.deps import AgentRegistry
 
 
 @dataclass

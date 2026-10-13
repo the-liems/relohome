@@ -3,12 +3,12 @@
 from dataclasses import replace
 
 import pytest
+from relohome_agent.agents.deps import GraphSettings, test_deps
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, RequestKind
+from relohome_agent.agents.nodes.respond import MOVING_ADDRESS_NOW, MOVING_WAIT_FOR_HOME
+from relohome_agent.agents.planning import TemplatePlanner
 
-from src.agents.deps import GraphSettings, test_deps
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, RequestKind
-from src.agents.nodes.respond import MOVING_ADDRESS_NOW, MOVING_WAIT_FOR_HOME
-from src.agents.planning import TemplatePlanner
 from tests.test_agents.helpers import Session, fact, intake_result
 
 VALUES = {"city": "HCM", "from_address": "12 Láng Hạ", "move_date": "2026-11-14", "move_time": "09:00"}

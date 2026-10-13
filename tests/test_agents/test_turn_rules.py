@@ -1,14 +1,14 @@
 """Rules for multi-turn Map mode switches, city-scope resolution and planner deferrals (pure functions)."""
 
 import pytest
+from relohome_agent.agents.deps import test_deps
+from relohome_agent.agents.intake import ScriptedIntake, ground_facts
+from relohome_agent.agents.models import AgentName, Plan, RequestKind, SessionContext, Task
+from relohome_agent.agents.planner_llm import CapabilityRegistry, LlmPlanner, NeedsInputDraft, PlanDraft, TaskDraft
+from relohome_agent.agents.planning import PlannerInput, TemplatePlanner
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES, operation_selector_keys
+from relohome_agent.agents.subagents.services.location import pick_city_area
 
-from src.agents.deps import test_deps
-from src.agents.intake import ScriptedIntake, ground_facts
-from src.agents.models import AgentName, Plan, RequestKind, SessionContext, Task
-from src.agents.planner_llm import CapabilityRegistry, LlmPlanner, NeedsInputDraft, PlanDraft, TaskDraft
-from src.agents.planning import PlannerInput, TemplatePlanner
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES, operation_selector_keys
-from src.agents.subagents.services.location import pick_city_area
 from tests.test_agents.helpers import Session, fact, intake_result
 
 SELECTORS = operation_selector_keys(BASELINE_CAPABILITIES.values())
@@ -120,9 +120,10 @@ def test_deferral_rejects_unknown_field_unrequested_domain_and_task_overlap():
 
 @pytest.mark.asyncio
 async def test_new_district_replaces_an_old_near_scope_but_keeps_city_and_budget():
-    from src.agents.deps import test_deps
-    from src.agents.intake import ScriptedIntake
-    from src.agents.planning import TemplatePlanner
+    from relohome_agent.agents.deps import test_deps
+    from relohome_agent.agents.intake import ScriptedIntake
+    from relohome_agent.agents.planning import TemplatePlanner
+
     from tests.test_agents.helpers import Session
 
     first = intake_result(
@@ -151,8 +152,8 @@ async def test_new_district_replaces_an_old_near_scope_but_keeps_city_and_budget
 
 @pytest.mark.asyncio
 async def test_flight_to_the_chosen_home_uses_the_city_recorded_by_the_provider():
-    from src.agents.common import utcnow
-    from src.agents.models import ConfirmedFact, Plan, Task, TaskResult, TaskStatus
+    from relohome_agent.agents.common import utcnow
+    from relohome_agent.agents.models import ConfirmedFact, Plan, Task, TaskResult, TaskStatus
 
     home = {"id": "h1", "title": "Căn A", "city": "Đà Nẵng"}
     selected = {"selected:property": ConfirmedFact(value="h1", evidence="chọn", stated_at=utcnow())}

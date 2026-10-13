@@ -1,6 +1,6 @@
 """Pure date normalization checks; no mocked LLM, provider or test doubles."""
 
-from src.agents.intake_llm import explicit_date_evidence
+from relohome_agent.agents.intake_llm import explicit_date_evidence
 
 
 def test_iso_evidence_uses_exact_user_date():

@@ -1,6 +1,6 @@
 """Model-only projection of observed service details; provider storage stays intact."""
 
-from src.agents.llm_runtime import public_data
+from relohome_agent.agents.llm_runtime import public_data
 
 PRESENTATION_FIELDS = frozenset({"icon_url", "img_url", "map_icon_url", "map_icon_3d"})
 CONSTRAINT_FIELDS = (

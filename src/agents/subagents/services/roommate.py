@@ -3,16 +3,15 @@
 import asyncio
 
 from pydantic import ValidationError
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskResult, failed_result, reject_unsupported
-from src.agents.subagents.capabilities import ROOMMATE
-from src.agents.subagents.services.payment import ACTOR_ID
-from src.roommate.access import RoommateError
-from src.roommate.models import RoommateSearchCriteria
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskResult, failed_result, reject_unsupported
+from relohome_agent.agents.subagents.capabilities import ROOMMATE
+from relohome_agent.agents.subagents.services.payment import ACTOR_ID
+from relohome_roommate.access import RoommateError
+from relohome_roommate.models import RoommateSearchCriteria
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
 
 
 class RoommateSubagent:

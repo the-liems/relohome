@@ -1,10 +1,10 @@
 """Unit regressions for scope identity; fixtures are not live catalog evidence."""
 
 import pytest
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.subagents.conformance import sample_request
+from relohome_agent.agents.subagents.services.location import LocationSubagent, pick_named_area
 
-from src.agents.models import AgentName
-from src.agents.subagents.conformance import sample_request
-from src.agents.subagents.services.location import LocationSubagent, pick_named_area
 from tests.test_agents.test_service_subagents import FakeToolClient, listing
 
 

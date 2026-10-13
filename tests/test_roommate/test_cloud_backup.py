@@ -2,12 +2,12 @@ from datetime import timedelta
 
 import pytest
 from cryptography.fernet import Fernet
+from relohome_agent.config import Settings
+from relohome_agent.roommate_runtime import RoommateRuntime
 
-from src.config import Settings
 from src.roommate.connections import ContactRef
 from src.roommate.operations import backup, import_snapshot
 from src.roommate.ports import Actor
-from src.roommate.runtime import RoommateRuntime
 from src.roommate.services.consent import ConsentService
 from src.roommate.services.requests import RequestService
 from tests.test_roommate.test_profile_lifecycle import complete

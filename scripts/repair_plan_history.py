@@ -12,10 +12,10 @@ from pathlib import Path
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-from src.agents.graph import build_graph, checkpoint_serde, run_config
-from src.agents.progress import plan_progress, record_selections
-from src.agents.wiring import AgentService
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.graph import build_graph, checkpoint_serde, run_config
+from relohome_agent.agents.progress import plan_progress, record_selections
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 def selected_count(values: dict) -> int:

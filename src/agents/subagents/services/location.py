@@ -16,15 +16,14 @@ from itertools import combinations
 from typing import Any
 
 from jsonschema import Draft202012Validator
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
-from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
-from src.agents.location_names import city_search_text
-from src.agents.models import AgentName, AgentUsage, LocationChoice, Question, Quote
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
-from src.agents.subagents.services.common import BudgetExceededError, CountingClient, tool_failure
-from src.services.adapters.mcp import McpToolClient, ToolCallError
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
+from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
+from relohome_agent.agents.location_names import city_search_text
+from relohome_agent.agents.models import AgentName, AgentUsage, LocationChoice, Question, Quote
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.subagents.services.common import BudgetExceededError, CountingClient, tool_failure
+from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
 
 SOURCE = "lifeflow-location"
 DEFAULT_RADIUS_M = 3000

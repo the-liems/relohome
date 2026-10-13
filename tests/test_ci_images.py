@@ -43,13 +43,21 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("src/mcp_servers/http_service.py"),
                          {"web", "backend", "flights-mcp", "payments-mcp"})
 
+    def test_extracted_python_domains_rebuild_their_mcp_images(self):
+        self.assertEqual(self.selected("packages/python/flight/src/relohome_flight/schemas.py"),
+                         {"web", "backend", "flights-mcp"})
+        self.assertEqual(self.selected("packages/python/payment/src/relohome_payment/engine.py"),
+                         {"web", "backend", "payments-mcp"})
+        self.assertEqual(self.selected("packages/python/mcp-http/src/relohome_mcp_http/__init__.py"),
+                         {"web", "backend", "flights-mcp", "payments-mcp"})
+
     def test_shared_mcp_core_rebuilds_location_and_moving(self):
         self.assertEqual(self.selected("packages/mcp-core/src/index.ts"),
                          {"location", *MOVING})
 
     def test_telemetry_changes_rebuild_every_instrumented_consumer(self):
         self.assertEqual(self.selected("packages/telemetry/src/sdk.ts"), TYPESCRIPT)
-        for path in ("src/observability/runtime.py", "requirements-observability.txt"):
+        for path in ("src/observability/runtime.py", "packages/python/observability/src/relohome_observability/runtime.py"):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), {"web", "backend", "flights-mcp", "payments-mcp"})
 

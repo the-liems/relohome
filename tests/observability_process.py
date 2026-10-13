@@ -4,7 +4,7 @@ import asyncio
 import os
 import sys
 
-from src.observability import current_context, initialize, operation
+from relohome_observability import current_context, initialize, operation
 
 initialize("python-fixture")
 
@@ -15,14 +15,14 @@ async def main():
 
     # Explicit allowlist: no application/provider secrets forwarded to the child.
     child_env = {key: os.environ[key] for key in (
-        "PATH", "PYTHONPATH", "LD_LIBRARY_PATH", "OBSERVABILITY_ENABLED", "OBSERVABILITY_CONTENT_MODE",
+        "PATH", "LD_LIBRARY_PATH", "OBSERVABILITY_ENABLED", "OBSERVABILITY_CONTENT_MODE",
         "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_DEPLOYMENT_ENVIRONMENT",
         "PAYMENT_DB_PATH",
     ) if key in os.environ}
     child_env["PAYMENT_PROVIDER"] = "mock"
     with operation("gateway"):
         params = StdioServerParameters(command=sys.executable,
-            args=["-m", "src.mcp_servers.payments", "--transport", "stdio"], env=child_env)
+            args=["-m", "relohome_payments_mcp", "--transport", "stdio"], env=child_env)
         async with stdio_client(params) as (read, write), ClientSession(read, write) as client:
             await client.initialize()
             with operation("payment.client", "tool"):

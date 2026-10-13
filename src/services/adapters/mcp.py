@@ -12,17 +12,13 @@ import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
-
-from src.observability import operation, trace_metadata
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from relohome_observability import operation, trace_metadata
 
 
 class ToolCallError(Exception):

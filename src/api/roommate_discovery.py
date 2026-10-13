@@ -1,9 +1,8 @@
 from fastapi import APIRouter
-
-from src.api.roommate_access import Context, TrustedActor, perform
-from src.roommate.api_models import DiscoveryPage, SearchInput
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
+from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_roommate.api_models import DiscoveryPage, SearchInput
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

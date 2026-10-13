@@ -6,14 +6,14 @@ from datetime import timedelta
 import httpx
 import pytest
 from mcp.types import CallToolResult
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import Approval, CommitAction, CommitActionKind
+from relohome_agent.services.adapters.commit import McpTransaction
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.moving_approval import moving_approval_id
+from relohome_agent.services.adapters.ports import CommitError, CommitRequest
+from relohome_agent.services.adapters.sqlite_runtime import RuntimeDatabase
 
-from src.agents.common import utcnow
-from src.agents.models import Approval, CommitAction, CommitActionKind
-from src.services.adapters.commit import McpTransaction
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.moving_approval import moving_approval_id
-from src.services.adapters.ports import CommitError, CommitRequest
-from src.services.adapters.sqlite_runtime import RuntimeDatabase
 from tests.test_agents.test_service_subagents import FakeToolClient, moving_client
 
 APPROVAL = Approval(

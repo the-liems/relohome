@@ -1,30 +1,5 @@
-"""All policy deadlines use aware UTC; wall-clock tests never need sleep."""
+"""Temporary compatibility import; removal gate: #115 (see python-packaging.md)."""
+import importlib as _importlib
+import sys as _sys
 
-from datetime import UTC, datetime, timedelta
-from typing import Protocol
-
-
-def utc(value: datetime) -> datetime:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("An aware timestamp is required")
-    return value.astimezone(UTC)
-
-
-class Clock(Protocol):
-    def now(self) -> datetime: ...
-
-
-class SystemClock:
-    def now(self) -> datetime:
-        return datetime.now(UTC)
-
-
-class FrozenClock:
-    def __init__(self, value: datetime):
-        self.value = utc(value)
-
-    def now(self) -> datetime:
-        return self.value
-
-    def advance(self, duration: timedelta) -> None:
-        self.value += duration
+_sys.modules[__name__] = _importlib.import_module('relohome_roommate.clock')

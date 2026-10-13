@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/agent_services/**'
+      - 'packages/python/agent-services/**'
       - 'config/agent-services/**'
       - 'tests/test_agent_services/**'
       - 'requirements*.txt'
@@ -20,6 +21,7 @@ on:
     branches: [khoa, main]
     paths:
       - 'src/agent_services/**'
+      - 'packages/python/agent-services/**'
       - 'config/agent-services/**'
       - 'tests/test_agent_services/**'
       - 'requirements*.txt'
@@ -56,7 +58,7 @@ jobs:
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh python docker buildx
       - name: Install agent dependencies
-        run: pip install -r requirements.txt -r requirements-agents.txt
+        run: pip install -r requirements-dev.txt
       - name: Lint agent services
         run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
       - name: Test agent services

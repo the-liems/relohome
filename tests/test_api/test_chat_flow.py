@@ -2,12 +2,12 @@
 
 import pytest
 import pytest_asyncio
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind
+from relohome_agent.agents.planning import TemplatePlanner
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, CommitActionKind, RequestKind
-from src.agents.planning import TemplatePlanner
-from src.agents.wiring import AgentService
-from src.services.adapters.registry import ServiceSettings
 from tests.test_agents.helpers import commit_fact, intake_result
 
 HEADERS = {"X-User-Id": "u1"}

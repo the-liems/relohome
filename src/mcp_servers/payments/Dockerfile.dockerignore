@@ -11,7 +11,9 @@
 **/*.key
 **/*.pem
 
-!requirements-observability.txt
-!src/observability/
-!src/observability/**
+!packages/
+!packages/python/
+!packages/python/**
+**/build
+**/*.egg-info
 !src/mcp_servers/http_service.py

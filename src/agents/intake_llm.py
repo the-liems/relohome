@@ -10,14 +10,13 @@ from typing import Literal
 
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
-
-from src.agents.common import nfc, utcnow
-from src.agents.intake import MAP_ENTITY_ANCHORS, REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
-from src.agents.llm import StructuredLLM
-from src.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
-from src.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
-from src.agents.subagents.capabilities import fact_fits_capabilities
-from src.roommate.models import RoommateSearchCriteria
+from relohome_agent.agents.common import nfc, utcnow
+from relohome_agent.agents.intake import MAP_ENTITY_ANCHORS, REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
+from relohome_agent.agents.llm import StructuredLLM
+from relohome_agent.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
+from relohome_agent.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
+from relohome_agent.agents.subagents.capabilities import fact_fits_capabilities
+from relohome_roommate.models import RoommateSearchCriteria
 
 AMENITIES = frozenset(
     "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()

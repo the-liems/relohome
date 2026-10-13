@@ -9,19 +9,18 @@ from time import perf_counter
 
 from jsonschema import Draft202012Validator
 from openai import APIError, AsyncOpenAI
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
-from src.agents.llm import LLMError
-from src.agents.llm_context import compact_tool_history, decision_data, model_json
-from src.agents.llm_provider import client_options, provider_model
-from src.agents.llm_runtime import Invocation, json_object
-from src.agents.models import AgentName
-from src.agents.subagents.base import AgentTransportError
-from src.agents.subagents.services.common import BudgetExceededError
-from src.agents.subagents.services.domain_tools import DomainToolSession
-from src.observability import generation
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
+from relohome_agent.agents.llm import LLMError
+from relohome_agent.agents.llm_context import compact_tool_history, decision_data, model_json
+from relohome_agent.agents.llm_provider import client_options, provider_model, provider_name
+from relohome_agent.agents.llm_runtime import Invocation, json_object
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.subagents.base import AgentTransportError
+from relohome_agent.agents.subagents.services.common import BudgetExceededError
+from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
+from relohome_agent.services.adapters.mcp import ToolCallError
+from relohome_observability import generation
 
 PROMPT = """Bạn là subagent chuyên môn của LifeFlow, nhận mục tiêu, lời người dùng, ràng buộc và ngữ cảnh từ Orchestrator.
 Tự quyết định cần tra gì, gọi tool nào, đọc kết quả rồi làm bước tiếp theo; KHÔNG có một tool đầu bắt buộc.
@@ -177,7 +176,7 @@ class ReadLlmAgent:
                 async with asyncio.timeout(run.remaining()):
                     reply = await generation(
                         self.llm_client.responses.create,
-                        provider="openrouter" if self.api_key.startswith("sk-or-v1-") else "openai",
+                        provider=provider_name(self.api_key),
                         model=provider_model(self.api_key, self.model),
                         instructions=PROMPT + "\n" + DOMAIN_PROMPTS[domain],
                         input=history,

@@ -5,8 +5,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from PIL import Image
-
-from Frontend.server import create_app
+from relohome_gateway.server import create_app
 
 HEADERS = {"X-SIU-Request": "1", "Origin": "http://test"}
 LISTING = "11111111-1111-4111-8111-111111111111"
@@ -651,7 +650,7 @@ async def test_failed_withdrawal_is_reported_and_retried(tmp_path, monkeypatch):
 def test_store_adds_the_sync_baseline_to_existing_databases(tmp_path):
     import sqlite3
 
-    from Frontend.store import Store
+    from relohome_gateway.store import Store
 
     path = tmp_path / "old.db"
     old = sqlite3.connect(path)

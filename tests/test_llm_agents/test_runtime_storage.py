@@ -4,9 +4,8 @@ import os
 from datetime import timedelta
 
 import pytest
-
-from src.agents.common import utcnow
-from src.services.adapters.sqlite_runtime import RuntimeDatabase, SqliteApprovalStore, SqlitePiiStore
+from relohome_agent.agents.common import utcnow
+from relohome_agent.services.adapters.sqlite_runtime import RuntimeDatabase, SqliteApprovalStore, SqlitePiiStore
 
 
 @pytest.mark.asyncio
@@ -38,10 +37,9 @@ async def test_approval_and_encrypted_form_survive_restart(tmp_path):
 @pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real LLM runtime opt-in")
 async def test_real_runtime_checkpoint_survives_restart(tmp_path):
     from langchain_core.messages import HumanMessage
-
-    from src.agents.graph import run_config
-    from src.agents.wiring import AgentService
-    from src.services.adapters.registry import ServiceSettings
+    from relohome_agent.agents.graph import run_config
+    from relohome_agent.agents.wiring import AgentService
+    from relohome_agent.services.adapters.registry import ServiceSettings
 
     settings = ServiceSettings(
         agent_state_dir=str(tmp_path), location_mcp_url="", moving_mcp_url="", flight_mcp_url=""

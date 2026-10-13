@@ -15,8 +15,11 @@ RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
 COPY src/mcp_servers/payments/requirements.txt /tmp/requirements.txt
-COPY requirements-observability.txt /tmp/requirements-observability.txt
-RUN pip install -r /tmp/requirements.txt -r /tmp/requirements-observability.txt
+COPY packages/python/payment/ /build/domain/
+COPY packages/python/observability/ /build/observability/
+COPY packages/python/mcp-http/ /build/mcp-http/
+COPY src/mcp_servers/payments/ /build/app/
+RUN pip install -r /tmp/requirements.txt /build/observability /build/domain /build/mcp-http /build/app
 
 # ---- Stage 2: runtime ----
 FROM python:3.11-slim
@@ -35,7 +38,6 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Chỉ copy đúng package của server (không copy .env, tests, code agent...)
 COPY --chmod=u=rwX,go=rX src/__init__.py src/__init__.py
-COPY --chmod=u=rwX,go=rX src/observability src/observability
 COPY --chmod=u=rwX,go=rX src/mcp_servers/__init__.py src/mcp_servers/__init__.py
 COPY --chmod=u=rwX,go=rX src/mcp_servers/http_service.py src/mcp_servers/http_service.py
 COPY --chmod=u=rwX,go=rX src/mcp_servers/payments src/mcp_servers/payments

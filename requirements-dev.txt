@@ -1,7 +1,27 @@
-# Python 3.11 developer environment, including the existing test toolchain.
--r requirements.txt
--r requirements-agents.txt
+# Python 3.11 developer environment. Editable packages make source changes visible.
+-r requirements-runtime.txt
+
+# Application metadata preserves the standalone dependency pins.
+-e ./packages/python/agent-services
+-e ./packages/python/contracts
+-e ./packages/python/flight
+-e ./packages/python/observability
+-e ./packages/python/mcp-http
+-e ./packages/python/payment
+-e ./packages/python/privacy
+-e ./packages/python/roommate
+-e ./src
+-e ./Frontend
+-e ./src/mcp_servers/flights
+-e ./src/mcp_servers/payments
+-e ./src/agent_services/intake
+-e ./src/agent_services/orchestrator
+
+ruff>=0.8.0
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
 mypy>=1.0
+PyYAML==6.0.3  # CI/CD Compose rendering
 # Optional location Streamlit UI (test_demo.py itself is provider-free).
 streamlit-searchbox>=0.1.24
 pydeck>=0.9.1

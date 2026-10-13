@@ -7,11 +7,8 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
-
-from Frontend.server import create_app
-from Frontend.store import password_hash
-from src.agents.wiring import AgentService
-from src.api import (
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api import (
     roommate_access,
     roommate_connections,
     roommate_discovery,
@@ -23,16 +20,20 @@ from src.api import (
     roommate_safety,
     routes,
 )
-from src.config import Settings
+from relohome_agent.config import Settings
+from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_gateway.server import create_app
+from relohome_gateway.store import password_hash
+
 from src.roommate.models import RoommateProfile
 from src.roommate.ports import Actor
-from src.roommate.runtime import RoommateRuntime
 from src.roommate.services.access import AccessService
 from src.roommate.services.contacts import ContactService
 from src.roommate.services.profiles import ProfileService
-from src.services.adapters.registry import ServiceSettings
 
 ROOT = Path(__file__).resolve().parents[2]
+os.environ.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))
 STATE = (ROOT / "logs/local" / os.environ.get("ROOMMATE_BROWSER_RUN", "roommate-browser-dev")).resolve()
 if not STATE.is_relative_to(ROOT / "logs/local"):
     raise ValueError("Browser fixture state must stay in logs/local")

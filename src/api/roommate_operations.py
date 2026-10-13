@@ -1,9 +1,8 @@
 from fastapi import APIRouter
 from pydantic import Field
-
-from src.api.roommate_access import Context, TrustedActor, perform
-from src.roommate.models import RoommateModel
-from src.roommate.services.operation_drafts import OperationDraftService
+from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_roommate.models import RoommateModel
+from relohome_roommate.services.operation_drafts import OperationDraftService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

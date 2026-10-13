@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1.14
 FROM python:3.11-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY requirements-agents.txt ./
+COPY packages/python/agent-services/ ./packages/python/agent-services/
+COPY src/agent_services/ ./src/agent_services/
 RUN pip install --no-cache-dir -r requirements-agents.txt \
     && useradd --uid 10001 --create-home appuser \
     && mkdir /app/data && chown appuser:appuser /app/data

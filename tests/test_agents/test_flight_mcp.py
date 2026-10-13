@@ -1,6 +1,6 @@
 import pytest
+from relohome_agent.agents.tools import flight_mcp
 
-from src.agents.tools import flight_mcp
 from src.mcp_servers.flights.server import create_server
 from src.mcp_servers.flights.settings import FlightSettings
 from tests.mcp_http import TEST_MCP_TOKEN, running_mcp

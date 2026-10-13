@@ -6,7 +6,7 @@ Service expose hai MCP tool: `get_manifest` (trả `AgentManifest`) và `run_tas
 
 from __future__ import annotations
 
-from src.agents.contracts import (
+from relohome_agent.agents.contracts import (
     CONTRACT_VERSION,
     AgentCapability,
     AgentManifest,
@@ -14,9 +14,9 @@ from src.agents.contracts import (
     AgentTaskResult,
     contract_major,
 )
-from src.agents.models import AgentName
-from src.agents.subagents.base import AgentTransportError
-from src.services.adapters.mcp import McpToolClient, ToolCallError
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.subagents.base import AgentTransportError
+from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
 
 
 class ManifestError(Exception):

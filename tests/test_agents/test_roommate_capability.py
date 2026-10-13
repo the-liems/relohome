@@ -1,9 +1,8 @@
 import pytest
-
-from src.agents.deps import fake_registry
-from src.agents.models import AgentName
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
-from src.agents.subagents.conformance import check_conformance, sample_request
+from relohome_agent.agents.deps import fake_registry
+from relohome_agent.agents.models import AgentName
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.subagents.conformance import check_conformance, sample_request
 
 
 @pytest.mark.asyncio

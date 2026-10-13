@@ -2,9 +2,9 @@
 
 from datetime import timedelta
 
-from src.agents.common import utcnow
-from src.agents.models import AgentName, TaskResult, TaskStatus
-from src.agents.selections import option_is_expired, selected_option, selection_is_current
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import AgentName, TaskResult, TaskStatus
+from relohome_agent.agents.selections import option_is_expired, selected_option, selection_is_current
 
 
 def flight_result(expires_in):

@@ -7,9 +7,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-
-from src.api.routes import Service, UserId, _owned, authenticate
-from src.checkout.models import CheckoutError
+from relohome_agent.api.routes import Service, UserId, _owned, authenticate
+from relohome_agent.checkout.models import CheckoutError
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 

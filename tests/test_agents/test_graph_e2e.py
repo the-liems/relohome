@@ -1,11 +1,11 @@
 """E2E không cần mạng: FixedIntake/ScriptedIntake + TemplatePlanner + FakeAgent (agent-graph.md §10)."""
 
 import pytest
+from relohome_agent.agents.deps import test_deps
+from relohome_agent.agents.intake import ScriptedIntake
+from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind, TaskStatus
+from relohome_agent.agents.planning import TemplatePlanner
 
-from src.agents.deps import test_deps
-from src.agents.intake import ScriptedIntake
-from src.agents.models import AgentName, CommitActionKind, RequestKind, TaskStatus
-from src.agents.planning import TemplatePlanner
 from tests.test_agents.helpers import ALL_DOMAINS, Session, commit_fact, fact, intake_result
 
 MSG1 = (

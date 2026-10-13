@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from src.agents.common import utcnow
-from src.agents.memory import apply_updates, forget_thread
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.memory import apply_updates, forget_thread
+from relohome_agent.agents.models import (
     AgentName,
     AgentUsage,
     Approval,
@@ -21,7 +21,7 @@ from src.agents.models import (
     SessionContext,
     UsageCounts,
 )
-from src.services.adapters.ports import CommitError, CommitRequest
+from relohome_agent.services.adapters.ports import CommitError, CommitRequest
 
 
 class InMemorySessionPort:

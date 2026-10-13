@@ -12,10 +12,9 @@ import unicodedata
 from typing import Any
 
 from langchain_core.messages import AIMessage
-
-from src.agents.deps import GraphDeps
-from src.agents.memory import memory_updates
-from src.agents.models import (
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.memory import memory_updates
+from relohome_agent.agents.models import (
     AgentName,
     AgentResponse,
     OutcomeCode,
@@ -24,9 +23,9 @@ from src.agents.models import (
     TaskStatus,
     error_record,
 )
-from src.agents.progress import record_goal, record_selections
-from src.agents.state import WorkflowState
-from src.agents.suggestions import next_step_suggestions
+from relohome_agent.agents.progress import record_goal, record_selections
+from relohome_agent.agents.state import WorkflowState
+from relohome_agent.agents.suggestions import next_step_suggestions
 
 logger = logging.getLogger(__name__)
 

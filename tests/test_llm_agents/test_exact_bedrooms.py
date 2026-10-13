@@ -1,6 +1,6 @@
 """Pure completeness guard; no mocked model/provider responses."""
 
-from src.agents.intake_llm import exact_bedroom_count
+from relohome_agent.agents.intake_llm import exact_bedroom_count
 
 
 def test_exact_bedrooms_and_ranges():

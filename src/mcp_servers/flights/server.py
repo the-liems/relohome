@@ -1,11 +1,10 @@
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
+from relohome_flight.settings import FlightSettings, get_flight_settings
+from relohome_flights_mcp.tools import FlightServices, FlightTools, build_services
+from relohome_mcp_http import HttpServiceMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from src.mcp_servers.flights.settings import FlightSettings, get_flight_settings
-from src.mcp_servers.flights.tools import FlightServices, FlightTools, build_services
-from src.mcp_servers.http_service import HttpServiceMCP
 
 SERVER_NAME = "vn-flight-booking"
 INSTRUCTIONS = """\

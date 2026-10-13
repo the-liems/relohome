@@ -30,6 +30,11 @@ releases use the existing GHCR/image-only workflow. The renderer embeds config
 files into Coolify bind-mount `content` fields, so the host needs no repository
 checkout. Generated files are deployment artifacts; edit the sources in
 `deploy/observability/` and `scripts/render-observability.py`.
+Coolify writes inline `content` verbatim before invoking Docker Compose. Preserve
+the file's original dollar signs: Collector and Caddy expand their own environment
+references, and Grafana provisioning retains its own `$$` escape for trace links.
+The validation command materializes these exact embedded files for configuration
+checks and the local smoke stack.
 
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
@@ -214,6 +219,11 @@ telemetry. Application requests and payments remain independent of export.
 
 ## Dashboards and alerts
 
+The Collector's internal Prometheus reader explicitly disables type and unit
+suffixes. Keep the provisioned queries aligned with its scraped names, including
+`otelcol_exporter_send_failed_spans` and `otelcol_process_memory_rss`; application
+metrics exported on port 8889 retain their standard Prometheus suffixes.
+
 Open **LifeFlow operations** in Grafana and choose the environment. Expand a log
 record's `trace_id` to open its project-specific Langfuse trace. Verify the
 generated URL after entering real project IDs.
@@ -270,12 +280,14 @@ the #111 relocation. Its `./register` export must still preload before service
 modules. Keep `service.name`, the `lifeflow` resource namespace, metric names,
 Grafana identifiers and environment routing stable during source renames.
 
-Python telemetry currently remains in `src/observability`. The #112 packaging
-handoff is `relohome-observability` / `relohome_observability` under
-`packages/python/observability`; carry its dependencies into every consuming
-wheel/image, including shared MCP HTTP, and rerun export/privacy checks outside
-the checkout when that packaging change lands. This source migration does not
-change the shared observability deployment or enable telemetry automatically.
+Python telemetry lives in `packages/python/observability` as
+`relohome-observability` / `relohome_observability`, following the #112 package
+boundaries now on `main`. The gateway, backend, both Python MCP applications and
+shared MCP HTTP declare their dependency; each runtime image installs its wheel.
+`src/observability` contains temporary compatibility aliases tracked for removal
+under #115. Image checks import canonical entrypoints in isolated Python from
+`/tmp`, without checkout path injection. This source migration does not change
+the shared observability deployment or enable telemetry automatically.
 
 ```bash
 python -m pytest tests/test_observability.py tests/test_observability_export.py -q

@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-
-from src.config import Settings
+from relohome_agent.config import Settings
 
 ROOT = Path(__file__).resolve().parents[1]
 

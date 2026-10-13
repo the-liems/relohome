@@ -17,15 +17,15 @@ from datetime import timedelta
 
 import httpx
 import pytest
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 from test_domain_missions_live import ROOT, saved_state
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.location import LocationSubagent
-from src.agents.subagents.services.read_llm import ReadLlmAgent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
 from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual services and paid LLM opt-in")
@@ -239,7 +239,7 @@ def test_old_optional_review_does_not_downgrade_fresh_completed_request():
     }
     if not optional_old:
         pytest.skip("Thread has no carried optional task; do not manufacture one")
-    from src.agents.nodes.respond import compose
+    from relohome_agent.agents.nodes.respond import compose
 
     baseline_response = baseline_module("src/agents/nodes/respond.py").compose(state, None)
     current_response = compose(state, None)

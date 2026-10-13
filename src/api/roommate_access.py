@@ -3,14 +3,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import ValidationError
-
-from src.roommate.access import RoommateContext, RoommateError
-from src.roommate.api_models import AccessAcceptance
-from src.roommate.connection_repository import RepositoryPolicyError
-from src.roommate.policy import TERMS_VERSION, City
-from src.roommate.ports import Actor
-from src.roommate.profile_repository import VersionConflictError
-from src.roommate.services.access import AccessService
+from relohome_roommate.access import RoommateContext, RoommateError
+from relohome_roommate.api_models import AccessAcceptance
+from relohome_roommate.connection_repository import RepositoryPolicyError
+from relohome_roommate.policy import TERMS_VERSION, City
+from relohome_roommate.ports import Actor
+from relohome_roommate.profile_repository import VersionConflictError
+from relohome_roommate.services.access import AccessService
 
 PRIVATE_HEADERS = {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
 router = APIRouter(prefix="/roommate", tags=["roommate"])
@@ -29,7 +28,7 @@ def trusted_actor(
         actor = Actor(id=x_user_id)
     except ValidationError:
         raise HTTPException(401, {"code": "authentication_required"}, headers=PRIVATE_HEADERS) from None
-    from src.roommate.services.resources import take_budget
+    from relohome_roommate.services.resources import take_budget
 
     resource = request.url.path.rsplit("/", 1)[-1]
     budget = (

@@ -36,11 +36,12 @@ def test_python_sdk_auth_and_payment_stdio_propagation(tmp_path):
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "PYTHONPATH": str(ROOT), "OBSERVABILITY_ENABLED": "true",
+        env = {**os.environ, "OBSERVABILITY_ENABLED": "true",
                "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token",
                "PAYMENT_DB_PATH": str(tmp_path / "payments.db")}
+        env.pop("PYTHONPATH", None)
         result = subprocess.run([sys.executable, "-m", "tests.observability_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr

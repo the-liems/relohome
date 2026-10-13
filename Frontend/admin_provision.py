@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 from pathlib import Path
 
-from Frontend.store import Store, password_hash
+from relohome_gateway.store import Store, password_hash
 
 
 def provision(database: Path, email: str, name: str, password: str | None = None, existing: bool = False) -> str:

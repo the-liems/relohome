@@ -2,9 +2,9 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from src.agents.common import utcnow
-from src.agents.graph import run_config
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import (
     AgentName,
     Constraints,
     IntakeResult,
@@ -16,18 +16,18 @@ from src.agents.models import (
     TaskResult,
     TaskStatus,
 )
-from src.agents.wiring import AgentService
-from src.api.web_actions import router
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api.web_actions import router
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.mark.asyncio
 async def test_selection_is_grounded_owned_and_persisted_in_graph(monkeypatch):
-    from src.agents.deps import AgentRegistry
-    from src.agents.subagents.fake import FakeAgent
+    from relohome_agent.agents.deps import AgentRegistry
+    from relohome_agent.agents.subagents.fake import FakeAgent
 
     monkeypatch.setattr(
-        "src.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: FakeAgent(AgentName.PROPERTY)})
+        "relohome_agent.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: FakeAgent(AgentName.PROPERTY)})
     )
     service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
     app = FastAPI()
@@ -103,8 +103,8 @@ async def test_selection_is_grounded_owned_and_persisted_in_graph(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_listing_explored_on_map_is_selectable_only_via_provider_record(monkeypatch):
-    from src.agents.deps import AgentRegistry
-    from src.agents.subagents.fake import FakeAgent
+    from relohome_agent.agents.deps import AgentRegistry
+    from relohome_agent.agents.subagents.fake import FakeAgent
 
     class Location:
         async def call(self, tool, args):
@@ -122,7 +122,7 @@ async def test_listing_explored_on_map_is_selectable_only_via_provider_record(mo
 
     housing = FakeAgent(AgentName.PROPERTY)
     housing.client = Location()
-    monkeypatch.setattr("src.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: housing}))
+    monkeypatch.setattr("relohome_agent.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: housing}))
     service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
     app = FastAPI()
     app.state.agent_service = service

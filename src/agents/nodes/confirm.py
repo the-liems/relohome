@@ -8,11 +8,10 @@ from __future__ import annotations
 from langchain_core.messages import HumanMessage
 from langgraph.types import interrupt
 from pydantic import ValidationError
-
-from src.agents.approval import approval_problems
-from src.agents.deps import GraphDeps
-from src.agents.models import CommitActionKind, Outcome, OutcomeCode, UserDecision, error_record
-from src.agents.state import WorkflowState
+from relohome_agent.agents.approval import approval_problems
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.models import CommitActionKind, Outcome, OutcomeCode, UserDecision, error_record
+from relohome_agent.agents.state import WorkflowState
 
 
 def _vnd(amount: int) -> str:

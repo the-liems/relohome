@@ -6,11 +6,11 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+os.environ.setdefault("RELOHOME_RUNTIME_ROOT", str(Path(__file__).resolve().parents[1]))
 
-from src.config import get_settings
-from src.roommate.operations import TABLES, backup, backup_sqlite, import_snapshot
-from src.roommate.runtime import RoommateRuntime
+from relohome_agent.config import get_settings
+from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_roommate.operations import TABLES, backup, backup_sqlite, import_snapshot
 
 
 def provision(settings):

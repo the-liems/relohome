@@ -4,7 +4,7 @@ import asyncio
 import os
 import socket
 
-from src.observability import initialize, traced_node
+from relohome_observability import initialize, traced_node
 
 initialize("smoke-python")
 
@@ -14,10 +14,9 @@ async def main():
     import uvicorn
     from fastapi import FastAPI
     from langgraph.graph import END, START, StateGraph
-
-    from src.observability.asgi import TelemetryMiddleware
-    from src.observability.runtime import invoke_graph
-    from src.services.adapters.mcp import McpEndpoint, McpToolClient
+    from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+    from relohome_observability.asgi import TelemetryMiddleware
+    from relohome_observability.runtime import invoke_graph
 
     client = McpToolClient(McpEndpoint("smoke", frozenset({"smoke_query"}),
                           url=os.environ["SMOKE_MCP_URL"], token=os.environ["SMOKE_MCP_TOKEN"]))

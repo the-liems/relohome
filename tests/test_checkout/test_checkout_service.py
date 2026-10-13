@@ -6,13 +6,12 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.agents.models import AgentName, ConfirmedFact, IntakeResult, RequestKind, TaskResult
-from src.agents.subagents.services.moving import QuoteContact
-from src.checkout.models import CheckoutError
-from src.checkout.service import CheckoutService, CheckoutSettings
-from src.checkout.store import CheckoutStore
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.agents.models import AgentName, ConfirmedFact, IntakeResult, RequestKind, TaskResult
+from relohome_agent.agents.subagents.services.moving import QuoteContact
+from relohome_agent.checkout.models import CheckoutError
+from relohome_agent.checkout.service import CheckoutService, CheckoutSettings
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.services.adapters.mcp import ToolCallError
 
 NOW = datetime(2026, 10, 8, 2, 0, tzinfo=UTC)
 USER, OTHER, THREAD = "user-a", "user-b", "th_1"
@@ -274,6 +273,53 @@ async def test_tester_mark_then_gateway_paid_fulfils_once(env):
     assert [c[0] for c in flight.calls].count("confirm_booking") == 1
     tx = service.store.get_tx(attempt["transaction_id"])
     assert tx.status == "ticketed" and tx.details["ticket"]["simulated"]
+
+
+@pytest.mark.asyncio
+async def test_fulfilment_retry_reports_each_attempt_outcome(env, monkeypatch):
+    from opentelemetry import metrics, trace
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from relohome_observability import runtime
+
+    exporter = InMemorySpanExporter()
+    tracer = TracerProvider()
+    tracer.add_span_processor(SimpleSpanProcessor(exporter))
+    reader = InMemoryMetricReader()
+    meter = MeterProvider(metric_readers=[reader])
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", tracer)
+    monkeypatch.setattr(metrics, "get_meter_provider", lambda: meter)
+    monkeypatch.setattr(metrics, "get_meter", meter.get_meter)
+    monkeypatch.setattr(runtime, "_initialized", True)
+    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    service, _, flight, _, _ = env
+    monkeypatch.setattr(service, "kick", lambda: None)
+    try:
+        _, attempt = await pay_flight(service)
+        await service.tester_paid(USER, attempt["attempt_id"])
+        flight.confirm_error = ToolCallError("timeout", "temporary failure", retryable=True)
+        await service.run_jobs()
+        pending = service.store.job_for(attempt["transaction_id"])
+        assert pending.status == "pending" and pending.last_error == "timeout"
+
+        flight.confirm_error = None
+        await service.run_jobs()
+        completed = service.store.job_for(attempt["transaction_id"])
+        assert completed.status == "done" and completed.last_error == ""
+        spans = [span for span in exporter.get_finished_spans() if span.name == "payment.fulfilment"]
+        assert [span.status.status_code.name for span in spans] == ["ERROR", "UNSET"]
+        assert [span.attributes["lifeflow.outcome"] for span in spans] == ["error", "success"]
+        points = [point for resource in reader.get_metrics_data().resource_metrics
+                  for scope in resource.scope_metrics for metric in scope.metrics
+                  if metric.name == "lifeflow.operations" for point in metric.data.data_points
+                  if point.attributes.get("operation") == "payment.fulfilment"]
+        assert {point.attributes["outcome"]: point.value for point in points} == {"error": 1, "success": 1}
+    finally:
+        tracer.shutdown()
+        meter.shutdown()
 
 
 @pytest.mark.asyncio

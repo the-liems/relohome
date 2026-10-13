@@ -1,11 +1,11 @@
-"""Chạy server: `python -m src.mcp_servers.flights [--transport stdio|streamable-http]`."""
+"""Chạy server: `python -m relohome_flights_mcp [--transport stdio|streamable-http]`."""
 
 import argparse
 
-from src.mcp_servers.flights.server import create_server
-from src.mcp_servers.flights.settings import get_flight_settings
-from src.mcp_servers.flights.tools import build_services
-from src.observability import initialize
+from relohome_flight.settings import get_flight_settings
+from relohome_flights_mcp.server import create_server
+from relohome_flights_mcp.tools import build_services
+from relohome_observability import initialize
 
 
 def main() -> None:

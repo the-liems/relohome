@@ -15,15 +15,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
-
-from src.agents.common import utcnow
-from src.agents.graph import run_config
-from src.agents.intake import redact_pii
-from src.agents.progress import plan_progress
-from src.agents.selections import selected_option, selection_is_current
-from src.agents.wiring import AgentService
-from src.models.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
-from src.observability.runtime import invoke_graph
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.progress import plan_progress
+from relohome_agent.agents.selections import selected_option, selection_is_current
+from relohome_agent.agents.wiring import AgentService
+from relohome_contracts.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
+from relohome_observability.runtime import invoke_graph
+from relohome_privacy import redact_pii
 
 
 async def authenticate(
@@ -57,8 +56,8 @@ Service = Annotated[AgentService, Depends(get_service)]
 @router.get("/map/search")
 async def search_map(service: Service, text: str = Query(min_length=2, max_length=200)):
     """Shared read-only place picker; never guesses or approves a Moving pin."""
-    from src.agents.models import AgentName
-    from src.services.adapters.mcp import ToolCallError
+    from relohome_agent.agents.models import AgentName
+    from relohome_agent.services.adapters.mcp import ToolCallError
 
     if len(text.strip()) < 2:
         raise HTTPException(422, "Nhập ít nhất hai ký tự tên địa điểm.")
@@ -172,8 +171,8 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
 
 async def _verified_place(service: AgentService, choice) -> dict:
     """Re-read a chosen place from Location; the client only supplies its ID."""
-    from src.agents.models import AgentName
-    from src.services.adapters.mcp import ToolCallError
+    from relohome_agent.agents.models import AgentName
+    from relohome_agent.services.adapters.mcp import ToolCallError
 
     agent = service.deps.agents.get(AgentName.MAP) or service.deps.agents.get(AgentName.PROPERTY)
     client = getattr(agent, "client", None)
@@ -216,8 +215,7 @@ async def decision(
                 raise HTTPException(status_code=409, detail="Phương án đã thay đổi; hãy xem lại trước khi xác nhận.")
             pii_refs = {}
             from pydantic import ValidationError
-
-            from src.models.schemas import MovingContact, MovingOrderUpdate
+            from relohome_contracts.schemas import MovingContact, MovingOrderUpdate
 
             for action_id, required in pending.get("pii_required", {}).items():
                 form = body.pii_forms.get(action_id, {})

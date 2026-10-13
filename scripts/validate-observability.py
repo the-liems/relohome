@@ -97,12 +97,26 @@ def application_trace(path, collector, token, database_url):
                 child.wait()
 
 
+def materialize_coolify_content(path):
+    """Use the exact files Coolify writes, without Docker Compose interpolation."""
+    for kind in ("stack", "collector"):
+        rendered = renderer.render(path / ("coolify-" + kind), kind=kind, coolify=True)
+        definition = yaml.safe_load(rendered.read_text())
+        for service in definition["services"].values():
+            for mount in service.get("volumes", []):
+                if isinstance(mount, dict) and "content" in mount:
+                    destination = path / mount["source"].removeprefix("./")
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_text(mount["content"])
+
+
 def main(smoke=False, verify_images=False):
     if verify_images:
         images()
     with tempfile.TemporaryDirectory(prefix="p044-observability-") as tmp:
         path = Path(tmp)
         compose = renderer.render(path)
+        materialize_coolify_content(path)
         definition = yaml.safe_load(compose.read_text())
         services = definition["services"]
         project = "p044-observability-test-" + secrets.token_hex(4)
@@ -130,7 +144,7 @@ def main(smoke=False, verify_images=False):
         collector_image = yaml.safe_load((SOURCE / "compose.collector.yaml").read_text())["services"]["collector"]["image"]
         docker("run", "--rm", "-e", "OTEL_COLLECTOR_TOKEN=test-only", "-e", "OTEL_DEPLOYMENT_ENVIRONMENT=staging",
                "-e", "OBSERVABILITY_INGEST_PASSWORD=test-only", "-e", "OBSERVABILITY_GATEWAY_URL=http://telemetry-gateway:8080",
-               "-v", f"{SOURCE / 'collector.yaml'}:/etc/config.yaml:ro", collector_image, "validate", "--config=/etc/config.yaml")
+               "-v", f"{path / 'collector.yaml'}:/etc/config.yaml:ro", collector_image, "validate", "--config=/etc/config.yaml")
         # docker run does not implement Compose .env quoting/interpolation.
         container_env = [arg for key, value in env.items() for arg in ("-e", f"{key}={value}")]
         docker("run", "--rm", *container_env, "-v", f"{path / 'Caddyfile'}:/etc/caddy/Caddyfile:ro",
@@ -140,10 +154,9 @@ def main(smoke=False, verify_images=False):
                "-config.file=/etc/loki/config.yaml", "-verify-config=true")
         docker("run", "--rm", "--entrypoint", "promtool", "-v", f"{path}:/etc/prometheus:ro",
                services["prometheus"]["image"], "check", "config", "/etc/prometheus/prometheus.yaml")
-        print("Collector, gateway, Loki and Prometheus configs validated", flush=True)
+        print("Coolify-rendered Collector, gateway, Loki and Prometheus configs validated", flush=True)
         if not smoke:
             return
-        shutil.copyfile(SOURCE / "collector.yaml", path / "collector.yaml")
         shutil.copyfile(ROOT / "tests/observability_discord_receiver.py", path / "discord.py")
         services["discord-capture"] = {"image": services["retention"]["image"], "command": ["python", "/app/discord.py"],
             "volumes": ["./discord.py:/app/discord.py:ro"], "ports": ["127.0.0.1:0:8080"], "mem_limit": "64m"}

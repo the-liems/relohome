@@ -9,8 +9,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from src.agents.housing_operations import is_housing_comparison
-from src.agents.models import (
+from relohome_agent.agents.housing_operations import is_housing_comparison
+from relohome_agent.agents.models import (
     AgentName,
     CommitActionKind,
     MemoryUpdate,

@@ -1,7 +1,7 @@
 import httpx
 import pytest
+from relohome_agent.api.roommate_profiles import router
 
-from src.api.roommate_profiles import router
 from tests.test_roommate.test_discovery_api import headers, make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 
@@ -20,7 +20,7 @@ async def test_binding_checks_known_listing_city_without_inventing_unknown_city(
     async def listing(*_):
         return {"id": "room", "city": listing_city}
 
-    monkeypatch.setattr("src.api.roommate_profiles.explored_listing", listing)
+    monkeypatch.setattr("relohome_agent.api.roommate_profiles.explored_listing", listing)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         await client.post(
             "/api/v1/roommate/access", json={"adult": True, "terms_version": "roommate-1.0"}, headers=headers()
