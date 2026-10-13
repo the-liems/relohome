@@ -22,8 +22,8 @@ const commands = {
   python: [resolve(root, 'scripts/python.mjs'), '-m', 'pytest', '--env-test', envTest,
     ...(args.length ? args : ['tests/test_llm_agents', '-v'])],
   moving: [resolve(root, 'node_modules/vitest/vitest.mjs'), 'run',
-    'Maps VN/LifeFlow/packages/moving-service/tests/live.staging.test.ts',
-    'Maps VN/LifeFlow/moving-mcp-server/tests/live.staging.test.ts', ...args],
+    'packages/moving-service/tests/live.staging.test.ts',
+    'apps/moving-mcp/tests/live.staging.test.ts', ...args],
   browser: [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test', ...args],
 };
 if (!commands[suite]) throw new Error('Choose python, moving or browser.');

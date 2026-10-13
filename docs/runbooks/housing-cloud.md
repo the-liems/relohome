@@ -74,7 +74,7 @@ Platform health trả 503 `migration_required` khi schema mới chưa tồn tạ
 Test migration image trong CI/local Linux có Docker:
 
 ```bash
-docker build -f 'Maps VN/LifeFlow/platform-api/Dockerfile' --target location-migrate -t relohome-migrate:test .
+docker build -f apps/platform-api/Dockerfile --target location-migrate -t relohome-migrate:test .
 python scripts/test-migration-image.py location-migrate relohome-migrate:test
 ```
 

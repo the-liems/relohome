@@ -29,7 +29,7 @@ and a missing file fails before startup. For another file, run the entrypoint di
 
 ```sh
 # From repository root (exactly one selected env file):
-node --env-file=/absolute/path/team.env "Maps VN/LifeFlow/mcp-server/dist/http-server.js"
+node --env-file=/absolute/path/team.env apps/location-mcp/dist/http-server.js
 node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
 docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
 # Existing integration launcher (staging safety overrides) also accepts a file:
