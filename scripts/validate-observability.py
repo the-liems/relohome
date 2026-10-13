@@ -8,7 +8,6 @@ import importlib.util
 import json
 import os
 import secrets
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -222,7 +221,7 @@ def main(smoke=False, verify_images=False):
             "LF_POSTGRES_PASSWORD", "LF_CLICKHOUSE_PASSWORD", "LF_REDIS_PASSWORD", "LF_SALT", "LF_ENCRYPTION_KEY",
             "LF_NEXTAUTH_SECRET", "OBS_ADMIN_PASSWORD", "GRAFANA_ADMIN_PASSWORD")}
         env.update(local_storage_environment())
-        env.update(OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled",
+        env.update(OBS_ADMIN_EMAIL="smoke@example.com",
                    GRAFANA_ADMIN_USER="admin", OBSERVABILITY_ENVIRONMENTS="staging", LANGFUSE_PRODUCTION_AUTH="",
                    LANGFUSE_URL="http://localhost:3000", GRAFANA_URL="http://localhost:3001",
                    LANGFUSE_INIT_ORG_ID="smoke-" + secrets.token_hex(8),
@@ -268,15 +267,6 @@ def main(smoke=False, verify_images=False):
         loki_config = yaml.safe_load((path / "loki.yaml").read_text())
         loki_config["ingester"]["wal"]["flush_on_shutdown"] = True
         (path / "loki.yaml").write_text(renderer.dump(loki_config))
-        shutil.copyfile(ROOT / "tests/observability_discord_receiver.py", path / "discord.py")
-        services["discord-capture"] = {"image": services["retention"]["image"], "command": ["python", "/app/discord.py"],
-            "volumes": ["./discord.py:/app/discord.py:ro"], "ports": ["127.0.0.1:0:8080"], "mem_limit": "64m"}
-        services["grafana"]["environment"]["DISCORD_WEBHOOK_URL"] = "http://discord-capture:8080/api/webhooks/test/token"
-        # Accelerate only test notification grouping; production keeps its five-minute grouping.
-        alerts_path = path / "grafana/alerts.yaml"
-        alerts = yaml.safe_load(alerts_path.read_text())
-        alerts["policies"][0].update(group_wait="1s", group_interval="5s")
-        alerts_path.write_text(renderer.dump(alerts))
         for name, port in {"langfuse": 3000, "grafana": 3000, "cortex": 9009, "loki": 3100, "telemetry-gateway": 8080,
                            "postgres": 5432}.items():
             services[name]["ports"] = [f"127.0.0.1:0:{port}"]
@@ -302,9 +292,6 @@ def main(smoke=False, verify_images=False):
             grafana = endpoint("grafana", 3000)
             gf_auth = {"Authorization": "Basic " + base64.b64encode(f'admin:{env["GRAFANA_ADMIN_PASSWORD"]}'.encode()).decode()}
             eventually(lambda: request(grafana + "/api/health").get("database") == "ok")
-            contacts = request(grafana + "/api/v1/provisioning/contact-points", headers=gf_auth)
-            assert any(item["type"] == "discord" and item["uid"] == "rh-discord"
-                       and item["name"] == "relohome-discord" for item in contacts)
             rules = request(grafana + "/api/v1/provisioning/alert-rules", headers=gf_auth)
             expected_rules = {"rh-staging-" + name for name in ("http-errors", "ai-errors", "provider-limits", "chat-latency",
                               "heartbeat", "collector-down", "export-failures", "retention")}
@@ -317,7 +304,7 @@ def main(smoke=False, verify_images=False):
             assert len(dashboard["dashboard"]["panels"]) >= 10
             source = request(grafana + "/api/datasources/uid/loki-staging", headers=gf_auth)
             assert source["jsonData"]["derivedFields"][0]["url"].endswith("/traces/${__value.raw}")
-            print("Langfuse ready; Grafana Discord contact point and alert rules provisioned", flush=True)
+            print("Langfuse ready; Grafana data sources and alert rules provisioned", flush=True)
             col = endpoint("otel-staging", 4318)
             col_auth = {"Authorization": "Bearer " + passwords["staging"]}
             gateway = endpoint("telemetry-gateway", 8080)
@@ -413,15 +400,6 @@ def main(smoke=False, verify_images=False):
                 return True
             eventually(connected_trace)
             print("Connected Python gateway -> LangGraph -> Node MCP -> PostgreSQL trace verified", flush=True)
-            capture = endpoint("discord-capture", 8080)
-            eventually(lambda: "[firing]" in json.dumps(request(capture)))
-            request(col + "/v1/metrics", headers=col_auth, body={"resourceMetrics": [
-                {"resource": {"attributes": [{"key": "service.name", "value": {"stringValue": name}}]},
-                 "scopeMetrics": [{"metrics": [{"name": "relohome.heartbeat", "unit": "s", "gauge": {
-                     "dataPoints": [{"asDouble": time.time(), "timeUnixNano": str(time.time_ns())}]}}]}]}
-                for name in renderer.SERVICES]})
-            eventually(lambda: "[resolved]" in json.dumps(request(capture)))
-            print("Grafana Discord firing/resolved payloads verified against local capture", flush=True)
             old_id = secrets.token_hex(16)
             old_span = trace_payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
             old_span.update(traceId=old_id, startTimeUnixNano=str(now - 8 * 86400 * 10**9),

@@ -3,8 +3,9 @@
 Implementation of [#106](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/106).
 Applications export OpenTelemetry to one Collector per environment. A shared
 platform stores traces in Langfuse, operational logs in Loki and metrics in
-single-instance Cortex backed by S3. Grafana owns dashboards, alert evaluation, notification policies and
-the Discord contact point. Application services never receive the Discord webhook.
+single-instance Cortex backed by S3. Grafana dashboards, data sources and alert
+rules are provisioned. Contact points and notification policies can be configured
+later in Grafana; this deployment supplies no external notification destination.
 
 ```mermaid
 flowchart LR
@@ -20,7 +21,7 @@ flowchart LR
     F[Grafana] --> M
     F --> L
     F -->|Trace links| LF
-    F --> D[Discord]
+    F -. Optional contact point configured later .-> D[Discord or another destination]
 ```
 
 ## Deployment boundaries
@@ -162,13 +163,12 @@ The compactor in each backend controls retention; do not apply Langfuse's
 eight-day lifecycle or blanket object expiry to these two buckets. Local Loki
 and Cortex volumes still hold WAL, active indexes and caches.
 
-Set the Discord webhook as `DISCORD_WEBHOOK_URL` on the **Grafana/platform
-resource**. The provisioned `relohome-discord` contact point, routing policy and
-rules are managed as code. View them in Grafana Alerting; change their source
-configuration and redeploy to make lasting edits. Use Grafana's contact-point
-test during rollout, then verify a controlled firing and resolution in the
-intended channel. Local automated validation uses a disposable receiver and does
-not send to Discord.
+Contact points and notification policies are not provisioned and require no
+webhook secret during deployment. Alert rules evaluate and their state is visible
+in Grafana. When notifications are needed, create a contact point and routing
+policy in **Grafana Alerting**, or manage them through separate provisioning.
+Grafana's persistent volume retains settings entered in its UI. Existing contact
+points and policies are not deleted or managed by this deployment.
 
 ## Enable staging, then production
 
@@ -270,8 +270,8 @@ Cortex implements the Prometheus query API.
 Each enabled environment gets its own Grafana alert group and fixed-tenant
 Cortex datasource. Cortex's local ruler evaluates only the expected-service
 recording rules so missing heartbeats remain detectable when an application has
-never emitted metrics. Grafana evaluates all alert conditions and sends Discord
-notifications.
+never emitted metrics. Grafana evaluates all alert conditions; delivery to an
+external destination requires a separately configured contact point and policy.
 
 Open **ReloHome operations** in Grafana and choose the environment. Expand a log
 record's `trace_id` to open its project-specific Langfuse trace. Verify the
@@ -288,8 +288,8 @@ generated URL after entering real project IDs.
 | Telemetry export failure/drop | Nonzero failure rate persisting for 5 minutes |
 | Trace cleanup failure | Failed cleanup for 15 minutes |
 
-Notification groups include environment and service; resolved notifications are
-enabled. Check Collector auth, fixed environment, DNS, queue depth and backend
+When configuring notifications later, use the environment and service labels to
+route and group alerts. Check Collector auth, fixed environment, DNS, queue depth and backend
 health before changing thresholds. These checks cover application and collection failures while the shared
 backend is running; availability of the observability system is outside scope.
 
@@ -360,8 +360,10 @@ Set `LANGFUSE_INIT_ORG_ID` and the two `LANGFUSE_*_PROJECT_ID` variables to the
 existing stored IDs. Bootstrap defaults do not rename stored organizations or
 projects; change their display names through Langfuse. Preserve their API keys.
 Grafana's new dashboard UID is `relohome-overview`, its folder is `ReloHome`, and
-its alert UIDs use `rh-{environment}-` and contact-point UID is `rh-discord`. Retire the old provisioned rules and
+its alert UIDs use `rh-{environment}-`. Retire the old provisioned rules and
 dashboards after verifying the replacements, so both sets do not remain active.
+Existing contact points and notification policies remain unchanged; review them
+separately when upgrading an earlier preview that provisioned notifications.
 This code change does not move stored data or alter a running deployment.
 
 ## Validation
@@ -396,8 +398,7 @@ The smoke command creates a unique disposable Docker project with random test
 credentials, test-only object storage and loopback-only ports. It overrides
 inherited bucket settings with local test values and never contacts the real
 bucket. It checks provisioning/ingestion/isolation and queue recovery, exercises
-Python/LangGraph → Node MCP → PostgreSQL, captures Grafana firing/resolved webhook
-payloads locally and verifies trace deletion. It flushes Loki/Cortex, then starts
+Python/LangGraph → Node MCP → PostgreSQL and verifies trace deletion. It flushes Loki/Cortex, then starts
 query-only readers with empty volumes and verifies that both read the exported
 data from their disposable S3 buckets. This uses test-only flush/scan settings;
 the deployed compactor and storage configuration stays unchanged.

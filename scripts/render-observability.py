@@ -63,11 +63,6 @@ def alert_config(environments=("staging",)):
         "deleteRules": [{"orgId": 1, "uid": "rh-" + spec[0]} for spec in specs] + [
             {"orgId": 1, "uid": f"rh-{env}-{spec[0]}"} for env in ("staging", "production")
             if env not in environments for spec in specs],
-        "contactPoints": [{"orgId": 1, "name": "relohome-discord", "receivers": [{"uid": "rh-discord", "type": "discord",
-            "disableResolveMessage": False, "settings": {"url": "$DISCORD_WEBHOOK_URL",
-            "message": '{{ range .Alerts }}[{{ .Status }}] {{ .Labels.environment }} {{ .Labels.service_name }}: {{ .Annotations.summary }}\n{{ .GeneratorURL }}\n{{ end }}'}}]}],
-        "policies": [{"orgId": 1, "receiver": "relohome-discord", "group_by": ["alertname", "environment", "service_name"],
-                      "group_wait": "30s", "group_interval": "5m", "repeat_interval": "4h"}],
     }
 
 

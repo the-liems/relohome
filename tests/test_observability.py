@@ -252,19 +252,12 @@ def test_retention_freezes_pagination_deletes_trace_ids_then_verifies():
     assert "2026-10-05" in client.calls[1][0]
 
 
-def test_stack_render_keeps_discord_only_in_grafana_and_separate_tenants(tmp_path):
+def test_stack_render_keeps_separate_tenants(tmp_path):
     import yaml
     renderer = load_script("render_observability_test", "scripts/render-observability.py")
     path = renderer.render(tmp_path, coolify=True, environments=("staging", "production"))
     stack = yaml.safe_load(path.read_text())
     assert not any(service.get("ports") for service in stack["services"].values())
-    for name, service in stack["services"].items():
-        assert ("DISCORD_WEBHOOK_URL" in service.get("environment", {})) == (name == "grafana")
-    grafana = stack["services"]["grafana"]
-    alerts = next(mount["content"] for mount in grafana["volumes"] if isinstance(mount, dict) and "alerting" in mount["target"])
-    assert "type: discord" in alerts
-    assert "disableResolveMessage: false" in alerts
-    assert "url: $DISCORD_WEBHOOK_URL" in alerts
     assert "staging" in path.read_text() and "production" in path.read_text()
     gateway = next(mount["content"] for mount in stack["services"]["telemetry-gateway"]["volumes"] if isinstance(mount, dict))
     assert "X-Scope-OrgID staging" in gateway

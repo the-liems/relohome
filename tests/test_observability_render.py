@@ -32,8 +32,6 @@ def test_coolify_keeps_consumer_environment_and_dashboard_interpolation(tmp_path
     mounts = {mount["source"]: mount["content"] for service in stack["services"].values()
               for mount in service.get("volumes", []) if isinstance(mount, dict) and "content" in mount}
     assert "staging {$STAGING_INGEST_PASSWORD_HASH}" in mounts["./Caddyfile"]
-    alerts = yaml.safe_load(mounts["./grafana/alerts.yaml"])
-    assert alerts["contactPoints"][0]["receivers"][0]["settings"]["url"] == "$DISCORD_WEBHOOK_URL"
     datasources = yaml.safe_load(mounts["./grafana/datasources.yaml"])
     assert datasources["datasources"][1]["jsonData"]["derivedFields"][0]["url"] == (
         "${LANGFUSE_URL}/project/${LANGFUSE_STAGING_PROJECT_ID}/traces/$${__value.raw}"
