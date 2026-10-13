@@ -1,9 +1,11 @@
 # ReloHome Housing: deploy và vận hành cloud
 
-Bản nâng cấp nằm trên `feat/housing-management-cloud`, dựa trên QuangDung
-`67a5522`. Giữ đường dẫn monorepo để không đụng các PR đang tái cấu trúc.
-Dùng `compose.coolify.yaml` và các Dockerfile/CI hiện hữu. Chưa triển khai tới một
-cloud account; các bước dưới đây chạy trên resource staging do operator chọn.
+Housing/Admin đã được merge qua PR #135. Sau các PR #138–#142, gateway là
+package cài đặt `relohome_gateway` trong `apps/browser-gateway`, UI ở `apps/web`,
+Platform ở `apps/platform-api`, Location MCP ở `apps/location-mcp`, SQL ở
+`deploy/database/migrations`. Không dùng namespace `Frontend.*` nữa.
+Dùng `compose.coolify.yaml` và CI/CD hiện hữu; cấp tài khoản trên đúng resource
+staging/production, độc lập với tài khoản local.
 
 ## 1. Cấu hình trước release
 
@@ -88,19 +90,51 @@ python -m relohome_gateway.admin_provision --email admin@your-domain.vn --name '
 
 Nhập mật khẩu 12+ ký tự qua prompt kín; không truyền password trên command line.
 Tool trả **account ID**, không tự nâng quyền. Append ID đó vào
-`HOUSING_MODERATOR_IDS` ở Platform, giữ các ID cũ, restart Platform. Đăng nhập
+`HOUSING_MODERATOR_IDS` trong Environment của resource Coolify đích, giữ các ID cũ.
+Save và redeploy resource để **tạo lại Platform với environment mới**; chỉ restart
+container/process cũ không áp dụng thay đổi environment. Đăng nhập
 `https://your-domain/admin` hoặc chọn “Đăng nhập Admin” ở màn login.
 Muốn dùng account có sẵn, thêm `--existing`; password/data cũ được giữ nguyên.
 Không seed account/password cố định trong image hoặc cấp quyền từ browser.
 
 Khách/chủ nhà vẫn login chung và đổi workspace như trước. Admin session có
 workspace riêng; login thường của cùng account vẫn không mở moderation API từ
-browser. Backend kiểm ID Admin mỗi thao tác; rút ID khỏi cấu hình và restart
-Platform sẽ thu hồi khả năng kiểm duyệt, kể cả session cũ.
+browser. Backend kiểm ID Admin mỗi thao tác; rút ID khỏi cấu hình và redeploy
+để tạo lại Platform sẽ thu hồi khả năng kiểm duyệt, kể cả session cũ.
+
+Với staging của nhóm, email đã thống nhất là `admin@gmail.com`:
+
+```bash
+python -m relohome_gateway.admin_provision --email admin@gmail.com --name 'ReloHome Admin'
+# Chỉ khi account staging đã tồn tại; không đổi password:
+python -m relohome_gateway.admin_provision --email admin@gmail.com --existing
+```
+
+Trước khi chạy, kiểm tra không lộ secret và không ghi dữ liệu:
+
+```bash
+python -m relohome_gateway.admin_provision --help
+python -c 'from relohome_gateway.runtime_paths import runtime_root, database_path; root = runtime_root(); print("Runtime root:", root); print("Account database:", database_path(root))'
+```
+
+Image web hiện tại đặt `RELOHOME_RUNTIME_ROOT=/app`, Compose đặt
+`SIU_WEB_DB=/app/data/siu-web.sqlite3` và mount `web-data:/app/data`. Nếu khác,
+xác minh cấu hình/volume của resource trước khi tạo account. Không khởi tạo một
+database thay thế để xử lý lỗi đăng nhập. Tool backup và cấp Admin dùng cùng
+runtime paths với gateway; đường dẫn tương đối của database/media/key tính từ
+runtime root. Chạy local phải cài `requirements-dev.txt` sau khi pull relocation
+và đặt `RELOHOME_RUNTIME_ROOT` thành đường dẫn tuyệt đối của checkout đang dùng.
+Mặc định local vẫn giữ `Frontend/data/housing-media` để đọc lại ảnh cũ; không tự
+di chuyển/xóa thư mục dữ liệu này. Cloud đặt media ở `/app/data/housing-media`.
+
+Hướng dẫn bàn giao và checklist operator: [issue #140](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/140).
+Nếu staging được bảo vệ bằng Cloudflare Access, thành viên cần qua lớp truy cập
+đó trước; quyền Cloudflare và account Admin ứng dụng được cấp riêng.
 
 ## 4. Smoke test trước mở traffic
 
-1. `/health` từng service; web session/login hoạt động qua HTTPS, cookie HttpOnly/
+1. `/health` của web/Platform và `/healthz`, `/readyz` của Location **trong mạng nội bộ**;
+   web session/login hoạt động qua HTTPS, cookie HttpOnly/
    Secure; không có route public tới PostGIS/Platform/Location/internal docs.
 2. Account mới tạo hồ sơ, chọn nhà bằng Vietmap, xác nhận pin, thêm hai phòng cùng
    tọa độ, lưu nháp thiếu thông tin. Tin/ảnh riêng chưa xuất hiện Customer/Map/MCP.
@@ -129,7 +163,7 @@ trực tiếp trên database production.
 
 ## Release qua Coolify hiện có của repo
 
-Xác nhận ngày 13/10/2026: repo có các biến `COOLIFY_STAGING_URL`,
+Đối chiếu main `8566aeb` ngày 14/10/2026 (Asia/Saigon): repo có các biến `COOLIFY_STAGING_URL`,
 `COOLIFY_STAGING_SERVICE_UUID`, `COOLIFY_PRODUCTION_URL`,
 `COOLIFY_PRODUCTION_SERVICE_UUID` và secrets tương ứng. Giữ secrets trên GitHub/
 Coolify; không cố đọc hoặc copy chúng vào `.env` local.
@@ -142,10 +176,16 @@ Coolify; không cố đọc hoặc copy chúng vào `.env` local.
 3. Cấp tài khoản operator trong web container staging bằng công cụ ở bước 3,
    lấy **ID từ database staging**, append vào `HOUSING_MODERATOR_IDS` của Platform
    staging. ID local chỉ dùng khi chính database local được restore có chủ đích
-   vào resource đó. Cấu hình key Vietmap ở Platform và chạy smoke test.
+   vào resource đó. Save và redeploy sau thay đổi environment; cấu hình key
+   Vietmap ở Platform và chạy smoke test. Giữ cùng bộ image tags đã publish;
+   không thay image bằng tag của một PR đang mở.
 4. Production dùng [deploy-production.yml](../../.github/workflows/deploy-production.yml)
    với CI run ID đã kiểm trên staging. Chọn đúng resource và backup trước rollout;
    account/role/config của production thuộc database production.
 
 Không merge vào main chỉ để vượt deploy guard: merge làm thay đổi code chung và
 khởi động deploy staging tự động. PR phải được review trước bước này.
+
+CI main `8566aeb` và workflow Deploy staging đã thành công khi đối chiếu; đây là
+kết quả Actions, không xác nhận account đã được cấp hay smoke test operator đã
+hoàn tất. Ghi lại CI run ID, release tag và kết quả đăng nhập khi bàn giao.

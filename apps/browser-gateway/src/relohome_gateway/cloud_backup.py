@@ -15,6 +15,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+
 
 def _restrict_windows_directory(directory: Path) -> None:
     """Protect a newly created directory before copying any account data or keys."""
@@ -94,16 +96,20 @@ def backup(destination: Path, database: Path, media: Path, key: Path) -> dict:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--database", type=Path, default=Path(os.getenv("SIU_WEB_DB", "/app/data/siu-web.sqlite3")))
+    parser.add_argument("--database", type=Path, help="Override SIU_WEB_DB; relative paths use RELOHOME_RUNTIME_ROOT.")
     parser.add_argument(
-        "--media", type=Path, default=Path(os.getenv("SIU_HOUSING_MEDIA_DIR", "/app/data/housing-media"))
+        "--media", type=Path, help="Override SIU_HOUSING_MEDIA_DIR; relative paths use RELOHOME_RUNTIME_ROOT."
     )
     parser.add_argument(
-        "--key", type=Path, default=Path(os.getenv("SIU_TRAVELER_KEY_FILE", "/app/data/siu-web-traveler.key"))
+        "--key", type=Path, help="Override SIU_TRAVELER_KEY_FILE; relative paths use RELOHOME_RUNTIME_ROOT."
     )
     args = parser.parse_args()
     try:
-        result = backup(args.output, args.database, args.media, args.key)
+        root = runtime_root()
+        database = database_path(root, args.database)
+        result = backup(
+            args.output, database, media_path(root, args.media), traveler_key_path(database, root, args.key)
+        )
     except (ValueError, FileExistsError) as error:
         parser.error(str(error))
     print(
