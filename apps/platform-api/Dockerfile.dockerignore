@@ -6,8 +6,7 @@
 !package-lock.json
 !scripts/
 !scripts/docker-npm.mjs
-!Maps VN/
-!Maps VN/LifeFlow/
+!deploy/
 !tsconfig.base.json
 !packages/
 !packages/contracts/
@@ -16,9 +15,9 @@
 !packages/housing-query/**
 !apps/platform-api/
 !apps/platform-api/**
-!Maps VN/LifeFlow/database/
-!Maps VN/LifeFlow/database/migrations/
-!Maps VN/LifeFlow/database/migrations/**
+!deploy/database/
+!deploy/database/migrations/
+!deploy/database/migrations/**
 **/node_modules
 **/dist
 **/__pycache__

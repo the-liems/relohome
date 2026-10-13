@@ -1,4 +1,4 @@
-// Map visuals ported from LifeFlow map-app (config/map-theme.ts, config/poi-groups.ts and the
+// Map visuals ported from ReloHome map-app (config/map-theme.ts, config/poi-groups.ts and the
 // marker/basemap helpers in components/MapView.tsx) so the chat workspace matches that app.
 import type { Map as LibreMap } from "maplibre-gl";
 

@@ -71,7 +71,7 @@ async def moving():
     }
     process = subprocess.Popen(
         ["node", "../../apps/moving-mcp/dist/http-server.js"],
-        cwd=ROOT / "Maps VN/LifeFlow",
+        cwd=ROOT,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

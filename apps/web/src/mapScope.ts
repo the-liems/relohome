@@ -5,7 +5,7 @@ export type MapPoint = [number, number];
 type Box = { west: number; south: number; east: number; north: number };
 
 // Routing coverage stays separate from the nationwide display envelope.
-// These service boxes are the same as LifeFlow/OSRM, not camera limits.
+// These service boxes are the same as ReloHome/OSRM, not camera limits.
 export const MAP_CITIES: Record<
   MapCity,
   {

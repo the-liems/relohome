@@ -6,7 +6,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const rootDirectory = resolve(packageDirectory, '../../Maps VN/LifeFlow')
+const rootDirectory = resolve(packageDirectory, '../..')
 const authToken = 'lifeflow-mcp-integration-token-0123456789'
 
 let child: ChildProcess

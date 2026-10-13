@@ -47,7 +47,7 @@ COPY --from=build --chown=node:node /app/platform-api/dist ./platform-api/dist
 USER node
 
 FROM runtime AS location-migrate
-COPY --chmod=u=rwX,go=rX ["Maps VN/LifeFlow/database/migrations/", "./database/migrations/"]
+COPY --chmod=u=rwX,go=rX ["deploy/database/migrations/", "./database/migrations/"]
 CMD ["node", "platform-api/dist/migrate.js"]
 
 FROM runtime AS platform
