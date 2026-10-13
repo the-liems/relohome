@@ -39,8 +39,10 @@ checks and the local smoke stack.
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
 `lifeflow-observability-ingest` network. Only the gateway and Prometheus join that
-network from the shared platform; databases, Loki, Redis and MinIO remain on the
-platform's private network. Do not attach applications to the storage network.
+network from the shared platform; databases, Loki and Redis remain on the
+platform's private network. Langfuse Web and Worker connect to the existing
+S3-compatible bucket through its configured endpoint. Do not attach applications
+to the storage network.
 
 Docker bridge networks do not span hosts. For a separate observability host,
 provide VPN/private routed connectivity or authenticated HTTPS to the gateway,
@@ -61,7 +63,7 @@ backends still share capacity and failure risk; this deployment is not HA.
 ## Preflight
 
 1. Verify host memory and disk headroom independently of the application budget.
-   Configured platform memory limits total about 12 GiB, plus 512 MiB per
+   Configured platform memory limits total about 11 GiB, plus 512 MiB per
    Collector; these limits are ceilings, not evidence of sufficient capacity.
    Langfuse/ClickHouse initialization and load can require additional headroom.
    Inspect actual RSS, queue growth and disk growth during staging. Prefer a
@@ -120,8 +122,27 @@ project credentials are configured.
 Set `LANGFUSE_URL` and `GRAFANA_URL` to their external HTTPS URLs and configure the
 Coolify reverse proxy domains to each web service's port 3000. The Coolify output
 removes localhost port mappings. Verify authentication and signup restrictions.
-MinIO initialization creates the private event bucket and applies its lifecycle.
-No MinIO console or object-storage endpoint needs a public domain.
+
+Configure the existing private object-storage bucket using these platform
+resource variables. Both Langfuse Web and Worker receive the same values; the
+renderer keeps variable references and never reads or embeds credentials.
+
+| Variable | Value |
+| --- | --- |
+| `LANGFUSE_S3_EVENT_UPLOAD_BUCKET` | Existing bucket name |
+| `LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT` | Provider's S3 API endpoint, including `https://` |
+| `LANGFUSE_S3_EVENT_UPLOAD_REGION` | Bucket region; use `auto` for Cloudflare R2 |
+| `LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID` | Bucket-scoped access key, entered as a deployment secret |
+| `LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY` | Matching secret, entered as a deployment secret |
+| `LANGFUSE_S3_EVENT_UPLOAD_PREFIX` | Event prefix, defaults to `events/`; end custom prefixes with `/` |
+| `LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE` | Defaults to `false`; set `true` if required by the provider |
+
+For Amazon S3, use the regional API endpoint such as
+`https://s3.ap-southeast-1.amazonaws.com`. For R2, use the account's S3 API
+endpoint. These are storage API endpoints, not public bucket or CDN URLs.
+Grant scoped List/Get/Put/Delete permissions and configure the eight-day event
+prefix lifecycle described below. The platform does not create the bucket,
+manage its policy or deploy MinIO. Batch exports and media storage are not enabled.
 
 Set the Discord webhook as `DISCORD_WEBHOOK_URL` on the **Grafana/platform
 resource**. The provisioned `lifeflow-discord` contact point, routing policy and
@@ -254,9 +275,15 @@ deletion. It runs every 24 hours, retries failures after 15 minutes and exposes
 cleanup status on port 9101. Thus deletion is not instantaneous at the seven-day
 boundary. It does not clean datasets or independently uploaded media.
 
-MinIO expires raw `events/` objects after eight days, allowing one extra day for
-ingestion. Monitor worker backlog and queues; do not allow replay backlog to
-approach this window. Failed cleanup must be repaired, not masked by increasing
+Configure an expiration rule at the bucket provider for raw event objects after
+eight days, allowing one extra day for ingestion. Scope the rule to
+`LANGFUSE_S3_EVENT_UPLOAD_PREFIX` (`events/` by default); do not expire unrelated
+objects. This lifecycle is managed by the bucket provider and is not installed
+by the deployment. For versioned buckets, expire noncurrent versions too;
+current-object expiry alone can leave their data stored (see
+[S3 lifecycle behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html)).
+Monitor worker backlog and queues; do not allow replay backlog to approach this
+window. Failed cleanup must be repaired, not masked by increasing
 object expiry. Run a scoped dry run inside the retention container with
 `python /app/retention.py --dry-run`; omit `--dry-run` for an immediate cleanup.
 The script prints only environment and counts. Never run cleanup with keys for
@@ -297,9 +324,11 @@ npm run test:ci
 ```
 
 The smoke command creates a unique disposable Docker project with random test
-credentials and loopback-only ports, checks provisioning/ingestion/isolation and
-queue recovery, exercises Python/LangGraph → Node MCP → PostgreSQL, captures
-Grafana firing/resolved webhook payloads locally and verifies trace deletion.
+credentials, test-only object storage and loopback-only ports. It overrides
+inherited bucket settings with local test values and never contacts the real
+bucket. It checks provisioning/ingestion/isolation and queue recovery, exercises
+Python/LangGraph → Node MCP → PostgreSQL, captures Grafana firing/resolved webhook
+payloads locally and verifies trace deletion.
 Install the Python requirements and run `npm ci && npm run build` in
 the repository root before this command. It removes only that project's containers
 and volumes. If the

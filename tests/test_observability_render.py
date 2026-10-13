@@ -47,3 +47,29 @@ def test_coolify_keeps_consumer_environment_and_dashboard_interpolation(tmp_path
     assert config["exporters"]["otlphttp/gateway"]["endpoint"] == (
         "${env:OBSERVABILITY_GATEWAY_URL}/${env:OTEL_DEPLOYMENT_ENVIRONMENT}"
     )
+
+
+@pytest.mark.parametrize("coolify", [False, True])
+def test_existing_bucket_configuration_stays_in_deployment_environment(tmp_path, monkeypatch, coolify):
+    prefix = "LANGFUSE_S3_EVENT_UPLOAD_"
+    required = {prefix + suffix for suffix in (
+        "BUCKET", "ENDPOINT", "REGION", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY",
+    )}
+    for key in required:
+        monkeypatch.setenv(key, "private-deployment-value-must-not-be-rendered")
+    path = renderer.render(tmp_path, coolify=coolify)
+    rendered = path.read_text()
+    assert "private-deployment-value-must-not-be-rendered" not in rendered
+    stack = yaml.safe_load(rendered)
+    assert "minio" not in stack["services"] and "minio-init" not in stack["services"]
+    assert "minio" not in stack["volumes"]
+    for name, service in stack["services"].items():
+        values = {key: value for key, value in service.get("environment", {}).items() if key.startswith(prefix)}
+        if name not in {"langfuse", "langfuse-worker"}:
+            assert not values
+            continue
+        assert all(values[key] == "${" + key + ":?}" for key in required)
+        assert values[prefix + "PREFIX"] == "${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}"
+        assert values[prefix + "FORCE_PATH_STYLE"] == "${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-false}"
+        assert set(service["depends_on"]) == {"postgres", "clickhouse", "redis"}
+    assert not (tmp_path / "minio-lifecycle.json").exists()

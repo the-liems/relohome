@@ -19,20 +19,19 @@ x-langfuse: &langfuse-env
   REDIS_HOST: redis
   REDIS_PORT: "6379"
   REDIS_AUTH: ${LF_REDIS_PASSWORD:?}
-  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
-  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
-  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
-  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?}
-  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?}
-  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
-  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:?}
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: ${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:?}
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID:?}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY:?}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: ${LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:?}
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-false}
   LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
   LANGFUSE_IN_APP_AGENT_ENABLED: "false"
 x-langfuse-depends: &langfuse-depends
   postgres: {condition: service_healthy}
   clickhouse: {condition: service_healthy}
   redis: {condition: service_healthy}
-  minio-init: {condition: service_completed_successfully}
 services:
   langfuse:
     <<: *service
@@ -97,31 +96,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
-  minio:
-    <<: *service
-    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
-    mem_limit: 512m
-    environment: &minio-env
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
-    entrypoint: [minio]
-    command: [server, --address, ":9000", /data]
-    volumes: [minio:/data]
-    healthcheck:
-      test: [CMD, mc, ready, local]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-  minio-init:
-    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
-    restart: "no"
-    environment: *minio-env
-    entrypoint: [sh, -ec]
-    command:
-      - 'mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null; mc mb --ignore-existing local/langfuse; mc ilm import local/langfuse < /etc/minio/lifecycle.json'
-    volumes: [./minio-lifecycle.json:/etc/minio/lifecycle.json:ro]
-    depends_on:
-      minio: {condition: service_healthy}
   telemetry-gateway:
     <<: *service
     image: caddy:2.11.2-alpine
@@ -195,7 +169,6 @@ volumes:
   clickhouse:
   clickhouse-logs:
   redis:
-  minio:
   loki:
   prometheus:
   grafana:

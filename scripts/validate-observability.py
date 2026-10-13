@@ -26,18 +26,21 @@ renderer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(renderer)
 
 
-def docker(*args, timeout=600):
-    result = subprocess.run(["docker", *map(str, args)], text=True, capture_output=True, timeout=timeout)
+def docker(*args, timeout=600, env=None):
+    result = subprocess.run(["docker", *map(str, args)], text=True, capture_output=True, timeout=timeout, env=env)
     if result.returncode:
         # Only disposable test configuration is used by this script.
         raise RuntimeError(result.stderr[-4000:] or result.stdout[-4000:])
     return result.stdout.strip()
 
 
-def images():
+def images(include_smoke=False):
     refs = set()
     for filename in ("compose.yaml", "compose.collector.yaml"):
         refs.update(service["image"] for service in yaml.safe_load((SOURCE / filename).read_text())["services"].values())
+    if include_smoke:
+        fixture = yaml.safe_load((ROOT / "tests/fixtures/observability-object-storage.yaml").read_text())
+        refs.update(service["image"] for service in fixture["services"].values())
 
     def verify(ref):
         manifest = json.loads(docker("buildx", "imagetools", "inspect", ref, "--format", "{{json .Manifest}}", timeout=60))
@@ -110,9 +113,33 @@ def materialize_coolify_content(path):
                     destination.write_text(mount["content"])
 
 
+def local_storage_environment():
+    """Always replace caller bucket settings with disposable, local-only values."""
+    values = {
+        "BUCKET": "smoke-" + secrets.token_hex(8), "PREFIX": "events/", "REGION": "us-east-1",
+        "ACCESS_KEY_ID": "smoke-" + secrets.token_hex(8), "SECRET_ACCESS_KEY": secrets.token_hex(32),
+        "ENDPOINT": "http://smoke-object-storage:9000", "FORCE_PATH_STYLE": "true",
+    }
+    return {"LANGFUSE_S3_EVENT_UPLOAD_" + key: value for key, value in values.items()}
+
+
+def add_smoke_object_storage(definition):
+    fixture = yaml.safe_load((ROOT / "tests/fixtures/observability-object-storage.yaml").read_text())
+    definition["services"].update(fixture["services"])
+    definition["volumes"].update(fixture["volumes"])
+    for name in ("langfuse", "langfuse-worker"):
+        definition["services"][name]["depends_on"]["smoke-object-storage-init"] = {
+            "condition": "service_completed_successfully"}
+
+
+def compose_environment(values):
+    # Compose shell values override --env-file, so explicitly prefer generated test values.
+    return {**os.environ, **values}
+
+
 def main(smoke=False, verify_images=False):
     if verify_images:
-        images()
+        images(include_smoke=smoke)
     with tempfile.TemporaryDirectory(prefix="p044-observability-") as tmp:
         path = Path(tmp)
         compose = renderer.render(path)
@@ -124,8 +151,9 @@ def main(smoke=False, verify_images=False):
         definition["networks"]["ingestion"]["name"] = project + "-ingest"
         env = {key: secrets.token_hex(32) for key in (
             "LF_POSTGRES_PASSWORD", "LF_CLICKHOUSE_PASSWORD", "LF_REDIS_PASSWORD", "LF_SALT", "LF_ENCRYPTION_KEY",
-            "LF_NEXTAUTH_SECRET", "MINIO_ROOT_PASSWORD", "OBS_ADMIN_PASSWORD", "GRAFANA_ADMIN_PASSWORD")}
-        env.update(MINIO_ROOT_USER="smoke", OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled")
+            "LF_NEXTAUTH_SECRET", "OBS_ADMIN_PASSWORD", "GRAFANA_ADMIN_PASSWORD")}
+        env.update(local_storage_environment())
+        env.update(OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled")
         passwords = {name: secrets.token_hex(16) for name in ("staging", "production")}
         caddy = services["telemetry-gateway"]["image"]
         for name, password in passwords.items():
@@ -138,8 +166,12 @@ def main(smoke=False, verify_images=False):
         env_file = path / ".env"
         env_file.write_text("\n".join(f"{key}='{value}'" for key, value in env.items()) + "\n")
         env_file.chmod(0o600)
-        cmd = ["compose", "--env-file", env_file, "-f", compose]
-        docker(*cmd, "config", "--quiet")
+        cmd = ["compose", "--project-name", project, "--env-file", env_file, "-f", compose]
+
+        def stack(*args, timeout=600):
+            return docker(*cmd, *args, timeout=timeout, env=compose_environment(env))
+
+        stack("config", "--quiet")
         print("Local Compose validated", flush=True)
         collector_image = yaml.safe_load((SOURCE / "compose.collector.yaml").read_text())["services"]["collector"]["image"]
         docker("run", "--rm", "-e", "OTEL_COLLECTOR_TOKEN=test-only", "-e", "OTEL_DEPLOYMENT_ENVIRONMENT=staging",
@@ -157,6 +189,7 @@ def main(smoke=False, verify_images=False):
         print("Coolify-rendered Collector, gateway, Loki and Prometheus configs validated", flush=True)
         if not smoke:
             return
+        add_smoke_object_storage(definition)
         shutil.copyfile(ROOT / "tests/observability_discord_receiver.py", path / "discord.py")
         services["discord-capture"] = {"image": services["retention"]["image"], "command": ["python", "/app/discord.py"],
             "volumes": ["./discord.py:/app/discord.py:ro"], "ports": ["127.0.0.1:0:8080"], "mem_limit": "64m"}
@@ -180,11 +213,11 @@ def main(smoke=False, verify_images=False):
         compose.write_text(renderer.dump(definition))
 
         def endpoint(name, port):
-            return "http://" + docker(*cmd, "port", name, port).strip()
+            return "http://" + stack("port", name, port).strip()
 
         try:
             print("Starting disposable stack (first run downloads images and migrates Langfuse)", flush=True)
-            docker(*cmd, "up", "--detach", "--wait", "--wait-timeout", "240", timeout=900)
+            stack("up", "--detach", "--wait", "--wait-timeout", "240", timeout=900)
             lf = endpoint("langfuse", 3000)
             auth = {"Authorization": "Basic " + env["LANGFUSE_STAGING_AUTH"]}
             eventually(lambda: request(lf + "/api/public/projects", headers=auth), timeout=180)
@@ -276,24 +309,24 @@ def main(smoke=False, verify_images=False):
             request(col + "/v1/traces", headers=col_auth, body=trace_payload)
             old_query = urlencode({"traceId": old_id, "limit": 10, "fields": "core"})
             eventually(lambda: request(lf + "/api/public/v2/observations?" + old_query, headers=auth).get("data"))
-            docker(*cmd, "exec", "-T", "retention", "python", "/app/retention.py", timeout=1000)
+            stack("exec", "-T", "retention", "python", "/app/retention.py", timeout=1000)
             assert not request(lf + "/api/public/v2/observations?" + old_query, headers=auth).get("data")
             print("Seven-day cleanup deleted and verified an expired trace through Langfuse API", flush=True)
-            docker(*cmd, "stop", "telemetry-gateway")
+            stack("stop", "telemetry-gateway")
             retry_id = secrets.token_hex(16)
             trace_payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["traceId"] = retry_id
             old_span.update(startTimeUnixNano=str(time.time_ns()), endTimeUnixNano=str(time.time_ns() + 1000000))
             request(col + "/v1/traces", headers=col_auth, body=trace_payload)
             time.sleep(5)
-            docker(*cmd, "start", "telemetry-gateway")
+            stack("start", "telemetry-gateway")
             query = urlencode({"traceId": retry_id, "limit": 10, "fields": "core"})
             eventually(lambda: request(lf + "/api/public/v2/observations?" + query, headers=auth).get("data"))
             print("Queued export recovered after gateway outage", flush=True)
         except Exception:
-            print(docker(*cmd, "logs", "--tail", "10", "otel-staging", "telemetry-gateway", "langfuse-worker", "grafana")[-12000:], flush=True)
+            print(stack("logs", "--tail", "10", "otel-staging", "telemetry-gateway", "langfuse-worker", "grafana")[-12000:], flush=True)
             raise
         finally:
-            docker(*cmd, "down", "--volumes", "--remove-orphans", timeout=120)
+            stack("down", "--volumes", "--remove-orphans", timeout=120)
 
 
 if __name__ == "__main__":
