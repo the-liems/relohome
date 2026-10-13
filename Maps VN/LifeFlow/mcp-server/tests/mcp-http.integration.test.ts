@@ -29,7 +29,8 @@ beforeAll(async () => {
       MCP_PORT: String(port),
       MCP_ALLOWED_HOSTS: '127.0.0.1,localhost',
       MCP_ALLOWED_ORIGIN_HOSTS: '127.0.0.1,localhost',
-      MCP_AUTH_TOKEN: authToken,
+      MCP_AUTH_TOKEN: '',
+      LOCATION_MCP_AUTH_TOKEN: authToken,
     },
     stdio: 'inherit',
   })

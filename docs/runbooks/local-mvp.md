@@ -1,77 +1,70 @@
 # Chạy MVP tích hợp trên máy — không deploy
 
-## Local configuration and service mappings
+## Local configuration
 
 Use root `.env.example` as the committed template and ignored `.env.local` as the
 single source of actual local values. `npm run dev:init` initializes a fresh setup;
 existing installations must copy their current credentials, not rotate passwords.
 
-Source names identify values independently of the service's runtime variable names:
+`.env.local` is loaded as the process environment, so it is one shared namespace:
+**every name in it means one thing**. Generic names that several services read with
+different values (`DATABASE_URL`, `MCP_AUTH_TOKEN`) never appear in it; the file uses
+unique names instead, and each place that starts a service translates them:
 
-| Source value | Backend environment | Location environment |
+| Shared name | Service reads | Translated by |
 | --- | --- | --- |
-| `BACKEND_DATABASE_URL` | `DATABASE_URL` | — |
-| `LOCATION_DATABASE_URL` | — | `DATABASE_URL` |
-| `LOCATION_TOKEN` | `LOCATION_MCP_AUTH_TOKEN` | `MCP_AUTH_TOKEN` |
+| `BACKEND_DATABASE_URL` | Backend `DATABASE_URL` | Backend settings (accepts both names) |
+| `LOCATION_MCP_AUTH_TOKEN` | Location `MCP_AUTH_TOKEN`; backend client reads it as is | Location server (accepts both names); Compose `environment:` |
+| `FLIGHT_/PAYMENT_/MOVING_MCP_AUTH_TOKEN` | Each server's `MCP_AUTH_TOKEN` | Server settings (accept both names); Compose `environment:` |
 
-`config/local-environment.json` declares native-process mappings. Prefix groups pass
-through settings already unique to a service; `variables` entries bind destination
-names to source names. `scripts/service_environment.py` applies the table without
-reading an env file or starting a service. Docker performs its mappings in Compose.
-Application libraries retain their existing runtime names and read only process env.
-Optional empty Location URLs leave the existing `POSTGRES_*` fallback available.
+Location and Moving use `POSTGRES_*` / `MOVING_DATABASE_URL`; they read `DATABASE_URL`
+only when a container, test or production sets it explicitly.
 
-Normal npm dev commands automatically load root `.env.local` and apply the service
-mapping using `local-integration.py`. It preserves OS settings such as PATH,
-ProgramFiles and DOCKER_HOST, while replacing application variables according to the
-selected service. Export canonical source names to override file values. A generic
-parent `DATABASE_URL` or `MCP_AUTH_TOKEN` cannot bypass the service mapping.
-For a different file, use the startup command explicitly:
+Startup passes the file natively, with no launcher or allowlist: npm dev scripts use
+`node --env-file=…` / `tsx --env-file=…` (Python commands go through Node and inherit
+the environment), and Compose uses `--env-file`. Exported shell values take precedence
+and a missing file fails before startup. For another file, run the entrypoint directly:
 
 ```sh
+# From repository root (exactly one selected env file):
+node --env-file=/absolute/path/team.env "Maps VN/LifeFlow/mcp-server/dist/http-server.js"
+node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
+docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
+# Existing integration launcher (staging safety overrides) also accepts a file:
 python scripts/local-integration.py location --env-file /absolute/path/team.env
-# Custom command: everything after -- belongs to the child, including its own flags.
-node scripts/python.mjs scripts/local-integration.py platform --env-file /absolute/path/team.env --cwd "Maps VN/LifeFlow/platform-api" -- node dist/server.js
 ```
 
-The built-service shortcuts retain staging-only safety overrides. Custom commands
-(after `--`, including npm dev scripts) use the configured values without those
-scenario overrides. Missing files fail before startup. Keep file values literal;
-there is no variable expansion inside the Python loader. URLs are explicit settings;
-update the matching client URL when changing a service port.
+Do not append `--env-file` after a Node application path: those arguments belong to
+the application. Keep values literal (no `${VAR}`), because native loaders differ in
+interpolation. Only `VITE_*` values reach browser code; never put secrets under that
+prefix. URLs are explicit: when changing a service port, update its client URL too.
 
 ### Unit tests versus live tests
 
-`npm run test:python` and `npm run test:ts` do not load development configuration.
-Unit tests supply fake settings or temporary environment variables. Mapping unit
-tests pass fake dictionaries and assert both collision cases without starting any
-service. Tests of file selection use temporary fixture files, never your `.env.local`.
+`npm run test:python` and `npm run test:ts` never load `.env.local`. Unit tests use
+fake settings, temporary files or values they generate. A test that starts a service
+passes that service's variables explicitly in the child `env`.
 
-Live test code also reads only its injected environment. The dedicated command loads
-the selected file and applies test/client mappings, with explicit opt-in:
+Live tests read only the process environment. `npm run test:live` passes the selected
+file with `node --env-file`, after an explicit opt-in:
 
 ```sh
 # Export RELOHOME_LIVE_CHECKS=1 plus the specific suite's RUN_* opt-in flag first.
 npm run test:live -- python
 npm run test:live -- python --env-file /absolute/path/team.env tests/test_llm_agents/test_integrated_live.py -v
-npm run test:live -- python tests/test_api/test_viewing_live.py -v
 npm run test:live -- moving
 ```
 
-`live-test` is an explicit test-harness scope that includes provider configuration
-needed by opt-in integration tests; it is never used by unit-test commands. Services
-normally run separately. Tests that launch isolated dependencies still require their
-own opt-in flags. Do not add dotenv loading to a test module or a global conftest.
+Do not add dotenv loading to a test module or a global conftest.
 
 ### Migration and containers
 
 Transfer existing values from root `.env`, `data/integration.env`, the old service
-`.env`, and (if used) `.runtime/moving-secrets.json`. Rename backend `DATABASE_URL`
-to `BACKEND_DATABASE_URL`, Location's token to `LOCATION_TOKEN`, and optional Location
-connection overrides to `LOCATION_DATABASE_URL` / `LOCATION_ADMIN_DATABASE_URL` /
-`LOCATION_INGEST_DATABASE_URL`. Keep shared values once; remove generic `MCP_AUTH_TOKEN`
-from the source file. Preserve running database credentials and use the connection
-preflight (`local-integration.py check`) before starting services.
+`.env`, and (if used) `.runtime/moving-secrets.json`. Rename the backend's
+`DATABASE_URL` to `BACKEND_DATABASE_URL` and keep the Location token once as
+`LOCATION_MCP_AUTH_TOKEN`; remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the
+file. Preserve running database credentials and use the connection preflight
+(`local-integration.py check`) before starting services.
 
 ```sh
 make mcp-up
@@ -79,10 +72,9 @@ make agents-up
 docker compose --env-file .env.local -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
 ```
 
-Compose maps source values to container variables. Production/Coolify mappings,
-production start commands and image env-file exclusions remain unchanged. Windows
-bulk-start scripts retain default-port readiness checks. The same source value can
-be mapped into multiple services without modifying their variable names.
+Production/Coolify configuration, production start commands and image env-file
+exclusions are unchanged. Windows bulk-start scripts retain default-port readiness
+checks.
 
 ## Đã nối những gì?
 

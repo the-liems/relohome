@@ -31,7 +31,6 @@ pytestmark = pytest.mark.skipif(
 @pytest.mark.asyncio
 async def test_real_api_decision_retry_concurrency_and_paid_protection(tmp_path):
     settings = ServiceSettings(
-
         agent_subagents="live",
         agent_state_dir=str(tmp_path / "runtime"),
         agent_writes_enabled=False,

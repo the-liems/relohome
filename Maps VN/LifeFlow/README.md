@@ -267,11 +267,7 @@ Cấu hình dành cho MCP client:
 {
   "command": "node",
   "args": [
-    "<repository>/scripts/python.mjs",
-    "scripts/local-integration.py",
-    "location",
-    "--",
-    "node",
+    "--env-file=<repository>/.env.local",
     "<repository>/Maps VN/LifeFlow/mcp-server/dist/server.js"
   ]
 }

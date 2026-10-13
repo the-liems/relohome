@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,7 +27,12 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
     # Database
-    database_url: str = "sqlite:///./data/app.db"
+    # BACKEND_DATABASE_URL is the unique name in the shared local environment;
+    # containers and production may still set DATABASE_URL.
+    database_url: str = Field(
+        default="sqlite:///./data/app.db",
+        validation_alias=AliasChoices("DATABASE_URL", "BACKEND_DATABASE_URL", "database_url"),
+    )
 
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"

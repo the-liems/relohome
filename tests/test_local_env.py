@@ -1,12 +1,12 @@
-"""Mapping unit tests use fake dictionaries; startup tests use temporary files."""
+"""Local env-file entrypoints preserve the shell; application settings are process-only."""
 
 import importlib.util
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
-
-from scripts.service_environment import service_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,79 +18,58 @@ def load_script(name):
     return module
 
 
-def test_same_name_different_values_and_shared_value_different_names():
-    values = {
-        "BACKEND_DATABASE_URL": "sqlite:///fake.db",
-        "LOCATION_DATABASE_URL": "postgresql://fake/location",
-        "MOVING_DATABASE_URL": "postgresql://fake/moving",
-        "LOCATION_TOKEN": "shared-fake-token",
-    }
-    parent = {"DATABASE_URL": "wrong-parent-url", "MCP_AUTH_TOKEN": "wrong-parent-token"}
-    api = service_environment("api", values, parent)
-    location = service_environment("location", values, parent)
-    moving = service_environment("moving", values, parent)
-    assert api["DATABASE_URL"] == "sqlite:///fake.db"
-    assert location["DATABASE_URL"] == "postgresql://fake/location"
-    assert moving["DATABASE_URL"] == "postgresql://fake/moving"
-    assert api["LOCATION_MCP_AUTH_TOKEN"] == location["MCP_AUTH_TOKEN"] == "shared-fake-token"
-    assert "LOCATION_TOKEN" not in api
-    assert "MCP_AUTH_TOKEN" not in api
-    assert "BACKEND_DATABASE_URL" not in location
-
-
-def test_mapping_keeps_host_settings_without_leaking_other_services():
-    parent = {
-        "PATH": "/bin",
-        "ProgramFiles": "C:/Program Files",
-        "DOCKER_HOST": "unix:///custom.sock",
-        "OPENAI_API_KEY": "unrelated-key",
-        "DATABASE_URL": "wrong",
-    }
-    values = {**parent, "SIU_GATEWAY_URL": "http://localhost:8600", "LOCATION_TOKEN": "fake"}
-    web = service_environment("web", values, parent)
-    assert web["SIU_GATEWAY_URL"] == "http://localhost:8600"
-    for key in ("PATH", "ProgramFiles", "DOCKER_HOST"):
-        assert web[key] == parent[key]
-    assert "OPENAI_API_KEY" not in web
-    assert "DATABASE_URL" not in web
-    assert "LOCATION_TOKEN" not in web
-
-
-def test_missing_optional_url_leaves_postgres_fallback_available():
-    env = service_environment(
-        "location", {"LOCATION_DATABASE_URL": "", "POSTGRES_APP_USER": "fake"}, {"DATABASE_URL": "sqlite:///wrong.db"}
-    )
-    assert "DATABASE_URL" not in env
-    assert env["POSTGRES_APP_USER"] == "fake"
-
-
-@pytest.mark.parametrize("service,prefix", [("flight", "FLIGHT"), ("payment", "PAYMENT"), ("moving", "MOVING")])
-def test_provider_token_bindings(service, prefix):
-    env = service_environment(service, {prefix + "_MCP_AUTH_TOKEN": "fake-token"}, {})
-    assert env["MCP_AUTH_TOKEN"] == "fake-token"
-
-
-def test_startup_loads_only_selected_file_with_shell_precedence(tmp_path, monkeypatch):
+def test_integration_default_is_anchored_and_preserves_shell(tmp_path, monkeypatch):
     runner = load_script("local-integration")
     monkeypatch.setattr(runner, "ROOT", tmp_path)
-    (tmp_path / ".env.local").write_text("LOCATION_TOKEN=default-token\n")
-    alternate = tmp_path / "alternate.env"
-    alternate.write_text("LOCATION_TOKEN=alternate-token\n")
-    monkeypatch.setenv("LOCATION_TOKEN", "shell-token")
-    assert runner.environment("location", env_file=alternate)["MCP_AUTH_TOKEN"] == "shell-token"
-    monkeypatch.delenv("LOCATION_TOKEN")
-    assert runner.environment("location", env_file=alternate)["MCP_AUTH_TOKEN"] == "alternate-token"
-    assert runner.environment("location")["MCP_AUTH_TOKEN"] == "default-token"
-    with pytest.raises(ValueError, match="Missing local configuration"):
-        runner.environment("location", env_file=tmp_path / "missing.env")
+    (tmp_path / ".env.local").write_text("LOCATION_MCP_AUTH_TOKEN=file-token\nSIU_GATEWAY_URL=http://localhost:8600\n")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / ".env").write_text("LOCATION_MCP_AUTH_TOKEN=wrong\n")
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("LOCATION_MCP_AUTH_TOKEN", "shell-token")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///custom/docker.sock")
+    monkeypatch.setenv("ProgramFiles", "C:/Program Files")
+    env = runner.environment("location")
+    assert env["LOCATION_MCP_AUTH_TOKEN"] == "shell-token"
+    assert env["SIU_GATEWAY_URL"] == "http://localhost:8600"
+    assert env["DOCKER_HOST"] == "unix:///custom/docker.sock"
+    assert env["ProgramFiles"] == "C:/Program Files"
+    assert "LIFEFLOW_ENV_FILE" not in env
 
 
-def test_staging_overrides_remain_explicit(tmp_path):
+def test_explicit_file_is_exclusive_and_missing_file_fails(tmp_path, monkeypatch):
     runner = load_script("local-integration")
-    config = tmp_path / "config.env"
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    (tmp_path / ".env.local").write_text("ONLY_DEFAULT=wrong\n")
+    other = tmp_path / "custom.env"
+    other.write_text("ONLY_CUSTOM=correct\n")
+    env = runner.environment("api", env_file=other)
+    assert "ONLY_DEFAULT" not in env
+    assert env["ONLY_CUSTOM"] == "correct"
+    with pytest.raises(ValueError, match="Missing local configuration"):
+        runner.environment("api", env_file=tmp_path / "missing.env")
+
+
+def test_integration_retains_staging_safety_overrides(tmp_path):
+    runner = load_script("local-integration")
+    config = tmp_path / "custom.env"
     config.write_text("AHAMOVE_ENV=production\nAHAMOVE_WRITE_ENABLED=true\n")
-    assert runner.environment("moving", env_file=config)["AHAMOVE_WRITE_ENABLED"] == "false"
-    assert runner.environment("moving", env_file=config, staging=False)["AHAMOVE_WRITE_ENABLED"] == "true"
+    env = runner.environment("moving", env_file=config)
+    assert env["AHAMOVE_ENV"] == "staging"
+    assert env["AHAMOVE_WRITE_ENABLED"] == "false"
+    assert runner.environment("moving", sandbox_writes=True, env_file=config)["AHAMOVE_WRITE_ENABLED"] == "true"
+
+
+def test_uvicorn_file_preserves_exported_values(tmp_path, monkeypatch):
+    from uvicorn import Config
+
+    config = tmp_path / "uvicorn.env"
+    config.write_text("LOCAL_ENV_TEST=from-file\nSIU_GATEWAY_URL=http://localhost:8600\n")
+    monkeypatch.setenv("LOCAL_ENV_TEST", "from-shell")
+    monkeypatch.delenv("SIU_GATEWAY_URL", raising=False)
+    Config("unused:app", env_file=config)
+    assert os.environ["LOCAL_ENV_TEST"] == "from-shell"
+    assert os.environ["SIU_GATEWAY_URL"] == "http://localhost:8600"
 
 
 def test_python_settings_do_not_read_cwd_dotenv(tmp_path, monkeypatch):
@@ -103,12 +82,22 @@ def test_python_settings_do_not_read_cwd_dotenv(tmp_path, monkeypatch):
     assert ServiceSettings().agent_api_token.get_secret_value() != "wrong"
 
 
+def test_backend_reads_unique_database_name(monkeypatch):
+    from src.config import Settings
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("BACKEND_DATABASE_URL", "sqlite:///shared-env.db")
+    assert Settings().database_url == "sqlite:///shared-env.db"
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///container.db")
+    assert Settings().database_url == "sqlite:///container.db"
+
+
 def test_initializer_is_private_and_never_overwrites(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("initializer", ROOT / "scripts/init-local-integration.py")
     initializer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(initializer)
     monkeypatch.setattr(initializer, "ROOT", tmp_path)
-    (tmp_path / ".env.example").write_text("LOCATION_TOKEN=\nOPENAI_API_KEY=\n")
+    (tmp_path / ".env.example").write_text("LOCATION_MCP_AUTH_TOKEN=\nOPENAI_API_KEY=\n")
     target = tmp_path / ".env.local"
     initializer.initialize(target)
     original = target.read_text()
@@ -126,42 +115,21 @@ def test_initializer_is_private_and_never_overwrites(tmp_path, monkeypatch):
     assert not target.exists()
 
 
-def test_startup_maps_child_without_consuming_child_flags(tmp_path):
-    import json
-    import subprocess
-    import sys
-
-    config = tmp_path / "fake.env"
-    config.write_text("BACKEND_DATABASE_URL=sqlite:///fake.db\nLOCATION_TOKEN=fake-token\n")
-    code = (
-        "import json,os,sys; print(json.dumps({"
-        '"database":os.environ["DATABASE_URL"],'
-        '"token":os.environ["LOCATION_MCP_AUTH_TOKEN"],'
-        '"pythonpath":os.environ["PYTHONPATH"],"args":sys.argv[1:]}))'
-    )
-    parent = {k: v for k, v in os.environ.items() if k not in {"BACKEND_DATABASE_URL", "LOCATION_TOKEN"}}
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/local-integration.py"),
-            "api",
-            "--env-file",
-            str(config),
-            "--",
-            "python",
-            "-c",
-            code,
-            "--env-file",
-            "child-owned.env",
-        ],
-        env=parent,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert json.loads(result.stdout) == {
-        "database": "sqlite:///fake.db",
-        "token": "fake-token",
-        "pythonpath": str(ROOT),
-        "args": ["--env-file", "child-owned.env"],
-    }
+def test_native_node_loads_file_before_python_shim(tmp_path, monkeypatch):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is not installed")
+    config = tmp_path / "python.env"
+    config.write_text("PYTHON_ENV_PROBE=file-value\nPYTHON_ENV_FILE_ONLY=present\n")
+    monkeypatch.setenv("PYTHON_ENV_PROBE", "shell-value")
+    command = [
+        node,
+        "--env-file=" + str(config),
+        str(ROOT / "scripts/python.mjs"),
+        "-c",
+        "import os; assert os.environ['PYTHON_ENV_PROBE'] == 'shell-value'; "
+        "assert os.environ['PYTHON_ENV_FILE_ONLY'] == 'present'",
+    ]
+    subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
+    command[1] = "--env-file=" + str(tmp_path / "missing.env")
+    assert subprocess.run(command, cwd=tmp_path, capture_output=True).returncode != 0

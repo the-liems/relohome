@@ -102,7 +102,7 @@ LOCATION_MCP_AUTH_TOKEN=<token Location>
 ```
 
 Factory không tự load `.env`: application caller load cấu hình trước. CLI và live tests
-nhận biến môi trường từ startup runner. Thiếu key báo lỗi, thiếu Moving endpoint thì `components.moving=None`;
+nhận biến môi trường từ lệnh khởi động (`node --env-file`). Thiếu key báo lỗi, thiếu Moving endpoint thì `components.moving=None`;
 không tự thay bằng fake. Có model key không có nghĩa Moving server/database đang chạy.
 
 Ví dụ PowerShell cho Intake, không cần DB:
@@ -126,7 +126,7 @@ npm run test:live -- python tests/test_llm_agents/test_live_components.py -q
 # Build TypeScript trong Maps VN/LifeFlow trước: npm.cmd run build:moving
 $env:MOVING_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 $env:MOVING_TEST_AGENT_PYTHON=(Resolve-Path .venv/Scripts/python.exe).Path
-node scripts/python.mjs scripts/local-integration.py live-test -- node 'Maps VN/LifeFlow/scripts/test-moving-native.mjs'
+node --env-file=.env.local 'Maps VN/LifeFlow/scripts/test-moving-native.mjs'
 ```
 
 Runner tạo DB riêng, migrate hai lần, chạy HTTP/MCP thật, rồi chạy agent live nếu có

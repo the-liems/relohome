@@ -80,9 +80,9 @@ Write-Host '[4/5] Starting Platform API at http://127.0.0.1:4100/ ...' -Foregrou
 New-Item -ItemType Directory -Path $runtimePath -Force | Out-Null
 if (-not (Test-PlatformApi)) {
     $nodePath = (Get-Command node).Source
-    $serverPath = Join-Path $repoPath 'scripts\python.mjs'
-    $quotedServerPath = '"' + $serverPath + '" scripts/local-integration.py platform'
-    $apiProcess = Start-Process -FilePath $nodePath -ArgumentList $quotedServerPath -WorkingDirectory $repoPath -WindowStyle Hidden -RedirectStandardOutput $apiOutLog -RedirectStandardError $apiErrorLog -PassThru
+    $serverPath = Join-Path $rootPath 'platform-api\dist\server.js'
+    $quotedServerPath = '--env-file="' + (Join-Path $repoPath '.env.local') + '" "' + $serverPath + '"'
+    $apiProcess = Start-Process -FilePath $nodePath -ArgumentList $quotedServerPath -WorkingDirectory $rootPath -WindowStyle Hidden -RedirectStandardOutput $apiOutLog -RedirectStandardError $apiErrorLog -PassThru
     Set-Content -LiteralPath $apiPidPath -Value $apiProcess.Id -Encoding ascii
 
     $apiReady = $false

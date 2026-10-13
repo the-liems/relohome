@@ -1,4 +1,5 @@
 // Live tests explicitly opt in; ordinary test:python never reads development files.
+// The selected file is passed to Node with --env-file; test code reads only process env.
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
@@ -16,16 +17,14 @@ if (index !== -1) {
   args.splice(index, 2);
 }
 const commands = {
-  python: ['python', '-m', 'pytest', ...(args.length ? args : ['tests/test_llm_agents', '-v'])],
-  moving: [process.execPath, 'node_modules/vitest/vitest.mjs', 'run',
+  python: [resolve(root, 'scripts/python.mjs'), '-m', 'pytest', ...(args.length ? args : ['tests/test_llm_agents', '-v'])],
+  moving: [resolve(root, 'node_modules/vitest/vitest.mjs'), 'run',
     'Maps VN/LifeFlow/packages/moving-service/tests/live.staging.test.ts',
     'Maps VN/LifeFlow/moving-mcp-server/tests/live.staging.test.ts', ...args],
-  browser: [process.execPath, resolve(root, 'node_modules/@playwright/test/cli.js'), 'test', ...args],
+  browser: [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test', ...args],
 };
 if (!commands[suite]) throw new Error('Choose python, moving or browser.');
-const component = suite === 'moving' ? 'moving' : 'live-test';
-const result = spawnSync(process.execPath, ['scripts/python.mjs', 'scripts/local-integration.py', component,
-  '--env-file', envFile, '--cwd', suite === 'browser' ? 'Frontend' : '.', '--', ...commands[suite]],
-  { cwd: root, stdio: 'inherit' });
+const result = spawnSync(process.execPath, ['--env-file=' + envFile, ...commands[suite]],
+  { cwd: suite === 'browser' ? resolve(root, 'Frontend') : root, stdio: 'inherit' });
 if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);

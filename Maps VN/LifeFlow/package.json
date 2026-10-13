@@ -27,7 +27,7 @@
     "dev:moving-api": "npm --prefix ../.. run dev:moving-api --",
     "dev:moving-mcp": "npm --prefix ../.. run dev:moving-mcp --",
     "dev:moving-mcp:http": "npm --prefix ../.. run dev:moving-mcp:http --",
-    "db:migrate:moving": "node ../../scripts/python.mjs scripts/local-integration.py moving-migration --cwd \"Maps VN/LifeFlow\" -- node packages/moving-service/dist/migrate.js",
+    "db:migrate:moving": "node --env-file=../../.env.local packages/moving-service/dist/migrate.js",
     "test:moving:http": "npm --prefix ../.. run test:http --workspace @lifeflow/moving-mcp-server",
     "test:moving:native": "node scripts/test-moving-native.mjs",
     "test:moving:deployment": "node --env-file=../../.env.local scripts/verify-moving-deployment.mjs",

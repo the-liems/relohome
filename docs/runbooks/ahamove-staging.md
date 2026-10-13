@@ -3,7 +3,7 @@
 For independent Docker images, HTTP MCP and Coolify handoff, use
 [Moving container runbook](moving-containers.md). The instructions below retain
 the original local stdio workflow. Credentials may stay in the repository root
-`.env.local`; the startup command maps values to the Moving service environment.
+`.env.local`; the startup command passes it to the server with `node --env-file`.
 
 ## Security prerequisite
 
@@ -56,11 +56,7 @@ and writes protocol output only to stdout; diagnostics go to stderr.
 {
   "command": "node",
   "args": [
-    "<repository>/scripts/python.mjs",
-    "scripts/local-integration.py",
-    "moving",
-    "--",
-    "node",
+    "--env-file=<repository>/.env.local",
     "<repository>/Maps VN/LifeFlow/moving-mcp-server/dist/server.js"
   ]
 }
