@@ -1,5 +1,8 @@
 # Roommate Discovery — Implementation checklist
 
+> Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
+
+
 ## Production expansion — 12/10/2026
 
 Theo yêu cầu hoàn thiện cho người dùng thật, kế hoạch RP ở đầu [plan.md](plan.md). Những checkpoint bên dưới là lịch sử, không thay evidence mới.

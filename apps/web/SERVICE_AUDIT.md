@@ -1,5 +1,8 @@
 # Kiểm tra frontend và từng tool dịch vụ
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Production UI — lượt mới nhất 07/10/2026
 
 **124 browser cases: 120 pass + 4 live opt-in skip trong lượt full**;

@@ -1,5 +1,8 @@
 # Chế độ bản đồ cho tìm nhà — 01/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Phạm vi: MVP local (WSL), dữ liệu snapshot `Leader-LifeFlow-Updateable-2026-09-29`; thay đổi chưa commit
 trên checkout `QuangDung@41d9511`. Chỉ đọc, tìm kiếm và báo giá; không tạo đơn hay thanh toán.
 Phương án do chủ task chốt ngày 01/10; nguyên tắc chung: luật lấy từ dữ liệu/manifest hoặc kênh có cấu

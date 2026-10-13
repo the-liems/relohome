@@ -1,5 +1,8 @@
 # SIU AI — Kế hoạch trang, màn hình và tương tác frontend
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.
 
 Ngày lập: **30/09/2026**. Trạng thái: **đề xuất thiết kế, chưa triển khai UI**. Căn cứ: 5 ảnh trong `Frontend/` và backend được đối chiếu tại `e407d45` trong [kế hoạch tích hợp](siu-ai-agent-first-frontend-plan.md).

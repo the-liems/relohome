@@ -1,5 +1,8 @@
 # Bàn giao sửa lỗi sau review QuangDung — 08/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Bản đã ghép
 
 - Nguồn: `origin/QuangDung@374d38c`.

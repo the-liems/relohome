@@ -1,5 +1,8 @@
 # Location relocation (#115, location slice)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `b714b7bbd57c521598191f0d958b48a17b270f47` (`origin/main`), branch
 `codex/issue-115-location-relocation`. Executed 2026-10-13, macOS ARM64,
 Python 3.11.16, Node 26.0.0/npm 11.12.1. Node 24 remains the supported runtime;
@@ -160,6 +163,10 @@ the multi-arch build/publish jobs; staging existing-data and digest rollback
 evidence stays with #116.
 
 ## Remaining references and rollback
+
+Combined-tree refresh: [final #115 audit](monorepo-final-audit.md#reproduction-and-counts)
+supersedes the slice-only counts below. It reuses these TSV decisions; the two
+agent-chat display hits are fixed by #142. Original rows remain historical evidence.
 
 [path-audit.tsv](location-relocation/path-audit.tsv) classifies every line from
 `git grep -n "Maps VN/LifeFlow"`; [lifeflow-audit.tsv](location-relocation/lifeflow-audit.tsv)

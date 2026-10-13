@@ -1,5 +1,8 @@
 # Điều hướng bước tiếp theo trong kế hoạch — 12/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Lỗi đã xác định
 
 Hội thoại người dùng tìm nhà + chuyển đồ có một căn trong giỏ hẹn xem,

@@ -1,5 +1,8 @@
 # ReloHome — Đề xuất nâng cấp Housing: chọn nơi ở và quản lý tin đăng
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 - Ngày: 08/10/2026 (Asia/Saigon).
 - Trạng thái: **product proposal để review**; chưa phải product spec hay technical design.
 - Phạm vi: Tenant và Landlord trong ReloHome hiện có. Lượt này chỉ đọc code, tài liệu và snapshot dữ liệu; **không sửa code, database hoặc API**.

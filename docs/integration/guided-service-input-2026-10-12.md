@@ -1,5 +1,8 @@
 # Nhập dịch vụ bằng form và hội thoại — 12/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Yêu cầu và hướng thiết kế
 
 Hai cách sử dụng phải cùng dẫn tới luồng Agent hiện có:

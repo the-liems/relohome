@@ -1,5 +1,8 @@
 # Bàn giao Intake LLM, Routing Planner LLM và Moving LLM
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Cập nhật 30/09: các component đã nối graph ở nhánh `mvp`.
 > Tài liệu dưới đây giữ mốc bàn giao độc lập ngày 29/09; trạng thái hiện tại xem
 > [MVP integration](mvp-completion-2026-09-30.md) và [runbook](../runbooks/local-mvp.md).

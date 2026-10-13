@@ -1,5 +1,8 @@
 # Giới hạn map, tuyến Moving và studio — 04/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Đây là báo cáo đợt triển khai trước. Theo yêu cầu mới, camera đã mở rộng xem
 > toàn Việt Nam và form Moving đã gộp tìm gợi ý vào hai ô A/B. Xem
 > [cập nhật hiện hành](vietnam-map-moving-update-2026-10-04.md).

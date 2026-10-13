@@ -20,14 +20,15 @@ cd <MÃ-ĐỘI>
 
 ```bash
 # Tạo virtual environment
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate  # macOS/Linux
 
 # Cài dependencies
-pip install -r requirements.txt
+npm ci
+PYTHON=$PWD/.venv/bin/python npm run setup:python
 
 # Tạo .env từ template
-cp .env.example .env
+cp .env.example .env.local
 # → Mở .env và điền API keys
 ```
 
@@ -35,7 +36,7 @@ cp .env.example .env
 
 ```bash
 # Chạy server
-uvicorn relohome_agent.main:app --reload
+npm run dev:agent
 
 # Mở browser: http://localhost:8000/docs
 # → Phải thấy Swagger UI
@@ -54,21 +55,16 @@ git checkout -b develop
 git push -u origin develop
 ```
 
+Cấu hình credentials/service/data theo [development map](../../../DEVELOPMENT.md)
+và [local MVP runbook](../../runbooks/local-mvp.md) trước khi chạy.
+
 ## Folder Structure
 
 ```
 <MÃ-ĐỘI>/
-├── src/                    ← Source code chính
-│   ├── agents/             ← LangGraph agents
-│   │   ├── graph.py        ← Graph definition
-│   │   ├── state.py        ← State schema
-│   │   ├── nodes/          ← Processing nodes
-│   │   └── tools/          ← Agent tools
-│   ├── api/                ← FastAPI routes
-│   ├── models/             ← Pydantic schemas
-│   ├── services/           ← Business logic
-│   ├── config.py           ← Settings
-│   └── main.py             ← App entry point
+├── apps/                   ← Các ứng dụng chạy độc lập
+├── packages/               ← Thư viện dùng chung (TS/Python)
+├── examples/               ← Streamlit, map và design references
 ├── tests/                  ← Test suite
 ├── docs/                   ← Documentation
 ├── eval/                   ← Evaluation results

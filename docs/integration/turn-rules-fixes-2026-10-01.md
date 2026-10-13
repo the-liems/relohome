@@ -1,5 +1,8 @@
 # Kiểm thử luồng và sửa luật nhiều lượt — 01/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Phạm vi: MVP local (WSL, snapshot `Leader-LifeFlow-Updateable-2026-09-29`), nhánh `QuangDung@41d9511`
 cộng các thay đổi chưa commit dưới đây. Chỉ đọc, tìm kiếm và báo giá; không tạo đơn hay thanh toán.
 Nguyên tắc sửa: không gắn cứng tên địa danh hay cụm từ người dùng. Luật lấy từ manifest của capability,

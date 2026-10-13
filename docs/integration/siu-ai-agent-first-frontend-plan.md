@@ -1,5 +1,8 @@
 # Kế hoạch phát triển frontend SIU AI theo hướng AI Agent-first
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > **Cập nhật 01/10:** chế độ bản đồ cho tìm nhà (danh sách theo vùng, chat điều khiển bản đồ, chọn địa điểm bằng pin) đã có; xem [map workspace](map-workspace-2026-10-01.md). Khác bản kế hoạch: ngưỡng hiển thị theo số lượng căn trong vùng chứ không theo zoom cố định; action chọn địa điểm là `ChatRequest.place_choice` thay cho endpoint `/actions` chung.
 >
 > **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.

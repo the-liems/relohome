@@ -1,5 +1,8 @@
 # Backend Map/Location — cập nhật cho Graph và client
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày: **30/09/2026**. Thay đổi từ nền `e407d45`, bàn giao qua nhánh `mvp`. Trạng thái triển khai: chưa deploy; cần rebuild/restart các service như mục 4. Phạm vi: backend Location, Platform API và adapter/planner/validator của graph. Không sửa frontend và không có migration dữ liệu mới.
 
 ## 1. Những gì đã sửa

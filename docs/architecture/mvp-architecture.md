@@ -1,5 +1,8 @@
 # Kiến trúc MVP hiện tại — ReloHome / SIU AI
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Cập nhật: **05/10/2026**, đối chiếu implementation trong workspace đang chạy demo.
 Đối tượng đọc: teammate ghép agent, backend, service và UI.
 

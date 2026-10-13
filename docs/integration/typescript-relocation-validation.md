@@ -1,5 +1,8 @@
 # TypeScript relocation validation (#111)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `09ac457` (merged #110). Executed 2026-10-12 on macOS ARM64.
 Native checks used Node 26.0.0/npm 11.12.1. A clean eight-workspace install,
 build and portable test run also passed in a disposable Node 24.14.0 container

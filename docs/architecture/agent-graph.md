@@ -1,5 +1,8 @@
 # Thiết kế khung LangGraph cho Stateful Multi-Agent Orchestration
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Đề xuất 07/10/2026 (Draft, chưa code): thanh toán đa dịch vụ theo
 > [payment-design.md](../review/payment-design.md). Thay Q21 (chuyển đồ qua thanh toán điện tử của app, bỏ luồng
 > staging tiền mặt) và mở rộng Q25 (nhà có lịch xem, thỏa thuận, mức cọc nhập tay; app vẫn không thu tiền nhà).

@@ -1,5 +1,8 @@
 # Monorepo migration inventory — issue #109
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Inventory date: 2026-10-12. Historical executed baseline revision:
 `9b2b2dbddee8e55d7219be7de3348e815b1e50f4` (main merge of #88).
 This is a planning-only change under [#108](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/108).

@@ -1,5 +1,8 @@
 # Python examples and source-shim retirement (#115)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `b714b7b` (main, merged #139 / #114), worktree branch
 `codex/issue-115-python-examples`. This is the Python examples/design-reference
 slice of #115 under epic #108. Location/map/database/script relocation under
@@ -121,6 +124,10 @@ These are explicit
 follow-ups, not an undocumented reason to preserve all forwarding modules.
 
 ## Removal-reference evidence
+
+Combined-tree refresh: [final #115 audit](monorepo-final-audit.md#reproduction-and-counts)
+reconciles this slice with #141, classifies canonical app-local paths and retains
+only the persisted alias. Counts below describe this slice's original tree.
 
 The requested command was run verbatim:
 

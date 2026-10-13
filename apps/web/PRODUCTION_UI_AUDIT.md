@@ -1,5 +1,8 @@
 # Audit và thiết kế frontend — 07/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Cập nhật 08/10/2026: các đoạn dưới đây ghi lại quyết định thiết kế tại
 > thời điểm audit. Biểu tượng robot sau đó đã được bỏ khỏi giao diện và favicon;
 > ảnh bìa hiện là `public/images/relohome-hero-home.png`.

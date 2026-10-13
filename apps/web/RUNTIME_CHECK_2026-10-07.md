@@ -1,5 +1,8 @@
 # Kiểm tra hệ thống sau thay đổi frontend — 07/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Hệ thống đang chạy
 
 Mở **http://127.0.0.1:8503** để kiểm tra. Chạy bằng launcher hiện có, không

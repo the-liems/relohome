@@ -1,5 +1,8 @@
 # Kế hoạch xử lý chất lượng địa điểm, tiện ích và phòng trọ
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Ngày 2026-10-05 đã áp dụng lô đầu: chuẩn hóa 590 địa chỉ, đổi 347 tọa độ
 > source / 340 tọa độ PostGIS; giữ đủ 38.930 tin. 7.311 khóa còn chờ API/quota.
 > Kết quả hiện tại, kiểm chứng và hướng dẫn chạy tiếp ở

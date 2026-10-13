@@ -74,10 +74,10 @@ except:  # Che mọi lỗi!
 
 ```bash
 # Check
-ruff check src/ tests/
+npm run lint:python
 
 # Auto-fix
-ruff check --fix src/ tests/
+env -u VIRTUAL_ENV ./.venv/bin/python -m ruff check --fix apps/ packages/python/ examples/streamlit/ examples/location-streamlit/ tests/
 ```
 
 Ruff chạy tự động trong CI — code không pass ruff sẽ bị reject.

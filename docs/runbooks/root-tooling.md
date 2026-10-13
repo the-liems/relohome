@@ -3,8 +3,8 @@
 Use **Node 24**, **npm 11**, and **Python 3.11**. `.nvmrc` selects Node 24;
 the legacy MVP workflow now uses the same runtime as service images and CI.
 The root workspace is `relohome`. TypeScript services and libraries now live in
-`apps/` and `packages/` with `@relohome/*` names; `siu-ai-web` and the map demo's
-name remain unchanged. See the [TypeScript relocation runbook](typescript-relocation.md)
+`apps/` and `packages/` with `@relohome/*` names; `siu-ai-web` remains unchanged.
+The map demo is `@relohome/map-app`. See the [TypeScript relocation runbook](typescript-relocation.md)
 for retained assets, compatibility, database checks, and rollback.
 
 ## Install from a clean checkout
@@ -23,8 +23,9 @@ root. Python commands use an activated environment, the root `.venv`, or an
 explicit `PYTHON=/absolute/path/to/python` override. No global pip install or
 new Python package manager is required. `requirements-dev.txt` includes the
 existing pytest/pytest-asyncio/Ruff toolchain, standalone-agent requirements,
-mypy and retained location-demo UI dependencies. Runtime requirements remain
-unchanged. Python package extraction belongs to #112.
+mypy and retained location-demo UI dependencies. Runtime requirements retain their
+domain behavior; shared Python packages from #112 and application/example moves
+from #113–#115 are installed by root requirements.
 
 `package-lock.json` is the only authoritative npm lock. It covers eight service
 and library workspaces, `apps/web`, and the supported map demo. The map workspace is `examples/map-app/` (`@relohome/map-app`). The nested
@@ -51,7 +52,7 @@ snapshots (user artifacts). No supported npm application is excluded.
 | `make test-map` | `npm run test:map` | Existing map integration journeys; requires configured Platform/data/OSRM |
 | `make test-integration` | `npm run test:integration` | Full TS test scripts, including real database suites |
 | `make deployment-check` | `npm run deployment:check` | Offline deployment/config/image selection contracts |
-| `make image-check` | `npm run image:check` | Build web + six TS images, check runtime imports/startup and migration SQL packaging |
+| `make image-check` | `npm run image:check` | Build/check the default image set; explicit Python service selectors are also supported |
 | `make check` | `npm run check` | Lint, read-only formatting check, portable tests; never invokes `format` |
 
 `npm run build:ts`, `build:web`, `build:map`, `build:moving`, `test:python`,
@@ -117,8 +118,8 @@ the image catalog already point there. For TS images, `scripts/docker-npm.mjs`
 derives an **uncommitted image-local view** of root workspace paths after COPY.
 It preserves every external locked version/integrity and keeps the deployed
 `/app/packages`, application directories, SQL resources, CMDs and identities
-unchanged. This is not another lockfile to maintain. #111 must update/remove
-this adapter when its image layout moves. The web runtime remains a combined
+unchanged. This is not another lockfile to maintain. The adapter uses the relocated
+workspace paths from #111. The web runtime remains a combined
 React/gateway image with the same data paths and port.
 
 See [validation and resolution review](../integration/monorepo-tooling/validation.md)

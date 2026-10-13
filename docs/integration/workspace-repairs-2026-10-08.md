@@ -1,5 +1,8 @@
 # Bàn giao: map, báo giá, nhiều dịch vụ và so sánh nhà
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày kiểm tra: 08/10/2026. Công việc và acceptance criteria theo
 [issue #70](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/70).
 Không coi tài liệu này là trạng thái đã merge hoặc đã deploy.

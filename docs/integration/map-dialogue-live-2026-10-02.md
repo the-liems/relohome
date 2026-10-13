@@ -1,5 +1,8 @@
 # Kiểm thử hội thoại nhiều lượt và Map — 02/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Kết quả chính
 
 Đã chạy **19 tương tác** trong một hội thoại qua gateway React/API thật, gồm

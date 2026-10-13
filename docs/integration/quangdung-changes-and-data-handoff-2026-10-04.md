@@ -1,5 +1,8 @@
 # Bàn giao QuangDung: code, POI và housing — 04/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## 1. Nền đối chiếu và phạm vi
 
 - Working branch: **QuangDung**. Nền trước thay đổi: **b7cd0c7af728c2921ba4f1c4b1cdfb7d1d77a9b9**.
