@@ -202,7 +202,13 @@ class AgentService:
             tx.intent_store = db
             checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
             viewing = build_viewing(services, registry, db, checkout) if services.housing_viewing_enabled else None
+            from relohome_agent.agents.guardrails.shadow import build_guardrail
+
+            guardrail = build_guardrail(services)
+            if guardrail:
+                stack.push_async_callback(guardrail.close)
             deps = GraphDeps(
+                guardrail=guardrail,
                 housing_selector=viewing.selector if viewing else None,
                 housing_unselector=viewing.unselector if viewing else None,
                 intake=components.intake,
