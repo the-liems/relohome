@@ -160,6 +160,8 @@ def make_orchestrator(deps: GraphDeps):
             return stop(OutcomeCode.GIVE_UP, "không có phương án khác")
         version = (previous.version if previous else 0) + 1
         new_plan = plan.model_copy(update={"version": version})
+        if uses_llm and deps.guardrail:
+            deps.guardrail.observe_plan(state, new_plan)
         invalidated = set(change.invalidated_task_ids) if change else set()
         statuses = initial_status(new_plan, previous, state, deps, reuse, invalidated)
         attempts = {tid: 0 for tid, s in statuses.items() if s == TaskStatus.PENDING}

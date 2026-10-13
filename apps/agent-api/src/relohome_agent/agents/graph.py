@@ -92,6 +92,8 @@ def make_agent_node(deps: GraphDeps, name: AgentName):
         try:
             update = await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
             for result in update.get("task_results", {}).values():
+                if deps.guardrail and capability.uses_llm:
+                    deps.guardrail.observe_assessment(inp, result)
                 result.data["execution"] = {
                     "request_id": request_id,
                     "started_at": started_at.isoformat(),

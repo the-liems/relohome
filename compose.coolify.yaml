@@ -103,6 +103,9 @@ services:
       # "production" (and remove the tester variables) before outside users try it.
       APP_ENV: staging
       OPENAI_API_KEY: ${OPENAI_API_KEY:?}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      AGENT_GUARDRAIL_MODE: ${AGENT_GUARDRAIL_MODE:-off}
+      AGENT_GUARDRAIL_TIMEOUT_S: ${AGENT_GUARDRAIL_TIMEOUT_S:-1.5}
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       # One Coolify setting selects the model for all seven agents.
       AGENT_INTAKE_MODEL: ${AGENT_MODEL:-gpt-6-luna}

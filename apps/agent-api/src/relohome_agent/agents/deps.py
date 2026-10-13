@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.contracts import AgentCapability
+from relohome_agent.agents.guardrails.shadow import ShadowGuardrail
 from relohome_agent.agents.intake import Intake, PassThroughIntake
 from relohome_agent.agents.models import AgentName, CommitActionKind, CostTier
 from relohome_agent.agents.planning import NotImplementedPlanner, Planner
@@ -129,6 +130,7 @@ class GraphDeps:
     housing_selector: Callable[[str, str, str, dict], list[dict]] | None = None
     # (user_id, thread_id, listing_id) -> danh sách căn đang chọn sau khi bỏ; lỗi nghiệp vụ là ValueError.
     housing_unselector: Callable[[str, str, str], list[dict]] | None = None
+    guardrail: ShadowGuardrail | None = None  # shadow only; never grants workflow permissions
 
 
 def fake_registry(clock: Callable[[], datetime] = utcnow) -> AgentRegistry:

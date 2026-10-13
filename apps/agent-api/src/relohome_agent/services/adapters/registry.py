@@ -74,6 +74,10 @@ class ServiceSettings(BaseSettings):
     agent_flight_model: str = "gpt-6-luna"
     agent_payment_model: str = "gpt-6-luna"
     openai_api_key: SecretStr = SecretStr("")
+    # Jev uses OpenRouter's separate Decisions endpoint. Never forward an OpenAI key there.
+    openrouter_api_key: SecretStr = SecretStr("")
+    agent_guardrail_mode: Literal["off", "shadow"] = "off"
+    agent_guardrail_timeout_s: float = Field(default=1.5, ge=0.1, le=5.0)
     agent_writes_enabled: bool = False
     agent_max_attempts: int = Field(default=5, ge=1, le=5)  # Intake/Planner repairs, task retries, replans
     agent_sandbox_payments_enabled: bool = False
