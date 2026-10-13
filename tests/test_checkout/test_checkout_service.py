@@ -6,13 +6,12 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.agents.models import AgentName, ConfirmedFact, IntakeResult, RequestKind, TaskResult
-from src.agents.subagents.services.moving import QuoteContact
-from src.checkout.models import CheckoutError
-from src.checkout.service import CheckoutService, CheckoutSettings
-from src.checkout.store import CheckoutStore
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.agents.models import AgentName, ConfirmedFact, IntakeResult, RequestKind, TaskResult
+from relohome_agent.agents.subagents.services.moving import QuoteContact
+from relohome_agent.checkout.models import CheckoutError
+from relohome_agent.checkout.service import CheckoutService, CheckoutSettings
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.services.adapters.mcp import ToolCallError
 
 NOW = datetime(2026, 10, 8, 2, 0, tzinfo=UTC)
 USER, OTHER, THREAD = "user-a", "user-b", "th_1"

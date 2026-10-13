@@ -25,7 +25,7 @@ jobs:
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh python
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
       - name: Lint local stack
         run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
       - name: Check Python compilation

@@ -8,9 +8,8 @@ import time
 import httpx
 import pytest
 from PIL import Image
-
-from Frontend.server import create_app
-from Frontend.store import Store
+from relohome_gateway.server import create_app
+from relohome_gateway.store import Store
 
 HEADERS = {"X-SIU-Request": "1", "Origin": "http://test"}
 CREDS = {"email": "admin@example.test", "password": "a-long-password", "name": "Operator"}

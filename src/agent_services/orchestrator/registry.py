@@ -6,9 +6,8 @@ from typing import Any, Literal
 
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import Field, model_validator
-
-from src.agent_services.common import Model, ServiceError, fingerprint
-from src.agent_services.orchestrator.models import PlanDraft
+from relohome_agent_services.common import Model, ServiceError, fingerprint
+from relohome_orchestrator.models import PlanDraft
 
 
 class ToolSpec(Model):

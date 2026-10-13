@@ -6,27 +6,26 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
-from src.agents.wiring import AgentService
-from src.api.checkout import router as checkout_router
-from src.api.moving_quotes import router as moving_quote_router
-from src.api.roommate_access import router as roommate_access_router
-from src.api.roommate_connections import router as roommate_connections_router
-from src.api.roommate_discovery import router as roommate_discovery_router
-from src.api.roommate_map import router as roommate_map_router
-from src.api.roommate_media import router as roommate_media_router
-from src.api.roommate_notifications import router as roommate_notifications_router
-from src.api.roommate_operations import router as roommate_operations_router
-from src.api.roommate_privacy import router as roommate_privacy_router
-from src.api.roommate_profiles import router as roommate_profiles_router
-from src.api.roommate_safety import router as roommate_safety_router
-from src.api.routes import router
-from src.api.sandbox_payments import router as sandbox_payment_router
-from src.api.viewings import router as viewings_router
-from src.api.web_actions import router as web_actions_router
-from src.config import get_settings
-from src.roommate.background import RoommateMaintenance
-from src.roommate.runtime import RoommateRuntime
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api.checkout import router as checkout_router
+from relohome_agent.api.moving_quotes import router as moving_quote_router
+from relohome_agent.api.roommate_access import router as roommate_access_router
+from relohome_agent.api.roommate_connections import router as roommate_connections_router
+from relohome_agent.api.roommate_discovery import router as roommate_discovery_router
+from relohome_agent.api.roommate_map import router as roommate_map_router
+from relohome_agent.api.roommate_media import router as roommate_media_router
+from relohome_agent.api.roommate_notifications import router as roommate_notifications_router
+from relohome_agent.api.roommate_operations import router as roommate_operations_router
+from relohome_agent.api.roommate_privacy import router as roommate_privacy_router
+from relohome_agent.api.roommate_profiles import router as roommate_profiles_router
+from relohome_agent.api.roommate_safety import router as roommate_safety_router
+from relohome_agent.api.routes import router
+from relohome_agent.api.sandbox_payments import router as sandbox_payment_router
+from relohome_agent.api.viewings import router as viewings_router
+from relohome_agent.api.web_actions import router as web_actions_router
+from relohome_agent.config import get_settings
+from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_roommate.background import RoommateMaintenance
 
 
 @asynccontextmanager

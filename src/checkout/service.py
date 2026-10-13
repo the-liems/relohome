@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from src.agents.common import utcnow
-from src.agents.models import AgentName
-from src.checkout.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import AgentName
+from relohome_agent.checkout.models import (
     OPEN,
     PAID,
     CheckoutError,
@@ -29,8 +29,8 @@ from src.checkout.models import (
     PaymentAttempt,
     ServiceTransaction,
 )
-from src.checkout.store import CheckoutStore
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.services.adapters.mcp import ToolCallError
 
 logger = logging.getLogger(__name__)
 VN_OFFSET = timedelta(hours=7)
@@ -361,7 +361,7 @@ class CheckoutService:
             return self.attempt_view(attempt)
 
     def _validate_passengers(self, tx: ServiceTransaction, passengers: dict | None) -> dict:
-        from src.mcp_servers.flights.schemas import Contact, Passenger
+        from relohome_flight.schemas import Contact, Passenger
 
         if not isinstance(passengers, dict):
             raise CheckoutError(422, "Cần thông tin hành khách để đặt vé.", "passengers_required")
@@ -381,7 +381,7 @@ class CheckoutService:
                 "passengers_mismatch",
             )
         # Cùng luật tuổi với Flight MCP, kiểm trước để báo đúng lỗi (không phải "chọn lại chuyến") và không giữ chỗ thừa.
-        from src.mcp_servers.flights.booking_engine import AGE_RULES, age_on
+        from relohome_flight.booking_engine import AGE_RULES, age_on
 
         fly = _parse_dt((tx.legs[0] if tx.legs else {}).get("depart_at"))
         labels = {"adult": "người lớn (từ 12 tuổi)", "child": "trẻ em (2–11 tuổi)", "infant": "em bé (dưới 2 tuổi)"}
@@ -470,7 +470,7 @@ class CheckoutService:
         """Báo giá lại AhaMove staging với cùng tuyến, giờ, gói và tùy chọn (D2); không tạo đơn."""
         if self.moving is None or self.moving_contact is None:
             raise CheckoutError(503, "Chưa kết nối được dịch vụ báo giá chuyển đồ.")
-        from src.models.moving_options import apply_draft_options, validated_options
+        from relohome_contracts.moving_options import apply_draft_options, validated_options
 
         route = tx.details.get("route") or {}
         pickup, destination = route.get("pickup"), route.get("destination")

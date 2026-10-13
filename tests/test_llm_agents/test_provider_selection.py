@@ -1,7 +1,7 @@
 """Provider routing and explicit user correction use only real configuration rules."""
 
-from src.agents.llm_provider import client_options, provider_model
-from src.agents.nodes.intake import explicitly_changed_fact
+from relohome_agent.agents.llm_provider import client_options, provider_model
+from relohome_agent.agents.nodes.intake import explicitly_changed_fact
 
 
 def test_openrouter_key_uses_openrouter_endpoint_and_model():

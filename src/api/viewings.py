@@ -9,13 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
-
-from src.agents.graph import run_config
-from src.agents.models import AgentName, AgentResponse, TaskStatus
-from src.agents.nodes.change_impact import selection_impact
-from src.agents.nodes.cost_summary import make_cost_summary
-from src.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
-from src.checkout.models import CheckoutError
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import AgentName, AgentResponse, TaskStatus
+from relohome_agent.agents.nodes.change_impact import selection_impact
+from relohome_agent.agents.nodes.cost_summary import make_cost_summary
+from relohome_agent.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
+from relohome_agent.checkout.models import CheckoutError
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 
@@ -194,7 +193,7 @@ def _housing_task(values: dict, preferred: str | None):
 
 @router.post("/chat/{thread_id}/viewings/decide")
 async def decide(thread_id: str, body: DecideBody, service: Service, user_id: UserId = "anonymous"):
-    from src.api.web_actions import ResultAction, _choose_result_locked, explored_listing
+    from relohome_agent.api.web_actions import ResultAction, _choose_result_locked, explored_listing
 
     viewing = viewing_of(service)
     form = {"rent_vnd": body.rent_vnd, "deposit_vnd": body.deposit_vnd, "move_in": body.move_in and body.move_in.isoformat()}

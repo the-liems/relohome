@@ -14,8 +14,7 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from pydantic import ValidationError
-
-from src.agents.contracts import (
+from relohome_agent.agents.contracts import (
     CONTRACT_VERSION,
     AgentCapability,
     AgentTaskRequest,
@@ -24,9 +23,9 @@ from src.agents.contracts import (
     contract_major,
     failed_result,
 )
-from src.agents.llm_runtime import public_data
-from src.agents.models import AgentBudget, TaskResult, TaskStatus
-from src.agents.state import AgentInput
+from relohome_agent.agents.llm_runtime import public_data
+from relohome_agent.agents.models import AgentBudget, TaskResult, TaskStatus
+from relohome_agent.agents.state import AgentInput
 
 logger = logging.getLogger(__name__)
 

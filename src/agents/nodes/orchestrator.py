@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import logging
 
-from src.agents.cost import call_graph_component, llm_calls_left
-from src.agents.deps import GraphDeps
-from src.agents.llm import LLMError
-from src.agents.models import (
+from relohome_agent.agents.cost import call_graph_component, llm_calls_left
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.llm import LLMError
+from relohome_agent.agents.models import (
     Outcome,
     OutcomeCode,
     Plan,
@@ -20,8 +20,8 @@ from src.agents.models import (
     active_commits,
     error_record,
 )
-from src.agents.planning import PlannerInput, validate_plan
-from src.agents.state import WorkflowState
+from relohome_agent.agents.planning import PlannerInput, validate_plan
+from relohome_agent.agents.state import WorkflowState
 
 logger = logging.getLogger(__name__)
 

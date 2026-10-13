@@ -11,9 +11,8 @@ from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from src.agents.models import SourceKind
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.agents.models import SourceKind
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
 
 LOCATION_READ_TOOLS = frozenset(
     {

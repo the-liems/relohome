@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from src.agents.contracts import AgentCapability, AgentTaskRequest, AgentTaskResult
+from relohome_agent.agents.contracts import AgentCapability, AgentTaskRequest, AgentTaskResult
 
 RunFn = Callable[[AgentTaskRequest], Awaitable[AgentTaskResult]]
 

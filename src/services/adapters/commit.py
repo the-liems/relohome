@@ -19,16 +19,16 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from src.agents.common import fingerprint, utcnow
-from src.agents.models import Approval, CommitActionKind, PendingPayment, Receipt, SourceKind
-from src.services.adapters.mcp import McpToolClient, ToolCallError
-from src.services.adapters.moving_approval import (
+from relohome_agent.agents.common import fingerprint, utcnow
+from relohome_agent.agents.models import Approval, CommitActionKind, PendingPayment, Receipt, SourceKind
+from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
+from relohome_agent.services.adapters.moving_approval import (
     MissingMovingApprovalBridge,
     MovingApprovalBridge,
     MovingApprovalError,
     moving_approval_id,
 )
-from src.services.adapters.ports import CommitError, CommitRequest
+from relohome_agent.services.adapters.ports import CommitError, CommitRequest
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +272,7 @@ class McpTransaction:
         if kind == CommitActionKind.CANCEL_ORDER:
             return await self._cancel(req)
         if kind == CommitActionKind.UPDATE_ORDER:
-            from src.models.schemas import MovingOrderUpdate
+            from relohome_contracts.schemas import MovingOrderUpdate
 
             update = MovingOrderUpdate.model_validate(req.pii.get("order_update", {})).model_dump(exclude_none=True)
             target = req.action.target_receipt_id
@@ -323,8 +323,8 @@ class McpTransaction:
         if not pickup or not destination or not all(contacts):
             raise CommitError("thiếu điểm lấy / giao hoặc liên hệ để đặt xe")
 
-        from src.models.moving_options import apply_draft_options, validated_options
-        from src.models.schemas import MovingContact
+        from relohome_contracts.moving_options import apply_draft_options, validated_options
+        from relohome_contracts.schemas import MovingContact
 
         options = validated_options(req.task_data.get("moving_options"))
         if options.get("service_id") and options["service_id"] != service_id:

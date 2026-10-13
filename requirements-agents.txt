@@ -6,3 +6,7 @@ pydantic-settings==2.15.0
 openai==3.16.2
 langgraph==1.2.11
 jsonschema==4.26.0
+
+./packages/python/agent-services
+./src/agent_services/intake
+./src/agent_services/orchestrator

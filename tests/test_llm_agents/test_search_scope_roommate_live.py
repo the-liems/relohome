@@ -10,15 +10,15 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.llm_context import decision_data
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.location import LocationSubagent, _meters, pick_place
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
-from src.agents.contracts import AgentTaskRequest
-from src.agents.llm_context import decision_data
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.location import LocationSubagent, _meters, pick_place
 from src.roommate.demo import DemoDataset
 from src.roommate.models import RoommateSearchCriteria
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
 from tests import live
 from tests.test_llm_agents.test_workspace_repairs_live import ROOT
 

@@ -1,10 +1,10 @@
 """Pure contract/policy tests: no mock clients, provider data or LLM responses."""
 
-from src.agents.common import utcnow
-from src.agents.intake import missing_for
-from src.agents.intake_llm import valid_value
-from src.agents.memory import memory_updates
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.intake import missing_for
+from relohome_agent.agents.intake_llm import valid_value
+from relohome_agent.agents.memory import memory_updates
+from relohome_agent.agents.models import (
     AgentName,
     ConfirmedFact,
     Constraints,
@@ -16,9 +16,9 @@ from src.agents.models import (
     Task,
     TaskStatus,
 )
-from src.agents.nodes.change_impact import selection_impact
-from src.agents.subagents.capabilities import PROPERTY
-from src.agents.subagents.services.location import pick_place
+from relohome_agent.agents.nodes.change_impact import selection_impact
+from relohome_agent.agents.subagents.capabilities import PROPERTY
+from relohome_agent.agents.subagents.services.location import pick_place
 
 
 def intake(domain, values):
@@ -85,7 +85,7 @@ def test_fuzzy_only_location_never_selected_automatically():
 
 
 def test_provider_date_alias_does_not_ask_twice():
-    from src.agents.nodes.respond import unique_questions
+    from relohome_agent.agents.nodes.respond import unique_questions
 
     questions = unique_questions(
         [
@@ -98,7 +98,7 @@ def test_provider_date_alias_does_not_ask_twice():
 
 
 def test_new_domain_referencing_confirmed_house_is_continuation():
-    from src.agents.nodes.intake import continue_referenced_goal
+    from relohome_agent.agents.nodes.intake import continue_referenced_goal
 
     previous = intake(AgentName.PROPERTY, {"selected:property": "user-confirmed-listing"})
     moving = intake(AgentName.RELOCATION, {"to_address": "selected:property"})
@@ -109,7 +109,7 @@ def test_new_domain_referencing_confirmed_house_is_continuation():
 
 
 def test_independent_map_anchor_never_narrows_housing():
-    from src.agents.planning import TemplatePlanner
+    from relohome_agent.agents.planning import TemplatePlanner
 
     values = {
         "city": "phạm vi Housing người dùng nêu",

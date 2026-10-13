@@ -7,18 +7,17 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
-
-from src.agents.common import utcnow
-from src.agents.graph import run_config
-from src.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, TaskStatus, active_commits
-from src.agents.nodes.change_impact import selection_impact
-from src.agents.nodes.cost_summary import make_cost_summary
-from src.agents.progress import select_plan_option
-from src.agents.selections import option_is_expired
-from src.agents.subagents.services.location import to_candidate
-from src.agents.suggestions import next_step_suggestions
-from src.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
-from src.services.adapters.mcp import ToolCallError
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, TaskStatus, active_commits
+from relohome_agent.agents.nodes.change_impact import selection_impact
+from relohome_agent.agents.nodes.cost_summary import make_cost_summary
+from relohome_agent.agents.progress import select_plan_option
+from relohome_agent.agents.selections import option_is_expired
+from relohome_agent.agents.subagents.services.location import to_candidate
+from relohome_agent.agents.suggestions import next_step_suggestions
+from relohome_agent.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
+from relohome_agent.services.adapters.mcp import ToolCallError
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 
@@ -235,7 +234,7 @@ async def _choose_result_locked(thread_id: str, body: ResultAction, service, use
         )
         if result.agent == AgentName.PROPERTY and getattr(service, "viewing", None) and not plan_choice:
             # Chọn để hẹn xem, chưa phải căn của kế hoạch (housing-viewing-design V3).
-            from src.api.viewings import select_for_viewing
+            from relohome_agent.api.viewings import select_for_viewing
 
             return await select_for_viewing(service, thread_id, user_id, state, body.task_id, chosen, update)
         text = f"Tôi chọn {label} (ID: {body.entity_id})."

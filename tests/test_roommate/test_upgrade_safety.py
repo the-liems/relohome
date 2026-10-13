@@ -1,5 +1,6 @@
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -36,6 +37,39 @@ def test_raw_backup_keeps_v1_and_upgrade_preserves_private_rows(tmp_path):
         assert row[0] == 7
         assert vault.open(bytes(row[1])) == "0901234567"
         assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 2
+
+
+def test_relative_backup_paths_use_runtime_root_from_unrelated_cwd(tmp_path, monkeypatch):
+    from src.roommate.contact_vault import ContactVault
+
+    root = tmp_path / "runtime"
+    source = root / "legacy"
+    source.mkdir(parents=True)
+    vault = ContactVault(source / "contact.key")
+    with sqlite3.connect(source / "roommate.sqlite3") as db:
+        for statement in SCHEMA:
+            db.execute(statement)
+        db.execute("PRAGMA user_version=1")
+        db.execute(
+            "INSERT INTO contacts VALUES (?,?,?,?,?)", ("contact", "owner", "phone", 7, vault.seal("0901234567"))
+        )
+    unrelated = tmp_path / "unrelated"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+    monkeypatch.setenv("RELOHOME_RUNTIME_ROOT", str(root))
+
+    result = backup_sqlite(Path("legacy"), Path("backup"))
+    assert result == {"path": str(root / "backup"), "schema_version": 1, "integrity": "ok"}
+    assert (root / "backup/contact.key").read_bytes() == (source / "contact.key").read_bytes()
+    with sqlite3.connect(root / "backup/roommate.sqlite3") as db:
+        row = db.execute("SELECT version,ciphertext FROM contacts").fetchone()
+        assert row[0] == 7
+        assert vault.open(row[1]) == "0901234567"
+    assert not list(unrelated.iterdir())
+    for public in ("data/backup", "Frontend/public/backup"):
+        with pytest.raises(ValueError, match="outside public data"):
+            backup_sqlite(Path("legacy"), Path(public))
+        assert not (root / public).exists()
 
 
 def test_nested_read_does_not_leave_outer_writer_readonly(tmp_path):

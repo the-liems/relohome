@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 
-from src.agents.approval import approval_problems, idempotency_key
-from src.agents.deps import GraphDeps
-from src.agents.models import (
+from relohome_agent.agents.approval import approval_problems, idempotency_key
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.models import (
     CommitAction,
     Outcome,
     OutcomeCode,
@@ -19,8 +19,8 @@ from src.agents.models import (
     TransactionResult,
     error_record,
 )
-from src.agents.state import WorkflowState
-from src.services.adapters.ports import CommitError, CommitRequest
+from relohome_agent.agents.state import WorkflowState
+from relohome_agent.services.adapters.ports import CommitError, CommitRequest
 
 logger = logging.getLogger(__name__)
 

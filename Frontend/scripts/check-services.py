@@ -16,8 +16,8 @@ sys.path.insert(0, str(ROOT))
 
 import httpx  # noqa: E402
 
-from src.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError  # noqa: E402
-from src.services.adapters.registry import LOCATION_READ_TOOLS  # noqa: E402
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError  # noqa: E402
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS  # noqa: E402
 
 
 async def main():

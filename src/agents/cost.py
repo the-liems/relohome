@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.agents.models import UsageCounts
+from relohome_agent.agents.models import UsageCounts
 
 if TYPE_CHECKING:
-    from src.agents.deps import GraphSettings
+    from relohome_agent.agents.deps import GraphSettings
 
 
 def paid_slots_left(turn: UsageCounts, thread: UsageCounts, settings: GraphSettings) -> int:
@@ -29,7 +29,7 @@ def subagent_llm_calls_left(turn: UsageCounts, settings: GraphSettings) -> int:
 
 async def call_graph_component(component, method, inp, deps, state, node):
     """Account actual calls, including repair/refusal/failure; keep budget invocation-local."""
-    from src.agents.llm_runtime import CALL_LIMIT
+    from relohome_agent.agents.llm_runtime import CALL_LIMIT
 
     thread, request = state.get("thread_id", ""), state.get("request_id", "")
     if not getattr(component, "uses_llm", False):

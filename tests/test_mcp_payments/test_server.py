@@ -3,9 +3,9 @@ from typing import Any
 import pytest
 from mcp import ClientSession
 from mcp.shared.memory import create_connected_server_and_client_session
+from relohome_agent.agents.tools import payment_mcp
 from starlette.testclient import TestClient
 
-from src.agents.tools import payment_mcp
 from src.mcp_servers.payments.engine import PaymentEngine
 from src.mcp_servers.payments.server import SERVER_NAME, create_server
 from src.mcp_servers.payments.tools import PaymentServices

@@ -10,3 +10,10 @@
 !Dockerfile.agents
 **/__pycache__/
 **/*.pyc
+
+!packages/
+!packages/python/
+!packages/python/**
+**/__pycache__
+**/build
+**/*.egg-info

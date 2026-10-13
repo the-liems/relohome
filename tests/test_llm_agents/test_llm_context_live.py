@@ -13,16 +13,16 @@ from pathlib import Path
 
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.graph import checkpoint_serde
+from relohome_agent.agents.llm_context import PRESENTATION_KEYS, result_context
+from relohome_agent.agents.llm_runtime import public_data
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
-from src.agents.contracts import AgentTaskRequest
-from src.agents.graph import checkpoint_serde
-from src.agents.llm_context import PRESENTATION_KEYS, result_context
-from src.agents.llm_runtime import public_data
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.domain_tools import DomainToolSession
-from src.agents.subagents.services.location import LocationSubagent
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
 from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual provider/checkpoint opt-in")

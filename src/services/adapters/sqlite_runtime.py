@@ -15,10 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from cryptography.fernet import Fernet
-
-from src.agents.common import utcnow
-from src.agents.memory import apply_updates, forget_thread
-from src.agents.models import Approval, SessionContext, UsageCounts
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.memory import apply_updates, forget_thread
+from relohome_agent.agents.models import Approval, SessionContext, UsageCounts
 
 
 class RuntimeDatabase:

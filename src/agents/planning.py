@@ -13,12 +13,11 @@ from uuid import uuid4
 
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel
-
-from src.agents.housing_constraints import HOUSING_INPUT_KEYS
-from src.agents.housing_operations import is_housing_comparison, same_housing_operation
-from src.agents.intake import LOOKUP_KEYS, selected_fact_key
-from src.agents.memory import SOFT_FILTER_KEYS
-from src.agents.models import (
+from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS
+from relohome_agent.agents.housing_operations import is_housing_comparison, same_housing_operation
+from relohome_agent.agents.intake import LOOKUP_KEYS, selected_fact_key
+from relohome_agent.agents.memory import SOFT_FILTER_KEYS
+from relohome_agent.agents.models import (
     AgentName,
     ChangeContext,
     CommitAction,
@@ -35,7 +34,7 @@ from src.agents.models import (
 )
 
 if TYPE_CHECKING:
-    from src.agents.deps import AgentRegistry
+    from relohome_agent.agents.deps import AgentRegistry
 
 
 class PlannerInput(BaseModel):

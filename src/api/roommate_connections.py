@@ -1,13 +1,12 @@
 from typing import Literal
 
 from fastapi import APIRouter, Query
-
-from src.api.roommate_access import Context, TrustedActor, perform
-from src.roommate.api_models import AcceptInput, ContactLeaseView, ContactUpdate, OperationInput, SendInput
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.contacts import ContactService
-from src.roommate.services.inbox import InboxService
-from src.roommate.services.requests import RequestService
+from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_roommate.api_models import AcceptInput, ContactLeaseView, ContactUpdate, OperationInput, SendInput
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.contacts import ContactService
+from relohome_roommate.services.inbox import InboxService
+from relohome_roommate.services.requests import RequestService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

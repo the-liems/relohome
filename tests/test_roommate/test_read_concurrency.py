@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from relohome_agent.api.roommate_map import router
 
-from src.api.roommate_map import router
 from src.roommate.access import RoommateContext
 from src.roommate.clock import FrozenClock
 from src.roommate.models import RoommateSearchCriteria

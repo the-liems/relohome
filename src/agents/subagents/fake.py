@@ -11,10 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentCapability, AgentTaskRequest, AgentTaskResult, reject_unsupported
-from src.agents.models import AgentName, AgentUsage
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentCapability, AgentTaskRequest, AgentTaskResult, reject_unsupported
+from relohome_agent.agents.models import AgentName, AgentUsage
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 

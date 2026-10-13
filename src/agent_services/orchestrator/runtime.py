@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from src.agent_services.common import ServiceError
-from src.agent_services.orchestrator.models import ToolResult
-from src.agent_services.orchestrator.registry import ToolSpec
+from relohome_agent_services.common import ServiceError
+from relohome_orchestrator.models import ToolResult
+from relohome_orchestrator.registry import ToolSpec
 
 
 class ToolGateway(Protocol):

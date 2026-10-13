@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relohome-orchestrator-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["relohome-agent-services==0.1.0", "uvicorn==0.53.0", "langgraph==1.2.11", "jsonschema==4.26.0"]
+
+[tool.setuptools]
+packages = ["relohome_orchestrator"]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+"relohome_orchestrator" = "."

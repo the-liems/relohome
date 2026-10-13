@@ -15,14 +15,23 @@ from uuid import uuid4
 import httpx
 import pytest
 from fastapi import FastAPI
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import (
+    AgentName,
+    IntakeResult,
+    Intent,
+    Plan,
+    RequestKind,
+    Task,
+    TaskResult,
+    TaskStatus,
+)
+from relohome_agent.agents.subagents.services.location import to_candidate
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api import routes, viewings, web_actions
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.common import utcnow
-from src.agents.graph import run_config
-from src.agents.models import AgentName, IntakeResult, Intent, Plan, RequestKind, Task, TaskResult, TaskStatus
-from src.agents.subagents.services.location import to_candidate
-from src.agents.wiring import AgentService
-from src.api import routes, viewings, web_actions
-from src.services.adapters.registry import ServiceSettings
 from tests import live
 
 pytestmark = pytest.mark.skipif(

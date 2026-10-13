@@ -1,14 +1,14 @@
 """Map integration: IDs, metadata, bounded pagination and selected-home planning."""
 
 import pytest
+from relohome_agent.agents.deps import AgentRegistry, fake_registry, test_deps
+from relohome_agent.agents.intake import ScriptedIntake, missing_for
+from relohome_agent.agents.models import AgentName, Plan, RequestKind, SessionContext, Task
+from relohome_agent.agents.planner_llm import LlmPlanner
+from relohome_agent.agents.planning import PlannerInput, TemplatePlanner, validate_plan
+from relohome_agent.agents.subagents.conformance import sample_request
+from relohome_agent.agents.subagents.services.location import LocationSubagent
 
-from src.agents.deps import AgentRegistry, fake_registry, test_deps
-from src.agents.intake import ScriptedIntake, missing_for
-from src.agents.models import AgentName, Plan, RequestKind, SessionContext, Task
-from src.agents.planner_llm import LlmPlanner
-from src.agents.planning import PlannerInput, TemplatePlanner, validate_plan
-from src.agents.subagents.conformance import sample_request
-from src.agents.subagents.services.location import LocationSubagent
 from tests.test_agents.helpers import Session, fact, intake_result
 from tests.test_agents.test_service_subagents import FakeToolClient, listing
 

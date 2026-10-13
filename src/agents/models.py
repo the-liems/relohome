@@ -427,3 +427,16 @@ INACTIVE_RECEIPT_STATUSES = frozenset({"compensated", "cancelled"})
 def active_commits(committed: dict[str, Receipt] | None) -> dict[str, Receipt]:
     """Commit còn hiệu lực (đã huỷ / đã compensate thì không tính là "đã đặt", S8)."""
     return {k: r for k, r in (committed or {}).items() if r.status not in INACTIVE_RECEIPT_STATUSES}
+
+
+# Module names are persisted by LangGraph. Keep the original wire identifiers so
+# previous image digests can still read checkpoints written after this package move.
+# Python callers import relohome_agent.agents.models; this alias is storage compatibility.
+import sys as _sys  # noqa: E402
+
+_LEGACY_CHECKPOINT_MODULE = "src.agents.models"
+for _checkpoint_type in tuple(globals().values()):
+    if isinstance(_checkpoint_type, type) and _checkpoint_type.__module__ == __name__:
+        _checkpoint_type.__module__ = _LEGACY_CHECKPOINT_MODULE
+_sys.modules[_LEGACY_CHECKPOINT_MODULE] = _sys.modules[__name__]
+del _checkpoint_type

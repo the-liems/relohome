@@ -6,10 +6,10 @@ Manifest của subagent thật phải bao được các schema dưới đây (đ
 
 from __future__ import annotations
 
-from src.agents.contracts import AgentCapability
-from src.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
-from src.agents.models import AgentBudget, AgentName, CommitActionKind
-from src.roommate.models import RoommateSearchCriteria
+from relohome_agent.agents.contracts import AgentCapability
+from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS, HOUSING_NUMERIC_FILTERS
+from relohome_agent.agents.models import AgentBudget, AgentName, CommitActionKind
+from relohome_roommate.models import RoommateSearchCriteria
 
 _STR = {"type": "string", "minLength": 1}
 _INT = {"type": "integer", "minimum": 0}

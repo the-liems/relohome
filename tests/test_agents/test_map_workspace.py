@@ -9,20 +9,20 @@ from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
-
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest, AgentTaskResult
-from src.agents.models import AgentBudget, AgentName, Quote, RequestKind, SessionContext
-from src.agents.planner_llm import LlmPlanner, PlanDraft, TaskDraft
-from src.agents.planning import PlannerInput
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES, PROPERTY
-from src.agents.subagents.services.location import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult
+from relohome_agent.agents.models import AgentBudget, AgentName, Quote, RequestKind, SessionContext
+from relohome_agent.agents.planner_llm import LlmPlanner, PlanDraft, TaskDraft
+from relohome_agent.agents.planning import PlannerInput
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES, PROPERTY
+from relohome_agent.agents.subagents.services.location import (
     bbox_around,
     bbox_of_points,
     location_choices,
     pick_place,
 )
-from src.agents.subagents.services.read_llm import ReadLlmAgent
+from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
+
 from src.models.schemas import ChatRequest
 from tests.test_agents.helpers import intake_result
 
@@ -140,11 +140,11 @@ def test_planner_binds_chosen_place_only_to_the_same_endpoint_text():
 @pytest.mark.parametrize("field", ["route_from", "route_to"])
 async def test_user_endpoint_change_clears_only_that_endpoints_chosen_place_id(field):
     from langchain_core.messages import HumanMessage
+    from relohome_agent.agents.deps import test_deps
+    from relohome_agent.agents.intake import ScriptedIntake
+    from relohome_agent.agents.nodes.intake import make_intake
+    from relohome_agent.agents.planning import TemplatePlanner
 
-    from src.agents.deps import test_deps
-    from src.agents.intake import ScriptedIntake
-    from src.agents.nodes.intake import make_intake
-    from src.agents.planning import TemplatePlanner
     from tests.test_agents.helpers import fact
 
     values = {
@@ -280,8 +280,8 @@ async def test_partial_ranking_keeps_every_observed_option(order):
 
 @pytest.mark.asyncio
 async def test_viewport_ignores_fuzzy_district_and_uses_returned_listings():
-    from src.agents.subagents.services.common import CountingClient
-    from src.agents.subagents.services.location import LocationSubagent
+    from relohome_agent.agents.subagents.services.common import CountingClient
+    from relohome_agent.agents.subagents.services.location import LocationSubagent
 
     class Areas:
         async def call(self, tool, args):
@@ -375,15 +375,15 @@ def test_map_bound_to_housing_results_drops_a_named_anchor():
 
 def test_intake_rejects_bounds_that_exclude_every_listing():
     # K-03: "ưu tiên phòng rộng nhất" must not become max_area_m2=0; the capability schema decides.
-    from src.agents.intake_llm import valid_value
+    from relohome_agent.agents.intake_llm import valid_value
 
     assert not valid_value("max_area_m2", 0) and not valid_value("max_price_vnd", 0)
     assert valid_value("max_area_m2", 30) and valid_value("max_bedrooms", 0) and valid_value("min_area_m2", 0)
 
 
 def amenity_intake(*, explore, legacy_anchor=False):
-    from src.agents.intake import IntakeInput
-    from src.agents.intake_llm import IntakeDraft, LlmIntake
+    from relohome_agent.agents.intake import IntakeInput
+    from relohome_agent.agents.intake_llm import IntakeDraft, LlmIntake
 
     draft = IntakeDraft(
         kind="new_goal",
@@ -422,7 +422,7 @@ def amenity_intake(*, explore, legacy_anchor=False):
 
 @pytest.mark.asyncio
 async def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
-    from src.agents.planning import TemplatePlanner
+    from relohome_agent.agents.planning import TemplatePlanner
 
     # ADR-021: nearby_* constrains Housing; the LLM classifies a filter as PROPERTY only.
     result = amenity_intake(explore=False)
@@ -437,7 +437,7 @@ async def test_amenity_request_in_a_housing_goal_becomes_a_housing_filter():
 
 @pytest.mark.asyncio
 async def test_amenity_exploration_around_housing_results_keeps_a_separate_map_task():
-    from src.agents.planning import TemplatePlanner
+    from relohome_agent.agents.planning import TemplatePlanner
 
     # ADR-021: asking to inspect amenities remains supported Map exploration.
     result = amenity_intake(explore=True)
@@ -458,13 +458,12 @@ async def test_amenity_exploration_around_housing_results_keeps_a_separate_map_t
 @pytest.mark.parametrize("planner_kind", ["template", "llm"])
 async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_kind):
     from langchain_core.messages import HumanMessage
-
-    from src.agents.deps import test_deps
-    from src.agents.intake import ScriptedIntake
-    from src.agents.models import TaskStatus
-    from src.agents.nodes.executor import compute_ready
-    from src.agents.nodes.intake import make_intake
-    from src.agents.planning import TemplatePlanner
+    from relohome_agent.agents.deps import test_deps
+    from relohome_agent.agents.intake import ScriptedIntake
+    from relohome_agent.agents.models import TaskStatus
+    from relohome_agent.agents.nodes.executor import compute_ready
+    from relohome_agent.agents.nodes.intake import make_intake
+    from relohome_agent.agents.planning import TemplatePlanner
 
     # Preserve the old fixture shape: conversion produces a typed entity reference.
     raw = amenity_intake(explore=True, legacy_anchor=True)
@@ -527,13 +526,13 @@ async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_ki
 
 
 def test_fact_schema_check_only_applies_to_the_same_shaped_field():
-    from src.agents.intake_llm import valid_value
+    from relohome_agent.agents.intake_llm import valid_value
 
     assert valid_value("passengers", 1)  # fact is a count; Flight's input is {adults: n}
 
 
 def test_echoed_reference_labels_are_entities_not_places():
-    from src.agents.intake import entity_reference
+    from relohome_agent.agents.intake import entity_reference
 
     assert entity_reference("housing_results") == "upstream:property"
     assert entity_reference("selected:property") == "selected:property"
@@ -541,7 +540,7 @@ def test_echoed_reference_labels_are_entities_not_places():
 
 
 def test_completed_task_of_a_requested_domain_is_kept_when_the_model_leaves_it_out():
-    from src.agents.models import Plan, Task, TaskResult
+    from relohome_agent.agents.models import Plan, Task, TaskResult
 
     values = {"origin": "Đà Nẵng", "destination": "Hà Nội", "flight_date": "2026-10-04", "moving_mode": "catalog"}
     flight_inputs = {"origin": "Đà Nẵng", "destination": "Hà Nội", "date": "2026-10-04", "passengers": {"adults": 1}}
@@ -565,7 +564,7 @@ def test_completed_task_of_a_requested_domain_is_kept_when_the_model_leaves_it_o
 
 
 def test_selected_listing_id_is_bound_from_state_not_from_the_draft():
-    from src.agents.models import ConfirmedFact
+    from relohome_agent.agents.models import ConfirmedFact
 
     values = {
         "moving_mode": "quote",
@@ -589,8 +588,8 @@ def test_selected_listing_id_is_bound_from_state_not_from_the_draft():
 
 
 def test_adding_a_service_to_an_unabandoned_goal_keeps_it():
-    from src.agents.intake import IntakeInput
-    from src.agents.intake_llm import IntakeDraft, LlmIntake
+    from relohome_agent.agents.intake import IntakeInput
+    from relohome_agent.agents.intake_llm import IntakeDraft, LlmIntake
 
     def draft(drops):
         return IntakeDraft(
@@ -618,8 +617,8 @@ def test_adding_a_service_to_an_unabandoned_goal_keeps_it():
 
 
 def test_reference_codes_are_not_dropped_as_personal_data():
-    from src.agents.intake import ground_facts
-    from src.agents.models import ConfirmedFact
+    from relohome_agent.agents.intake import ground_facts
+    from relohome_agent.agents.models import ConfirmedFact
 
     code = {"payment_id": ConfirmedFact(value="ZP123456789", evidence="ZP123456789", stated_at=utcnow())}
     assert list(ground_facts(code, {}, RequestKind.NEW_GOAL, ["thanh toán mã ZP123456789"], []).facts) == ["payment_id"]
@@ -628,7 +627,7 @@ def test_reference_codes_are_not_dropped_as_personal_data():
 
 
 def test_catalog_answer_matches_the_asked_city_across_spelling():
-    from src.agents.nodes.respond import describe_result
+    from relohome_agent.agents.nodes.respond import describe_result
 
     cities = {"cities": [{"city_id": "HAN", "city_name": "Hanoi"}, {"city_id": "VCA", "city_name": "Can Tho"}]}
     assert describe_result(AgentName.RELOCATION, cities, None, "Cần Thơ")[0] == "AhaMove có phục vụ Cần Thơ (Can Tho)."

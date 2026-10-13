@@ -6,12 +6,11 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.checkout.models import CheckoutError, ServiceTransaction
-from src.checkout.store import CheckoutStore
-from src.checkout.viewing import ViewingService, ViewingSettings
-from src.services.adapters.mcp import ToolCallError
-from src.services.adapters.registry import ServiceSettings
+from relohome_agent.checkout.models import CheckoutError, ServiceTransaction
+from relohome_agent.checkout.store import CheckoutStore
+from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
+from relohome_agent.services.adapters.mcp import ToolCallError
+from relohome_agent.services.adapters.registry import ServiceSettings
 
 USER, THREAD = "user-a", "th_1"
 # 00:00 giờ Việt Nam ngày 10/10/2026.
@@ -216,7 +215,7 @@ def test_moving_impact_uses_configured_distance_and_payment_state():
 
     class Result:
         def __init__(self, lat):
-            from src.agents.models import AgentName
+            from relohome_agent.agents.models import AgentName
 
             self.agent, self.status = AgentName.RELOCATION, "done"
             self.data = {"route": {"destination": {"lat": lat, "lng": 106.70}}}
@@ -276,7 +275,7 @@ async def test_warnings_use_configured_daily_limit():
 
 
 def test_legacy_selected_home_is_shown_as_chosen():
-    from src.agents.models import ConfirmedFact, IntakeResult, RequestKind
+    from relohome_agent.agents.models import ConfirmedFact, IntakeResult, RequestKind
 
     service, *_ = make()
     intake = IntakeResult(
@@ -298,7 +297,7 @@ async def test_test_mode_can_record_the_visit_before_the_slot(monkeypatch):
 
 
 def test_test_visit_anytime_is_ignored_in_production(monkeypatch):
-    from src.config import get_settings
+    from relohome_agent.config import get_settings
 
     monkeypatch.setenv("APP_ENV", "production")
     get_settings.cache_clear()

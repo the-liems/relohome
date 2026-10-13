@@ -1,5 +1,5 @@
-from src.agents.llm_context import decision_data
-from src.agents.subagents.services.location import to_candidate
+from relohome_agent.agents.llm_context import decision_data
+from relohome_agent.agents.subagents.services.location import to_candidate
 
 
 def test_agent_keeps_only_aggregate_review_facts_in_housing_details():

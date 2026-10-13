@@ -5,10 +5,10 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from relohome_intake.app import create_app as intake_app
+from relohome_orchestrator.app import create_app as orchestrator_app
 
 from src.agent_services.common import ServiceSettings
-from src.agent_services.intake.app import create_app as intake_app
-from src.agent_services.orchestrator.app import create_app as orchestrator_app
 from tests.test_agent_services.test_contracts import catalog_task, draft
 
 

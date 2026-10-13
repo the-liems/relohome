@@ -3,9 +3,8 @@
 from copy import deepcopy
 
 import pytest
-
-from src.agents.common import utcnow
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import (
     AgentName,
     Outcome,
     OutcomeCode,
@@ -15,7 +14,8 @@ from src.agents.models import (
     TaskResult,
     TaskStatus,
 )
-from src.agents.nodes.respond import compose, data_notes, describe_result
+from relohome_agent.agents.nodes.respond import compose, data_notes, describe_result
+
 from tests.test_agents.helpers import fact, intake_result
 
 

@@ -12,4 +12,5 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     # Runs before any test module is imported, so cached settings never see the shell.
     live.clean_environment(os.environ)
+    os.environ["RELOHOME_RUNTIME_ROOT"] = str(live.ROOT)
     live.configure(config)

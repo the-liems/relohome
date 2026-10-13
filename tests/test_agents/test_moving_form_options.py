@@ -7,18 +7,18 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic import ValidationError
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.llm_runtime import Invocation
+from relohome_agent.agents.models import AgentBudget, AgentName, SessionContext
+from relohome_agent.agents.planner_llm import LlmPlanner, PlanDraft
+from relohome_agent.agents.planning import PlannerInput
+from relohome_agent.agents.subagents.services.moving import QuoteContact
+from relohome_agent.agents.subagents.services.moving_catalog import MovingCatalogCache
+from relohome_agent.agents.subagents.services.moving_llm import MovingExecution
+from relohome_agent.api.routes import router as chat_router
+from relohome_agent.api.web_actions import router
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.llm_runtime import Invocation
-from src.agents.models import AgentBudget, AgentName, SessionContext
-from src.agents.planner_llm import LlmPlanner, PlanDraft
-from src.agents.planning import PlannerInput
-from src.agents.subagents.services.moving import QuoteContact
-from src.agents.subagents.services.moving_catalog import MovingCatalogCache
-from src.agents.subagents.services.moving_llm import MovingExecution
-from src.api.routes import router as chat_router
-from src.api.web_actions import router
 from src.models.moving_options import MovingOptions, service_selection, validated_options
 from tests.test_agents.helpers import intake_result
 from tests.test_agents.test_commit_adapter import RecordingBridge, booking_client, request, tx
@@ -178,7 +178,8 @@ async def test_invalid_addon_asks_before_any_estimate_or_write():
 
 @pytest.mark.asyncio
 async def test_native_moving_adapter_keeps_the_same_form_fields():
-    from src.agents.subagents.services.moving import MovingSubagent
+    from relohome_agent.agents.subagents.services.moving import MovingSubagent
+
     from tests.test_agents.test_service_subagents import FakeToolClient
 
     exe, client = execution(OPTIONS)
@@ -282,11 +283,10 @@ async def test_intake_preserves_form_on_followup_but_clears_it_for_new_goal():
     from dataclasses import replace
 
     from langchain_core.messages import HumanMessage
-
-    from src.agents.deps import default_deps
-    from src.agents.intake import FixedIntake
-    from src.agents.models import RequestKind
-    from src.agents.nodes.intake import make_intake
+    from relohome_agent.agents.deps import default_deps
+    from relohome_agent.agents.intake import FixedIntake
+    from relohome_agent.agents.models import RequestKind
+    from relohome_agent.agents.nodes.intake import make_intake
 
     deps = default_deps()
     state = {

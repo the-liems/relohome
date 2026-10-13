@@ -13,18 +13,18 @@ from pathlib import Path
 import httpx
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.graph import checkpoint_serde
+from relohome_agent.agents.models import AgentBudget, AgentName, IntakeResult, Plan, RequestKind, Task, TaskStatus
+from relohome_agent.agents.nodes.respond import compose
+from relohome_agent.agents.nodes.validator import decide
+from relohome_agent.agents.subagents.base import to_task_result
+from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
+from relohome_agent.agents.subagents.services.location import LocationSubagent, _meters
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.graph import checkpoint_serde
-from src.agents.models import AgentBudget, AgentName, IntakeResult, Plan, RequestKind, Task, TaskStatus
-from src.agents.nodes.respond import compose
-from src.agents.nodes.validator import decide
-from src.agents.subagents.base import to_task_result
-from src.agents.subagents.services.domain_tools import DomainToolSession
-from src.agents.subagents.services.location import LocationSubagent, _meters
-from src.services.adapters.mcp import McpEndpoint, McpToolClient
-from src.services.adapters.registry import LOCATION_READ_TOOLS
 from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual local services opt-in")
@@ -248,7 +248,7 @@ def test_real_checkpoint_limited_assessment_is_visible_without_llm():
     if not thread:
         pytest.skip("Supply an actual completed thread with a model limited assessment; no manufactured result")
     state = saved_state(thread)
-    from src.agents.models import Outcome, OutcomeCode
+    from relohome_agent.agents.models import Outcome, OutcomeCode
 
     assert state["outcome"].code == OutcomeCode.ANSWER
     limited = {

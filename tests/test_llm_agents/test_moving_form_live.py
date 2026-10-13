@@ -21,16 +21,25 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.models import (
+    AgentBudget,
+    AgentName,
+    IntakeResult,
+    Intent,
+    Plan,
+    RequestKind,
+    Task,
+    TaskStatus,
+)
+from relohome_agent.agents.subagents.base import to_task_result
+from relohome_agent.agents.subagents.services.location import LocationSubagent
+from relohome_agent.agents.wiring import AgentService
+from relohome_agent.main import app
+from relohome_agent.services.adapters.registry import ServiceSettings
 
-from src.agents.common import utcnow
-from src.agents.contracts import AgentTaskRequest
-from src.agents.graph import run_config
-from src.agents.models import AgentBudget, AgentName, IntakeResult, Intent, Plan, RequestKind, Task, TaskStatus
-from src.agents.subagents.base import to_task_result
-from src.agents.subagents.services.location import LocationSubagent
-from src.agents.wiring import AgentService
-from src.main import app
-from src.services.adapters.registry import ServiceSettings
 from tests import live
 
 pytestmark = [
@@ -176,8 +185,8 @@ async def test_real_form_quote_selection_requote_and_rejections(runtime):
 
 
 async def test_real_catalog_cache_scope_expiry_and_detail_projection(runtime):
-    from src.agents.llm_context import model_json
-    from src.agents.subagents.services.moving_context import service_details_for_model
+    from relohome_agent.agents.llm_context import model_json
+    from relohome_agent.agents.subagents.services.moving_context import service_details_for_model
 
     service, http, body, _ = runtime
     moving = service.deps.agents.get(AgentName.RELOCATION)
@@ -234,7 +243,7 @@ async def test_real_catalog_cache_scope_expiry_and_detail_projection(runtime):
 
 
 async def test_real_gateway_authentication_quote_and_idempotent_replay(runtime):
-    from Frontend.server import create_app
+    from relohome_gateway.server import create_app
 
     service, _, body, tmp_path = runtime
     gateway = create_app(database=str(tmp_path / "web.sqlite3"), transport=httpx.ASGITransport(app=app))
@@ -346,8 +355,7 @@ async def test_form_preserves_real_housing_result_and_selection(runtime):
 @pytest.mark.skipif(os.getenv("RUN_LIVE_MOVING_BROWSER") != "1", reason="Separate real browser opt-in required")
 async def test_real_browser_form_stays_open_and_retains_inputs(runtime, monkeypatch):
     import uvicorn
-
-    from Frontend.server import create_app
+    from relohome_gateway.server import create_app
 
     service, _, _, tmp_path = runtime
     assert service.deps.agents.get(AgentName.RELOCATION).api_key == ""

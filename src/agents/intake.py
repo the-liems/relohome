@@ -7,17 +7,15 @@ liệu cá nhân, gộp dữ kiện qua các lượt và `resolve_missing`.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
-
-from src.agents.common import nfc
-from src.agents.memory import prefill_from_memory
-from src.agents.models import (
+from relohome_agent.agents.common import nfc
+from relohome_agent.agents.memory import prefill_from_memory
+from relohome_agent.agents.models import (
     AgentName,
     CommitActionKind,
     ConfirmedFact,
@@ -31,6 +29,8 @@ from src.agents.models import (
     TaskOutline,
     UserDecision,
 )
+from relohome_privacy import contains_contact_pii, looks_like_pii
+from relohome_privacy import redact_pii as redact_pii
 
 
 class IntakeInput(BaseModel):
@@ -157,26 +157,7 @@ PII_FACT_KEYS = frozenset(
         "passengers_detail",
     }
 )
-_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
-_LONG_DIGITS = re.compile(r"\d{9,}")
 AFFIRMATIVES = frozenset({"có", "ừ", "ừa", "ok", "oke", "okay", "yes", "được", "đồng ý", "uh", "ừm"})
-
-
-_PHONE = re.compile(r"(?<![\d.])(?:\+84|0)(?:[\s.-]?\d){8,10}(?![\d.])")
-_ID_NUMBER = re.compile(r"(?<!\d)\d{12}(?!\d)")  # CCCD
-
-
-def redact_pii(text: str) -> str:
-    """Che email, SĐT, số CCCD trước khi gửi tin nhắn cho LLM (D16). Không nhận diện được họ tên: người
-    dùng được hướng nhập thông tin cá nhân qua form, không qua chat."""
-    text = _EMAIL.sub("[email]", text)
-    text = _ID_NUMBER.sub("[số giấy tờ]", text)
-    return _PHONE.sub("[số điện thoại]", text)
-
-
-def looks_like_pii(value: Any) -> bool:
-    text = str(value)
-    return bool(_EMAIL.search(text) or _LONG_DIGITS.search(text.replace(" ", "").replace(".", "")))
 
 
 @dataclass
@@ -261,7 +242,7 @@ def ground_facts(
         # itself an email or phone number is personal data there.
         reference = name in REFERENCE_KEYS or name == "listing_ids"
         personal = (
-            bool(_EMAIL.search(str(fact.value)) or _PHONE.search(str(fact.value)))
+            contains_contact_pii(fact.value)
             if reference
             else looks_like_pii(fact.value)
         )

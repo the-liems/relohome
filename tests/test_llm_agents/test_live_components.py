@@ -11,15 +11,15 @@ from datetime import timedelta
 import pytest
 import pytest_asyncio
 from langchain_core.messages import HumanMessage
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.intake import IntakeInput, resolve_missing
+from relohome_agent.agents.intake_llm import LlmIntake
+from relohome_agent.agents.llm import StructuredLLM
+from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind, SessionContext
+from relohome_agent.agents.planner_llm import LlmPlanner
+from relohome_agent.agents.planning import PlannerInput, validate_plan
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
-from src.agents.common import utcnow
-from src.agents.intake import IntakeInput, resolve_missing
-from src.agents.intake_llm import LlmIntake
-from src.agents.llm import StructuredLLM
-from src.agents.models import AgentName, CommitActionKind, RequestKind, SessionContext
-from src.agents.planner_llm import LlmPlanner
-from src.agents.planning import PlannerInput, validate_plan
-from src.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from tests import live
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real OpenAI opt-in")]

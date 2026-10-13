@@ -10,8 +10,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from src.agents.llm_runtime import public_data
-from src.roommate.agent_projection import reference_data
+from relohome_agent.agents.llm_runtime import public_data
+from relohome_roommate.agent_projection import reference_data
 
 # These keys describe rendering, tracing or repeated schema, not domain facts.
 PRESENTATION_KEYS = frozenset(

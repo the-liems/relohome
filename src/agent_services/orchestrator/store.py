@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
-from src.agent_services.common import ServiceError, now
-from src.agent_services.orchestrator.models import Workflow
+from relohome_agent_services.common import ServiceError, now
+from relohome_orchestrator.models import Workflow
 
 
 class WorkflowStore:

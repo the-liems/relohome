@@ -1,14 +1,13 @@
 from fastapi import APIRouter, HTTPException, Request
-
-from src.api.roommate_access import Context, TrustedActor, perform
-from src.api.web_actions import explored_listing
-from src.roommate.api_models import BookmarkInput, OwnProfileView, ProfileAction, ProfileUpdate
-from src.roommate.location_catalog import listing_city
-from src.roommate.models import RoommateProfile, RoommateSearchCriteria
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
-from src.roommate.services.profiles import ProfileService, validate_complete
-from src.roommate.views import PublicProfile
+from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_agent.api.web_actions import explored_listing
+from relohome_roommate.api_models import BookmarkInput, OwnProfileView, ProfileAction, ProfileUpdate
+from relohome_roommate.location_catalog import listing_city
+from relohome_roommate.models import RoommateProfile, RoommateSearchCriteria
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
+from relohome_roommate.services.profiles import ProfileService, validate_complete
+from relohome_roommate.views import PublicProfile
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
 

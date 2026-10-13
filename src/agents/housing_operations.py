@@ -1,6 +1,6 @@
 """Operation identity: analysing listings is not searching or choosing a home."""
 
-from src.agents.models import AgentName
+from relohome_agent.agents.models import AgentName
 
 
 def is_housing_comparison(agent: AgentName | str, inputs: dict) -> bool:

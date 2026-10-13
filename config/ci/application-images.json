@@ -10,7 +10,9 @@
       "config/",
       "requirements.txt",
       "package.json",
-      "package-lock.json"
+      "package-lock.json",
+      "packages/python/",
+      "requirements-runtime.txt"
     ]
   },
   {
@@ -21,7 +23,9 @@
     "paths": [
       "src/",
       "config/",
-      "requirements.txt"
+      "requirements.txt",
+      "packages/python/",
+      "requirements-runtime.txt"
     ]
   },
   {
@@ -83,7 +87,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/flights/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "packages/python/flight/",
+      "packages/python/mcp-http/"
     ]
   },
   {
@@ -95,7 +101,9 @@
       "src/__init__.py",
       "src/mcp_servers/__init__.py",
       "src/mcp_servers/payments/",
-      "src/mcp_servers/http_service.py"
+      "src/mcp_servers/http_service.py",
+      "packages/python/payment/",
+      "packages/python/mcp-http/"
     ]
   },
   {

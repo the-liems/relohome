@@ -3,9 +3,8 @@
 from datetime import timedelta
 
 import pytest
-
-from src.agents.common import utcnow
-from src.agents.models import (
+from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.models import (
     AgentName,
     ConfirmedFact,
     Constraints,
@@ -18,9 +17,9 @@ from src.agents.models import (
     TaskResult,
     TaskStatus,
 )
-from src.agents.nodes.intake import remembered_home
-from src.agents.progress import plan_progress, record_goal, record_selections
-from src.api.routes import _selections
+from relohome_agent.agents.nodes.intake import remembered_home
+from relohome_agent.agents.progress import plan_progress, record_goal, record_selections
+from relohome_agent.api.routes import _selections
 
 
 def result(task_id, agent, data, quotes=()):

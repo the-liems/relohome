@@ -4,9 +4,8 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
-
-from src.agent_services.common import Model, now
-from src.agent_services.intake.models import IntakeResult
+from relohome_agent_services.common import Model, now
+from relohome_agent_services.intake_models import IntakeResult
 
 
 class InputReference(Model):

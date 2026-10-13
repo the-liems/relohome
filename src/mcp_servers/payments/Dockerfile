@@ -15,7 +15,10 @@ RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
 COPY src/mcp_servers/payments/requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+COPY packages/python/payment/ /build/domain/
+COPY packages/python/mcp-http/ /build/mcp-http/
+COPY src/mcp_servers/payments/ /build/app/
+RUN pip install -r /tmp/requirements.txt /build/domain /build/mcp-http /build/app
 
 # ---- Stage 2: runtime ----
 FROM python:3.11-slim

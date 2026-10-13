@@ -1,18 +1,5 @@
-class PaymentError(Exception):
-    """Lỗi nghiệp vụ. Message được trả nguyên văn cho client MCP nên không được chứa key, chữ ký hay dữ liệu cá nhân."""
+"""Temporary compatibility import; removal gate: #115 (see python-packaging.md)."""
+import importlib as _importlib
+import sys as _sys
 
-
-class InvalidRequestError(PaymentError):
-    """Tham số không hợp lệ (mã tham chiếu chứa dữ liệu cá nhân, số tiền sai...)."""
-
-
-class GatewayUnavailableError(PaymentError):
-    """Cổng thanh toán (ZaloPay) lỗi, từ chối đơn hoặc không kết nối được."""
-
-
-class PaymentNotFoundError(PaymentError):
-    """Không tìm thấy giao dịch của nhóm theo mã đã cho."""
-
-
-class PaymentStateError(PaymentError):
-    """Thao tác không hợp lệ với trạng thái hiện tại của giao dịch hoặc không được cổng hỗ trợ."""
+_sys.modules[__name__] = _importlib.import_module('relohome_payment.errors')

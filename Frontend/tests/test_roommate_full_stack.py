@@ -4,9 +4,9 @@ import httpx
 import pytest
 
 from Frontend.server import create_app
-from src.api.roommate_connections import router as connection_router
-from src.api.roommate_profiles import router as profile_router
-from src.api.roommate_safety import router as safety_router
+from relohome_agent.api.roommate_connections import router as connection_router
+from relohome_agent.api.roommate_profiles import router as profile_router
+from relohome_agent.api.roommate_safety import router as safety_router
 from tests.test_roommate.test_discovery_api import make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 

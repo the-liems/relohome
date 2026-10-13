@@ -1,19 +1,18 @@
 """Xuất JSON Schema của contract subagent ra docs/api/agent-contract/ (§6.3).
 
-Chạy: python -m src.agents.contracts.export_schema
+Chạy: python -m relohome_agent.agents.contracts.export_schema --output-dir docs/api/agent-contract
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
-from src.agents.contracts.agent_task import AgentManifest, AgentTaskRequest, AgentTaskResult
-
-OUT_DIR = Path(__file__).resolve().parents[3] / "docs" / "api" / "agent-contract"
+from relohome_agent.agents.contracts.agent_task import AgentManifest, AgentTaskRequest, AgentTaskResult
 
 
-def export(out_dir: Path = OUT_DIR) -> list[Path]:
+def export(out_dir: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
     for model in (AgentManifest, AgentTaskRequest, AgentTaskResult):
@@ -24,5 +23,7 @@ def export(out_dir: Path = OUT_DIR) -> list[Path]:
 
 
 if __name__ == "__main__":
-    for path in export():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, required=True)
+    for path in export(parser.parse_args().output_dir):
         print(path)

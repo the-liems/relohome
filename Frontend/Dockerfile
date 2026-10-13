@@ -10,13 +10,19 @@ COPY Frontend/ ./Frontend/
 RUN npm run build --workspace Frontend
 
 FROM python:3.11-slim AS python-build
+ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 RUN python -m venv /opt/venv
-COPY requirements.txt ./
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+COPY requirements-runtime.txt ./
+COPY packages/python/ ./packages/python/
+COPY src/ ./src/
+COPY Frontend/*.py Frontend/pyproject.toml ./Frontend/
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
+    ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./Frontend
 
 FROM python:3.11-slim AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
 COPY --chmod=u=rwX,go=rX src/ ./src/

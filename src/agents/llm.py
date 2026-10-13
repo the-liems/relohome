@@ -13,9 +13,8 @@ from typing import Literal, TypeVar
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
 from pydantic import BaseModel, ValidationError
-
-from src.agents.common import canonical
-from src.agents.llm_provider import client_options, provider_model
+from relohome_agent.agents.common import canonical
+from relohome_agent.agents.llm_provider import client_options, provider_model
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)

@@ -12,9 +12,8 @@ from pathlib import Path
 
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from relohome_agent.agents.graph import checkpoint_serde
 from test_context_efficiency_live import actual_run  # noqa: F401
-
-from src.agents.graph import checkpoint_serde
 
 
 def test_four_new_linked_turns(actual_run):  # noqa: F811

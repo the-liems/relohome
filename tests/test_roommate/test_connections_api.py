@@ -1,8 +1,8 @@
 import httpx
 import pytest
+from relohome_agent.api.roommate_connections import router
+from relohome_agent.api.roommate_profiles import router as profile_router
 
-from src.api.roommate_connections import router
-from src.api.roommate_profiles import router as profile_router
 from tests.test_roommate.test_discovery_api import headers, make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 

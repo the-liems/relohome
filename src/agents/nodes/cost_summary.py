@@ -5,11 +5,11 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta
 
-from src.agents.approval import confirmation_hash
-from src.agents.deps import GraphDeps
-from src.agents.housing_operations import is_housing_comparison
-from src.agents.intake import selected_fact_key
-from src.agents.models import (
+from relohome_agent.agents.approval import confirmation_hash
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.housing_operations import is_housing_comparison
+from relohome_agent.agents.intake import selected_fact_key
+from relohome_agent.agents.models import (
     CommitAction,
     CommitActionKind,
     CostLine,
@@ -23,7 +23,7 @@ from src.agents.models import (
     TaskStatus,
     active_commits,
 )
-from src.agents.state import WorkflowState
+from relohome_agent.agents.state import WorkflowState
 
 
 def select_options(plan: Plan, results: dict[str, TaskResult], intake: IntakeResult) -> dict[str, str]:

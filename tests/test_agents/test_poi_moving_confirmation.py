@@ -3,11 +3,10 @@
 from types import SimpleNamespace
 
 import pytest
-
-from src.agents.contracts import AgentTaskRequest
-from src.agents.llm_runtime import Invocation
-from src.agents.models import AgentBudget, AgentName
-from src.agents.subagents.services.moving_llm import MovingExecution
+from relohome_agent.agents.contracts import AgentTaskRequest
+from relohome_agent.agents.llm_runtime import Invocation
+from relohome_agent.agents.models import AgentBudget, AgentName
+from relohome_agent.agents.subagents.services.moving_llm import MovingExecution
 
 
 class FixtureLocation:

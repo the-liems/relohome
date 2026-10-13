@@ -75,15 +75,15 @@ def test_uvicorn_file_preserves_exported_values(tmp_path, monkeypatch):
 def test_python_settings_do_not_read_cwd_dotenv(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("APP_ENV=production\nAGENT_API_TOKEN=wrong\n")
     monkeypatch.chdir(tmp_path)
-    from src.config import Settings
-    from src.services.adapters.registry import ServiceSettings
+    from relohome_agent.config import Settings
+    from relohome_agent.services.adapters.registry import ServiceSettings
 
     assert Settings().app_env != "production"
     assert ServiceSettings().agent_api_token.get_secret_value() != "wrong"
 
 
 def test_backend_prefers_unique_database_name_over_inherited_generic(monkeypatch):
-    from src.config import Settings
+    from relohome_agent.config import Settings
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://location-user@localhost/location")
     monkeypatch.setenv("BACKEND_DATABASE_URL", "sqlite:///backend.db")
