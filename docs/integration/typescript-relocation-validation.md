@@ -30,8 +30,7 @@ Initial native HTTP tests failed because the sandbox forbade local port binding;
 base and head passed when rerun with local-port permission. Empty-database platform
 checks initially lacked imported POIs/administrative areas. The new
 `scripts/test-ts-database.py` supplies synthetic inputs to the actual importers,
-then runs the unchanged assertions. The MCP suite now honors `LIFEFLOW_ENV_FILE`
-for its child process instead of forcing the developer's legacy `.env`.
+then runs the unchanged assertions.
 
 Reproduce native checks from repository root:
 
@@ -74,3 +73,18 @@ The first probe attempts exposed missing test-harness prerequisites (a pruned
 development client library, then an omitted synthetic webhook secret), corrected
 in the probe without changing application behavior. All probe containers and its
 network were removed after the run.
+
+## Claude review follow-up
+
+The `.env` lookup this PR originally adjusted was removed on main by #133, so
+the rebased branch carries main's loaders and environment-isolation tests
+unchanged. The three runtime-path tests run in the portable `test:ts` CI command.
+
+Removed unused legacy directory re-includes and the duplicate packages entry
+from the Location image allowlist. The #115 resource resolver handoff is recorded
+in the relocation runbook; migration asset locations remain unchanged here.
+
+Follow-up validation: `npm run build:ts` passed for all eight workspaces;
+`npm run test:ts` passed 71 tests with the same 14 provider-dependent skips.
+The Location image rebuilt successfully and passed its default runtime startup
+probe after the allowlist cleanup.

@@ -36,7 +36,7 @@
     "typecheck": "node scripts/python.mjs -m mypy src/",
     "test": "npm run test:python && npm run test:ts && npm run test:contracts",
     "test:python": "node scripts/python.mjs -m pytest tests/ Frontend/tests/ \"Maps VN/LifeFlow/demo/test_demo.py\" -v --tb=short",
-    "test:ts": "npm run test --workspace \"packages/contracts\" && npm run test --workspace \"packages/mcp-core\" && npm run test --workspace \"packages/moving-service\" && npm run test --workspace \"apps/moving-api\" && npm run test --workspace \"apps/moving-mcp\" && npm exec --offline --workspace \"apps/location-mcp\" -- vitest run tests/mcp-http.integration.test.ts && npm exec --offline --workspace \"packages/housing-query\" -- vitest run tests/environment-isolation.test.ts",
+    "test:ts": "npm run test --workspace \"packages/contracts\" && npm run test --workspace \"packages/mcp-core\" && npm run test --workspace \"packages/moving-service\" && npm run test --workspace \"apps/moving-api\" && npm run test --workspace \"apps/moving-mcp\" && npm exec --offline --workspace \"apps/location-mcp\" -- vitest run tests/mcp-http.integration.test.ts && npm exec --offline --workspace \"packages/housing-query\" -- vitest run tests/environment-isolation.test.ts && npm exec --offline --workspace apps/platform-api -- vitest run tests/runtime-paths.test.ts",
     "test:ci": "npm run test:ts && npm run test:contracts",
     "test:contracts": "npm exec --offline --workspace Frontend -- playwright test --config playwright.contracts.config.ts",
     "test:browser": "npm exec --offline --workspace Frontend -- playwright test --config playwright.config.ts --workers=2",

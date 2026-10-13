@@ -6,10 +6,7 @@
 !package-lock.json
 !scripts/
 !scripts/docker-npm.mjs
-!Maps VN/
-!Maps VN/LifeFlow/
 !tsconfig.base.json
-!packages/
 !packages/contracts/
 !packages/contracts/**
 !packages/housing-query/
