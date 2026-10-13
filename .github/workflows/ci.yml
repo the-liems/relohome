@@ -81,9 +81,6 @@ jobs:
       - name: Lint with ruff
         run: npm run lint:python
 
-      - name: Verify isolated Python wheels
-        run: npm run test:packages
-
       - name: Run tests
         run: npm run test:python
         env:

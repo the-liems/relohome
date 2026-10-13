@@ -58,6 +58,7 @@ def main():
 
     signal.signal(signal.SIGTERM, terminate)
     for service in ("intake", "orchestrator"):
+        image = f"lifeflow-{service}:{os.environ.get('AGENT_IMAGE_TAG', 'local')}"
         token = secrets.token_urlsafe(32)
         key = f"{service.upper()}_API_TOKEN"
         env = {**os.environ, key: token}
@@ -79,7 +80,7 @@ def main():
                 "/app/data:mode=1777",
                 "--cap-drop=ALL",
                 "--security-opt=no-new-privileges:true",
-                f"lifeflow-{service}:{os.environ.get('AGENT_IMAGE_TAG', 'local')}",
+                image,
                 env=env,
             )
             for _ in range(40):
@@ -90,6 +91,10 @@ def main():
                     pass
                 time.sleep(0.5)
             assert get(name, "/health")[0] == 200
+            # A fresh interpreter checks installed packages while reusing this run's owned container.
+            docker(
+                "exec", "--workdir", "/tmp", name, "python", "-I", "-c", f"import relohome_{service}.app",
+            )
             status, readiness = get(name, "/ready")
             if service == "intake":
                 assert status == 503 and readiness["error"]["code"] == "NOT_READY"
@@ -98,7 +103,7 @@ def main():
                 assert get(name, "/v1/capabilities")[0] == 401
                 status, capabilities = get(name, "/v1/capabilities", key)
                 assert status == 200 and len(capabilities["registry"]["tools"]) == 13
-            print(f"PASS {service}: real image, HTTP liveness/readiness, isolated configuration")
+            print(f"PASS {service}: installed import, HTTP liveness/readiness, isolated configuration")
         except BaseException:
             diagnose(name)
             raise

@@ -1,4 +1,5 @@
 """Keep the ADR dependency direction enforceable while physical app moves are pending."""
+
 import ast
 import importlib
 import json
@@ -6,31 +7,69 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECTS = json.loads((ROOT / "packages/python/manifest.json").read_text())
+
+
+def discover_projects():
+    projects = []
+    patterns = (
+        "packages/python/*/pyproject.toml",
+        "src/pyproject.toml",
+        "Frontend/pyproject.toml",
+        "src/mcp_servers/*/pyproject.toml",
+        "src/agent_services/*/pyproject.toml",
+    )
+    for pattern in patterns:
+        for path in sorted(ROOT.glob(pattern)):
+            metadata = tomllib.loads(path.read_text())
+            directory = path.parent
+            setuptools = metadata["tool"]["setuptools"]
+            if isinstance(setuptools["packages"], list):
+                ((namespace, base),) = setuptools["package-dir"].items()
+                files = []
+                for package in setuptools["packages"]:
+                    package_directory = directory / base / Path(*package.split(".")[1:])
+                    files.extend(package_directory.glob("*.py"))
+            else:
+                source = directory / "src"
+                namespace = next(path.name for path in source.iterdir() if (path / "__init__.py").is_file())
+                files = list(source.rglob("*.py"))
+            projects.append(
+                {
+                    "name": metadata["project"]["name"],
+                    "namespace": namespace,
+                    "application": not directory.is_relative_to(ROOT / "packages"),
+                    "dependencies": {value.split("==")[0] for value in metadata["project"]["dependencies"]},
+                    "files": files,
+                }
+            )
+    return projects
+
+
+PROJECTS = discover_projects()
+
+
+def test_every_project_is_discovered():
+    assert len(PROJECTS) == 13
+    assert all(project["files"] for project in PROJECTS)
 
 
 def test_internal_imports_have_declared_dependencies_and_no_app_to_app_edges():
     names = {project["namespace"]: project["name"] for project in PROJECTS}
-    applications = {project["name"] for project in PROJECTS if not project["path"].startswith("packages/")}
+    applications = {project["name"] for project in PROJECTS if project["application"]}
     for project in PROJECTS:
-        directory = ROOT / project["path"]
-        metadata = tomllib.loads((directory / "pyproject.toml").read_text())
-        dependencies = {value.split("==")[0] for value in metadata["project"]["dependencies"]}
-        for filename in project["files"]:
-            if not filename.endswith(".py"):
-                continue
-            relative = Path(filename)
-            source = directory / "src" / relative if project["path"].startswith("packages/") else directory.joinpath(*relative.parts[1:])
+        for source in project["files"]:
             for node in ast.walk(ast.parse(source.read_text())):
-                imports = [node.module] if isinstance(node, ast.ImportFrom) and node.level == 0 else (
-                    [alias.name for alias in node.names] if isinstance(node, ast.Import) else []
+                imports = (
+                    [node.module]
+                    if isinstance(node, ast.ImportFrom) and node.level == 0
+                    else ([alias.name for alias in node.names] if isinstance(node, ast.Import) else [])
                 )
                 for module in imports:
                     namespace = (module or "").split(".")[0]
                     assert namespace not in {"src", "Frontend"}, (source, module)
                     dependency = names.get(namespace)
                     if dependency and dependency != project["name"]:
-                        assert dependency in dependencies, (project["name"], module)
+                        assert dependency in project["dependencies"], (project["name"], module)
                         assert dependency not in applications, (project["name"], module)
 
 

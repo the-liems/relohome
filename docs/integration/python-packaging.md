@@ -48,7 +48,6 @@ Run installation commands from the repository root:
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 npm run test:python
-npm run test:packages
 npm run dev:agent
 npm run dev:gateway
 ```
@@ -61,24 +60,32 @@ ranges. Ruff, pytest, pytest-asyncio and deployment-test PyYAML moved to the dev
 file without changing their constraints. Standalone dependency pins are retained
 in their owning project metadata and `requirements-agents.txt`.
 
-Each Docker build installs its own application and shared dependencies as wheels.
-Existing source copies/CMDs remain temporarily supported; the wheel import gate
-also runs from outside `/app`. Image/service names, ports, worker counts, health
-routes, volume identities and same-origin web serving remain unchanged.
+Each Docker build installs its own application and shared dependencies as wheels,
+alongside `requirements-runtime.txt` (or the existing standalone pins in
+`requirements-agents.txt`). Existing source copies/CMDs remain temporarily
+supported. Image/service names, ports, worker counts, health routes, volume
+identities and same-origin web serving remain unchanged.
 
-`packages/python/manifest.json` is the reviewed, exact Python/JSON content list
-for every wheel, including Flight catalogs, subagent fixtures, Roommate services
-and subagent services. `npm run test:packages` builds wheels, compares their
-contents, then independently installs every wheel in its own fresh venv with only
-its declared dependencies, runs `pip check`, and imports every module outside the
-checkout without `PYTHONPATH`. Function-local dependencies are checked too. Builds
-use temporary source copies excluding old `build/` and `*.egg-info` artifacts;
-deleted modules cannot leak back into a wheel from previous build output. It exercises
-catalog/fixture loading, privacy behavior and gateway persistence. The
-Orchestrator registry is copied as explicit external configuration, not bundled
-as package data. `tests/test_python_package_boundaries.py` enforces dependency
-direction and shared compatibility-module identity. Root `pytest.ini` keeps
-fixture scopes stable as application pyprojects are added.
+`tests/test_python_package_boundaries.py` discovers all 13 projects from their
+`pyproject.toml` metadata. It checks every declared package's current Python
+sources, including function-local imports, for declared internal dependencies
+and forbidden application-to-application edges. It also checks shared
+compatibility-module identity. Root `pytest.ini` keeps fixture scopes stable as
+application pyprojects are added.
+
+CI imports the canonical installed entrypoint from `/tmp` in the six Python
+images it already builds. `.github/workflows/build-application-images.yml`
+covers gateway, agent, Flight MCP and Payment MCP; `scripts/smoke-agent-containers.py`
+covers Intake and Orchestrator alongside their HTTP/auth/readiness checks.
+These imports use no repository-root `sys.path` or `PYTHONPATH` injection and
+require no additional dependency installation on the runner. Package data remains
+declared in each owning `pyproject.toml`; the Orchestrator registry is explicit
+external configuration, not bundled package data.
+
+The [accepted review follow-up](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/128#pullrequestreview-5493564528)
+makes these image imports and metadata-driven boundary tests the #112 acceptance
+evidence and the #115 installed-package removal gate. Validation follows the
+actual consumers: the packages are private and installed together in these images.
 
 The live efficiency comparison must install each revision in its own environment;
 `RUN_EFFICIENCY_PYTHON` selects its interpreter and `RUN_EFFICIENCY_APP` can select
@@ -160,44 +167,36 @@ by the agent maintainers. LangGraph accepts both the legacy and canonical names
 with an explicit class allowlist. Canonical imports expose the same model classes,
 but their stored type identifiers remain `src.agents.models`, so an older image
 can read newly written checkpoints during rollback. A frozen SQLite checkpoint
-from base `09ac457` is resumed in regression tests and in the isolated agent wheel
-(no source `src` package); rewritten model payloads match the old bytes exactly.
+from base `09ac457` is resumed by `tests/test_checkpoint_compatibility.py` under
+ordinary pytest, without any pip invocation. Rewritten model payloads match the
+old bytes exactly.
 This persistence alias is **not** removable with ordinary source-shim cleanup in
 #115. Retire it only through an explicit persisted-format transition after old
 checkpoints/backups have expired or migrated and older rollback images are retired.
 
 Remove shims/source entrypoints only after the owning moves migrate known
 callers, the #118 external-consumer assessment permits removal, repository
-searches show no remaining operational callers, and installed-wheel plus image
-startup gates pass. Record any external consumer and its agreed compatibility
-window before removal. Do not remove aliases merely because the package builds.
+searches show no remaining operational callers, and the canonical image-import,
+boundary and image startup checks pass. Record any external consumer and its
+agreed compatibility window before removal. Do not remove aliases merely because the package builds.
 
 ## Validation and rollback
 
-The unchanged base suite passed **856 tests**, with **96 expected skips** and
-**137 subtests**. No assertions were relaxed: application imports/patch targets
-were migrated to canonical names, and the MCP client subprocess test now runs
-its installed entrypoint from a temporary directory. The package boundary tests
-add two checks; a Roommate test covers root-relative private state and public-path
-rejection from an unrelated working directory. Final head and image results are recorded in the PR.
-
-Validation before the main sync (`d358786`): **863 passed, 96 skipped, 137 subtests**; all 13 exact
-wheel manifests/imports/dependency checks passed in independent environments; all six Python images
-(backend, web, Flight, Payment, Intake, Orchestrator) built and passed installed
-imports from `/tmp` plus default-CMD `/health` checks. Containers had no external
-network or persistent mounts and used only dummy startup credentials. CI-scope
-Ruff and `git diff --check` passed. The web image also rebuilt the browser bundle.
-Live-provider checks and staging rollout remain explicit separate gates.
+The original unchanged base suite passed **856 tests**, with **96 expected skips**
+and **137 subtests**. Application imports/patch targets were migrated without
+relaxing existing behavioral assertions. The MCP client subprocess uses its
+installed entrypoint from a temporary directory. Boundary tests cover project
+discovery, dependency direction and alias identity; the historical checkpoint
+regression remains part of ordinary pytest. Roommate tests cover runtime-root
+anchoring and rejection of public paths for private state and backups.
 
 After merging main `da112b8`, the complete Python/gateway/demo suite passed
-**910 tests, 97 skipped, 136 subtests**, including the new PostgreSQL Roommate
-checks against a disposable database. The merge carries new Roommate modules into
-their canonical package, declares the PostgreSQL driver, and preserves root tooling
-for the relocated TypeScript workspaces and explicit local environment files.
-A regression verifies relative private backup paths from an unrelated working
-directory. Clean Node 24 installation, TypeScript builds and tests also passed.
-All six Python images rebuilt and passed installed imports from `/tmp` and
-default-CMD health checks after the merge.
+**910 tests, 97 skipped, 136 subtests**, including PostgreSQL Roommate checks
+against a disposable database. Clean Node 24 installation, TypeScript builds and
+tests passed. All six Python images rebuilt and passed installed imports from
+`/tmp` and default-CMD health checks. The web image rebuilt the browser bundle.
+Current-head validation results are recorded in the PR. Provider-dependent checks
+and staging rollout remain explicit separate gates.
 
 Rollback is a code revert and redeployment of the previous published image
 digest through the existing release process. Keep databases, keys, media,

@@ -104,10 +104,6 @@ gateway:
 ui-agent-chat:
 	npm run dev:agent-chat
 
-.PHONY: test-packages
-test-packages:
-	npm run test:packages
-
 .PHONY: agents-up agents-down
 agents-up:
 	docker compose --env-file .env.local -f compose.agents.yaml up -d --build

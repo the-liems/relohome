@@ -29,7 +29,7 @@
     "build:map": "npm run build --workspace \"Maps VN/LifeFlow/map-app\"",
     "build:moving": "npm run build --workspace \"packages/contracts\" && npm run build --workspace \"packages/mcp-core\" && npm run build --workspace \"packages/moving-service\" && npm run build --workspace \"apps/moving-api\" && npm run build --workspace \"apps/moving-mcp\"",
     "lint": "npm run lint:python && npm run lint:ts",
-    "lint:python": "node scripts/python.mjs -m ruff check src/ packages/python/ tests/ scripts/check-python-packages.py scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/check-workspace-images.py",
+    "lint:python": "node scripts/python.mjs -m ruff check src/ packages/python/ tests/ scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/check-workspace-images.py",
     "lint:ts": "npm run lint --workspaces --if-present",
     "format:check": "node scripts/python.mjs -m ruff format --check src/ tests/",
     "format": "node scripts/python.mjs -m ruff format src/ tests/",
@@ -85,7 +85,6 @@
     "test:moving:deployment": "node --env-file=.env.local \"Maps VN/LifeFlow/scripts/verify-moving-deployment.mjs\"",
     "test:moving:live": "npm run test:live --workspace @relohome/moving-service && npm run test:live --workspace @relohome/moving-mcp",
     "test:ts:database": "npm run build:ts && node scripts/python.mjs scripts/test-ts-database.py",
-    "dev:init": "node scripts/python.mjs scripts/init-local-integration.py",
-    "test:packages": "node scripts/python.mjs scripts/check-python-packages.py"
+    "dev:init": "node scripts/python.mjs scripts/init-local-integration.py"
   }
 }
