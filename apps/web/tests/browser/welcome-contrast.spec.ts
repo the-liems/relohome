@@ -109,6 +109,10 @@ test("short welcome keeps all service choices and starter prompts above the comp
 test("moving payment label remains AA after actual animated theme switches", async ({
   page,
 }, info) => {
+  const duplicateKeys: string[] = [];
+  page.on("console", message => {
+    if (message.type() === "error" && message.text().includes("same key")) duplicateKeys.push(message.text());
+  });
   await fixture(page);
   await page.emulateMedia({
     reducedMotion: "no-preference",
@@ -178,4 +182,5 @@ test("moving payment label remains AA after actual animated theme switches", asy
     body: JSON.stringify(measurements, null, 2),
     contentType: "application/json",
   });
+  expect(duplicateKeys).toEqual([]);
 });

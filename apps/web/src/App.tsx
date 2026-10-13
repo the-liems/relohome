@@ -1364,7 +1364,7 @@ function Chat() {
         <h1 className="sr-only">{thread.title}</h1>
       ) : null}
       <PlanPeek
-        key={threadId || "new"}
+        key={"plan:" + (threadId || "new")}
         progress={navigation}
         threadId={threadId || thread?.id}
         thread={thread}
