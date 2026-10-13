@@ -182,7 +182,7 @@ Actual container compatibility and runner availability must additionally be
 verified in Actions. Python assertion fixes are tracked separately in #45–#50.
 
 The deployment tests also require Node 24:
-`python -m pytest tests/test_coolify_deployment.py Frontend/tests/ -q`.
+`python -m pytest tests/test_coolify_deployment.py apps/browser-gateway/tests/ -q`.
 They fake registry inspections and API responses; no live deployment is made.
 
 Actionlint 1.7.12 does not yet recognize GitHub's documented `concurrency.queue`

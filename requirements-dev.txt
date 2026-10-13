@@ -10,12 +10,12 @@
 -e ./packages/python/payment
 -e ./packages/python/privacy
 -e ./packages/python/roommate
--e ./src
--e ./Frontend
--e ./src/mcp_servers/flights
--e ./src/mcp_servers/payments
--e ./src/agent_services/intake
--e ./src/agent_services/orchestrator
+-e ./apps/agent-api
+-e ./apps/browser-gateway
+-e ./apps/flights-mcp
+-e ./apps/payments-mcp
+-e ./apps/intake-api
+-e ./apps/orchestrator-api
 
 ruff>=0.8.0
 pytest>=8.0.0

@@ -7,6 +7,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import pytest
 from google.protobuf.json_format import MessageToDict
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
@@ -15,7 +16,8 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_python_sdk_auth_and_payment_stdio_propagation(tmp_path):
+@pytest.mark.parametrize("domain,tool_name", [("payments", "get_payment"), ("flights", "get_booking")])
+def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
     received = []
     formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
                "/v1/metrics": ExportMetricsServiceRequest}
@@ -40,7 +42,8 @@ def test_python_sdk_auth_and_payment_stdio_propagation(tmp_path):
                "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token",
-               "PAYMENT_DB_PATH": str(tmp_path / "payments.db")}
+               "PAYMENT_DB_PATH": str(tmp_path / "payments.db"),
+               "FLIGHT_DB_PATH": str(tmp_path / "flights.db"), "OBSERVABILITY_FIXTURE_MCP": domain}
         env.pop("PYTHONPATH", None)
         result = subprocess.run([sys.executable, "-m", "tests.observability_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
@@ -49,8 +52,8 @@ def test_python_sdk_auth_and_payment_stdio_propagation(tmp_path):
         spans = [span for path, payload in received if path == "/v1/traces"
                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
         root = next(span for span in spans if span["name"] == "gateway")
-        client = next(span for span in spans if span["name"] == "payment.client")
-        tool = next(span for span in spans if span["name"] == "get_payment")
+        client = next(span for span in spans if span["name"] == "mcp.client")
+        tool = next(span for span in spans if span["name"] == tool_name)
         assert client["traceId"] == tool["traceId"] == root["traceId"]
         assert tool["parentSpanId"] == client["spanId"]
         assert tool["status"]["code"] == "STATUS_CODE_ERROR"

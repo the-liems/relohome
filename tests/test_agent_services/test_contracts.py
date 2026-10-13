@@ -4,7 +4,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from relohome_intake.models import Fact, IntakeRequest, Understanding
+from relohome_agent_services.intake_models import Fact, IntakeRequest, Understanding
 from relohome_intake.service import normalize
 from relohome_orchestrator.models import InputReference, PlanDraft, PlanTask
 from relohome_orchestrator.registry import Registry, validate_plan

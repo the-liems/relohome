@@ -8,5 +8,5 @@ langgraph==1.2.11
 jsonschema==4.26.0
 
 ./packages/python/agent-services
-./src/agent_services/intake
-./src/agent_services/orchestrator
+./apps/intake-api
+./apps/orchestrator-api

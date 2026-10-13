@@ -26,12 +26,12 @@ The workflow uses each service's Dockerfile:
 
 | Images | Dockerfile | Build context |
 | --- | --- | --- |
-| `web` | `Frontend/Dockerfile` | Repository root |
+| `web` | `apps/web/Dockerfile` | Repository root |
 | `backend` | `Dockerfile` | Repository root |
 | `platform`, `location-migrate` | `apps/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
 | `location` | `apps/location-mcp/Dockerfile` | `Maps VN/LifeFlow` |
-| `flights-mcp` | `src/mcp_servers/flights/Dockerfile` | Repository root |
-| `payments-mcp` | `src/mcp_servers/payments/Dockerfile` | Repository root |
+| `flights-mcp` | `apps/flights-mcp/Dockerfile` | Repository root |
+| `payments-mcp` | `apps/payments-mcp/Dockerfile` | Repository root |
 | `moving-api`, `moving-mcp`, `moving-migrate` | `Maps VN/LifeFlow/Dockerfile.moving` | `Maps VN/LifeFlow` |
 
 Coolify pulls these images; GitHub Actions builds them. Dockerfiles are shared

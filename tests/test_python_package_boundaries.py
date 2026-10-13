@@ -1,4 +1,4 @@
-"""Keep the ADR dependency direction enforceable while physical app moves are pending."""
+"""Enforce the ADR dependency direction across shared and relocated app packages."""
 
 import ast
 import importlib
@@ -11,13 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def discover_projects():
     projects = []
-    patterns = (
-        "packages/python/*/pyproject.toml",
-        "src/pyproject.toml",
-        "Frontend/pyproject.toml",
-        "src/mcp_servers/*/pyproject.toml",
-        "src/agent_services/*/pyproject.toml",
-    )
+    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml")
     for pattern in patterns:
         for path in sorted(ROOT.glob(pattern)):
             metadata = tomllib.loads(path.read_text())

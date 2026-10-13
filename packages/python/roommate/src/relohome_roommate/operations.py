@@ -64,7 +64,10 @@ def _runtime_path(path: Path) -> Path:
 def _private_destination(directory: Path):
     directory = _runtime_path(directory)
     root = _runtime_path(Path("."))
-    if directory.is_relative_to(root / "data") or directory.is_relative_to(root / "Frontend" / "public"):
+    if directory.is_relative_to(root / "data") or any(
+        directory.is_relative_to(root / public)
+        for public in ("Frontend/public", "apps/web/public", "apps/web/dist")
+    ):
         raise ValueError("Roommate backups must stay outside public data")
     directory.mkdir(parents=True, exist_ok=False, mode=0o700)
     return directory

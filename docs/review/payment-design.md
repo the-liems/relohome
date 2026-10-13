@@ -492,7 +492,7 @@ Tài liệu mô tả code hiện tại chỉ được thêm ghi chú trỏ sang 
 | `docs/architecture/mvp-architecture.md` (Khoa) | Ghi chú cuối §8 |
 | `Frontend/SERVICE_AUDIT.md` (Dũng) | Ghi chú sau đoạn "Chuyển đồ hiện dùng CASH" |
 | `docs/review/mvp-architecture.md` | Ghi chú ở §7.1 |
-| `src/mcp_servers/flights/README.md` | Mục đề xuất khứ hồi và lưu tham chiếu hành khách |
+| `apps/flights-mcp/README.md` | Mục đề xuất khứ hồi và lưu tham chiếu hành khách |
 
 ### 17.2. Đã chốt, chờ áp dụng sau khi PR #42 merge
 

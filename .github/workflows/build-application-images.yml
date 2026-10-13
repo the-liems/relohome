@@ -81,15 +81,13 @@ jobs:
         # /tmp and isolated mode prevent checkout files or PYTHONPATH from masking missing packages.
         if: contains(fromJSON('["web", "backend", "flights-mcp", "payments-mcp"]'), matrix.service)
         run: |
-          case "$SERVICE" in
-            web) module=relohome_gateway.server ;;
-            backend) module=relohome_agent.main ;;
-            flights-mcp) module=relohome_flights_mcp.__main__ ;;
-            payments-mcp) module=relohome_payments_mcp.__main__ ;;
-          esac
-          docker run --rm --network none --workdir /tmp --entrypoint python "$IMAGE" -I -c "import $module"
+          docker run -i --rm --network none --workdir /tmp --entrypoint python "$IMAGE" \
+            -I - "$SERVICE" --require-nonroot < scripts/check-python-install.py
         env:
           SERVICE: ${{ matrix.service }}
+      - name: Smoke combined web image and built browser assets
+        if: matrix.service == 'web'
+        run: python3 scripts/smoke-web-image.py "$IMAGE"
       - name: Validate migration SQL, schema, role access, and reruns
         # Execute the release migration command against a disposable real database.
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'

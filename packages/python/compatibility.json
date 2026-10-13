@@ -75,5 +75,12 @@
   "src.observability.runtime": "relohome_observability.runtime",
   "src.observability.privacy": "relohome_observability.privacy",
   "src.observability.sqlite": "relohome_observability.sqlite",
-  "src.observability.asgi": "relohome_observability.asgi"
+  "src.observability.asgi": "relohome_observability.asgi",
+  "src.main": "relohome_agent.main",
+  "src.agent_services.intake.app": "relohome_intake.app",
+  "src.agent_services.orchestrator.app": "relohome_orchestrator.app",
+  "src.mcp_servers.flights.server": "relohome_flights_mcp.server",
+  "src.mcp_servers.flights.tools": "relohome_flights_mcp.tools",
+  "src.mcp_servers.payments.server": "relohome_payments_mcp.server",
+  "src.mcp_servers.payments.tools": "relohome_payments_mcp.tools"
 }

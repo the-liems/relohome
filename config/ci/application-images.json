@@ -2,17 +2,19 @@
   {
     "service": "web",
     "context": ".",
-    "dockerfile": "Frontend/Dockerfile",
+    "dockerfile": "apps/web/Dockerfile",
     "target": "",
     "paths": [
-      "Frontend/",
+      "apps/web/",
       "src/",
       "config/",
       "requirements.txt",
       "package.json",
       "package-lock.json",
       "packages/python/",
-      "requirements-runtime.txt"
+      "requirements-runtime.txt",
+      "apps/browser-gateway/",
+      "Frontend/"
     ]
   },
   {
@@ -21,7 +23,7 @@
     "dockerfile": "Dockerfile",
     "target": "",
     "paths": [
-      "src/",
+      "apps/agent-api/",
       "config/",
       "requirements.txt",
       "packages/python/",
@@ -84,33 +86,25 @@
   {
     "service": "flights-mcp",
     "context": ".",
-    "dockerfile": "src/mcp_servers/flights/Dockerfile",
+    "dockerfile": "apps/flights-mcp/Dockerfile",
     "target": "",
     "paths": [
-      "src/__init__.py",
-      "src/mcp_servers/__init__.py",
-      "src/mcp_servers/flights/",
-      "src/mcp_servers/http_service.py",
+      "apps/flights-mcp/",
       "packages/python/flight/",
       "packages/python/mcp-http/",
-      "packages/python/observability/",
-      "src/observability/"
+      "packages/python/observability/"
     ]
   },
   {
     "service": "payments-mcp",
     "context": ".",
-    "dockerfile": "src/mcp_servers/payments/Dockerfile",
+    "dockerfile": "apps/payments-mcp/Dockerfile",
     "target": "",
     "paths": [
-      "src/__init__.py",
-      "src/mcp_servers/__init__.py",
-      "src/mcp_servers/payments/",
-      "src/mcp_servers/http_service.py",
+      "apps/payments-mcp/",
       "packages/python/payment/",
       "packages/python/mcp-http/",
-      "packages/python/observability/",
-      "src/observability/"
+      "packages/python/observability/"
     ]
   },
   {

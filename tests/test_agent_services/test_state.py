@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
-from relohome_intake.models import IntakeRequest
+from relohome_agent_services.intake_models import IntakeRequest
 from relohome_intake.service import normalize
 from relohome_orchestrator.engine import Orchestrator
 from relohome_orchestrator.models import ApprovalRequest, PlanTask, Workflow

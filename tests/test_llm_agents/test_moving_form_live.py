@@ -379,7 +379,7 @@ async def test_real_browser_form_stays_open_and_retains_inputs(runtime, monkeypa
         async with asyncio.timeout(20):
             while not all(server.started for server in servers):
                 await asyncio.sleep(0.02)
-        frontend = Path(__file__).resolve().parents[2] / "Frontend"
+        frontend = Path(__file__).resolve().parents[2] / "apps/web"
         env = {**os.environ, "MOVING_BROWSER_BASE_URL": f"http://127.0.0.1:{gateway_port}"}
         playwright_cli = subprocess.check_output(
             ["node", "-p", "require.resolve('@playwright/test/cli')"], cwd=frontend, text=True

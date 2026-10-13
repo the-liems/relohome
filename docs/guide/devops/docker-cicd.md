@@ -23,7 +23,7 @@ ENV PATH=/root/.local/bin:$PATH
 COPY . .
 RUN mkdir -p /app/data
 EXPOSE 8000
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "relohome_agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ### Commands

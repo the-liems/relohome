@@ -1,6 +1,6 @@
 # Architecture
 
-Status: local MVP integration, reconciled with `main` on 2026-10-04. The [product brief](docs/product.md) defines intended behavior; the [agent graph design](docs/architecture/agent-graph.md), [integration index](docs/integration/README.md), and [frontend audit](Frontend/SERVICE_AUDIT.md) describe implementation details and limits.
+Status: local MVP integration, reconciled with `main` on 2026-10-04. The [product brief](docs/product.md) defines intended behavior; the [agent graph design](docs/architecture/agent-graph.md), [integration index](docs/integration/README.md), and [frontend audit](apps/web/SERVICE_AUDIT.md) describe implementation details and limits.
 
 ## Implemented system
 
@@ -29,15 +29,15 @@ flowchart LR
 
 | Component | Source | Responsibility |
 |---|---|---|
-| Browser application | `Frontend/src/` | Chat, housing/map workspaces, plan progress, and confirmation forms |
-| Browser gateway | `Frontend/server.py`, `Frontend/store.py` | HttpOnly sessions, thread ownership, history, and upstream requests |
-| Agent API | `src/main.py`, `src/api/` | Chat, state, decisions, UI actions, and opt-in sandbox payment endpoints |
-| Agent workflow | `src/agents/` | LLM intake/planning, domain execution, validation, cost summary, approval, and response |
-| Service adapters | `src/services/adapters/` | MCP boundaries, moving approvals, transactions, and local persistence |
+| Browser application | `apps/web/src/` | Chat, housing/map workspaces, plan progress, and confirmation forms |
+| Browser gateway | `apps/browser-gateway/src/relohome_gateway/server.py`, `apps/browser-gateway/src/relohome_gateway/store.py` | HttpOnly sessions, thread ownership, history, and upstream requests |
+| Agent API | `apps/agent-api/src/relohome_agent/main.py`, `apps/agent-api/src/relohome_agent/api/` | Chat, state, decisions, UI actions, and opt-in sandbox payment endpoints |
+| Agent workflow | `apps/agent-api/src/relohome_agent/agents/` | LLM intake/planning, domain execution, validation, cost summary, approval, and response |
+| Service adapters | `apps/agent-api/src/relohome_agent/services/adapters/` | MCP boundaries, moving approvals, transactions, and local persistence |
 | Location platform | `Maps VN/LifeFlow/` | Housing/POI queries, geographic data, routes, REST API, and MCP tools |
 | Moving service | `packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
-| Flight and Payment | `src/mcp_servers/` | Flight search and payment tools with provider-specific configuration |
-| Standalone agent services | `src/agent_services/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
+| Flight and Payment | `apps/flights-mcp/` and `apps/payments-mcp/` | Flight search and payment tools with provider-specific configuration |
+| Standalone agent services | `apps/intake-api/` and `apps/orchestrator-api/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
 
 The integrated entrypoint is `AgentService.open()`. It requires live-mode configuration and an LLM API key. It persists graph checkpoints and runtime records in SQLite and wraps configured domains with LLM agents. The standalone services have a separate lifecycle and runbook.
 
@@ -75,6 +75,6 @@ the same release contract and data cutover/recovery gates.
 
 ## Running and verifying
 
-Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](Frontend/README.md), [Location guide](Maps%20VN/LifeFlow/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
+Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](apps/web/README.md), [Location guide](Maps%20VN/LifeFlow/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
 
 Review evidence is under [docs/review/](docs/review/) and [eval/](eval/). Dated reports describe the configurations they tested. Existing Python test failures and runtime review findings remain open; this documentation cleanup does not certify production readiness.

@@ -52,7 +52,7 @@ chat và các quyết định chuyên môn vẫn do LLM thực hiện.
 ```mermaid
 flowchart LR
   UI["React + Vite<br/>Chat, map, Housing/Flight/Moving workspace"]
-  GW["UI gateway :8503<br/>Frontend/server.py"]
+  GW["UI gateway :8503<br/>apps/browser-gateway/src/relohome_gateway/server.py"]
   WEB[("Web SQLite<br/>user, session, thread, message, run")]
   API["Agent API :8000<br/>FastAPI + LangGraph + LLM agents"]
   STATE[("Checkpoint + runtime SQLite<br/>state, memory, usage, approval, PII, receipts")]
@@ -112,22 +112,22 @@ flowchart LR
 
 | Thành phần | File/thư mục |
 | --- | --- |
-| UI/workspace, trạng thái đang submit | [App.tsx](../../Frontend/src/App.tsx), [ServiceWorkspaces.tsx](../../Frontend/src/components/ServiceWorkspaces.tsx), [MovingOptionsForm.tsx](../../Frontend/src/components/MovingOptionsForm.tsx) |
-| Gateway, cookie HttpOnly, CSRF, request replay | [server.py](../../Frontend/server.py), [store.py](../../Frontend/store.py) |
-| Khởi tạo runtime thật và lifecycle | [wiring.py](../../src/agents/wiring.py), [llm_components.py](../../src/agents/llm_components.py) |
-| Graph topology và payload fan-out | [graph.py](../../src/agents/graph.py), [state.py](../../src/agents/state.py), [routing.py](../../src/agents/routing.py) |
-| Intake | [intake_llm.py](../../src/agents/intake_llm.py), [nodes/intake.py](../../src/agents/nodes/intake.py) |
-| Planner và kiểm plan | [planner_llm.py](../../src/agents/planner_llm.py), [planning.py](../../src/agents/planning.py), [nodes/orchestrator.py](../../src/agents/nodes/orchestrator.py) |
-| Scheduler / kiểm kết quả | [nodes/executor.py](../../src/agents/nodes/executor.py), [nodes/validator.py](../../src/agents/nodes/validator.py) |
-| Domain LLM và grounded tools | [read_llm.py](../../src/agents/subagents/services/read_llm.py), [domain_tools.py](../../src/agents/subagents/services/domain_tools.py), [moving_llm.py](../../src/agents/subagents/services/moving_llm.py) |
-| Tối ưu dữ liệu cho model | [llm_context.py](../../src/agents/llm_context.py), [moving_context.py](../../src/agents/subagents/services/moving_context.py) |
-| Typed quote API / thao tác UI | [moving_quotes.py](../../src/api/moving_quotes.py), [web_actions.py](../../src/api/web_actions.py), [routes.py](../../src/api/routes.py) |
-| Trạng thái bền vững | [sqlite_runtime.py](../../src/services/adapters/sqlite_runtime.py), [progress.py](../../src/agents/progress.py) |
-| Endpoint, credential, allowlist | [registry.py](../../src/services/adapters/registry.py), [mcp.py](../../src/services/adapters/mcp.py) |
+| UI/workspace, trạng thái đang submit | [App.tsx](../../apps/web/src/App.tsx), [ServiceWorkspaces.tsx](../../apps/web/src/components/ServiceWorkspaces.tsx), [MovingOptionsForm.tsx](../../apps/web/src/components/MovingOptionsForm.tsx) |
+| Gateway, cookie HttpOnly, CSRF, request replay | [server.py](../../apps/browser-gateway/src/relohome_gateway/server.py), [store.py](../../apps/browser-gateway/src/relohome_gateway/store.py) |
+| Khởi tạo runtime thật và lifecycle | [wiring.py](../../apps/agent-api/src/relohome_agent/agents/wiring.py), [llm_components.py](../../apps/agent-api/src/relohome_agent/agents/llm_components.py) |
+| Graph topology và payload fan-out | [graph.py](../../apps/agent-api/src/relohome_agent/agents/graph.py), [state.py](../../apps/agent-api/src/relohome_agent/agents/state.py), [routing.py](../../apps/agent-api/src/relohome_agent/agents/routing.py) |
+| Intake | [intake_llm.py](../../apps/agent-api/src/relohome_agent/agents/intake_llm.py), [nodes/intake.py](../../apps/agent-api/src/relohome_agent/agents/nodes/intake.py) |
+| Planner và kiểm plan | [planner_llm.py](../../apps/agent-api/src/relohome_agent/agents/planner_llm.py), [planning.py](../../apps/agent-api/src/relohome_agent/agents/planning.py), [nodes/orchestrator.py](../../apps/agent-api/src/relohome_agent/agents/nodes/orchestrator.py) |
+| Scheduler / kiểm kết quả | [nodes/executor.py](../../apps/agent-api/src/relohome_agent/agents/nodes/executor.py), [nodes/validator.py](../../apps/agent-api/src/relohome_agent/agents/nodes/validator.py) |
+| Domain LLM và grounded tools | [read_llm.py](../../apps/agent-api/src/relohome_agent/agents/subagents/services/read_llm.py), [domain_tools.py](../../apps/agent-api/src/relohome_agent/agents/subagents/services/domain_tools.py), [moving_llm.py](../../apps/agent-api/src/relohome_agent/agents/subagents/services/moving_llm.py) |
+| Tối ưu dữ liệu cho model | [llm_context.py](../../apps/agent-api/src/relohome_agent/agents/llm_context.py), [moving_context.py](../../apps/agent-api/src/relohome_agent/agents/subagents/services/moving_context.py) |
+| Typed quote API / thao tác UI | [moving_quotes.py](../../apps/agent-api/src/relohome_agent/api/moving_quotes.py), [web_actions.py](../../apps/agent-api/src/relohome_agent/api/web_actions.py), [routes.py](../../apps/agent-api/src/relohome_agent/api/routes.py) |
+| Trạng thái bền vững | [sqlite_runtime.py](../../apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py), [progress.py](../../apps/agent-api/src/relohome_agent/agents/progress.py) |
+| Endpoint, credential, allowlist | [registry.py](../../apps/agent-api/src/relohome_agent/services/adapters/registry.py), [mcp.py](../../apps/agent-api/src/relohome_agent/services/adapters/mcp.py) |
 | TypeScript services | [LifeFlow](../../Maps%20VN/LifeFlow/) |
 | Python Flight / Payment | [flights](../../src/mcp_servers/flights/), [payments](../../src/mcp_servers/payments/) |
 
-`src/agent_services/intake/` và `src/agent_services/orchestrator/` còn chứa
+`apps/intake-api/src/relohome_intake/` và `apps/orchestrator-api/src/relohome_orchestrator/` còn chứa
 implementation standalone HTTP/contract trước đó. **Graph tích hợp hiện dùng
 `LlmIntake` và `LlmPlanner` qua wiring**, không gọi lại hai HTTP service
 standalone ấy. Khi sửa agent đang chạy, bắt đầu từ các file graph trong bảng.
@@ -561,7 +561,7 @@ Launcher kiểm Docker, DB/schema **read-only**, readiness của 6 process và g
 riêng dưới `data/local-mvp-logs/`. Nó không restore/migrate lại DB tự động,
 không kill process lạ, không restart process đã chạy khi source đổi.
 
-Nếu UI chưa build hoặc vừa đổi React, chạy trong thư mục `Frontend`:
+Nếu UI chưa build hoặc vừa đổi React, chạy trong thư mục `apps/web`:
 
 ```powershell
 npm.cmd run build

@@ -1,0 +1,222 @@
+original	destination_or_canonical_module	disposition	owner_and_gate
+src/__init__.py	apps/agent-api/src/relohome_agent/__init__.py	moved + legacy shim	#114; shim removal #115
+src/agent_services/__init__.py	namespace shell for child compatibility shims	retained namespace shell	#112/#114; removal gate #115, unresolved external consumers #116
+src/agent_services/common.py	relohome_agent_services.common	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/agent_services/intake/__init__.py	apps/intake-api/src/relohome_intake/__init__.py	moved + legacy shim	#114; shim removal #115
+src/agent_services/intake/app.py	apps/intake-api/src/relohome_intake/app.py	moved + legacy shim	#114; shim removal #115
+src/agent_services/intake/models.py	relohome_agent_services.intake_models	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/agent_services/intake/pyproject.toml	apps/intake-api/pyproject.toml	moved	#114
+src/agent_services/intake/service.py	apps/intake-api/src/relohome_intake/service.py	moved	#114
+src/agent_services/llm.py	relohome_agent_services.llm	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/agent_services/orchestrator/__init__.py	apps/orchestrator-api/src/relohome_orchestrator/__init__.py	moved + legacy shim	#114; shim removal #115
+src/agent_services/orchestrator/app.py	apps/orchestrator-api/src/relohome_orchestrator/app.py	moved + legacy shim	#114; shim removal #115
+src/agent_services/orchestrator/engine.py	apps/orchestrator-api/src/relohome_orchestrator/engine.py	moved	#114
+src/agent_services/orchestrator/models.py	apps/orchestrator-api/src/relohome_orchestrator/models.py	moved	#114
+src/agent_services/orchestrator/planner.py	apps/orchestrator-api/src/relohome_orchestrator/planner.py	moved	#114
+src/agent_services/orchestrator/pyproject.toml	apps/orchestrator-api/pyproject.toml	moved	#114
+src/agent_services/orchestrator/registry.py	apps/orchestrator-api/src/relohome_orchestrator/registry.py	moved	#114
+src/agent_services/orchestrator/runtime.py	apps/orchestrator-api/src/relohome_orchestrator/runtime.py	moved	#114
+src/agent_services/orchestrator/store.py	apps/orchestrator-api/src/relohome_orchestrator/store.py	moved	#114
+src/agents/README.md	apps/agent-api/src/relohome_agent/agents/README.md	moved	#114
+src/agents/__init__.py	apps/agent-api/src/relohome_agent/agents/__init__.py	moved + legacy shim	#114; shim removal #115
+src/agents/approval.py	apps/agent-api/src/relohome_agent/agents/approval.py	moved	#114
+src/agents/common.py	apps/agent-api/src/relohome_agent/agents/common.py	moved	#114
+src/agents/contracts/__init__.py	apps/agent-api/src/relohome_agent/agents/contracts/__init__.py	moved	#114
+src/agents/contracts/agent_task.py	apps/agent-api/src/relohome_agent/agents/contracts/agent_task.py	moved	#114
+src/agents/contracts/export_schema.py	apps/agent-api/src/relohome_agent/agents/contracts/export_schema.py	moved	#114
+src/agents/cost.py	apps/agent-api/src/relohome_agent/agents/cost.py	moved	#114
+src/agents/deps.py	apps/agent-api/src/relohome_agent/agents/deps.py	moved	#114
+src/agents/graph.py	apps/agent-api/src/relohome_agent/agents/graph.py	moved	#114
+src/agents/housing_constraints.py	apps/agent-api/src/relohome_agent/agents/housing_constraints.py	moved	#114
+src/agents/housing_operations.py	apps/agent-api/src/relohome_agent/agents/housing_operations.py	moved	#114
+src/agents/intake.py	apps/agent-api/src/relohome_agent/agents/intake.py	moved	#114
+src/agents/intake_llm.py	apps/agent-api/src/relohome_agent/agents/intake_llm.py	moved	#114
+src/agents/llm.py	apps/agent-api/src/relohome_agent/agents/llm.py	moved	#114
+src/agents/llm_cli.py	apps/agent-api/src/relohome_agent/agents/llm_cli.py	moved	#114
+src/agents/llm_components.py	apps/agent-api/src/relohome_agent/agents/llm_components.py	moved	#114
+src/agents/llm_context.py	apps/agent-api/src/relohome_agent/agents/llm_context.py	moved	#114
+src/agents/llm_provider.py	apps/agent-api/src/relohome_agent/agents/llm_provider.py	moved	#114
+src/agents/llm_runtime.py	apps/agent-api/src/relohome_agent/agents/llm_runtime.py	moved	#114
+src/agents/location_names.py	apps/agent-api/src/relohome_agent/agents/location_names.py	moved	#114
+src/agents/memory.py	apps/agent-api/src/relohome_agent/agents/memory.py	moved	#114
+src/agents/models.py	apps/agent-api/src/relohome_agent/agents/models.py	moved + legacy shim	#114: persisted identifier; NOT removable in #115 without format migration
+src/agents/nodes/__init__.py	apps/agent-api/src/relohome_agent/agents/nodes/__init__.py	moved	#114
+src/agents/nodes/await_payment.py	apps/agent-api/src/relohome_agent/agents/nodes/await_payment.py	moved	#114
+src/agents/nodes/change_impact.py	apps/agent-api/src/relohome_agent/agents/nodes/change_impact.py	moved	#114
+src/agents/nodes/confirm.py	apps/agent-api/src/relohome_agent/agents/nodes/confirm.py	moved	#114
+src/agents/nodes/cost_summary.py	apps/agent-api/src/relohome_agent/agents/nodes/cost_summary.py	moved	#114
+src/agents/nodes/executor.py	apps/agent-api/src/relohome_agent/agents/nodes/executor.py	moved	#114
+src/agents/nodes/intake.py	apps/agent-api/src/relohome_agent/agents/nodes/intake.py	moved	#114
+src/agents/nodes/load_context.py	apps/agent-api/src/relohome_agent/agents/nodes/load_context.py	moved	#114
+src/agents/nodes/orchestrator.py	apps/agent-api/src/relohome_agent/agents/nodes/orchestrator.py	moved	#114
+src/agents/nodes/respond.py	apps/agent-api/src/relohome_agent/agents/nodes/respond.py	moved	#114
+src/agents/nodes/transaction.py	apps/agent-api/src/relohome_agent/agents/nodes/transaction.py	moved	#114
+src/agents/nodes/validator.py	apps/agent-api/src/relohome_agent/agents/nodes/validator.py	moved	#114
+src/agents/planner_llm.py	apps/agent-api/src/relohome_agent/agents/planner_llm.py	moved	#114
+src/agents/planning.py	apps/agent-api/src/relohome_agent/agents/planning.py	moved	#114
+src/agents/progress.py	apps/agent-api/src/relohome_agent/agents/progress.py	moved	#114
+src/agents/routing.py	apps/agent-api/src/relohome_agent/agents/routing.py	moved	#114
+src/agents/selections.py	apps/agent-api/src/relohome_agent/agents/selections.py	moved	#114
+src/agents/state.py	apps/agent-api/src/relohome_agent/agents/state.py	moved	#114
+src/agents/subagents/__init__.py	apps/agent-api/src/relohome_agent/agents/subagents/__init__.py	moved	#114
+src/agents/subagents/base.py	apps/agent-api/src/relohome_agent/agents/subagents/base.py	moved	#114
+src/agents/subagents/capabilities.py	apps/agent-api/src/relohome_agent/agents/subagents/capabilities.py	moved	#114
+src/agents/subagents/conformance.py	apps/agent-api/src/relohome_agent/agents/subagents/conformance.py	moved	#114
+src/agents/subagents/fake.py	apps/agent-api/src/relohome_agent/agents/subagents/fake.py	moved	#114
+src/agents/subagents/fallback.py	apps/agent-api/src/relohome_agent/agents/subagents/fallback.py	moved	#114
+src/agents/subagents/fixtures/flight.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/flight.json	moved	#114
+src/agents/subagents/fixtures/map.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/map.json	moved	#114
+src/agents/subagents/fixtures/payment.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/payment.json	moved	#114
+src/agents/subagents/fixtures/property.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/property.json	moved	#114
+src/agents/subagents/fixtures/relocation.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/relocation.json	moved	#114
+src/agents/subagents/fixtures/roommate.json	apps/agent-api/src/relohome_agent/agents/subagents/fixtures/roommate.json	moved	#114
+src/agents/subagents/local.py	apps/agent-api/src/relohome_agent/agents/subagents/local.py	moved	#114
+src/agents/subagents/remote.py	apps/agent-api/src/relohome_agent/agents/subagents/remote.py	moved	#114
+src/agents/subagents/services/__init__.py	apps/agent-api/src/relohome_agent/agents/subagents/services/__init__.py	moved	#114
+src/agents/subagents/services/common.py	apps/agent-api/src/relohome_agent/agents/subagents/services/common.py	moved	#114
+src/agents/subagents/services/domain_tools.py	apps/agent-api/src/relohome_agent/agents/subagents/services/domain_tools.py	moved	#114
+src/agents/subagents/services/flight.py	apps/agent-api/src/relohome_agent/agents/subagents/services/flight.py	moved	#114
+src/agents/subagents/services/location.py	apps/agent-api/src/relohome_agent/agents/subagents/services/location.py	moved	#114
+src/agents/subagents/services/moving.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving.py	moved	#114
+src/agents/subagents/services/moving_catalog.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_catalog.py	moved	#114
+src/agents/subagents/services/moving_context.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_context.py	moved	#114
+src/agents/subagents/services/moving_llm.py	apps/agent-api/src/relohome_agent/agents/subagents/services/moving_llm.py	moved	#114
+src/agents/subagents/services/payment.py	apps/agent-api/src/relohome_agent/agents/subagents/services/payment.py	moved	#114
+src/agents/subagents/services/read_llm.py	apps/agent-api/src/relohome_agent/agents/subagents/services/read_llm.py	moved	#114
+src/agents/subagents/services/roommate.py	apps/agent-api/src/relohome_agent/agents/subagents/services/roommate.py	moved	#114
+src/agents/suggestions.py	apps/agent-api/src/relohome_agent/agents/suggestions.py	moved	#114
+src/agents/tools/__init__.py	apps/agent-api/src/relohome_agent/agents/tools/__init__.py	moved	#114
+src/agents/tools/flight_mcp.py	apps/agent-api/src/relohome_agent/agents/tools/flight_mcp.py	moved	#114
+src/agents/tools/payment_mcp.py	apps/agent-api/src/relohome_agent/agents/tools/payment_mcp.py	moved	#114
+src/agents/wiring.py	apps/agent-api/src/relohome_agent/agents/wiring.py	moved	#114
+src/api/__init__.py	apps/agent-api/src/relohome_agent/api/__init__.py	moved	#114
+src/api/checkout.py	apps/agent-api/src/relohome_agent/api/checkout.py	moved	#114
+src/api/moving_quotes.py	apps/agent-api/src/relohome_agent/api/moving_quotes.py	moved	#114
+src/api/roommate_access.py	apps/agent-api/src/relohome_agent/api/roommate_access.py	moved	#114
+src/api/roommate_connections.py	apps/agent-api/src/relohome_agent/api/roommate_connections.py	moved	#114
+src/api/roommate_discovery.py	apps/agent-api/src/relohome_agent/api/roommate_discovery.py	moved	#114
+src/api/roommate_map.py	apps/agent-api/src/relohome_agent/api/roommate_map.py	moved	#114
+src/api/roommate_media.py	apps/agent-api/src/relohome_agent/api/roommate_media.py	moved	#114
+src/api/roommate_notifications.py	apps/agent-api/src/relohome_agent/api/roommate_notifications.py	moved	#114
+src/api/roommate_operations.py	apps/agent-api/src/relohome_agent/api/roommate_operations.py	moved	#114
+src/api/roommate_privacy.py	apps/agent-api/src/relohome_agent/api/roommate_privacy.py	moved	#114
+src/api/roommate_profiles.py	apps/agent-api/src/relohome_agent/api/roommate_profiles.py	moved	#114
+src/api/roommate_safety.py	apps/agent-api/src/relohome_agent/api/roommate_safety.py	moved	#114
+src/api/routes.py	apps/agent-api/src/relohome_agent/api/routes.py	moved	#114
+src/api/sandbox_payments.py	apps/agent-api/src/relohome_agent/api/sandbox_payments.py	moved	#114
+src/api/viewings.py	apps/agent-api/src/relohome_agent/api/viewings.py	moved	#114
+src/api/web_actions.py	apps/agent-api/src/relohome_agent/api/web_actions.py	moved	#114
+src/checkout/__init__.py	apps/agent-api/src/relohome_agent/checkout/__init__.py	moved	#114
+src/checkout/models.py	apps/agent-api/src/relohome_agent/checkout/models.py	moved	#114
+src/checkout/service.py	apps/agent-api/src/relohome_agent/checkout/service.py	moved	#114
+src/checkout/store.py	apps/agent-api/src/relohome_agent/checkout/store.py	moved	#114
+src/checkout/viewing.py	apps/agent-api/src/relohome_agent/checkout/viewing.py	moved	#114
+src/config.py	apps/agent-api/src/relohome_agent/config.py	moved	#114
+src/main.py	apps/agent-api/src/relohome_agent/main.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/__init__.py	namespace shell for child compatibility shims	retained namespace shell	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/Dockerfile	apps/flights-mcp/Dockerfile	moved	#114
+src/mcp_servers/flights/Dockerfile.dockerignore	apps/flights-mcp/Dockerfile.dockerignore	moved	#114
+src/mcp_servers/flights/README.md	apps/flights-mcp/README.md	moved	#114
+src/mcp_servers/flights/__init__.py	apps/flights-mcp/src/relohome_flights_mcp/__init__.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/flights/__main__.py	apps/flights-mcp/src/relohome_flights_mcp/__main__.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/flights/booking_engine.py	relohome_flight.booking_engine	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/catalog.py	relohome_flight.catalog	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/errors.py	relohome_flight.errors	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/pyproject.toml	apps/flights-mcp/pyproject.toml	moved	#114
+src/mcp_servers/flights/requirements.txt	apps/flights-mcp/requirements.txt	moved	#114
+src/mcp_servers/flights/schemas.py	relohome_flight.schemas	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/search/__init__.py	relohome_flight.search	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/search/base.py	relohome_flight.search.base	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/search/mock.py	relohome_flight.search.mock	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/search/serpapi.py	relohome_flight.search.serpapi	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/server.py	apps/flights-mcp/src/relohome_flights_mcp/server.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/flights/settings.py	relohome_flight.settings	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/storage.py	relohome_flight.storage	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/flights/tools.py	apps/flights-mcp/src/relohome_flights_mcp/tools.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/http_service.py	relohome_mcp_http	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/Dockerfile	apps/payments-mcp/Dockerfile	moved	#114
+src/mcp_servers/payments/README.md	apps/payments-mcp/README.md	moved	#114
+src/mcp_servers/payments/__init__.py	apps/payments-mcp/src/relohome_payments_mcp/__init__.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/payments/__main__.py	apps/payments-mcp/src/relohome_payments_mcp/__main__.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/payments/engine.py	relohome_payment.engine	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/errors.py	relohome_payment.errors	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/gateways/__init__.py	relohome_payment.gateways	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/gateways/base.py	relohome_payment.gateways.base	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/gateways/mock.py	relohome_payment.gateways.mock	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/gateways/zalopay.py	relohome_payment.gateways.zalopay	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/privacy.py	relohome_payment.privacy	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/pyproject.toml	apps/payments-mcp/pyproject.toml	moved	#114
+src/mcp_servers/payments/requirements.txt	apps/payments-mcp/requirements.txt	moved	#114
+src/mcp_servers/payments/schemas.py	relohome_payment.schemas	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/server.py	apps/payments-mcp/src/relohome_payments_mcp/server.py	moved + legacy shim	#114; shim removal #115
+src/mcp_servers/payments/settings.py	relohome_payment.settings	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/storage.py	relohome_payment.storage	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/mcp_servers/payments/tools.py	apps/payments-mcp/src/relohome_payments_mcp/tools.py	moved + legacy shim	#114; shim removal #115
+src/models/__init__.py	relohome_contracts	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/models/moving_options.py	relohome_contracts.moving_options	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/models/schemas.py	relohome_contracts.schemas	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/pyproject.toml	apps/agent-api/pyproject.toml	moved	#114
+src/roommate/access.py	relohome_roommate.access	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/agent_projection.py	relohome_roommate.agent_projection	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/api_models.py	relohome_roommate.api_models	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/background.py	relohome_roommate.background	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/clock.py	relohome_roommate.clock	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/connection_repository.py	relohome_roommate.connection_repository	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/connections.py	relohome_roommate.connections	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/contact_vault.py	relohome_roommate.contact_vault	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/demo.py	relohome_roommate.demo	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/eligibility.py	relohome_roommate.eligibility	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/factors.py	relohome_roommate.factors	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/location_catalog.py	relohome_roommate.location_catalog	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/maintenance.py	relohome_roommate.maintenance	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/media.py	relohome_roommate.media	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/migrations.py	relohome_roommate.migrations	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/models.py	relohome_roommate.models	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/normalization.py	relohome_roommate.normalization	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/notifications.py	relohome_roommate.notifications	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/operations.py	relohome_roommate.operations	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/policy.py	relohome_roommate.policy	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/ports.py	relohome_roommate.ports	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/postgres.py	relohome_roommate.postgres	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/profile_repository.py	relohome_roommate.profile_repository	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/ranking.py	relohome_roommate.ranking	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/runtime.py	relohome_agent.roommate_runtime	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/safety_repository.py	relohome_roommate.safety_repository	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/scoring.py	relohome_roommate.scoring	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/access.py	relohome_roommate.services.access	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/consent.py	relohome_roommate.services.consent	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/contacts.py	relohome_roommate.services.contacts	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/discovery.py	relohome_roommate.services.discovery	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/inbox.py	relohome_roommate.services.inbox	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/lifecycle.py	relohome_roommate.services.lifecycle	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/limits.py	relohome_roommate.services.limits	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/moderation.py	relohome_roommate.services.moderation	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/notifications.py	relohome_roommate.services.notifications	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/operation_drafts.py	relohome_roommate.services.operation_drafts	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/privacy.py	relohome_roommate.services.privacy	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/profiles.py	relohome_roommate.services.profiles	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/requests.py	relohome_roommate.services.requests	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/resources.py	relohome_roommate.services.resources	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/services/safety.py	relohome_roommate.services.safety	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/storage.py	relohome_roommate.storage	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate/views.py	relohome_roommate.views	retained shared shim	#112/#114; removal gate #115, unresolved external consumers #116
+src/roommate_runtime.py	apps/agent-api/src/relohome_agent/roommate_runtime.py	moved	#114
+src/services/__init__.py	apps/agent-api/src/relohome_agent/services/__init__.py	moved	#114
+src/services/adapters/__init__.py	apps/agent-api/src/relohome_agent/services/adapters/__init__.py	moved	#114
+src/services/adapters/commit.py	apps/agent-api/src/relohome_agent/services/adapters/commit.py	moved	#114
+src/services/adapters/fakes.py	apps/agent-api/src/relohome_agent/services/adapters/fakes.py	moved	#114
+src/services/adapters/mcp.py	apps/agent-api/src/relohome_agent/services/adapters/mcp.py	moved	#114
+src/services/adapters/moving_approval.py	apps/agent-api/src/relohome_agent/services/adapters/moving_approval.py	moved	#114
+src/services/adapters/ports.py	apps/agent-api/src/relohome_agent/services/adapters/ports.py	moved	#114
+src/services/adapters/registry.py	apps/agent-api/src/relohome_agent/services/adapters/registry.py	moved	#114
+src/services/adapters/sqlite_runtime.py	apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py	moved	#114
+src/services/llm.py	apps/agent-api/src/relohome_agent/services/llm.py	moved	#114
+src/ui/__init__.py	src/ui/__init__.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/agent_chat.py	src/ui/agent_chat.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/flight_client.py	src/ui/flight_client.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/flight_demo.py	src/ui/flight_demo.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/map_picker.py	src/ui/map_picker.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/mcp_client.py	src/ui/mcp_client.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/mvp_components.py	src/ui/mvp_components.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/payment_client.py	src/ui/payment_client.py	retained demo	#115: examples/streamlit/src/relohome_demos
+src/ui/payment_demo.py	src/ui/payment_demo.py	retained demo	#115: examples/streamlit/src/relohome_demos

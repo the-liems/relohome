@@ -30,7 +30,7 @@ and a missing file fails before startup. For another file, run the entrypoint di
 ```sh
 # From repository root (exactly one selected env file):
 node --env-file=/absolute/path/team.env apps/location-mcp/dist/http-server.js
-node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
+node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn relohome_agent.main:app
 docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
 # Existing integration launcher (staging safety overrides) also accepts a file:
 python scripts/local-integration.py location --env-file /absolute/path/team.env
@@ -92,7 +92,7 @@ checks.
 
 ## Đã nối những gì?
 
-React (Frontend/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
+React (apps/web/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
 Moving giữ vòng gọi tool bằng LLM; Housing/Map/Flight/Payment có domain LLM riêng,
 nhận mục tiêu và tự chọn thao tác đọc có giới hạn theo
 [ADR-021](../adr/ADR-021-mission-driven-domain-tools.md). Adapter giữ dữ kiện nguồn
@@ -113,12 +113,13 @@ The old `*_MCP_STDIO` flags no longer enable a transport.
 
 | Nơi | Trách nhiệm |
 | --- | --- |
-| `src/agents/` | Intake, Planner, graph, domain subagents |
-| `src/services/adapters/` | MCP clients, approval, giao dịch, lưu trạng thái |
-| `src/api/` | API hội thoại, xác nhận và demo thanh toán |
-| `Frontend/` | React/Vite, gateway và lưu tài khoản/hội thoại |
+| `apps/agent-api/src/relohome_agent/agents/` | Intake, Planner, graph, domain subagents |
+| `apps/agent-api/src/relohome_agent/services/adapters/` | MCP clients, approval, giao dịch, lưu trạng thái |
+| `apps/agent-api/src/relohome_agent/api/` | API hội thoại, xác nhận và demo thanh toán |
+| `apps/web/` | React/Vite |
+| `apps/browser-gateway/` | Gateway và lưu tài khoản/hội thoại |
 | `src/ui/` | Giao diện Streamlit cũ, giữ để tham khảo |
-| `src/mcp_servers/` | Flight/Payment MCP Python |
+| `apps/flights-mcp/` and `apps/payments-mcp/` | Flight/Payment MCP Python |
 | `Maps VN/LifeFlow/` | Workspace TypeScript Housing/Map/Moving đã có; không di chuyển phá import |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
 | `config/local-*.compose.yaml` | PostGIS và OSRM local, không phải deploy |
@@ -182,7 +183,7 @@ khó biết service nào thoát sớm.
 | Flight MCP | 8765 | `/health` |
 | Payment MCP | 8766 | `/health` |
 | Graph API | 8000 | `/health` |
-| Frontend gateway | 8503 | `/health` (`service=siu-web`) |
+| apps/web gateway | 8503 | `/health` (`service=siu-web`) |
 
 Readiness không bảo đảm mọi API ngoài hoạt động hoặc key LLM còn credit.
 
@@ -211,7 +212,7 @@ Mở từng terminal riêng (Ctrl+C dừng đúng process):
 .venv/Scripts/python.exe scripts/local-integration.py ui
 ```
 
-Mở <http://127.0.0.1:8503>, tạo tài khoản local để lưu hội thoại. Xem [hướng dẫn frontend](../../Frontend/README.md). Mặc định chỉ đọc, tìm kiếm, báo giá.
+Mở <http://127.0.0.1:8503>, tạo tài khoản local để lưu hội thoại. Xem [hướng dẫn frontend](../../apps/web/README.md). Mặc định chỉ đọc, tìm kiếm, báo giá.
 Muốn demo giao dịch sandbox: dừng `moving`, `moving-api`, `api`, rồi chạy lại từng
 lệnh với `--sandbox-writes`. Cờ không tự đặt xe/thanh toán; vẫn phải xác nhận trên form.
 Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu local này.

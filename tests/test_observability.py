@@ -166,6 +166,35 @@ async def test_asgi_route_template_trace_header_and_untrusted_parent(spans):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("module_name,trust_incoming,path,route,status", [
+    ("relohome_gateway.server", False, "/web/api/auth/login", "/web/api/auth/{action}", 422),
+    ("relohome_agent.main", True, "/api/v1/chat", "/chat", 503),
+])
+async def test_installed_http_entrypoints_keep_trace_boundaries(spans, module_name, trust_incoming, path, route, status):
+    # Exercise the actual relocated applications: preserving only the legacy
+    # launcher instrumentation would silently lose traces in deployed wheels.
+    module = importlib.import_module(module_name)
+    incoming_trace = "11111111111111111111111111111111"
+    incoming_span = "2222222222222222"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=module.app), base_url="http://test") as client:
+        response = await client.post(path + "?token=private", json={}, headers={
+            "traceparent": f"00-{incoming_trace}-{incoming_span}-01", "x-siu-request": "1",
+        })
+    assert response.status_code == status
+    exported = spans.get_finished_spans()
+    assert len(exported) == 1
+    span = exported[0]
+    assert span.name == "POST " + route
+    assert response.headers["x-trace-id"] == format(span.context.trace_id, "032x")
+    if trust_incoming:
+        assert response.headers["x-trace-id"] == incoming_trace
+        assert span.parent.span_id == int(incoming_span, 16)
+    else:
+        assert response.headers["x-trace-id"] != incoming_trace
+        assert span.parent is None
+
+
+@pytest.mark.asyncio
 async def test_mcp_http_metadata_connects_tool_server_to_client(spans):
     from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
     from relohome_mcp_http import HttpServiceMCP

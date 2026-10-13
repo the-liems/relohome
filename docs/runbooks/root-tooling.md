@@ -27,7 +27,7 @@ mypy and retained location-demo UI dependencies. Runtime requirements remain
 unchanged. Python package extraction belongs to #112.
 
 `package-lock.json` is the only authoritative npm lock. It covers eight service
-and library workspaces, `Frontend`, and the supported map demo. The old
+and library workspaces, `apps/web`, and the supported map demo. The old
 `Maps VN/LifeFlow/package.json` is a scripts-only compatibility entrypoint,
 not another npm workspace or installation root. Use root `npm ci` even when
 working on one app. Its existing operational commands still preserve their
@@ -85,7 +85,7 @@ Pass component arguments after `--`. Existing `make run`, `ui`, `ui-payment`,
 ## Chrome and provider prerequisites
 
 Run `npm run setup:browser` to install system Chrome with Playwright. On Linux,
-provision its OS libraries with `npm exec --offline --workspace Frontend --
+provision its OS libraries with `npm exec --offline --workspace apps/web --
 playwright install-deps chrome`. OS installation may need administrator access;
 self-hosted runners should be provisioned by their administrator, not install
 system packages from an untrusted PR job.

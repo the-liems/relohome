@@ -20,16 +20,19 @@ trap 'exit 143' TERM
 
 probe_health() {
   docker exec "$1" python -c '
+import os
 import sys
 from urllib.request import urlopen
 
+assert os.geteuid() != 0, "MCP image must use its non-root USER"
 with urlopen(f"http://127.0.0.1:{sys.argv[1]}/health", timeout=2) as response:
     print(response.read().decode())
 ' "$2"
 }
 
-for dockerfile in src/mcp_servers/*/Dockerfile; do
-  server=$(basename "$(dirname "$dockerfile")")
+for project in apps/*-mcp/pyproject.toml; do
+  dockerfile="${project%/pyproject.toml}/Dockerfile"
+  server=$(basename "$(dirname "$dockerfile")" -mcp)
   port=$(awk '/^EXPOSE/ {print $2; exit}' "$dockerfile")
   container="$server-mcp-smoke-$suffix"
   # Register before starting: docker run may create a container and then fail.

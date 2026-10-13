@@ -1,6 +1,10 @@
-"""MCP server tìm và đặt vé máy bay nội địa Việt Nam. Xem README.md cùng thư mục."""
+"""Temporary launch compatibility; removal gate #115, see docs/integration/agent-app-relocation.md."""
 
-from relohome_flights_mcp.server import create_server
-from relohome_flights_mcp.tools import FlightServices, build_services
+if __name__ == "relohome_flights_mcp":
+    raise ImportError(
+        "Stale editable install maps relohome_flights_mcp to src/mcp_servers/flights/; "
+        "run `npm run setup:python` from the repository root "
+        "to reinstall from apps/flights-mcp."
+    )
 
-__all__ = ["FlightServices", "build_services", "create_server"]
+from relohome_flights_mcp import FlightServices, build_services, create_server  # noqa: E402, F401

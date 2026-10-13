@@ -46,7 +46,7 @@ pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > /tmp/housing-before-upgrade.
 Tại terminal container **web**, chạy bằng user runtime:
 
 ```bash
-python -m Frontend.cloud_backup --output /app/data/backup-housing-before-upgrade
+python -m relohome_gateway.cloud_backup --output /app/data/backup-housing-before-upgrade
 ```
 
 Copy dump và thư mục backup ra storage private bên ngoài host. Archive có PII và
@@ -83,7 +83,7 @@ python scripts/test-migration-image.py location-migrate relohome-migrate:test
 Trong terminal web container:
 
 ```bash
-python -m Frontend.admin_provision --email admin@your-domain.vn --name 'ReloHome Admin'
+python -m relohome_gateway.admin_provision --email admin@your-domain.vn --name 'ReloHome Admin'
 ```
 
 Nhập mật khẩu 12+ ký tự qua prompt kín; không truyền password trên command line.
