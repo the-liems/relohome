@@ -10,7 +10,7 @@
 -e ./packages/python/privacy
 -e ./packages/python/roommate
 -e ./src
--e ./Frontend
+-e ./apps/browser-gateway
 -e ./src/mcp_servers/flights
 -e ./src/mcp_servers/payments
 -e ./src/agent_services/intake

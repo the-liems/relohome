@@ -1,39 +1,33 @@
 # syntax=docker/dockerfile:1.14
-# Build with the repository root as the context.
+# Combined browser + gateway image; repository root build context.
 FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /web
 COPY package.json package-lock.json ./
-COPY Frontend/package.json ./Frontend/package.json
-COPY Frontend/scripts ./Frontend/scripts
-RUN npm ci --workspace Frontend --include-workspace-root=false
-COPY Frontend/ ./Frontend/
-RUN npm run build --workspace Frontend
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/web/scripts ./apps/web/scripts
+RUN npm ci --workspace apps/web --include-workspace-root=false
+COPY apps/web/ ./apps/web/
+RUN npm run build --workspace apps/web
 
 FROM python:3.11-slim AS python-build
-ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 RUN python -m venv /opt/venv
 COPY requirements-runtime.txt ./
 COPY packages/python/ ./packages/python/
-COPY src/ ./src/
-COPY Frontend/*.py Frontend/pyproject.toml ./Frontend/
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
-    ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./Frontend
+COPY apps/browser-gateway/ ./apps/browser-gateway/
+RUN /opt/venv/bin/pip install --no-cache-dir --timeout 120 -r requirements-runtime.txt \
+    ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/browser-gateway
 
 FROM python:3.11-slim AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
-COPY --chmod=u=rwX,go=rX src/ ./src/
-COPY --chmod=u=rwX,go=rX config/ ./config/
 RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data && chown appuser:appuser /app/data
-# Every top-level gateway module (server, store, roommate_gateway, ...); tests check imports resolve.
-COPY --chmod=u=rwX,go=rX Frontend/*.py ./Frontend/
-COPY --chmod=u=rwX,go=rX --from=frontend-build /web/Frontend/dist ./Frontend/dist
+COPY --chmod=u=rwX,go=rX --from=frontend-build /web/apps/web/dist ./apps/web/dist
 USER appuser
 EXPOSE 8503
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8503/health', timeout=4)"
-CMD ["python", "-m", "uvicorn", "Frontend.server:app", "--host", "0.0.0.0", "--port", "8503", "--workers", "1"]
+CMD ["python", "-m", "uvicorn", "relohome_gateway.server:app", "--host", "0.0.0.0", "--port", "8503", "--workers", "1"]

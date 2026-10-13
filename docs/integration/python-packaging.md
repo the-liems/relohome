@@ -19,7 +19,7 @@ All distributions are private local projects, version `0.1.0`, requiring Python
 | `relohome-agent-services` / `relohome_agent_services` | `packages/python/agent-services` | Standalone services: common HTTP/settings, LLM adapter and intake contracts |
 | `relohome-mcp-http` / `relohome_mcp_http` | `packages/python/mcp-http` | MCP transport: shared bearer authentication and HTTP service behavior |
 | `relohome-agent` / `relohome_agent` | `src/pyproject.toml` | Integrated agent API, graph, checkout and runtime composition |
-| `relohome-browser-gateway` / `relohome_gateway` | `Frontend/pyproject.toml` | Browser gateway; calls backend business operations over HTTP |
+| `relohome-browser-gateway` / `relohome_gateway` | `apps/browser-gateway/pyproject.toml` | Browser gateway; calls backend business operations over HTTP |
 | `relohome-flights-mcp` / `relohome_flights_mcp` | `src/mcp_servers/flights/pyproject.toml` | Flight MCP transport and tools |
 | `relohome-payments-mcp` / `relohome_payments_mcp` | `src/mcp_servers/payments/pyproject.toml` | Payment MCP transport and tools |
 | `relohome-intake-api` / `relohome_intake` | `src/agent_services/intake/pyproject.toml` | Standalone intake compatibility harness |
@@ -105,15 +105,14 @@ Set `RELOHOME_RUNTIME_ROOT` to the **absolute existing checkout/deployment root*
 when launching installed applications directly. Root npm/Make commands and the
 local integration launcher set it; Python images set `/app`. It is configuration,
 not a source or import path. Wheels never infer a checkout by walking their
-installation directory. The old source gateway can still supply its checkout
-default while `Frontend/pyproject.toml` is present; #113 removes that fallback.
+installation directory. The gateway requires this setting after #113; see the [web/gateway relocation](web-gateway-relocation.md).
 
 Gateway paths relative to this root remain:
 
 - `data/siu-web.sqlite3` for the database;
 - the database sibling `siu-web-traveler.key` for its encryption key;
 - `Frontend/data/housing-media` for local media;
-- `Frontend/dist` for browser assets until #113.
+- `apps/web/dist` for browser assets after #113.
 
 Existing `SIU_WEB_DB`, `SIU_TRAVELER_KEY_FILE`, `SIU_TRAVELER_KEY`, and
 `SIU_HOUSING_MEDIA_DIR` overrides remain supported. Relative path overrides are

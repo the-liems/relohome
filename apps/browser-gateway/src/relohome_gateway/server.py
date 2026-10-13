@@ -1,4 +1,4 @@
-"""SIU browser gateway. HttpOnly sessions; service secrets never reach JavaScript.
+"""ReloHome browser gateway. HttpOnly sessions; service secrets never reach JavaScript.
 
 Run from repository root: npm run dev:gateway
 The built Vite app is served here; development Vite proxies /web/api here.
@@ -36,15 +36,12 @@ from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
 
-ROOT = Path(__file__).resolve().parent
-# Only the legacy source launcher supplies a checkout default. Wheels require explicit configuration.
-LEGACY_ROOT = ROOT.parent if (ROOT / "pyproject.toml").is_file() else None
 COOKIE = "siu_session"
 
 
 def housing_media_dir() -> Path:
     """Owner-uploaded listing images; mount persistently in production (runbook: housing-management)."""
-    return media_path(runtime_root(LEGACY_ROOT))
+    return media_path(runtime_root())
 
 
 HOUSING_MANAGEMENT_PATHS = (
@@ -194,7 +191,7 @@ def presentation(payload, state):
 def create_app(database=None, transport=None):
     @asynccontextmanager
     async def lifespan(app):
-        root = runtime_root(LEGACY_ROOT)
+        root = runtime_root()
         path = database_path(root, database)
         key_path = traveler_key_path(path, root)
         if path.exists() and not os.getenv("SIU_TRAVELER_KEY") and not key_path.exists():
@@ -212,7 +209,7 @@ def create_app(database=None, transport=None):
         await app.state.http.aclose()
         app.state.store.db.close()
 
-    app = FastAPI(title="SIU AI Web", lifespan=lifespan)
+    app = FastAPI(title="ReloHome", lifespan=lifespan)
     app.state.store_path = database
 
     @app.get("/health")
@@ -1113,14 +1110,14 @@ def create_app(database=None, transport=None):
     async def static(path: str):
         if path.startswith("web/api"):
             raise HTTPException(404)
-        dist = runtime_root(LEGACY_ROOT) / "Frontend" / "dist"
+        dist = runtime_root() / "apps" / "web" / "dist"
         target = (dist / path).resolve()
         if target.is_relative_to(dist.resolve()) and target.is_file():
             return FileResponse(target)
         if (dist / "index.html").exists():
             return FileResponse(dist / "index.html")
         return JSONResponse(
-            {"detail": "Chạy npm run build trong Frontend, hoặc npm run dev để phát triển."}, status_code=503
+            {"detail": "Chạy npm run build:web từ gốc repository, hoặc npm run dev để phát triển."}, status_code=503
         )
 
     return app

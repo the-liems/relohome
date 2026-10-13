@@ -15,7 +15,7 @@ GLOBAL_INPUTS = (
     ".dockerignore",
 )
 NON_IMAGE_INPUTS = (
-    "docs/", "tests/", "Frontend/tests/", "deploy/", "eval/", "presentation/",
+    "docs/", "tests/", "apps/browser-gateway/tests/", "apps/web/tests/", "deploy/", "eval/", "presentation/",
 )
 
 

@@ -15,14 +15,15 @@ async function signIn(page: Page) {
     // Reuse ONLY this harness's disposable test identity/history; no provider/LLM replay.
     const session = JSON.parse(
       execFileSync(
-        "../.venv/Scripts/python.exe",
+        "node",
         [
+          "../../scripts/python.mjs",
           "-c",
           `
 import json,sys
 from pathlib import Path
-from Frontend.store import Store
-root=Path.cwd().parent
+from relohome_gateway.store import Store
+root=Path.cwd()
 run=sys.argv[1]
 assert run.startswith('issue73-browser-') and '/' not in run and '\\\\' not in run
 store=Store(root/'logs/local'/run/'web.sqlite3')
@@ -33,7 +34,7 @@ print(json.dumps({'token':store.create_session(row['owner'])}))
           process.env.ROOM_SCOPE_RESUME_RUN,
           process.env.ROOM_SCOPE_RESUME_THREAD,
         ],
-        { encoding: "utf8", env: { ...process.env, PYTHONPATH: ".." } },
+        { encoding: "utf8", env: process.env },
       ),
     );
     await page.context().addCookies([
@@ -65,14 +66,15 @@ test("DEMO is browseable without granting real consent; map links are labeled an
   page,
 }) => {
   const datasetPath = execFileSync(
-    "../.venv/Scripts/python.exe",
+    "node",
     [
+          "../../scripts/python.mjs",
       "-c",
-      "from dotenv import dotenv_values; print(dotenv_values('../.env.local')['ROOMMATE_DEMO_DATASET'])",
+      "from dotenv import dotenv_values; print(dotenv_values('.env.local')['ROOMMATE_DEMO_DATASET'])",
     ],
     { encoding: "utf8" },
   ).trim();
-  const dataset = JSON.parse(readFileSync("../" + datasetPath, "utf-8"));
+  const dataset = JSON.parse(readFileSync("../../" + datasetPath, "utf-8"));
   const hanoiCount = dataset.profiles.filter(
     (profile: any) => profile.content.facts.city === "hanoi",
   ).length;
@@ -265,7 +267,7 @@ test("ready Housing before pending Moving; current administrative polygon and ex
   }
   expect(foundDemo).toBe(true);
   await page.screenshot({
-    path: "../data/issue73-browser-results/actual-scope-demo-yellow.png",
+    path: "../../data/issue73-browser-results/actual-scope-demo-yellow.png",
   });
   expect(failures).toEqual([]);
 });

@@ -29,6 +29,6 @@ const commands = {
 if (!commands[suite]) throw new Error('Choose python, moving or browser.');
 const env = suite === 'python' ? process.env : { ...process.env, ...readEnvTest(envTest) };
 const result = spawnSync(process.execPath, commands[suite],
-  { cwd: suite === 'browser' ? resolve(root, 'Frontend') : root, env, stdio: 'inherit' });
+  { cwd: suite === 'browser' ? resolve(root, 'apps/web') : root, env, stdio: 'inherit' });
 if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);

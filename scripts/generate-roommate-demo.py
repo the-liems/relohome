@@ -174,7 +174,7 @@ def main():
     )
     args = parser.parse_args()
     output = args.output.resolve()
-    if output.is_relative_to(ROOT / "Frontend") or output.suffix != ".json":
+    if any(output.is_relative_to(ROOT / public) for public in ("Frontend", "apps/web")) or output.suffix != ".json":
         parser.error("Use a private .json dataset outside frontend assets")
     if output.exists():
         parser.error("Dataset already exists; choose a new filename rather than overwriting")

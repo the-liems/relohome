@@ -152,7 +152,7 @@ báo giá AhaMove staging thật cùng gói/tuyến: cơ bản 162.000đ, có b�
 phí thêm 75.000đ. Không tạo đơn, thanh toán hoặc gọi LLM. Suite Python rộng còn
 17 lỗi đã tái hiện trên HEAD trước sửa và hai ca phụ thuộc môi trường.
 
-[Chi tiết và phạm vi](../docs/integration/moving-service-workspace-update-2026-10-05.md).
+[Chi tiết và phạm vi](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
 Các kết quả bên dưới là bằng chứng của các đợt trước.
 
 ## Cập nhật kiểm tra người dùng và UI — 05/10/2026
@@ -177,7 +177,7 @@ Không gọi LLM nên chưa kiểm chứng suy luận hoặc hội thoại đa d
 Suite Python Flight/Payment còn **6 failed**: 5 ca simulation Flight và 1 ca
 allowlist Payment lệch payload thời hạn. Không sửa runtime để chiều theo fixture.
 Chi tiết luồng, bằng chứng và ưu tiên còn mở:
-[báo cáo 05/10](../docs/integration/user-service-ui-audit-2026-10-05.md).
+[báo cáo 05/10](../../docs/integration/user-service-ui-audit-2026-10-05.md).
 
 ## Audit gốc và bằng chứng lịch sử
 
@@ -259,7 +259,7 @@ Nguồn: `apps/moving-mcp/src/create-server.ts`, `packages/contracts/src/moving.
 | `cancel_move_order` | ID/tracking, approval, điều kiện/chi phí hủy | Nút yêu cầu hủy chỉ điền yêu cầu chat; cần phương án phê duyệt riêng. **Có UI qua graph** |
 | `rate_move_driver` | Đơn hoàn thành, approval, rating flag | Chưa có commit kind/flow graph/UI đánh giá. **Chưa nối; mặc định tắt** |
 
-Chuyển đồ hiện dùng **CASH**. Chi phí dự kiến là báo giá/ước tính; không thu ZaloPay cho đơn AhaMove để tránh thu trùng. Thiết kế mới (Draft, chưa code) đưa vé và chuyển đồ qua đơn thanh toán ZaloPay sandbox riêng từng dịch vụ: xem [payment-design.md](../docs/review/payment-design.md). API webhook `/ready` còn yêu cầu DB migration Moving và webhook secret đúng, ngoài API key.
+Chuyển đồ hiện dùng **CASH**. Chi phí dự kiến là báo giá/ước tính; không thu ZaloPay cho đơn AhaMove để tránh thu trùng. Thiết kế mới (Draft, chưa code) đưa vé và chuyển đồ qua đơn thanh toán ZaloPay sandbox riêng từng dịch vụ: xem [payment-design.md](../../docs/review/payment-design.md). API webhook `/ready` còn yêu cầu DB migration Moving và webhook secret đúng, ngoài API key.
 
 ### Flight — 7 tool
 

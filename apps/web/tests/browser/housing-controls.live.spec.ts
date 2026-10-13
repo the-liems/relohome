@@ -12,16 +12,17 @@ async function register(page: Page) {
   if (process.env.HOUSING_CONTROLS_THREAD) {
     const session = JSON.parse(
       execFileSync(
-        "../.venv/Scripts/python.exe",
+        "node",
         [
+          "../../scripts/python.mjs",
           "-c",
           `
 import json,sys
 from pathlib import Path
-from Frontend.store import Store
+from relohome_gateway.store import Store
 run=sys.argv[1]
 assert run.startswith('issue79-browser-') and '/' not in run and '\\\\' not in run
-store=Store(Path.cwd().parent/'logs/local'/run/'web.sqlite3')
+store=Store(Path.cwd()/'logs/local'/run/'web.sqlite3')
 row=store.one('SELECT t.owner,u.name,u.email FROM threads t JOIN users u ON u.id=t.owner WHERE t.id=?',(sys.argv[2],))
 assert row and row['name']=='Issue79 browser verification' and row['email'].endswith('@example.invalid')
 print(json.dumps({'token':store.create_session(row['owner'])}))
@@ -29,7 +30,7 @@ print(json.dumps({'token':store.create_session(row['owner'])}))
           process.env.HOUSING_CONTROLS_RUN!,
           process.env.HOUSING_CONTROLS_THREAD,
         ],
-        { encoding: "utf8", env: { ...process.env, PYTHONPATH: ".." } },
+        { encoding: "utf8", env: process.env },
       ),
     );
     await page.context().addCookies([
@@ -156,7 +157,7 @@ test("real Housing basket, four-way comparison, detail actions and actual denied
   ).json();
   expect(final.revision).toBe(state.revision);
   expect(final.state.selected).toEqual(state.state.selected);
-  await page.screenshot({ path: "../data/issue79-housing-desktop.png" });
+  await page.screenshot({ path: "../../data/issue79-housing-desktop.png" });
   await page
     .locator(".ws-detail")
     .getByRole("button", { name: "Đóng chi tiết", exact: true })
@@ -179,7 +180,7 @@ test("real Housing basket, four-way comparison, detail actions and actual denied
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
   ).toBe(true);
-  await page.screenshot({ path: "../data/issue79-housing-mobile.png" });
+  await page.screenshot({ path: "../../data/issue79-housing-mobile.png" });
   console.log(
     JSON.stringify({
       case: "housing_controls",
@@ -204,7 +205,7 @@ test("Roommate DEMO lists configured real file; real discovery is separate and a
   await expect(
     page.getByRole("button", { name: /Kết nối|Gửi yêu cầu/ }),
   ).toHaveCount(0);
-  await page.screenshot({ path: "../data/issue79-roommate-demo.png" });
+  await page.screenshot({ path: "../../data/issue79-roommate-demo.png" });
   await page
     .locator(".rm-source-switch")
     .getByRole("link", { name: "Hồ sơ thật", exact: true })
@@ -232,7 +233,7 @@ test("Roommate DEMO lists configured real file; real discovery is separate and a
     timeout: 30000,
   });
   await expect(page.getByText(/DEMO .*\d{3}/)).toHaveCount(0);
-  await page.screenshot({ path: "../data/issue79-roommate-real-empty.png" });
+  await page.screenshot({ path: "../../data/issue79-roommate-real-empty.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

@@ -15,7 +15,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 960 },
     screenshot: "only-on-failure",
   },
-  outputDir: "../data/landing-browser-results",
+  outputDir: "../../data/landing-browser-results",
   webServer: {
     command: "npm run dev -- --port 5186",
     url: "http://127.0.0.1:5186",

@@ -1,1 +1,1 @@
-"""SIU AI web application and same-origin gateway."""
+"""ReloHome browser application and same-origin gateway."""

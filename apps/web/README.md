@@ -1,10 +1,12 @@
-# ReloHome — Frontend
+# ReloHome — Web
 
 Trang bìa `/` dùng ảnh nhà và hồ koi toàn khung tại
 `public/images/relohome-hero-home.png` (08/10/2026). Lớp phủ giữ chữ/CTA dễ đọc
 ở sáng, tối và màn hình nhỏ; các link vào chat, dịch vụ và cẩm nang giữ nguyên.
 
-Cập nhật **07/10/2026**. React + TypeScript + Vite trong thư mục `Frontend/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+Cập nhật **07/10/2026**. React + TypeScript + Vite trong thư mục `apps/web/`, thay giao diện Streamlit. Gateway FastAPI phục vụ bản build, quản lý session và nối tới Agent API/Platform API.
+
+Source relocation #113: React is here; the [gateway](../browser-gateway/README.md) is a separate Python package. See [commands, preserved state and rollback](../../docs/integration/web-gateway-relocation.md). The dated audit results below are historical evidence.
 
 ## Production UI audit — đợt mới nhất
 
@@ -191,7 +193,7 @@ Chi tiết phạm vi, bằng chứng và xác nhận không đổi nghiệp vụ
 | `src/mapStyle.ts` | Paint của bản đồ theo theme, không đổi nguồn/tuyến |
 | `tests/browser/app.spec.ts` | Regression UI và bảo toàn payload khi đổi theme/locale |
 
-Nguồn thiết kế: thư mục `../Frontend MVP planning questions/`, đặc biệt
+Nguồn thiết kế: thư mục `../apps/web MVP planning questions/`, đặc biệt
 `SIU Planner v2.dc.html`, `THE LIEMS Move Planner.dc.html` và ảnh người dùng
 gửi; tham khảo phân vai màu nền/chữ/viền/trạng thái trong
 [Primer Color](https://primer.style/product/primitives/color/). Link Claude
@@ -219,9 +221,9 @@ Không nhập script mẫu vào app hoặc thay app bằng dữ liệu demo.
 Chạy lại:
 
 ```powershell
-npm.cmd run build --prefix Frontend
-npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 4
-.\.venv\Scripts\python.exe -m pytest Frontend/tests -q --basetemp logs/local/frontend-contracts-check
+npm.cmd run build --prefix apps/web
+npm.cmd exec --prefix apps/web -- playwright test --config apps/web/playwright.config.ts --workers 4
+.\.venv\Scripts\python.exe -m pytest apps/browser-gateway/tests -q --basetemp logs/local/frontend-contracts-check
 ```
 
 Các số đếm và hạn chế trong các mục 05/10 bên dưới là lịch sử, không phải
@@ -257,7 +259,7 @@ Kiểm toán chỉ đọc toàn bộ housing: **38.222/38.222 tọa độ khớp
 và staging gốc**; **33.761 tin** dùng chung tọa độ với tin khác. Không sửa
 data hoặc logic backend trong lượt này. Map ghi “tin chung điểm bản đồ” và
 giải thích pin gần đúng để tránh hiểu là các tin chắc chắn cùng một căn.
-Xem [kết quả dữ liệu](../docs/integration/location-data-quality-plan-2026-10-04.md#11-kiểm-tra-tọa-độ-housing-và-điểm-b-moving--05102026).
+Xem [kết quả dữ liệu](../../docs/integration/location-data-quality-plan-2026-10-04.md#11-kiểm-tra-tọa-độ-housing-và-điểm-b-moving--05102026).
 
 **Rà frontend Moving/Flight — 05/10/2026:** đã sửa mô tả kiện trống gây payload
 không hợp lệ, kiểm tra nơi đi/đến Flight và cập nhật nút chọn khi giá hết hạn
@@ -284,7 +286,7 @@ Hai báo giá **AhaMove staging thật** được người dùng cho phép: cùn
 `SGN-TRUCK-750`, cơ bản **162.000đ**, thêm bốc xếp **237.000đ** (phí thêm
 **75.000đ**). Không tạo đơn, thanh toán hoặc gọi LLM trong đợt này. Suite Python
 rộng còn lỗi có sẵn: đã đối chiếu **17 lỗi trùng với HEAD trước sửa**; hai ca
-stdio/live còn phụ thuộc môi trường. Xem [báo cáo Moving](../docs/integration/moving-service-workspace-update-2026-10-05.md).
+stdio/live còn phụ thuộc môi trường. Xem [báo cáo Moving](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
 
 Các kết quả sau ghi nhận đợt kiểm tra trước phần Moving mở rộng:
 
@@ -311,7 +313,7 @@ thời hạn thanh toán. Chưa sửa backend hoặc bật simulation để làm
 Local đang có `writes_enabled=false`, `flight_booking_enabled=false`,
 `sandbox_payments_enabled=false`; tìm/chọn phương án không đồng nghĩa đặt dịch vụ.
 Chưa kiểm chứng hội thoại LLM đa dịch vụ trong lượt này.
-Xem [báo cáo dịch vụ và UI 05/10](../docs/integration/user-service-ui-audit-2026-10-05.md).
+Xem [báo cáo dịch vụ và UI 05/10](../../docs/integration/user-service-ui-audit-2026-10-05.md).
 
 #### Bằng chứng các lượt trước
 
@@ -320,7 +322,7 @@ Xem [báo cáo dịch vụ và UI 05/10](../docs/integration/user-service-ui-aud
 | TypeScript + Vite build | Thành công |
 | Playwright | 32 ca hiện có qua trọn bộ; 4 ca bổ sung qua các lượt kiểm tra tiếp theo. Hiện có 18 tình huống × desktop/mobile = 36 ca |
 | Kiểm tra lại sau sửa giao diện | Luồng chi tiết/chọn/lưu nhà và panel kế hoạch đã chạy lại; test đo vị trí panel chờ hiệu ứng mở hoàn tất. Sau khi thu gọn chat workspace, 12 ca map/chuyển đồ/chuyến bay desktop/mobile qua |
-| Kiểm tra chỉ đọc ứng dụng local | Frontend 8503, Agent `/api/v1/status`, Platform `/health`, Moving API `/health` trả HTTP 200 tại thời điểm kiểm tra |
+| Kiểm tra chỉ đọc ứng dụng local | apps/web 8503, Agent `/api/v1/status`, Platform `/health`, Moving API `/health` trả HTTP 200 tại thời điểm kiểm tra |
 | Capability local | Agent công bố 5 domain: property, map, relocation, flight, payment; `writes_enabled=false` |
 
 **Lỗi đã sửa:** nhà lưu khi khám phá map có thể không nằm trong kết quả chat ban đầu. Mở nhà đó từ Tài khoản nay lấy bản lưu đúng hội thoại và gọi API chi tiết hiện có, kể cả sau tải lại. Khi bản lưu không có ngữ cảnh kết quả để chọn phương án, dialog chỉ xem thông tin; thao tác chọn vẫn thực hiện qua map/kết quả dịch vụ.
@@ -332,7 +334,7 @@ cho map toàn quốc, gợi ý ngay trong cả A/B, đổi địa chỉ/ghim l�
 workspace nhà và báo giá. API route thật khớp 3 OSRM local; Moving API/MCP `/ready`
 đều 200 sau migration. Hai tool đọc danh mục AhaMove staging trả 71 thành phố và
 5 dịch vụ tại thành phố được kiểm tra. Chưa chạy báo giá/đặt đơn provider thật
-trong đợt này. Xem [báo cáo mới](../docs/integration/vietnam-map-moving-update-2026-10-04.md).
+trong đợt này. Xem [báo cáo mới](../../docs/integration/vietnam-map-moving-update-2026-10-04.md).
 
 ## Màn hình và cách sử dụng
 
@@ -384,7 +386,7 @@ Lịch sử yêu cầu đọc API `/threads` và `/threads/:id` hiện có; khô
 
 ## Phạm vi các dịch vụ
 
-| Dịch vụ | Frontend hiện có | Giới hạn |
+| Dịch vụ | apps/web hiện có | Giới hạn |
 | --- | --- | --- |
 | Nhà / Map | Card, chi tiết, lưu, so sánh tối đa 3 căn; danh sách theo viewport, sort, marker/cụm, tiện ích, tuyến đường, pin địa điểm | Bộ lọc commute/bán kính dùng bản đồ của kết quả; khám phá viewport không âm thầm bỏ điều kiện không hỗ trợ |
 | Chuyển đồ / AhaMove | A/B tự tìm/ghim map, ngày giờ; căn đã chọn điền sẵn B; kiện hàng, gói xe, add-on/số lượng/mức dịch vụ, khai giá/COD, ghi chú/mã giảm giá, POD/xác minh; báo giá, liên hệ riêng, review, biên nhận/tracking | CASH; tùy chọn phụ thuộc danh mục/giới hạn hãng; chưa hỗ trợ add-on yêu cầu nhập tự do, nhiều điểm giao, quản lý nhiều đơn, timeline callback hoặc rating; đặt/sửa/hủy phụ thuộc capability; OSRM có dữ liệu 3 vùng |
@@ -411,7 +413,7 @@ thoại/email, liên hệ chính xác gửi ở bước phê duyệt.
 
 ## Chạy ứng dụng
 
-Cần Python environment của repo, Node 24/npm 11 và các service theo [runbook local](../docs/runbooks/local-mvp.md).
+Cần Python environment của repo, Node 24/npm 11 và các service theo [runbook local](../../docs/runbooks/local-mvp.md).
 
 Từ gốc repo:
 
@@ -474,9 +476,9 @@ trong ba vùng có dữ liệu để lấy tuyến tham khảo.
 
 Đã chuẩn hóa thêm **1.521 studio 0 → 1** ở DB/file; snapshot lịch sử cũ không bị
 viết lại; không chuẩn hóa housing thêm trong đợt mở camera này.
-Xem [triển khai hiện hành](../docs/integration/vietnam-map-moving-update-2026-10-04.md),
-[đợt studio trước đó](../docs/integration/mainland-map-moving-studio-update-2026-10-04.md)
-và [audit trước sửa](../docs/integration/map-housing-osrm-audit-2026-10-04.md).
+Xem [triển khai hiện hành](../../docs/integration/vietnam-map-moving-update-2026-10-04.md),
+[đợt studio trước đó](../../docs/integration/mainland-map-moving-studio-update-2026-10-04.md)
+và [audit trước sửa](../../docs/integration/map-housing-osrm-audit-2026-10-04.md).
 
 Kiểm tra riêng picker và Moving trên desktop/mobile:
 
@@ -489,12 +491,12 @@ Kết quả lần triển khai: **10/10 đạt**, có kiểm tra cảnh báo Rea
 Hướng dẫn, danh sách tình huống và cách đọc kết quả: [tests/README.md](tests/README.md).
 
 ```powershell
-# Từ Frontend/
+# Từ apps/web/
 npm run build
 npm run test:e2e -- --workers=1
 ```
 # Từ gốc repo — gateway, hợp đồng UI và graph/action
-.venv/Scripts/python.exe -m pytest Frontend/tests -q
+.venv/Scripts/python.exe -m pytest apps/browser-gateway/tests -q
 
 
 Playwright dùng Chrome đã cài, tự chạy Vite ở 5174; dừng dev server đang chiếm cổng này trước khi test. Fixture API chỉ có trong test. Các test Python dùng mock/graph, không thay thế kiểm tra provider thật.
@@ -513,7 +515,7 @@ Playwright dùng Chrome đã cài, tự chạy Vite ở 5174; dừng dev server 
 | [src/components/WorkspaceChat.tsx](src/components/WorkspaceChat.tsx) | Chat ẩn/hiện trong workspace dịch vụ |
 | [src/components/Forms.tsx](src/components/Forms.tsx), [Transactions.tsx](src/components/Transactions.tsx) | Form, phê duyệt, thanh toán và biên nhận |
 | [src/styles.css](src/styles.css) | Giao diện và responsive |
-| [server.py](server.py), [store.py](store.py) | Gateway cùng origin; SQLite user/session/history/saved |
+| [server.py](../browser-gateway/src/relohome_gateway/server.py), [store.py](../browser-gateway/src/relohome_gateway/store.py) | Gateway cùng origin; SQLite user/session/history/saved |
 | [scripts/prepare-map.mjs](scripts/prepare-map.mjs) | Chuẩn bị MapLibre worker/module khi install/dev/build |
 | [tests/](tests/README.md) | Playwright, kiểm thử gateway và hợp đồng |
 | `dist/` | Bản build Vite được gateway phục vụ |
@@ -534,25 +536,25 @@ Chạy một worker gateway. Giữ database web cùng dữ liệu checkpoint c�
 
 ## Tài liệu liên quan
 
-- [Danh sách file thay đổi và bàn giao code + data QuangDung](../docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md).
+- [Danh sách file thay đổi và bàn giao code + data QuangDung](../../docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md).
 - [Audit tool và giới hạn dịch vụ](SERVICE_AUDIT.md).
 - [Kiểm thử frontend](tests/README.md).
-- [Kế hoạch frontend theo agent](../docs/integration/siu-ai-agent-first-frontend-plan.md).
-- [Thiết kế màn hình ban đầu](../docs/integration/siu-ai-frontend-screen-design.md).
-- [Workspace map và dịch vụ](../docs/integration/map-workspace-2026-10-01.md).
-- [Kiến trúc MVP](../docs/review/mvp-architecture.md).
-- [Chạy hệ thống local](../docs/runbooks/local-mvp.md).
+- [Kế hoạch frontend theo agent](../../docs/integration/siu-ai-agent-first-frontend-plan.md).
+- [Thiết kế màn hình ban đầu](../../docs/integration/siu-ai-frontend-screen-design.md).
+- [Workspace map và dịch vụ](../../docs/integration/map-workspace-2026-10-01.md).
+- [Kiến trúc MVP](../../docs/review/mvp-architecture.md).
+- [Chạy hệ thống local](../../docs/runbooks/local-mvp.md).
 
 Tài liệu thiết kế và ảnh dưới đây là tham chiếu ban đầu. Bố cục hiện hành được mô tả trong README này.
 
 ## Ảnh tham chiếu
 
-![Tham chiếu 1](../docs/design/references/01-chat.png)
+![Tham chiếu 1](../../docs/design/references/01-chat.png)
 
-![Tham chiếu 2](../docs/design/references/02-housing-map.png)
+![Tham chiếu 2](../../docs/design/references/02-housing-map.png)
 
-![Tham chiếu 3](../docs/design/references/03-roommates.png)
+![Tham chiếu 3](../../docs/design/references/03-roommates.png)
 
-![Tham chiếu 4](../docs/design/references/04-plan.png)
+![Tham chiếu 4](../../docs/design/references/04-plan.png)
 
-![Tham chiếu 5](../docs/design/references/05-account.png)
+![Tham chiếu 5](../../docs/design/references/05-account.png)

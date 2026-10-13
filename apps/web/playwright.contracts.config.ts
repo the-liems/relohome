@@ -12,6 +12,6 @@ export default defineConfig({
     "service-request.contracts.spec.ts",
     "viewing-schedule.contracts.spec.ts",
   ],
-  outputDir: "../data/frontend-contract-results",
+  outputDir: "../../data/frontend-contract-results",
   workers: 1,
 });

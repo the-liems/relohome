@@ -18,21 +18,22 @@ test("user-reported legacy conversation reopens its saved housing map read-only 
   );
   const session = JSON.parse(
     execFileSync(
-      "../.venv/Scripts/python.exe",
+      "node",
       [
+          "../../scripts/python.mjs",
         "-c",
         `
 import json,sys
 from pathlib import Path
-from Frontend.store import Store
-store=Store(Path.cwd().parent/'data/siu-web.sqlite3')
+from relohome_gateway.store import Store
+store=Store(Path.cwd()/'data/siu-web.sqlite3')
 row=store.one('SELECT owner FROM threads WHERE id=?',(sys.argv[1],))
 assert row
 print(json.dumps({'token':store.create_session(row['owner'])}))
 `,
         thread!,
       ],
-      { encoding: "utf8", env: { ...process.env, PYTHONPATH: ".." } },
+      { encoding: "utf8", env: process.env },
     ),
   );
   await page
@@ -87,16 +88,17 @@ test("chosen home and original search/map survive separate three/four-way compar
   if (resume) {
     const session = JSON.parse(
       execFileSync(
-        "../.venv/Scripts/python.exe",
+        "node",
         [
+          "../../scripts/python.mjs",
           "-c",
           `
 import json,sys
 from pathlib import Path
-from Frontend.store import Store
+from relohome_gateway.store import Store
 run=sys.argv[1]
 assert run.startswith('issue75-browser-') and '/' not in run and '\\\\' not in run
-store=Store(Path.cwd().parent/'logs/local'/run/'web.sqlite3')
+store=Store(Path.cwd()/'logs/local'/run/'web.sqlite3')
 row=store.one('SELECT t.owner,u.name,u.email FROM threads t JOIN users u ON t.owner=u.id WHERE t.id=?',(sys.argv[2],))
 assert row and row['name']=='Issue 75 comparison verification' and row['email'].endswith('@example.invalid')
 print(json.dumps({'token':store.create_session(row['owner'])}))
@@ -104,7 +106,7 @@ print(json.dumps({'token':store.create_session(row['owner'])}))
           process.env.ROOM_SCOPE_RESUME_RUN!,
           resume,
         ],
-        { encoding: "utf8", env: { ...process.env, PYTHONPATH: ".." } },
+        { encoding: "utf8", env: process.env },
       ),
     );
     await page.context().addCookies([

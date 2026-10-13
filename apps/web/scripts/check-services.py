@@ -1,6 +1,6 @@
 """Read-only local service audit. No LLM calls and no booking/payment writes.
 
-Run from repo root: .venv/Scripts/python.exe Frontend/scripts/check-services.py
+Run from repo root: .venv/Scripts/python.exe apps/web/scripts/check-services.py
 Prints counts/statuses only; never prints credentials or provider payloads.
 """
 
@@ -11,7 +11,7 @@ import logging
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 import httpx  # noqa: E402

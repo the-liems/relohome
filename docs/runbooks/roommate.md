@@ -4,7 +4,7 @@
 
 **Nâng cấp 12/10/2026:** xem [bàn giao production](../integration/roommate-production-2026-10-12.md) về inbox/media/moderation/privacy, SQLite schema v2, PostgreSQL tùy chọn trên cluster hiện có, backup/cutover/rollback và gates local/cloud. Các mốc dưới đây ghi lại cấu hình và evidence trước nâng cấp; không dùng chúng để kết luận bản mới đã deploy cloud. Thuật toán và consent policy giữ nguyên.
 
-Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai; xem [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md) về phạm vi và tests. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
+Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai; xem [frontend handoff](../../apps/web/ROOMMATE_UI_HANDOFF.md) về phạm vi và tests. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
 
 **Cập nhật local 08/10/2026:** `scripts/local-integration.py api|ui` (và `scripts/start-local-mvp.ps1`) tự đặt `ROOMMATE_ENABLED=true` khi môi trường không phải production và chưa cấu hình cờ. Đặt `ROOMMATE_ENABLED=false` trong cấu hình local để tắt lại. Launcher dùng ID moderator bootstrap dành riêng `local-roommate-moderator` khi chưa cấu hình danh sách; không tự cấp quyền cho tài khoản hiện có. Runtime vẫn yêu cầu gateway token, dùng DB/khóa private thật và giữ nguyên kiểm tra tuổi, điều khoản, quyền truy cập. Cần cấu hình ID moderator thật để sử dụng moderation. Khởi động bằng uvicorn trực tiếp không dùng mặc định local của launcher; production vẫn mặc định tắt.
 
@@ -23,7 +23,7 @@ File được tạo bằng `scripts/generate-roommate-demo.py --count 30 --valid
 | Biến | Yêu cầu |
 | --- | --- |
 | `ROOMMATE_ENABLED` | `false` mặc định; `true` mới khởi tạo DB/khóa. |
-| `ROOMMATE_STATE_DIR` | Mặc định `logs/private-roommate`; thư mục private của service account. Runtime từ chối dưới `data/` và `Frontend/public/`. |
+| `ROOMMATE_STATE_DIR` | Mặc định `logs/private-roommate`; thư mục private của service account. Runtime từ chối dưới `data/`, `Frontend/public/`, `apps/web/public/` và `apps/web/dist/`. |
 | `ROOMMATE_MODERATORS` | Account IDs do operator chọn, phân tách dấu phẩy; bắt buộc khi enabled. Không nhận role từ request/browser. |
 | `ROOMMATE_AREA_CATALOG` | Tùy chọn: JSON object canonical area ID → `hcm`/`hanoi`/`danang` được export từ Location. Không có file thì chỉ whole-city IDs. Không ghi giá trị rỗng vào env cho Path tùy chọn; bỏ biến khi chưa dùng. |
 | `AGENT_API_TOKEN` | Secret chung API/gateway đã có, bắt buộc khi enabled. Chỉ server giữ. |
@@ -36,7 +36,7 @@ Cài dependency bằng `requirements.txt` trong virtualenv project; Roommate th�
 ```powershell
 .venv/Scripts/python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 # Một terminal khác, cùng cấu hình server/token:
-.venv/Scripts/python.exe -m uvicorn Frontend.server:app --host 127.0.0.1 --port 8503
+npm run dev:gateway
 ```
 
 Không thay `AGENT_SUBAGENTS` của môi trường thật chỉ để bật Roommate; app production hiện yêu cầu live mode. Kiểm tra `/health`, sau đó `/web/api/roommate/availability`. Availability công khai không chứa người thật. Route riêng qua `/web/api/roommate/*` cần cookie đăng nhập; mutations dùng `X-SIU-Request: 1` và same-origin hiện có. Không cho browser tự gắn `X-User-Id` vào API upstream.
@@ -91,7 +91,7 @@ $env:LANGCHAIN_TRACING_V2='false'
 $env:LANGSMITH_TRACING='false'
 $env:LANGCHAIN_TRACING='false'
 $roommateTemp=Join-Path (Get-Location).Path ('logs/local/rmcheck-'+[guid]::NewGuid().ToString('N'))
-.venv/Scripts/python.exe -m pytest tests/test_roommate tests/test_agents/test_roommate_capability.py tests/test_agents/test_roommate_subagent.py tests/test_agents/test_roommate_intake.py tests/test_agents/test_roommate_graph.py tests/test_agents/test_roommate_privacy.py Frontend/tests/test_roommate_gateway.py Frontend/tests/test_roommate_full_stack.py -q --basetemp $roommateTemp
+.venv/Scripts/python.exe -m pytest tests/test_roommate tests/test_agents/test_roommate_capability.py tests/test_agents/test_roommate_subagent.py tests/test_agents/test_roommate_intake.py tests/test_agents/test_roommate_graph.py tests/test_agents/test_roommate_privacy.py apps/browser-gateway/tests/test_roommate_gateway.py tests/browser_gateway/test_roommate_full_stack.py -q --basetemp $roommateTemp
 ```
 
 Các test dùng dữ liệu giả trong DB tạm, không đặt xe/thanh toán/gửi contact thật. Kết quả và baseline errors xem [backend checkpoint](../integration/roommate-backend-checkpoint.md).

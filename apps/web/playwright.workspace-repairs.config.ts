@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
   testMatch: "workspace-repairs.live.spec.ts",
-  outputDir: "../data/issue70-browser-results",
+  outputDir: "../../data/issue70-browser-results",
   timeout: 180000,
   workers: 1,
   use: {
@@ -17,7 +17,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      '"..\\.venv\\Scripts\\python.exe" -m uvicorn Frontend.tests.runtime_gateway_audit_server:app --app-dir .. --host 127.0.0.1 --port 18505',
+      "node ../../scripts/python.mjs -m uvicorn tests.browser_gateway.runtime_gateway_audit_server:app --host 127.0.0.1 --port 18505",
     url: "http://127.0.0.1:18505/health",
     reuseExistingServer: false,
     env: { RUNTIME_AUDIT_RUN: "issue70-browser-" + Date.now() },

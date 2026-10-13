@@ -421,7 +421,7 @@ Keep runtime variable declarations in the reviewed Compose configuration and
 secret values in the selected environment's secret storage. Use Coolify's
 `SERVICE_<TYPE>_<ID>` generators selectively. For the `web` gateway, declare
 `SERVICE_URL_WEB_8503: /` to route to its current internal port, `8503`
-([gateway entrypoint](../../Frontend/server.py)). A URL/FQDN generator's service
+([gateway entrypoint](../../apps/browser-gateway/src/relohome_gateway/server.py)). A URL/FQDN generator's service
 name and port suffix must match the deployed service and listening port; update
 them together if that contract changes.
 

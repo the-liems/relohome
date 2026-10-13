@@ -14,5 +14,5 @@ export default defineConfig({
     timezoneId: "Asia/Ho_Chi_Minh",
     screenshot: "only-on-failure",
   },
-  outputDir: "../data/moving-browser-results",
+  outputDir: "../../data/moving-browser-results",
 });

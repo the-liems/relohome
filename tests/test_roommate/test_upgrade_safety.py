@@ -66,7 +66,7 @@ def test_relative_backup_paths_use_runtime_root_from_unrelated_cwd(tmp_path, mon
         assert row[0] == 7
         assert vault.open(row[1]) == "0901234567"
     assert not list(unrelated.iterdir())
-    for public in ("data/backup", "Frontend/public/backup"):
+    for public in ("data/backup", "Frontend/public/backup", "apps/web/public/backup", "apps/web/dist/backup"):
         with pytest.raises(ValueError, match="outside public data"):
             backup_sqlite(Path("legacy"), Path(public))
         assert not (root / public).exists()

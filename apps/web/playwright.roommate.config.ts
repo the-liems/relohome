@@ -8,6 +8,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:18503",
     channel: "chrome",
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH },
     headless: true,
     screenshot: "only-on-failure",
   },
@@ -19,7 +20,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      '"..\\.venv\\Scripts\\python.exe" -m uvicorn Frontend.tests.roommate_test_server:app --app-dir .. --host 127.0.0.1 --port 18503',
+      "node ../../scripts/python.mjs -m uvicorn tests.browser_gateway.roommate_test_server:app --host 127.0.0.1 --port 18503",
     url: "http://127.0.0.1:18503/roommate",
     reuseExistingServer: false,
     env: {

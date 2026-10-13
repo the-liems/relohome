@@ -3,12 +3,11 @@
 !package-lock.json
 !requirements.txt
 !requirements-runtime.txt
-!src/
-!src/**
-!config/
-!config/**
-!Frontend/
-!Frontend/**
+!apps/
+!apps/web/
+!apps/web/**
+!apps/browser-gateway/
+!apps/browser-gateway/**
 **/node_modules
 **/dist
 **/__pycache__

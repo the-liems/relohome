@@ -5,8 +5,8 @@ from relohome_agent.agents.llm_context import result_context
 from relohome_agent.agents.models import AgentName, TaskResult
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_gateway.server import presentation
 
-from Frontend.server import presentation
 from src.roommate.ports import Actor
 from src.roommate.services.access import AccessService
 from src.roommate.services.discovery import DiscoveryService

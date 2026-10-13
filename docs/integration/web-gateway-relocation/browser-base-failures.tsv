@@ -1,0 +1,45 @@
+project	file	line	title	first_error
+desktop	app.spec.ts	192	layout regression: flight timeline, housing and history inputs keep separate text and controls	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	333	production: keyboard tabs, native modal focus and readonly flight detail preserve contracts	Error: expect(locator).toBeFocused() failed
+desktop	app.spec.ts	468	production: moving and flight panes fit narrow, tablet and desktop screens	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	1805	moving PARTIAL reply opens usable quotes despite housing warnings	Error: expect(locator).toBeEnabled() failed
+desktop	app.spec.ts	1884	flight stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+desktop	app.spec.ts	1952	flight also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	1884	moving stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+desktop	app.spec.ts	1952	moving also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	2179	map handles structured provider warnings and approximate POIs	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	2232	AhaMove quote fee breakdown, order amount and tracking use provider fields	Error: expect(locator).toHaveAttribute(expected) failed
+desktop	app.spec.ts	2518	chat, housing details, selection, saved, plan and reload	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3082	housing answer opens the map workspace with viewport list, filters and chat dock	Error: expect(locator).toContainText(expected) failed
+desktop	app.spec.ts	3167	choosing a home from the map list returns to chat; chat dock can hide	Error: expect(locator).toHaveCount(expected) failed
+desktop	app.spec.ts	3226	flight results open a flight workspace with sorting and selection	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3298	flight detail keeps the latest request, shows provider airport codes and stays closed	Test timeout of 45000ms exceeded.
+desktop	app.spec.ts	3393	a failed workspace selection shows its error without opening chat manually	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3438	moving quotes open a moving workspace with A/B points and fee details	Error: expect(locator).toBeVisible() failed
+desktop	app.spec.ts	3521	a conversation can be deleted, and all conversations reset	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	192	layout regression: flight timeline, housing and history inputs keep separate text and controls	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	333	production: keyboard tabs, native modal focus and readonly flight detail preserve contracts	Error: expect(locator).toBeFocused() failed
+mobile	app.spec.ts	425	production: housing map and moving UI pass accessibility without losing form values	Error: frame.evaluate: Execution context was destroyed, most likely because of a navigation.
+mobile	app.spec.ts	468	production: moving and flight panes fit narrow, tablet and desktop screens	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	1805	moving PARTIAL reply opens usable quotes despite housing warnings	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	1884	flight stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+mobile	app.spec.ts	1952	flight also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	1884	moving stops selecting an expired price while the workspace remains open	Error: expect(locator).toBeEnabled() failed
+mobile	app.spec.ts	1952	moving also expires prices in chat cards and flight details	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	2179	map handles structured provider warnings and approximate POIs	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	2232	AhaMove quote fee breakdown, order amount and tracking use provider fields	Error: expect(locator).toHaveAttribute(expected) failed
+mobile	app.spec.ts	2518	chat, housing details, selection, saved, plan and reload	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3082	housing answer opens the map workspace with viewport list, filters and chat dock	Error: expect(locator).toContainText(expected) failed
+mobile	app.spec.ts	3167	choosing a home from the map list returns to chat; chat dock can hide	Error: expect(locator).toHaveCount(expected) failed
+mobile	app.spec.ts	3226	flight results open a flight workspace with sorting and selection	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3298	flight detail keeps the latest request, shows provider airport codes and stays closed	Test timeout of 45000ms exceeded.
+mobile	app.spec.ts	3393	a failed workspace selection shows its error without opening chat manually	Error: expect(locator).toBeVisible() failed
+mobile	app.spec.ts	3438	moving quotes open a moving workspace with A/B points and fee details	Error: expect(locator).toBeVisible() failed
+desktop	housing-reviews.spec.ts	353	moderator hides a reported review and acknowledges a multi-property flag	Test timeout of 45000ms exceeded.
+mobile	housing-reviews.spec.ts	353	moderator hides a reported review and acknowledges a multi-property flag	Test timeout of 45000ms exceeded.
+desktop	landing.public.spec.ts	78	guide previews open the actual public articles, not placeholder destinations	Error: expect(locator).toHaveCount(expected) failed
+mobile	landing.public.spec.ts	78	guide previews open the actual public articles, not placeholder destinations	Error: expect(locator).toHaveCount(expected) failed
+mobile	landing.public.spec.ts	156	responsive layout and WCAG checks (light, desktop/mobile, VI/EN)	Test timeout of 45000ms exceeded.
+mobile	roommate.spec.ts	187	responsive, keyboard and accessibility in both themes/languages with clean console	Error: expect(received).toEqual(expected) // deep equality
+desktop	service-entry.spec.ts	57	guide library is public and opens original in-app articles	Error: expect(locator).toHaveCount(expected) failed
+mobile	service-entry.spec.ts	57	guide library is public and opens original in-app articles	Error: expect(locator).toHaveCount(expected) failed

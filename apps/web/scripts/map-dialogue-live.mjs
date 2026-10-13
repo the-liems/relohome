@@ -3,7 +3,7 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const root = path.resolve(import.meta.dirname, '../..');
+const root = path.resolve(import.meta.dirname, '../../..');
 const evidencePath = path.join(root, 'data/map-dialogue-live-20261002.json');
 const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
 const base = 'http://127.0.0.1:8503';

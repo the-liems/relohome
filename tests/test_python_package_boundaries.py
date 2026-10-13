@@ -14,7 +14,7 @@ def discover_projects():
     patterns = (
         "packages/python/*/pyproject.toml",
         "src/pyproject.toml",
-        "Frontend/pyproject.toml",
+        "apps/browser-gateway/pyproject.toml",
         "src/mcp_servers/*/pyproject.toml",
         "src/agent_services/*/pyproject.toml",
     )

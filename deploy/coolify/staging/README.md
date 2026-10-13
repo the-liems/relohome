@@ -26,7 +26,7 @@ The workflow uses each service's Dockerfile:
 
 | Images | Dockerfile | Build context |
 | --- | --- | --- |
-| `web` | `Frontend/Dockerfile` | Repository root |
+| `web` | `apps/web/Dockerfile` | Repository root |
 | `backend` | `Dockerfile` | Repository root |
 | `platform`, `location-migrate` | `apps/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
 | `location` | `apps/location-mcp/Dockerfile` | `Maps VN/LifeFlow` |

@@ -7,7 +7,7 @@ export default defineConfig({
     "scope-contracts.spec.ts",
     "housing-comparison.live.spec.ts",
   ],
-  outputDir: "../data/issue73-browser-results",
+  outputDir: "../../data/issue73-browser-results",
   timeout: 180000,
   workers: 1,
   use: {
@@ -28,7 +28,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      '"..\\.venv\\Scripts\\python.exe" -m uvicorn Frontend.tests.runtime_gateway_audit_server:app --app-dir .. --host 127.0.0.1 --port 18506',
+      "node ../../scripts/python.mjs -m uvicorn tests.browser_gateway.runtime_gateway_audit_server:app --host 127.0.0.1 --port 18506",
     url: "http://127.0.0.1:18506/health",
     reuseExistingServer: false,
     env: {

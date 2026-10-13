@@ -65,7 +65,7 @@ def test_configured_root_preserves_private_paths_from_unrelated_cwd(tmp_path, mo
     assert runtime.path == root / "private-roommate/roommate.sqlite3"
     runtime.close()
     assert not list(unrelated.iterdir())
-    for public in ("data", "Frontend/public"):
+    for public in ("data", "Frontend/public", "apps/web/public", "apps/web/dist"):
         with pytest.raises(ValueError, match="outside public"):
             RoommateRuntime.open(settings.model_copy(update={"roommate_state_dir": root / public}))
     monkeypatch.delenv("RELOHOME_RUNTIME_ROOT")

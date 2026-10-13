@@ -3,15 +3,13 @@ import os
 from pathlib import Path
 
 
-def runtime_root(legacy_root: Path | None = None) -> Path:
+def runtime_root() -> Path:
     configured = os.getenv("RELOHOME_RUNTIME_ROOT")
     if configured:
         root = Path(configured).expanduser()
         if not root.is_absolute():
             raise ValueError("RELOHOME_RUNTIME_ROOT must be an absolute path")
         return root.resolve()
-    if legacy_root is not None:
-        return legacy_root.resolve()
     raise ValueError("Set RELOHOME_RUNTIME_ROOT to the existing deployment/checkout root")
 
 

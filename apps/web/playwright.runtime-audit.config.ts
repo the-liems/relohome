@@ -10,7 +10,7 @@ export default defineConfig({
     ["list"],
     [
       "json",
-      { outputFile: "../logs/local/runtime-browser-audit-20261007.json" },
+      { outputFile: "../../logs/local/runtime-browser-audit-20261007.json" },
     ],
   ],
   use: {
@@ -27,7 +27,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      '"..\\.venv\\Scripts\\python.exe" -m uvicorn Frontend.tests.runtime_gateway_audit_server:app --app-dir .. --host 127.0.0.1 --port 18504',
+      "node ../../scripts/python.mjs -m uvicorn tests.browser_gateway.runtime_gateway_audit_server:app --host 127.0.0.1 --port 18504",
     url: "http://127.0.0.1:18504/",
     reuseExistingServer: false,
     env: {

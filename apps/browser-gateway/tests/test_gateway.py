@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 
-from Frontend.server import create_app
+from relohome_gateway.server import create_app
 
 HEADERS = {"X-SIU-Request": "1", "Origin": "http://test"}
 HOUSE = {"id": "house-1", "title": "Tin nhà kiểm thử", "address": "Hà Nội", "price_vnd": 4000000}

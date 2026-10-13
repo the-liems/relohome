@@ -15,21 +15,22 @@ test("new named search ignores past filters; whole cards and actual POI icons op
   if (process.env.HOUSING_MAP_INTERACTIONS_THREAD) {
     const session = JSON.parse(
       execFileSync(
-        "../.venv/Scripts/python.exe",
+        "node",
         [
+          "../../scripts/python.mjs",
           "-c",
           `
 import sys,json
 from pathlib import Path
-from Frontend.store import Store
-store=Store(Path.cwd().parent/'data/siu-web.sqlite3')
+from relohome_gateway.store import Store
+store=Store(Path.cwd()/'data/siu-web.sqlite3')
 row=store.one('SELECT t.owner,u.name,u.email FROM threads t JOIN users u ON u.id=t.owner WHERE t.id=?',(sys.argv[1],))
 assert row and row['name']=='Issue119 read verification' and row['email'].endswith('@example.invalid')
 print(json.dumps({'token':store.create_session(row['owner'])}))
 `,
           process.env.HOUSING_MAP_INTERACTIONS_THREAD,
         ],
-        { encoding: "utf8", env: { ...process.env, PYTHONPATH: ".." } },
+        { encoding: "utf8", env: process.env },
       ),
     );
     await page.context().addCookies([

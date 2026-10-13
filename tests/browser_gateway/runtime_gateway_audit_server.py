@@ -4,7 +4,7 @@ import importlib.util
 import os
 from pathlib import Path
 
-from Frontend.server import create_app
+from relohome_gateway.server import create_app
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("audit_runner", ROOT / "scripts/local-integration.py")

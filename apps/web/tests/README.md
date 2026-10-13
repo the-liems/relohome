@@ -23,8 +23,8 @@ Agent. Kiểm tra 320/768/1024/1440/1920 tùy màn, API giả lập, không đ�
 Chạy nhóm UI audit riêng (từ repo root):
 
 ```powershell
-npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 2 --grep production
-npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 2 --grep 'layout regression'
+npm.cmd exec --prefix apps/web -- playwright test --config apps/web/playwright.config.ts --workers 2 --grep production
+npm.cmd exec --prefix apps/web -- playwright test --config apps/web/playwright.config.ts --workers 2 --grep 'layout regression'
 ```
 
 Kết quả/giới hạn chi tiết ở [audit](../PRODUCTION_UI_AUDIT.md).
@@ -53,9 +53,9 @@ báo giá. **20/20 ca Moving có mục tiêu qua** trong lượt kiểm tra này
 Từ repo root:
 
 ```powershell
-npm.cmd exec --prefix Frontend -- playwright test --config Frontend/playwright.config.ts --workers 4
-.venv/Scripts/python.exe -m pytest Frontend/tests -q --basetemp logs/local/pytest-frontend
-npm.cmd run build --prefix Frontend
+npm.cmd exec --prefix apps/web -- playwright test --config apps/web/playwright.config.ts --workers 4
+.venv/Scripts/python.exe -m pytest apps/browser-gateway/tests -q --basetemp logs/local/pytest-frontend
+npm.cmd run build --prefix apps/web
 ```
 
 ## Các bộ kiểm tra
@@ -79,7 +79,7 @@ Chạy bằng `npx playwright test --grep 'POI candidate|POI picker|a moving que
 
 Yêu cầu: đã cài dependencies bằng `npm ci` tại gốc repository, có Chrome trên máy. [playwright.config.ts](../playwright.config.ts) sử dụng `channel: "chrome"` và tự khởi động Vite tại **127.0.0.1:5174**. Dừng dev server đang dùng cổng này trước khi chạy; cấu hình không tái sử dụng server có sẵn.
 
-Từ `Frontend/`:
+Từ `apps/web/`:
 
 ```powershell
 npm run test:e2e -- --workers=1
@@ -183,7 +183,7 @@ npm run test:e2e -- --grep 'map-only selected home|late selected-home|missing se
 - TypeScript/Vite build qua; không thay đổi Agent để tối ưu tốc độ trong lượt
   kiểm tra này. Không gọi thêm LLM, tìm chuyến SerpApi hay báo giá AhaMove thật.
 - Phân tích thời gian thực từ log và đo MCP Flight local: xem phần cuối
-  [báo cáo Moving](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
+  [báo cáo Moving](../../../docs/integration/moving-service-workspace-update-2026-10-05.md).
 
 ### Đợt Moving mở rộng
 
@@ -199,13 +199,13 @@ npm run test:e2e -- --grep 'map-only selected home|late selected-home|missing se
 - Kiểm tra rộng Python lúc đầu: **179 passed, 19 failed**. Bản HEAD trước sửa
   chạy cùng nhóm, bỏ hai ca stdio/live phụ thuộc môi trường: **157 passed,
   17 failed**; tập 17 tên lỗi trùng hoàn toàn. Không ghi suite rộng là sạch.
-- Bằng chứng và giới hạn: [báo cáo Moving](../../docs/integration/moving-service-workspace-update-2026-10-05.md).
+- Bằng chứng và giới hạn: [báo cáo Moving](../../../docs/integration/moving-service-workspace-update-2026-10-05.md).
 
 ```powershell
-.venv/Scripts/python.exe -m pytest tests/test_agents/test_moving_form_options.py tests/test_agents/test_commit_adapter.py tests/test_agents/test_poi_moving_confirmation.py tests/test_agents/test_intake.py Frontend/tests -q --basetemp=logs/local/pytest-moving
+.venv/Scripts/python.exe -m pytest tests/test_agents/test_moving_form_options.py tests/test_agents/test_commit_adapter.py tests/test_agents/test_poi_moving_confirmation.py tests/test_agents/test_intake.py apps/browser-gateway/tests -q --basetemp=logs/local/pytest-moving
 ```
 
-Từ `Frontend/`, có thể chụp ảnh form fixture khi chạy test:
+Từ `apps/web/`, có thể chụp ảnh form fixture khi chạy test:
 
 ```powershell
 $env:SIU_UI_SCREENSHOTS='1'
@@ -224,7 +224,7 @@ provider thật đã tải.
 - Kiểm tra ảnh kế hoạch, tài khoản và Moving trên hai kích thước: **6/6 qua**.
   Đã xem ảnh panel kế hoạch, tài khoản và chi tiết chuyến bay trên desktop/mobile.
 - `npm run build` qua; gateway 8503 phục vụ đúng bản build mới.
-- Python `Frontend/tests`: **7/7 qua**. Trong môi trường giới hạn quyền temp, tạo thư
+- Python `apps/browser-gateway/tests`: **7/7 qua**. Trong môi trường giới hạn quyền temp, tạo thư
   mục cha trước rồi dùng `--basetemp=logs/local/pytest-temp`.
 - Flight/Payment Python: **86 passed, 6 failed**; 5 test server Flight kỳ vọng tool
   simulation khi simulation mặc định tắt, 1 test Payment có allowlist thiếu
@@ -240,7 +240,7 @@ npx playwright test tests/browser/app.spec.ts --grep 'flight detail keeps|failed
 ```
 
 Phạm vi thực tế và các tính năng chưa kiểm chứng được ghi ở
-[báo cáo 05/10](../../docs/integration/user-service-ui-audit-2026-10-05.md).
+[báo cáo 05/10](../../../docs/integration/user-service-ui-audit-2026-10-05.md).
 
 ## Kết quả kiểm tra ngày 03/10/2026
 
@@ -257,7 +257,7 @@ Phạm vi thực tế và các tính năng chưa kiểm chứng được ghi ở
 Từ gốc repo với `.venv` và dependencies Python đã cài:
 
 ```powershell
-.venv/Scripts/python.exe -m pytest Frontend/tests -q
+.venv/Scripts/python.exe -m pytest apps/browser-gateway/tests -q
 ```
 
 Các test này có mock/provider fixture và graph/checkpoint. Không dùng kết quả để kết luận đã thực hiện giao dịch với provider thật. Kết quả của suite rộng trong audit là bằng chứng theo ngày, không phải trạng thái mới nhất của nhánh đang chạy.
@@ -278,9 +278,9 @@ npx playwright test tests/browser/map-scope.spec.ts tests/browser/app.spec.ts --
 ```
 
 Tuyến gateway → Platform → 3 OSRM local được kiểm tra riêng bằng API đọc; 53/72/105
-điểm geometry khớp Docker. Xem [báo cáo hiện hành](../../docs/integration/vietnam-map-moving-update-2026-10-04.md).
+điểm geometry khớp Docker. Xem [báo cáo hiện hành](../../../docs/integration/vietnam-map-moving-update-2026-10-04.md).
 
-- Playwright trả số ca passed/failed và vị trí assertion. Screenshot khi lỗi cùng `error-context.md` nằm trong `Frontend/test-results/`.
+- Playwright trả số ca passed/failed và vị trí assertion. Screenshot khi lỗi cùng `error-context.md` nằm trong `apps/web/test-results/`.
 - Đối chiếu request body, route và contract trước khi sửa; test phải kiểm tra tác động người dùng hoặc dữ liệu gửi đi, không chỉ sự tồn tại của component.
 - Với layout có animation, chờ điều kiện cuối cùng trước khi đo vị trí.
 - HTTP 200/health hoặc danh sách domain chỉ xác minh trạng thái tại thời điểm đọc, không xác minh mọi provider đang hoạt động.

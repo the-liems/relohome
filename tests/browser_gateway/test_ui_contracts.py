@@ -3,8 +3,6 @@ from datetime import timedelta
 
 import httpx
 import pytest
-
-from Frontend.server import create_app
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.models import (
     AgentName,
@@ -19,6 +17,8 @@ from relohome_agent.agents.models import (
     TaskStatus,
 )
 from relohome_agent.agents.nodes.cost_summary import build_summary
+from relohome_gateway.server import create_app
+
 from tests.test_agents.helpers import intake_result
 
 

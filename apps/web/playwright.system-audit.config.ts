@@ -10,7 +10,7 @@ export default defineConfig({
     ["list"],
     [
       "json",
-      { outputFile: "../logs/local/system-browser-audit-20261007.json" },
+      { outputFile: "../../logs/local/system-browser-audit-20261007.json" },
     ],
   ],
 });

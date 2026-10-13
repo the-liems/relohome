@@ -1683,7 +1683,7 @@ test("moving form submits provider add-ons, packages and cash options with confi
   await selectMovingService(form, "TEST-TRUCK");
   if (process.env.SIU_UI_SCREENSHOTS) {
     await page.screenshot({
-      path: `../logs/local/moving-form-${testInfo.project.name}.png`,
+      path: `../../logs/local/moving-form-${testInfo.project.name}.png`,
     });
   }
   await form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }).check();
@@ -3278,7 +3278,7 @@ test("flight results open a flight workspace with sorting and selection", async 
   ).toBeTruthy();
   if (process.env.SIU_UI_SCREENSHOTS)
     await page.screenshot({
-      path: `../logs/local/flight-workspace-${testInfo.project.name}.png`,
+      path: `../../logs/local/flight-workspace-${testInfo.project.name}.png`,
     });
   // Default sort is cheapest first.
   await expect(flights.locator(".svc-carrier").first()).toHaveText("Bamboo");
@@ -3369,7 +3369,7 @@ test("flight detail keeps the latest request, shows provider airport codes and s
   ).toBeTruthy();
   if (process.env.SIU_UI_SCREENSHOTS)
     await page.screenshot({
-      path: `../logs/local/flight-detail-${info.project.name}.png`,
+      path: `../../logs/local/flight-detail-${info.project.name}.png`,
     });
   release!();
   await expect.poll(() => responseSent).toBe(true);
@@ -3878,4 +3878,36 @@ test("ReloHome branding has no robot logo on landing, login, or chat", async ({ 
   const favicon = await page.request.get("/favicon.svg?v=home");
   expect(favicon.ok()).toBeTruthy();
   expect(await favicon.text()).toContain("M11 29 32 12");
+});
+
+test("relocation preserves existing browser preferences, draft and identity keys", async ({ page }) => {
+  const { thread, turns } = await fixture(page);
+  thread.messages.push({
+    id: "pre-relocation-message", role: "assistant", created: Date.now() / 1000,
+    content: { response: { kind: "ANSWER", text: "Saved conversation before relocation" } },
+  });
+  await page.addInitScript(() => {
+    if (localStorage.getItem("relocation-fixture-seeded")) return;
+    localStorage.setItem("siu-ui-preferences", JSON.stringify({ theme: "dark", locale: "en" }));
+    localStorage.setItem("siu-plan-strip-open", "0");
+    localStorage.setItem("relohome.mode", "renter");
+    sessionStorage.setItem("siu-draft-ui-test-th_ui", "Draft saved before relocation");
+    sessionStorage.setItem("relohome-analytics-id", "existing-visitor-fixture");
+    localStorage.setItem("relocation-fixture-seeded", "1");
+  });
+  await page.goto("/ai/th_ui");
+  for (let visit = 0; visit < 2; visit++) {
+    await expect(page).toHaveTitle(/ReloHome/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("textbox", { name: "Message ReloHome", exact: true })).toHaveValue("Draft saved before relocation");
+    await expect(page.getByText("Saved conversation before relocation", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => ({
+      plan: localStorage.getItem("siu-plan-strip-open"),
+      mode: localStorage.getItem("relohome.mode"),
+      visitor: sessionStorage.getItem("relohome-analytics-id"),
+    }))).toEqual({ plan: "0", mode: "renter", visitor: "existing-visitor-fixture" });
+    if (visit === 0) await page.reload();
+  }
+  expect(turns).toHaveLength(0);
 });

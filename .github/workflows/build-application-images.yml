@@ -90,6 +90,9 @@ jobs:
           docker run --rm --network none --workdir /tmp --entrypoint python "$IMAGE" -I -c "import $module"
         env:
           SERVICE: ${{ matrix.service }}
+      - name: Smoke combined web image and built browser assets
+        if: matrix.service == 'web'
+        run: python3 scripts/smoke-web-image.py "$IMAGE"
       - name: Validate migration SQL, schema, role access, and reruns
         # Execute the release migration command against a disposable real database.
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
