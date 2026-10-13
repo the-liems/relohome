@@ -4,7 +4,7 @@ Cảm ơn bạn đã quan tâm. Repo này gồm hai phần với quy trình revi
 
 | Phần | Đường dẫn | Ai duyệt |
 |------|-----------|----------|
-| Code template | `src/`, `tests/`, `scripts/`, Dockerfile… | Maintainer bất kỳ |
+| Code template | `apps/`, `packages/`, `examples/`, `tests/`, `scripts/`, Dockerfile… | Maintainer bất kỳ |
 | **Technical Book** | `docs/guide/**` | **Bắt buộc** @AI20K-Build-Phase/book-maintainers |
 
 ## Technical Book — lưu ý quan trọng
@@ -66,3 +66,8 @@ Tham gia repo này đồng nghĩa với việc bạn đồng ý tuân thủ
 
 Python package installation, runtime paths, wheel validation and compatibility removal:
 [Python packaging guide](docs/integration/python-packaging.md).
+
+Python examples are installed from `examples/streamlit` by `requirements-dev.txt`.
+Use canonical `relohome_*` imports; examples depend on shared libraries and call
+applications over HTTP. Reinstall requirements after source moves. See the
+[example and shim migration](docs/integration/python-examples-and-shims.md).

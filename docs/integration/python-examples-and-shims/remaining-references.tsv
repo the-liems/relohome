@@ -1,0 +1,316 @@
+search	path	line	classification	reason
+requested	apps/web/PRODUCTION_UI_AUDIT.md	107	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	apps/web/PRODUCTION_UI_AUDIT.md	115	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	apps/web/README.md	56	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	apps/web/README.md	59	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	apps/web/README.md	191	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	docs/adr/ADR-025-monorepo-layout.md	100	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/adr/ADR-025-monorepo-layout.md	167	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/architecture/agent-graph.md	2119	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/guide/chapter-03.md	50	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	docs/guide/chapter-03.md	56	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	docs/guide/chapter-03.md	60	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	214	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	215	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	216	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	217	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	218	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	219	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	220	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	221	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/agent-app-relocation/src-accounting.tsv	222	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/housing-map-scope-interactions-2026-10-12.md	63	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/monorepo-baseline/entrypoints.md	237	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	238	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	239	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	240	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	241	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	248	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	249	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	262	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	263	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	434	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	435	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	436	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	437	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	438	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	439	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	440	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	441	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/entrypoints.md	442	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-inventory.md	70	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-inventory.md	120	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-inventory.md	152	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-inventory.md	212	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-occurrences.tsv	986	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-occurrences.tsv	987	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/naming-occurrences.tsv	988	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	159	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	160	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	161	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	162	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	163	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	164	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	867	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	868	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	869	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	870	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	871	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	872	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	873	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	874	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/path-map.tsv	875	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-baseline/validation.md	80	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+requested	docs/integration/monorepo-inventory.md	55	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/monorepo-inventory.md	65	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/monorepo-inventory.md	81	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/monorepo-tooling/validation.md	67	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/plan-next-step-2026-10-12.md	77	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/roommate-entry-moving-partial-fix-2026-10-07.md	39	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/siu-ai-agent-first-frontend-plan.md	59	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	docs/integration/siu-ai-agent-first-frontend-plan.md	402	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+requested	tasks/plan.md	1045	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1075	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1104	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1132	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1161	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1189	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1217	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1246	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1274	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+requested	tasks/plan.md	1304	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	ARCHITECTURE.md	85	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	apps/agent-api/src/relohome_agent/agents/graph.py	47	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	apps/agent-api/src/relohome_agent/agents/models.py	437	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	apps/web/PRODUCTION_UI_AUDIT.md	107	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	apps/web/PRODUCTION_UI_AUDIT.md	115	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	apps/web/README.md	56	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	apps/web/README.md	59	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	apps/web/README.md	191	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	docs/adr/ADR-013-flight-mcp-server-layout.md	39	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-014-containerized-mcp-servers.md	12	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-014-containerized-mcp-servers.md	36	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	100	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	129	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	130	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	131	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	132	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	135	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	167	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/adr/ADR-025-monorepo-layout.md	185	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/architecture/agent-graph.md	2119	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/design/roommate-discovery.md	87	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/design/roommate-discovery.md	99	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/guide/chapter-03.md	50	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	docs/guide/chapter-03.md	56	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	docs/guide/chapter-03.md	60	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	docs/integration/agent-app-relocation.md	75	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/agent-app-relocation.md	76	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/agent-app-relocation.md	85	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/agent-app-relocation.md	87	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	214	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	215	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	216	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	217	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	218	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	219	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	220	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	221	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/agent-app-relocation/src-accounting.tsv	222	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/housing-map-scope-interactions-2026-10-12.md	63	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/llm-agents-handoff.md	18	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/llm-agents-handoff.md	113	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-baseline/entrypoints.md	237	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	238	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	239	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	240	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	241	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	248	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	249	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	259	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	262	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	263	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	264	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	265	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	266	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	267	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	268	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	269	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	270	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	271	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	272	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	273	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	275	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	276	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	277	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	278	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	279	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	280	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	281	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	284	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	285	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	286	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	290	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	291	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	293	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	295	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	300	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	303	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	307	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	308	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	309	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	310	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	311	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	316	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	323	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	324	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	325	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	326	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	327	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	328	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	329	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	330	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	331	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	332	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	333	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	334	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	335	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	336	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	337	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	338	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	339	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	340	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	341	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	342	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	343	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	344	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	345	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	346	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	347	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	348	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	349	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	350	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	351	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	352	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	353	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	354	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	355	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	356	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	357	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	358	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	359	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	360	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	361	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	362	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	363	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	364	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	365	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	366	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	367	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	368	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	369	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	370	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	371	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	372	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	373	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	374	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	375	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	378	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	379	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	380	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	381	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	383	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	384	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	385	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	386	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	387	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	388	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	389	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	390	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	391	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	393	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	394	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	395	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	396	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	397	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	399	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	402	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	417	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	418	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	420	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	421	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	422	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	423	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	424	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	425	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	426	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	427	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	428	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	429	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	430	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	431	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	432	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	434	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	435	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	436	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	437	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	438	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	439	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	440	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	441	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/entrypoints.md	442	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-inventory.md	70	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-inventory.md	120	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-inventory.md	152	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-inventory.md	212	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-occurrences.tsv	986	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-occurrences.tsv	987	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/naming-occurrences.tsv	988	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	159	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	160	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	161	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	162	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	163	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	164	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	867	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	868	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	869	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	870	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	871	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	872	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	873	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	874	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/path-map.tsv	875	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-baseline/validation.md	80	historical	Pinned baseline or previous-slice accounting, including former model imports; not an operational caller
+portable	docs/integration/monorepo-inventory.md	55	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	56	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	60	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	61	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	62	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	63	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	65	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	72	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-inventory.md	81	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/monorepo-tooling/validation.md	67	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/plan-next-step-2026-10-12.md	77	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/python-packaging.md	155	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	docs/integration/python-packaging.md	158	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	docs/integration/roommate-entry-moving-partial-fix-2026-10-07.md	39	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/siu-ai-agent-first-frontend-plan.md	59	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	docs/integration/siu-ai-agent-first-frontend-plan.md	402	historical	M23 dated audit/proposal, ADR rationale, baseline inventory, previous-slice transcript or source accounting; not current launch instructions
+portable	packages/python/compatibility.json	2	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	tasks/plan.md	1045	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1075	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1104	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1132	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1161	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1189	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1217	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1246	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1274	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tasks/plan.md	1304	false positive	Current app-local CSS path or generic frontend prose; not a Python namespace/source caller
+portable	tests/checkpoint_compatibility_smoke.py	37	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	tests/checkpoint_compatibility_smoke.py	45	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	tests/checkpoint_compatibility_smoke.py	59	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	tests/checkpoint_compatibility_smoke.py	60	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller
+portable	tests/test_python_package_boundaries.py	75	retained persisted alias	Checkpoint identifier/allowlist, contract documentation or regression evidence; no source caller

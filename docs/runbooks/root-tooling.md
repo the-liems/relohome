@@ -46,7 +46,7 @@ snapshots (user artifacts). No supported npm application is excluded.
 | `make install` | `npm run setup` | Root npm clean install + Python dev dependencies |
 | `make build` | `npm run build` | Libraries in dependency order, services, web, map; verify worker assets |
 | `make lint` | `npm run lint` | Existing CI Python scope and existing map oxlint; no new whole-repository lint gate |
-| `make format-check` | `npm run format:check` | Read-only Ruff format check of src/tests |
+| `make format-check` | `npm run format:check` | Read-only Ruff format check of Python applications/examples/tests |
 | `make format` | `npm run format` | Explicit formatting write |
 | `make test` | `npm test` | Python root/gateway/location-demo contracts, portable TS and pure frontend contracts |
 | `make test-browser` | `npm run test:browser` | Existing web desktop/mobile Chrome journeys; providers skipped unless explicitly enabled |
@@ -135,3 +135,9 @@ Run the restored per-project `npm ci` commands to replace generated dependency
 trees, then rebuild. No database, media, key, volume, environment file, or
 runtime `.runtime` directory needs restoration. Previously published image
 digests remain usable through the existing release process.
+
+Streamlit demos are installed with root requirements; `make ui` starts Flight
+on 8501, `make ui-payment` starts Payment on 8502, and `make ui-agent-chat` starts
+local chat on 8501. Flight and chat use the same default port and run separately.
+See [demo configuration](../../examples/streamlit/README.md) and
+[shim retirement](../integration/python-examples-and-shims.md).

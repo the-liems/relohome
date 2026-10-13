@@ -50,7 +50,7 @@ from langchain_core.tools import tool
 
 # 3. Local
 from relohome_agent.config import get_settings
-from src.models.schemas import ChatRequest
+from relohome_contracts.schemas import ChatRequest
 ```
 
 ### 5. Error Handling

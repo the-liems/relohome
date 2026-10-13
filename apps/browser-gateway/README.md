@@ -8,4 +8,4 @@ launches must set it to the absolute existing checkout/deployment root.
 The combined [web image](../web/Dockerfile) serves `apps/web/dist` at port 8503.
 Database, traveler key, housing media, cookies and API paths are unchanged.
 See the [relocation and rollback guide](../../docs/integration/web-gateway-relocation.md)
-for paths, tests and the tracked `Frontend.*` compatibility removal gates.
+for paths and tests; [shim retirement](../../docs/integration/python-examples-and-shims.md) records the completed caller migration and remaining validation gates.

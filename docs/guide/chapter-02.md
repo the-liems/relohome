@@ -300,11 +300,13 @@ Phân tích từng phần quan trọng:
 
 **`model_config`** — Chỉ định cách load biến môi trường. `env_file=".env"` nói rằng đọc từ file `.env`. `case_sensitive=False` cho phép biến môi trường viết hoa (OPENAI_API_KEY) map vào field viết thường (openai_api_key). `extra="ignore"` bỏ qua các biến môi trường không được định nghĩa trong Settings class.
 
-**Singleton pattern** — Dòng `settings = Settings()` tạo một instance duy nhất của Settings ở module level. Khi bạn cần dùng config ở bất kỳ đâu trong code, chỉ cần `from src.core.config import settings` — instance này được tạo một lần và dùng chung cho toàn bộ ứng dụng.
+**Singleton pattern** — Dòng `settings = Settings()` tạo một instance duy nhất của Settings ở module level. Khi bạn cần dùng config ở bất kỳ đâu trong code, app hiện tại cung cấp `relohome_agent.config.get_settings()` với cache — instance này được tạo một lần và dùng chung cho toàn bộ ứng dụng.
 
 ```python
 # Sử dụng ở bất kỳ đâu trong project
-from src.core.config import settings
+from relohome_agent.config import get_settings
+
+settings = get_settings()
 
 print(settings.openai_model)     # "gpt-4o-mini"
 print(settings.api_port)         # 8000
