@@ -88,3 +88,16 @@ Follow-up validation: `npm run build:ts` passed for all eight workspaces;
 `npm run test:ts` passed 71 tests with the same 14 provider-dependent skips.
 The Location image rebuilt successfully and passed its default runtime startup
 probe after the allowlist cleanup.
+
+## Root-command review follow-up
+
+Claude identified two root commands whose direct Node invocation selected the
+backend `.env` before the legacy service file. After rebasing onto #133, every
+root and nested Moving command passes `.env.local` explicitly, so no command
+depends on its working directory for configuration and the forwarding fix and
+its regression test were dropped.
+
+The database runner now handles SIGTERM/SIGINT with exit codes 143/130 so its
+existing `finally` cleanup executes. Two subprocess tests deliver actual signals
+with Docker calls intercepted; both pass without touching Docker or databases.
+Changed Python lint and whitespace checks pass.

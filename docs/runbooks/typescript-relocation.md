@@ -18,7 +18,8 @@ The single root lockfile retains external dependency versions and integrity hash
 Root commands include `dev:api`, `dev:mcp`, `dev:mcp:http`, `dev:moving-api`,
 `dev:moving-mcp`, `dev:moving-mcp:http`, `db:migrate`, the existing `db:import:*`
 commands, and `moving:up/down/status/verify`. Per-service commands work with
-`npm run <command> --workspace @relohome/<package>`.
+`npm run <command> --workspace @relohome/<package>`. Root and nested Moving
+commands both pass the repository-root `.env.local` with `--env-file`.
 
 The legacy nested manifest contains only forwarding/operational scripts, no
 workspace definitions or lockfile. Its identified consumers are the retained
@@ -73,7 +74,9 @@ The database runner requires Docker and access to the existing private PostGIS
 image. It creates random test containers with tmpfs storage and ephemeral loopback
 ports, imports synthetic POIs/administrative areas using the real importers, runs
 all location suites including canonicalization, dataset roundtrip and POI v2, and
-removes only its own container. It never connects to an existing database.
+removes only its own container, including on SIGINT/SIGTERM cancellation.
+Uncatchable termination such as SIGKILL still requires manual cleanup of that
+run's container. It never connects to an existing database.
 Provider-dependent Moving checks remain opt-in (`test:moving:live`).
 
 The existing `scripts/test-migration-image.py <kind> <built-image>` verifies both

@@ -3,7 +3,9 @@
 import json
 import os
 import secrets
+import signal
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -91,4 +93,6 @@ def main():
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
     main()
