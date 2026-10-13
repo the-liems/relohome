@@ -22,4 +22,4 @@ echo "[ai-log] Git pre-push hook installed."
 mkdir -p .ai-log
 touch .ai-log/.gitkeep
 
-echo "[ai-log] Setup complete. Configure AI_LOG_SERVER in your .env file."
+echo "[ai-log] Setup complete. Configure AI_LOG_SERVER in your .env.local file."

@@ -6,6 +6,38 @@ export function errorText(error: unknown) {
   const code =
     error instanceof RoommateError ? error.code : "service_unavailable";
   const messages: Record<string, string> = {
+    room_city_mismatch: rt(
+      "Tin phòng thuộc thành phố khác. Hãy chọn lại tin hoặc đổi thành phố của hồ sơ.",
+      "This listing belongs to a different city. Choose another listing or update your profile city.",
+    ),
+    rate_limit: rt(
+      "Bạn thao tác nhiều lần trong thời gian ngắn. Chờ một chút rồi thử lại.",
+      "Too many actions in a short time. Wait a moment and try again.",
+    ),
+    payload_too_large: rt(
+      "Thông tin gửi quá dài. Rút gọn nội dung rồi thử lại.",
+      "The request is too large. Shorten the content and try again.",
+    ),
+    invalid_image: rt(
+      "Chọn ảnh JPEG hoặc PNG hợp lệ, tối đa 5 MB.",
+      "Choose a valid JPEG or PNG image, up to 5 MB.",
+    ),
+    image_count_limit: rt(
+      "Bạn đã có 10 ảnh. Xóa ảnh không dùng trước khi tải thêm.",
+      "You already have 10 photos. Remove an unused photo before uploading another.",
+    ),
+    image_dimension_limit: rt(
+      "Ảnh quá lớn hoặc có nhiều khung hình. Chọn ảnh tĩnh tối đa 16 megapixel.",
+      "The image is too large or has multiple frames. Choose a still image up to 16 megapixels.",
+    ),
+    draft_limit: rt(
+      "Có nhiều thao tác trước đó chưa được kiểm tra. Mở mục kiểm tra thao tác để đối soát.",
+      "Several earlier actions need checking. Open action recovery to reconcile them.",
+    ),
+    draft_unavailable: rt(
+      "Bản xác nhận đã hết hạn. Kiểm tra Inbox hoặc thông tin hiện tại trước khi thao tác lại.",
+      "The reviewed draft expired. Check your inbox or current data before taking another action.",
+    ),
     service_unavailable: rt(
       "Chưa kết nối được dịch vụ. Hãy thử lại.",
       "The service is unavailable. Please try again.",

@@ -2,9 +2,9 @@
 // Public reference coordinates, no user coordinates and no invented response.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:net'
-import { RouteService } from '../packages/housing-query/dist/route-service.js'
-import { withinOperation } from '../packages/housing-query/dist/execution.js'
-import { resolvePublicDrivingOsrmUrl } from '../packages/housing-query/dist/config.js'
+import { RouteService } from '../../../packages/housing-query/dist/route-service.js'
+import { withinOperation } from '../../../packages/housing-query/dist/execution.js'
+import { resolvePublicDrivingOsrmUrl } from '../../../packages/housing-query/dist/config.js'
 
 if (process.env.RUN_DEVICE_ROUTE_LIVE !== '1') {
   console.log('Skipped: set RUN_DEVICE_ROUTE_LIVE=1 to make up to 3 read-only public OSRM requests.')

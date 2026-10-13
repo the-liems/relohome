@@ -1,9 +1,7 @@
 """Actual PostGIS/MCP records and Moving pin logic; no LLM calls or fake data."""
 
-import importlib.util
 import os
 import subprocess
-from pathlib import Path
 
 import pytest
 from relohome_agent.agents.contracts import AgentTaskRequest
@@ -14,18 +12,12 @@ from relohome_agent.agents.subagents.services.moving_llm import MovingExecution,
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
 from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
+from tests import live
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real PostGIS/MCP opt-in")
-ROOT = Path(__file__).resolve().parents[2]
 
 
-def environment():
-    spec = importlib.util.spec_from_file_location("local_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    return runner.environment("api")
-
-
-def listing_id(env, condition):
+def listing_id(condition):
     query = (
         "SELECT id::text FROM housing.listings WHERE status='active' AND deleted_at IS NULL AND "
         + condition
@@ -36,13 +28,12 @@ def listing_id(env, condition):
             "docker",
             "exec",
             "lifeflow-integration-postgis-1",
-            "psql",
-            "-U",
-            env["POSTGRES_ADMIN_USER"],
-            "-d",
-            env["POSTGRES_DB"],
-            "-At",
+            "sh",
             "-c",
+            # The container's own admin user; the application database is a test option.
+            'psql -U "$POSTGRES_USER" -d "$1" -At -c "$2"',
+            "psql",
+            live.location_db_name(),
             query,
         ],
         check=True,
@@ -55,13 +46,13 @@ def listing_id(env, condition):
     return identifier
 
 
-def location(env):
+def location():
     return McpToolClient(
         McpEndpoint(
             service="location",
             allowed_tools=LOCATION_READ_TOOLS,
-            url=env["LOCATION_MCP_URL"],
-            token=env["LOCATION_MCP_AUTH_TOKEN"],
+            url=live.mcp_url("location"),
+            token=live.mcp_token("location"),
             timeout_s=20,
         )
     )
@@ -69,9 +60,8 @@ def location(env):
 
 @pytest.mark.asyncio
 async def test_source_quality_flag_survives_mcp_and_conversion():
-    env = environment()
-    identifier = listing_id(env, "attributes->'quality'->'flags' @> '[{\"code\": \"price_outlier_low\"}]'::jsonb")
-    row = await location(env).call("get_housing", {"listing_id": identifier})
+    identifier = listing_id("attributes->'quality'->'flags' @> '[{\"code\": \"price_outlier_low\"}]'::jsonb")
+    row = await location().call("get_housing", {"listing_id": identifier})
     assert "price_outlier_low" in row["quality_flags"]
     candidate, _ = to_candidate(row, [])
     assert candidate["price_unverified"] and candidate["id"] == identifier
@@ -79,8 +69,7 @@ async def test_source_quality_flag_survives_mcp_and_conversion():
 
 @pytest.mark.asyncio
 async def test_approximate_house_offers_pin_but_never_automatic_pickup():
-    env = environment()
-    identifier = listing_id(env, "attributes->>'location_accuracy' = 'approximate'")
+    identifier = listing_id("attributes->>'location_accuracy' = 'approximate'")
     req = AgentTaskRequest(
         request_id="pin-" + identifier,
         thread_id="live-pin-audit",
@@ -91,7 +80,7 @@ async def test_approximate_house_offers_pin_but_never_automatic_pickup():
         inputs={"mode": "quote", "selected_listing_id": identifier},
         budget=AgentBudget(max_llm_calls=0, max_provider_calls=2),
     )
-    agent = MovingLlmAgent("", "gpt-6-luna", moving=None, location=location(env))
+    agent = MovingLlmAgent("", "gpt-6-luna", moving=None, location=location())
     execution = MovingExecution(agent, req, Invocation(max_calls=0))
     assert await execution.endpoint("selected:property") is None
     question = execution.location_question("to_address", "selected:property")
@@ -102,9 +91,8 @@ async def test_approximate_house_offers_pin_but_never_automatic_pickup():
 
 @pytest.mark.asyncio
 async def test_strong_fuzzy_landmark_offers_explicit_choices_not_auto_coordinates():
-    env = environment()
     text = "trường đại học bách khoa thành phố Hồ Chí Minh"
-    client = location(env)
+    client = location()
     observed = (await client.call("resolve_location", {"text": text, "limit": 5}))["results"]
     allowed = {r["canonical_id"] for r in observed if r["match_score"] >= MIN_SUGGESTION_SCORE}
     assert allowed, "Live snapshot must contain a strong match for this regression"
@@ -128,7 +116,7 @@ async def test_strong_fuzzy_landmark_offers_explicit_choices_not_auto_coordinate
 
 @pytest.mark.asyncio
 async def test_weak_landmark_matches_are_not_presented_as_valid_map_choices():
-    agent = LocationSubagent(client=location(environment()), agent=AgentName.MAP)
+    agent = LocationSubagent(client=location(), agent=AgentName.MAP)
     req = AgentTaskRequest(
         request_id="live-weak-landmark",
         thread_id="live-landmark-audit",

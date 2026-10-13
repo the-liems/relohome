@@ -181,13 +181,23 @@ its installed entrypoint from a temporary directory. The package boundary tests
 add two checks; a Roommate test covers root-relative private state and public-path
 rejection from an unrelated working directory. Final head and image results are recorded in the PR.
 
-Final local validation: **863 passed, 96 skipped, 137 subtests**; all 13 exact
+Validation before the main sync (`d358786`): **863 passed, 96 skipped, 137 subtests**; all 13 exact
 wheel manifests/imports/dependency checks passed in independent environments; all six Python images
 (backend, web, Flight, Payment, Intake, Orchestrator) built and passed installed
 imports from `/tmp` plus default-CMD `/health` checks. Containers had no external
 network or persistent mounts and used only dummy startup credentials. CI-scope
 Ruff and `git diff --check` passed. The web image also rebuilt the browser bundle.
 Live-provider checks and staging rollout remain explicit separate gates.
+
+After merging main `da112b8`, the complete Python/gateway/demo suite passed
+**910 tests, 97 skipped, 136 subtests**, including the new PostgreSQL Roommate
+checks against a disposable database. The merge carries new Roommate modules into
+their canonical package, declares the PostgreSQL driver, and preserves root tooling
+for the relocated TypeScript workspaces and explicit local environment files.
+A regression verifies relative private backup paths from an unrelated working
+directory. Clean Node 24 installation, TypeScript builds and tests also passed.
+All six Python images rebuilt and passed installed imports from `/tmp` and
+default-CMD health checks after the merge.
 
 Rollback is a code revert and redeployment of the previous published image
 digest through the existing release process. Keep databases, keys, media,

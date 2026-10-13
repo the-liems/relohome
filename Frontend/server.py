@@ -6,6 +6,7 @@ The built Vite app is served here; development Vite proxies /web/api here.
 
 import asyncio
 import hashlib
+import hmac
 import io
 import json
 import os
@@ -47,17 +48,20 @@ def housing_media_dir() -> Path:
 
 
 HOUSING_MANAGEMENT_PATHS = (
-    re.compile(r"^landlord/(overview|properties|contact-requests|reviews)$"),
+    re.compile(r"^landlord/(overview|properties|contact-requests|reviews|listings|stats)$"),
+    re.compile(r"^landlord/locations/(search|resolve)$"),
     re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
     re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
     re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
-    re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide))?$"),
+    re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide|preview))?$"),
+    re.compile(r"^landlord/listings/[0-9a-f-]+/media/[0-9a-f-]+$"),
     re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
     re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events|reviews|review)$"),
     re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
     re.compile(r"^housing/contact-requests/me$"),
     re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
+    re.compile(r"^moderation/housing/listings(?:/[0-9a-f-]+)?$"),
     re.compile(r"^moderation/housing/reviews(?:/[0-9a-f-]+/decision)?$"),
     re.compile(r"^moderation/housing/flags/[0-9a-f-]+/review$"),
     re.compile(r"^host/profile$"),
@@ -76,7 +80,17 @@ def same_instant(left, right) -> bool:
 
 
 # Outcome codes the owner workspace acts on (host-mode-design §5); other upstream fields are never forwarded.
-HOUSING_MANAGEMENT_CODES = {"host_profile_required", "host_terms_required", "host_not_verified"}
+HOUSING_MANAGEMENT_CODES = {
+    "host_profile_required",
+    "host_terms_required",
+    "host_not_verified",
+    "listing_incomplete",
+    "revision_conflict",
+    "rejection_reason_required",
+    "location_confirmation_required",
+    "location_unavailable",
+    "location_rate_limited",
+}
 
 
 class Credentials(BaseModel):
@@ -157,7 +171,10 @@ def ticket_people(traveler: Traveler, companions: list[Companion]) -> dict:
 
 
 def public_user(row):
-    return {k: row[k] for k in ("id", "email", "name")} | {"preferences": json.loads(row["preferences"])}
+    result = {k: row[k] for k in ("id", "email", "name")} | {"preferences": json.loads(row["preferences"])}
+    if row.get("workspace") == "admin":
+        result["is_admin"] = True
+    return result
 
 
 def presentation(payload, state):
@@ -260,7 +277,7 @@ def create_app(database=None, transport=None):
             ),
         }
 
-    async def upstream(method, path, owner, body=None, platform=False):
+    async def upstream(method, path, owner, body=None, platform=False, extra_headers=None):
         base = (
             os.getenv("SIU_PLATFORM_API_URL", "http://127.0.0.1:4100/v1")
             if platform
@@ -273,7 +290,7 @@ def create_app(database=None, transport=None):
             response = await app.state.http.request(
                 method,
                 base.rstrip("/") + path,
-                headers={"Authorization": "Bearer " + token, "X-User-Id": owner},
+                headers={**(extra_headers or {}), "Authorization": "Bearer " + token, "X-User-Id": owner},
                 json=body,
             )
             data = response.json()
@@ -295,6 +312,29 @@ def create_app(database=None, transport=None):
                     {
                         "detail": detail if isinstance(detail, str) else "Chưa tính được tuyến đường.",
                         "code": data["code"],
+                        **(
+                            {
+                                "fields": {
+                                    k: v
+                                    for k, v in data["fields"].items()
+                                    if k
+                                    in {
+                                        "listing",
+                                        "title",
+                                        "description",
+                                        "address",
+                                        "location",
+                                        "rent_vnd",
+                                        "area_m2",
+                                        "property_type",
+                                        "images",
+                                    }
+                                    and isinstance(v, str)
+                                }
+                            }
+                            if isinstance(data.get("fields"), dict)
+                            else {}
+                        ),
                     },
                     status_code=response.status_code,
                 )
@@ -312,10 +352,19 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/session")
     async def session(request: Request):
-        return public_user(user(request))
+        row = user(request)
+        if row.get("workspace") == "admin":
+            capability = await upstream("GET", "/admin/session", row["id"], platform=True)
+            if isinstance(capability, JSONResponse):
+                return capability
+            if not isinstance(capability, dict) or capability.get("can_moderate_housing") is not True:
+                raise HTTPException(403, "Tài khoản này không còn quyền Admin.")
+        return public_user(row)
 
     @app.post("/web/api/auth/{action}")
-    async def auth(action: Literal["login", "register"], body: Credentials, request: Request, response: Response):
+    async def auth(
+        action: Literal["login", "register", "admin"], body: Credentials, request: Request, response: Response
+    ):
         peer = request.client.host if request.client else "unknown"
         now = time.time()
         attempts = [x for x in app.state.attempts.get(peer, []) if x > now - 300]
@@ -342,7 +391,13 @@ def create_app(database=None, transport=None):
         hashed = await asyncio.to_thread(password_hash, body.password, row["salt"] if row else "00" * 16)
         if not row or not secrets.compare_digest(row["password"], hashed):
             raise HTTPException(401, "Email hoặc mật khẩu chưa đúng.")
-        token = store.create_session(row["id"])
+        if action == "admin":
+            capability = await upstream("GET", "/admin/session", row["id"], platform=True)
+            if not isinstance(capability, dict) or capability.get("can_moderate_housing") is not True:
+                raise HTTPException(403, "Tài khoản này không có quyền Admin.")
+        workspace = "admin" if action == "admin" else "customer"
+        token = store.create_session(row["id"], workspace)
+        row["workspace"] = workspace
         response.set_cookie(
             COOKIE,
             token,
@@ -951,37 +1006,65 @@ def create_app(database=None, transport=None):
         target = media_dir / f"{identifier}.png"
         await asyncio.to_thread(target.write_bytes, clean)
         public_base = os.getenv("SIU_PUBLIC_BASE_URL", str(request.base_url)).rstrip("/")
+        url = f"{public_base}/web/media/housing/{identifier}.png"
+        digest = hashlib.sha256(clean).hexdigest()
+        signature = hmac.new(
+            os.getenv("AGENT_API_TOKEN", "").encode(), f"{listing_id}\n{url}\n{digest}".encode(), hashlib.sha256
+        ).hexdigest()
         try:
             result = await upstream(
                 "POST",
                 f"/landlord/listings/{listing_id}/media",
                 owner,
-                {"url": f"{public_base}/web/media/housing/{identifier}.png", "alt": (alt or "").strip()[:300] or None},
+                {"url": url, "content_sha256": digest, "alt": (alt or "").strip()[:300] or None},
                 platform=True,
+                extra_headers={"X-Housing-Media-Signature": signature},
             )
+            if isinstance(result, JSONResponse):
+                if result.status_code < 500:
+                    target.unlink(missing_ok=True)
+                return result
+            if result.get("url") != url:
+                target.unlink(missing_ok=True)
             return JSONResponse(result, status_code=201)
-        except Exception:
-            target.unlink(missing_ok=True)
+        except HTTPException as error:
+            # A response can be lost after the descriptor commits. Keep the file for
+            # digest-based retries; remove it only when the write definitively failed.
+            if error.status_code < 500:
+                target.unlink(missing_ok=True)
             raise
 
     @app.get("/web/media/housing/{filename}")
-    async def housing_media(filename: str):
+    async def housing_media(filename: str, request: Request):
         if not re.fullmatch(r"[0-9a-f]{40}\.png", filename):
             raise HTTPException(404)
         media_dir = housing_media_dir()
         target = (media_dir / filename).resolve()
         if not target.is_relative_to(media_dir.resolve()) or not target.is_file():
             raise HTTPException(404)
+        row = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+        access = await upstream(
+            "GET", f"/housing-media/{filename}/access", row["id"] if row else "__public_media__", platform=True
+        )
+        if isinstance(access, JSONResponse):
+            return access
+        if not isinstance(access, dict) or not isinstance(access.get("public"), bool):
+            raise HTTPException(502, "Chưa kiểm tra được quyền truy cập ảnh.")
         return FileResponse(
             target,
             media_type="image/png",
-            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"},
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
         )
 
     @app.api_route("/web/api/housing-management/{resource:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def housing_management(resource: str, request: Request):
         if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
             raise HTTPException(404)
+        row = user(request)
+        if resource.startswith("moderation/") and row.get("workspace") != "admin":
+            raise HTTPException(403, "Hãy đăng nhập khu Admin để kiểm duyệt.")
+        if request.method == "POST" and resource.startswith("landlord/listings/") and resource.endswith("/media"):
+            raise HTTPException(403, "Hãy dùng chức năng tải ảnh đã kiểm tra.")
         body = None if request.method == "GET" else await object_body(request)
         query = "?" + str(request.query_params) if request.method == "GET" and request.query_params else ""
         return await upstream(request.method, "/" + resource + query, user(request)["id"], body, platform=True)

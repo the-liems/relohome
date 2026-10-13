@@ -22,7 +22,8 @@ from relohome_agent.agents.subagents.services.domain_tools import DomainToolSess
 from relohome_agent.agents.subagents.services.location import LocationSubagent
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
 from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
-from test_domain_missions_live import live_environment
+
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual provider/checkpoint opt-in")
 
@@ -68,13 +69,12 @@ def test_real_projection_keeps_decision_facts_and_does_not_mutate_state(checkpoi
 
 def test_real_housing_batch_preserves_constraints_and_details(checkpoint):
     async def read():
-        env = live_environment()
         task = next(t for t in checkpoint["plan"].tasks if t.agent == AgentName.PROPERTY)
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )

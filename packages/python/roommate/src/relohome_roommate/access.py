@@ -32,10 +32,15 @@ class RoommateContext:
         self.vault = vault
         self.moderators = moderators
         self.profiles = SqlProfiles(storage.connection)
-        self.connections = SqlConnections(storage.connection)
+        self.connections = SqlConnections(storage.connection, self.clock)
         self.safety = SqlSafety(storage.connection)
 
     @contextmanager
     def transaction(self):
         with self.storage.transaction():
+            yield self
+
+    @contextmanager
+    def read_transaction(self):
+        with self.storage.transaction(readonly=True):
             yield self

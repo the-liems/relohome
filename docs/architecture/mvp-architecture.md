@@ -460,9 +460,9 @@ phải báo giá AhaMove.
 GeoJSON/boundary/POI/Housing source được import/restore vào DB trước. Runtime
 Location/Platform đọc **PostGIS**, không nạp hết `Maps VN/cities/boundaries`
 vào context LLM mỗi câu hỏi. Luồng import liên quan
-[import-places.ts](../../Maps%20VN/LifeFlow/platform-api/src/import-places.ts)
+[import-places.ts](../../apps/platform-api/src/import-places.ts)
 (`BOUNDARY_SOURCE_DIR`) và
-[import-admin-areas.ts](../../Maps%20VN/LifeFlow/platform-api/src/import-admin-areas.ts).
+[import-admin-areas.ts](../../apps/platform-api/src/import-admin-areas.ts).
 
 DB local hiện dùng `lifeflow_quangdung_20261005`, DB cũ giữ để rollback.
 Tên DB/port lấy từ cấu hình, không phải giá trị business hardcode trong agent.

@@ -1,13 +1,13 @@
 // Read-only parity and EXPLAIN audit. Run after build/migrate against a populated
 // local/staging snapshot. Never prints connection strings or changes DB settings.
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { HousingQueryService, createDatabasePool, getRuntimeConfig } from '../packages/housing-query/dist/index.js'
+import { HousingQueryService, createDatabasePool, getRuntimeConfig } from '../../../packages/housing-query/dist/index.js'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+const root = fileURLToPath(new URL('../../..', import.meta.url))
 const reference = process.argv[2] || '9b2b2db'
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(reference)) throw new Error('Invalid reference revision')
 const require = createRequire(resolve(root, 'package.json')), ts = require('typescript')
@@ -15,12 +15,13 @@ const cache = resolve(root, 'node_modules/.cache/housing-performance', String(Da
 mkdirSync(cache, { recursive: true })
 cpSync(resolve(root, 'packages/housing-query/dist'), cache, { recursive: true })
 writeFileSync(resolve(cache, 'package.json'), '{"type":"module"}')
-const original = execFileSync('git', ['show', `${reference}:Maps VN/LifeFlow/packages/housing-query/src/housing-service.ts`], { cwd: root, encoding: 'utf8' })
-writeFileSync(resolve(cache, 'housing-service.js'), ts.transpileModule(original, {
+const currentPath = 'packages/housing-query/src/housing-service.ts'
+const sourcePath = spawnSync('git', ['cat-file', '-e', `${reference}:${currentPath}`], { cwd: root }).status === 0 ? currentPath : `Maps VN/LifeFlow/${currentPath}`
+const original = execFileSync('git', ['show', `${reference}:${sourcePath}`], { cwd: root, encoding: 'utf8' })
+writeFileSync(resolve(cache, 'housing-service.js'), ts.transpileModule(original.replaceAll('@lifeflow/', '@relohome/'), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText)
 const { HousingQueryService: ReferenceService } = await import(pathToFileURL(resolve(cache, 'housing-service.js')))
-process.env.LIFEFLOW_ENV_FILE ||= resolve(root, '.env')
 const config = getRuntimeConfig(), pool = createDatabasePool(config.databaseUrl, 1), db = await pool.connect()
 const bbox = { west: 106.69, south: 10.77, east: 106.71, north: 10.79 }
 const city = { west: 106.34, south: 10.34, east: 107.05, north: 11.2 }

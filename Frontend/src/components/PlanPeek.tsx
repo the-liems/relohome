@@ -11,6 +11,7 @@ import { PendingPayment, Receipts } from "./Transactions";
 import { TabList } from "./TabList";
 import { CheckoutPanel } from "./Checkout";
 import { ViewingPanel } from "./Viewings";
+import { useViewingScheduler } from "../useViewingScheduler";
 
 function statusOf(item: Data) {
   if (item.historical_search)
@@ -45,6 +46,9 @@ export function PlanPeek({
   house,
   busy = false,
   onOpenService,
+  availableServices = [],
+  onPrepare,
+  onBatchBusyChange,
 }: {
   progress?: Data;
   threadId?: string;
@@ -57,6 +61,9 @@ export function PlanPeek({
   house?: Data;
   busy?: boolean;
   onOpenService?: (taskId: string, agent: string) => void;
+  availableServices?: string[];
+  onPrepare?: (service: string, item: Data) => void;
+  onBatchBusyChange?: (busy: boolean) => void;
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
@@ -65,6 +72,14 @@ export function PlanPeek({
   const panel = useRef<HTMLElement>(null);
   const panelId = useId();
   const state = thread?.state || {};
+  const [viewingFooter, setViewingFooter] = useState<HTMLDivElement | null>(null);
+  const scheduler = useViewingScheduler(
+    threadId || "",
+    state.viewing || {},
+    async () => { await onCheckoutChanged?.(); },
+    onBatchBusyChange,
+    busy,
+  );
   // Older conversations may only expose the task list; display its existing status without inventing results.
   const items: Data[] =
     progress?.items ||
@@ -90,6 +105,7 @@ export function PlanPeek({
   }, [params.toString()]);
 
   function close() {
+    if (scheduler.busy) return;
     setOpen(false);
     if (params.get("panel") === "plan") {
       const next = new URLSearchParams(params);
@@ -122,7 +138,7 @@ export function PlanPeek({
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("keydown", escape);
     };
-  }, [open]);
+  }, [open, scheduler.busy]);
 
   useEffect(() => {
     if (open) panel.current?.focus();
@@ -174,6 +190,7 @@ export function PlanPeek({
               <button
                 className="icon-button"
                 aria-label={uiText("Đóng kế hoạch nhanh")}
+                disabled={scheduler.busy}
                 onClick={close}
               >
                 <X size={17} />
@@ -193,6 +210,7 @@ export function PlanPeek({
                 <button
                   key={key}
                   role="tab"
+                  disabled={scheduler.busy}
                   id={panelId + key}
                   aria-selected={tab === key}
                   aria-controls={panelId + "content"}
@@ -209,7 +227,7 @@ export function PlanPeek({
               role="tabpanel"
               aria-labelledby={panelId + tab}
             >
-              {thread && <p className="plan-panel-title">{thread.title}</p>}
+              {thread && tab !== "viewing" && <p className="plan-panel-title">{thread.title}</p>}
               {tab === "progress" && (
                 <>
                   {items.length ? (
@@ -341,10 +359,14 @@ export function PlanPeek({
                   <ViewingPanel
                     threadId={threadId}
                     viewing={state.viewing}
+                    scheduler={scheduler}
+                    footerHost={viewingFooter}
                     onChanged={async () => {
                       await onCheckoutChanged?.();
                     }}
                     onMovingForm={onMovingForm}
+                    availableServices={availableServices}
+                    onPrepare={onPrepare ? (service, item) => { close(); onPrepare(service, item); } : undefined}
                   />
                 </div>
               )}
@@ -399,13 +421,17 @@ export function PlanPeek({
               )}
             </div>
             <footer className="plan-peek-footer">
-              <span>
-                {uiText("Kế hoạch và chat dùng chung lựa chọn của bạn.")}
-              </span>
-              <button className="text-button" onClick={close}>
-                {uiText("Về chat ")}
-                <ChevronRight size={14} />
-              </button>
+              {tab === "viewing" ? (
+                <div ref={setViewingFooter} className="bulk-footer-mount" />
+              ) : (
+                <>
+                  <span>{uiText("Kế hoạch và chat dùng chung lựa chọn của bạn.")}</span>
+                  <button className="text-button" onClick={close}>
+                    {uiText("Về chat ")}
+                    <ChevronRight size={14} />
+                  </button>
+                </>
+              )}
             </footer>
           </section>,
           document.body,

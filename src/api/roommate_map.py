@@ -8,7 +8,6 @@ from relohome_agent.api.roommate_access import Context, TrustedActor, perform
 from relohome_roommate.api_models import SearchInput
 from relohome_roommate.models import RoommateModel
 from relohome_roommate.policy import ProfileState
-from relohome_roommate.ports import Actor
 from relohome_roommate.services.access import AccessService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
@@ -34,15 +33,14 @@ def demo_search(body: SearchInput, actor: TrustedActor, ctx: Context, request: R
 def map_rooms(body: MapRoomsInput, actor: TrustedActor, ctx: Context, request: Request):
     ids, now = set(body.listing_ids), ctx.clock.now()
     items = []
-    with ctx.transaction():
+    with ctx.read_transaction():
         # Access opt-in is never granted by browsing the demo. Without it, only demo is visible.
         if AccessService(ctx).status(actor)["eligible"]:
             excluded = ctx.safety.discovery_exclusions(actor.id)
             records = [
                 p
-                for p in ctx.profiles.all()
+                for p in ctx.profiles.active_rooms(ids, now)
                 if (p.owner_id == actor.id or p.owner_id not in excluded)
-                and AccessService(ctx).status(Actor(id=p.owner_id))["eligible"]
                 and p.state is ProfileState.ACTIVE
                 and p.expires_at
                 and now < p.expires_at

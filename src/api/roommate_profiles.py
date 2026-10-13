@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from relohome_agent.api.roommate_access import Context, TrustedActor, perform
 from relohome_agent.api.web_actions import explored_listing
 from relohome_roommate.api_models import BookmarkInput, OwnProfileView, ProfileAction, ProfileUpdate
+from relohome_roommate.location_catalog import listing_city
 from relohome_roommate.models import RoommateProfile, RoommateSearchCriteria
 from relohome_roommate.services.access import AccessService
 from relohome_roommate.services.discovery import DiscoveryService
@@ -17,8 +18,12 @@ async def validate_room(content: RoommateProfile, request: Request):
     service = getattr(request.app.state, "agent_service", None)
     if service is None:
         raise HTTPException(503, {"code": "service_unavailable"})
-    if await explored_listing(service, content.room.listing_id) is None:
+    listing = await explored_listing(service, content.room.listing_id)
+    if listing is None:
         raise HTTPException(422, {"code": "room_listing_unavailable"})
+    known_city = listing_city(listing.get("city"))
+    if content.facts.city and known_city and known_city != content.facts.city:
+        raise HTTPException(422, {"code": "room_city_mismatch"})
 
 
 def own_view(record):

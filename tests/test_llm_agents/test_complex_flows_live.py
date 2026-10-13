@@ -4,21 +4,19 @@ import json
 import os
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def execute(message, **extra):
-    env = dotenv_values(ROOT / "data/integration.env")
     with httpx.Client(
-        base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1"),
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "complex_" + uuid.uuid4().hex},
+        base_url=live.api_url(),
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": "complex_" + uuid.uuid4().hex},
         timeout=300,
     ) as client:
         response = client.post("/chat", json={"message": message, **extra})
@@ -75,9 +73,7 @@ def test_housing_flight_parallel_then_map():
 
 
 def test_moving_flight_route_independent():
-    env = dotenv_values(ROOT / ".env")
-    assert env.get("MOVING_LIVE_QUOTE_INPUTS"), "Operator-approved real route required"
-    route = json.loads(env["MOVING_LIVE_QUOTE_INPUTS"])
+    route = json.loads(live.env_test("MOVING_LIVE_QUOTE_INPUTS"))
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},
         "destination": {"address": route["to_address"], **route["destination_coordinate"], "confirmed": True},

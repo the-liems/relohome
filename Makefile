@@ -8,10 +8,10 @@ run:
 	npm run dev:agent
 
 ui:
-	streamlit run src/ui/flight_demo.py
+	npm run dev:flight-demo
 
 ui-payment:
-	streamlit run src/ui/payment_demo.py --server.port 8502
+	npm run dev:payment-demo
 
 mcp-build:
 	@for s in $(MCP_SERVERS); do \
@@ -20,10 +20,10 @@ mcp-build:
 	done
 
 mcp-up:
-	docker compose up -d --build $(addsuffix -mcp,$(MCP_SERVERS))
+	docker compose --env-file .env.local up -d --build $(addsuffix -mcp,$(MCP_SERVERS))
 
 mcp-down:
-	docker compose down
+	docker compose --env-file .env.local down
 
 test:
 	npm test
@@ -107,3 +107,10 @@ ui-agent-chat:
 .PHONY: test-packages
 test-packages:
 	npm run test:packages
+
+.PHONY: agents-up agents-down
+agents-up:
+	docker compose --env-file .env.local -f compose.agents.yaml up -d --build
+
+agents-down:
+	docker compose --env-file .env.local -f compose.agents.yaml down

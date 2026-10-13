@@ -1,0 +1,37 @@
+{
+  "backup_sha256": "66eba32af64e4b46daa8a03e47392d7de10d996c174b861e8007d71f491924e2",
+  "before": {
+    "catalog.places": "190279:26cf79b02af47f5125cec0f592f08682",
+    "housing.properties": "38235:5710e1b5be2a0b3104b0f29bb70e8015",
+    "housing.units": "38245:e59a72f5b33464b6525c7f86a790a515",
+    "housing.listings": "38245:27b7c7b0fa17ae92f2efcc724e2f9ef7",
+    "housing.offers": "38245:06a59e9c96b7a1d14e69507d452bf9ce",
+    "housing.listing_media": "247527:53a5f35cdf965f7e56b8d8015fc405c2",
+    "housing.map_points": "38244:73664296f3e9e16e808efdc09f7c2459",
+    "managed_states": "[{\"publication_status\":\"draft\",\"count\":1}, \n {\"publication_status\":\"published\",\"count\":22}]",
+    "public_managed": "22"
+  },
+  "after": {
+    "catalog.places": "190279:26cf79b02af47f5125cec0f592f08682",
+    "housing.properties": "38235:5710e1b5be2a0b3104b0f29bb70e8015",
+    "housing.units": "38245:e59a72f5b33464b6525c7f86a790a515",
+    "housing.listings": "38245:27b7c7b0fa17ae92f2efcc724e2f9ef7",
+    "housing.offers": "38245:06a59e9c96b7a1d14e69507d452bf9ce",
+    "housing.listing_media": "247527:53a5f35cdf965f7e56b8d8015fc405c2",
+    "housing.map_points": "38244:73664296f3e9e16e808efdc09f7c2459",
+    "managed_states": "[{\"publication_status\":\"draft\",\"count\":1}, \n {\"publication_status\":\"published\",\"count\":22}]",
+    "public_managed": "22"
+  },
+  "equal_tables": {
+    "catalog.places": true,
+    "housing.properties": true,
+    "housing.units": true,
+    "housing.listings": true,
+    "housing.offers": true,
+    "housing.listing_media": true,
+    "housing.map_points": true,
+    "managed_states": true,
+    "public_managed": true
+  },
+  "migration_count": 24
+}

@@ -46,7 +46,7 @@ jobs:
             while IFS= read -r path; do
               case "$path" in
                 *.md) continue ;;
-                'package.json'|'package-lock.json'|'scripts/docker-npm.mjs'|'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
+                'package.json'|'package-lock.json'|'scripts/docker-npm.mjs'|'tsconfig.base.json'|'packages/contracts/'*|'packages/mcp-core/'*|'packages/moving-service/'*|'apps/moving-api/'*|'apps/moving-mcp/'*|'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
               esac
             done < <(git diff --name-only "$BASE_SHA" HEAD)
             echo "validate=$validate" >> "$GITHUB_OUTPUT"

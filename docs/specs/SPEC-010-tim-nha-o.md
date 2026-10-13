@@ -12,8 +12,8 @@ hay đưa ra lời khuyên nên thuê căn nào. Kho đã có pipeline nhập ti
 ## Giao diện và hành vi
 
 - API: `POST /v1/housing/search`, `GET /v1/housing/:listingId`.
-- Schema chuẩn: [`housing.ts`](../../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts);
-  xử lý: [`housing-service.ts`](../../Maps%20VN/LifeFlow/packages/housing-query/src/housing-service.ts).
+- Schema chuẩn: [`housing.ts`](../../packages/contracts/src/housing.ts);
+  xử lý: [`housing-service.ts`](../../packages/housing-query/src/housing-service.ts).
 - Điều kiện gần tiện ích được kiểm tra bằng PostGIS. Với commute, PostGIS
   lấy ứng viên trước, OSRM kiểm tra distance/duration theo profile sau;
   điều kiện commute không được thay bằng khoảng cách Euclid.
@@ -44,7 +44,7 @@ biến một điều kiện commute thành khớp giả. Nhập tin qua pipeline
 - **SPEC-010/AC-04:** Cursor cho phép đọc tiếp khi còn ứng viên dù trang
   hiện tại rỗng do lọc cứng.
 
-Kiểm chứng: [test housing](../../Maps%20VN/LifeFlow/packages/housing-query/tests/housing-query.integration.test.ts),
-[test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts).
+Kiểm chứng: [test housing](../../packages/housing-query/tests/housing-query.integration.test.ts),
+[test API](../../apps/platform-api/tests/api.integration.test.ts).
 Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md),
 [ADR-010](../adr/ADR-010-osrm-routing.md).

@@ -68,7 +68,7 @@ test("DEMO is browseable without granting real consent; map links are labeled an
     "../.venv/Scripts/python.exe",
     [
       "-c",
-      "from dotenv import dotenv_values; print(dotenv_values('../.env')['ROOMMATE_DEMO_DATASET'])",
+      "from dotenv import dotenv_values; print(dotenv_values('../.env.local')['ROOMMATE_DEMO_DATASET'])",
     ],
     { encoding: "utf8" },
   ).trim();

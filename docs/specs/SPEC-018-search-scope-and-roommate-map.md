@@ -70,8 +70,8 @@ không khẳng định mọi nhà chung vị trí đều cần ghép trọ.
 
 Nguồn schema chuẩn, không duy trì một bản DTO độc lập trong Markdown:
 
-- `Maps VN/LifeFlow/packages/contracts/src/location.ts`: `include_geometry`, `AreaGeometrySchema`.
-- `Maps VN/LifeFlow/packages/contracts/src/housing.ts`: bbox/center/radius, filter map/search.
+- `packages/contracts/src/location.ts`: `include_geometry`, `AreaGeometrySchema`.
+- `packages/contracts/src/housing.ts`: bbox/center/radius, filter map/search.
 - `src/roommate/models.py`: `RoomPublication`, `RoommateProfile`.
 - `src/api/roommate_map.py`: `/roommate/map/rooms`, `/roommate/demo/search`.
 - `src/roommate/demo.py`: dataset/schema và phân tách DEMO.

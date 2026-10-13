@@ -74,7 +74,7 @@ class ConsentService:
         return grant
 
     def read(self, actor: Actor, identifier: str) -> dict:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             grant = self._authorized_grant(actor, identifier)
             other = grant.recipient_id if actor.id == grant.sender_id else grant.sender_id
             reference = grant.recipient_contact if actor.id == grant.sender_id else grant.sender_contact

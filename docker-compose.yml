@@ -6,15 +6,17 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - .env.local
     environment:
       # Agent gọi flight MCP server trong container qua HTTP thay vì tự mở process stdio
+      - ROOMMATE_STATE_DIR=/app/private-roommate
       - FLIGHT_MCP_URL=http://flights-mcp:8765/mcp
       - FLIGHT_MCP_AUTH_TOKEN=${FLIGHT_MCP_AUTH_TOKEN:?}
       - PAYMENT_MCP_URL=http://payments-mcp:8766/mcp
       - PAYMENT_MCP_AUTH_TOKEN=${PAYMENT_MCP_AUTH_TOKEN:?}
     volumes:
       - ./data:/app/data
+      - roommate-private:/app/private-roommate
     depends_on:
       flights-mcp:
         condition: service_healthy
@@ -36,9 +38,9 @@ services:
     ports:
       - "8765:8765"
     env_file:
-      - .env
+      - .env.local
     environment:
-      # Ghi đè giá trị trong .env (vốn dành cho chạy local)
+      # Ghi đè giá trị trong .env.local (vốn dành cho chạy local)
       - MCP_AUTH_TOKEN=${FLIGHT_MCP_AUTH_TOKEN:?}
       - FLIGHT_MCP_HOST=0.0.0.0
       - FLIGHT_MCP_PORT=8765
@@ -55,7 +57,7 @@ services:
     ports:
       - "8766:8766"
     env_file:
-      - .env
+      - .env.local
     environment:
       - MCP_AUTH_TOKEN=${PAYMENT_MCP_AUTH_TOKEN:?}
       - PAYMENT_MCP_HOST=0.0.0.0
@@ -66,5 +68,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  roommate-private:
   flights-data:
   payments-data:

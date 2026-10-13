@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $rootPath = $PSScriptRoot
+$repoPath = Split-Path -Parent (Split-Path -Parent $rootPath)
 $mapPath = Join-Path $rootPath 'map-app'
 $runtimePath = Join-Path $rootPath '.runtime'
 $apiPidPath = Join-Path $runtimePath 'platform-api.pid'
@@ -40,8 +41,8 @@ function Test-PlatformApi {
 if (-not (Test-Path -LiteralPath $mapPath)) {
     throw "LifeFlow map project not found: $mapPath"
 }
-if (-not (Test-Path -LiteralPath (Join-Path $rootPath '.env'))) {
-    throw "Missing $rootPath\.env. Create it from .env.example first."
+if (-not (Test-Path -LiteralPath (Join-Path $repoPath '.env.local'))) {
+    throw "Missing $repoPath\.env.local. Run npm run dev:init at the repository root."
 }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker command not found. Start Docker Desktop and check WSL integration.'
@@ -49,7 +50,6 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
     throw 'Node.js and npm are required to start LifeFlow.'
 }
-$repoPath = Split-Path -Parent (Split-Path -Parent $rootPath)
 if (-not (Test-Path -LiteralPath (Join-Path $repoPath 'node_modules'))) {
     throw "Dependencies are missing. Run npm ci in $repoPath"
 }
@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host '[1/5] Starting isolated LifeFlow PostGIS...' -ForegroundColor Cyan
 Set-Location -LiteralPath $rootPath
-Invoke-Checked docker compose --env-file .env -f infra/compose.yaml up -d --wait postgis
+Invoke-Checked docker compose --env-file ../../.env.local -f infra/compose.yaml up -d --wait postgis
 
 Write-Host '[2/5] Starting the nine OSRM city/profile containers...' -ForegroundColor Cyan
 foreach ($container in $containers) {
@@ -80,8 +80,8 @@ Write-Host '[4/5] Starting Platform API at http://127.0.0.1:4100/ ...' -Foregrou
 New-Item -ItemType Directory -Path $runtimePath -Force | Out-Null
 if (-not (Test-PlatformApi)) {
     $nodePath = (Get-Command node).Source
-    $serverPath = Join-Path $rootPath 'platform-api\dist\server.js'
-    $quotedServerPath = '"' + $serverPath + '"'
+    $serverPath = Join-Path $repoPath 'apps\platform-api\dist\server.js'
+    $quotedServerPath = '--env-file="' + (Join-Path $repoPath '.env.local') + '" "' + $serverPath + '"'
     $apiProcess = Start-Process -FilePath $nodePath -ArgumentList $quotedServerPath -WorkingDirectory $rootPath -WindowStyle Hidden -RedirectStandardOutput $apiOutLog -RedirectStandardError $apiErrorLog -PassThru
     Set-Content -LiteralPath $apiPidPath -Value $apiProcess.Id -Encoding ascii
 

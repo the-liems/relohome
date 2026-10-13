@@ -223,7 +223,7 @@ Map/AhaMove/Flight có workspace theo kết quả và tương tác qua chat. Tro
 
 ### Location / Housing / Map — 9 tool
 
-Nguồn: `Maps VN/LifeFlow/mcp-server/src/tools/{location,housing,place,routing}-tools.ts`; schema trong `packages/contracts/src/`.
+Nguồn: `apps/location-mcp/src/tools/{location,housing,place,routing}-tools.ts`; schema trong `packages/contracts/src/`.
 
 | Tool | Hợp đồng cần giữ | Đường tới frontend / mức đáp ứng |
 | --- | --- | --- |
@@ -241,7 +241,7 @@ API `POST /v1/housing/map` phục vụ khám phá viewport là REST bổ sung, k
 
 ### AhaMove / Moving — 13 tool
 
-Nguồn: `Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts`, `packages/contracts/src/moving.ts`, `src/agents/subagents/services/moving_llm.py` và transaction adapter.
+Nguồn: `apps/moving-mcp/src/create-server.ts`, `packages/contracts/src/moving.ts`, `src/agents/subagents/services/moving_llm.py` và transaction adapter.
 
 | Tool | Hợp đồng cần giữ | Đường tới frontend / mức đáp ứng |
 | --- | --- | --- |

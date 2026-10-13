@@ -56,8 +56,8 @@ Housing gần địa danh → chọn → Map exploration, và Map || Flight th�
 `test_payment_agent_live.py`: tra giao dịch sandbox **đã tồn tại** và chặn user khác;
 skip nếu chưa có giao dịch thật, không tự tạo dữ liệu thay thế.
 
-Test live opt-in bằng `RUN_LIVE_INTEGRATION=1` và
-`RUN_LIVE_API_URL=http://127.0.0.1:18000/api/v1`.
+Test live opt-in bằng `RUN_LIVE_INTEGRATION=1`; API đang chạy truyền bằng
+`--live-api-url http://127.0.0.1:18000/api/v1 --live-api-token <token>`.
 Các test phụ thuộc API/LLM/MCP thật; không coi skip hoặc lỗi mạng là pass.
 
 `scripts/measure-read-latency.py`: `--live-llm` opt-in chạy đúng năm lượt đọc thật;

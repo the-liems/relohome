@@ -59,7 +59,7 @@ The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection,
 
 ## AI usage logging
 
-The repository includes hooks for AI usage logging. Each contributor can copy `.env.example` to `.env`, set their own `AI_LOG_API_KEY` from the [Phoenix dashboard](https://phoenix.note.transformerlabs.ai/api-keys), and run `bash scripts/setup_hooks.sh` (or `scripts/setup_hooks.ps1` in PowerShell). See [SECURITY.md](SECURITY.md) for credential handling.
+The repository includes hooks for AI usage logging. Each contributor can run `npm run dev:init` to create `.env.local`, set their own `AI_LOG_API_KEY` from the [Phoenix dashboard](https://phoenix.note.transformerlabs.ai/api-keys), and run `bash scripts/setup_hooks.sh` (or `scripts/setup_hooks.ps1` in PowerShell). See [SECURITY.md](SECURITY.md) for credential handling.
 
 | AI tool | Hook configuration |
 |---|---|

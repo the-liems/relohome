@@ -102,9 +102,9 @@ Vì vậy, dữ liệu nhà thuê mới phải đi vào `housing.*`, không đư
 Tham khảo source of truth:
 
 - [Database schema](../Maps%20VN/LifeFlow/database/migrations/002_core_tables.sql)
-- [Housing contract](../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts)
+- [Housing contract](../../../packages/contracts/src/housing.ts)
 - [Housing implementation](HOUSING-QUERY-IMPLEMENTATION.md)
-- [POI v2 importer](../Maps%20VN/LifeFlow/platform-api/src/import-pois-v2.ts)
+- [POI v2 importer](../../../apps/platform-api/src/import-pois-v2.ts)
 
 ## 4. Phạm vi dữ liệu cần crawl
 

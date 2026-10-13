@@ -8,16 +8,16 @@ from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
-BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
+BASE_URL = live.api_url()
 
 
 def test_existing_owned_payment_and_foreign_owner():
-    env = dotenv_values(ROOT / "data/integration.env")
-    path = (ROOT / env.get("AGENT_STATE_DIR", "data/agent-runtime") / "runtime.sqlite3").resolve()
+    path = (live.agent_state_dir() / "runtime.sqlite3").resolve()
     if not path.exists():
         pytest.skip("No real runtime database available")
     with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
@@ -27,7 +27,7 @@ def test_existing_owned_payment_and_foreign_owner():
     payment_id, record = row
     owner = json.loads(record)["owner"]
     with httpx.Client(
-        base_url=BASE_URL, timeout=240, headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"]}
+        base_url=BASE_URL, timeout=240, headers={"Authorization": "Bearer " + live.api_token()}
     ) as client:
         status = client.get("/status", headers={"X-User-Id": owner}).json()
         assert status["domain_agents"]["payment"]["uses_llm"]

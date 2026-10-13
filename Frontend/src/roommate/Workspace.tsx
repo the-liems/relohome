@@ -13,6 +13,7 @@ import {
   Heart,
   Mail,
   UserRound,
+  Settings,
 } from "lucide-react";
 import { useUiPreferences } from "../uiPreferences";
 import { ContentSkeleton, EmptyState } from "../components/UiStates";
@@ -27,6 +28,11 @@ import { ConnectionDetail } from "./ConnectionDetail";
 import type { Access, Availability, Criteria } from "./types";
 import { rt } from "./text";
 import { DemoDiscovery } from "./DemoDiscovery";
+import { RoommateSettings } from "./Settings";
+import { NotificationsMenu } from "./NotificationsMenu";
+import { ModerationWorkspace } from "./Moderation";
+import { RoommateFeatures } from "./Features";
+import { RecoveryPanel } from "./RecoveryPanel";
 import "./roommate.css";
 export { RoommateGuest } from "./RoommateGuest";
 export function RoommateWorkspace() {
@@ -37,7 +43,9 @@ export function RoommateWorkspace() {
     );
   const [params] = useSearchParams(),
     location = useLocation();
-  const tab = ["saved", "inbox", "profile"].includes(params.get("tab") || "")
+  const tab = ["saved", "inbox", "profile", "settings"].includes(
+    params.get("tab") || "",
+  )
     ? params.get("tab")!
     : "discover";
   const tabs = [
@@ -45,127 +53,186 @@ export function RoommateWorkspace() {
     ["saved", rt("Đã lưu", "Saved"), Heart],
     ["inbox", rt("Yêu cầu kết nối", "Requests"), Mail],
     ["profile", rt("Hồ sơ của tôi", "My profile"), UserRound],
+    ["settings", rt("Cài đặt", "Settings"), Settings],
   ] as const;
   return (
-    <div className="rm-workspace">
-      <header className="rm-page-heading">
-        <div>
-          <span className="rm-kicker">ROOMMATE DISCOVERY</span>
-          <h1>{rt("Tìm người ở cùng", "Find a roommate")}</h1>
-          <p>
-            {rt(
-              "Cùng nhu cầu, hiểu khác biệt, tự quyết định.",
-              "Shared needs. Clear differences. Your decision.",
-            )}
-          </p>
-        </div>
-        <Link className="secondary" to="/ai">
-          <ArrowLeft size={16} aria-hidden="true" />
-          {rt("Về chat", "Back to chat")}
-        </Link>
-      </header>
-      <ErrorNotice
-        error={availability.error || access.error}
-        retry={() => {
-          availability.reload();
-          access.reload();
-        }}
-      />
-      {availability.value?.demo_enabled &&
-        location.pathname === "/roommate" && (
-          <section
-            className="rm-source-switch"
-            aria-label={rt("Nguồn hồ sơ", "Profile source")}
-          >
-            <Link
-              className={params.get("tab") === "demo" ? "secondary" : "primary"}
-              to="/roommate"
-              aria-current={params.get("tab") !== "demo" ? "page" : undefined}
-            >
-              {rt("Hồ sơ thật", "Real profiles")}
-            </Link>
-            <Link
-              className={params.get("tab") === "demo" ? "primary" : "secondary"}
-              to="/roommate?tab=demo"
-              aria-current={params.get("tab") === "demo" ? "page" : undefined}
-            >
-              {rt("Trải nghiệm hồ sơ DEMO", "Explore DEMO profiles")}
-            </Link>
-            <p className="rm-hint">
+    <RoommateFeatures.Provider value={availability.value?.features || []}>
+      <div className="rm-workspace">
+        <header className="rm-page-heading">
+          <div>
+            <span className="rm-kicker">
+              {rt("Ở GHÉP · RELOHOME", "ROOMMATES · RELOHOME")}
+            </span>
+            <h1>{rt("Tìm người ở cùng", "Find a roommate")}</h1>
+            <p>
               {rt(
-                "DEMO là hồ sơ giả tách riêng, không có liên hệ hoặc kết nối thật.",
-                "DEMO profiles are separate synthetic examples, with no real contacts or connections.",
+                "Cùng nhu cầu, hiểu khác biệt, tự quyết định.",
+                "Shared needs. Clear differences. Your decision.",
               )}
             </p>
-          </section>
-        )}
-      {availability.value?.demo_enabled && params.get("tab") === "demo" ? (
-        <DemoDiscovery />
-      ) : availability.loading || access.loading ? (
-        <ContentSkeleton
-          label={rt("Đang mở dịch vụ…", "Opening the service…")}
+          </div>
+          <div className="rm-actions">
+            {access.value?.eligible &&
+              availability.value?.features?.includes("notifications") && (
+                <NotificationsMenu />
+              )}
+            <Link className="secondary" to="/ai">
+              <ArrowLeft size={16} aria-hidden="true" />
+              {rt("Về chat", "Back to chat")}
+            </Link>
+          </div>
+        </header>
+        <ErrorNotice
+          error={availability.error || access.error}
+          retry={() => {
+            availability.reload();
+            access.reload();
+          }}
         />
-      ) : availability.value && !availability.value.enabled ? (
-        <EmptyState
-          icon={<UsersRound />}
-          title={rt("Roommate chưa được bật", "Roommate is not enabled yet")}
-          text={rt(
-            "Dịch vụ hiện chưa nhận hồ sơ. Bạn vẫn có thể dùng các dịch vụ khác của ReloHome.",
-            "This service is not accepting profiles yet. Other ReloHome services remain available.",
-          )}
-        />
-      ) : access.value && !access.value.eligible ? (
-        <AccessGate access={access.value} done={access.reload} />
-      ) : (
-        access.value?.eligible && (
-          <>
-            <nav
-              className="rm-navigation"
-              aria-label={rt("Điều hướng Roommate", "Roommate navigation")}
+        {availability.value?.demo_enabled &&
+          location.pathname === "/roommate" && (
+            <section
+              className="rm-source-switch"
+              aria-label={rt("Nguồn hồ sơ", "Profile source")}
             >
-              {tabs.map(([key, label, Icon]) => (
-                <Link
-                  key={key}
-                  to={key === "discover" ? "/roommate" : "/roommate?tab=" + key}
-                  aria-current={
-                    location.pathname === "/roommate" && tab === key
-                      ? "page"
-                      : undefined
-                  }
-                >
-                  <Icon size={17} aria-hidden="true" />
-                  {label}
-                </Link>
-              ))}
-            </nav>
-            <Routes>
-              <Route path="profiles/:profileId" element={<CandidateDetail />} />
-              <Route
-                path="requests/:requestId"
-                element={<ConnectionDetail />}
-              />
-              <Route
-                path="*"
-                element={
-                  tab === "saved" ? (
-                    <SavedProfiles />
-                  ) : tab === "inbox" ? (
-                    <Inbox />
-                  ) : tab === "profile" ? (
-                    <MyProfile />
-                  ) : (
-                    <Discovery
-                      demoAvailable={Boolean(availability.value?.demo_enabled)}
-                      initialOffset={location.state?.offset || 0}
-                      initial={location.state?.criteria as Criteria | undefined}
-                    />
-                  )
+              <Link
+                className={
+                  params.get("tab") === "demo" ? "secondary" : "primary"
                 }
-              />
-            </Routes>
-          </>
-        )
-      )}
-    </div>
+                to="/roommate"
+                aria-current={params.get("tab") !== "demo" ? "page" : undefined}
+              >
+                {rt("Hồ sơ thật", "Real profiles")}
+              </Link>
+              <Link
+                className={
+                  params.get("tab") === "demo" ? "primary" : "secondary"
+                }
+                to="/roommate?tab=demo"
+                aria-current={params.get("tab") === "demo" ? "page" : undefined}
+              >
+                {rt("Trải nghiệm hồ sơ DEMO", "Explore DEMO profiles")}
+              </Link>
+              <p className="rm-hint">
+                {rt(
+                  "DEMO là hồ sơ giả tách riêng, không có liên hệ hoặc kết nối thật.",
+                  "DEMO profiles are separate synthetic examples, with no real contacts or connections.",
+                )}
+              </p>
+            </section>
+          )}
+        {availability.value?.demo_enabled && params.get("tab") === "demo" ? (
+          <DemoDiscovery />
+        ) : availability.loading || access.loading ? (
+          <ContentSkeleton
+            label={rt("Đang mở dịch vụ…", "Opening the service…")}
+          />
+        ) : availability.value && !availability.value.enabled ? (
+          <EmptyState
+            icon={<UsersRound />}
+            title={rt("Roommate chưa được bật", "Roommate is not enabled yet")}
+            text={rt(
+              "Dịch vụ hiện chưa nhận hồ sơ. Bạn vẫn có thể dùng các dịch vụ khác của ReloHome.",
+              "This service is not accepting profiles yet. Other ReloHome services remain available.",
+            )}
+          />
+        ) : access.value && !access.value.eligible ? (
+          <AccessGate access={access.value} done={access.reload} />
+        ) : (
+          access.value?.eligible && (
+            <>
+              {availability.value?.features?.includes("operation_drafts") && (
+                <RecoveryPanel />
+              )}
+              <nav
+                className="rm-navigation"
+                aria-label={rt("Điều hướng Roommate", "Roommate navigation")}
+              >
+                {tabs.map(([key, label, Icon]) => (
+                  <Link
+                    key={key}
+                    to={
+                      key === "discover" ? "/roommate" : "/roommate?tab=" + key
+                    }
+                    aria-current={
+                      location.pathname === "/roommate" && tab === key
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    <Icon size={17} aria-hidden="true" />
+                    {label}
+                  </Link>
+                ))}
+                {access.value.moderator && (
+                  <Link
+                    to="/roommate/moderation"
+                    aria-current={
+                      location.pathname === "/roommate/moderation"
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    {rt("Quản lý cộng đồng", "Community moderation")}
+                  </Link>
+                )}
+              </nav>
+              <Routes>
+                <Route
+                  path="moderation"
+                  element={
+                    <ModerationWorkspace
+                      allowed={Boolean(access.value.moderator)}
+                    />
+                  }
+                />
+                <Route
+                  path="profiles/:profileId"
+                  element={<CandidateDetail />}
+                />
+                <Route
+                  path="requests/:requestId"
+                  element={
+                    <ConnectionDetail
+                      notificationsEnabled={availability.value?.features?.includes(
+                        "notifications",
+                      )}
+                    />
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    tab === "saved" ? (
+                      <SavedProfiles />
+                    ) : tab === "inbox" ? (
+                      <Inbox />
+                    ) : tab === "profile" ? (
+                      <MyProfile
+                        mediaEnabled={availability.value?.features?.includes(
+                          "media",
+                        )}
+                      />
+                    ) : tab === "settings" ? (
+                      <RoommateSettings />
+                    ) : (
+                      <Discovery
+                        demoAvailable={Boolean(
+                          availability.value?.demo_enabled,
+                        )}
+                        initialOffset={location.state?.offset || 0}
+                        initial={
+                          location.state?.criteria as Criteria | undefined
+                        }
+                      />
+                    )
+                  }
+                />
+              </Routes>
+            </>
+          )
+        )}
+      </div>
+    </RoommateFeatures.Provider>
   );
 }

@@ -16,6 +16,7 @@ env/
 # Environment variables
 .env
 .env.local
+.env.test
 .env.production
 
 # IDE
@@ -111,3 +112,7 @@ Maps\ VN/Routing/**
 # Python build artifacts
 **/build/
 **/*.egg-info/
+
+# Canonical TypeScript workspaces (#111)
+apps/*/dist/
+packages/*/dist/

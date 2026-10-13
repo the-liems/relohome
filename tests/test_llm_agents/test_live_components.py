@@ -10,7 +10,6 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.intake import IntakeInput, resolve_missing
@@ -21,7 +20,8 @@ from relohome_agent.agents.planner_llm import LlmPlanner
 from relohome_agent.agents.planning import PlannerInput, validate_plan
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 
-load_dotenv()
+from tests import live
+
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real OpenAI opt-in")]
 
 
@@ -48,10 +48,9 @@ def ready(raw):
 
 @pytest_asyncio.fixture
 async def components():
-    key = os.environ.get("OPENAI_API_KEY")
-    assert key, "Configure real OPENAI_API_KEY; never substitute a fake model."
-    light = StructuredLLM(key, os.getenv("AGENT_INTAKE_MODEL", "gpt-4.1-mini"))
-    heavy = StructuredLLM(key, os.getenv("AGENT_PLANNER_MODEL", "gpt-4.1-mini"), tier="heavy")
+    key = live.env_test("OPENAI_API_KEY")
+    light = StructuredLLM(key, live.env_test("AGENT_INTAKE_MODEL", required=False) or "gpt-4.1-mini")
+    heavy = StructuredLLM(key, live.env_test("AGENT_PLANNER_MODEL", required=False) or "gpt-4.1-mini", tier="heavy")
     try:
         yield LlmIntake(light), LlmPlanner(heavy, BASELINE_CAPABILITIES)
     finally:

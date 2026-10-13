@@ -17,8 +17,8 @@ file OSM gốc. Không coi dữ liệu GeoJSON nguồn là bộ POI đã đượ
 
 - UI: [`map-app/src/components/MapView.tsx`](../../Maps%20VN/LifeFlow/map-app/src/components/MapView.tsx).
 - API: `POST /v1/places/map`, `GET /v1/places/:placeId`.
-- Schema yêu cầu: [`PlaceMapRequestSchema`](../../Maps%20VN/LifeFlow/packages/contracts/src/place.ts);
-  nguồn dữ liệu: [`PlaceService`](../../Maps%20VN/LifeFlow/packages/housing-query/src/place-service.ts).
+- Schema yêu cầu: [`PlaceMapRequestSchema`](../../packages/contracts/src/place.ts);
+  nguồn dữ liệu: [`PlaceService`](../../packages/housing-query/src/place-service.ts).
 - Request bản đồ phải có bounding box hợp lệ, tối đa 2 độ mỗi trục. API
   từ chối vùng có trên 50.000 địa điểm thay vì âm thầm cắt bớt.
 
@@ -39,6 +39,6 @@ offline. Thiết kế style riêng bằng Maputnik/PMTiles là công việc khá
 - **SPEC-008/AC-04:** POI trả về có ID chuẩn, category/nhóm và tọa độ;
   dữ liệu nhập riêng giữ thông tin nguồn để truy vết.
 
-Kiểm chứng: [test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts),
+Kiểm chứng: [test API](../../apps/platform-api/tests/api.integration.test.ts),
 [test UI](../../Maps%20VN/LifeFlow/map-app/tests/lifeflow.spec.ts).
 Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md).

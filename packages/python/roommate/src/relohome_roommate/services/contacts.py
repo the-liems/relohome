@@ -28,7 +28,7 @@ class ContactService:
         self.access = AccessService(context)
 
     def own(self, actor: Actor) -> list[dict]:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require(actor)
             if self.ctx.vault is None:
                 raise RoommateError("contact_vault_unavailable", status=503)

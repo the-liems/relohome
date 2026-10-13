@@ -5,8 +5,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $pythonPath = Join-Path $repoRoot '.venv/Scripts/python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath)) { throw 'Missing .venv. Install the project Python requirements first.' }
-if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'data/integration.env'))) {
-    throw 'Missing data/integration.env. Do not reinitialize an existing database; check the local runbook.'
+if (-not (Test-Path -LiteralPath (Join-Path $repoRoot '.env.local'))) {
+    throw 'Missing .env.local. Do not reinitialize an existing database; check the local runbook.'
 }
 if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'Frontend/dist/index.html'))) {
     throw 'Missing frontend build. At repository root, run npm ci and npm run build first.'

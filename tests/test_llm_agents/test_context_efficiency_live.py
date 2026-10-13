@@ -9,6 +9,7 @@ Housing results are reused for the Moving scenario to avoid another paid search.
 import asyncio
 import json
 import os
+import secrets
 import shutil
 import socket
 import sqlite3
@@ -24,7 +25,9 @@ import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.graph import checkpoint_serde
-from test_domain_missions_live import ROOT, live_environment
+from test_domain_missions_live import ROOT
+
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real providers and paid LLM opt-in")
 
@@ -135,8 +138,10 @@ def actual_run():
     directory = Path(
         os.getenv("RUN_EFFICIENCY_RUNTIME", str(ROOT / "data" / ("efficiency-" + label + "-" + uuid.uuid4().hex)))
     )
-    env = live_environment()
-    env.update(
+    token = secrets.token_urlsafe(32)
+    env = live.backend_environment(
+        os.environ,
+        AGENT_API_TOKEN=token,
         AGENT_STATE_DIR=str(directory),
         RELOHOME_RUNTIME_ROOT=str(source_root),
         FLIGHT_DB_PATH=str(ROOT / "data/integration-flights.db"),
@@ -166,7 +171,7 @@ def actual_run():
     client = httpx.Client(
         base_url=f"http://127.0.0.1:{port}/api/v1",
         timeout=240,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "efficiency_" + uuid.uuid4().hex},
+        headers={"Authorization": "Bearer " + token, "X-User-Id": "efficiency_" + uuid.uuid4().hex},
     )
     resumed = os.getenv("RUN_EFFICIENCY_HOUSING_THREAD")
     if resumed:

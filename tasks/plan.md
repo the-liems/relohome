@@ -1,5 +1,33 @@
 # Implementation Plan — ReloHome Roommate Discovery
 
+## Đợt phát hành người dùng thật — 12/10/2026
+
+Chủ sản phẩm đã yêu cầu triển khai theo [audit](../docs/review/roommate-product-readiness-2026-10-12.md) và bàn giao deploy cloud. Baseline lịch sử bên dưới được giữ nguyên; checklist mới ở đầu `todo.md`.
+
+Thiết kế: giữ scoring/consent/API cũ; SQLite local và PostgreSQL schema private cho cloud; không di chuyển auth/Housing. Migration additive, state/key được backup, không tự áp lên live. Notifications trong app với sự kiện thật, không thêm provider/email/OTP giả. UI dùng tokens xanh hiện có, card gọn, native controls, VI/EN/mobile/keyboard; không badge từ tự khai.
+
+Điều chỉnh đã xác nhận: chỉ nâng cấp, không đổi thuật toán/logic ghép trọ; trải nghiệm basic gần gũi, không vuốt thẻ/Tinder, auto-match, boost hoặc ML. Tham khảo Roomies/SpareRoom/Badi chỉ cho cách trình bày search/profile/inbox/trust; không lấy cơ chế matching/consent hoặc yêu cầu xác minh của họ thay baseline.
+
+| Task | Acceptance | Dependencies | Verification |
+| --- | --- | --- | --- |
+| RP-01 Storage/query | Migration ở startup; đọc không giữ writer lock; map theo listing/batch access; expiry query indexed; score giữ nguyên | None | Concurrency/query/expiry regression |
+| RP-02 Schema | Index, notification/seen/rate data additive; giữ version/deadline/consent cũ | RP-01 | Atomic upgrade/restart tests |
+| RP-03 PostgreSQL | Shared private persistence, timeout và transaction/cutover đúng; không database mới | RP-02 | PostgreSQL thật + race/consent/restore |
+| RP-04 Inbox API | Pagination, counterparty được phép, unread/events và nhắc hạn | RP-02 | Authorization/idempotency tests |
+| RP-05 Inbox UI | Name/badge/poll active/reminder/deep link, không contact trong notification | RP-04 | Desktop/mobile/stale browser |
+| RP-06 Media/settings | Upload/preview/status/attach/delete; contact/block management | RP-02 | Limits/privacy + browser |
+| RP-07 Moderation | Report/media/profile queue private, paging/filter/reason, role enforced | RP-06 | Moderator/outsider + browser |
+| RP-08 UX/room | Housing picker + listing/city checks; onboarding/copy VI/EN | RP-05 | Payload/consent/axe |
+| RP-09 Hardening | Shared rate limit, body/array caps, report dedupe, safe errors/metrics | RP-03 | Abuse/concurrency tests |
+| RP-10 Retry | Journal key/ID survives reload, actor isolation, no PII persistence | RP-05 | Unknown response/reload/identity tests |
+| RP-11 Data lifecycle | Export/erase scope, retention/maintenance, no TTL/replay reset | RP-04/RP-09 | Privacy/cleanup tests |
+| RP-12 Cloud ops | DB/key backup/restore, SQLite→PG transfer, readiness, grants/config | RP-03/RP-11 | Temporary import/restore + deployment tests |
+| RP-13 Handoff | Build/lint/regression/browser/container evidence, runbook và bàn giao | RP-01–12 | Release gate; cloud-only steps explicit |
+
+Checkpoint sau RP-01–03, RP-04–08, RP-09–12 và RP-13. Mỗi increment viết test trước logic, kiểm chứng trước bước phụ thuộc; không hạ gate vì thời gian. Tách task lớn thành sub-slices tối đa khoảng 5 file khi thực hiện.
+
+Rủi ro: PG concurrency khác SQLite → test race và giữ mutation nguyên tử; migration → backup/checksum và không đổi DB live; notification → actor scoped, fresh permission, không raw contact; cloud hiện staging transaction mode → không thay luồng provider ngoài Roommate. Cấu hình thật và quyền cloud được ghi trong handoff, không tự thay secrets/deploy.
+
 - Ngày: 2026-10-07, Asia/Saigon.
 - Baseline sản phẩm: [roommate-service.md v1.0](../docs/ideas/roommate-service.md).
 - Feature issue: [#65](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65).

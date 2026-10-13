@@ -50,8 +50,8 @@ tự động với agent Python. Những phần đó cần yêu cầu và hợp 
 
 ## Giao diện và dữ liệu chuẩn
 
-- Schema Zod chuẩn nằm tại [`packages/contracts/src/`](../../Maps%20VN/LifeFlow/packages/contracts/src/).
-- HTTP endpoint được đăng ký tại [`platform-api/src/app.ts`](../../Maps%20VN/LifeFlow/platform-api/src/app.ts).
+- Schema Zod chuẩn nằm tại [`packages/contracts/src/`](../../packages/contracts/src).
+- HTTP endpoint được đăng ký tại [`platform-api/src/app.ts`](../../apps/platform-api/src/app.ts).
 - MCP dùng lại package contracts; [tài liệu tích hợp](../integration/location-service-implementation-status.md) chỉ dẫn tới
   nguồn chuẩn, không định nghĩa lại field.
 - Dữ liệu không gian nằm trong PostGIS; OSRM cung cấp bằng chứng tuyến đường.

@@ -14,8 +14,8 @@ API/MCP Location hiện tại.
 - API: `/v1/places/search`, `/v1/areas/search`,
   `/v1/locations/resolve`,
   `/v1/places/nearby` (đều là POST).
-- Schema chuẩn: [location](../../Maps%20VN/LifeFlow/packages/contracts/src/location.ts)
-  và [place](../../Maps%20VN/LifeFlow/packages/contracts/src/place.ts).
+- Schema chuẩn: [location](../../packages/contracts/src/location.ts)
+  và [place](../../packages/contracts/src/place.ts).
 - Tìm POI có thể lọc category, nguồn, vùng hành chính, bounding box hoặc
   tâm/bán kính. Không gửi đồng thời bounding box và tâm/bán kính.
 - Resolve trả nhiều ứng viên có ID, nguồn và mức khớp. Không có endpoint
@@ -43,6 +43,6 @@ Tìm kiếm không phải dịch vụ geocoding toàn quốc với độ phủ G
 - **SPEC-009/AC-04:** Không có kết quả là trạng thái rỗng hợp lệ; lỗi API
   được phân biệt với trạng thái rỗng.
 
-Kiểm chứng: [test API](../../Maps%20VN/LifeFlow/platform-api/tests/api.integration.test.ts),
-[test contracts](../../Maps%20VN/LifeFlow/packages/contracts/tests/contracts.test.ts).
+Kiểm chứng: [test API](../../apps/platform-api/tests/api.integration.test.ts),
+[test contracts](../../packages/contracts/tests/contracts.test.ts).
 Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md).

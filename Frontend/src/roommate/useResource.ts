@@ -9,7 +9,7 @@ export function useResource<T>(path: string | null) {
   useEffect(() => {
     const controller = new AbortController();
     setLoadedPath(path);
-    setValue(null);
+    setValue((value) => (path && loadedPath === path ? value : null));
     setError(null);
     setLoading(Boolean(path));
     if (path)
@@ -18,7 +18,10 @@ export function useResource<T>(path: string | null) {
           if (!controller.signal.aborted) setValue(data);
         })
         .catch((e) => {
-          if (!controller.signal.aborted) setError(e);
+          if (!controller.signal.aborted) {
+            setValue(null);
+            setError(e);
+          }
         })
         .finally(() => {
           if (!controller.signal.aborted) setLoading(false);

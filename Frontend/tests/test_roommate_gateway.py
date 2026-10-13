@@ -1,7 +1,6 @@
 import httpx
 import pytest
-
-from Frontend.server import create_app
+from relohome_gateway.server import create_app
 
 HEADERS = {"X-SIU-Request": "1", "Origin": "http://test"}
 
@@ -45,6 +44,7 @@ async def test_gateway_session_csrf_whitelist_and_binary(tmp_path, monkeypatch):
         assert response.headers["cache-control"] == "no-store"
         assert (await client.get("/web/api/roommate/arbitrary/path")).status_code == 404
         assert (await client.get("/web/api/roommate/access?actor=spoof")).status_code == 422
+        assert (await client.get("/web/api/roommate/me/privacy")).status_code == 200
         response = await client.post(
             "/web/api/roommate/media",
             content=b"image-bytes",

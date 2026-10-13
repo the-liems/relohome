@@ -4,30 +4,32 @@ ARG NODE_IMAGE=node:24.14.0-bookworm-slim
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-COPY ["Maps VN/LifeFlow/tsconfig.base.json", "./"]
+COPY ["tsconfig.base.json", "./"]
 COPY scripts/docker-npm.mjs /tmp/docker-npm.mjs
-COPY ["Maps VN/LifeFlow/packages/contracts/", "packages/contracts/"]
-COPY ["Maps VN/LifeFlow/packages/mcp-core/", "packages/mcp-core/"]
-COPY ["Maps VN/LifeFlow/packages/moving-service/", "packages/moving-service/"]
-COPY ["Maps VN/LifeFlow/moving-api/", "moving-api/"]
-COPY ["Maps VN/LifeFlow/moving-mcp-server/", "moving-mcp-server/"]
+COPY ["packages/contracts/", "packages/contracts/"]
+COPY ["packages/mcp-core/", "packages/mcp-core/"]
+COPY ["packages/moving-service/", "packages/moving-service/"]
+COPY ["apps/moving-api/", "moving-api/"]
+COPY ["apps/moving-mcp/", "moving-mcp-server/"]
 # The root lockfile describes the whole monorepo. Only Moving workspaces are built.
 RUN node /tmp/docker-npm.mjs --image-build
-RUN npm ci --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
-    --workspace @lifeflow/moving-service --workspace @lifeflow/moving-api \
-    --workspace @lifeflow/moving-mcp-server --include-workspace-root=false
-RUN npm run build --workspace @lifeflow/contracts \
- && npm run build --workspace @lifeflow/mcp-core \
- && npm run build --workspace @lifeflow/moving-service \
- && npm run build --workspace @lifeflow/moving-api \
- && npm run build --workspace @lifeflow/moving-mcp-server
-RUN npm prune --omit=dev --workspace @lifeflow/contracts --workspace @lifeflow/mcp-core \
-    --workspace @lifeflow/moving-service --workspace @lifeflow/moving-api \
-    --workspace @lifeflow/moving-mcp-server --include-workspace-root=false
+RUN npm ci --workspace @relohome/contracts --workspace @relohome/mcp-core \
+    --workspace @relohome/moving-service --workspace @relohome/moving-api \
+    --workspace @relohome/moving-mcp --include-workspace-root=false
+RUN node --input-type=module -e 'import {readFileSync,writeFileSync} from "node:fs"; for (const app of ["moving-api", "moving-mcp-server"]) { const path=app+"/tsconfig.json"; const config=JSON.parse(readFileSync(path)); config.extends="../tsconfig.base.json"; writeFileSync(path,JSON.stringify(config)); }'
+
+RUN npm run build --workspace @relohome/contracts \
+ && npm run build --workspace @relohome/mcp-core \
+ && npm run build --workspace @relohome/moving-service \
+ && npm run build --workspace @relohome/moving-api \
+ && npm run build --workspace @relohome/moving-mcp
+RUN npm prune --omit=dev --workspace @relohome/contracts --workspace @relohome/mcp-core \
+    --workspace @relohome/moving-service --workspace @relohome/moving-api \
+    --workspace @relohome/moving-mcp --include-workspace-root=false
 
 FROM ${NODE_IMAGE} AS runtime
 ARG RELEASE_SHA=development
-LABEL org.opencontainers.image.title="LifeFlow Moving" \
+LABEL org.opencontainers.image.title="ReloHome Moving" \
       org.opencontainers.image.revision=${RELEASE_SHA}
 ENV NODE_ENV=production RELEASE_SHA=${RELEASE_SHA}
 WORKDIR /app

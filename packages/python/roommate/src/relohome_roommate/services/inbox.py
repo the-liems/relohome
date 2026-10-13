@@ -1,9 +1,10 @@
 from datetime import timedelta
 
 from relohome_roommate.access import RoommateContext, RoommateError
-from relohome_roommate.maintenance import reconcile
+from relohome_roommate.connections import GrantRecord
+from relohome_roommate.maintenance import reconcile_if_due
 from relohome_roommate.policy import GrantState, ProfileState, RequestState
-from relohome_roommate.ports import Actor
+from relohome_roommate.ports import Actor, ProfileRecord
 from relohome_roommate.services.access import AccessService
 
 
@@ -36,12 +37,18 @@ class InboxService:
             "available": self._readable(record),
         }
 
-    def list(self, actor: Actor) -> dict:
-        with self.ctx.transaction():
+    def list(self, actor: Actor, *, offset: int = 0, limit: int | None = None, direction: str | None = None) -> dict:
+        if offset < 0 or (limit is not None and not 1 <= limit <= 50) or direction not in (None, "sent", "received"):
+            raise RoommateError("invalid_pagination", status=422)
+        self.access.require(actor)
+        reconcile_if_due(self.ctx)
+        # Maintenance is committed before the independent read snapshot.
+        with self.ctx.read_transaction():
             self.access.require(actor)
-            reconcile(self.ctx)
-            records = self.ctx.connections.for_actor(actor.id)
-            items = [self._summary(actor, record) for record in records]
+            records = self.ctx.connections.for_actor(actor.id, offset=offset, limit=limit, direction=direction)
+            pending = self.ctx.connections.received_pending(actor.id, self.ctx.clock.now())
+            total = self.ctx.connections.total_for_actor(actor.id, direction)
+            items = self._summaries(actor, records)
             own = self.ctx.profiles.get(actor.id)
             reminder = None
             if (
@@ -53,17 +60,82 @@ class InboxService:
                 reminder = {"expires_at": own.expires_at.isoformat(), "requires_reconfirmation": True}
             return {
                 "items": items,
-                "received_pending": sum(
-                    item["direction"] == "received" and item["state"] == "pending" and item["available"]
-                    for item in items
-                ),
+                "received_pending": pending,
                 "profile_reminder": reminder,
+                "total": total,
+                "offset": offset,
+                "limit": limit,
             }
 
+    def _summaries(self, actor, records):
+        if not records:
+            return []
+        db = self.ctx.storage.connection
+        owners = sorted({who for r in records for who in (r.sender_id, r.recipient_id)})
+        profiles = {
+            r.owner_id: r
+            for r in (
+                ProfileRecord.model_validate_json(row[0])
+                for row in db.execute(
+                    f"SELECT content FROM profiles WHERE owner IN ({','.join('?' for _ in owners)})", owners
+                )
+            )
+        }
+        ids = [r.id for r in records]
+        grants = {
+            g.request_id: g
+            for g in (
+                GrantRecord.model_validate_json(row[0])
+                for row in db.execute(
+                    f"SELECT content FROM grants WHERE request IN ({','.join('?' for _ in ids)})", ids
+                )
+            )
+        }
+        excluded = self.ctx.safety.discovery_exclusions(actor.id)
+        unread = {
+            row[0]
+            for row in db.execute("SELECT resource FROM notifications WHERE actor=? AND read_at IS NULL", (actor.id,))
+        }
+        items = []
+        for record in records:
+            other = record.recipient_id if record.sender_id == actor.id else record.sender_id
+            available = other not in excluded and all(
+                who not in profiles or profiles[who].state not in (ProfileState.DELETED, ProfileState.RESTRICTED)
+                for who in (record.sender_id, record.recipient_id)
+            )
+            grant = grants.get(record.id)
+            name = (
+                record.intro.display_name
+                if record.recipient_id == actor.id
+                else (profiles[other].content.display_name if other in profiles else None)
+            )
+            items.append(
+                {
+                    "request_id": record.id,
+                    "direction": "sent" if record.sender_id == actor.id else "received",
+                    "state": record.effective_state(self.ctx.clock.now()).value,
+                    "expires_at": record.expires_at.isoformat(),
+                    "created_at": record.created_at.isoformat(),
+                    "grant_state": grant.effective_state(self.ctx.clock.now()).value if grant else None,
+                    "grant_expires_at": grant.expires_at.isoformat() if grant else None,
+                    "available": available,
+                    "counterparty": {
+                        "display_name": name,
+                        "avatar_id": profiles[other].avatar_id if other in profiles else None,
+                    }
+                    if available
+                    else None,
+                    "preview": record.intro.introduction if available and record.recipient_id == actor.id else None,
+                    "unread": record.id in unread,
+                }
+            )
+        return items
+
     def detail(self, actor: Actor, identifier: str) -> dict:
-        with self.ctx.transaction():
+        self.access.require(actor)
+        reconcile_if_due(self.ctx)
+        with self.ctx.read_transaction():
             self.access.require(actor)
-            reconcile(self.ctx)
             record = self.ctx.connections.get(identifier)
             if record is None or actor.id not in (record.sender_id, record.recipient_id):
                 raise RoommateError("request_unavailable", status=404)

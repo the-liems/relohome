@@ -40,6 +40,8 @@ from relohome_agent.agents.wiring import AgentService
 from relohome_agent.main import app
 from relohome_agent.services.adapters.registry import ServiceSettings
 
+from tests import live
+
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.skipif(os.getenv("RUN_LIVE_MOVING_FORM") != "1", reason="Opt-in real staging form verification"),
@@ -58,6 +60,10 @@ async def runtime(tmp_path):
         payment_simulation_enabled=False,
         flight_mcp_url="",
         payment_mcp_url="",
+        moving_mcp_url=live.mcp_url("moving"),
+        moving_mcp_auth_token=live.mcp_token("moving"),
+        agent_api_token=secrets.token_urlsafe(32),
+        openai_api_key=live.env_test("OPENAI_API_KEY", required=False),
     )
     assert settings.moving_environment == "staging"
     async with httpx.AsyncClient() as http:
@@ -73,7 +79,7 @@ async def runtime(tmp_path):
     previous = getattr(app.state, "agent_service", None)
     app.state.agent_service = service
     headers = {"Authorization": "Bearer " + settings.agent_api_token.get_secret_value(), "X-User-Id": uuid4().hex}
-    inputs = json.loads(os.environ["MOVING_FORM_LIVE_INPUTS"])
+    inputs = json.loads(live.env_test("MOVING_FORM_LIVE_INPUTS"))
     assert inputs["moving_options"]["service_id"], "Explicit observed service choice required"
     try:
         async with httpx.AsyncClient(
@@ -237,7 +243,7 @@ async def test_real_catalog_cache_scope_expiry_and_detail_projection(runtime):
 
 
 async def test_real_gateway_authentication_quote_and_idempotent_replay(runtime):
-    from Frontend.server import create_app
+    from relohome_gateway.server import create_app
 
     service, _, body, tmp_path = runtime
     gateway = create_app(database=str(tmp_path / "web.sqlite3"), transport=httpx.ASGITransport(app=app))
@@ -347,10 +353,9 @@ async def test_form_preserves_real_housing_result_and_selection(runtime):
 
 
 @pytest.mark.skipif(os.getenv("RUN_LIVE_MOVING_BROWSER") != "1", reason="Separate real browser opt-in required")
-async def test_real_browser_form_stays_open_and_retains_inputs(runtime):
+async def test_real_browser_form_stays_open_and_retains_inputs(runtime, monkeypatch):
     import uvicorn
-
-    from Frontend.server import create_app
+    from relohome_gateway.server import create_app
 
     service, _, _, tmp_path = runtime
     assert service.deps.agents.get(AgentName.RELOCATION).api_key == ""
@@ -361,8 +366,9 @@ async def test_real_browser_form_stays_open_and_retains_inputs(runtime):
             return sock.getsockname()[1]
 
     backend_port, gateway_port = free_port(), free_port()
-    old_base = os.environ.get("LIFEFLOW_API_BASE_URL")
-    os.environ["LIFEFLOW_API_BASE_URL"] = f"http://127.0.0.1:{backend_port}/api/v1"
+    # The in-process gateway reads its backend URL and token from the environment.
+    monkeypatch.setenv("LIFEFLOW_API_BASE_URL", f"http://127.0.0.1:{backend_port}/api/v1")
+    monkeypatch.setenv("AGENT_API_TOKEN", service.settings.agent_api_token.get_secret_value())
     gateway = create_app(database=str(tmp_path / "browser.sqlite3"))
     servers = [
         uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=backend_port, lifespan="off", log_level="warning")),
@@ -402,10 +408,6 @@ async def test_real_browser_form_stays_open_and_retains_inputs(runtime):
         for server in servers:
             server.should_exit = True
         await asyncio.gather(*jobs)
-        if old_base is None:
-            os.environ.pop("LIFEFLOW_API_BASE_URL", None)
-        else:
-            os.environ["LIFEFLOW_API_BASE_URL"] = old_base
 
 
 @pytest.mark.skipif(

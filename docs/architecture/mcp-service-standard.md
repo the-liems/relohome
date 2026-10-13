@@ -8,8 +8,8 @@ changing their domain contracts.
 Every domain MCP server is an independent process with its own tool registry,
 configuration and provider dependencies. Servers may share:
 
-- `@lifeflow/contracts` for canonical cross-service value objects;
-- `@lifeflow/mcp-core` for audited handlers, response behavior and error shape;
+- `@relohome/contracts` for canonical cross-service value objects;
+- `@relohome/mcp-core` for audited handlers, response behavior and error shape;
 - infrastructure services such as PostgreSQL, using separate schemas and roles.
 
 They must not share provider credentials or call another service's private

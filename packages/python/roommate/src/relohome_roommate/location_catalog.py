@@ -1,7 +1,33 @@
 """Canonical area membership supplied by the existing Location service, never guessed by an LLM."""
 
+import re
+import unicodedata
+
 from relohome_roommate.models import RoommateProfile, RoommateSearchCriteria
 from relohome_roommate.policy import City
+
+
+def listing_city(value: object) -> City | None:
+    """Recognize explicit catalog city labels; unknown stays unknown."""
+    if not isinstance(value, str):
+        return None
+    folded = unicodedata.normalize("NFKD", value.casefold()).replace("đ", "d")
+    label = re.sub("[^a-z]", "", folded)
+    aliases = {
+        "hcm": City.HCM,
+        "tphcm": City.HCM,
+        "hochiminh": City.HCM,
+        "tphochiminh": City.HCM,
+        "thanhphohochiminh": City.HCM,
+        "hochiminhcity": City.HCM,
+        "hanoi": City.HANOI,
+        "tphanoi": City.HANOI,
+        "thanhphohanoi": City.HANOI,
+        "danang": City.DANANG,
+        "tpdanang": City.DANANG,
+        "thanhphodanang": City.DANANG,
+    }
+    return aliases.get(label)
 
 
 class AreaCatalog:

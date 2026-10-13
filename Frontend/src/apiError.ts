@@ -3,6 +3,7 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code = "",
+    public fields: Record<string,string> = {},
   ) {
     super(message);
   }

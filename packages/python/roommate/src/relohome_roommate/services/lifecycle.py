@@ -50,7 +50,7 @@ def cancel_changed_hard_conditions(context: RoommateContext, actor: str) -> None
 
 def reconcile_profiles(context: RoommateContext) -> None:
     now = context.clock.now()
-    for record in context.profiles.all():
+    for record in context.profiles.expired(now):
         if record.state is ProfileState.ACTIVE and record.expires_at and now >= record.expires_at:
             context.profiles.save(
                 record.model_copy(update={"state": ProfileState.EXPIRED, "version": record.version + 1}), record.version

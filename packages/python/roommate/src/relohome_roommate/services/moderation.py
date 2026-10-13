@@ -12,9 +12,66 @@ class ModerationService:
         self.access = AccessService(context)
 
     def reports(self, actor: Actor) -> list[dict]:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require_moderator(actor)
             return self.ctx.safety.reports()
+
+    def queue(self, actor: Actor, kind: str, *, status: str | None = None, offset: int = 0, limit: int = 20):
+        if kind not in ("reports", "media", "profiles") or offset < 0 or not 1 <= limit <= 50:
+            raise RoommateError("invalid_pagination", status=422)
+        with self.ctx.read_transaction():
+            self.access.require_moderator(actor)
+            db = self.ctx.storage.connection
+            state_column = "state" if kind == "profiles" else "status"
+            where, params = (f"WHERE {state_column}=?", [status]) if status else ("", [])
+            order = "owner" if kind == "profiles" else "created,id"
+            columns = (
+                "content"
+                if kind == "profiles"
+                else "id AS media_id,owner,status,mime,created"
+                if kind == "media"
+                else "*"
+            )
+            rows = db.execute(
+                f"SELECT {columns} FROM {kind} {where} ORDER BY {order} LIMIT ? OFFSET ?", (*params, limit, offset)
+            ).fetchall()
+            total = db.execute(f"SELECT COUNT(*) FROM {kind} {where}", params).fetchone()[0]
+            if kind == "profiles":
+                from relohome_roommate.ports import ProfileRecord
+
+                items = []
+                for row in rows:
+                    p = ProfileRecord.model_validate_json(row[0])
+                    items.append(
+                        {
+                            "profile_id": p.owner_id,
+                            "state": p.state.value,
+                            "version": p.version,
+                            "display_name": p.content.display_name,
+                            "introduction": p.content.introduction,
+                            "facts": p.content.facts.model_dump(mode="json"),
+                            "avatar_id": p.avatar_id,
+                        }
+                    )
+            else:
+                items = [dict(row) for row in rows]
+            return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+    def summary(self, actor: Actor):
+        with self.ctx.read_transaction():
+            self.access.require_moderator(actor)
+            db = self.ctx.storage.connection
+            now = self.ctx.clock.now().timestamp()
+            return {
+                "active_profiles": db.execute(
+                    "SELECT COUNT(*) FROM profiles WHERE state='active' AND expires>?", (now,)
+                ).fetchone()[0],
+                "pending_reports": db.execute("SELECT COUNT(*) FROM reports WHERE status='open'").fetchone()[0],
+                "pending_media": db.execute("SELECT COUNT(*) FROM media WHERE status='pending'").fetchone()[0],
+                "pending_requests": db.execute(
+                    "SELECT COUNT(*) FROM requests WHERE state='pending' AND expires>?", (now,)
+                ).fetchone()[0],
+            }
 
     def restrict(self, actor: Actor, target: str, selected: bool, reason: str, key: str) -> dict:
         operation_key(key)
@@ -43,5 +100,5 @@ class ModerationService:
     def resolve_report(self, actor: Actor, identifier: str) -> dict:
         with self.ctx.transaction():
             self.access.require_moderator(actor)
-            self.ctx.safety.resolve_report(identifier)
+            self.ctx.safety.resolve_report(identifier, actor.id, self.ctx.clock.now())
             return {"report_id": identifier, "status": "reviewed"}

@@ -56,7 +56,7 @@ def check(image, name):
         # No mounts, published ports, real credentials or external network. Liveness
         # exercises the default USER/CMD; database readiness is a separate integration gate.
         env = {
-            "DATABASE_URL": "postgresql://unused:unused@127.0.0.1:1/unused",
+            "LOCATION_DATABASE_URL": "postgresql://unused:unused@127.0.0.1:1/unused",
             "MOVING_DATABASE_URL": "postgresql://unused:unused@127.0.0.1:1/unused",
             "AHAMOVE_USER_TOKEN": "workspace-smoke-no-provider-access",
             "MCP_AUTH_TOKEN": "workspace-smoke-token-0123456789012345",

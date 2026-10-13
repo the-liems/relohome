@@ -61,5 +61,14 @@
   "src.agent_services.llm": "relohome_agent_services.llm",
   "src.agent_services.intake.models": "relohome_agent_services.intake_models",
   "src.mcp_servers.http_service": "relohome_mcp_http",
-  "src.agents.models": "relohome_agent.agents.models"
+  "src.agents.models": "relohome_agent.agents.models",
+  "src.roommate.background": "relohome_roommate.background",
+  "src.roommate.notifications": "relohome_roommate.notifications",
+  "src.roommate.operations": "relohome_roommate.operations",
+  "src.roommate.postgres": "relohome_roommate.postgres",
+  "src.roommate.services.notifications": "relohome_roommate.services.notifications",
+  "src.roommate.services.operation_drafts": "relohome_roommate.services.operation_drafts",
+  "src.roommate.services.privacy": "relohome_roommate.services.privacy",
+  "src.roommate.services.resources": "relohome_roommate.services.resources",
+  "src.roommate.runtime": "relohome_agent.roommate_runtime"
 }

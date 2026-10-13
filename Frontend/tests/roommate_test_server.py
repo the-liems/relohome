@@ -7,27 +7,30 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
-
-from Frontend.server import create_app
-from Frontend.store import password_hash
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api import (
     roommate_access,
     roommate_connections,
     roommate_discovery,
     roommate_media,
+    roommate_notifications,
+    roommate_operations,
+    roommate_privacy,
     roommate_profiles,
     roommate_safety,
     routes,
 )
 from relohome_agent.config import Settings
+from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_gateway.server import create_app
+from relohome_gateway.store import password_hash
+
 from src.roommate.models import RoommateProfile
 from src.roommate.ports import Actor
-from relohome_agent.roommate_runtime import RoommateRuntime
 from src.roommate.services.access import AccessService
 from src.roommate.services.contacts import ContactService
 from src.roommate.services.profiles import ProfileService
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 ROOT = Path(__file__).resolve().parents[2]
 os.environ.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))
@@ -46,6 +49,9 @@ for router in (
     roommate_connections.router,
     roommate_safety.router,
     roommate_media.router,
+    roommate_notifications.router,
+    roommate_operations.router,
+    roommate_privacy.router,
 ):
     api.include_router(router, prefix="/api/v1")
 

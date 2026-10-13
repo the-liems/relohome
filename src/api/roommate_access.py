@@ -25,9 +25,27 @@ def trusted_actor(
     if not authorization or not secrets.compare_digest(authorization, "Bearer " + runtime.token):
         raise HTTPException(401, {"code": "authentication_required"}, headers=PRIVATE_HEADERS)
     try:
-        return Actor(id=x_user_id)
+        actor = Actor(id=x_user_id)
     except ValidationError:
         raise HTTPException(401, {"code": "authentication_required"}, headers=PRIVATE_HEADERS) from None
+    from relohome_roommate.services.resources import take_budget
+
+    resource = request.url.path.rsplit("/", 1)[-1]
+    budget = (
+        "search"
+        if resource in ("search", "rooms")
+        else "upload"
+        if request.method == "POST" and resource == "media"
+        else "report"
+        if resource == "reports" and request.method == "POST"
+        else "read"
+        if request.method == "GET"
+        else "write"
+    )
+    limits = {"search": 60, "upload": 12, "report": 10, "read": 240, "write": 120}
+    with runtime.context() as ctx:
+        perform(take_budget, ctx, actor, budget, limit=limits[budget])
+    return actor
 
 
 TrustedActor = Annotated[Actor, Depends(trusted_actor)]
@@ -69,6 +87,7 @@ def availability(request: Request):
         "cities": [city.value for city in City],
         "terms_version": TERMS_VERSION,
         "demo_enabled": bool(getattr(getattr(request.app.state, "roommate_runtime", None), "demo", None)),
+        "features": ["notifications", "media", "moderation", "privacy", "operation_drafts"],
     }
 
 

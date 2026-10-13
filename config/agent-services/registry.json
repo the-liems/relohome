@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts + packages/contracts/src/moving.ts; offline metadata only",
+  "source": "apps/moving-mcp/src/create-server.ts + packages/contracts/src/moving.ts; offline metadata only",
   "tools": [
     {
       "service": "moving",

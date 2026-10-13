@@ -28,7 +28,7 @@ class ServiceError(Exception):
 
 
 class ServiceSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(extra="ignore", env_file_encoding="utf-8")
     openai_api_key: SecretStr = SecretStr("")
     intake_model: str = "gpt-4o-mini"
     orchestrator_model: str = "gpt-4o-mini"

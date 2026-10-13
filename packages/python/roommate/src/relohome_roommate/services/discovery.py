@@ -17,7 +17,7 @@ class DiscoveryService:
         if offset < 0 or not 1 <= limit <= 50:
             raise RoommateError("invalid_pagination", status=422)
         self.ctx.catalog.validate_criteria(criteria)
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require(actor)
             now = self.ctx.clock.now()
             excluded = self.ctx.safety.discovery_exclusions(actor.id)
@@ -58,7 +58,7 @@ class DiscoveryService:
         return {"available": True, "profile": public_profile(record).model_dump(mode="json")}
 
     def detail(self, actor: Actor, identifier: str) -> dict:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require(actor)
             return self._detail(actor, identifier)
 
@@ -71,7 +71,7 @@ class DiscoveryService:
         return {"saved": selected, "profile_id": identifier}
 
     def saved(self, actor: Actor) -> list[dict]:
-        with self.ctx.transaction():
+        with self.ctx.read_transaction():
             self.access.require(actor)
             return [self._detail(actor, identifier) for identifier in self.ctx.profiles.bookmarks(actor.id)]
 

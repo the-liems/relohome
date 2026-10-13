@@ -12,6 +12,8 @@ from relohome_agent.agents.subagents.services.location import LocationSubagent
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
 from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
 
+from tests import live
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_HOUSING_MAP_SCOPE_LIVE") != "1", reason="Actual read services opt-in")
 
 
@@ -31,8 +33,8 @@ def test_real_scope_and_unclustered_map(inputs, missing_boundary):
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=os.environ["LOCATION_MCP_URL"],
-                token=os.environ["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
@@ -70,9 +72,7 @@ def test_real_scope_and_unclustered_map(inputs, missing_boundary):
             limit=50,
         )
         async with httpx.AsyncClient(timeout=30) as http:
-            response = await http.post(
-                os.getenv("SIU_PLATFORM_API_URL", "http://127.0.0.1:4100/v1") + "/housing/map", json=body
-            )
+            response = await http.post(live.platform_api_url() + "/housing/map", json=body)
         response.raise_for_status()
         data = response.json()
         assert data["meta"]["mode"] == "listings"

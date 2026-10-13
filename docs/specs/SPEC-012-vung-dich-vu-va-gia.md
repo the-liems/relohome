@@ -18,8 +18,8 @@ tiếp với Ahamove hoặc Grab.
 ## Giao diện và hành vi
 
 - API: `POST /v1/mobility/service-area` và `POST /v1/mobility/estimate`.
-- Schema chuẩn: [`mobility.ts`](../../Maps%20VN/LifeFlow/packages/contracts/src/mobility.ts);
-  service: [`mobility-service.ts`](../../Maps%20VN/LifeFlow/packages/housing-query/src/mobility-service.ts).
+- Schema chuẩn: [`mobility.ts`](../../packages/contracts/src/mobility.ts);
+  service: [`mobility-service.ts`](../../packages/housing-query/src/mobility-service.ts).
 - Một polygon hợp lệ phải chứa **cả điểm đi và điểm đến**. Không có cấu
   hình trả `not_configured`; có vùng nhưng không phủ cả hai trả `unavailable`.
 - Chỉ `provider=lifeflow` được tính giá khi có vùng, rule còn hiệu lực và
@@ -42,5 +42,5 @@ API báo giá được cấp quyền: estimate Ahamove/Grab vẫn `not_configure
 - **SPEC-012/AC-04:** Thất bại OSRM khi cần tính giá được báo lỗi, không suy
   ra giá từ khoảng cách Euclid.
 
-Kiểm chứng: [test mobility](../../Maps%20VN/LifeFlow/packages/housing-query/tests/mobility-service.test.ts).
+Kiểm chứng: [test mobility](../../packages/housing-query/tests/mobility-service.test.ts).
 Quyết định liên quan: [ADR-011](../adr/ADR-011-ranh-gioi-gia-doi-tac.md).

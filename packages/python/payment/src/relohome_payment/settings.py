@@ -19,7 +19,7 @@ class PaymentSettings(BaseSettings):
     Tách khỏi `src/config.py` (xem ADR-013). `key1`/`key2` chỉ đọc từ môi trường/.env, không có giá trị mặc định.
     """
 
-    model_config = SettingsConfigDict(env_prefix="PAYMENT_", env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="PAYMENT_", env_file_encoding="utf-8", extra="ignore")
 
     provider: Literal["mock", "zalopay"] = "mock"
     zalopay_app_id: int = Field(default=0, ge=0)

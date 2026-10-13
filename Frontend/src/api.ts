@@ -1,3 +1,4 @@
+import { normalizeHousingMedia } from "./housingMedia";
 import { t, uiPreferences } from "./uiPreferences";
 import { apiFailure } from "./apiError";
 export { ApiError, apiFailure } from "./apiError";
@@ -20,7 +21,7 @@ export async function api<T = any>(
     return null;
   });
   if (!response.ok || !isJson) throw apiFailure(response.status, data, isJson);
-  return data;
+  return normalizeHousingMedia(data,window.location.origin);
 }
 export const requestId = () => crypto.randomUUID();
 export const money = (n: unknown, currency = "VND") =>
@@ -75,6 +76,7 @@ export const compactPrice = (h: any) => {
 export const domainLabels: Record<string, string> = {
   property: "Tìm nhà",
   map: "Đường đi",
+  roommate: "Ở ghép",
   flight: "Chuyến bay",
   relocation: "Chuyển đồ",
   payment: "Thanh toán",

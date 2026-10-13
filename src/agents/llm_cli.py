@@ -7,7 +7,6 @@ import asyncio
 import json
 import sys
 
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.contracts import AgentTaskRequest
@@ -51,7 +50,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("component", choices=("intake", "planner", "moving"))
     args = parser.parse_args()
-    load_dotenv()
     try:
         body = sys.stdin.read(65537)
         if len(body) > 65536:
