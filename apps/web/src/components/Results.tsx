@@ -115,7 +115,7 @@ function Result({ c, ...p }: ResultProps & { c: Component }) {
     }
   }
   return (
-    <section className={"result-group " + c.type}>
+    <section className={"result-group " + c.type} data-service={c.type}>
       <div className="section-heading">
         <span
           className={

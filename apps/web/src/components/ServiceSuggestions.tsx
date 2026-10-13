@@ -87,13 +87,14 @@ export function ServiceSuggestions({
             <button
               key={item.service}
               className="secondary"
+              data-service={item.service}
               disabled={disabled}
               onClick={() => onOpen(item.service, item.to)}
             >
               {content}
             </button>
           ) : (
-            <Link key={item.service} className="secondary" to={item.to}>
+            <Link key={item.service} className="secondary" data-service={item.service} to={item.to}>
               {content}
             </Link>
           );

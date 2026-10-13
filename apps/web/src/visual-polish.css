@@ -1,748 +1,327 @@
-/* ReloHome visual layer: richer color, depth and focus without changing flows. */
-:root {
-  --ui-bg: #f3f6f4;
-  --ui-surface: #ffffff;
-  --ui-soft: #e9f0ec;
-  --ui-text: #16231e;
-  --ui-muted: #53645b;
-  --ui-line: #d0dcd4;
-  --ui-control-line: #75877c;
-  --ui-accent: #15775c;
-  --ui-accent-strong: #14583f;
-  --ui-accent-soft: #ddf2e7;
-  --ui-on-accent: #ffffff;
-  --ui-danger: #b62d3d;
-  --ui-danger-soft: #fff0f1;
-  --ui-warning: #81520b;
-  --ui-warning-soft: #fff2d7;
-  --ui-overlay: #10231ccc;
-  --shadow-overlay: 0 18px 48px #183b2a20;
-  --focus-ring: #0b8060;
-  --service-home: #138161;
-  --service-flight: #386bd2;
-  --service-moving: #d66a1c;
-  --service-route: #7d55c7;
-  --service-roommate: #c34f79;
-  --service-guide: #087d8b;
-  color: var(--ui-text);
-  background-color: var(--ui-bg);
-}
+/* Shared visual system; palette lives in ui/tokens.css. */
+@import "./ui/hero.css";
 
-:root[data-theme="dark"] {
-  --ui-bg: #111820;
-  --ui-surface: #19242d;
-  --ui-soft: #23323a;
-  --ui-text: #f0f5f4;
-  --ui-muted: #bdcbd0;
-  --ui-line: #40525b;
-  --ui-control-line: #8b9da3;
-  --ui-accent: #70e0b5;
-  --ui-accent-strong: #56d1a4;
-  --ui-accent-soft: #1e493d;
-  --ui-on-accent: #0e261e;
-  --ui-danger: #ff9aa6;
-  --ui-danger-soft: #492b32;
-  --ui-warning: #ffd078;
-  --ui-warning-soft: #493a20;
-  --ui-overlay: #050b10e8;
-  --shadow-overlay: 0 20px 54px #0009;
-  --focus-ring: #8bf0ca;
-  --service-home: #60e0b2;
-  --service-flight: #91b5ff;
-  --service-moving: #ffad69;
-  --service-route: #c4a0ff;
-  --service-roommate: #ff9bb8;
-  --service-guide: #71dbe5;
-  background-color: var(--ui-bg);
+/* Shared controls and surface hierarchy. No paint values outside the token source. */
+body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
+  background: var(--ui-bg);
 }
-
-body {
-  background:
-    radial-gradient(ellipse at 12% 6%, color-mix(in srgb, var(--service-home) 7%, transparent), transparent 31rem),
-    radial-gradient(ellipse at 88% 16%, color-mix(in srgb, var(--service-flight) 6%, transparent), transparent 34rem),
-    var(--ui-bg);
+:root[data-theme] :is(.chat-header, .surface, .dialog, .ws-list, .svc-main, .plan-peek-panel) {
+  background: var(--ui-surface);
+  box-shadow: var(--shadow-card);
 }
-
-:is(.app-shell, .main-shell) {
-  background:
-    radial-gradient(ellipse at 9% 8%, color-mix(in srgb, var(--service-home) 5%, transparent), transparent 34rem),
-    radial-gradient(ellipse at 94% 20%, color-mix(in srgb, var(--service-flight) 4%, transparent), transparent 36rem),
-    var(--ui-bg);
+:root[data-theme] :is(.dialog, .plan-peek-panel) {
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-overlay);
 }
-
-:root[data-theme="dark"] body {
-  background:
-    radial-gradient(ellipse at 8% 8%, #1ba77c18, transparent 33rem),
-    radial-gradient(ellipse at 91% 17%, #557ce31c, transparent 36rem),
-    radial-gradient(ellipse at 48% 100%, #a24ecc0d, transparent 42rem),
-    var(--ui-bg);
+:root[data-theme] :is(.primary, .send-button, .ws-select, .ws-select-small, .ws-chat-show) {
+  background: var(--ui-accent-strong);
+  border-color: var(--ui-accent-strong);
+  color: var(--ui-on-accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-card);
 }
-
-:root[data-theme="dark"] :is(.app-shell, .main-shell) {
-  background:
-    radial-gradient(ellipse at 8% 8%, #1ba77c15, transparent 33rem),
-    radial-gradient(ellipse at 95% 16%, #557ce319, transparent 36rem),
-    radial-gradient(ellipse at 50% 100%, #a24ecc0b, transparent 42rem),
-    var(--ui-bg);
+:root[data-theme] :is(.primary, .send-button, .ws-select, .ws-select-small, .ws-chat-show):hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+  border-color: var(--ui-accent-hover);
+  color: var(--ui-on-accent);
 }
-
-:root[data-theme="dark"] :is(.chat-header, .ws-list, .svc-main, .ws-detail, .dialog, .surface, .composer, .ws-dock) {
-  border-color: color-mix(in srgb, var(--ui-line) 88%, transparent);
-  box-shadow: 0 12px 34px #0002;
+:root[data-theme] :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--service-color, var(--focus-ring));
+  outline-offset: 3px;
 }
-
-:root[data-theme="dark"] .connection.online i {
-  background: #42d994;
-  box-shadow: 0 0 0 3px #42d99435, 0 0 12px #42d99490;
+:root[data-theme] :is(.secondary, .icon-button.outlined, .account-chip, .ws-pill-button) {
+  border-color: var(--ui-control-line);
+  background: var(--ui-surface);
+  border-radius: var(--radius-control);
 }
-
-:is(.composer:focus-within, .guides-search:focus-within > div) {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 20%, transparent), 0 10px 28px color-mix(in srgb, var(--ui-shadow-color) 9%, transparent);
+:root[data-theme] :is(.secondary, .ws-pill-button):hover:not(:disabled) {
+  border-color: var(--service-color);
+  background: var(--service-soft);
+  color: var(--service-color);
 }
-
-:root[data-theme="dark"] :is(.chat-header, .ws-list, .svc-main, .ws-detail, .surface, .dialog-head, .ws-list-head) {
-  background-image: linear-gradient(145deg, color-mix(in srgb, var(--ui-surface) 92%, white 8%), var(--ui-surface) 55%);
-}
-
-:root[data-theme="dark"] :is(.result-group, .housing-card, .flight-card, .ws-card, .mv-endpoint, .mv-selected-home, .mv-vehicle-choices button, .mv-service-choice, .mv-package, .mv-addon, .rm-card, .rm-profile-card) {
+:root[data-theme] button:disabled {
+  opacity: 1;
+  color: var(--ui-muted);
+  background: var(--ui-soft);
+  box-shadow: none;
   border-color: var(--ui-line);
 }
-
-:root[data-theme="dark"] :is(.result-group, .flight-card, .ws-card.active, .ws-card:hover, .mv-endpoint, .mv-selected-home, .mv-vehicle-choices button, .mv-service-choice, .mv-package, .mv-addon, .rm-card, .rm-profile-card) {
-  background-image: linear-gradient(135deg, color-mix(in srgb, var(--ui-surface) 94%, white 6%), var(--ui-surface));
+:root[data-theme] .primary.danger:not(:disabled),
+:root[data-theme] .primary.danger:hover:not(:disabled) {
+  color: var(--ui-on-accent);
+  background: var(--ui-danger);
+  border-color: var(--ui-danger);
+}
+:root[data-theme] .ws-filterbar .ws-back-chat {
+  background: var(--ui-accent-strong);
+  color: var(--ui-on-accent);
+  border-color: var(--ui-accent-strong);
+}
+:root[data-theme] .guides-filters button[aria-pressed="true"] {
+  color: var(--ui-on-accent);
+  background: var(--service-guide);
+  border-color: var(--service-guide);
+}
+:root[data-theme] :is(.service-icon, .request-symbol, .plan-peek-service, .plan-step-icon) {
+  color: var(--service-color);
+  background: var(--service-soft);
+  border-radius: var(--radius-control);
+}
+:is(.svc-workspace, .moving-booking, .rm-workspace, .ll-workspace, .service-request, .guided-service-panel)[data-service] {
+  --ui-accent: var(--service-color);
+  --ui-accent-strong: var(--service-color);
+  --ui-accent-soft: var(--service-soft);
+  --ui-accent-hover: var(--service-color);
+  --focus-ring: var(--service-color);
 }
 
-:root[data-theme="dark"] :is(.mv-vehicle-choices button.selected, .mv-service-choice.selected, .mv-selected-home.selected, .ws-card.chosen, .svc-toolbar .ws-pill-button.active) {
-  background: color-mix(in srgb, var(--ui-accent-soft) 82%, var(--ui-surface));
-  border-color: var(--ui-accent);
-  color: var(--ui-text);
+/* Welcome: clear, generously sized entry points alongside the existing chat. */
+.chat-header { border-bottom-color: var(--ui-line); }
+.chat-home-link { background: var(--ui-accent-soft); color: var(--ui-accent); }
+.welcome { padding-block: 12px; }
+.welcome h1 { font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -.035em; line-height: 1.18; }
+.welcome-heading .welcome-icon { width: 36px; height: 36px; border-radius: var(--radius-control); }
+.welcome > p { margin-block: 16px 24px; max-width: 660px; }
+.welcome .quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border: 0;
+  margin-block: 20px 24px;
 }
-
-:root[data-theme="dark"] :is(.primary, .send-button, .ws-chat-show, .ws-select-small, .ws-select, .landing-primary):hover:not(:disabled) {
-  filter: brightness(1.08) saturate(1.08);
+.welcome .quick-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 18px;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-content: center;
+  min-height: 108px;
+  padding: 16px;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--radius-panel);
+  background: var(--ui-surface);
+  box-shadow: var(--shadow-card);
+  border-left: 3px solid var(--service-color);
+  text-align: left;
 }
-
-:is(.quick-card:nth-child(1) .service-icon, .landing-service-card:nth-child(1) .landing-service-icon) { color: var(--service-home); }
-:is(.quick-card:nth-child(2) .service-icon, .landing-service-card:nth-child(2) .landing-service-icon) { color: var(--service-flight); }
-:is(.quick-card:nth-child(3) .service-icon, .landing-service-card:nth-child(3) .landing-service-icon) { color: var(--service-moving); }
-:is(.quick-card:nth-child(4) .service-icon, .landing-service-card:nth-child(4) .landing-service-icon) { color: var(--service-route); }
-:is(.quick-card:nth-child(5) .service-icon, .landing-service-card:nth-child(5) .landing-service-icon) { color: var(--service-roommate); }
-:is(.quick-card:nth-child(6) .service-icon, .landing-service-card:nth-child(6) .landing-service-icon) { color: var(--service-guide); }
-
-:root[data-theme="dark"] .welcome .quick-card .service-icon {
-  filter: drop-shadow(0 0 8px color-mix(in srgb, currentColor 38%, transparent));
+.welcome .quick-card:last-child { border-right: 1px solid var(--ui-line); }
+.welcome .quick-card .service-icon {
+  grid-row: 1 / span 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--service-soft);
+  color: var(--service-color);
+  border-radius: var(--radius-control);
 }
-
-.quick-card,
-.landing-service-card,
-.guides-list article,
-.rm-card,
-.rm-profile-card,
-.flight-card,
-.mv-vehicle-choices button,
-.mv-service-choice {
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+.welcome .quick-card .service-icon svg { width: 22px; height: 22px; }
+.welcome .quick-card strong { font-size: 15px; align-self: end; }
+.welcome .quick-card > span:not(.service-icon) { font-size: 13px; grid-column: 2; }
+.welcome .quick-card .quick-arrow { display: block; grid-column: 3; grid-row: 1 / span 2; align-self: center; color: var(--service-color); }
+.welcome .starter > button { border-radius: var(--radius-control); background: var(--ui-surface); }
+.welcome .starter > button:hover { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
+.welcome .quick-card:hover:not(:disabled) {
+  background: var(--service-soft);
+  border-color: var(--service-color);
+  box-shadow: var(--shadow-raised);
 }
+.welcome .quick-card:disabled .service-icon { color: var(--ui-muted); background: var(--ui-soft); }
+
+/* Chat and plan: the response, next action and budget have distinct visual levels. */
+.assistant-bubble:not(.error-bubble) {
+  padding: 20px 24px;
+  border: 1px solid var(--ui-line);
+  border-left: 3px solid var(--ui-accent);
+  border-radius: var(--radius-panel);
+  background: var(--ui-surface);
+  box-shadow: var(--shadow-card);
+}
+.assistant-label { color: var(--ui-accent); font-weight: 700; margin-bottom: 12px; }
+.user-bubble { background: var(--ui-accent-soft); border: 1px solid var(--ui-line); }
+.chat-service-summary { background: var(--ui-soft); border-radius: var(--radius-control); padding: 12px; }
+.chat-service-summary[data-service] { background: var(--service-soft); border-left: 3px solid var(--service-color); }
+.chat-service-summary[data-service] > span { color: var(--service-color); font-weight: 650; }
+.service-journey { gap: 8px; padding-block: 12px; background: var(--ui-bg); }
+.service-journey button[data-service] { border-radius: var(--radius-control); background: var(--ui-surface); border-color: var(--ui-line); border-top: 3px solid var(--service-color); }
+.service-journey button[data-service].active { color: var(--service-color); background: var(--service-soft); border-color: var(--service-color); }
+.map-panel .service-icon, .map-panel .map-toolbar > svg { color: var(--service-route); background: var(--service-route-soft); }
+.composer { border-radius: var(--radius-panel); border-color: var(--ui-control-line); box-shadow: var(--shadow-raised); }
+.composer:focus-within { border-color: var(--ui-accent); outline: 2px solid var(--ui-accent-soft); }
+.plan-peek-header { background: var(--ui-soft); border-bottom-color: var(--ui-line); }
+.plan-peek-target { color: var(--ui-accent); background: var(--ui-accent-soft); }
+.plan-panel-tabs { background: var(--ui-surface); }
+.plan-panel-tabs button[aria-selected="true"] { background: var(--ui-accent-soft); border-bottom-color: var(--ui-accent); }
+.plan-peek-step { border: 1px solid var(--ui-line); border-radius: var(--radius-panel); padding: 16px; margin-block: 12px; background: var(--ui-surface); }
+.plan-peek-service, .plan-step-icon { border: 1px solid color-mix(in srgb, var(--service-color) 28%, var(--ui-line)); }
+.plan-peek-number { color: var(--ui-muted); background: var(--ui-soft); }
+.plan-peek-status { font-weight: 600; border-radius: var(--radius-control); }
+.plan-peek-status.confirmed { color: var(--ui-success); background: var(--ui-success-soft); }
+.plan-peek-status.attention { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.plan-peek-status.waiting, .plan-peek-status.running { color: var(--ui-pending); background: var(--ui-pending-soft); }
+.viewing-choice, .bulk-review-list > li, .bulk-result-list > li { background: var(--ui-surface); border-radius: var(--radius-panel); border: 1px solid var(--ui-line); }
+.bulk-footer { background: var(--ui-surface-raised); border-top-color: var(--ui-line); box-shadow: var(--shadow-card); }
+.viewing-choice:has(input:checked) { background: var(--ui-accent-soft); border-color: var(--ui-accent); }
+.service-suggestions { padding: 16px; background: var(--ui-soft); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); }
+.service-suggestions [data-service] { color: var(--service-color); background: var(--service-soft); }
+
+/* Interior workspaces: consistent identity, readable result cards and map controls. */
+.ws-list-head, .svc-head { border-bottom: 1px solid var(--ui-line); background: var(--service-soft); }
+.ws-list-head .eyebrow, .svc-head .eyebrow { color: var(--service-color); font-weight: 700; }
+.svc-head .service-icon { width: 48px; height: 48px; border: 1px solid color-mix(in srgb, var(--service-color) 25%, var(--ui-line)); }
+.svc-head h2 { font-size: clamp(23px, 2vw, 30px); }
+.svc-toolbar { background: var(--ui-surface); border-bottom-color: var(--ui-line); }
+.svc-toolbar .ws-pill-button.active { color: var(--service-color); background: var(--service-soft); border-color: var(--service-color); }
+.svc-card { margin: 12px 0; padding: 20px; border: 1px solid var(--ui-line); border-radius: var(--radius-panel); background: var(--ui-surface); box-shadow: var(--shadow-card); }
+.svc-card.chosen { border-color: var(--service-color); background: var(--service-soft); }
+.svc-carrier { color: var(--service-color); }
+.svc-card-end .price { font-size: 24px; color: var(--ui-text); letter-spacing: -.02em; }
+.svc-timeline .svc-line i { background: var(--service-color); }
+.ws-list-body { display: flex; flex-direction: column; gap: 12px; }
+.ws-card {
+  padding: 16px;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--radius-panel);
+  background: var(--ui-surface);
+  box-shadow: var(--shadow-card);
+}
+.ws-card:hover, .ws-card.active { border-color: var(--service-color); background: var(--service-soft); }
+.ws-card.chosen { padding-left: 13px; border-left: 4px solid var(--service-color); background: var(--service-soft); }
+.ws-card-photo { border-radius: var(--radius-control); }
+.ws-card-info .price { font-size: 19px; color: var(--service-home); letter-spacing: -.02em; }
+.ws-card-info .title-button { font-weight: 650; }
+.ws-filterbar, .ws-counter, .ws-poi-detail { border-radius: var(--radius-panel); box-shadow: var(--shadow-raised); }
+.ws-filterbar .ws-filter-label { color: var(--service-color); }
+.ws-filterbar select { border-color: var(--ui-control-line); }
+.ws-detail { background: var(--ui-surface); border-radius: var(--radius-panel); box-shadow: var(--shadow-raised); }
+.ws-card-actions .text-button { color: var(--service-color); }
+.request-intro { border-bottom: 1px solid var(--ui-line); padding-bottom: 20px; }
+.request-symbol { border: 1px solid color-mix(in srgb, var(--service-color) 28%, var(--ui-line)); }
+.guided-panel-title { background: var(--ui-soft); border-bottom: 1px solid var(--ui-line); }
+.service-request .request-trip label.selected { color: var(--service-color); border-color: var(--service-color); background: var(--service-soft); }
+.service-request .request-extra { background: var(--ui-soft); border-radius: var(--radius-control); }
+.moving-booking :is(.mv-dot, .mv-steps .active > span) { background: var(--service-moving); color: var(--ui-on-accent); }
+.moving-booking .mv-endpoint { border-radius: var(--radius-panel); background: var(--ui-surface); }
+.moving-booking .mv-endpoint.active { border-color: var(--service-moving); box-shadow: inset 3px 0 var(--service-moving); }
+.moving-booking .mv-section-nav button[aria-current="step"] { color: var(--service-moving); background: var(--service-moving-soft); }
+.moving-booking :is(.mv-selected-home, .mv-service-choice, .mv-vehicle-choices button, .mv-addon, .mv-package) { border-radius: var(--radius-control); }
+.moving-booking :is(.mv-service-choice.selected, .mv-selected-home.selected, .mv-vehicle-choices button.selected) { background: var(--service-moving-soft); border-color: var(--service-moving); }
+.moving-booking .mv-submit { background: var(--service-moving); color: var(--ui-on-accent); border-color: var(--service-moving); }
+.moving-booking .mv-steps { border-bottom-color: var(--ui-line); }
+
+/* Roommate profiles and inbox have their own Rose identity. */
+.rm-page-heading { padding: 24px; border: 1px solid var(--ui-line); border-left: 4px solid var(--service-roommate); border-radius: var(--radius-panel); background: var(--ui-surface); box-shadow: var(--shadow-card); margin-bottom: 24px; }
+.rm-page-heading .rm-kicker { color: var(--service-roommate); }
+.rm-workspace .rm-navigation { padding: 6px; background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); gap: 6px; }
+.rm-workspace .rm-navigation [aria-selected="true"], .rm-workspace .rm-navigation .active { color: var(--service-roommate); background: var(--service-roommate-soft); border-radius: var(--radius-control); }
+.rm-workspace :is(.rm-card, .rm-profile-card, .rm-panel, .rm-filter-panel) { border-radius: var(--radius-panel); box-shadow: var(--shadow-card); border-color: var(--ui-line); background: var(--ui-surface); }
+.rm-workspace :is(.rm-card, .rm-profile-card) { border-top: 3px solid var(--service-roommate); }
+.rm-workspace :is(.rm-avatar, .rm-avatar-fallback) { color: var(--service-roommate); background: var(--service-roommate-soft); }
+.rm-workspace :is(.rm-summary-fact, .rm-profile-fact, .rm-compatibility) { border-color: var(--ui-line); }
+.rm-workspace :is(.rm-source-switch .active, .rm-source-switch [aria-pressed="true"]) { color: var(--service-roommate); border-color: var(--service-roommate); background: var(--service-roommate-soft); }
+
+/* Landlord/Admin: Gold identity, consistent neutral tables, real existing metrics. */
+.ll-workspace { --accent: var(--service-landlord); --accent-soft: var(--service-landlord-soft); --ll-soft: var(--service-landlord-soft); }
+.ll-heading { border-bottom: 1px solid var(--ui-line); margin-bottom: 20px; }
+.ll-kicker, .ll-eyebrow { color: var(--service-landlord); }
+.ll-nav { background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); padding: 6px; gap: 4px; }
+.ll-nav button { border-radius: var(--radius-control); }
+.ll-nav button.active { color: var(--service-landlord); background: var(--service-landlord-soft); }
+.ll-nav button.active::after { display: none; }
+.ll-workspace :is(.ll-panel, .ll-metric, .ll-contact-list article, .ll-unit, .ll-listing-table) { border-radius: var(--radius-panel); background: var(--ui-surface); border-color: var(--ui-line); box-shadow: var(--shadow-card); }
+.ll-workspace .ll-metric { border-top: 3px solid var(--service-landlord); color: var(--ui-text); }
+.ll-metric::after { display: none; }
+.ll-workspace .ll-metric > span { color: var(--service-landlord); background: var(--service-landlord-soft); border-radius: var(--radius-control); }
+.ll-workspace .ll-metric strong { font-size: 32px; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.ll-signal-grid { background: var(--ui-soft); border-radius: var(--radius-control); }
+.ll-signal-grid strong { color: var(--ui-text); }
+.ll-property-list > button { border-radius: var(--radius-control); background: var(--ui-surface); }
+.ll-property-icon, .ll-contact-avatar { color: var(--service-landlord); background: var(--service-landlord-soft); }
+.ll-listing-table :is(th, thead, .ll-listing-row:first-child) { background: var(--ui-soft); }
+.ll-listing-row { border-color: var(--ui-line); }
+.ll-listing-row:hover { background: var(--ui-soft); }
+.ll-workspace .ll-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-block: 16px; }
+.ll-workspace .ll-filters label { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: 1 1 240px; min-width: 0; }
+.ll-workspace .ll-filters label svg { flex: 0 0 16px; color: var(--ui-muted); }
+.ll-workspace .ll-filters input { width: 100%; min-width: 0; }
+.ll-workspace .ll-filters select { width: auto; max-width: 100%; }
+:root[data-theme] .ll-status { color: var(--ui-pending); background: var(--ui-pending-soft); border-radius: var(--radius-control); }
+:root[data-theme] .ll-status:is(.active, .published, .resolved, .verified) { color: var(--ui-success); background: var(--ui-success-soft); }
+:root[data-theme] .ll-status:is(.pending, .pending_review, .new) { color: var(--ui-warning); background: var(--ui-warning-soft); }
+:root[data-theme] .ll-status:is(.rejected, .revoked, .suspended, .declined) { color: var(--ui-danger); background: var(--ui-danger-soft); }
+.ll-error, .ll-form-error, .ll-unit-actions button.danger { color: var(--ui-danger); }
+.ll-error { background: var(--ui-danger-soft); border-color: var(--ui-danger); }
+.ll-count { color: var(--ui-on-accent); background: var(--ui-accent-strong); }
+
+/* Landing: purposeful section contrast and useful, identifiable service navigation. */
+.landing-page {
+  --landing-bg: var(--ui-bg);
+  --landing-surface: var(--ui-surface);
+  --landing-soft: var(--ui-soft);
+  --landing-line: var(--ui-line);
+  --landing-ink: var(--ui-text);
+  background: var(--ui-bg);
+}
+.landing-header { background: var(--ui-surface); border-bottom-color: var(--ui-line); box-shadow: var(--shadow-card); }
+.landing-nav-cta { background: var(--ui-accent-strong); color: var(--ui-on-accent); border-color: var(--ui-accent-strong); }
+.lp-service-index { background: var(--ui-surface); border-bottom: 1px solid var(--ui-line); }
+.landing-upgrade .lp-service-index > .landing-container { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding-block: 16px; }
+.landing-upgrade .lp-service-index a { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 12px 8px; border-radius: var(--radius-control); text-align: center; color: var(--ui-text); min-height: 88px; font-size: 13px; }
+.landing-upgrade .lp-service-index a svg { color: var(--service-color); width: 22px; height: 22px; }
+.landing-upgrade .lp-service-index a:hover { background: var(--service-soft); color: var(--service-color); }
+.landing-section-heading h2 { color: var(--ui-text); letter-spacing: -.035em; }
+.landing-section-heading h2 em { color: var(--ui-accent); }
+.landing-upgrade :is(.lp-home-feature, .lp-relocation-feature, .lp-profile-preview, .lp-dashboard-preview, .lp-story-preview) { border-radius: var(--radius-dialog); box-shadow: var(--shadow-card); border-color: var(--ui-line); }
+.landing-upgrade .lp-home-feature { border-top: 4px solid var(--service-home); }
+.landing-upgrade .lp-relocation-feature { border-top: 4px solid var(--service-moving); background: var(--ui-surface); }
+.lp-home-preview { background: var(--service-home-soft); }
+.lp-relocation-row .lp-icon-tile { color: var(--service-color); background: var(--service-soft); border-radius: var(--radius-control); }
+.lp-home-feature .lp-eyebrow { color: var(--service-home); }
+.landing-journey, #landlord, .landing-final { --ui-accent: var(--ui-accent-strong); }
+.landing-journey { background: var(--ui-section); border-block: 1px solid var(--ui-section-line); }
+.lp-journey-demo { border-radius: var(--radius-dialog); border: 1px solid var(--ui-line); box-shadow: var(--shadow-raised); background: var(--ui-surface); }
+.lp-journey-tabs button[aria-selected="true"], .lp-journey-tabs .active { background: var(--ui-accent-soft); color: var(--ui-accent); }
+#next .landing-kicker, #next h2 em { color: var(--service-roommate); }
+#next .lp-profile-preview { border-top: 4px solid var(--service-roommate); }
+#next :is(.lp-profile-avatar, .lp-roommate-icon, .lp-icon-tile) { color: var(--service-roommate); background: var(--service-roommate-soft); }
+#landlord { background: var(--ui-section); border-block: 1px solid var(--ui-section-line); }
+#landlord .landing-kicker, #landlord h2 em { color: var(--service-landlord); }
+#landlord .landing-kicker { color: var(--service-landlord-text); }
+#landlord .lp-dashboard-preview { border-top: 4px solid var(--service-landlord); }
+#landlord :is(.lp-icon-tile, .lp-dashboard-mark) { background: var(--service-landlord-soft); color: var(--service-landlord); }
+#guide .landing-kicker, #guide h2 em { color: var(--service-guide); }
+.landing-guide-card, .guides-list article { background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); box-shadow: var(--shadow-card); }
+.guides-page { --ui-accent: var(--service-guide); --ui-accent-strong: var(--service-guide); --ui-accent-soft: var(--service-guide-soft); --ui-accent-hover: var(--service-guide); }
+.guides-heading { padding: 32px; border-radius: var(--radius-panel); background: var(--service-guide-soft); border-left: 4px solid var(--service-guide); }
+.guides-list article { border-top: 3px solid var(--service-guide); }
+.guides-list article > svg { background: var(--service-guide-soft); color: var(--service-guide); }
+.landing-final { background: var(--ui-section); border-block: 1px solid var(--ui-section-line); }
 
 @media (hover: hover) {
-  .quick-card:hover,
-  .landing-service-card:hover,
-  .guides-list article:hover,
-  .rm-card:hover,
-  .rm-profile-card:hover,
-  .flight-card:hover,
-  .mv-vehicle-choices button:hover,
-  .mv-service-choice:hover {
-    transform: translateY(-2px);
-    border-color: color-mix(in srgb, var(--ui-accent) 58%, var(--ui-line));
-    box-shadow: 0 12px 28px color-mix(in srgb, var(--ui-shadow-color) 10%, transparent);
-  }
+  .welcome .quick-card, .guides-list article, .ll-property-list > button, .rm-card, .svc-card { transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+  .guides-list article:hover, .rm-card:hover { border-color: var(--service-color); box-shadow: var(--shadow-raised); }
 }
-
-.chat-page:not(.map-mode) {
-  background:
-    radial-gradient(ellipse at 88% 4%, color-mix(in srgb, var(--service-route) 5%, transparent), transparent 30rem),
-    transparent;
-}
-
-.flight-card {
-  border-top: 2px solid color-mix(in srgb, var(--service-flight) 72%, var(--ui-line));
-}
-
-.housing-card {
-  border-top: 2px solid color-mix(in srgb, var(--service-home) 58%, var(--ui-line));
-}
-
-.map-workspace:not(.moving-booking) .ws-card.chosen {
-  border-left-color: var(--service-home);
-}
-
-.moving-booking .mv-dot.a {
-  color: #fff;
-  background: #168653;
-}
-
-.moving-booking .mv-dot.b {
-  color: #fff;
-  background: var(--service-moving);
-}
-
-.moving-booking .mv-endpoint.active {
-  border-color: var(--service-moving);
-  box-shadow: inset 3px 0 var(--service-moving), 0 0 0 2px color-mix(in srgb, var(--service-moving) 14%, transparent);
-}
-
-.moving-booking .mv-section-nav button:focus-visible,
-.moving-booking .mv-section-nav button[aria-current="step"] {
-  color: var(--service-moving);
-  background: color-mix(in srgb, var(--service-moving) 12%, var(--ui-surface));
-}
-
-.flight-time > strong,
-.svc-card-end .price,
-.ws-card-info .price {
-  color: var(--ui-text);
-}
-
-.svc-main:has(.svc-toolbar) .svc-head > :is(svg, .service-icon),
-.svc-main:has(.flight-card) .svc-head > :is(svg, .service-icon) {
-  color: var(--service-flight);
-}
-
-.moving-booking .mv-steps .active > span,
-.moving-booking .mv-dot,
-.moving-booking .mv-submit {
-  background-color: var(--service-moving);
-  border-color: var(--service-moving);
-}
-
-.map-workspace .ws-list-head .eyebrow,
-.map-workspace .ws-filterbar .ws-filter-label {
-  color: var(--service-home);
-}
-
-.landing-page {
-  --landing-bg: #f6f4ee;
-  --landing-surface: #ffffff;
-  --landing-soft: #e8f0eb;
-  --landing-line: #d1dcd5;
-  --landing-ink: #17372b;
-  background:
-    radial-gradient(ellipse at 92% 10%, color-mix(in srgb, #e1a04a 11%, transparent), transparent 36rem),
-    radial-gradient(ellipse at 4% 23%, color-mix(in srgb, var(--service-home) 9%, transparent), transparent 34rem),
-    var(--landing-bg);
-}
-
-:root[data-theme="dark"] .landing-page {
-  --landing-bg: #111820;
-  --landing-surface: #19242d;
-  --landing-soft: #22333a;
-  --landing-line: #40525b;
-  --landing-ink: #a5efce;
-  background:
-    radial-gradient(ellipse at 85% 7%, #b6762a25, transparent 36rem),
-    radial-gradient(ellipse at 5% 27%, #1da88120, transparent 34rem),
-    var(--landing-bg);
-}
-
-.landing-hero {
-  position: relative;
-  isolation: isolate;
-}
-
-.landing-hero::before {
-  position: absolute;
-  z-index: -1;
-  content: "";
-  width: 44vw;
-  height: 44vw;
-  max-width: 580px;
-  max-height: 580px;
-  right: -12vw;
-  top: 4%;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--service-moving) 15%, transparent), transparent 70%);
-  filter: blur(8px);
-  pointer-events: none;
-}
-
-.landing-image-frame {
-  position: relative;
-  isolation: isolate;
-  border: 1px solid color-mix(in srgb, var(--service-home) 28%, var(--landing-line));
-  box-shadow: 0 28px 72px color-mix(in srgb, var(--service-home) 20%, transparent), 0 4px 16px #13201914;
-}
-
-.landing-image-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--service-home) 12%, transparent), transparent 44%, color-mix(in srgb, var(--service-moving) 15%, transparent));
-}
-
-:root[data-theme="dark"] .landing-image-frame img {
-  filter: brightness(.78) saturate(1.08) contrast(1.04);
-}
-
-.landing-service-strip > div {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.landing-service-strip span {
-  min-width: 0;
-  color: var(--ui-text);
-}
-
-.landing-service-strip span:nth-child(1) svg { color: var(--service-home); }
-.landing-service-strip span:nth-child(2) svg { color: var(--service-route); }
-.landing-service-strip span:nth-child(3) svg { color: var(--service-moving); }
-.landing-service-strip span:nth-child(4) svg { color: var(--service-flight); }
-.landing-service-strip span:nth-child(5) svg { color: var(--service-roommate); }
-.landing-service-strip span:nth-child(6) svg { color: var(--service-guide); }
-
-.landing-service-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  border: 0;
-}
-
-.landing-service-card {
-  min-height: 270px;
-  padding: 24px;
-  border: 1px solid var(--landing-line);
-  border-top: 3px solid var(--service-home);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--landing-surface) 93%, transparent);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--ui-shadow-color) 5%, transparent);
-}
-
-.landing-service-card:nth-child(2) { border-top-color: var(--service-route); }
-.landing-service-card:nth-child(3) { border-top-color: var(--service-moving); }
-.landing-service-card:nth-child(4) { border-top-color: var(--service-flight); }
-.landing-service-card:nth-child(5) { border-top-color: var(--service-roommate); }
-.landing-service-card:nth-child(6) { border-top-color: var(--service-guide); }
-
-.landing-service-icon {
-  background: color-mix(in srgb, currentColor 13%, var(--landing-soft));
-}
-
-.landing-service-card h3 {
-  color: var(--ui-text);
-}
-
-.landing-service-card > a,
-.landing-inline-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ui-accent);
-  font-weight: 650;
-  min-height: 42px;
-  text-decoration: none;
-}
-
-.landing-service-card > a:hover,
-.landing-inline-cta:hover,
-.landing-guide-soon:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.landing-inline-cta {
-  margin-top: 10px;
-  padding: 0 14px;
-  border-radius: 6px;
-  color: var(--ui-on-accent);
-  background: var(--ui-accent-strong);
-}
-
-.landing-status-live {
-  width: fit-content;
-  color: var(--ui-accent-strong);
-  border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--landing-line));
-  text-decoration: none;
-}
-
-.landing-status-live i {
-  width: 8px;
-  height: 8px;
-  background: #21a36f;
-  box-shadow: 0 0 0 4px color-mix(in srgb, #21a36f 16%, transparent);
-}
-
-.landing-next-visual {
-  background:
-    radial-gradient(circle at 25% 20%, color-mix(in srgb, var(--service-roommate) 18%, transparent), transparent 42%),
-    radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--service-home) 22%, transparent), transparent 46%),
-    var(--landing-soft);
-}
-
-.landing-person {
-  color: var(--service-roommate);
-  box-shadow: 0 0 0 14px color-mix(in srgb, var(--service-roommate) 9%, transparent), 0 18px 42px color-mix(in srgb, var(--service-roommate) 16%, transparent);
-}
-
-.landing-guide-grid article {
-  border-color: var(--landing-line);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--ui-shadow-color) 6%, transparent);
-}
-
-.landing-guide-grid article:nth-child(1) .landing-guide-art { color: var(--service-home); }
-.landing-guide-grid article:nth-child(2) .landing-guide-art { color: var(--service-moving); }
-.landing-guide-grid article:nth-child(3) .landing-guide-art { color: var(--service-roommate); }
-
-.landing-guide-art {
-  background:
-    radial-gradient(circle at 80% 20%, color-mix(in srgb, currentColor 20%, transparent), transparent 44%),
-    var(--landing-soft);
-}
-
-.landing-guide-soon {
-  color: var(--ui-accent);
-  text-decoration: none;
-}
-
-.landing-journey {
-  background:
-    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--service-flight) 8%, transparent), transparent 38rem),
-    var(--landing-soft);
-}
-
-.guides-page {
-  position: relative;
-  isolation: isolate;
-}
-
-.guides-page::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: -1;
-  height: 420px;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--ui-bg) 12%, transparent), color-mix(in srgb, var(--ui-bg) 72%, transparent)),
-    url("/images/siu-home-hero.png") center 43% / cover no-repeat;
-  opacity: .12;
-  pointer-events: none;
-}
-
-.guides-heading {
-  position: relative;
-  overflow: hidden;
-  padding: clamp(24px, 5vw, 54px);
-  border: 1px solid var(--ui-line);
-  border-left: 5px solid var(--service-guide);
-  border-radius: 12px;
-  background:
-    linear-gradient(100deg, color-mix(in srgb, var(--ui-surface) 95%, transparent) 0%, color-mix(in srgb, var(--ui-surface) 88%, transparent) 54%, color-mix(in srgb, var(--ui-surface) 72%, transparent) 100%),
-    url("/images/siu-home-hero.png") 68% 46% / cover no-repeat;
-  box-shadow: 0 20px 44px color-mix(in srgb, var(--ui-shadow-color) 10%, transparent);
-}
-
-.guides-heading > div,
-.guides-heading > a {
-  position: relative;
-  z-index: 1;
-}
-
-.guides-heading h1 {
-  max-width: 660px;
-  font-size: clamp(30px, 4vw, 46px);
-  letter-spacing: -.04em;
-}
-
-.guides-kicker {
-  color: var(--service-guide);
-}
-
-.guides-heading p {
-  max-width: 600px;
-  color: var(--ui-muted);
-  font-size: 16px;
-}
-
-.guides-search {
-  display: block;
-  max-width: 760px;
-  margin: 28px 0 12px;
-  font-weight: 650;
-}
-
-.guides-search > div {
-  margin-top: 8px;
-  min-height: 56px;
-  border: 1px solid var(--ui-line);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--ui-shadow-color) 7%, transparent);
-}
-
-.guides-search > div > svg {
-  color: var(--service-guide);
-  flex: 0 0 auto;
-}
-
-.guides-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.guides-list article {
-  position: relative;
-  overflow: hidden;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--ui-shadow-color) 6%, transparent);
-}
-
-.guides-list li:nth-child(6n + 1) article { border-top: 3px solid var(--service-guide); }
-.guides-list li:nth-child(6n + 2) article { border-top: 3px solid var(--service-home); }
-.guides-list li:nth-child(6n + 3) article { border-top: 3px solid var(--service-moving); }
-.guides-list li:nth-child(6n + 4) article { border-top: 3px solid var(--service-flight); }
-.guides-list li:nth-child(6n + 5) article { border-top: 3px solid var(--service-roommate); }
-.guides-list li:nth-child(6n) article { border-top: 3px solid var(--service-route); }
-
-.guides-source svg {
-  color: var(--service-guide);
-}
-
-.guides-tags span {
-  border: 1px solid var(--ui-line);
-  border-radius: 3px;
-  color: var(--ui-text);
-  background: color-mix(in srgb, var(--service-guide) 9%, var(--ui-surface));
-}
-
-.guides-list footer a {
-  color: var(--service-guide);
-}
-
-:root[data-theme="dark"] .guides-heading {
-  background:
-    linear-gradient(100deg, #18242cf5 0%, #18242ce8 55%, #18242c9c 100%),
-    url("/images/siu-home-hero.png") 68% 46% / cover no-repeat;
-}
-
-:root[data-theme="dark"] .guides-page::before {
-  opacity: .2;
-  filter: saturate(1.25) brightness(.72);
-}
-
 @media (max-width: 1100px) {
-  .landing-service-strip > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .landing-service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .guides-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .welcome .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landing-upgrade .lp-service-index > .landing-container { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-
 @media (max-width: 767px) {
-  .landing-service-strip > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .landing-service-grid { grid-template-columns: minmax(0, 1fr); }
-  .landing-service-card { min-height: 0; padding: 20px; }
-  .landing-guide-grid { grid-template-columns: minmax(0, 1fr); }
-  .guides-heading { padding: 22px 18px; }
-  .guides-heading p { font-size: 14px; }
-  .guides-list { grid-template-columns: minmax(0, 1fr); }
-  .guides-page::before { height: 260px; }
+  .welcome h1 { font-size: 30px; }
+  .welcome .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .welcome .quick-card { grid-template-columns: minmax(0, 1fr) 18px; padding: 14px; min-height: 112px; gap: 8px; }
+  .welcome .quick-card .service-icon { grid-column: 1; grid-row: 1; width: 38px; height: 38px; }
+  .welcome .quick-card strong { grid-column: 1/-1; grid-row: 2; font-size: 14px; }
+  .welcome .quick-card > span:not(.service-icon) { grid-column: 1/-1; grid-row: 3; font-size: 12px; }
+  .welcome .quick-card .quick-arrow { grid-column: 2; grid-row: 1; }
+  .assistant-bubble:not(.error-bubble) { padding: 16px; }
+  .rm-page-heading { padding: 18px; }
+  .guides-heading { padding: 24px 18px; }
+  .landing-upgrade .lp-service-index > .landing-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .landing-upgrade .lp-service-index a { flex-direction: row; justify-content: flex-start; padding: 12px; min-height: 52px; background: var(--service-soft); color: var(--service-color); }
+  .svc-card { padding: 16px; }
+  .ll-workspace .ll-filters > * { width: 100%; }
+  .ll-workspace .ll-filters label { flex-basis: 100%; }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  .quick-card,
-  .landing-service-card,
-  .guides-list article,
-  .rm-card,
-  .rm-profile-card,
-  .flight-card,
-  .mv-vehicle-choices button,
-  .mv-service-choice {
-    transition: none;
-  }
-}
-
-/* Cover: the house belongs to the scene, while the left edge remains readable. */
-.landing-hero {
-  display: block;
-  width: 100%;
-  min-height: clamp(640px, calc(100svh - 82px), 840px);
-  padding: 0;
-  overflow: hidden;
-  background: #10221e;
-  color: #f5fbf7;
-}
-
-.landing-hero-media {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-}
-
-.landing-hero-media img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 54%;
-  animation: cover-settle 650ms ease-out both;
-}
-
-.landing-hero::before {
-  inset: 0;
-  z-index: -1;
-  width: auto;
-  height: auto;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
-  filter: none;
-  background:
-    linear-gradient(90deg, #091a18f2 0%, #091a18e5 28%, #091a18aa 51%, #091a1830 78%, #091a1814 100%),
-    linear-gradient(0deg, #091a1866 0%, transparent 40%);
-}
-
-:root[data-theme="dark"] .landing-hero::before {
-  background:
-    linear-gradient(90deg, #071714f5 0%, #071714e8 30%, #071714ae 54%, #07171438 82%, #0717141f 100%),
-    linear-gradient(0deg, #07171470 0%, transparent 42%);
-}
-
-.landing-hero-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  min-height: clamp(640px, calc(100svh - 82px), 840px);
-  padding-block: 56px 76px;
-}
-
-.landing-hero-copy {
-  max-width: 650px;
-}
-
-.landing-hero .landing-kicker,
-.landing-hero .landing-hero-trust,
-.landing-hero .landing-scope {
-  color: #d1f5e4;
-}
-
-.landing-hero .landing-kicker > span,
-.landing-hero .landing-scope i {
-  background: #9befc3;
-}
-
-.landing-hero h1 {
-  max-width: 650px;
-  margin-block: 22px 24px;
-  color: #fff;
-  font-size: clamp(44px, 5.1vw, 72px);
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  text-wrap: balance;
-}
-
-.landing-hero h1 em {
-  color: #a7f0c9;
-}
-
-.landing-hero .landing-hero-copy > p {
-  max-width: 560px;
-  color: #e4eee9;
-  font-size: clamp(15px, 1.25vw, 18px);
-  line-height: 1.65;
-}
-
-.landing-hero .landing-primary,
-:root[data-theme="dark"] .landing-hero .landing-primary {
-  min-height: 54px;
-  background: #a7f0c9;
-  color: #10261d;
-  font-size: 15px;
-  box-shadow: none;
-}
-
-.landing-hero .landing-primary:hover,
-:root[data-theme="dark"] .landing-hero .landing-primary:hover {
-  background: #c7f8dd;
-}
-
-.landing-hero .landing-text-link {
-  color: #f1faf5;
-  font-size: 14px;
-  text-decoration: underline;
-  text-decoration-color: #ffffff8c;
-  text-underline-offset: 5px;
-}
-
-.landing-hero .landing-hero-trust {
-  margin-top: 28px;
-  font-size: 12px;
-}
-
-.landing-hero .landing-scope {
-  font-size: 12px;
-}
-
-@keyframes cover-settle {
-  from { opacity: .7; transform: scale(1.012); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@media (max-width: 800px) {
-  .landing-hero,
-  .landing-hero-inner {
-    min-height: 690px;
-  }
-  .landing-hero-inner {
-    padding-block: 52px 72px;
-  }
-  .landing-hero-media img {
-    object-position: 67% center;
-  }
-  .landing-hero::before,
-  :root[data-theme="dark"] .landing-hero::before {
-    background: linear-gradient(90deg, #091a18ed 0%, #091a18cf 63%, #091a187d 100%);
-  }
-  .landing-hero-copy {
-    max-width: 600px;
-  }
-  .landing-hero h1 {
-    max-width: 550px;
-    font-size: clamp(38px, 7vw, 56px);
-  }
-}
-
-@media (max-width: 600px) {
-  .landing-hero,
-  .landing-hero-inner {
-    min-height: 690px;
-  }
-  .landing-hero-inner {
-    align-items: flex-start;
-    padding-block: 50px 82px;
-  }
-  .landing-hero-media img {
-    object-position: 69% center;
-  }
-  .landing-hero::before,
-  :root[data-theme="dark"] .landing-hero::before {
-    background: linear-gradient(180deg, #071714f2 0%, #071714e7 35%, #071714bd 67%, #07171470 100%);
-  }
-  .landing-hero h1 {
-    font-size: clamp(36px, 9vw, 46px);
-    letter-spacing: -.035em;
-  }
-  .landing-hero .landing-hero-copy > p {
-    font-size: 15px;
-    line-height: 1.55;
-  }
-  .landing-hero-actions {
-    align-items: flex-start;
-    gap: 16px;
-  }
-  .landing-hero .landing-primary {
-    min-height: 48px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-hero-media img {
-    animation: none;
-  }
+  :root[data-theme] :is(button, a, input, select, textarea), .welcome .quick-card, .guides-list article, .ll-property-list > button, .rm-card, .svc-card { transition: none; }
 }

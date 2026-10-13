@@ -428,6 +428,7 @@ export function MapPanel({
   return (
     <section
       className={"map-panel " + (large ? "map-large" : "")}
+      data-service="map"
       data-map-ready={ready}
       aria-label={uiText("Bản đồ kết quả")}
     >

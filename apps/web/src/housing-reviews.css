@@ -231,7 +231,7 @@
 .hr-error {
   color: var(--ink);
   background: var(--surface);
-  border-left: 3px solid #c85b48;
+  border-left: 3px solid var(--ui-danger);
   padding: 10px 12px;
   margin: 10px 0;
 }

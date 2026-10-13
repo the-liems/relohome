@@ -1,3 +1,4 @@
+/* Canonical palette. Service identity and business status have separate roles. */
 :root {
   --space-1: 4px;
   --space-2: 8px;
@@ -6,76 +7,159 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-12: 48px;
-  --radius-control: 4px;
-  --radius-panel: 8px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-dialog: 16px;
   --font-small: 12px;
   --font-body: 14px;
   --font-reading: 16px;
   --control-height: 40px;
   --ui-header-height: 80px;
-  --ui-bg: #f6f7f4;
+  --ui-bg: #f4f6fa;
   --ui-surface: #ffffff;
-  --ui-soft: #edf1ec;
-  --ui-text: #17271e;
-  --ui-muted: #526158;
-  --ui-line: #d5ddd6;
-  --ui-control-line: #79867d;
-  --ui-accent: #235b40;
-  --ui-accent-strong: #183d2b;
-  --ui-accent-soft: #e5efe6;
+  --ui-surface-raised: #ffffff;
+  --ui-soft: #e6edf3;
+  --ui-section: #d2e5dc;
+  --ui-section-line: #aac6b8;
+  --ui-text: #152b28;
+  --ui-muted: #506662;
+  --ui-line: #d3e1db;
+  --ui-control-line: #778c85;
+  --ui-accent: #087653;
+  --ui-accent-strong: #066649;
+  --ui-accent-hover: #05583e;
+  --ui-accent-soft: #ddf5e9;
   --ui-on-accent: #ffffff;
-  --ui-danger: #a52232;
-  --ui-danger-soft: #fff0f1;
-  --ui-warning: #785315;
-  --ui-warning-soft: #fff4dc;
-  --ui-shadow-color: #17271e;
-  --ui-overlay: #14241ac2;
-  --shadow-overlay: 0 8px 32px #14241a24;
-  --focus-ring: #235b40;
+  --ui-danger: #b42343;
+  --ui-danger-soft: #fff0f3;
+  --ui-warning: #865900;
+  --ui-warning-soft: #fff3d6;
+  --ui-success: #167047;
+  --ui-success-soft: #e0f5e8;
+  --ui-pending: #52647b;
+  --ui-pending-soft: #eaf0f8;
+  --ui-info: #255cb8;
+  --ui-info-soft: #e9f1ff;
+  --ui-shadow-color: #123e30;
+  --ui-overlay: #081f25b8;
+  --shadow-card: 0 2px 4px #123e3006, 0 8px 24px #123e3008;
+  --shadow-raised: 0 4px 12px #123e300a, 0 16px 36px #123e3012;
+  --shadow-overlay: 0 24px 72px #08251f30;
+  --focus-ring: #087653;
+  --service-home: #087653;
+  --service-home-soft: #ddf5e9;
+  --service-flight: #5742ba;
+  --service-flight-soft: #efebff;
+  --service-moving: #b54c12;
+  --service-moving-soft: #fff0e5;
+  --service-route: #245fc3;
+  --service-route-soft: #e7f0ff;
+  --service-roommate: #b32b62;
+  --service-roommate-soft: #fce9f0;
+  --service-landlord: #8b5b0b;
+  --service-landlord-text: #78500b;
+  --service-landlord-soft: #fff1d5;
+  --service-guide: #087684;
+  --service-guide-soft: #ddf4f5;
+  --service-color: var(--service-home);
+  --service-soft: var(--service-home-soft);
+  /* Photo-safe cover palette stays consistent in both themes. */
+  --hero-bg: #10221e;
+  --hero-text: #f5fbf7;
+  --hero-muted: #e4eee9;
+  --hero-accent: #adf1cd;
+  --hero-accent-hover: #d1f9e2;
+  --hero-on-accent: #10261d;
+  --hero-overlay-start: #091a18ed;
+  --hero-overlay-mid: #091a18aa;
+  --hero-overlay-end: #091a1830;
+  --hero-overlay-floor: #091a1866;
+  --hero-mobile-start: #071714f2;
+  --hero-mobile-mid: #071714e7;
+  --hero-mobile-end: #07171470;
+  --hero-link-line: #ffffff8c;
+  --hero-clear: #091a1800;
+  --hero-shadow: #00000032;
+  --ui-qr-surface: #ffffff;
+  --map-preview-land: #e4ede4;
+  --map-preview-block: #d1e0d3;
+  --map-preview-road: #f6f4ee;
+  --map-preview-water: #bddddc;
+  --map-preview-radius: #3180650c;
   --ai-shell-highlight: #ffffff;
-  --ai-shell: #e3f0e8;
-  --ai-shell-shade: #91bca1;
-  --blue: var(--ui-accent);
-  --violet: var(--ui-accent);
+  --ai-shell: #ddf5e9;
+  --ai-shell-shade: #69a98d;
+  --blue: var(--service-route);
+  --violet: var(--service-flight);
   --brand: var(--ui-accent);
   --muted: var(--ui-muted);
   --line: var(--ui-line);
-  --shadow: none;
+  --shadow: var(--shadow-card);
   color: var(--ui-text);
   background: var(--ui-bg);
 }
 :root[data-theme="dark"] {
-  --ui-bg: #111a15;
-  --ui-surface: #1a261f;
-  --ui-soft: #24352b;
-  --ui-text: #edf3ed;
-  --ui-muted: #b2c1b5;
-  --ui-line: #3d5143;
-  --ui-control-line: #859b8b;
-  --ui-accent: #abdcbc;
-  --ui-accent-strong: #b5e4c4;
-  --ui-accent-soft: #2b4433;
-  --ui-on-accent: #132a1c;
-  --ui-danger: #ffb4bd;
-  --ui-danger-soft: #422a30;
-  --ui-warning: #f0d295;
-  --ui-warning-soft: #3e3423;
+  --ui-bg: #0d1522;
+  --ui-surface: #151f2e;
+  --ui-surface-raised: #1b293a;
+  --ui-soft: #213044;
+  --ui-section: #203d35;
+  --ui-section-line: #426b5c;
+  --ui-text: #eff6f4;
+  --ui-muted: #adbfcb;
+  --ui-line: #35485d;
+  --ui-control-line: #70869b;
+  --ui-accent: #80e7be;
+  --ui-accent-strong: #65d9ab;
+  --ui-accent-hover: #98efce;
+  --ui-accent-soft: #173a32;
+  --ui-on-accent: #0a211c;
+  --ui-danger: #ffacbc;
+  --ui-danger-soft: #412633;
+  --ui-warning: #f3cf86;
+  --ui-warning-soft: #3d3321;
+  --ui-success: #86e0b5;
+  --ui-success-soft: #1c3b31;
+  --ui-pending: #bbcbdf;
+  --ui-pending-soft: #263448;
+  --ui-info: #a6c9ff;
+  --ui-info-soft: #1b3454;
   --ui-shadow-color: #000000;
-  --ui-overlay: #030b08d1;
-  --shadow-overlay: 0 8px 32px #00000040;
-  --focus-ring: #b5e4c4;
-  --ai-shell-highlight: #cee7d7;
-  --ai-shell: #a4cbb3;
-  --ai-shell-shade: #659d7b;
+  --ui-overlay: #030a14d9;
+  --shadow-card: 0 2px 8px #00000020;
+  --shadow-raised: 0 8px 28px #00000035;
+  --shadow-overlay: 0 24px 72px #00000070;
+  --focus-ring: #8bf0ca;
+  --service-home: #80e7be;
+  --service-home-soft: #173a32;
+  --service-flight: #c4b5ff;
+  --service-flight-soft: #302847;
+  --service-moving: #ffb47f;
+  --service-moving-soft: #422d23;
+  --service-route: #a5c7ff;
+  --service-route-soft: #203652;
+  --service-roommate: #ffb0cb;
+  --service-roommate-soft: #442a3b;
+  --service-landlord: #f5d38b;
+  --service-landlord-text: #f5d38b;
+  --service-landlord-soft: #3d3422;
+  --service-guide: #8be2e6;
+  --service-guide-soft: #1d3b42;
+  --ai-shell-highlight: #def8ee;
+  --ai-shell: #b2e0cd;
+  --ai-shell-shade: #6ca68e;
+  --map-preview-land: #243a33;
+  --map-preview-block: #355047;
+  --map-preview-road: #152b24;
+  --map-preview-water: #325859;
+  --map-preview-radius: #9ee4bd12;
 }
-@media (max-width: 767px) {
-  :root {
-    --ui-header-height: 120px;
-    --control-height: 44px;
-  }
-}
-@media (pointer: coarse) {
-  :root {
-    --control-height: 44px;
-  }
-}
+[data-service="property"] { --service-color: var(--service-home); --service-soft: var(--service-home-soft); }
+[data-service="map"] { --service-color: var(--service-route); --service-soft: var(--service-route-soft); }
+[data-service="flight"] { --service-color: var(--service-flight); --service-soft: var(--service-flight-soft); }
+[data-service="relocation"] { --service-color: var(--service-moving); --service-soft: var(--service-moving-soft); }
+[data-service="roommate"] { --service-color: var(--service-roommate); --service-soft: var(--service-roommate-soft); }
+[data-service="landlord"] { --service-color: var(--service-landlord); --service-soft: var(--service-landlord-soft); }
+[data-service="guides"], [data-service="guide"] { --service-color: var(--service-guide); --service-soft: var(--service-guide-soft); }
+@media (max-width: 767px) { :root { --ui-header-height: 120px; --control-height: 44px; } }
+@media (pointer: coarse) { :root { --control-height: 44px; } }

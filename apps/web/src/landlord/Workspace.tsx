@@ -240,7 +240,7 @@ export function LandlordWorkspace() {
   ];
 
   return (
-    <div className="ll-workspace">
+    <div className="ll-workspace" data-service="landlord">
       <header className="ll-heading">
         <div>
           <span className="ll-kicker">

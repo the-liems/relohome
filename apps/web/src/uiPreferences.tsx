@@ -29,9 +29,15 @@ function applyPreferences() {
   document.documentElement.dataset.theme = current.theme;
   document.documentElement.lang = current.locale;
   document.documentElement.style.colorScheme = current.theme;
-  document
-    .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", current.theme === "dark" ? "#101713" : "#f7f9f8");
+  // Wait for the stylesheet on initial module load; the browser chrome uses the same palette.
+  requestAnimationFrame(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute(
+        "content",
+        getComputedStyle(document.documentElement).getPropertyValue("--ui-bg").trim(),
+      );
+  });
   window.dispatchEvent(
     new CustomEvent("siu:appearance-change", { detail: current }),
   );

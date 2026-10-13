@@ -1475,6 +1475,7 @@ function Chat() {
           {(navigation.items || []).map((item: Data) => (
             <button
               key={item.task_id}
+              data-service={item.agent}
               className={workspaceTaskId === item.task_id ? "active" : ""}
               disabled={busy}
               aria-current={
@@ -1705,6 +1706,7 @@ function Chat() {
                   {quick.map((q) => (
                     <button
                       className="quick-card"
+                      data-service={q.kind}
                       aria-label={`${uiText(q.title)} ${uiText(q.subtitle)}`}
                       key={q.kind}
                       aria-haspopup={q.kind === "relocation" ? undefined : "dialog"}
@@ -1734,6 +1736,7 @@ function Chat() {
                   ))}
                   <Link
                     className="quick-card"
+                    data-service="roommate"
                     to="/roommate"
                     aria-label={roommateText("Ở ghép", "Roommates")}
                   >
@@ -1755,6 +1758,7 @@ function Chat() {
                   </Link>
                   <Link
                     className="quick-card"
+                    data-service="guides"
                     to="/guides"
                     aria-label={roommateText("Cẩm nang", "Guides")}
                   >
@@ -1886,7 +1890,7 @@ function Chat() {
                             const chosen =
                               target && hasSelection(thread, target);
                             return (
-                              <div key={c.id} className="chat-service-summary">
+                              <div key={c.id} className="chat-service-summary" data-service={c.type}>
                                 <span>
                                   {chosen
                                     ? uiText("Đã chọn")

@@ -255,7 +255,7 @@ export function PlanPeek({
                                 index + 1
                               )}
                             </span>
-                            <span className={"plan-peek-service " + item.agent}>
+                            <span className={"plan-peek-service " + item.agent} data-service={item.agent}>
                               <d.icon size={18} />
                             </span>
                             <div className="plan-peek-body">

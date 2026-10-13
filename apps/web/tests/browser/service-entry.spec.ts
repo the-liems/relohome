@@ -17,7 +17,7 @@ test("welcome shows six equal service entries with Roommates and Guides working"
   await expect(page.locator(".quick-grid > .quick-card")).toHaveCount(6);
   await expect(page.locator(".quick-grid > button")).toHaveCount(4);
   await expect(page.locator(".quick-grid > a")).toHaveCount(2);
-  for (const [width, columns] of [[320, 2], [768, 3], [1440, 6]]) {
+  for (const [width, columns] of [[320, 2], [768, 2], [1440, 3]]) {
     await page.setViewportSize({ width, height: 960 });
     const boxes = await page.locator(".quick-card").evaluateAll(elements => elements.map(el => {
       const box = el.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
@@ -28,7 +28,7 @@ test("welcome shows six equal service entries with Roommates and Guides working"
   }
   await page.getByRole("link", { name: "Ở ghép", exact: true }).click();
   await expect(page).toHaveURL(/\/roommate$/);
-  await expect(page.getByRole("heading", { name: "Không gian tìm người ở cùng", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tìm người ở cùng", exact: true })).toBeVisible();
   await page.goto("/ai");
   await page.getByRole("link", { name: "Cẩm nang", exact: true }).click();
   await expect(page).toHaveURL(/\/guides$/);
@@ -65,7 +65,7 @@ test("guide library is public and opens original in-app articles", async ({ page
   await page.locator(".guides-list h2 a").first().click();
   await expect(page).toHaveURL(/\/guides\?article=xem-phong$/);
   await expect(page.getByRole("heading", { name: "Đi xem phòng: kiểm tra gì ngoài ảnh đăng?", exact: true })).toBeVisible();
-  await expect(page.locator(".guides-reader-body section")).toHaveCount(3);
+  await expect(page.locator('.guides-reader-body > section[id^="guide-section-"]')).toHaveCount(3);
   if (await page.locator("html").getAttribute("data-theme") !== "dark") {
     await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).click();
   }

@@ -57,7 +57,7 @@ export function RoommateWorkspace() {
   ] as const;
   return (
     <RoommateFeatures.Provider value={availability.value?.features || []}>
-      <div className="rm-workspace">
+      <div className="rm-workspace" data-service="roommate">
         <header className="rm-page-heading">
           <div>
             <span className="rm-kicker">

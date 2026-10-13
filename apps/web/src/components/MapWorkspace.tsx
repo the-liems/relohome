@@ -892,7 +892,7 @@ export function MapWorkspace({
     </button>
   );
   return (
-    <div className={"map-workspace " + (listOpen ? "" : "list-closed")}>
+    <div className={"map-workspace " + (listOpen ? "" : "list-closed")} data-service="property">
       <aside
         className={"ws-list " + (sheet ? "open" : "")}
         aria-label={uiText("Nhà trong vùng bản đồ")}

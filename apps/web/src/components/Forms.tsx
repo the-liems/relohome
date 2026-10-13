@@ -69,7 +69,7 @@ export function TaskForm({
     }
   }
   const content = (
-      <form onSubmit={submit} className="task-form service-request" aria-label={uiText(title[kind])} aria-busy={busy}>
+      <form onSubmit={submit} className="task-form service-request" data-service={kind} aria-label={uiText(title[kind])} aria-busy={busy}>
         <div className="request-intro"><span className="request-symbol" aria-hidden="true">{kind === "property" ? <House size={24} /> : <Compass size={24} />}</span><div><h3>{uiText(title[kind])}</h3><p>{uiText("Điền một lần, ReloHome sẽ xử lý yêu cầu và mở kết quả để bạn lựa chọn.")}</p></div></div>
         <fieldset className="request-fields" disabled={busy || disabled}>
           <legend className="sr-only">{uiText("Thông tin dịch vụ")}</legend>

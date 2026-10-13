@@ -36,7 +36,7 @@ export function GuidesPage({ standalone = false }: { standalone?: boolean }) {
   }, [articleId]);
 
   return (
-    <div className={"guides-page " + (standalone ? "guides-standalone" : "")}>
+    <div className={"guides-page " + (standalone ? "guides-standalone" : "")} data-service="guides">
       {standalone && (
         <header className="guides-public-header">
           <Link to="/">ReloHome</Link>

@@ -81,6 +81,7 @@ export function FlightSearchForm({
       onSubmit={submit}
       noValidate
       className="service-request flight-request"
+      data-service="flight"
       aria-label={uiText("Thông tin tìm chuyến bay")}
       aria-busy={busy}
     >

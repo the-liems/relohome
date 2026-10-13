@@ -1,17 +1,17 @@
 /* Landing presentation only. Existing product workspaces are intentionally untouched. */
 .landing-upgrade {
-  --lp-map-land: #e4ede4;
-  --lp-map-block: #d1e0d3;
-  --lp-map-road: #f6f4ee;
-  --lp-map-water: #bddddc;
-  --lp-map-radius: #3180650c;
+  --lp-map-land: var(--map-preview-land);
+  --lp-map-block: var(--map-preview-block);
+  --lp-map-road: var(--map-preview-road);
+  --lp-map-water: var(--map-preview-water);
+  --lp-map-radius: var(--map-preview-radius);
 }
 :root[data-theme="dark"] .landing-upgrade {
-  --lp-map-land: #243a33;
-  --lp-map-block: #355047;
-  --lp-map-road: #152b24;
-  --lp-map-water: #325859;
-  --lp-map-radius: #9ee4bd12;
+  --lp-map-land: var(--map-preview-land);
+  --lp-map-block: var(--map-preview-block);
+  --lp-map-road: var(--map-preview-road);
+  --lp-map-water: var(--map-preview-water);
+  --lp-map-radius: var(--map-preview-radius);
 }
 .landing-upgrade :is(button, a):focus-visible {
   outline: 3px solid var(--ui-accent);
@@ -153,7 +153,7 @@
 .landing-upgrade .lp-segments button[aria-pressed="true"] {
   background: var(--landing-surface);
   color: var(--landing-ink);
-  box-shadow: 0 2px 5px #102c1e10;
+  box-shadow: var(--shadow-card);
 }
 .landing-upgrade .lp-map-illustration {
   display: block;
@@ -174,7 +174,7 @@
   border: 1px solid var(--landing-line);
   border-radius: 12px;
   background: var(--landing-surface);
-  box-shadow: 0 8px 18px #163b2810;
+  box-shadow: var(--shadow-card);
 }
 .landing-upgrade .lp-map-caption strong {
   display: block;
@@ -268,7 +268,7 @@
 .landing-upgrade .lp-step-selector button[aria-pressed="true"] {
   background: var(--landing-surface);
   border-color: var(--landing-line);
-  box-shadow: 0 8px 25px #163b2808;
+  box-shadow: var(--shadow-card);
 }
 .landing-upgrade .lp-step-selector button > svg {
   margin-top: 4px;
@@ -475,7 +475,7 @@
 .landing-upgrade .lp-profile-preview {
   padding: 30px;
   background: var(--landing-soft);
-  box-shadow: 0 18px 45px #183b2808;
+  box-shadow: var(--shadow-raised);
 }
 .landing-upgrade .lp-profile-heading {
   display: flex;

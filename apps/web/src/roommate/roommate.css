@@ -580,9 +580,9 @@
   color: inherit;
 }
 .rm-success {
-  color: var(--ui-accent);
+  color: var(--ui-success);
   padding: 12px;
-  background: var(--ui-accent-soft);
+  background: var(--ui-success-soft);
 }
 .rm-inbox-list {
   list-style: none;
