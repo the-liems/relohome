@@ -60,7 +60,7 @@ Phát hiện và sửa hai lỗi contrast Dark Mode ở nút về hội thoại 
 
 Mở `http://127.0.0.1:8503`, refresh để nhận asset mới. Build được phục vụ bởi gateway local hiện có. Đổi Light/Dark, kiểm tra `/ai`, `/roommate`, `/landlord`, `/guides`; Admin dùng tài khoản có quyền hiện có. Thử các ô dịch vụ, xem kết quả và mở Kế hoạch để kiểm tra surface/tab/CTA bên trong.
 
-Không cần migration hoặc thay `.env` cho bản UI này. Các file review main có sẵn và kế hoạch Roommate trước đó được giữ nguyên. Chưa push hoặc tạo PR trong lượt nâng cấp này.
+Không cần migration hoặc thay `.env` cho bản UI này. Các file review main có sẵn và kế hoạch Roommate trước đó được giữ nguyên.
 
 ## Điều chỉnh phân chia nền theo feedback
 
@@ -69,3 +69,11 @@ Nền trang và section trước đó đều pha xanh nhạt, khó nhận ra ran
 Chữ nhỏ trên section Emerald dùng màu Emerald đậm; nhãn chủ nhà có `--service-landlord-text` để đảm bảo tương phản trên nền mới. Giữ màu nhận diện icon và luồng tương tác. Artifact kiểm tra bổ sung tại `data/ui-design-system/section-contrast/` và `section-contrast-fixed/`.
 
 Build lại thành công. Kiểm tra bổ sung 36 trường hợp (9 màn hình × Light/Dark × desktop/mobile); các lỗi tương phản chữ nhỏ trên Landing đã được sửa và chạy lại cả bốn trường hợp Landing, không còn lỗi axe, JavaScript hoặc tràn ngang. Screenshot cận ranh giới section: `section-contrast-fixed/section-boundary-light-1440.png`. Trang so sánh local đã cập nhật ảnh mới.
+
+## Tích hợp trên main đã refactor
+
+- Base: `origin/main` tại `0c53c6e` (đã merge PR #139, #141, #142, #144).
+- Tạo nhánh trực tiếp từ main này rồi cherry-pick riêng commit UI; không đưa source hoặc cấu trúc cũ trở lại.
+- `MapPanel.tsx` tự merge được: giữ comment đường dẫn `examples/map-app` từ main và bổ sung `data-service` của UI. Không phát sinh conflict cần chọn phiên bản hoặc ghi đè file.
+- Npm dependencies được cài theo lockfile mới. Backend, package layout, API, database và `.github/` không có diff so với main.
+- Bàn giao qua nhánh `QuangDung` → PR vào `main`; push fast-forward, không force-push lịch sử nhánh dùng chung.
