@@ -6,12 +6,12 @@ from relohome_agent.agents.models import AgentName, TaskResult
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.services.adapters.registry import ServiceSettings
 from relohome_gateway.server import presentation
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
+from relohome_roommate.services.profiles import ProfileService
+from relohome_roommate.services.safety import SafetyService
 
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
-from src.roommate.services.profiles import ProfileService
-from src.roommate.services.safety import SafetyService
 from tests.test_agents.helpers import Session, fact, intake_result
 from tests.test_roommate.test_discovery_api import make_app
 from tests.test_roommate.test_profile_lifecycle import complete

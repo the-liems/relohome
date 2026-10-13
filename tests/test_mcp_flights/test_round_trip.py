@@ -6,15 +6,15 @@ from typing import Any
 import httpx
 import pytest
 from pydantic import ValidationError
+from relohome_flight.booking_engine import BookingEngine
+from relohome_flight.errors import InvalidRequestError
+from relohome_flight.schemas import FlightSearchRequest
+from relohome_flight.search import SerpApiFlightSearch
+from relohome_flight.search.serpapi import build_params
+from relohome_flight.settings import FlightSettings
+from relohome_flight.storage import FlightDatabase, OfferCache
 from relohome_flights_mcp.tools import FlightServices, FlightTools
 
-from src.mcp_servers.flights.booking_engine import BookingEngine
-from src.mcp_servers.flights.errors import InvalidRequestError
-from src.mcp_servers.flights.schemas import FlightSearchRequest
-from src.mcp_servers.flights.search import SerpApiFlightSearch
-from src.mcp_servers.flights.search.serpapi import build_params
-from src.mcp_servers.flights.settings import FlightSettings
-from src.mcp_servers.flights.storage import FlightDatabase, OfferCache
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, adult, make_hold, make_search
 
 RETURN_DAY = FLIGHT_DAY + timedelta(days=4)
@@ -180,7 +180,7 @@ async def test_named_hold_without_reference_keeps_legacy_behaviour(tools) -> Non
 
 
 def test_return_date_cannot_be_too_far(services) -> None:
-    from src.mcp_servers.flights.search import validate_search
+    from relohome_flight.search import validate_search
 
     with pytest.raises(InvalidRequestError):
         validate_search(make_search(trip_type="round_trip", return_date=date(2027, 12, 31)), date(2026, 10, 1))

@@ -1,10 +1,9 @@
 from datetime import date
 
 import pytest
-
-from src.roommate.location_catalog import AreaCatalog
-from src.roommate.models import BudgetRange, MoveInWindow, QuietHours
-from src.roommate.normalization import budget_overlap, date_overlap, quiet_overlap
+from relohome_roommate.location_catalog import AreaCatalog
+from relohome_roommate.models import BudgetRange, MoveInWindow, QuietHours
+from relohome_roommate.normalization import budget_overlap, date_overlap, quiet_overlap
 
 
 def test_canonical_city_area_membership():

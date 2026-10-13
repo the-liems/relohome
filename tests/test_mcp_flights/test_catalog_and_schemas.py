@@ -2,10 +2,10 @@ from datetime import date
 
 import pytest
 from pydantic import ValidationError
+from relohome_flight.catalog import distance_km, fare_rules_for, find_airports, get_airport
+from relohome_flight.errors import InvalidRequestError
+from relohome_flight.schemas import FlightSearchRequest, PassengerCount
 
-from src.mcp_servers.flights.catalog import distance_km, fare_rules_for, find_airports, get_airport
-from src.mcp_servers.flights.errors import InvalidRequestError
-from src.mcp_servers.flights.schemas import FlightSearchRequest, PassengerCount
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, adult
 
 

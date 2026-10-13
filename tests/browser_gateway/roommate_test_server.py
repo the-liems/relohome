@@ -25,12 +25,11 @@ from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_agent.services.adapters.registry import ServiceSettings
 from relohome_gateway.server import create_app
 from relohome_gateway.store import password_hash
-
-from src.roommate.models import RoommateProfile
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.contacts import ContactService
-from src.roommate.services.profiles import ProfileService
+from relohome_roommate.models import RoommateProfile
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.contacts import ContactService
+from relohome_roommate.services.profiles import ProfileService
 
 ROOT = Path(__file__).resolve().parents[2]
 os.environ.setdefault("RELOHOME_RUNTIME_ROOT", str(ROOT))

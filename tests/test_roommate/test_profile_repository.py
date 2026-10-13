@@ -1,11 +1,10 @@
 from datetime import UTC, datetime
 
 import pytest
-
-from src.roommate.models import RoommateProfile, RoommateSearchCriteria
-from src.roommate.ports import ProfileRecord
-from src.roommate.profile_repository import SqlProfiles, VersionConflictError
-from src.roommate.storage import Storage
+from relohome_roommate.models import RoommateProfile, RoommateSearchCriteria
+from relohome_roommate.ports import ProfileRecord
+from relohome_roommate.profile_repository import SqlProfiles, VersionConflictError
+from relohome_roommate.storage import Storage
 
 NOW = datetime(2026, 10, 7, tzinfo=UTC)
 

@@ -18,8 +18,8 @@ from relohome_agent.agents.subagents.services.moving_catalog import MovingCatalo
 from relohome_agent.agents.subagents.services.moving_llm import MovingExecution
 from relohome_agent.api.routes import router as chat_router
 from relohome_agent.api.web_actions import router
+from relohome_contracts.moving_options import MovingOptions, service_selection, validated_options
 
-from src.models.moving_options import MovingOptions, service_selection, validated_options
 from tests.test_agents.helpers import intake_result
 from tests.test_agents.test_commit_adapter import RecordingBridge, booking_client, request, tx
 

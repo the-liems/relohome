@@ -16,9 +16,9 @@ from relohome_agent.agents.models import AgentBudget, AgentName
 from relohome_agent.agents.subagents.services.location import LocationSubagent, _meters, pick_place
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
 from relohome_agent.services.adapters.registry import LOCATION_READ_TOOLS
+from relohome_roommate.demo import DemoDataset
+from relohome_roommate.models import RoommateSearchCriteria
 
-from src.roommate.demo import DemoDataset
-from src.roommate.models import RoommateSearchCriteria
 from tests import live
 from tests.test_llm_agents.test_workspace_repairs_live import ROOT
 
@@ -118,8 +118,7 @@ def test_hundred_demo_profiles_never_enter_real_discovery_or_identity():
     from datetime import datetime
 
     from pydantic import ValidationError
-
-    from src.roommate.ports import Actor
+    from relohome_roommate.ports import Actor
 
     dataset = DemoDataset.load(ROOT / os.environ["ROOMMATE_DEMO_DATASET"])
     now = datetime.now(UTC)

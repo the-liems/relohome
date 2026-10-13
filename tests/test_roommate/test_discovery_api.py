@@ -7,9 +7,8 @@ from relohome_agent.api.roommate_access import router as access_router
 from relohome_agent.api.roommate_discovery import router as discovery_router
 from relohome_agent.config import Settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-
-from src.roommate.models import RoommateProfile
-from src.roommate.ports import ProfileRecord
+from relohome_roommate.models import RoommateProfile
+from relohome_roommate.ports import ProfileRecord
 
 
 def make_app(tmp_path):

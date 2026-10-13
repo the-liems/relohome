@@ -4,16 +4,15 @@ import os
 from uuid import uuid4
 
 import pytest
+from relohome_agent_services.common import ServiceSettings
 from relohome_agent_services.intake_models import IntakeRequest
+from relohome_agent_services.llm import StructuredLLM
 from relohome_intake.service import IntakeService
 from relohome_orchestrator.engine import Orchestrator
 from relohome_orchestrator.models import PlanRequest
 from relohome_orchestrator.planner import Planner
 from relohome_orchestrator.registry import Registry, validate_plan
 from relohome_orchestrator.store import WorkflowStore
-
-from src.agent_services.common import ServiceSettings
-from src.agent_services.llm import StructuredLLM
 
 
 @pytest.mark.skipif(

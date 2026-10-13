@@ -7,10 +7,10 @@ import pytest
 from relohome_agent.agents.wiring import verify_sandbox_payment_service
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
 from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_payment.settings import PaymentSettings
 from relohome_payments_mcp.server import create_server
 from relohome_payments_mcp.tools import build_services
 
-from src.mcp_servers.payments.settings import PaymentSettings
 from tests.mcp_http import running_mcp
 
 

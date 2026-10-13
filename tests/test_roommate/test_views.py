@@ -2,11 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
-
-from src.roommate.models import RoommateProfile
-from src.roommate.policy import ProfileState
-from src.roommate.ports import Actor, ProfileRecord
-from src.roommate.views import owner_profile, public_profile, unavailable_profile
+from relohome_roommate.models import RoommateProfile
+from relohome_roommate.policy import ProfileState
+from relohome_roommate.ports import Actor, ProfileRecord
+from relohome_roommate.views import owner_profile, public_profile, unavailable_profile
 
 NOW = datetime(2026, 10, 7, tzinfo=UTC)
 

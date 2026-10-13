@@ -1,11 +1,11 @@
 from datetime import date
 
 import pytest
+from relohome_flight.errors import BookingNotFoundError, BookingStateError, InvalidRequestError
+from relohome_flight.schemas import FlightOffer, Passenger
+from relohome_flight.search import MockFlightSearch
 from relohome_flights_mcp.tools import FlightServices
 
-from src.mcp_servers.flights.errors import BookingNotFoundError, BookingStateError, InvalidRequestError
-from src.mcp_servers.flights.schemas import FlightOffer, Passenger
-from src.mcp_servers.flights.search import MockFlightSearch
 from tests.test_mcp_flights.helpers import FakeClock, adult, make_hold, make_search
 
 

@@ -7,7 +7,9 @@ from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
+from relohome_agent_services.common import ServiceError, ServiceSettings, fingerprint, now
 from relohome_agent_services.intake_models import IntakeRequest
+from relohome_agent_services.llm import StructuredLLM
 from relohome_intake.service import normalize
 from relohome_orchestrator.engine import Orchestrator
 from relohome_orchestrator.models import ApprovalRequest, PlanTask, Workflow
@@ -15,8 +17,6 @@ from relohome_orchestrator.planner import Planner
 from relohome_orchestrator.registry import Registry
 from relohome_orchestrator.store import WorkflowStore
 
-from src.agent_services.common import ServiceError, ServiceSettings, fingerprint, now
-from src.agent_services.llm import StructuredLLM
 from tests.test_agent_services.test_contracts import catalog_task, draft, understanding
 
 

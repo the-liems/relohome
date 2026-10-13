@@ -105,42 +105,21 @@ def test_relative_overrides_still_resolve_against_runtime_root(tmp_path, monkeyp
 @pytest.mark.parametrize(
     "module", ["server", "store", "roommate_gateway", "runtime_paths", "admin_provision", "cloud_backup"]
 )
-def test_tracked_legacy_imports_preserve_module_identity(module):
-    assert importlib.import_module("Frontend." + module) is importlib.import_module("relohome_gateway." + module)
+def test_canonical_modules_have_one_source_owner(module):
+    implementation = importlib.import_module("relohome_gateway." + module)
+    source = Path(__file__).resolve().parents[1] / "src/relohome_gateway" / (module + ".py")
+    assert Path(implementation.__file__).resolve() == source
+    assert not list((Path(__file__).resolve().parents[3] / "Frontend").glob("*.py"))
 
 
 @pytest.mark.parametrize(
     "module", ["server", "store", "roommate_gateway", "runtime_paths", "admin_provision", "cloud_backup"]
 )
-def test_stale_editable_install_explains_how_to_reinstall(module, tmp_path):
-    legacy = Path(__file__).resolve().parents[3] / "Frontend"
-    # Reproduce the pre-move setuptools finder mapping in a fresh interpreter.
-    # This takes precedence over the current environment's healthy editable install.
-    code = """
-import importlib
-import importlib.abc
-import importlib.util
-import sys
-from pathlib import Path
-
-class StaleEditableFinder(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == "relohome_gateway":
-            return importlib.util.spec_from_file_location(
-                fullname, Path(sys.argv[1]) / "__init__.py",
-                submodule_search_locations=[sys.argv[1]],
-            )
-
-sys.meta_path.insert(0, StaleEditableFinder())
-importlib.import_module("relohome_gateway." + sys.argv[2])
-"""
+def test_reinstalled_gateway_imports_from_outside_checkout(module, tmp_path):
+    source = Path(__file__).resolve().parents[1] / "src/relohome_gateway" / (module + ".py")
     result = subprocess.run(
-        [sys.executable, "-I", "-c", code, str(legacy), module],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
+        [sys.executable, "-I", "-c", "import importlib, sys; print(importlib.import_module('relohome_gateway.' + sys.argv[1]).__file__)", module],
+        cwd=tmp_path, capture_output=True, text=True, check=False,
     )
-    assert result.returncode != 0
-    assert "Stale editable install maps relohome_gateway to Frontend/" in result.stderr
-    assert "npm run setup:python" in result.stderr
+    assert result.returncode == 0, result.stderr
+    assert Path(result.stdout.strip()).resolve() == source

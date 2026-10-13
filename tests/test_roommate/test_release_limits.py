@@ -1,22 +1,22 @@
 from datetime import timedelta
 
 import pytest
+from relohome_roommate.access import RoommateError
+from relohome_roommate.ports import Actor
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateError
-from src.roommate.ports import Actor
-from src.roommate.storage import Storage
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_rate_budget_shared_by_connections_and_resets_without_changing_daily_quota(tmp_path):
-    from src.roommate.services.resources import take_budget
+    from relohome_roommate.services.resources import take_budget
 
     path = tmp_path / "db"
     with Storage(path) as first, Storage(path) as second:
         ctx = prepare(first)
         for _ in range(2):
             take_budget(ctx, Actor(id="a"), "search", limit=2)
-        from src.roommate.access import RoommateContext
+        from relohome_roommate.access import RoommateContext
 
         other = RoommateContext(second, clock=ctx.clock)
         with pytest.raises(RoommateError, match="rate_limit"):

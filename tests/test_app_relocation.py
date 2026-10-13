@@ -12,48 +12,39 @@ from relohome_agent.runtime_paths import runtime_path
 from relohome_agent.services.adapters.sqlite_runtime import RuntimeDatabase
 
 ROOT = Path(__file__).resolve().parents[1]
-LEGACY = {
-    "relohome_agent": "src",
-    "relohome_flights_mcp": "src/mcp_servers/flights",
-    "relohome_payments_mcp": "src/mcp_servers/payments",
-    "relohome_intake": "src/agent_services/intake",
-    "relohome_orchestrator": "src/agent_services/orchestrator",
+APPLICATIONS = {
+    "relohome_agent": "apps/agent-api/src/relohome_agent",
+    "relohome_flights_mcp": "apps/flights-mcp/src/relohome_flights_mcp",
+    "relohome_payments_mcp": "apps/payments-mcp/src/relohome_payments_mcp",
+    "relohome_intake": "apps/intake-api/src/relohome_intake",
+    "relohome_orchestrator": "apps/orchestrator-api/src/relohome_orchestrator",
 }
 
 
-@pytest.mark.parametrize("namespace,legacy", LEGACY.items())
-def test_stale_editable_install_requires_reinstall(namespace, legacy, tmp_path):
-    code = """
-import importlib
-import importlib.abc
-import importlib.util
-import sys
-from pathlib import Path
-
-class StaleFinder(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == sys.argv[1]:
-            return importlib.util.spec_from_file_location(
-                fullname, Path(sys.argv[2]) / '__init__.py',
-                submodule_search_locations=[sys.argv[2]],
-            )
-
-sys.meta_path.insert(0, StaleFinder())
-importlib.import_module(sys.argv[1])
-"""
+@pytest.mark.parametrize("namespace,source", APPLICATIONS.items())
+def test_reinstalled_editable_origin_outside_checkout(namespace, source, tmp_path):
+    # Isolated mode ignores cwd/PYTHONPATH: a stale editable mapping cannot hide a deleted shim.
+    code = "import importlib, sys; print(importlib.import_module(sys.argv[1]).__file__)"
     result = subprocess.run(
-        [sys.executable, "-I", "-c", code, namespace, str(ROOT / legacy)],
-        cwd=tmp_path, capture_output=True, text=True, check=False,
+        [sys.executable, "-I", "-c", code, namespace],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    assert result.returncode != 0
-    assert f"Stale editable install maps {namespace}" in result.stderr
-    assert "npm run setup:python" in result.stderr
+    assert result.returncode == 0, result.stderr
+    assert Path(result.stdout.strip()).resolve() == ROOT / source / "__init__.py"
 
 
 def test_all_subagent_fixtures_are_package_resources():
     fixtures = files("relohome_agent.agents.subagents") / "fixtures"
     assert {p.name for p in fixtures.iterdir()} == {
-        "flight.json", "map.json", "payment.json", "property.json", "relocation.json", "roommate.json",
+        "flight.json",
+        "map.json",
+        "payment.json",
+        "property.json",
+        "relocation.json",
+        "roommate.json",
     }
     for fixture in fixtures.iterdir():
         assert json.loads(fixture.read_text())
@@ -78,8 +69,11 @@ def test_schema_export_from_outside_checkout_keeps_contract_destination(tmp_path
     elsewhere.mkdir()
     result = subprocess.run(
         [sys.executable, "-I", "-m", "relohome_agent.agents.contracts.export_schema"],
-        cwd=elsewhere, env={**os.environ, "RELOHOME_RUNTIME_ROOT": str(root)},
-        capture_output=True, text=True, check=False,
+        cwd=elsewhere,
+        env={**os.environ, "RELOHOME_RUNTIME_ROOT": str(root)},
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     outputs = root / "docs/api/agent-contract"

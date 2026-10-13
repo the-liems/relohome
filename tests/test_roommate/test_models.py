@@ -2,8 +2,7 @@ from datetime import date, time
 
 import pytest
 from pydantic import ValidationError
-
-from src.roommate.models import (
+from relohome_roommate.models import (
     AreaSelection,
     BudgetRange,
     FeeBasis,

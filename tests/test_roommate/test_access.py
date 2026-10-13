@@ -1,13 +1,12 @@
 from datetime import UTC, datetime
 
 import pytest
-
-from src.roommate.access import RoommateContext, RoommateError
-from src.roommate.clock import FrozenClock
-from src.roommate.policy import TERMS_VERSION
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.storage import Storage
+from relohome_roommate.access import RoommateContext, RoommateError
+from relohome_roommate.clock import FrozenClock
+from relohome_roommate.policy import TERMS_VERSION
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.storage import Storage
 
 
 def test_service_consent_is_versioned_private_and_not_a_public_profile(tmp_path):

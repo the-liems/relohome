@@ -1,11 +1,11 @@
 from datetime import timedelta
 
 import pytest
+from relohome_flight.errors import InvalidRequestError
+from relohome_flight.search import MockFlightSearch, sort_and_limit, validate_search
+from relohome_flight.search.mock import total_fare
+from relohome_flight.settings import FlightSettings
 
-from src.mcp_servers.flights.errors import InvalidRequestError
-from src.mcp_servers.flights.search import MockFlightSearch, sort_and_limit, validate_search
-from src.mcp_servers.flights.search.mock import total_fare
-from src.mcp_servers.flights.settings import FlightSettings
 from tests.test_mcp_flights.helpers import TODAY, FakeClock, make_search
 
 

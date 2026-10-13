@@ -73,6 +73,7 @@ class MCPSmokeTests(unittest.TestCase):
         self.assertCountEqual(names, removals)
         for call in starts:
             self.assertNotIn("-p", call)
+            self.assertEqual(call[call.index("--network") + 1], "none")
         return names
 
     def test_cleanup_after_partial_start_health_timeout_and_http_failure(self):
@@ -101,7 +102,10 @@ class MCPSmokeTests(unittest.TestCase):
         second_names = self.assert_owned_cleanup(second_calls)
         self.assertTrue(set(first_names).isdisjoint(second_names))
         for run_id, calls in ((101, first_calls), (102, second_calls)):
-            probes = [call for call in calls if call[:2] == ["docker", "exec"]]
+            imports = [call for call in calls if call[:2] == ["docker", "exec"] and "--require-nonroot" in call]
+            self.assertEqual(len(imports), 2)
+            self.assertTrue(all("-I" in call and call[call.index("--workdir") + 1] == "/tmp" for call in imports))
+            probes = [call for call in calls if call[:2] == ["docker", "exec"] and "--require-nonroot" not in call]
             self.assertEqual(len(probes), 2)
             self.assertTrue(all("127.0.0.1" in " ".join(call) for call in probes))
             self.assertFalse(any(call[:2] == ["docker", "inspect"] for call in calls))

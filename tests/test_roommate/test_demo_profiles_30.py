@@ -6,10 +6,9 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-
-from src.roommate.demo import DemoDataset
-from src.roommate.models import RoommateSearchCriteria
-from src.roommate.policy import NeedKind
+from relohome_roommate.demo import DemoDataset
+from relohome_roommate.models import RoommateSearchCriteria
+from relohome_roommate.policy import NeedKind
 
 ROOT = Path(__file__).resolve().parents[2]
 build_dataset = runpy.run_path(str(ROOT / "scripts/generate-roommate-demo.py"))["build_dataset"]
