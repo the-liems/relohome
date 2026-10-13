@@ -86,7 +86,7 @@ Mỗi thư mục phục vụ một mục đích cụ thể. Hãy hiểu rõ trư
 
 **`src/agent/`** — Nơi chứa toàn bộ logic AI Agent của bạn. File `graph.py` định nghĩa state graph (sơ đồ trạng thái) cho Agent, `state.py` chứa schema dữ liệu truyền giữa các node, `nodes.py` chứa các hàm xử lý logic tại mỗi bước, và `tools.py` chứa các công cụ mà Agent có thể sử dụng (tìm kiếm web, truy vấn database, gọi API, v.v.). Đây là "bộ não" của ứng dụng.
 
-**`src/api/`** — FastAPI backend. File `main.py` tạo ứng dụng FastAPI và cấu hình middleware. Thư mục `routes/` chứa các file định nghĩa API endpoints, mỗi file tương ứng với một nhóm chức năng. File `deps.py` quản lý dependency injection — ví dụ, tạo instance của Agent và inject vào các route handler.
+**`apps/agent-api/src/relohome_agent/api/`** — FastAPI backend. File `main.py` tạo ứng dụng FastAPI và cấu hình middleware. Thư mục `routes/` chứa các file định nghĩa API endpoints, mỗi file tương ứng với một nhóm chức năng. File `deps.py` quản lý dependency injection — ví dụ, tạo instance của Agent và inject vào các route handler.
 
 **`src/core/`** — Cấu hình và tiện ích dùng chung. File `config.py` sử dụng pydantic-settings để load và validate biến môi trường. File `logging.py` thiết lập logging format.
 
@@ -159,7 +159,7 @@ Template khai báo dependencies trong `requirements.txt` — cả thư viện ch
 $ pip install -r requirements.txt
 ```
 
-Không có bước `pip install -e .` như nhiều dự án Python khác: template không đóng gói `src/` thành package để cài, code chạy thẳng từ thư mục dự án (`uvicorn src.main:app`). Nghĩa là bạn sửa code trong `src/` thì lần chạy sau đã dùng bản mới, không cần cài lại gì.
+Không có bước `pip install -e .` như nhiều dự án Python khác: template không đóng gói `src/` thành package để cài, code chạy thẳng từ thư mục dự án (`uvicorn relohome_agent.main:app`). Nghĩa là bạn sửa code trong `src/` thì lần chạy sau đã dùng bản mới, không cần cài lại gì.
 
 Các dependencies chính trong template bao gồm:
 
@@ -408,12 +408,12 @@ Sau khi setup môi trường và cấu hình, đây là khoảnh khắc quan tr�
 $ source .venv/bin/activate
 
 # Chạy FastAPI server
-$ uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+$ uvicorn relohome_agent.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Giải thích từng tham số:
 
-- **`src.api.main:app`** — Đường dẫn đến FastAPI app instance. File `src/api/main.py` chứa dòng `app = FastAPI(...)`.
+- **`relohome_agent.api.main:app`** — Đường dẫn đến FastAPI app instance. File `apps/agent-api/src/relohome_agent/api/main.py` chứa dòng `app = FastAPI(...)`.
 - **`--reload`** — Tự động reload server khi code thay đổi. Chỉ dùng trong development, không dùng trong production.
 - **`--host 0.0.0.0`** — Lắng nghe trên tất cả network interfaces, cho phép truy cập từ thiết bị khác trong cùng mạng.
 - **`--port 8000`** — Port number. Khớp với `API_PORT` trong config.

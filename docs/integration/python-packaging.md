@@ -18,20 +18,18 @@ All distributions are private local projects, version `0.1.0`, requiring Python
 | `relohome-payment` / `relohome_payment` | `packages/python/payment` | Payment: schemas, engine, provider implementations and storage |
 | `relohome-agent-services` / `relohome_agent_services` | `packages/python/agent-services` | Standalone services: common HTTP/settings, LLM adapter and intake contracts |
 | `relohome-mcp-http` / `relohome_mcp_http` | `packages/python/mcp-http` | MCP transport: shared bearer authentication and HTTP service behavior |
-| `relohome-agent` / `relohome_agent` | `src/pyproject.toml` | Integrated agent API, graph, checkout and runtime composition |
+| `relohome-agent` / `relohome_agent` | `apps/agent-api/pyproject.toml` | Integrated agent API, graph, checkout and runtime composition |
 | `relohome-browser-gateway` / `relohome_gateway` | `apps/browser-gateway/pyproject.toml` | Browser gateway; calls backend business operations over HTTP |
-| `relohome-flights-mcp` / `relohome_flights_mcp` | `src/mcp_servers/flights/pyproject.toml` | Flight MCP transport and tools |
-| `relohome-payments-mcp` / `relohome_payments_mcp` | `src/mcp_servers/payments/pyproject.toml` | Payment MCP transport and tools |
-| `relohome-intake-api` / `relohome_intake` | `src/agent_services/intake/pyproject.toml` | Standalone intake compatibility harness |
-| `relohome-orchestrator-api` / `relohome_orchestrator` | `src/agent_services/orchestrator/pyproject.toml` | Standalone orchestrator compatibility harness |
+| `relohome-flights-mcp` / `relohome_flights_mcp` | `apps/flights-mcp/pyproject.toml` | Flight MCP transport and tools |
+| `relohome-payments-mcp` / `relohome_payments_mcp` | `apps/payments-mcp/pyproject.toml` | Payment MCP transport and tools |
+| `relohome-intake-api` / `relohome_intake` | `apps/intake-api/pyproject.toml` | Standalone intake compatibility harness |
+| `relohome-orchestrator-api` / `relohome_orchestrator` | `apps/orchestrator-api/pyproject.toml` | Standalone orchestrator compatibility harness |
 
-Shared projects use the final `src/relohome_*` layout. Application projects use
-explicit setuptools package mappings over their existing source directories.
-This is a temporary source-layout arrangement, not a path injection. #113/#114
-move those sources to the ADR's `apps/*/src/relohome_*` roots and remove the
-package mappings. The installed namespace stays unchanged across that move.
-Retained demo source runners move/package in #115. No observability package is
-introduced: the conditional telemetry implementation is absent at this base.
+All shared and application projects now use their final `src/relohome_*` layouts.
+After updating an existing checkout, run `npm run setup:python` again to replace
+old editable mappings. See [app relocation](agent-app-relocation.md) for #114's
+entrypoints, compatibility inventory, validation and rollback. Retained demos
+move/package in #115. No observability package is introduced at this base.
 
 Applications may depend on shared libraries, never another application's
 implementation. Roommate's Settings/runtime composer belongs to `relohome_agent.roommate_runtime`.
@@ -62,8 +60,8 @@ in their owning project metadata and `requirements-agents.txt`.
 
 Each Docker build installs its own application and shared dependencies as wheels,
 alongside `requirements-runtime.txt` (or the existing standalone pins in
-`requirements-agents.txt`). Existing source copies/CMDs remain temporarily
-supported. Image/service names, ports, worker counts, health routes, volume
+`requirements-agents.txt`). Images launch canonical installed modules; compatibility source launchers remain
+only in the checkout until #115. Image/service names, ports, worker counts, health routes, volume
 identities and same-origin web serving remain unchanged.
 
 `tests/test_python_package_boundaries.py` discovers all 13 projects from their
@@ -93,7 +91,8 @@ a pre-migration source entrypoint. `RUN_EFFICIENCY_SOURCE_ROOT` supplies runtime
 configuration, not an import-path override. These checks remain opt-in. Demo
 source-runner path compatibility is tracked under #115.
 
-Schema export now requires an explicit destination:
+Schema export defaults to `docs/api/agent-contract` under `RELOHOME_RUNTIME_ROOT`;
+relative overrides resolve against the same root and absolute overrides stay explicit:
 
 ```sh
 python -m relohome_agent.agents.contracts.export_schema --output-dir docs/api/agent-contract
@@ -148,7 +147,7 @@ Identified callers retained in this slice:
 - root domain tests use `src.models`, `src.roommate`, Flight/Payment domain and
   standalone-common shims to verify compatibility;
 - `Frontend/tests` uses Roommate shims;
-- existing Docker CMDs and external/local callers may use `src.main`,
+- existing Docker CMDs and external/local callers may use `relohome_agent.main`,
   `src.agent_services.*`, `src.mcp_servers.*`, and `Frontend.server` source
   entrypoints; application internals, root npm commands and Python launchers now
   use canonical installed names;

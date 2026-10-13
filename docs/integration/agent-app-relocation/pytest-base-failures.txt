@@ -1,0 +1,5 @@
+tests/test_agents/test_dedicated_mcp_services.py::test_payment_http_auth_state_and_no_application_subprocess
+tests/test_agents/test_flight_mcp.py::test_langchain_loads_flight_tools_over_http[False]
+tests/test_agents/test_flight_mcp.py::test_langchain_loads_flight_tools_over_http[True]
+tests/test_agents/test_live_flight_payment.py::test_book_flight_through_real_flight_and_payment_servers
+tests/test_agents/test_mcp_http_client.py::test_http_client_calls_tool_and_enforces_allowlist

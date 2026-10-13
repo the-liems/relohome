@@ -30,7 +30,7 @@ and a missing file fails before startup. For another file, run the entrypoint di
 ```sh
 # From repository root (exactly one selected env file):
 node --env-file=/absolute/path/team.env apps/location-mcp/dist/http-server.js
-node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
+node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn relohome_agent.main:app
 docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
 # Existing integration launcher (staging safety overrides) also accepts a file:
 python scripts/local-integration.py location --env-file /absolute/path/team.env
@@ -113,13 +113,13 @@ The old `*_MCP_STDIO` flags no longer enable a transport.
 
 | Nơi | Trách nhiệm |
 | --- | --- |
-| `src/agents/` | Intake, Planner, graph, domain subagents |
-| `src/services/adapters/` | MCP clients, approval, giao dịch, lưu trạng thái |
-| `src/api/` | API hội thoại, xác nhận và demo thanh toán |
+| `apps/agent-api/src/relohome_agent/agents/` | Intake, Planner, graph, domain subagents |
+| `apps/agent-api/src/relohome_agent/services/adapters/` | MCP clients, approval, giao dịch, lưu trạng thái |
+| `apps/agent-api/src/relohome_agent/api/` | API hội thoại, xác nhận và demo thanh toán |
 | `apps/web/` | React/Vite |
 | `apps/browser-gateway/` | Gateway và lưu tài khoản/hội thoại |
 | `src/ui/` | Giao diện Streamlit cũ, giữ để tham khảo |
-| `src/mcp_servers/` | Flight/Payment MCP Python |
+| `apps/flights-mcp/` and `apps/payments-mcp/` | Flight/Payment MCP Python |
 | `Maps VN/LifeFlow/` | Workspace TypeScript Housing/Map/Moving đã có; không di chuyển phá import |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
 | `config/local-*.compose.yaml` | PostGIS và OSRM local, không phải deploy |

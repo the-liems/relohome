@@ -340,7 +340,7 @@ Kinh nghiệm từ các đội đạt kết quả cao cho thấy những điểm
 
 **1. Đủ 10 deliverables.** Các đội đạt điểm cao nộp đủ hoặc gần đủ tất cả deliverables (9-10/10). Đội yếu chỉ nộp 4-5/10. Deliverables hoàn chỉnh = tín hiệu chuyên nghiệp.
 
-**2. Code có cấu trúc rõ ràng.** Top teams tổ chức code theo cấu trúc module: `src/api/`, `src/agents/`, `src/core/`, `src/models/`. Không dump tất cả code vào 1-2 file. Mỗi module có `__init__.py` và trách nhiệm rõ ràng.
+**2. Code có cấu trúc rõ ràng.** Top teams tổ chức code theo cấu trúc module: `apps/agent-api/src/relohome_agent/api/`, `apps/agent-api/src/relohome_agent/agents/`, `src/core/`, `src/models/`. Không dump tất cả code vào 1-2 file. Mỗi module có `__init__.py` và trách nhiệm rõ ràng.
 
 ```text
 # Cấu trúc tốt (ví dụ)

@@ -59,7 +59,7 @@ async def test_agent_handles_empty_query():
 ```python
 import pytest
 from httpx import ASGITransport, AsyncClient
-from src.main import app
+from relohome_agent.main import app
 
 @pytest.fixture
 async def client():

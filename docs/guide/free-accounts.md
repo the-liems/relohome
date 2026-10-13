@@ -340,7 +340,7 @@ A: GitHub: Mỗi người 1 tài khoản → collaborate trên repo. Vercel/Rend
 
 **Q: Template dùng OpenAI, nhưng tôi muốn dùng Mistral/Gemini — được không?**
 
-A: ĐƯỢC! Template dùng LangChain — hỗ trợ nhiều provider. Chỉ cần thay đổi `get_llm()` trong `src/services/llm.py`. Ví dụ: `ChatMistralAI` thay vì `ChatOpenAI`. Xem hướng dẫn trong `docs/guide/chapter-04.md` của template.
+A: ĐƯỢC! Template dùng LangChain — hỗ trợ nhiều provider. Chỉ cần thay đổi `get_llm()` trong `apps/agent-api/src/relohome_agent/services/llm.py`. Ví dụ: `ChatMistralAI` thay vì `ChatOpenAI`. Xem hướng dẫn trong `docs/guide/chapter-04.md` của template.
 
 **Q: Tôi có thể dùng ChatGPT Plus / Claude Pro subscription thay vì API không?**
 

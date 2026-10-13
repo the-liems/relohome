@@ -1,6 +1,6 @@
 # Ví dụ request/response — Flight MCP server
 
-Ví dụ thật từ server [`src/mcp_servers/flights`](../../../../src/mcp_servers/flights/README.md),
+Ví dụ thật từ server [`src/mcp_servers/flights`](../../../../apps/flights-mcp/README.md),
 chạy với `FLIGHT_SEARCH_PROVIDER=mock` và đồng hồ cố định ở `2026-10-01 09:00 +07:00`.
 Lý do chọn thiết kế: [ADR-012](../../../adr/ADR-012-flight-data-source.md),
 [ADR-013](../../../adr/ADR-013-flight-mcp-server-layout.md).

@@ -54,7 +54,7 @@ cp .env.example .env
 pip install -r requirements.txt
 
 # 4. Run development server
-uvicorn src.main:app --reload
+uvicorn relohome_agent.main:app --reload
 ```
 
 ## Project Structure

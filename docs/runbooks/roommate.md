@@ -34,7 +34,7 @@ Không đổi `.env` hoặc secrets thật để chạy tests. Không thêm toke
 Cài dependency bằng `requirements.txt` trong virtualenv project; Roommate thêm Pillow cho decode/sanitize ảnh. Module này không cần Docker. Khởi động application vẫn dùng provider/settings của project hiện tại:
 
 ```powershell
-.venv/Scripts/python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000
+.venv/Scripts/python.exe -m uvicorn relohome_agent.main:app --host 127.0.0.1 --port 8000
 # Một terminal khác, cùng cấu hình server/token:
 npm run dev:gateway
 ```
@@ -59,9 +59,9 @@ Read-time luôn kiểm tra deadline/quyền; maintenance cập nhật trạng th
 
 ```powershell
 @'
-from src.config import get_settings
-from src.roommate.runtime import RoommateRuntime
-from src.roommate.maintenance import reconcile
+from relohome_agent.config import get_settings
+from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_roommate.maintenance import reconcile
 runtime = RoommateRuntime.open(get_settings())
 if runtime is not None:
     try:

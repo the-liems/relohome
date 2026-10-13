@@ -88,7 +88,7 @@ File `conftest.py` chứa pytest fixtures — các hàm setup/teardown được 
 import pytest
 import asyncio
 from httpx import AsyncClient, ASGITransport
-from src.main import app
+from relohome_agent.main import app
 
 
 @pytest.fixture(scope="session")
@@ -192,7 +192,7 @@ async def test_chat_success(client, sample_chat_request):
     # Mock agent.arun để không gọi LLM thật
     mock_response = "Việt Nam có 63 tỉnh thành phố trực thuộc trung ương."
 
-    with patch("src.agents.graph.agent") as mock_agent:
+    with patch("relohome_agent.agents.graph.agent") as mock_agent:
         mock_agent.arun = AsyncMock(return_value=mock_response)
 
         response = await client.post(
@@ -245,7 +245,7 @@ async def test_chat_long_message(client):
 @pytest.mark.asyncio
 async def test_chat_llm_error(client, sample_chat_request):
     """Test POST /api/v1/chat khi LLM bị lỗi."""
-    with patch("src.agents.graph.agent") as mock_agent:
+    with patch("relohome_agent.agents.graph.agent") as mock_agent:
         mock_agent.arun = AsyncMock(
             side_effect=Exception("LLM API timeout")
         )
@@ -300,7 +300,7 @@ from unittest.mock import AsyncMock, patch
 
 def test_parse_user_query():
     """Unit test: test node parse_user_query."""
-    from src.agents.nodes import parse_user_query
+    from relohome_agent.agents.nodes import parse_user_query
 
     state = {"messages": [{"role": "user", "content": "Giá vàng hôm nay?"}]}
     result = parse_user_query(state)
@@ -312,7 +312,7 @@ def test_parse_user_query():
 
 def test_format_response():
     """Unit test: test node format_response."""
-    from src.agents.nodes import format_response
+    from relohome_agent.agents.nodes import format_response
 
     state = {
         "raw_answer": "Giá vàng 18K hôm nay là 5.2 triệu/lượng.",
@@ -328,14 +328,14 @@ def test_format_response():
 @pytest.mark.asyncio
 async def test_retrieve_documents():
     """Unit test: test node retrieve_documents với mock vector store."""
-    from src.agents.nodes import retrieve_documents
+    from relohome_agent.agents.nodes import retrieve_documents
 
     mock_docs = [
         {"content": "Giá vàng SJC 5.2 triệu", "score": 0.95},
         {"content": "Giá vàng 18K 4.8 triệu", "score": 0.88},
     ]
 
-    with patch("src.agents.nodes.vector_store") as mock_vs:
+    with patch("relohome_agent.agents.nodes.vector_store") as mock_vs:
         mock_vs.similarity_search = AsyncMock(return_value=mock_docs)
 
         state = {"parsed_query": {"entity": "vàng", "intent": "price_query"}}
@@ -358,12 +358,12 @@ from unittest.mock import AsyncMock, patch, MagicMock
 @pytest.mark.asyncio
 async def test_graph_simple_query_flow():
     """Integration test: test graph flow cho câu hỏi đơn giản."""
-    from src.agents.graph import build_graph
+    from relohome_agent.agents.graph import build_graph
 
     graph = build_graph()
 
     # Mock tất cả LLM calls
-    with patch("src.agents.nodes.llm") as mock_llm:
+    with patch("relohome_agent.agents.nodes.llm") as mock_llm:
         mock_llm.ainvoke = AsyncMock(
             return_value=MagicMock(
                 content='{"intent": "simple_query", "entity": "vàng"}'
@@ -371,7 +371,7 @@ async def test_graph_simple_query_flow():
         )
 
         # Mock retrieve
-        with patch("src.agents.nodes.vector_store") as mock_vs:
+        with patch("relohome_agent.agents.nodes.vector_store") as mock_vs:
             mock_vs.similarity_search = AsyncMock(
                 return_value=[{"content": "Gold price data", "score": 0.9}]
             )
@@ -388,7 +388,7 @@ async def test_graph_simple_query_flow():
 @pytest.mark.asyncio
 async def test_graph_conditional_routing():
     """Test: graph route đúng cho các loại query khác nhau."""
-    from src.agents.graph import build_graph, should_retrieve
+    from relohome_agent.agents.graph import build_graph, should_retrieve
 
     # Query cần retrieval
     state_retrieve = {"parsed_query": {"intent": "price_query"}}
@@ -402,7 +402,7 @@ async def test_graph_conditional_routing():
 @pytest.mark.asyncio
 async def test_graph_handles_empty_input():
     """Test: graph xử lý input rỗng gracefully."""
-    from src.agents.graph import build_graph
+    from relohome_agent.agents.graph import build_graph
 
     graph = build_graph()
 
@@ -418,13 +418,13 @@ async def test_graph_handles_empty_input():
 @pytest.mark.asyncio
 async def test_graph_preserves_thread_history():
     """Test: graph duy trì lịch sử hội thoại."""
-    from src.agents.graph import build_graph
+    from relohome_agent.agents.graph import build_graph
 
     graph = build_graph()
     thread_id = "test-thread-history"
 
     # Message 1
-    with patch("src.agents.nodes.llm") as mock_llm:
+    with patch("relohome_agent.agents.nodes.llm") as mock_llm:
         mock_llm.ainvoke = AsyncMock(
             return_value=MagicMock(content="Việt Nam ở Đông Nam Á.")
         )
@@ -439,7 +439,7 @@ async def test_graph_preserves_thread_history():
         )
 
     # Message 2 — nên nhớ context từ message 1
-    with patch("src.agents.nodes.llm") as mock_llm:
+    with patch("relohome_agent.agents.nodes.llm") as mock_llm:
         mock_llm.ainvoke = AsyncMock(
             return_value=MagicMock(
                 content="Thủ đô của Việt Nam là Hà Nội."
@@ -467,7 +467,7 @@ Conditional routing là logic quan trọng nhất trong LangGraph — nó quyế
 ```python
 # tests/test_routing.py
 import pytest
-from src.agents.routing import should_retrieve, classify_intent
+from relohome_agent.agents.routing import should_retrieve, classify_intent
 
 
 class TestShouldRetrieve:
@@ -534,14 +534,14 @@ Output terminal sẽ hiển thị bảng coverage:
 Name                           Stmts   Miss  Cover   Missing
 -------------------------------------------------------------
 src/__init__.py                    0      0   100%
-src/main.py                       25      3    88%   45-47
-src/api/__init__.py                0      0   100%
-src/api/health.py                  8      0   100%
-src/api/chat.py                   35     12    66%   23-28, 41-46
-src/agents/__init__.py              0      0   100%
-src/agents/graph.py                45     18    60%   34-52, 67-71
-src/agents/nodes.py                30      5    83%   15, 28-30
-src/agents/routing.py              12      0   100%
+apps/agent-api/src/relohome_agent/main.py                       25      3    88%   45-47
+apps/agent-api/src/relohome_agent/api/__init__.py                0      0   100%
+apps/agent-api/src/relohome_agent/api/health.py                  8      0   100%
+apps/agent-api/src/relohome_agent/api/chat.py                   35     12    66%   23-28, 41-46
+apps/agent-api/src/relohome_agent/agents/__init__.py              0      0   100%
+apps/agent-api/src/relohome_agent/agents/graph.py                45     18    60%   34-52, 67-71
+apps/agent-api/src/relohome_agent/agents/nodes.py                30      5    83%   15, 28-30
+apps/agent-api/src/relohome_agent/agents/routing.py              12      0   100%
 -------------------------------------------------------------
 TOTAL                            155     38    75%
 ```

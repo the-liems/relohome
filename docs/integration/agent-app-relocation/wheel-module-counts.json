@@ -1,0 +1,15 @@
+{
+  "relohome-agent-services": 4,
+  "relohome-contracts": 3,
+  "relohome-flight": 11,
+  "relohome-mcp-http": 1,
+  "relohome-payment": 11,
+  "relohome-privacy": 1,
+  "relohome-roommate": 45,
+  "relohome-agent": 102,
+  "relohome-browser-gateway": 7,
+  "relohome-flights-mcp": 4,
+  "relohome-intake-api": 3,
+  "relohome-orchestrator-api": 8,
+  "relohome-payments-mcp": 4
+}
