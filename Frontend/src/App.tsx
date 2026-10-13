@@ -105,6 +105,7 @@ import { TabList } from "./components/TabList";
 import { RoommateGuest, RoommateWorkspace } from "./roommate/Workspace";
 import { rt as roommateText } from "./roommate/text";
 import { GuidesPage } from "./guides/GuidesPage";
+import { AdminWorkspace } from "./admin/Workspace";
 import { LandlordWorkspace } from "./landlord/Workspace";
 
 interface AppContext {
@@ -180,7 +181,7 @@ export default function App() {
     else setStatus(null);
   }
   useEffect(() => {
-    if (user) void refresh();
+    if (user && !user.is_admin) void refresh();
   }, [user?.id]);
   useEffect(() => {
     if (!toast) return;
@@ -260,6 +261,32 @@ export default function App() {
     new URLSearchParams(location.search).get("signin") !== "1"
   )
     return <RoommateGuest />;
+  if (user?.is_admin && !location.pathname.startsWith("/admin"))
+    return <Navigate to="/admin" replace />;
+  if (location.pathname.startsWith("/admin")) {
+    if (!user?.is_admin)
+      return (
+        <Login
+          key="admin-login"
+          admin
+          onLogin={(value) => {
+            setUser(value);
+            navigate("/admin", { replace: true });
+          }}
+        />
+      );
+    return (
+      <AdminWorkspace
+        user={user}
+        onLogout={() => {
+          setUser(null);
+          setThreads([]);
+          setSaved([]);
+          navigate("/admin/login", { replace: true });
+        }}
+      />
+    );
+  }
   if (!user)
     return (
       <Login
@@ -354,7 +381,13 @@ export default function App() {
   );
 }
 
-function Login({ onLogin }: { onLogin: (u: User) => void }) {
+function Login({
+  onLogin,
+  admin = false,
+}: {
+  onLogin: (u: User) => void;
+  admin?: boolean;
+}) {
   const [register, setRegister] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -366,7 +399,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
     try {
       onLogin(
         await api<User>(
-          "/auth/" + (register ? "register" : "login"),
+          "/auth/" + (admin ? "admin" : register ? "register" : "login"),
           "POST",
           f,
         ),
@@ -412,9 +445,11 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
             <MessageCircle size={24} />
           </span>
           <h2>
-            {register
-              ? uiText("Bắt đầu cùng ReloHome")
-              : uiText("Chào bạn quay lại")}
+            {admin
+              ? uiText("Đăng nhập Admin")
+              : register
+                ? uiText("Bắt đầu cùng ReloHome")
+                : uiText("Chào bạn quay lại")}
           </h2>
           <p>
             {register
@@ -472,19 +507,29 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
               <ArrowRight size={18} />
             </button>
           </form>
+          {!admin && (
+            <p className="auth-switch">
+              {register
+                ? uiText("Đã có tài khoản?")
+                : uiText("Lần đầu đến với ReloHome?")}{" "}
+              <button
+                className="text-button"
+                onClick={() => {
+                  setRegister(!register);
+                  setError("");
+                }}
+              >
+                {register ? uiText("Đăng nhập") : uiText("Tạo tài khoản")}
+              </button>
+            </p>
+          )}
           <p className="auth-switch">
-            {register
-              ? uiText("Đã có tài khoản?")
-              : uiText("Lần đầu đến với ReloHome?")}{" "}
-            <button
+            <Link
               className="text-button"
-              onClick={() => {
-                setRegister(!register);
-                setError("");
-              }}
+              to={admin ? "/login" : "/admin/login"}
             >
-              {register ? uiText("Đăng nhập") : uiText("Tạo tài khoản")}
-            </button>
+              {uiText(admin ? "Đăng nhập khách / chủ nhà" : "Đăng nhập Admin")}
+            </Link>
           </p>
           <div className="login-foot">
             <ShieldCheck size={16} />
