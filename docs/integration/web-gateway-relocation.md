@@ -9,7 +9,14 @@ Browser source/components/styles move without redesign or App.tsx refactoring.
 
 ## Development and tests
 
-Run from the repository root using Node 24/npm 11 and Python 3.11:
+**Existing checkouts:** after pulling this relocation, run `npm ci` and
+`npm run setup:python` from the repository root before starting services or tests.
+The previous editable install maps `relohome_gateway` to `Frontend/`; reinstalling
+updates that mapping to `apps/browser-gateway/src/relohome_gateway`. A stale
+mapping now raises an explicit reinstall error before loading forwarding modules.
+Keep the existing virtual environment and persisted data; no data migration is needed.
+
+For a new checkout, use Node 24/npm 11 and Python 3.11:
 
 ```sh
 npm ci

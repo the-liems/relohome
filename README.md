@@ -23,6 +23,11 @@ The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](doc
 
 ## Run locally
 
+After pulling the web/gateway relocation (#113) into an existing checkout, run
+`npm ci` and `npm run setup:python` from the repository root before launching
+services or tests. This updates the old editable gateway mapping; see the
+[migration instructions](docs/integration/web-gateway-relocation.md#development-and-tests).
+
 Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies, provider credentials, database snapshots, service startup, and recovery. Follow the [frontend README](apps/web/README.md) to build and run the browser application at port 8503. The agent runtime requires an LLM API key and a trusted gateway token; copying `.env.example` alone does not configure the services.
 
 The [Moving container runbook](docs/runbooks/moving-containers.md) covers the isolated Moving stack. The root `docker-compose.yml` starts the backend and Flight/Payment MCP containers; Location, Moving, and the frontend have separate setup instructions.
