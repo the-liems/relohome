@@ -1,0 +1,41 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "--env-file",
+    "/dev/null",
+    "-f",
+    "Maps VN/LifeFlow/infra/compose.yaml",
+    "config",
+    "--format",
+    "json"
+  ],
+  "name": "lifeflow",
+  "volumes": {
+    "lifeflow-postgis-data": {
+      "name": "lifeflow-postgis-data"
+    }
+  },
+  "services": {
+    "location-mcp": {
+      "image": "lifeflow-location-mcp:0.1.0",
+      "container_name": "lifeflow-location-mcp",
+      "build": {
+        "context": "/Users/magnified/ai20k/P-044-115a",
+        "dockerfile": "apps/location-mcp/Dockerfile"
+      }
+    },
+    "postgis": {
+      "image": "postgis/postgis:16-3.5",
+      "container_name": "lifeflow-postgis",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "lifeflow-postgis-data",
+          "target": "/var/lib/postgresql/data",
+          "volume": {}
+        }
+      ]
+    }
+  }
+}

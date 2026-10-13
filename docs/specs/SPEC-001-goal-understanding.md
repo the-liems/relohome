@@ -1,8 +1,8 @@
 # SPEC-001 — Intake / Goal Understanding
 
 > Cập nhật 2026-09-29 — hướng ADR-016/018: implementation mới là
-> [`LlmIntake`](../../src/agents/intake_llm.py), nhận `IntakeInput`, trả `IntakeResult`
-> của `src/agents/`. Node graph kiểm/gộp facts rồi tính thiếu/hỏi lại. Chưa thay wiring.
+> [`LlmIntake`](../../apps/agent-api/src/relohome_agent/agents/intake_llm.py), nhận `IntakeInput`, trả `IntakeResult`
+> của `apps/agent-api/src/relohome_agent/agents/`. Node graph kiểm/gộp facts rồi tính thiếu/hỏi lại. Chưa thay wiring.
 > Xem [bàn giao](../integration/llm-agents-handoff.md) và
 > [live tests](../../tests/test_llm_agents/test_live_components.py).
 > Phần HTTP/container/`src/agent_services` dưới đây mô tả bản ADR-006 cũ,
@@ -26,7 +26,7 @@
 - Status: Draft
 - Parent issue: existing Goal Understanding/Intake issue; assignment pending authenticated GitHub access.
 - Related ADR: [ADR-006](../adr/ADR-006-standalone-intake-routing.md)
-- Canonical schemas: [`src/agent_services/intake/models.py`](../../src/agent_services/intake/models.py)
+- Canonical schemas: [`relohome_agent_services.intake_models`](../../packages/python/agent-services/src/relohome_agent_services/intake_models.py)
 
 ## Problem and scope
 

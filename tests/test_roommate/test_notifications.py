@@ -1,13 +1,14 @@
-from src.roommate.connections import ContactRef
-from src.roommate.ports import Actor
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.requests import RequestService
-from src.roommate.storage import Storage
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.storage import Storage
+
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_request_events_are_actor_private_idempotent_and_contain_no_intro_or_contact(tmp_path):
-    from src.roommate.services.notifications import NotificationService
+    from relohome_roommate.services.notifications import NotificationService
 
     with Storage(tmp_path / "db") as db:
         ctx = prepare(db)

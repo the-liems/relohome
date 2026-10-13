@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, patch
 # --- Unit Test: test một hàm đơn lẻ ---
 def test_parse_message_valid_input():
     """Unit test: test hàm parse_message với input hợp lệ."""
-    from src.utils import parse_message
+    from example_app.utils import parse_message  # module minh họa của ứng dụng được test
 
     result = parse_message('{"message": "Xin chào", "thread_id": "123"}')
     assert result["message"] == "Xin chào"

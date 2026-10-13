@@ -24,8 +24,9 @@ Follow the repository's technical guide for shared conventions:
   architecture, implementation, and delivery planning. BMAD is optional.
 
 The project-specific conventions below define capability specs, acceptance IDs,
-issue ownership, board fields, and milestone outcomes. Keep the application under
-`src/`; document a justified application-layout change in an ADR before migrating.
+issue ownership, board fields, and milestone outcomes. Use `apps/`, `packages/` and `examples/` as described in the
+[development map](../DEVELOPMENT.md) and [ADR-025](adr/ADR-025-monorepo-layout.md).
+Document further application-layout changes in an ADR before migrating.
 
 ## Where each kind of information belongs
 
@@ -58,7 +59,9 @@ ARCHITECTURE.md                    # Current architecture and labeled future des
 CONTRIBUTING.md                    # Development and review workflow
 JOURNAL.md                         # Weekly learning and decisions
 WORKLOG.md                         # Contributions linked to issues and PRs
-src/                              # Application code
+apps/                             # Runnable applications
+packages/                         # Shared libraries
+examples/                         # Supported demos and static references
 
 docs/
   README.md                       # Documentation index

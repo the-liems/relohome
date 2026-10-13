@@ -1,8 +1,7 @@
 import pytest
-
-from src.roommate.factors import factor
-from src.roommate.models import ProfileFacts, RoommateProfile
-from src.roommate.scoring import compatibility
+from relohome_roommate.factors import factor
+from relohome_roommate.models import ProfileFacts, RoommateProfile
+from relohome_roommate.scoring import compatibility
 
 
 def prefs(**values):

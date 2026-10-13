@@ -30,12 +30,12 @@ and all backend validation remain unchanged.
 
 ## Authoritative contracts
 
-- `Frontend/src/housingInteraction.ts`: basket and coordinate validation.
-- `Frontend/src/components/HousingDirections.tsx`: transient permission lifecycle.
+- `apps/web/src/housingInteraction.ts`: basket and coordinate validation.
+- `apps/web/src/components/HousingDirections.tsx`: transient permission lifecycle.
 - `packages/contracts/src/route.ts`: entity route contract.
 - The same file owns the separate `DeviceRouteRequestSchema`/response for
   `/v1/routes/device`. Device routing never enables an agent/MCP external fallback.
-- `src/roommate/models.py`, `policy.py`, `demo.py`: real eligibility and DEMO boundary.
+- `packages/python/roommate/src/relohome_roommate/models.py`, `policy.py`, `demo.py`: real eligibility and DEMO boundary.
 - [SPEC-019](SPEC-019-housing-comparison-isolation.md): comparison/choice isolation.
 
 ## Acceptance criteria

@@ -74,7 +74,7 @@ loading to a test module; read vendor values with `tests.live.env_test(...)`.
 ### Migration and containers
 
 Transfer existing values from root `.env`, `data/integration.env`, the old service
-`.env`, and (if used) `.runtime/moving-secrets.json`. Rename the backend's
+`.env`, and (if used) `Maps VN/LifeFlow/.runtime/moving-secrets.json`. Rename the backend's
 `DATABASE_URL` to `BACKEND_DATABASE_URL` and keep the Location token once as
 `LOCATION_MCP_AUTH_TOKEN`; move a custom Location URL to `LOCATION_DATABASE_URL` (and the
 admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the file. Preserve running database credentials and use the connection preflight
@@ -83,7 +83,7 @@ admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from 
 ```sh
 make mcp-up
 make agents-up
-docker compose --env-file .env.local -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+docker compose --env-file .env.local -f "deploy/location/compose.yaml" up -d postgis
 ```
 
 Production/Coolify configuration, production start commands and image env-file
@@ -118,9 +118,9 @@ The old `*_MCP_STDIO` flags no longer enable a transport.
 | `apps/agent-api/src/relohome_agent/api/` | API hội thoại, xác nhận và demo thanh toán |
 | `apps/web/` | React/Vite |
 | `apps/browser-gateway/` | Gateway và lưu tài khoản/hội thoại |
-| `src/ui/` | Giao diện Streamlit cũ, giữ để tham khảo |
+| `examples/streamlit/src/relohome_demos/` | Demo Streamlit Flight, Payment và agent-chat được hỗ trợ |
 | `apps/flights-mcp/` and `apps/payments-mcp/` | Flight/Payment MCP Python |
-| `Maps VN/LifeFlow/` | Workspace TypeScript Housing/Map/Moving đã có; không di chuyển phá import |
+| `apps/`, `packages/`, `examples/map-app/` | Workspace TypeScript Housing/Map/Moving |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
 | `config/local-*.compose.yaml` | PostGIS và OSRM local, không phải deploy |
 | `docs/specs/`, `docs/adr/`, `docs/runbooks/`, `eval/` | Yêu cầu, quyết định, vận hành, bằng chứng |
@@ -322,8 +322,8 @@ với đơn AhaMove hay vé máy bay.
 ## Kiểm tra không gọi API trả phí
 
 ```powershell
-.venv/Scripts/python.exe -m ruff check src tests
-.venv/Scripts/python.exe -m compileall -q src
+.venv/Scripts/python.exe -m ruff check examples/streamlit apps/agent-api apps/flights-mcp apps/payments-mcp apps/intake-api apps/orchestrator-api packages/python tests
+.venv/Scripts/python.exe -m compileall -q examples/streamlit/src apps/agent-api/src apps/browser-gateway/src apps/flights-mcp/src apps/payments-mcp/src apps/intake-api/src apps/orchestrator-api/src packages/python
 .venv/Scripts/python.exe -m pytest tests/test_llm_agents/test_runtime_storage.py -q
 ```
 
@@ -334,3 +334,7 @@ Workflow `MVP local validation` chỉ lint/build/SQLite, không triển khai ho�
 Xem [bằng chứng và giới hạn](../../eval/mvp-local-2026-09-30.md).
 Đo Housing/Flight, đa lượt và UI sau cập nhật 05/10:
 [read latency](../../eval/read-latency-2026-10-05.md).
+
+Demo Streamlit: [hướng dẫn](../../examples/streamlit/README.md). Cài lại
+`requirements-dev.txt` sau khi cập nhật để dùng import `relohome_demos`.
+`Frontend/data/housing-media` vẫn là dữ liệu local; không xóa khi gỡ source shim.

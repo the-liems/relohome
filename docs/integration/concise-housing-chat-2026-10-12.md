@@ -1,5 +1,8 @@
 # Housing: câu trả lời tìm nhà ngắn gọn (#122)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Nguyên nhân và thay đổi
 
 `src/agents/nodes/respond.py` trước đây liệt kê 5 tin nhà bằng template trong chat: tên, giá, địa chỉ, phòng ngủ và tiện ích. Việc rút gọn sau khi chọn nhà hoặc khi so sánh không áp dụng cho lượt tìm mới.

@@ -1,5 +1,8 @@
 # Bàn giao QuangDung: code, POI và housing — 04/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## 1. Nền đối chiếu và phạm vi
 
 - Working branch: **QuangDung**. Nền trước thay đổi: **b7cd0c7af728c2921ba4f1c4b1cdfb7d1d77a9b9**.
@@ -273,8 +276,8 @@ provider thật trong đợt cuối; không coi test UI fixture là giao dịch 
 
 ## 7. Tài liệu chi tiết
 
-- [POI: quy tắc, bảo vệ dữ liệu, export/import và khôi phục](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
-- [Housing: importer và chuẩn hóa](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md).
+- [POI: quy tắc, bảo vệ dữ liệu, export/import và khôi phục](../location/POI-CANONICALIZATION.md).
+- [Housing: importer và chuẩn hóa](../location/HOUSING-DATA-IMPORT.md).
 - [Map Việt Nam, Moving A/B và khởi động](vietnam-map-moving-update-2026-10-04.md).
 - [Studio và bằng chứng đợt trước](mainland-map-moving-studio-update-2026-10-04.md).
 - [README frontend](../../Frontend/README.md).

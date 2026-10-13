@@ -1,0 +1,67 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "--env-file",
+    "/dev/null",
+    "-f",
+    "Maps VN/LifeFlow/compose.moving.yaml",
+    "-f",
+    "Maps VN/LifeFlow/compose.moving.staging-write.yaml",
+    "config",
+    "--format",
+    "json"
+  ],
+  "name": "lifeflow-moving",
+  "volumes": {
+    "moving-data": {
+      "name": "lifeflow-moving_moving-data"
+    }
+  },
+  "services": {
+    "moving-api": {
+      "image": "lifeflow/moving-api:local",
+      "build": {
+        "context": "/Users/magnified/ai20k/P-044-115a",
+        "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+        "args": {
+          "RELEASE_SHA": "local"
+        },
+        "target": "moving-api"
+      }
+    },
+    "moving-db": {
+      "image": "postgres:16.13-bookworm",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "moving-data",
+          "target": "/var/lib/postgresql/data",
+          "volume": {}
+        }
+      ]
+    },
+    "moving-mcp": {
+      "image": "lifeflow/moving-mcp:local",
+      "build": {
+        "context": "/Users/magnified/ai20k/P-044-115a",
+        "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+        "args": {
+          "RELEASE_SHA": "local"
+        },
+        "target": "moving-mcp"
+      }
+    },
+    "moving-migrate": {
+      "image": "lifeflow/moving-migrate:local",
+      "build": {
+        "context": "/Users/magnified/ai20k/P-044-115a",
+        "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+        "args": {
+          "RELEASE_SHA": "local"
+        },
+        "target": "moving-migrate"
+      }
+    }
+  }
+}

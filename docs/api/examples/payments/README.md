@@ -1,7 +1,7 @@
 # Ví dụ request/response — payment MCP server
 
 Ví dụ lấy từ lần chạy thật ngày 2026-09-26 (ZaloPay sandbox) và chế độ mock. Mã ngẫu nhiên sẽ khác mỗi lần.
-Schema chuẩn do MCP tự sinh từ `src/mcp_servers/payments/schemas.py`; file này chỉ minh họa.
+Schema chuẩn do MCP tự sinh từ `packages/python/payment/src/relohome_payment/schemas.py`; file này chỉ minh họa.
 
 ## create_payment
 

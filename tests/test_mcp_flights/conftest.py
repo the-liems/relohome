@@ -1,12 +1,12 @@
 from collections.abc import Iterator
 
 import pytest
+from relohome_flight.booking_engine import BookingEngine
+from relohome_flight.search import MockFlightSearch
+from relohome_flight.settings import FlightSettings
+from relohome_flight.storage import FlightDatabase, OfferCache
 from relohome_flights_mcp.tools import FlightServices, FlightTools
 
-from src.mcp_servers.flights.booking_engine import BookingEngine
-from src.mcp_servers.flights.search import MockFlightSearch
-from src.mcp_servers.flights.settings import FlightSettings
-from src.mcp_servers.flights.storage import FlightDatabase, OfferCache
 from tests.test_mcp_flights.helpers import FakeClock
 
 

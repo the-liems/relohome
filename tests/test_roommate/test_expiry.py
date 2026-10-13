@@ -1,10 +1,11 @@
 from datetime import timedelta
 
-from src.roommate.connections import ContactRef
-from src.roommate.ports import Actor
-from src.roommate.services.inbox import InboxService
-from src.roommate.services.requests import RequestService
-from src.roommate.storage import Storage
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.inbox import InboxService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.storage import Storage
+
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 

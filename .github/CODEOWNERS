@@ -32,3 +32,16 @@
 /SECURITY.md                @AI20K-Build-Phase/book-maintainers
 /CONTRIBUTING.md            @AI20K-Build-Phase/book-maintainers
 /CODE_OF_CONDUCT.md         @AI20K-Build-Phase/book-maintainers
+
+# Relocated location source retains the default maintainer ownership.
+/examples/map-app/          @AI20K-Build-Phase/book-maintainers
+/examples/location-streamlit/ @AI20K-Build-Phase/book-maintainers
+/deploy/database/           @AI20K-Build-Phase/book-maintainers
+/deploy/location/           @AI20K-Build-Phase/book-maintainers
+/deploy/moving/             @AI20K-Build-Phase/book-maintainers
+/config/location/           @AI20K-Build-Phase/book-maintainers
+/scripts/relohome/          @AI20K-Build-Phase/book-maintainers
+/eval/location/             @AI20K-Build-Phase/book-maintainers
+# Python examples and static design references retain the default domain reviewers.
+/examples/streamlit/         @AI20K-Build-Phase/book-maintainers
+/examples/design-reference/  @AI20K-Build-Phase/book-maintainers

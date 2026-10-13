@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 from psycopg import sql
+from relohome_roommate.postgres import PostgresPool
 
-from src.roommate.postgres import PostgresPool
 from tests.test_roommate.database_connection import resolve_database_url
 
 

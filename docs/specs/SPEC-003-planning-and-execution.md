@@ -1,7 +1,7 @@
 # SPEC-003 — Routing Orchestrator
 
 > Cập nhật 2026-09-29 — [ADR-018](../adr/ADR-018-llm-first-agent-components.md):
-> [`LlmPlanner`](../../src/agents/planner_llm.py) implement `Planner.plan` của graph,
+> [`LlmPlanner`](../../apps/agent-api/src/relohome_agent/agents/planner_llm.py) implement `Planner.plan` của graph,
 > dùng LLM làm bộ phận suy luận chính; không chạy TemplatePlanner trước.
 > Tasks là mục tiêu domain. Scheduler, validator, retry, consent và transaction vẫn
 > do runtime graph quản lý. Không tạo agent Executor thứ ba. Chưa thay wiring.
@@ -28,7 +28,7 @@
 - Status: Draft
 - Parent issue: existing Routing/Planning issue; assignment pending authenticated GitHub access.
 - Related ADRs: [ADR-006](../adr/ADR-006-standalone-intake-routing.md), [ADR-003](../adr/ADR-003-approval-idempotency-and-recovery.md)
-- Canonical schemas: [`models.py`](../../src/agent_services/orchestrator/models.py), [`registry.py`](../../src/agent_services/orchestrator/registry.py)
+- Canonical schemas: [`models.py`](../../apps/orchestrator-api/src/relohome_orchestrator/models.py), [`registry.py`](../../apps/orchestrator-api/src/relohome_orchestrator/registry.py)
 
 ## Scope
 

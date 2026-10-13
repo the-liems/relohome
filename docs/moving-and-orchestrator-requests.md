@@ -1,5 +1,8 @@
 # Moving service và Orchestrator ↔ agent graph: yêu cầu tích hợp cho MVP
 
+> Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
+
+
 - Gửi: Khoa (chủ service Moving / AhaMove; người làm Intake dùng LLM)
 - Từ: Doan (agent graph / AI service)
 - Ngày: 2026-09-29

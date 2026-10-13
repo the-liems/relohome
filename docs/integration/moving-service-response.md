@@ -1,5 +1,8 @@
 # Phản hồi Moving service và Orchestrator — bàn giao cho Đoàn
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 - Người bàn giao: Khoa — cập nhật 29/09/2026.
 - Phạm vi được chốt: **chỉ sửa Moving trên `khoa`; ghi việc graph cần sửa, không
   sửa graph, không merge nhánh tích hợp và không xóa Intake/Orchestrator cũ**.

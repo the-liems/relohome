@@ -1,9 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from src.roommate.models import ProfileFacts, RoommateProfile, RoommateSearchCriteria
-from src.roommate.ports import ProfileRecord
-from src.roommate.ranking import publish_score, ranked
-from src.roommate.scoring import Compatibility, CriterionScore, compatibility
+from relohome_roommate.models import ProfileFacts, RoommateProfile, RoommateSearchCriteria
+from relohome_roommate.ports import ProfileRecord
+from relohome_roommate.ranking import publish_score, ranked
+from relohome_roommate.scoring import Compatibility, CriterionScore, compatibility
 
 
 def criteria():

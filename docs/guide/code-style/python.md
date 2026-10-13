@@ -50,7 +50,7 @@ from langchain_core.tools import tool
 
 # 3. Local
 from relohome_agent.config import get_settings
-from src.models.schemas import ChatRequest
+from relohome_contracts.schemas import ChatRequest
 ```
 
 ### 5. Error Handling
@@ -74,10 +74,10 @@ except:  # Che mọi lỗi!
 
 ```bash
 # Check
-ruff check src/ tests/
+npm run lint:python
 
 # Auto-fix
-ruff check --fix src/ tests/
+env -u VIRTUAL_ENV ./.venv/bin/python -m ruff check --fix apps/ packages/python/ examples/streamlit/ examples/location-streamlit/ tests/
 ```
 
 Ruff chạy tự động trong CI — code không pass ruff sẽ bị reject.

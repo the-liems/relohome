@@ -1,0 +1,58 @@
+{
+  "relohome-agent": {
+    "python_modules": 102,
+    "json_resources": 6
+  },
+  "relohome-browser-gateway": {
+    "python_modules": 7,
+    "json_resources": 0
+  },
+  "relohome-flights-mcp": {
+    "python_modules": 4,
+    "json_resources": 0
+  },
+  "relohome-intake-api": {
+    "python_modules": 3,
+    "json_resources": 0
+  },
+  "relohome-orchestrator-api": {
+    "python_modules": 8,
+    "json_resources": 0
+  },
+  "relohome-payments-mcp": {
+    "python_modules": 4,
+    "json_resources": 0
+  },
+  "relohome-demos": {
+    "python_modules": 9,
+    "json_resources": 0
+  },
+  "relohome-agent-services": {
+    "python_modules": 4,
+    "json_resources": 0
+  },
+  "relohome-contracts": {
+    "python_modules": 3,
+    "json_resources": 0
+  },
+  "relohome-flight": {
+    "python_modules": 11,
+    "json_resources": 2
+  },
+  "relohome-mcp-http": {
+    "python_modules": 1,
+    "json_resources": 0
+  },
+  "relohome-payment": {
+    "python_modules": 11,
+    "json_resources": 0
+  },
+  "relohome-privacy": {
+    "python_modules": 1,
+    "json_resources": 0
+  },
+  "relohome-roommate": {
+    "python_modules": 45,
+    "json_resources": 0
+  }
+}

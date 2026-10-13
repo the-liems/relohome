@@ -497,14 +497,6 @@ async def test_disabled_operations_and_generation_do_not_create_instruments(monk
         assert await generation(call, provider="test", model="test") is reply
 
 
-def test_observability_compatibility_imports_share_runtime_state():
-    import importlib
-
-    for suffix in ("", ".runtime", ".privacy", ".sqlite", ".asgi"):
-        assert importlib.import_module("src.observability" + suffix) is importlib.import_module(
-            "relohome_observability" + suffix)
-
-
 @pytest.mark.parametrize("raw_source,raw_target", [(True, False), (False, True), (False, False)])
 def test_sqlite_backups_accept_native_and_instrumented_connections(spans, sqlite_instrumentation,
                                                                   raw_source, raw_target):

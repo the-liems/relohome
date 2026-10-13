@@ -1,5 +1,8 @@
 # Kiểm tra các dịch vụ và lỗi form Flight — 12/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## Kết luận theo bằng chứng
 
 Yêu cầu Flight trong ảnh đã đi qua form và tới Agent. Log của lượt đó ghi

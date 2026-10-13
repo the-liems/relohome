@@ -1,5 +1,8 @@
 # Roommate — Đánh giá khả năng phát hành và kế hoạch cải thiện
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 - Ngày: 12/10/2026, Asia/Saigon.
 - Code kiểm tra: `QuangDung`, HEAD `93fb6ba8fd422d892482adf64914662bcf5ce6a8`.
 - Phạm vi: đọc backend, API, Agent, frontend, storage, deployment và chạy tests hiện có. Không sửa nghiệp vụ, API, database, `.env` hoặc cấu hình cloud.

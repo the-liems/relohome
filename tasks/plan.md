@@ -1,5 +1,8 @@
 # Implementation Plan — ReloHome Roommate Discovery
 
+> Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
+
+
 ## Đợt phát hành người dùng thật — 12/10/2026
 
 Chủ sản phẩm đã yêu cầu triển khai theo [audit](../docs/review/roommate-product-readiness-2026-10-12.md) và bàn giao deploy cloud. Baseline lịch sử bên dưới được giữ nguyên; checklist mới ở đầu `todo.md`.
@@ -54,7 +57,7 @@ Thứ tự theo yêu cầu: **data model → repository/storage → scoring engi
 | Runtime persistence hiện tại | `src/services/adapters/sqlite_runtime.py`; ADR-019 | SQLite runtime dùng JSON records/autocommit, không đủ làm transaction repository cho Roommate. |
 | Browser gateway và identity | `Frontend/server.py`, `Frontend/store.py`, `Frontend/tests/test_gateway.py` | Dùng session hiện có và actor do gateway xác định; không sửa bảng accounts/auth cũ. |
 | Frontend hiện tại | `Frontend/src/App.tsx`, `api.ts`, `types.ts`, `components/*`, `uiPreferences.tsx`, `ui/*` | Tạo workspace/client Roommate riêng; reuse dialog, tabs, states, theme và VI/EN. |
-| Map/Location | `src/agents/subagents/services/location.py`, contracts trong `Maps VN/LifeFlow/packages/contracts/src/` | Dùng vùng canonical; không đổi housing/POI/geocoding hay đưa contact vào MapLibre. |
+| Map/Location | `src/agents/subagents/services/location.py`, contracts trong `packages/contracts/src/` | Dùng vùng canonical; không đổi housing/POI/geocoding hay đưa contact vào MapLibre. |
 | Test/build | `Frontend/playwright.config.ts`, `Frontend/package.json`, `tests/`, `Frontend/tests/`, CI hiện tại | Python pytest/ruff; React tsc/Vite; tách browser mock khỏi full-stack API thật. |
 
 Working tree có thay đổi frontend và housing từ các lượt trước. Khi bắt đầu implementation phải ghi baseline, chỉ sửa phần thuộc task và giữ các thay đổi chưa commit của người dùng. Không reset, gom commit hoặc sửa data để làm test pass.

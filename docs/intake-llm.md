@@ -1,5 +1,8 @@
 # Intake dùng LLM — thiết kế để implement
 
+> Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
+
+
 Status: proposed. Người làm: Khoa. Issue: #12. Nhánh làm việc: `integration/langgraph-services`
 (không đụng `main`).
 

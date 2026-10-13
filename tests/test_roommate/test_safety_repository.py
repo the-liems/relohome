@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from src.roommate.safety_repository import SqlSafety
-from src.roommate.storage import Storage
+from relohome_roommate.safety_repository import SqlSafety
+from relohome_roommate.storage import Storage
 
 
 def test_block_is_bidirectional_and_unblock_is_actor_scoped(tmp_path):

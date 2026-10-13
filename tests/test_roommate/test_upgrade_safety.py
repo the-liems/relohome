@@ -3,19 +3,19 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from relohome_roommate.access import RoommateError
+from relohome_roommate.migrations import SCHEMA
+from relohome_roommate.operations import backup_sqlite
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.moderation import ModerationService
+from relohome_roommate.services.safety import SafetyService
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateError
-from src.roommate.migrations import SCHEMA
-from src.roommate.operations import backup_sqlite
-from src.roommate.ports import Actor
-from src.roommate.services.moderation import ModerationService
-from src.roommate.services.safety import SafetyService
-from src.roommate.storage import Storage
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_raw_backup_keeps_v1_and_upgrade_preserves_private_rows(tmp_path):
-    from src.roommate.contact_vault import ContactVault
+    from relohome_roommate.contact_vault import ContactVault
 
     source = tmp_path / "legacy"
     source.mkdir()
@@ -40,7 +40,7 @@ def test_raw_backup_keeps_v1_and_upgrade_preserves_private_rows(tmp_path):
 
 
 def test_relative_backup_paths_use_runtime_root_from_unrelated_cwd(tmp_path, monkeypatch):
-    from src.roommate.contact_vault import ContactVault
+    from relohome_roommate.contact_vault import ContactVault
 
     root = tmp_path / "runtime"
     source = root / "legacy"
@@ -97,8 +97,9 @@ def test_identical_open_reports_are_deduplicated_and_review_is_audited(tmp_path)
 
 
 def test_two_postgres_replicas_keep_one_pair_under_simultaneous_requests(pg_store):
-    from src.roommate.connections import ContactRef
-    from src.roommate.services.requests import RequestService
+    from relohome_roommate.connections import ContactRef
+    from relohome_roommate.services.requests import RequestService
+
     from tests.test_roommate.test_profile_lifecycle import complete
 
     with pg_store.storage() as db:
@@ -106,7 +107,7 @@ def test_two_postgres_replicas_keep_one_pair_under_simultaneous_requests(pg_stor
         clock = ctx.clock
 
     def send(sender, recipient):
-        from src.roommate.access import RoommateContext
+        from relohome_roommate.access import RoommateContext
 
         with pg_store.storage() as db:
             ctx = RoommateContext(db, clock=clock)

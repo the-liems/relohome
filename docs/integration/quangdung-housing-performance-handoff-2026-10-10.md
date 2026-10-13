@@ -1,5 +1,8 @@
 # Bàn giao QuangDung: Housing performance và geocode — 10/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 ## 1. Phạm vi code được bàn giao
 
 Nền code là main `9b2b2db` (merge PR #88). Giữ các thay đổi của nhóm; không rebase
@@ -200,7 +203,7 @@ riêng sau. Candidate mới không làm thay đổi yêu cầu triển khai code
    data bàn giao đặt ở kênh lưu trữ dataset hiện có của nhóm; chỉ dùng DVC/storage
    khi remote đã cấu hình. Không đẩy `.env`, keys, private state hay response cache lên Git.
 6. Máy đồng đội/cloud nhận đúng version JSONL đã duyệt, áp patch hoặc ingest theo
-   [quy trình hiện có](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md), rồi verify.
+   [quy trình hiện có](../location/HOUSING-DATA-IMPORT.md), rồi verify.
    Không restore nguyên DB local đè dữ liệu chủ nhà, contact requests, Roommate hay payments trên cloud.
 
 Read model là dữ liệu dẫn xuất của DB đích, không phải artifact cần copy từ máy này sang máy khác.
@@ -209,4 +212,4 @@ và DB cùng version. Giá, units, media, IDs và POI phải được bảo toà
 
 Runbook: [Housing geocode](housing-geocode-runbook.md),
 [lô 08/10](housing-geocode-batch-2026-10-08.md),
-[import Housing](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md).
+[import Housing](../location/HOUSING-DATA-IMPORT.md).

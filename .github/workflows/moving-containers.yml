@@ -46,7 +46,7 @@ jobs:
             while IFS= read -r path; do
               case "$path" in
                 *.md) continue ;;
-                'package.json'|'package-lock.json'|'scripts/docker-npm.mjs'|'tsconfig.base.json'|'packages/contracts/'*|'packages/mcp-core/'*|'packages/moving-service/'*|'apps/moving-api/'*|'apps/moving-mcp/'*|'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
+                'package.json'|'package-lock.json'|'scripts/docker-npm.mjs'|'tsconfig.base.json'|'packages/contracts/'*|'packages/mcp-core/'*|'packages/moving-service/'*|'apps/moving-api/'*|'apps/moving-mcp/'*|'deploy/moving/'*|'deploy/database/moving/'*|'deploy/database/migrations/008_moving_service.sql'|'scripts/relohome/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
               esac
             done < <(git diff --name-only "$BASE_SHA" HEAD)
             echo "validate=$validate" >> "$GITHUB_OUTPUT"
@@ -62,7 +62,7 @@ jobs:
       COMPOSE_PROJECT_NAME: moving-validate-${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
-        working-directory: Maps VN/LifeFlow
+        working-directory: .
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -77,20 +77,20 @@ jobs:
       - name: Validate scripts and Compose
         shell: bash
         run: |
-          node --check scripts/moving-stack.mjs
-          node --check scripts/test-moving-native.mjs
-          node --check scripts/verify-moving-deployment.mjs
-          bash -n scripts/verify-moving-ci.sh
+          node --check scripts/relohome/moving-stack.mjs
+          node --check scripts/relohome/test-moving-native.mjs
+          node --check scripts/relohome/verify-moving-deployment.mjs
+          bash -n scripts/relohome/verify-moving-ci.sh
           export MOVING_DB_ADMIN_PASSWORD=$(openssl rand -hex 32)
           export MOVING_DB_APP_PASSWORD=$(openssl rand -hex 32)
           export MOVING_MCP_AUTH_TOKEN=$(openssl rand -hex 32)
           export MOVING_MCP_WRITE_TOKEN=$(openssl rand -hex 32)
           export MOVING_APPROVAL_TOKEN=$(openssl rand -hex 32)
           export AHAMOVE_WEBHOOK_SECRET=$(openssl rand -hex 32)
-          docker compose -f compose.moving.yaml config --quiet
-          docker compose -f compose.moving.yaml -f compose.moving.ci.yaml config --quiet
-          docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
-          bash scripts/verify-moving-ci.sh --check-imports
+          docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml config --quiet
+          docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.ci.yaml config --quiet
+          docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.staging-write.yaml config --quiet
+          bash scripts/relohome/verify-moving-ci.sh --check-imports
       - name: Clean up verifier
         if: always()
         run: docker rm -fv "$COMPOSE_PROJECT_NAME-verify" 2>/dev/null || true
@@ -104,7 +104,7 @@ jobs:
     environment: moving-staging
     defaults:
       run:
-        working-directory: Maps VN/LifeFlow
+        working-directory: .
     env:
       COMPOSE_PROJECT_NAME: moving-ci-${{ github.run_id }}-${{ github.run_attempt }}
       AHAMOVE_API_KEY: ${{ secrets.AHAMOVE_API_KEY }}
@@ -131,18 +131,18 @@ jobs:
         working-directory: .
         run: npm ci && npm run build:ts
       - name: Start staging containers
-        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml up --build -d --wait --wait-timeout 180
+        run: docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.ci.yaml up --build -d --wait --wait-timeout 180
       - name: Verify containers and staging API
         shell: bash
-        run: bash scripts/verify-moving-ci.sh
+        run: bash scripts/relohome/verify-moving-ci.sh
       - name: Collect diagnostics before cleanup
         if: always()
-        run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml logs --no-color --tail 100
+        run: docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.ci.yaml logs --no-color --tail 100
       - name: Clean up staging stack
         if: always()
         run: |
           docker rm -fv "$COMPOSE_PROJECT_NAME-verify" 2>/dev/null || true
-          docker compose -f compose.moving.yaml -f compose.moving.ci.yaml down --volumes --remove-orphans
+          docker compose --env-file /dev/null -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.ci.yaml down --volumes --remove-orphans
       - name: Clean up staging images
         if: always()
         run: docker image rm "$COMPOSE_PROJECT_NAME-moving-mcp:ci" "$COMPOSE_PROJECT_NAME-moving-api:ci" "$COMPOSE_PROJECT_NAME-moving-migrate:ci" || true

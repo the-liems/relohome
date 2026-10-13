@@ -25,8 +25,8 @@ không xác nhận trạng thái code hay deployment của nhánh Graph/Moving k
 |---|---|
 | Code đã làm gì, 9 tool, schema, lỗi, timeout, test | [Trạng thái triển khai](location-service-implementation-status.md) |
 | Số liệu có nghĩa gì, data ở đâu, backup nào, kiểm tra DB leader | [Status dữ liệu](location-data-status.md) |
-| Cách chạy/deploy MCP | [Container handoff](../../Maps%20VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md) |
-| Cách import dữ liệu mới | [Housing importer](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md) |
+| Cách chạy/deploy MCP | [Current location guide](../location/README.md) |
+| Cách import dữ liệu mới | [Current imports](../location/README.md) |
 | Phạm vi thay đổi đã duyệt | [Kế hoạch](location-service-change-plan.md) |
 | Lý do và đối chiếu yêu cầu lúc đầu | [Khảo sát lịch sử](location-service-response.md) |
 
@@ -48,3 +48,15 @@ chép số liệu local thành cam kết của mọi deployment.
 
 - [Root workspace tooling validation (#110)](monorepo-tooling/validation.md):
   exact-base/head commands, lock replay, Chrome failure IDs, image startup checks.
+
+## Monorepo consolidation
+
+- [Root development map](../../DEVELOPMENT.md): functional ownership, install,
+  per-app commands, test modes, persistent data and delivery.
+- [Final #115 consolidation audit](monorepo-final-audit.md): acceptance-to-evidence
+  checklist, combined-tree reference counts, compatibility exceptions, ADR status
+  and owned #116 follow-ups.
+- [Location relocation slice (#141)](location-relocation.md): source accounting,
+  data/Compose identities and reviewed validation.
+- [Python examples and shim retirement slice (#142)](python-examples-and-shims.md):
+  installed demos, caller migration and the sole persisted checkpoint alias.

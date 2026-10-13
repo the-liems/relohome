@@ -1,5 +1,8 @@
 # ReloHome — Kiểm tra hệ thống sau Roommate frontend
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày 2026-10-07, Asia/Saigon. Yêu cầu: khởi động và rà lại các service, UI, API, console và ảnh hưởng của Roommate. Không sửa application/business logic, API, scoring, database schema hoặc layout dịch vụ cũ trong lượt audit này.
 
 ## Hệ thống đang chạy

@@ -1,7 +1,7 @@
 # Internal MCP authentication
 
 Flight, Payment, Location and Moving follow one bearer-token contract. Python
-implements it in `src/mcp_servers/http_service.py`; TypeScript services share
+implements it in `packages/python/mcp-http/src/relohome_mcp_http/__init__.py`; TypeScript services share
 `@relohome/mcp-core`. Both run the same authentication test vectors.
 
 Each HTTP service requires `MCP_AUTH_TOKEN` before serving requests. Use a separate

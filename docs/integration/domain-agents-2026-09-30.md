@@ -1,5 +1,8 @@
 # Bàn giao: domain agents trong LangGraph
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày 30/09/2026, local Windows. Nền `mvp`: `2893109`, đã fast-forward lấy
 `cf93f9f` (Housing/Map backend) và `2893109` (tài liệu/mockup frontend) từ teammate.
 Không thay giao diện, không deploy, không thêm dữ liệu hoặc provider mô phỏng.

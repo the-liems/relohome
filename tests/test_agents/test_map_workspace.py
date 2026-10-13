@@ -22,8 +22,8 @@ from relohome_agent.agents.subagents.services.location import (
     pick_place,
 )
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
+from relohome_contracts.schemas import ChatRequest
 
-from src.models.schemas import ChatRequest
 from tests.test_agents.helpers import intake_result
 
 

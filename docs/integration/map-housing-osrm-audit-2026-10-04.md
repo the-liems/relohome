@@ -1,5 +1,8 @@
 # Kiểm tra bản đồ, phòng trọ và OSRM — 04/10/2026
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Ghi nhận audit trước chỉnh camera/Moving/studio. Trạng thái hiện hành:
 > [cập nhật hiện hành](vietnam-map-moving-update-2026-10-04.md): studio 0 → 1 được giữ,
 > camera SIU xem Việt Nam và Moving vẽ geometry OSRM. Các ảnh biển đảo/số

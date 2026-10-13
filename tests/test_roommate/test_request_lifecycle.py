@@ -1,16 +1,16 @@
 from datetime import UTC, datetime
 
 import pytest
+from relohome_roommate.access import RoommateContext, RoommateError
+from relohome_roommate.clock import FrozenClock
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.policy import TERMS_VERSION
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.profiles import ProfileService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateContext, RoommateError
-from src.roommate.clock import FrozenClock
-from src.roommate.connections import ContactRef
-from src.roommate.policy import TERMS_VERSION
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.profiles import ProfileService
-from src.roommate.services.requests import RequestService
-from src.roommate.storage import Storage
 from tests.test_roommate.test_profile_lifecycle import complete
 
 

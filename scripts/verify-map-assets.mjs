@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
-for (const app of ['apps/web', 'Maps VN/LifeFlow/map-app']) {
+for (const app of ['apps/web', 'examples/map-app']) {
   const require = createRequire(resolve(root, app, 'package.json'));
   const dist = resolve(dirname(require.resolve('maplibre-gl/package.json')), 'dist');
   for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {

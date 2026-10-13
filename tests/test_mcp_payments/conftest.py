@@ -1,11 +1,11 @@
 from collections.abc import Iterator
 
 import pytest
+from relohome_payment.engine import PaymentEngine
+from relohome_payment.gateways import MockPaymentGateway, ZaloPayGateway
+from relohome_payment.settings import PaymentSettings
+from relohome_payment.storage import PaymentDatabase
 
-from src.mcp_servers.payments.engine import PaymentEngine
-from src.mcp_servers.payments.gateways import MockPaymentGateway, ZaloPayGateway
-from src.mcp_servers.payments.settings import PaymentSettings
-from src.mcp_servers.payments.storage import PaymentDatabase
 from tests.test_mcp_payments.helpers import TEST_APP_ID, TEST_KEY1, TEST_KEY2, FakeClock, FakeZaloPay
 
 

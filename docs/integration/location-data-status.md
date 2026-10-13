@@ -1,5 +1,8 @@
 # Location — dữ liệu, snapshot và backup
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Cập nhật tài liệu: **29/09/2026**. Số liệu dưới đây có mốc đo riêng.
 Lượt đồng bộ tài liệu này kiểm tra file/report/đường dẫn, **không chạy lại import,
 restore hoặc đếm lại DB**. Bằng chứng DB/test ngày 29/09 đến từ lượt triển khai
@@ -18,7 +21,7 @@ ngay trước đó, chi tiết tại [status triển khai](location-service-impl
 | 190.266 hàng catalog tổng | Cùng dump restore thử | Gồm POI và housing anchor; không gọi toàn bộ là tiện ích |
 | HCM 28.947; Hà Nội 4.910; Đà Nẵng 3.284 | Query DB local 29/09, trong bbox routing | Active rent + offer VND/month, listing/property/place không deleted, place active; không phải thống kê theo nhãn địa chỉ nguồn |
 
-Báo cáo POI gốc: [poi-coverage-v2.json](../../Maps%20VN/LifeFlow/reports/poi-coverage-v2.json),
+Báo cáo POI gốc: [poi-coverage-v2.json](../../eval/location/poi-coverage-v2.json),
 `generated_at=2026-09-24T15:53:09.652Z`. Không đổi ngày report cũ để làm nó trông như vừa chạy.
 Con số 34.322 giải thích bbox HCM của snapshot đó; số UI hôm nay còn phụ thuộc
 viewport/bộ lọc và DB thực tế. Không kết luận mất dữ liệu chỉ từ chênh lệch hai số khác phạm vi.
@@ -138,6 +141,6 @@ container MCP thử đã xóa. Đây là lịch sử thao tác, không phải he
 Leader phải khởi động dịch vụ và kiểm tra runtime của mình. Chưa xác nhận deploy
 VM/cloud hoặc end-to-end Graph; không có công bố dữ liệu tự đồng bộ giữa hai máy.
 
-Hướng dẫn liên quan: [deploy MCP](../../Maps%20VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md),
-[import housing](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md),
+Hướng dẫn liên quan: [deploy MCP](../location/MCP-CONTAINER-HANDOFF.md),
+[import housing](../location/HOUSING-DATA-IMPORT.md),
 [contract/lỗi/test](location-service-implementation-status.md).

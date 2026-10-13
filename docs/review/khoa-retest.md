@@ -1,5 +1,7 @@
 # Chạy lại 30 case trên nhánh `khoa` (194f51d)
 
+> Historical record: commands and source paths below describe the original checkout. Use the [current ReloHome location guide](../location/README.md) for operation.
+
 So sánh với lần chạy trên `mvp` (74f778a) trong [mvp-architecture.md](mvp-architecture.md) mục 8.
 Kết quả chi tiết từng case: [khoa-multiflow-test-results.json](khoa-multiflow-test-results.json)
 (trường `mvp_result` là kết quả cũ để đối chiếu).

@@ -1,10 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from src.roommate.eligibility import eligible, hard_failures, preference_match
-from src.roommate.models import ProfileFacts, RoommateProfile, RoommateSearchCriteria
-from src.roommate.ports import ProfileRecord
+from relohome_roommate.eligibility import eligible, hard_failures, preference_match
+from relohome_roommate.models import ProfileFacts, RoommateProfile, RoommateSearchCriteria
+from relohome_roommate.ports import ProfileRecord
 
 NOW = datetime(2026, 10, 7, tzinfo=UTC)
 

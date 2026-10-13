@@ -9,7 +9,7 @@ weight: 1
 ### Chi tiết từng deliverable
 
 #### 1. Source Code (GitHub)
-- **Location:** Toàn bộ thư mục `src/`
+- **Location:** Các thư mục `apps/`, `packages/` và `examples/` ([development map](../../../DEVELOPMENT.md))
 - **Yêu cầu:** Code chạy được, có cấu trúc rõ ràng
 - **Tips:** Follow template folder structure
 

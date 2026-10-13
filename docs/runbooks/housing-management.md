@@ -24,7 +24,7 @@ the same PostGIS schemas and only become public after moderation.
 | `SIU_PLATFORM_API_URL` | Platform API base, normally `http://127.0.0.1:4100/v1` on a host. |
 | `SIU_PUBLIC_BASE_URL` | Public HTTPS origin used for uploaded listing image URLs. |
 
-Run `npm run db:migrate` in `Maps VN/LifeFlow` before starting the new workspace.
+Run `npm run db:migrate` at repository root before starting the new workspace.
 Migrations `013_housing_product_v1.sql`, `014_housing_host_profiles.sql` and `015_housing_viewing_requests.sql`, `016`, `017_housing_contact_messages.sql` are additive and grant the
 application role only the writes needed by the owner workflow.
 Migration `018_housing_landlord_reviews.sql` adds reviews, reports and host flags. Run migrations before deploying the review UI or the new detail reader; no backfill or demo scores are created.
@@ -72,15 +72,15 @@ not seed or synthesize production counters.
 ## Verification
 
 ```powershell
-cd "Maps VN/LifeFlow"
+# From repository root
 npm run build --workspace @relohome/contracts
 npm run build --workspace @relohome/housing-query
 npm run build --workspace @relohome/platform-api
-node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.test.ts --pool=threads --maxWorkers=1
+node node_modules/vitest/vitest.mjs run apps/platform-api/tests/housing-management.test.ts --pool=threads --maxWorkers=1
 # Needs a migrated local PostGIS (DATABASE_URL / ADMIN_DATABASE_URL); creates and removes its own test rows.
-node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1
+node node_modules/vitest/vitest.mjs run apps/platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1
 
-cd ../../apps/web
+cd apps/web
 npm run build
 npx playwright test tests/browser/housing-product.spec.ts --project=desktop
 ```

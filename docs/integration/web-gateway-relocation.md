@@ -1,5 +1,8 @@
 # Web and browser gateway separation (#113)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `b37e04a` (merged #110, #111, #112 and naming decision #118/#121).
 The browser is `apps/web` (`siu-ai-web`); the installable gateway is
 `apps/browser-gateway/src/relohome_gateway` (`relohome-browser-gateway`).

@@ -72,9 +72,9 @@ Nguồn schema chuẩn, không duy trì một bản DTO độc lập trong Markd
 
 - `packages/contracts/src/location.ts`: `include_geometry`, `AreaGeometrySchema`.
 - `packages/contracts/src/housing.ts`: bbox/center/radius, filter map/search.
-- `src/roommate/models.py`: `RoomPublication`, `RoommateProfile`.
-- `src/api/roommate_map.py`: `/roommate/map/rooms`, `/roommate/demo/search`.
-- `src/roommate/demo.py`: dataset/schema và phân tách DEMO.
+- `packages/python/roommate/src/relohome_roommate/models.py`: `RoomPublication`, `RoommateProfile`.
+- `apps/agent-api/src/relohome_agent/api/roommate_map.py`: `/roommate/map/rooms`, `/roommate/demo/search`.
+- `packages/python/roommate/src/relohome_roommate/demo.py`: dataset/schema và phân tách DEMO.
 
 Gateway lấy actor từ session, không nhận actor do browser khai. Map lookup tối đa
 250 listing IDs/lượt, không trả contact/private preferences/tọa độ nhập tùy ý.

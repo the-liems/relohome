@@ -1,4 +1,4 @@
-"""Enforce the ADR dependency direction across shared and relocated app packages."""
+"""Keep the ADR dependency direction enforceable including supported examples."""
 
 import ast
 import importlib
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def discover_projects():
     projects = []
-    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml")
+    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml", "examples/*/pyproject.toml")
     for pattern in patterns:
         for path in sorted(ROOT.glob(pattern)):
             metadata = tomllib.loads(path.read_text())
@@ -43,7 +43,7 @@ PROJECTS = discover_projects()
 
 
 def test_every_project_is_discovered():
-    assert len(PROJECTS) == 14
+    assert len(PROJECTS) == 16
     assert all(project["files"] for project in PROJECTS)
 
 
@@ -67,13 +67,13 @@ def test_internal_imports_have_declared_dependencies_and_no_app_to_app_edges():
                         assert dependency not in applications, (project["name"], module)
 
 
-def test_shared_compatibility_modules_preserve_type_identity():
+def test_only_persisted_checkpoint_alias_remains():
     from relohome_agent.agents.graph import checkpoint_serde
 
-    checkpoint_serde()  # Registers the persisted-checkpoint alias even without source shims.
+    checkpoint_serde()
     aliases = json.loads((ROOT / "packages/python/compatibility.json").read_text())
-    package_aliases = {"src.models", "src.mcp_servers.flights.search", "src.mcp_servers.payments.gateways"}
+    assert aliases == {"src.agents.models": "relohome_agent.agents.models"}
+    assert not (ROOT / "src").exists()
+    assert not list((ROOT / "Frontend").glob("*.py"))
     for old, new in aliases.items():
-        if old in package_aliases:
-            continue
         assert importlib.import_module(old) is importlib.import_module(new), old

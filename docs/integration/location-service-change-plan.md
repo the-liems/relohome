@@ -1,5 +1,8 @@
 # Kế hoạch thay đổi Location service để duyệt
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày: 2026-09-29. Trạng thái: **Đã được yêu cầu triển khai; code và kiểm thử local đã cập nhật**.
 
 Xem [trạng thái triển khai và bàn giao graph](location-service-implementation-status.md)

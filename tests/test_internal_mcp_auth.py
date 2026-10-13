@@ -4,15 +4,14 @@ import json
 from pathlib import Path
 
 import pytest
-from starlette.applications import Starlette
-from starlette.testclient import TestClient
-
-from src.mcp_servers.http_service import (
+from relohome_mcp_http import (
     HttpServiceMCP,
     ServiceTokenMiddleware,
     require_service_token,
     valid_bearer_token,
 )
+from starlette.applications import Starlette
+from starlette.testclient import TestClient
 
 CASES = json.loads((Path(__file__).parent / "fixtures/internal-mcp-auth.json").read_text())
 

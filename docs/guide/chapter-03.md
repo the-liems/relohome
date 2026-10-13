@@ -204,7 +204,9 @@ Phân tích cấu trúc trên:
 
 ```python
 from fastapi import HTTPException
-from src.core.config import settings
+from relohome_agent.config import get_settings
+
+settings = get_settings()
 
 
 @app.post("/api/v1/chat")

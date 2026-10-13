@@ -473,9 +473,9 @@ boundaries now on `main`. Canonical applications live in `apps/agent-api`
 (`relohome_agent`), `apps/browser-gateway` (`relohome_gateway`), `apps/flights-mcp`
 and `apps/payments-mcp`; the web UI is in `apps/web`. The gateway, backend, both
 Python MCP applications and shared MCP HTTP declare their telemetry dependency;
-each runtime image installs its wheel.
-`src/observability` contains temporary compatibility aliases tracked for removal
-under #115. Image checks import canonical entrypoints in isolated Python from
+each runtime image installs its wheel. The #115 shim retirement also removes
+`src/observability`; callers import `relohome_observability` directly.
+Image checks import canonical entrypoints in isolated Python from
 `/tmp`, without checkout path injection. This source migration does not change
 the shared observability deployment or enable telemetry automatically.
 

@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { createMovingDatabasePool } from './database.js'
 
-const legacyDatabase = new URL('../../../Maps%20VN/LifeFlow/database/', import.meta.url)
-const database = existsSync(legacyDatabase) ? legacyDatabase : new URL('../../../database/', import.meta.url)
+const checkoutDatabase = new URL('../../../deploy/database/', import.meta.url)
+const database = existsSync(checkoutDatabase) ? checkoutDatabase : new URL('../../../database/', import.meta.url)
 
 const url = process.env.MOVING_DATABASE_ADMIN_URL
 if (!url) throw new Error('MOVING_DATABASE_ADMIN_URL is required for the one-off migration process.')

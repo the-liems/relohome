@@ -1,5 +1,7 @@
 # CHECKPOINT - POI ingestion v2 cho LifeFlow Map
 
+> Historical record: commands and source paths below describe the original checkout. Use the [current ReloHome location guide](docs/location/README.md) for operation.
+
 > **Checkpoint lịch sử ngày 24/09/2026.** Cập nhật chỉ dẫn 29/09:
 > [status dữ liệu](docs/integration/location-data-status.md) phân biệt POI,
 > housing anchor, listing và bbox; [status tích hợp](docs/integration/location-service-implementation-status.md)

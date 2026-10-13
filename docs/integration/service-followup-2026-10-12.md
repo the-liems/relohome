@@ -1,5 +1,8 @@
 # Gợi ý sau dịch vụ và bước tiếp theo
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày 12/10/2026. Thực hiện theo yêu cầu: nhiều dịch vụ trong yêu cầu/kế hoạch
 thì có Bước tiếp theo; sử dụng dịch vụ riêng thì gợi ý tùy chọn.
 

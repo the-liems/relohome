@@ -5,12 +5,12 @@ from typing import Any
 
 import httpx
 import pytest
+from relohome_flight.errors import ProviderUnavailableError
+from relohome_flight.search import SerpApiFlightSearch
+from relohome_flight.search.serpapi import build_params
+from relohome_flight.settings import FlightSettings
+from relohome_flight.storage import FlightDatabase, SearchCache
 
-from src.mcp_servers.flights.errors import ProviderUnavailableError
-from src.mcp_servers.flights.search import SerpApiFlightSearch
-from src.mcp_servers.flights.search.serpapi import build_params
-from src.mcp_servers.flights.settings import FlightSettings
-from src.mcp_servers.flights.storage import FlightDatabase, SearchCache
 from tests.test_mcp_flights.helpers import make_search
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "serpapi_han_sgn.json").read_text(encoding="utf-8"))

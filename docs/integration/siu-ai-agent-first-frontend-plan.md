@@ -1,5 +1,8 @@
 # Kế hoạch phát triển frontend SIU AI theo hướng AI Agent-first
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > **Cập nhật 01/10:** chế độ bản đồ cho tìm nhà (danh sách theo vùng, chat điều khiển bản đồ, chọn địa điểm bằng pin) đã có; xem [map workspace](map-workspace-2026-10-01.md). Khác bản kế hoạch: ngưỡng hiển thị theo số lượng căn trong vùng chứ không theo zoom cố định; action chọn địa điểm là `ChatRequest.place_choice` thay cho endpoint `/actions` chung.
 >
 > **Cập nhật triển khai:** Frontend React và gateway đã được bổ sung trong `Frontend/`, thay cho Streamlit trong lệnh chạy mặc định. Xem [phạm vi đã làm, giới hạn và hướng dẫn chạy](../../Frontend/README.md). Nội dung khảo sát/đề xuất bên dưới giữ mốc lập tài liệu; các tính năng tương lai chưa được bật khi backend chưa hỗ trợ.
@@ -400,7 +403,7 @@ Kiểm thử fixture/contract và E2E có thể chạy thường xuyên. Test t�
 - [Agent API](../../src/api/routes.py), [API prefix](../../src/main.py), [HTTP schemas](../../src/models/schemas.py), [Agent models](../../src/agents/models.py).
 - [Response composer](../../src/agents/nodes/respond.py), [Location adapter](../../src/agents/subagents/services/location.py), [service registry/allowlist](../../src/services/adapters/registry.py).
 - [Streamlit chat hiện tại](../../src/ui/agent_chat.py), [ZaloPay sandbox riêng](../../src/api/sandbox_payments.py).
-- [Map app](../../Maps%20VN/LifeFlow/map-app/src/App.tsx), [MapView](../../Maps%20VN/LifeFlow/map-app/src/components/MapView.tsx), [map theme](../../Maps%20VN/LifeFlow/map-app/src/config/map-theme.ts), [map housing client](../../Maps%20VN/LifeFlow/map-app/src/services/platform-housing.ts).
+- [Map app](../../examples/map-app/src/App.tsx), [MapView](../../examples/map-app/src/components/MapView.tsx), [map theme](../../examples/map-app/src/config/map-theme.ts), [map housing client](../../examples/map-app/src/services/platform-housing.ts).
 - [Housing contracts](../../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts), [housing query](../../Maps%20VN/LifeFlow/packages/housing-query/src/housing-service.ts), [Platform API](../../Maps%20VN/LifeFlow/platform-api/src/app.ts).
 - [Bàn giao MVP](mvp-completion-2026-09-30.md), [trạng thái Location](location-service-implementation-status.md), [trạng thái dữ liệu](location-data-status.md), [runbook local](../runbooks/local-mvp.md).
 

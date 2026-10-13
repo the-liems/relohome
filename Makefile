@@ -7,6 +7,7 @@ MCP_IMAGE_TAG ?= latest
 run:
 	npm run dev:agent
 
+# Installed ReloHome demos; keep .env.local, runtime root, cwd and default ports.
 ui:
 	npm run dev:flight-demo
 
@@ -110,3 +111,10 @@ agents-up:
 
 agents-down:
 	docker compose --env-file .env.local -f compose.agents.yaml down
+
+.PHONY: ui-location ui-location-tools
+ui-location:
+	npm run dev:location-demo
+
+ui-location-tools:
+	npm run dev:location-tool-lab

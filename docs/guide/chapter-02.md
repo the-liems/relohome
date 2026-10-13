@@ -37,7 +37,8 @@ Ngược lại, xoá `.git` lúc này là tự phá dự án của mình: mất 
 
 ### Cấu trúc thư mục và ý nghĩa
 
-Sau khi clone, hãy mở thư mục dự án trong editor (khuyến nghị VS Code). Bạn sẽ thấy cấu trúc như sau:
+Sau khi clone, xem [development map](../../DEVELOPMENT.md) để chạy P-044 hiện tại.
+Cây bên dưới là ví dụ template trước monorepo (M23), không phải layout hiện hành.
 
 ```
 <MÃ-ĐỘI>/
@@ -153,13 +154,19 @@ Sau khi kích hoạt, bạn sẽ thấy tên venv hiển thị ở đầu comman
 
 ### Cài đặt dependencies
 
-Template khai báo dependencies trong `requirements.txt` — cả thư viện chạy thật lẫn thư viện dùng để test và lint đều nằm trong một file, cài bằng một lệnh:
+P-044 dùng Node 24/npm 11 và Python 3.11. Root `requirements-dev.txt` cài
+các Python distribution editable cùng công cụ test/lint; npm dùng một root lockfile:
 
 ```bash
-$ pip install -r requirements.txt
+$ npm ci
+$ PYTHON=$PWD/.venv/bin/python npm run setup:python
 ```
 
-Không có bước `pip install -e .` như nhiều dự án Python khác: template không đóng gói `src/` thành package để cài, code chạy thẳng từ thư mục dự án (`uvicorn relohome_agent.main:app`). Nghĩa là bạn sửa code trong `src/` thì lần chạy sau đã dùng bản mới, không cần cài lại gì.
+Các Python app/library/example là package cài được với namespace `relohome_*`.
+Root setup cài editable từ `apps/`, `packages/python/` và `examples/`; chạy
+`npm run dev:agent` từ gốc repo. Cài lại sau khi pull thay đổi package/layout.
+Các đường dẫn `src/agent`, `src/core`, `src/models` trong ví dụ template của chương
+là lịch sử; đối chiếu ownership và đường dẫn hiện hành ở development map.
 
 Các dependencies chính trong template bao gồm:
 
@@ -251,7 +258,7 @@ Sau khi copy, mở file `.env` và thay thế các giá trị placeholder bằng
 
 ### Config module với pydantic-settings
 
-Template sử dụng `pydantic-settings` để quản lý cấu hình. Đây là cách hiện đại và type-safe để load biến môi trường. Hãy xem file `src/core/config.py`:
+Template sử dụng `pydantic-settings` để quản lý cấu hình. Đây là cách hiện đại và type-safe để load biến môi trường. Trong P-044, xem file `apps/agent-api/src/relohome_agent/config.py`:
 
 ```python
 from typing import Literal
@@ -300,11 +307,13 @@ Phân tích từng phần quan trọng:
 
 **`model_config`** — Chỉ định cách load biến môi trường. `env_file=".env"` nói rằng đọc từ file `.env`. `case_sensitive=False` cho phép biến môi trường viết hoa (OPENAI_API_KEY) map vào field viết thường (openai_api_key). `extra="ignore"` bỏ qua các biến môi trường không được định nghĩa trong Settings class.
 
-**Singleton pattern** — Dòng `settings = Settings()` tạo một instance duy nhất của Settings ở module level. Khi bạn cần dùng config ở bất kỳ đâu trong code, chỉ cần `from src.core.config import settings` — instance này được tạo một lần và dùng chung cho toàn bộ ứng dụng.
+**Singleton pattern** — Dòng `settings = Settings()` tạo một instance duy nhất của Settings ở module level. Khi bạn cần dùng config ở bất kỳ đâu trong code, app hiện tại cung cấp `relohome_agent.config.get_settings()` với cache — instance này được tạo một lần và dùng chung cho toàn bộ ứng dụng.
 
 ```python
 # Sử dụng ở bất kỳ đâu trong project
-from src.core.config import settings
+from relohome_agent.config import get_settings
+
+settings = get_settings()
 
 print(settings.openai_model)     # "gpt-4o-mini"
 print(settings.api_port)         # 8000
@@ -408,12 +417,12 @@ Sau khi setup môi trường và cấu hình, đây là khoảnh khắc quan tr�
 $ source .venv/bin/activate
 
 # Chạy FastAPI server
-$ uvicorn relohome_agent.api.main:app --reload --host 0.0.0.0 --port 8000
+$ npm run dev:agent
 ```
 
 Giải thích từng tham số:
 
-- **`relohome_agent.api.main:app`** — Đường dẫn đến FastAPI app instance. File `apps/agent-api/src/relohome_agent/api/main.py` chứa dòng `app = FastAPI(...)`.
+- **`relohome_agent.main:app`** — Đường dẫn đến FastAPI app instance. File `apps/agent-api/src/relohome_agent/main.py` chứa dòng `app = FastAPI(...)`.
 - **`--reload`** — Tự động reload server khi code thay đổi. Chỉ dùng trong development, không dùng trong production.
 - **`--host 0.0.0.0`** — Lắng nghe trên tất cả network interfaces, cho phép truy cập từ thiết bị khác trong cùng mạng.
 - **`--port 8000`** — Port number. Khớp với `API_PORT` trong config.
@@ -551,7 +560,7 @@ Sau khi hoàn thành tất cả các bước trong chương này, bạn nên có
 
 Nếu bạn đã có đủ 7 mục trên, bạn đang đi đúng hướng. Sang Chương 3, chúng ta sẽ thiết kế kiến trúc hệ thống — quyết định quan trọng nhất ảnh hưởng đến toàn bộ dự án.
 
-> ⚠️ **LƯU Ý:** Đừng vội bắt đầu viết Agent logic ngay. Template có sẵn placeholder code trong `src/agent/` — để yên cho đến khi bạn hoàn thành thiết kế kiến trúc ở Chương 3. Code mà không có thiết kế là code mà bạn sẽ phải viết lại. Kinh nghiệm cho thấy: các đội thiết kế trước khi code luôn có kết quả tốt hơn đáng kể so với các đội "code first, design later."
+> ⚠️ **LƯU Ý:** Đừng vội bắt đầu viết Agent logic ngay. Ví dụ template lịch sử dùng `src/agent/`; P-044 hiện dùng `apps/agent-api/src/relohome_agent/agents/`. Xem development map và hoàn thành thiết kế kiến trúc ở Chương 3 trước khi đổi logic. Code mà không có thiết kế là code mà bạn sẽ phải viết lại. Kinh nghiệm cho thấy: các đội thiết kế trước khi code luôn có kết quả tốt hơn đáng kể so với các đội "code first, design later."
 
 ## Cài đặt AI Usage Logging Hooks
 

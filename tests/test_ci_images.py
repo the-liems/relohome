@@ -32,7 +32,7 @@ class ImageSelectionTests(unittest.TestCase):
     def test_frontend_and_python_consumers(self):
         self.assertEqual(self.selected("apps/browser-gateway/src/relohome_gateway/server.py"), {"web"})
         self.assertEqual(self.selected("apps/web/src/App.tsx"), {"web"})
-        self.assertEqual(self.selected("Frontend/server.py"), {"web"})
+        self.assertEqual(self.selected("examples/streamlit/src/relohome_demos/flight_demo.py", "examples/design-reference/support.js"), set())
         self.assertEqual(self.selected("requirements.txt", "config/agents.yaml"), {"web", "backend"})
         self.assertEqual(self.selected("apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py"), {"backend"})
 
@@ -75,14 +75,13 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("packages/housing-query/src/query.ts"),
                          {"platform", "location", "location-migrate"})
         self.assertEqual(self.selected("apps/moving-api/src/app.ts"), MOVING)
-        self.assertEqual(self.selected("Maps VN/LifeFlow/database/moving/schema.sql"), {"moving-migrate"})
-        self.assertEqual(self.selected("Maps VN/LifeFlow/database/migrations/008_moving_service.sql"),
+        self.assertEqual(self.selected("deploy/database/moving/schema.sql"), {"moving-migrate"})
+        self.assertEqual(self.selected("deploy/database/migrations/008_moving_service.sql"),
                          {"location-migrate", "moving-migrate"})
 
     def test_dockerfiles_and_ignore_files_rebuild_their_consumers(self):
-        self.assertEqual(self.selected("Maps VN/LifeFlow/Dockerfile.moving.dockerignore"), MOVING)
+        self.assertEqual(self.selected("deploy/moving/Dockerfile.moving.dockerignore"), MOVING)
         self.assertEqual(self.selected("apps/platform-api/Dockerfile"), {"platform", "location-migrate"})
-        self.assertEqual(self.selected("Maps VN/LifeFlow/.dockerignore"), ALL_SERVICES)
         self.assertEqual(self.selected(".dockerignore"), ALL_SERVICES)
 
     def test_unknown_paths_and_shared_ci_changes_rebuild_everything(self):

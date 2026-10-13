@@ -4,7 +4,7 @@ Provider documentation: <https://developers-stg.ahamove.com/docs/introduction>
 
 ## Environment
 
-| LifeFlow value | AhaMove base URL | Default |
+| ReloHome value | AhaMove base URL | Default |
 |---|---|---:|
 | `staging` | `https://partner-apistg.ahamove.com/v3` | yes |
 | `production` | `https://partner-api.ahamove.com/v3` | no |
@@ -44,7 +44,7 @@ Account/sub-account administration is intentionally not exposed to the model.
 
 ## Money and distance
 
-LifeFlow preserves the provider fields separately:
+ReloHome preserves the provider fields separately:
 
 - distance in km;
 - distance price;
@@ -61,7 +61,7 @@ Missing fields remain `null`; the mapper never invents a zero.
 
 ## Error normalization
 
-| LifeFlow code | Meaning |
+| ReloHome code | Meaning |
 |---|---|
 | `AUTHENTICATION_ERROR` | Invalid/expired credential |
 | `PROVIDER_FORBIDDEN` | Credential lacks permission |

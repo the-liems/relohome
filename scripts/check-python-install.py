@@ -18,6 +18,11 @@ APPS = {
     "payments-mcp": ("relohome-payments-mcp", "relohome_payments_mcp", ["__main__", "server", "tools"]),
     "intake": ("relohome-intake-api", "relohome_intake", ["app", "service"]),
     "orchestrator": ("relohome-orchestrator-api", "relohome_orchestrator", ["app", "registry", "store"]),
+    "demos": (
+        "relohome-demos",
+        "relohome_demos",
+        ["flight_client", "payment_client", "mcp_client", "map_picker", "mvp_components"],
+    ),
     "web": ("relohome-browser-gateway", "relohome_gateway", ["server"]),
 }
 

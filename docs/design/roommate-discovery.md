@@ -1,9 +1,12 @@
 # Roommate Discovery — Technical design và backend checkpoint
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 - Ngày: 2026-10-07, Asia/Saigon.
 - Baseline: [product spec v1.0](../ideas/roommate-service.md), [implementation plan](../../tasks/plan.md).
 - Task thực hiện: **RM-01–31 — backend, API, browser gateway và Agent**.
-- Trạng thái: backend đã nối runtime, giữ `ROOMMATE_ENABLED=false` mặc định. Frontend các màn tìm/kết nối/hồ sơ cơ bản hiện đã triển khai; evidence và phần còn lại của RM-32–41 tại [frontend handoff](../../Frontend/ROOMMATE_UI_HANDOFF.md). Các mục RM-01 dưới đây là lịch sử foundation; mục 8 ghi checkpoint backend trước khi làm frontend.
+- Trạng thái: backend đã nối runtime, giữ `ROOMMATE_ENABLED=false` mặc định. Frontend các màn tìm/kết nối/hồ sơ cơ bản hiện đã triển khai; evidence và phần còn lại của RM-32–41 tại [frontend handoff](../../apps/web/ROOMMATE_UI_HANDOFF.md). Các mục RM-01 dưới đây là lịch sử foundation; mục 8 ghi checkpoint backend trước khi làm frontend.
 
 ## 1. Baseline và phạm vi thay đổi
 

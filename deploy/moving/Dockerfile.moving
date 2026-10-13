@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.14
+# Build with the repository root as context; runtime paths remain unchanged.
+ARG NODE_IMAGE=node:24.14.0-bookworm-slim
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY ["tsconfig.base.json", "./"]
+COPY scripts/docker-npm.mjs /tmp/docker-npm.mjs
+COPY ["packages/telemetry/", "packages/telemetry/"]
+COPY ["packages/contracts/", "packages/contracts/"]
+COPY ["packages/mcp-core/", "packages/mcp-core/"]
+COPY ["packages/moving-service/", "packages/moving-service/"]
+COPY ["apps/moving-api/", "moving-api/"]
+COPY ["apps/moving-mcp/", "moving-mcp-server/"]
+# The root lockfile describes the whole monorepo. Only Moving workspaces are built.
+RUN node /tmp/docker-npm.mjs --image-build
+RUN npm ci --workspace @relohome/telemetry --workspace @relohome/contracts --workspace @relohome/mcp-core \
+    --workspace @relohome/moving-service --workspace @relohome/moving-api \
+    --workspace @relohome/moving-mcp --include-workspace-root=false
+RUN node --input-type=module -e 'import {readFileSync,writeFileSync} from "node:fs"; for (const app of ["moving-api", "moving-mcp-server"]) { const path=app+"/tsconfig.json"; const config=JSON.parse(readFileSync(path)); config.extends="../tsconfig.base.json"; writeFileSync(path,JSON.stringify(config)); }'
+
+RUN npm run build --workspace @relohome/telemetry \
+ && npm run build --workspace @relohome/contracts \
+ && npm run build --workspace @relohome/mcp-core \
+ && npm run build --workspace @relohome/moving-service \
+ && npm run build --workspace @relohome/moving-api \
+ && npm run build --workspace @relohome/moving-mcp
+RUN npm prune --omit=dev --workspace @relohome/telemetry --workspace @relohome/contracts --workspace @relohome/mcp-core \
+    --workspace @relohome/moving-service --workspace @relohome/moving-api \
+    --workspace @relohome/moving-mcp --include-workspace-root=false
+
+FROM ${NODE_IMAGE} AS runtime
+ARG RELEASE_SHA=development
+LABEL org.opencontainers.image.title="ReloHome Moving" \
+      org.opencontainers.image.revision=${RELEASE_SHA}
+ENV NODE_ENV=production RELEASE_SHA=${RELEASE_SHA}
+WORKDIR /app
+COPY --from=build --chmod=u=rwX,go=rX /app/node_modules ./node_modules
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/telemetry/package.json ./packages/telemetry/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/telemetry/dist ./packages/telemetry/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/package.json ./package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/package.json ./packages/contracts/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/mcp-core/package.json ./packages/mcp-core/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/mcp-core/dist ./packages/mcp-core/dist
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/moving-service/package.json ./packages/moving-service/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/packages/moving-service/dist ./packages/moving-service/dist
+USER node
+
+FROM runtime AS moving-mcp
+ENV MOVING_MCP_HOST=0.0.0.0 MOVING_MCP_PORT=4400
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-mcp-server/package.json ./moving-mcp-server/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-mcp-server/dist ./moving-mcp-server/dist
+EXPOSE 4400
+HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:4400/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "--import", "@relohome/telemetry/register", "moving-mcp-server/dist/http-server.js"]
+
+FROM runtime AS moving-api
+ENV MOVING_API_HOST=0.0.0.0 MOVING_API_PORT=4200
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-api/package.json ./moving-api/package.json
+COPY --from=build --chmod=u=rwX,go=rX /app/moving-api/dist ./moving-api/dist
+EXPOSE 4200
+HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:4200/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "--import", "@relohome/telemetry/register", "moving-api/dist/server.js"]
+
+FROM runtime AS moving-migrate
+COPY --chmod=u=rwX,go=rX ["deploy/database/moving/", "./database/moving/"]
+COPY --chmod=u=rwX,go=rX ["deploy/database/migrations/008_moving_service.sql", "./database/migrations/008_moving_service.sql"]
+CMD ["node", "packages/moving-service/dist/migrate.js"]

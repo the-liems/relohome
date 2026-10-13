@@ -1,5 +1,8 @@
 # Bàn giao — so sánh Housing, chỉ đường và Roommate
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Theo [issue #79](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/79),
 [SPEC-020 (Draft)](../specs/SPEC-020-housing-controls-roommate-discovery.md).
 Nhánh giao: `khoa`; PR riêng vào `main`, chưa tự merge/deploy.

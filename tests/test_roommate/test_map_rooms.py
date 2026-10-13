@@ -6,13 +6,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 from relohome_agent.api.roommate_map import router
+from relohome_roommate.clock import FrozenClock
+from relohome_roommate.models import RoommateProfile
+from relohome_roommate.policy import TERMS_VERSION
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.profiles import ProfileService
 
-from src.roommate.clock import FrozenClock
-from src.roommate.models import RoommateProfile
-from src.roommate.policy import TERMS_VERSION
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.profiles import ProfileService
 from tests.test_roommate.test_discovery_api import headers, make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 

@@ -1,15 +1,15 @@
 from datetime import timedelta
 
 import pytest
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.models import RoommateProfile, RoommateSearchCriteria
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
+from relohome_roommate.services.profiles import ProfileService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.storage import Storage
 
-from src.roommate.connections import ContactRef
-from src.roommate.models import RoommateProfile, RoommateSearchCriteria
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
-from src.roommate.services.profiles import ProfileService
-from src.roommate.services.requests import RequestService
-from src.roommate.storage import Storage
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 
@@ -59,8 +59,9 @@ def test_underage_reconfirmation_removes_discovery_and_cancels_pending(tmp_path)
 
 
 def test_pending_limit_twenty_remains_after_daily_window(tmp_path):
-    from src.roommate.connection_repository import RepositoryPolicyError, SqlConnections
-    from src.roommate.policy import REQUEST_TTL
+    from relohome_roommate.connection_repository import RepositoryPolicyError, SqlConnections
+    from relohome_roommate.policy import REQUEST_TTL
+
     from tests.test_roommate.test_connection_repository import NOW, item
 
     with Storage(tmp_path / "db") as db, db.transaction():

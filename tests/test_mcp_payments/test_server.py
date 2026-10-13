@@ -4,11 +4,11 @@ import pytest
 from mcp import ClientSession
 from mcp.shared.memory import create_connected_server_and_client_session
 from relohome_agent.agents.tools import payment_mcp
+from relohome_payment.engine import PaymentEngine
 from relohome_payments_mcp.server import SERVER_NAME, create_server
 from relohome_payments_mcp.tools import PaymentServices
 from starlette.testclient import TestClient
 
-from src.mcp_servers.payments.engine import PaymentEngine
 from tests.mcp_http import TEST_MCP_TOKEN
 
 BASE_TOOLS = {"create_payment", "get_payment", "cancel_payment", "refund_payment"}

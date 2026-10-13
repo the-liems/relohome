@@ -1,5 +1,8 @@
 # Python package boundaries (#112)
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Base: `09ac457` (root tooling #124). Naming contract: #118 / #121 and ADR-025.
 This slice extracts shared libraries before the physical application moves in
 #113/#114. It introduces no database migration or deployment identity change.
@@ -24,17 +27,20 @@ All distributions are private local projects, version `0.1.0`, requiring Python
 | `relohome-flights-mcp` / `relohome_flights_mcp` | `apps/flights-mcp/pyproject.toml` | Flight MCP transport and tools |
 | `relohome-payments-mcp` / `relohome_payments_mcp` | `apps/payments-mcp/pyproject.toml` | Payment MCP transport and tools |
 | `relohome-intake-api` / `relohome_intake` | `apps/intake-api/pyproject.toml` | Standalone intake compatibility harness |
+| `relohome-demos` / `relohome_demos` | `examples/streamlit/pyproject.toml` | Supported Flight, Payment and local agent-chat examples |
+| `relohome-location-demo` / `relohome_location_demo` | `examples/location-streamlit/pyproject.toml` | Location Streamlit example |
 | `relohome-orchestrator-api` / `relohome_orchestrator` | `apps/orchestrator-api/pyproject.toml` | Standalone orchestrator compatibility harness |
 
 All shared and application projects now use their final `src/relohome_*` layouts.
 After updating an existing checkout, run `npm run setup:python` again to replace
 old editable mappings. See [app relocation](agent-app-relocation.md) for #114's
-entrypoints, compatibility inventory, validation and rollback. Retained demos
-move/package in #115. PR #107 adds the conditional telemetry implementation as
-`relohome-observability`, shared by the gateway, agent API and both Python MCP
-applications. These applications and the shared MCP HTTP package declare it
-explicitly; images install it as a wheel. Initialization and middleware live in
-the canonical application packages; legacy launchers forward to those modules.
+entrypoints, compatibility inventory, validation and rollback. The supported demos
+are installed from `examples/streamlit`; see
+[example/shim migration](python-examples-and-shims.md). PR #107 adds the conditional
+telemetry implementation as `relohome-observability`, shared by the gateway,
+agent API and both Python MCP applications. These applications and the shared
+MCP HTTP package declare it explicitly; images install it as a wheel.
+Initialization and middleware live in the canonical application packages.
 
 Applications may depend on shared libraries, never another application's
 implementation. Roommate's Settings/runtime composer belongs to `relohome_agent.roommate_runtime`.
@@ -65,15 +71,16 @@ in their owning project metadata and `requirements-agents.txt`.
 
 Each Docker build installs its own application and shared dependencies as wheels,
 alongside `requirements-runtime.txt` (or the existing standalone pins in
-`requirements-agents.txt`). Images launch canonical installed modules; compatibility source launchers
-remain only in the checkout until #115. Image/service names, ports, worker counts,
-health routes, volume identities and same-origin web serving remain unchanged.
+`requirements-agents.txt`). Images launch canonical installed modules; source
+launchers and forwarding shims have been retired by #115. Image/service names,
+ports, worker counts, health routes, volume identities and same-origin web
+serving remain unchanged.
 
-`tests/test_python_package_boundaries.py` discovers all 14 projects from their
+`tests/test_python_package_boundaries.py` discovers all 16 projects from their
 `pyproject.toml` metadata. It checks every declared package's current Python
 sources, including function-local imports, for declared internal dependencies
-and forbidden application-to-application edges. It also checks shared
-compatibility-module identity. Root `pytest.ini` keeps fixture scopes stable as
+and forbidden application-to-application edges. It also checks the single retained persisted-checkpoint alias and the absence
+of legacy source shells. Root `pytest.ini` keeps fixture scopes stable as
 application pyprojects are added.
 
 CI imports the canonical installed entrypoint from `/tmp` in the six Python
@@ -126,7 +133,7 @@ fails before opening the store; it never creates a replacement key. Copy the
 existing paired key when restoring a database.
 
 All three application resolvers expand `~`, require an absolute configured root,
-and resolve it before use (the explicit gateway source-launch fallback remains).
+and resolve it before use (no source-launch fallback remains).
 They stay application-owned to avoid adding a generic shared package outside the
 ADR scope; their deployment configuration contract is the same.
 
@@ -141,29 +148,21 @@ or explicit storage paths when launching them directly.
 
 ## Compatibility register and removal gate
 
-Owner: the #112 implementer, handed to #113/#114 move authors; removal owner #115.
-`packages/python/compatibility.json` enumerates every extracted module's old and
-canonical name. Individual shared module shims alias the canonical module, so
-models, exception classes and monkeypatch targets keep identity. Package-level
-compatibility modules retain their child shim paths. No model is copied.
+The #112/#113/#114 source shims were removed by #115 after migrating repository
+callers to installed namespaces. `packages/python/compatibility.json` now lists
+only the persisted alias below. No `src/` package or `Frontend/*.py` remains.
+`Frontend/data/housing-media` is an ignored runtime location, not Python source.
+Shared-domain tests now import their canonical packages; gateway/app regression
+tests verify current editable origins from an isolated interpreter outside the
+checkout. Demos import `relohome_demos` and shared libraries without modifying
+`sys.path`, and communicate with applications over HTTP.
 
-Identified callers retained in this slice:
-
-- root domain tests use `src.models`, `src.roommate`, Flight/Payment domain and
-  standalone-common shims to verify compatibility;
-- `tests/browser_gateway/roommate_test_server.py` uses Roommate shims;
-- existing Docker CMDs and external/local callers may use `relohome_agent.main`,
-  `src.agent_services.*`, `src.mcp_servers.*`, and `Frontend.server` source
-  entrypoints; application internals, root npm commands and Python launchers now
-  use canonical installed names;
-- `src.roommate.runtime` forwards to the agent-owned runtime composer;
-- demos retain their own `src.ui` imports until #115 but use extracted domain
-  packages rather than copied schemas.
-
-Application source modules are not a supported second public class namespace;
-new consumers must import the canonical installed namespaces. Retained source
-entrypoints are launch compatibility only. Parent `src` and `src.mcp_servers`
-remain owned by #112/#114 during migration.
+[Complete accounting, caller migration and validation results](python-examples-and-shims.md)
+record #115's removal evidence and any unverified gates. Unknown private/copied
+checkout consumers require an owned census/migration follow-up under #116:
+packaging/application maintainers own this assessment; no speculative source
+shim is retained for an unidentified consumer. Installed wheels and all six
+Python image build/import/startup checks remain required before acceptance.
 
 `src.agents.models` is additionally a **persisted checkpoint identifier**, owned
 by the agent maintainers. LangGraph accepts both the legacy and canonical names
@@ -177,7 +176,7 @@ This persistence alias is **not** removable with ordinary source-shim cleanup in
 #115. Retire it only through an explicit persisted-format transition after old
 checkpoints/backups have expired or migrated and older rollback images are retired.
 
-Remove shims/source entrypoints only after the owning moves migrate known
+Shim-removal acceptance requires that the owning moves migrate known
 callers, the #118 external-consumer assessment permits removal, repository
 searches show no remaining operational callers, and the canonical image-import,
 boundary and image startup checks pass. Record any external consumer and its

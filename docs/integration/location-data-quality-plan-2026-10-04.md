@@ -1,5 +1,8 @@
 # Kế hoạch xử lý chất lượng địa điểm, tiện ích và phòng trọ
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 > Ngày 2026-10-05 đã áp dụng lô đầu: chuẩn hóa 590 địa chỉ, đổi 347 tọa độ
 > source / 340 tọa độ PostGIS; giữ đủ 38.930 tin. 7.311 khóa còn chờ API/quota.
 > Kết quả hiện tại, kiểm chứng và hướng dẫn chạy tiếp ở
@@ -17,7 +20,7 @@ kết quả khảo sát và **được hoãn**, không áp dụng lên dữ li�
 Không gộp phòng/tin đăng dù trùng tên, địa chỉ hoặc tọa độ. Không thay đổi `.env`,
 độ chính xác pin nhà, giá/cọc, TTL, Planner hoặc Flight/Payment.
 Chi tiết triển khai và rollback:
-[POI-CANONICALIZATION.md](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+[POI-CANONICALIZATION.md](../location/POI-CANONICALIZATION.md).
 
 Phần 1–8 ghi lại khảo sát và đánh giá trước triển khai. Trạng thái áp dụng thực tế
 được ghi ở phần 9.
@@ -485,7 +488,7 @@ Các artifact local nằm trong `data/` và không commit nguồn dữ liệu v�
 Mở **http://127.0.0.1:8503**, dùng **Ctrl + F5**. Thử tìm địa điểm Bách Khoa và
 chọn điểm lấy/giao trên bản đồ; trạm xe buýt/cơ sở khác nhau vẫn có pin riêng.
 Hướng dẫn migration, dry-run/apply và rollback nằm trong
-[runbook POI](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+[runbook POI](../location/POI-CANONICALIZATION.md).
 
 ## 10. Bộ dữ liệu sạch vật lý — 04/10/2026
 
@@ -577,7 +580,7 @@ khớp manifest. Log startup: data/startup-poi-clean-20261004-163535/.
 
 **Xóa vật lý không hoàn tác bằng --rollback hoặc xóa alias**; phải restore backup
 đã kiểm chứng vào DB phục hồi. Hướng dẫn mới ở
-[runbook POI](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+[runbook POI](../location/POI-CANONICALIZATION.md).
 
 ## 11. Kiểm tra tọa độ housing và điểm B Moving — 05/10/2026
 

@@ -8,21 +8,23 @@ ba image này; các thư viện contracts/service không cần container riêng.
 ## Chạy local
 
 Yêu cầu: Node 24, Docker Desktop Linux engine đang chạy, AhaMove staging credential
-thật trong `.env`. Script đọc `LIFEFLOW_ENV_FILE` nếu có; nếu không, tìm `.env`
-tại LifeFlow hoặc thư mục gốc repository. Không sửa/di chuyển file credential cũ.
+thật trong cấu hình local hiện có. Root commands nạp `.env.local` rõ ràng;
+runtime loaders chỉ đọc process environment (không tự tìm `.env`).
+Tên biến `LIFEFLOW_ENV_FILE` được giữ để tương thích với công cụ cũ.
+Không sửa/di chuyển file credential cũ.
 
 Trong PowerShell tại thư mục gốc repo:
 
 ```powershell
 npm ci # repository root
-Set-Location 'Maps VN/LifeFlow'
-$env:LIFEFLOW_ENV_FILE = (Resolve-Path '../../.env').Path
+# From repository root
+$env:LIFEFLOW_ENV_FILE = (Resolve-Path '.env.local').Path
 npm run moving:up
 npm run moving:verify
 ```
 
 `moving:up` đọc mật khẩu DB và token MCP từ `.env.local` (`npm run dev:init` tạo sẵn;
-máy cũ chuyển giá trị từ `.runtime/moving-secrets.json` sang). Chúng là secret nội bộ
+máy cũ chuyển giá trị từ `Maps VN/LifeFlow/.runtime/moving-secrets.json` sang). Chúng là secret nội bộ
 hệ thống, không phải thông tin AhaMove cần cấp thêm. Giữ nguyên giá trị khi dùng lại
 volume DB; không thay mật khẩu admin nếu volume đã được khởi tạo.
 Đổi mật khẩu database đang tồn tại cần thực hiện ở PostgreSQL trước.
@@ -99,8 +101,8 @@ bằng overlay `compose.moving.staging-write.yaml`. Cấp hai token mới qua se
 storage/env, cùng cấu hình DB/provider như stack hiện có:
 
 ```powershell
-docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml config --quiet
-docker compose -f compose.moving.yaml -f compose.moving.staging-write.yaml up -d --build
+docker compose --env-file .env.local -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.staging-write.yaml config --quiet
+docker compose --env-file .env.local -f deploy/moving/compose.moving.yaml -f deploy/moving/compose.moving.staging-write.yaml up -d --build
 ```
 
 Overlay không được áp dụng trong bài test tự động. `moving:up` vẫn dùng Compose
@@ -110,9 +112,9 @@ Xem [contract approval](../api/moving-internal-approvals.md).
 Build context là gốc repository để dùng root lockfile. Từ gốc repo:
 
 ```powershell
-docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-mcp -t lifeflow/moving-mcp:local .
-docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-api -t lifeflow/moving-api:local .
-docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-migrate -t lifeflow/moving-migrate:local .
+docker build -f "deploy/moving/Dockerfile.moving" --target moving-mcp -t lifeflow/moving-mcp:local .
+docker build -f "deploy/moving/Dockerfile.moving" --target moving-api -t lifeflow/moving-api:local .
+docker build -f "deploy/moving/Dockerfile.moving" --target moving-migrate -t lifeflow/moving-migrate:local .
 ```
 
 Các image dùng user `node`, chỉ chứa output build và dependencies production.

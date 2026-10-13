@@ -3,7 +3,7 @@
 Issue: [#52](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/52).
 Quyết định đang chờ review: [ADR-022](../adr/ADR-022-confirmed-moving-form-intent.md).
 
-Nguồn chuẩn: `src/models/schemas.py::MovingQuoteForm`, kế thừa
+Nguồn chuẩn: `packages/python/contracts/src/relohome_contracts/schemas.py::MovingQuoteForm`, kế thừa
 `ConfirmedLocation` và `MovingOptions`. Không sao chép JSON Schema thành nguồn thứ hai.
 
 | Kênh | Endpoint / quyền |
@@ -82,7 +82,7 @@ Ca browser riêng: build frontend trước (`npm run build --prefix Frontend`), 
 Chrome và thêm `RUN_LIVE_MOVING_BROWSER=1`. Chạy riêng
 `test_real_browser_form_stays_open_and_retains_inputs`: backend/gateway chạy qua
 socket thật trên port tạm, web/state DB riêng; Playwright chỉ chạy
-`Frontend/playwright.live.config.ts`, không dùng route interception/fixture provider.
+`apps/web/playwright.live.config.ts`, không dùng route interception/fixture provider.
 Hai ca trên tuyến thật Chợ Bến Thành → Bưu điện Trung tâm Sài Gòn (nguồn trong eval):
 thread mới → pin từ Location thật → xe TRUCK từ AhaMove → báo giá; và backend
 từ chối lịch dưới 30 phút → giữ pin/ngày giờ/gói xe → sửa lịch → báo giá. Không

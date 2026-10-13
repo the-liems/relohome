@@ -4,16 +4,16 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
 import pytest
+from relohome_roommate.access import RoommateContext, RoommateError
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.contact_vault import ContactVault
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.contacts import ContactService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.services.safety import SafetyService
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateContext, RoommateError
-from src.roommate.connections import ContactRef
-from src.roommate.contact_vault import ContactVault
-from src.roommate.ports import Actor
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.contacts import ContactService
-from src.roommate.services.requests import RequestService
-from src.roommate.services.safety import SafetyService
-from src.roommate.storage import Storage
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 

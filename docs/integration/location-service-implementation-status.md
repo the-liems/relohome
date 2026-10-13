@@ -1,5 +1,8 @@
 # Location service — trạng thái triển khai và bàn giao cho Graph
 
+> Historical layout/command evidence (M23); use the [current development map](../../DEVELOPMENT.md) for this branch.
+
+
 Ngày: **2026-09-29**. Phạm vi: code trong `Maps VN/LifeFlow`.
 
 **Bổ sung 30/09/2026:** xem [backend Map/Graph mới](map-backend-update-2026-09-30.md) về filter viewport/cluster, HTTP entity route, POI coordinates và luồng route căn đã chọn. Các kết quả kiểm thử ngày 29/09 bên dưới giữ nguyên phạm vi lịch sử; dùng bản bổ sung cho những phần vừa thay đổi.

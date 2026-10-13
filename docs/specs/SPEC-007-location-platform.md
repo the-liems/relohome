@@ -1,4 +1,4 @@
-# SPEC-007: Nền tảng vị trí LifeFlow
+# SPEC-007: Nền tảng vị trí ReloHome
 
 Trạng thái: Draft (chưa được nhóm duyệt)  
 Người phụ trách: @DungMQ  
@@ -11,8 +11,8 @@ Người dùng cần xem bản đồ, tìm địa điểm và tiện ích gần 
 và xem tuyến đường. Kết quả phải phản ánh dữ liệu thực tế; không tự tạo tin
 đăng, địa chỉ, tuyến đường hay giá đối tác khi chưa có nguồn dữ liệu.
 
-Phạm vi của spec là ứng dụng trong `Maps VN/LifeFlow/`. Agent Python ở thư mục
-`src/` hiện chạy độc lập.
+Phạm vi của spec là ứng dụng trong `apps/platform-api/`, `apps/location-mcp/` và `examples/map-app/`. Agent Python ở thư mục
+`apps/agent-api/` hiện chạy độc lập.
 
 Status kiểm thử 29/09/2026: có housing thật, 9 tool MCP, HTTP bearer auth và
 đã thử cả 9 graph OSRM. Chưa chứng nhận độ phủ kín vùng/production SLA hoặc

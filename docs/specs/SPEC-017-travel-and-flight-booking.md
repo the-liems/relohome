@@ -38,10 +38,10 @@ the draft requirements are based.
 
 | Surface | Existing behavior and limit |
 |---|---|
-| Integrated application | [FlightWorkspace](../../Frontend/src/components/ServiceWorkspaces.tsx) compares, sorts, inspects, and selects flight offers; selection is labeled as not booked. The [Flight adapter](../../src/agents/subagents/services/flight.py) requires SerpApi search results and leaves baggage unknown. It requests up to five price-sorted offers without passing the service contract's `nonstop_only` or `cabin_class` filters. Workspace sorting/filtering operates on this returned subset; it does not establish the earliest or fastest option across all provider results. |
-| Domain agent | [SPEC-014](SPEC-014-domain-llm-agents.md) and [domain tools](../../src/agents/subagents/services/domain_tools.py) define grounded search and offer inspection. Static fare rules are not verified provider facts. [Application wiring](../../src/agents/wiring.py) removes flight commit capabilities and rejects simulated transactions. |
-| Standalone Flight MCP | The [service documentation](../../apps/flights-mcp/README.md) defines domestic one-way search, passenger validation, and a simulated hold → ticket → cancellation lifecycle. [Server registration](../../src/mcp_servers/flights/server.py) exposes booking/status/cancellation tools only when `FLIGHT_SIMULATION_ENABLED` is explicitly enabled; it defaults to false. It cannot issue real tickets; catalog baggage/change/cancellation terms are sample data. |
-| Transaction adapter | [McpTransaction](../../src/services/adapters/commit.py) contains hold → payment → issuance and cancellation logic. Its `_holds` and `_receipts` caches are process-local dictionaries; the adapter alone does not preserve their hold/payment linkage across restart. Paid-but-failed issuance raises an uncertain outcome requiring manual refund follow-up. Its existence does not establish an enabled application booking flow, durable recovery, or a completed provider payment/ticket lifecycle. |
+| Integrated application | [FlightWorkspace](../../apps/web/src/components/ServiceWorkspaces.tsx) compares, sorts, inspects, and selects flight offers; selection is labeled as not booked. The [Flight adapter](../../apps/agent-api/src/relohome_agent/agents/subagents/services/flight.py) requires SerpApi search results and leaves baggage unknown. It requests up to five price-sorted offers without passing the service contract's `nonstop_only` or `cabin_class` filters. Workspace sorting/filtering operates on this returned subset; it does not establish the earliest or fastest option across all provider results. |
+| Domain agent | [SPEC-014](SPEC-014-domain-llm-agents.md) and [domain tools](../../apps/agent-api/src/relohome_agent/agents/subagents/services/domain_tools.py) define grounded search and offer inspection. Static fare rules are not verified provider facts. [Application wiring](../../apps/agent-api/src/relohome_agent/agents/wiring.py) removes flight commit capabilities and rejects simulated transactions. |
+| Standalone Flight MCP | The [service documentation](../../apps/flights-mcp/README.md) defines domestic one-way search, passenger validation, and a simulated hold → ticket → cancellation lifecycle. [Server registration](../../apps/flights-mcp/src/relohome_flights_mcp/server.py) exposes booking/status/cancellation tools only when `FLIGHT_SIMULATION_ENABLED` is explicitly enabled; it defaults to false. It cannot issue real tickets; catalog baggage/change/cancellation terms are sample data. |
+| Transaction adapter | [McpTransaction](../../apps/agent-api/src/relohome_agent/services/adapters/commit.py) contains hold → payment → issuance and cancellation logic. Its `_holds` and `_receipts` caches are process-local dictionaries; the adapter alone does not preserve their hold/payment linkage across restart. Paid-but-failed issuance raises an uncertain outcome requiring manual refund follow-up. Its existence does not establish an enabled application booking flow, durable recovery, or a completed provider payment/ticket lifecycle. |
 
 ### Simulated booking path (update 2026-10-09)
 
@@ -76,7 +76,7 @@ already have service contracts. Review must decide their use in the application
 and any extensions, rather than treating those contracts as absent.
 
 SerpApi is a search-only source and cannot hold or issue a ticket. The current
-[`get_offer`](../../src/mcp_servers/flights/tools.py) reads cached offer data and
+[`get_offer`](../../apps/flights-mcp/src/relohome_flights_mcp/tools.py) reads cached offer data and
 sample catalog terms; it does not re-price or verify bookable inventory with an
 airline. No booking-capable provider is connected for the live flow required below.
 
@@ -149,10 +149,10 @@ a new shell or replace the existing workspace design.
 
 | Contract or interface | Canonical source |
 |---|---|
-| Flight search, offers, passengers, holds, bookings, cancellation results | [Flight schemas](../../src/mcp_servers/flights/schemas.py); [tools](../../src/mcp_servers/flights/tools.py); [request/response examples](../api/examples/flights/README.md) |
-| Domain task input/output and grounded tools | [Flight capability](../../src/agents/subagents/capabilities.py); [Flight adapter](../../src/agents/subagents/services/flight.py); [domain tools](../../src/agents/subagents/services/domain_tools.py); [SPEC-014](SPEC-014-domain-llm-agents.md) |
-| Offer detail and result selection | [UI action API](../../src/api/web_actions.py); [web gateway](../../Frontend/server.py); [FlightWorkspace](../../Frontend/src/components/ServiceWorkspaces.tsx) |
-| Approval, private forms, transaction orchestration | [Agent models](../../src/agents/models.py); [transaction adapter](../../src/services/adapters/commit.py); [SPEC-003](SPEC-003-planning-and-execution.md) |
+| Flight search, offers, passengers, holds, bookings, cancellation results | [Flight schemas](../../packages/python/flight/src/relohome_flight/schemas.py); [tools](../../apps/flights-mcp/src/relohome_flights_mcp/tools.py); [request/response examples](../api/examples/flights/README.md) |
+| Domain task input/output and grounded tools | [Flight capability](../../apps/agent-api/src/relohome_agent/agents/subagents/capabilities.py); [Flight adapter](../../apps/agent-api/src/relohome_agent/agents/subagents/services/flight.py); [domain tools](../../apps/agent-api/src/relohome_agent/agents/subagents/services/domain_tools.py); [SPEC-014](SPEC-014-domain-llm-agents.md) |
+| Offer detail and result selection | [UI action API](../../apps/agent-api/src/relohome_agent/api/web_actions.py); [web gateway](../../apps/browser-gateway/src/relohome_gateway/server.py); [FlightWorkspace](../../apps/web/src/components/ServiceWorkspaces.tsx) |
+| Approval, private forms, transaction orchestration | [Agent models](../../apps/agent-api/src/relohome_agent/agents/models.py); [transaction adapter](../../apps/agent-api/src/relohome_agent/services/adapters/commit.py); [SPEC-003](SPEC-003-planning-and-execution.md) |
 | Shared approval, authorization, idempotency, and recovery semantics | [SPEC-008 — Domain MCP tool catalogue](SPEC-008-service-tools.md#shared-contract-semantics) |
 
 Use existing `search_airports`, `search_flights`, `get_offer`, `hold_booking`,
@@ -254,7 +254,7 @@ current application's unavailable-booking behavior.
 
 Existing [Flight service tests](../../tests/test_mcp_flights/test_booking_engine.py)
 exercise the simulated lifecycle, idempotent confirmation, passenger validation,
-expiry, and cancellation fees. [Application action tests](../../Frontend/tests/test_actions.py)
+expiry, and cancellation fees. [Application action tests](../../tests/browser_gateway/test_actions.py)
 and [domain-agent tests](../../tests/test_llm_agents/test_live_components.py) provide
 integration evidence. Their exact coverage and results must be checked before
 marking any criterion implemented; service tests do not establish a live ticket
