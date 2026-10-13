@@ -28,14 +28,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
 from relohome_flight.schemas import Contact, Passenger
+from relohome_gateway.roommate_gateway import attach_roommate_gateway
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.store import Store, TravelerProfiles, password_hash
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
-
-from relohome_gateway.roommate_gateway import attach_roommate_gateway
-from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
-from relohome_gateway.store import Store, TravelerProfiles, password_hash
 
 COOKIE = "siu_session"
 
