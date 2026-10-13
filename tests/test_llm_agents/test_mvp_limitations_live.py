@@ -10,6 +10,7 @@ import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from src.agents.graph import checkpoint_serde
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def checkpoint(thread, full=False):
     async def read():
-        async with AsyncSqliteSaver.from_conn_string(str(ROOT / "data/agent-runtime/checkpoints.sqlite3")) as saver:
+        async with AsyncSqliteSaver.from_conn_string(str(live.agent_state_dir() / "checkpoints.sqlite3")) as saver:
             saver.serde = checkpoint_serde()
             saved = await saver.aget_tuple({"configurable": {"thread_id": thread}})
             assert saved is not None
@@ -33,14 +34,13 @@ def checkpoint(thread, full=False):
 
 @pytest.fixture
 def client():
-    env = dict(os.environ)
     resumed = (
         checkpoint(os.environ["RUN_LIVE_RESUME_THREAD"], full=True) if os.getenv("RUN_LIVE_RESUME_THREAD") else None
     )
     with httpx.Client(
-        base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1"),
+        base_url=live.api_url(),
         headers={
-            "Authorization": "Bearer " + env["AGENT_API_TOKEN"],
+            "Authorization": "Bearer " + live.api_token(),
             "X-User-Id": resumed["user_id"] if resumed else "limits_" + uuid.uuid4().hex,
         },
         timeout=180,

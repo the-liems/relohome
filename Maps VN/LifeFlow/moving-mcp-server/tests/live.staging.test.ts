@@ -16,8 +16,15 @@ describe.runIf(live)('Moving MCP against AhaMove staging without mocks', () => {
       command: process.execPath,
       args: [resolve(packageDirectory, 'dist/server.js')],
       cwd: rootDirectory,
+      // The server reads only what is passed here: AhaMove credentials from .env.test
+      // (supplied by npm run test:live) and a placeholder database, because the tool
+      // catalog and list_service_areas never query the Moving database.
       env: {
         ...getDefaultEnvironment(),
+        ...Object.fromEntries(['AHAMOVE_USER_TOKEN', 'AHAMOVE_API_KEY', 'AHAMOVE_MOBILE']
+          .flatMap((name) => process.env[name] ? [[name, process.env[name]!]] : [])),
+        AHAMOVE_ENV: 'staging',
+        MOVING_DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
       },
       stderr: 'inherit',
     }))

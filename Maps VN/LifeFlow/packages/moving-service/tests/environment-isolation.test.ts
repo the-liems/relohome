@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getMovingRuntimeConfig } from '../src/config.js'
+import { getAhaMoveConfig, getMovingRuntimeConfig } from '../src/config.js'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -16,7 +16,8 @@ describe('process-only configuration', () => {
       mkdirSync(workspace)
       writeFileSync(join(workspace, '.env'), 'DATABASE_URL=postgresql://wrong/workspace\n')
       vi.stubEnv('LIFEFLOW_ENV_FILE', join(root, '.env'))
-      vi.stubEnv('DATABASE_URL', '')
+      // Another service's generic URL inherited from the shell is never used.
+      vi.stubEnv('DATABASE_URL', 'sqlite:///backend.db')
       vi.stubEnv('MOVING_DATABASE_URL', '')
       vi.stubEnv('POSTGRES_HOST', '127.0.0.1')
       vi.stubEnv('POSTGRES_PORT', '5433')
@@ -35,5 +36,16 @@ describe('process-only configuration', () => {
       process.chdir(cwd)
       rmSync(root, { recursive: true, force: true })
     }
+  })
+  it('reads provider settings without database configuration', () => {
+    vi.stubEnv('MOVING_DATABASE_URL', '')
+    vi.stubEnv('POSTGRES_APP_USER', '')
+    vi.stubEnv('POSTGRES_APP_PASSWORD', '')
+    vi.stubEnv('AHAMOVE_ENV', 'staging')
+    vi.stubEnv('AHAMOVE_USER_TOKEN', 'test-provider-token')
+    const config = getAhaMoveConfig()
+    expect(config.token).toBe('test-provider-token')
+    expect('databaseUrl' in config).toBe(false)
+    expect(() => getMovingRuntimeConfig()).toThrow('POSTGRES_APP_USER')
   })
 })

@@ -133,3 +133,41 @@ def test_native_node_loads_file_before_python_shim(tmp_path, monkeypatch):
     subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
     command[1] = "--env-file=" + str(tmp_path / "missing.env")
     assert subprocess.run(command, cwd=tmp_path, capture_output=True).returncode != 0
+
+
+def test_env_test_reader_is_strict_and_literal(tmp_path):
+    from tests.live import parse_env_file
+
+    good = tmp_path / "good.env"
+    good.write_text('# vendor keys\n\nOPENAI_API_KEY=sk-a=b#c\nMOVING_LIVE_QUOTE_INPUTS={"a": 1}\n')
+    assert parse_env_file(good) == {"OPENAI_API_KEY": "sk-a=b#c", "MOVING_LIVE_QUOTE_INPUTS": '{"a": 1}'}
+    for line in ("export OPENAI_API_KEY=x", "lower=x", "NO_EQUALS"):
+        bad = tmp_path / "bad.env"
+        bad.write_text(line + "\n")
+        with pytest.raises(ValueError, match="expected KEY=VALUE"):
+            parse_env_file(bad)
+
+
+def test_test_runs_drop_inherited_application_configuration(tmp_path):
+    from tests.live import clean_environment
+
+    template = tmp_path / ".env.example"
+    template.write_text("AGENT_API_TOKEN=\nLOCATION_DATABASE_URL=\n# COMMENTED_OUT=\n")
+    environ = {
+        "PATH": "/bin",
+        "ProgramFiles": "C:/Program Files",
+        "RUN_LIVE_INTEGRATION": "1",
+        "AGENT_API_TOKEN": "from-shell",
+        "LOCATION_DATABASE_URL": "postgresql://shell/location",
+        "DATABASE_URL": "sqlite:///backend.db",
+        "LANGCHAIN_TRACING_V2": "true",
+        "OPENAI_API_KEY": "real-key",
+    }
+    clean_environment(environ, template)
+    assert environ == {
+        "PATH": "/bin",
+        "ProgramFiles": "C:/Program Files",
+        "RUN_LIVE_INTEGRATION": "1",
+        "APP_ENV": "test",
+        "OPENAI_API_KEY": "test-key",
+    }

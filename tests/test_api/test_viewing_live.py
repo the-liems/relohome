@@ -7,6 +7,7 @@ Only scheduling/decision records in that private database are written.
 
 import asyncio
 import os
+import secrets
 from dataclasses import replace
 from datetime import datetime
 from uuid import uuid4
@@ -22,6 +23,7 @@ from src.agents.subagents.services.location import to_candidate
 from src.agents.wiring import AgentService
 from src.api import routes, viewings, web_actions
 from src.services.adapters.registry import ServiceSettings
+from tests import live
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_HOUSING_VIEWING_LIVE") != "1", reason="Opt-in real Location MCP and isolated graph state"
@@ -39,6 +41,10 @@ async def test_real_api_decision_retry_concurrency_and_paid_protection(tmp_path)
         payment_simulation_enabled=False,
         app_payment_demo_enabled=False,
         housing_viewing_enabled=True,
+        location_mcp_url=live.mcp_url("location"),
+        location_mcp_auth_token=live.mcp_token("location"),
+        # This isolated runtime owns its API token; the shell's token is never used.
+        agent_api_token=secrets.token_urlsafe(32),
     )
     service = await AgentService.open(settings)
     try:

@@ -6,13 +6,14 @@ import uuid
 import httpx
 import pytest
 
+from tests import live
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
 
 
 def test_selected_house_nearby_then_reverse_route():
-    env = dict(os.environ)
-    headers = {"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "map_" + uuid.uuid4().hex}
-    with httpx.Client(base_url="http://127.0.0.1:18000/api/v1", headers=headers, timeout=240) as client:
+    headers = {"Authorization": "Bearer " + live.api_token(), "X-User-Id": "map_" + uuid.uuid4().hex}
+    with httpx.Client(base_url=live.api_url(), headers=headers, timeout=240) as client:
         thread = None
 
         def turn(message):
@@ -66,9 +67,8 @@ def test_selected_house_nearby_then_reverse_route():
 
 
 def test_ambiguous_post_office_route_does_not_guess():
-    env = dict(os.environ)
-    headers = {"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "map_" + uuid.uuid4().hex}
-    with httpx.Client(base_url="http://127.0.0.1:18000/api/v1", headers=headers, timeout=240) as client:
+    headers = {"Authorization": "Bearer " + live.api_token(), "X-User-Id": "map_" + uuid.uuid4().hex}
+    with httpx.Client(base_url=live.api_url(), headers=headers, timeout=240) as client:
         reply = client.post(
             "/chat",
             json={

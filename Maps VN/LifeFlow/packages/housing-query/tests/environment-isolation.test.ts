@@ -39,7 +39,7 @@ describe('process-only configuration', () => {
     }
   })
 
-  it('prefers Location names over generic inherited URLs and never falls back silently', () => {
+  it('uses Location names only and never an inherited generic URL', () => {
     for (const [name, value] of Object.entries({
       POSTGRES_APP_USER: 'app', POSTGRES_APP_PASSWORD: 'app-secret',
       POSTGRES_ADMIN_USER: 'admin', POSTGRES_ADMIN_PASSWORD: 'admin-secret',
@@ -55,8 +55,17 @@ describe('process-only configuration', () => {
     expect(config.databaseUrl).toBe('postgresql://configured-host/location?sslmode=require')
     expect(config.adminDatabaseUrl).toBe('postgresql://configured-host/admin?sslmode=require')
     expect(config.ingestDatabaseUrl).toBe('postgresql://configured-host/ingest?sslmode=require')
+    // Blank override (the template default): POSTGRES_* wins over the inherited generic URLs.
     vi.stubEnv('LOCATION_DATABASE_URL', '')
-    expect(getApplicationRuntimeConfig().databaseUrl).toBe('sqlite:///backend.db')
+    vi.stubEnv('LOCATION_ADMIN_DATABASE_URL', '')
+    vi.stubEnv('LOCATION_INGEST_DATABASE_URL', '')
+    vi.stubEnv('POSTGRES_HOST', '127.0.0.1')
+    vi.stubEnv('POSTGRES_PORT', '5433')
+    vi.stubEnv('POSTGRES_DB', 'lifeflow')
+    const fallback = getRuntimeConfig()
+    expect(fallback.databaseUrl).toBe('postgresql://app:app-secret@127.0.0.1:5433/lifeflow')
+    expect(fallback.adminDatabaseUrl).toBe('postgresql://admin:admin-secret@127.0.0.1:5433/lifeflow')
+    expect(fallback.ingestDatabaseUrl).toBe('postgresql://ingest:ingest-secret@127.0.0.1:5433/lifeflow')
   })
 })
 
@@ -71,7 +80,9 @@ describe('native env-file entrypoints', () => {
       const result = spawnSync(process.execPath, [cli, `--env-file=${config}`, '-e',
         'console.log(JSON.stringify([process.env.ENV_FILE_TEST, process.env.SIU_GATEWAY_URL, process.env.DOCKER_HOST]))'], {
         cwd: root,
-        env: { ...process.env, ENV_FILE_TEST: 'shell-value', DOCKER_HOST: 'unix:///custom/docker.sock' },
+        // Only the values under test come from the parent; the developer's shell must not leak in.
+        env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, ENV_FILE_TEST: 'shell-value',
+          DOCKER_HOST: 'unix:///custom/docker.sock' },
         encoding: 'utf8',
       })
       expect(result.status, result.stderr).toBe(0)

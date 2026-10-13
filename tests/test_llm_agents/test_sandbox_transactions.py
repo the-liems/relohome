@@ -11,16 +11,17 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from tests import live
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_SANDBOX_WRITES") != "1", reason="Operator-approved sandbox writes only")
 
 
 @pytest.fixture
 def client():
-    config = dict(os.environ)
     with httpx.Client(
         base_url="http://127.0.0.1:8000/api/v1",
         timeout=240,
-        headers={"Authorization": "Bearer " + config["AGENT_API_TOKEN"], "X-User-Id": "sandbox-acceptance"},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": "sandbox-acceptance"},
     ) as c:
         status = c.get("/status").json()
         assert status["writes_enabled"] and status["sandbox_payments_enabled"]
@@ -47,8 +48,7 @@ def test_zalopay_create_query_and_idempotency(client):
 
 
 def test_moving_create_then_cancel(client):
-    config = dict(os.environ)
-    route = json.loads(config["MOVING_LIVE_QUOTE_INPUTS"])
+    route = json.loads(live.env_test("MOVING_LIVE_QUOTE_INPUTS"))
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},
         "destination": {"address": route["to_address"], **route["destination_coordinate"], "confirmed": True},
@@ -71,7 +71,10 @@ def test_moving_create_then_cancel(client):
     }
     assert client.post(f"/chat/{thread}/decision", json={**decision, "payload_hash": "wrong"}).status_code == 409
     assert client.post(f"/chat/{thread}/decision", json=decision).status_code == 422
-    contact = {"name": config["MOVING_QUOTE_CONTACT_NAME"], "mobile": config["MOVING_QUOTE_CONTACT_MOBILE"]}
+    contact = {
+        "name": live.env_test("MOVING_QUOTE_CONTACT_NAME"),
+        "mobile": live.env_test("MOVING_QUOTE_CONTACT_MOBILE"),
+    }
     decision["pii_forms"] = {
         action: {"pickup_contact": contact, "destination_contact": contact} for action in confirmation["pii_required"]
     }

@@ -22,6 +22,7 @@ from src.agents.subagents.services.moving import QuoteContact
 from src.agents.subagents.services.moving_llm import MovingLlmAgent
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import MOVING_READ_TOOLS
+from tests import live
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = [
@@ -46,14 +47,21 @@ def request(inputs, **kwargs):
 
 @pytest_asyncio.fixture
 async def moving():
-    assert os.environ.get("MOVING_TEST_ISOLATED_DB") == "1"
-    assert os.environ.get("OPENAI_API_KEY")
+    # The native runner owns the isolated database and passes it as an option.
+    database_url = live.moving_database_url()
+    key = live.env_test("OPENAI_API_KEY")
+    contact_name = live.env_test("MOVING_QUOTE_CONTACT_NAME", required=False)
+    contact_mobile = live.env_test("MOVING_QUOTE_CONTACT_MOBILE", required=False)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     token = secrets.token_urlsafe(32)
     env = {
         **os.environ,
+        "MOVING_DATABASE_URL": database_url,
+        "AHAMOVE_API_KEY": live.env_test("AHAMOVE_API_KEY", required=False),
+        "AHAMOVE_MOBILE": live.env_test("AHAMOVE_MOBILE", required=False),
+        "AHAMOVE_USER_TOKEN": live.env_test("AHAMOVE_USER_TOKEN", required=False),
         "MOVING_MCP_PORT": str(port),
         "MOVING_MCP_HOST": "127.0.0.1",
         "MOVING_MCP_AUTH_TOKEN": token,
@@ -69,12 +77,10 @@ async def moving():
         stderr=subprocess.DEVNULL,
     )
     agent = MovingLlmAgent(
-        os.environ["OPENAI_API_KEY"],
-        os.getenv("AGENT_MOVING_MODEL", "gpt-4.1-mini"),
+        key,
+        live.env_test("AGENT_MOVING_MODEL", required=False) or "gpt-4.1-mini",
         McpToolClient(McpEndpoint("moving", MOVING_READ_TOOLS, url=f"http://127.0.0.1:{port}/mcp", token=token)),
-        contact=QuoteContact(os.environ["MOVING_QUOTE_CONTACT_NAME"], os.environ["MOVING_QUOTE_CONTACT_MOBILE"])
-        if os.getenv("MOVING_QUOTE_CONTACT_MOBILE") and os.getenv("MOVING_QUOTE_CONTACT_NAME")
-        else None,
+        contact=QuoteContact(contact_name, contact_mobile) if contact_name and contact_mobile else None,
     )
     try:
         async with httpx.AsyncClient() as http:
@@ -129,10 +135,9 @@ async def test_budget_is_enforced_without_provider_call(moving):
     assert result.usage.provider_calls == 0
 
 
-@pytest.mark.skipif(not os.getenv("MOVING_LIVE_QUOTE_INPUTS"), reason="Operator-approved real route required")
 async def test_real_llm_quote_with_approved_route(moving):
     assert moving.contact is not None, "A real configured quote contact is required"
-    inputs = json.loads(os.environ["MOVING_LIVE_QUOTE_INPUTS"])
+    inputs = json.loads(live.env_test("MOVING_LIVE_QUOTE_INPUTS"))
     inputs.update(mode="quote", move_date=(utcnow() + timedelta(days=2)).date().isoformat(), move_time="10:00")
     req = request(inputs)
     result = await moving.run(req)

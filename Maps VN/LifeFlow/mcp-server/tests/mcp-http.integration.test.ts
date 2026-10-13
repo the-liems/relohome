@@ -19,7 +19,7 @@ beforeAll(async () => {
     cwd: rootDirectory,
     env: {
       ...process.env,
-      DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
+      LOCATION_DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
       POSTGRES_APP_USER: 'unused',
       POSTGRES_APP_PASSWORD: 'unused',
       POSTGRES_HOST: '127.0.0.1',

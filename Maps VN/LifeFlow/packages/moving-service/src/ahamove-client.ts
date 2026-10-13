@@ -1,5 +1,5 @@
 import { AhaMoveApiError } from './errors.js'
-import type { MovingRuntimeConfig } from './config.js'
+import type { AhaMoveConfig } from './config.js'
 
 export interface AhaMoveClientOptions {
   baseUrl: string
@@ -19,7 +19,7 @@ export class AhaMoveClient {
     this.fetcher = options.fetch || fetch
   }
 
-  static fromConfig(config: MovingRuntimeConfig) {
+  static fromConfig(config: AhaMoveConfig) {
     return new AhaMoveClient(config)
   }
 

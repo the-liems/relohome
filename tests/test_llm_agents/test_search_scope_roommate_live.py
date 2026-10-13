@@ -19,18 +19,18 @@ from src.roommate.demo import DemoDataset
 from src.roommate.models import RoommateSearchCriteria
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
-from tests.test_llm_agents.test_workspace_repairs_live import ROOT, environment
+from tests import live
+from tests.test_llm_agents.test_workspace_repairs_live import ROOT
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_SEARCH_SCOPE_ROOMMATE_LIVE") != "1", reason="Real read services opt-in")
 
 
 def client():
-    env = environment()
     return McpToolClient(
         McpEndpoint(
             service="location",
-            url=env["LOCATION_MCP_URL"],
-            token=env["LOCATION_MCP_AUTH_TOKEN"],
+            url=live.mcp_url("location"),
+            token=live.mcp_token("location"),
             allowed_tools=LOCATION_READ_TOOLS,
         )
     )
@@ -91,9 +91,7 @@ def test_actual_radius_and_map_pan_do_not_broaden_search():
         map_query = {k: v for k, v in query.items() if k != "pagination"}
         map_query["listing_type"] = [query["listing_type"]]
         box = result.data["map_context"]["viewport"]
-        async with httpx.AsyncClient(
-            base_url=environment().get("SIU_PLATFORM_API_URL", "http://127.0.0.1:4100/v1"), timeout=30
-        ) as platform:
+        async with httpx.AsyncClient(base_url=live.platform_api_url(), timeout=30) as platform:
             mapped_response = await platform.post(
                 "/housing/map",
                 json={**map_query, "bounding_box": box, "zoom": 17},
@@ -104,9 +102,7 @@ def test_actual_radius_and_map_pan_do_not_broaden_search():
         assert features and all(_meters(place["location"], f["location"]) < 2020 for f in features)
         width = box["east"] - box["west"]
         shifted = {**box, "west": box["west"] + width * 3, "east": box["east"] + width * 3}
-        async with httpx.AsyncClient(
-            base_url=environment().get("SIU_PLATFORM_API_URL", "http://127.0.0.1:4100/v1"), timeout=30
-        ) as platform:
+        async with httpx.AsyncClient(base_url=live.platform_api_url(), timeout=30) as platform:
             panned_response = await platform.post(
                 "/housing/map",
                 json={**map_query, "bounding_box": shifted, "zoom": 17},
@@ -125,7 +121,7 @@ def test_hundred_demo_profiles_never_enter_real_discovery_or_identity():
 
     from src.roommate.ports import Actor
 
-    dataset = DemoDataset.load(ROOT / environment()["ROOMMATE_DEMO_DATASET"])
+    dataset = DemoDataset.load(ROOT / os.environ["ROOMMATE_DEMO_DATASET"])
     now = datetime.now(UTC)
     assert len(dataset.profiles) == 100
     total = sum(

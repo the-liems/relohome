@@ -1,6 +1,7 @@
 """Opt-in real Intake/Planner + real private Roommate store; no per-person LLM calls."""
 
 import os
+import secrets
 from uuid import uuid4
 
 import httpx
@@ -14,6 +15,7 @@ from src.roommate.runtime import RoommateRuntime
 from src.roommate.services.access import AccessService
 from src.roommate.services.profiles import ProfileService
 from src.services.adapters.registry import ServiceSettings
+from tests import live
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -21,17 +23,15 @@ pytestmark = [
 ]
 
 
-async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp_path, monkeypatch):
-    env = dict(os.environ)
-    for key, value in env.items():
-        monkeypatch.setenv(key, value)
+async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp_path):
+    token = secrets.token_urlsafe(32)
     runtime = RoommateRuntime.open(
         Settings(
             _env_file=None,
             roommate_enabled=True,
             roommate_state_dir=tmp_path / "private",
             roommate_moderators="synthetic-reviewer",
-            agent_api_token=env["AGENT_API_TOKEN"],
+            agent_api_token=token,
         )
     )
     viewer, candidate = "viewer_" + uuid4().hex, "candidate_" + uuid4().hex
@@ -52,7 +52,13 @@ async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp
         draft = ProfileService(ctx).save(Actor(id=candidate), profile, None)
         ProfileService(ctx).transition(Actor(id=candidate), "publish", draft.version, True)
     service = await AgentService.open(
-        ServiceSettings(_env_file=None, agent_state_dir=str(tmp_path / "graph")), roommate_runtime=runtime
+        ServiceSettings(
+            _env_file=None,
+            agent_state_dir=str(tmp_path / "graph"),
+            agent_api_token=token,
+            openai_api_key=live.env_test("OPENAI_API_KEY"),
+        ),
+        roommate_runtime=runtime,
     )
     from src.main import app
 
@@ -65,7 +71,7 @@ async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp
         ) as client:
             response = await client.post(
                 "/api/v1/chat",
-                headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": viewer},
+                headers={"Authorization": "Bearer " + token, "X-User-Id": viewer},
                 json={
                     "message": "Tôi muốn tìm những người đang có nhu cầu ở cùng tại Hà Nội. Ngân sách tiền thuê tối đa 3 triệu đồng một người mỗi tháng, chưa gồm phí. Chỉ tìm hồ sơ người, chưa tìm nhà."
                 },

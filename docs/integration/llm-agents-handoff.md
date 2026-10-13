@@ -126,7 +126,8 @@ npm run test:live -- python tests/test_llm_agents/test_live_components.py -q
 # Build TypeScript trong Maps VN/LifeFlow trước: npm.cmd run build:moving
 $env:MOVING_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 $env:MOVING_TEST_AGENT_PYTHON=(Resolve-Path .venv/Scripts/python.exe).Path
-node --env-file=.env.local 'Maps VN/LifeFlow/scripts/test-moving-native.mjs'
+# AhaMove credentials, route and contact: root .env.test (see .env.test.example)
+node 'Maps VN/LifeFlow/scripts/test-moving-native.mjs'
 ```
 
 Runner tạo DB riêng, migrate hai lần, chạy HTTP/MCP thật, rồi chạy agent live nếu có

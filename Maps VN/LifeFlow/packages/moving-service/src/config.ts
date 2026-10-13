@@ -22,7 +22,6 @@ function enabled(name: string, fallback = false) {
 
 function applicationDatabaseUrl() {
   if (process.env.MOVING_DATABASE_URL) return process.env.MOVING_DATABASE_URL
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
   const user = required('POSTGRES_APP_USER')
   const password = required('POSTGRES_APP_PASSWORD')
   const host = process.env.POSTGRES_HOST || '127.0.0.1'
@@ -47,7 +46,10 @@ export interface MovingRuntimeConfig {
   webhookSecret?: string
 }
 
-export function getMovingRuntimeConfig(): MovingRuntimeConfig {
+/** Provider settings only; for callers that never touch the Moving database. */
+export type AhaMoveConfig = Omit<MovingRuntimeConfig, 'databaseUrl'>
+
+export function getAhaMoveConfig(): AhaMoveConfig {
   const environment = (process.env.AHAMOVE_ENV || 'staging') as 'staging' | 'production'
   if (!['staging', 'production'].includes(environment)) {
     throw new MovingServiceError('CONFIGURATION_ERROR', 'AHAMOVE_ENV must be staging or production.')
@@ -82,7 +84,6 @@ export function getMovingRuntimeConfig(): MovingRuntimeConfig {
     apiKey,
     mobile,
     token,
-    databaseUrl: applicationDatabaseUrl(),
     timeoutMs: positiveInteger('AHAMOVE_TIMEOUT_MS', 10_000, 120_000),
     quoteTtlSeconds: positiveInteger('AHAMOVE_QUOTE_TTL_SECONDS', 300, 3_600),
     writeEnabled: enabled('AHAMOVE_WRITE_ENABLED'),
@@ -91,4 +92,8 @@ export function getMovingRuntimeConfig(): MovingRuntimeConfig {
     webhookAuthMode: webhookAuthMode as MovingRuntimeConfig['webhookAuthMode'],
     webhookSecret: process.env.AHAMOVE_WEBHOOK_SECRET?.trim(),
   }
+}
+
+export function getMovingRuntimeConfig(): MovingRuntimeConfig {
+  return { ...getAhaMoveConfig(), databaseUrl: applicationDatabaseUrl() }
 }

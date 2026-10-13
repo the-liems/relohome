@@ -10,17 +10,18 @@ import uuid
 import httpx
 import pytest
 
+from tests import live
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
-BASE_URL = os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:8000/api/v1")
+BASE_URL = live.api_url()
 
 
 @pytest.fixture
 def client():
-    env = dict(os.environ)
     with httpx.Client(
         base_url=BASE_URL,
         timeout=240,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "acceptance_" + uuid.uuid4().hex},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": "acceptance_" + uuid.uuid4().hex},
     ) as session:
         yield session
 
@@ -146,9 +147,7 @@ def test_moving_quote_graph(client):
 
 
 def test_moving_confirmed_pins_quote(client):
-    env = dict(os.environ)
-    assert env.get("MOVING_LIVE_QUOTE_INPUTS"), "Configure the operator-approved real route first"
-    route = json.loads(env["MOVING_LIVE_QUOTE_INPUTS"])
+    route = json.loads(live.env_test("MOVING_LIVE_QUOTE_INPUTS"))
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},
         "destination": {"address": route["to_address"], **route["destination_coordinate"], "confirmed": True},

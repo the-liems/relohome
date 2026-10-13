@@ -14,13 +14,13 @@ unique names instead, and each place that starts a service translates them:
 | Shared name | Service reads | Translated by |
 | --- | --- | --- |
 | `BACKEND_DATABASE_URL` | Backend `DATABASE_URL` | Backend settings (unique name wins) |
-| `LOCATION_DATABASE_URL`, `LOCATION_ADMIN_/INGEST_DATABASE_URL` (optional) | Location `DATABASE_URL`, `ADMIN_/INGEST_DATABASE_URL` | Location config (unique name wins) |
+| `LOCATION_DATABASE_URL`, `LOCATION_ADMIN_/INGEST_DATABASE_URL` (optional) | Location app/admin/ingest connection | Location config reads these names only |
 | `LOCATION_MCP_AUTH_TOKEN` | Location `MCP_AUTH_TOKEN`; backend client reads it as is | Location server (accepts both names); Compose `environment:` |
 | `FLIGHT_/PAYMENT_/MOVING_MCP_AUTH_TOKEN` | Each server's `MCP_AUTH_TOKEN` | Server settings (accept both names); Compose `environment:` |
 
-Without the optional URLs, Location uses `POSTGRES_*` and Moving uses
-`MOVING_DATABASE_URL`. Where both are present, the unique name wins over a generic
-name inherited from the shell; containers and tests may still set the generic names.
+Without the optional URLs, Location uses `POSTGRES_*`; Moving uses `MOVING_DATABASE_URL`
+or `POSTGRES_*`. Neither reads a generic `DATABASE_URL`, so another service's value
+inherited from the shell can never select their database.
 
 Startup passes the file natively, with no launcher or allowlist: npm dev scripts use
 `node --env-file=…` / `tsx --env-file=…` (Python commands go through Node and inherit
@@ -43,21 +43,33 @@ prefix. URLs are explicit: when changing a service port, update its client URL t
 
 ### Unit tests versus live tests
 
-`npm run test:python` and `npm run test:ts` never load `.env.local`. Unit tests use
-fake settings, temporary files or values they generate. A test that starts a service
-passes that service's variables explicitly in the child `env`.
+Tests never depend on the developer's shell. Before any test module is imported, the
+root `conftest.py` removes every application variable (all names in `.env.example`),
+generic runtime names (`DATABASE_URL`, `MCP_AUTH_TOKEN`, ...) and tracing variables,
+then sets the same baseline as CI (`APP_ENV=test`, a fake `OPENAI_API_KEY`). Unit tests
+set anything else themselves (`monkeypatch.setenv`, `vi.stubEnv`, generated values); a
+test that starts a service passes that service's variables explicitly in the child `env`.
 
-Live tests read only the process environment. `npm run test:live` passes the selected
-file with `node --env-file`, after an explicit opt-in:
+Opt-in live tests take three kinds of input, none of them from the shell's app config:
+
+| Input | Source |
+| --- | --- |
+| Vendor credentials and operator inputs (LLM key, AhaMove, approved route/contact) | Ignored `.env.test` (copy `.env.test.example`), read as data by the test harness, never loaded into the environment |
+| The running stack (API/MCP URLs and tokens, state dir, Location DB name) | pytest options, e.g. `--live-api-token`, `--location-mcp-token`, `--live-api-url` (`pytest --help`, group "live") |
+| Opt-in flags and per-run scenario inputs (`RUN_*`, resume thread ids) | The test command |
 
 ```sh
 # Export RELOHOME_LIVE_CHECKS=1 plus the specific suite's RUN_* opt-in flag first.
-npm run test:live -- python
-npm run test:live -- python --env-file /absolute/path/team.env tests/test_llm_agents/test_integrated_live.py -v
-npm run test:live -- moving
+npm run test:live -- python tests/test_llm_agents/test_integrated_live.py -v \
+  --live-api-token "<AGENT_API_TOKEN of the running API>"
+npm run test:live -- python tests/test_llm_agents/test_domain_missions_live.py \
+  --location-mcp-token "<Location token>" --live-api-token "<API token>"
+npm run test:live -- python --env-test /absolute/path/other.env.test tests/test_llm_agents
+npm run test:live -- moving   # TypeScript suites receive the .env.test values explicitly
 ```
 
-Do not add dotenv loading to a test module or a global conftest.
+A live test skips with the missing option or `.env.test` key named. Do not add dotenv
+loading to a test module; read vendor values with `tests.live.env_test(...)`.
 
 ### Migration and containers
 

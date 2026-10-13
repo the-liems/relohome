@@ -22,23 +22,19 @@ from src.agents.subagents.services.domain_tools import DomainToolSession
 from src.agents.subagents.services.location import LocationSubagent
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_WORKSPACE_REPAIRS_LIVE") != "1", reason="Opt-in actual read services")
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def environment():
-    return dict(os.environ)
-
-
 def test_comparison_reads_exact_real_ids_without_new_search():
     async def run():
-        env = environment()
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
@@ -84,12 +80,11 @@ def test_comparison_reads_exact_real_ids_without_new_search():
 
 def test_comparison_reports_actual_prices_outside_a_requested_band():
     async def run():
-        env = environment()
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
@@ -148,11 +143,10 @@ def test_unknown_comparison_scope_clarifies_without_replacing_a_real_selected_ho
     ).fetchone()
     conn.close()
     assert row and row[1] == "Issue 75 comparison verification" and row[2].endswith("@example.invalid")
-    env = environment()
     with httpx.Client(
-        base_url="http://127.0.0.1:8000/api/v1",
+        base_url=live.api_url(),
         timeout=180,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": row[0]},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": row[0]},
     ) as client:
         before = client.get(f"/chat/{thread}/state").json()
         response = client.post(
@@ -169,11 +163,10 @@ def test_unknown_comparison_scope_clarifies_without_replacing_a_real_selected_ho
 
 
 def test_real_multiturn_comparison_preserves_ids_and_missing_costs():
-    env = environment()
     resume = os.getenv("WORKSPACE_REPAIRS_RESUME_THREAD")
 
     async def load():
-        async with AsyncSqliteSaver.from_conn_string(str(ROOT / "data/agent-runtime/checkpoints.sqlite3")) as saver:
+        async with AsyncSqliteSaver.from_conn_string(str(live.agent_state_dir() / "checkpoints.sqlite3")) as saver:
             saver.serde = checkpoint_serde()
             checkpoint = await saver.aget_tuple({"configurable": {"thread_id": resume}})
             assert checkpoint, "Resume only an existing actual test conversation"
@@ -181,10 +174,10 @@ def test_real_multiturn_comparison_preserves_ids_and_missing_costs():
 
     saved = asyncio.run(load()) if resume else None
     with httpx.Client(
-        base_url=os.getenv("WORKSPACE_REPAIRS_API", "http://127.0.0.1:8000/api/v1"),
+        base_url=live.api_url(),
         timeout=240,
         headers={
-            "Authorization": "Bearer " + env["AGENT_API_TOKEN"],
+            "Authorization": "Bearer " + live.api_token(),
             "X-User-Id": saved["user_id"] if saved else "issue70_" + uuid4().hex,
         },
     ) as http:
@@ -232,11 +225,10 @@ def test_real_multiturn_comparison_preserves_ids_and_missing_costs():
 
 def test_real_selected_home_survives_three_then_four_way_comparison():
     """Read original search identities after selecting, then expanding a comparison."""
-    env = environment()
     resume = os.getenv("WORKSPACE_REPAIRS_RESUME_THREAD")
 
     async def load():
-        async with AsyncSqliteSaver.from_conn_string(str(ROOT / "data/agent-runtime/checkpoints.sqlite3")) as saver:
+        async with AsyncSqliteSaver.from_conn_string(str(live.agent_state_dir() / "checkpoints.sqlite3")) as saver:
             saver.serde = checkpoint_serde()
             checkpoint = await saver.aget_tuple({"configurable": {"thread_id": resume}})
             assert checkpoint, "Resume only an existing actual test conversation"
@@ -244,10 +236,10 @@ def test_real_selected_home_survives_three_then_four_way_comparison():
 
     saved = asyncio.run(load()) if resume else None
     with httpx.Client(
-        base_url=os.getenv("WORKSPACE_REPAIRS_API", "http://127.0.0.1:8000/api/v1"),
+        base_url=live.api_url(),
         timeout=240,
         headers={
-            "Authorization": "Bearer " + env["AGENT_API_TOKEN"],
+            "Authorization": "Bearer " + live.api_token(),
             "X-User-Id": saved["user_id"] if saved else "issue70_" + uuid4().hex,
         },
     ) as http:

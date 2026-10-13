@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from test_domain_missions_live import live_environment
 
 from src.agents.contracts import AgentTaskRequest
 from src.agents.graph import checkpoint_serde
@@ -24,6 +23,7 @@ from src.agents.subagents.services.domain_tools import DomainToolSession
 from src.agents.subagents.services.location import LocationSubagent
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual provider/checkpoint opt-in")
 
@@ -69,13 +69,12 @@ def test_real_projection_keeps_decision_facts_and_does_not_mutate_state(checkpoi
 
 def test_real_housing_batch_preserves_constraints_and_details(checkpoint):
     async def read():
-        env = live_environment()
         task = next(t for t in checkpoint["plan"].tasks if t.agent == AgentName.PROPERTY)
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
