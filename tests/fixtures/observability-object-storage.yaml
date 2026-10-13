@@ -8,6 +8,8 @@ services:
       MINIO_ROOT_USER: ${LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID:?}
       MINIO_ROOT_PASSWORD: ${LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY:?}
       SMOKE_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:?}
+      CORTEX_BUCKET: ${CORTEX_S3_BUCKET:?}
+      LOKI_BUCKET: ${LOKI_S3_BUCKET:?}
     entrypoint: [minio]
     command: [server, --address, ":9000", /data]
     volumes: [smoke-object-storage:/data]
@@ -22,7 +24,7 @@ services:
     environment: *storage-env
     entrypoint: [sh, -ec]
     command:
-      - 'mc alias set local http://smoke-object-storage:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null; mc mb --ignore-existing "local/$${SMOKE_BUCKET}"'
+      - 'mc alias set local http://smoke-object-storage:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null; mc mb --ignore-existing "local/$${SMOKE_BUCKET}" "local/$${CORTEX_BUCKET}" "local/$${LOKI_BUCKET}"'
     depends_on:
       smoke-object-storage: {condition: service_healthy}
 volumes:

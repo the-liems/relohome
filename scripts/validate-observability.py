@@ -3,6 +3,7 @@
 import argparse
 import base64
 import concurrent.futures
+import copy
 import importlib.util
 import json
 import os
@@ -120,21 +121,89 @@ def local_storage_environment():
         "ACCESS_KEY_ID": "smoke-" + secrets.token_hex(8), "SECRET_ACCESS_KEY": secrets.token_hex(32),
         "ENDPOINT": "http://smoke-object-storage:9000", "FORCE_PATH_STYLE": "true",
     }
-    return {"LANGFUSE_S3_EVENT_UPLOAD_" + key: value for key, value in values.items()}
+    result = {"LANGFUSE_S3_EVENT_UPLOAD_" + key: value for key, value in values.items()}
+    for backend in ("CORTEX", "LOKI"):
+        result.update({backend + "_S3_" + key: value for key, value in {
+            "BUCKET": backend.lower() + "-" + secrets.token_hex(8), "REGION": "us-east-1",
+            "ENDPOINT": "smoke-object-storage:9000", "INSECURE": "true",
+            "ACCESS_KEY_ID": values["ACCESS_KEY_ID"], "SECRET_ACCESS_KEY": values["SECRET_ACCESS_KEY"],
+        }.items()})
+    result.update(CORTEX_S3_BUCKET_LOOKUP_TYPE="path", LOKI_S3_FORCE_PATH_STYLE="true")
+    return result
 
 
 def add_smoke_object_storage(definition):
     fixture = yaml.safe_load((ROOT / "tests/fixtures/observability-object-storage.yaml").read_text())
     definition["services"].update(fixture["services"])
     definition["volumes"].update(fixture["volumes"])
-    for name in ("langfuse", "langfuse-worker"):
-        definition["services"][name]["depends_on"]["smoke-object-storage-init"] = {
+    for name in ("langfuse", "langfuse-worker", "cortex", "loki"):
+        definition["services"][name].setdefault("depends_on", {})["smoke-object-storage-init"] = {
             "condition": "service_completed_successfully"}
 
 
 def compose_environment(values):
     # Compose shell values override --env-file, so explicitly prefer generated test values.
     return {**os.environ, **values}
+
+
+def verify_s3_readback(path, definition, stack, endpoint, *, metric_time, log_query):
+    """Read from empty-cache query-only processes after writers have uploaded to S3."""
+    services = definition["services"]
+    tenant = {"X-Scope-OrgID": "staging"}
+    request(endpoint("cortex", 9009) + "/ingester/flush", headers=tenant, body={})
+
+    def cortex_objects_uploaded():
+        objects = stack("run", "--rm", "--no-deps", "--entrypoint", "sh", "smoke-object-storage-init", "-ec",
+            'mc alias set local http://smoke-object-storage:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; '
+            'mc ls --recursive "local/$CORTEX_BUCKET"')
+        return "meta.json" in objects and "/chunks/" in objects
+
+    eventually(cortex_objects_uploaded)
+    stack("stop", "cortex")
+    cortex_config = yaml.safe_load((path / "cortex.yaml").read_text())
+    cortex_config["target"] = "querier,store-gateway"
+    cortex_config["querier"].update(query_ingesters_within="1s", query_store_after="0s")
+    # Scan new blocks directly; a fresh bucket has not had its first hourly compactor index pass.
+    cortex_config["blocks_storage"]["bucket_store"].update(sync_interval="1s", bucket_index={"enabled": False})
+    (path / "cortex-reader.yaml").write_text(renderer.dump(cortex_config))
+    services["cortex-s3-reader"] = copy.deepcopy(services["cortex"])
+    services["cortex-s3-reader"]["volumes"] = [
+        "./cortex-reader.yaml:/etc/cortex/config.yaml:ro", "cortex-reader:/cortex"]
+    definition["volumes"]["cortex-reader"] = None
+
+    # Loki's TSDB index is shipped on shutdown. The restarted writer serves the reader's
+    # compactor cache-generation API; the reader itself has no ingester or local data.
+    request(endpoint("loki", 3100) + "/flush", headers=tenant, body={})
+    stack("restart", "--timeout", "30", "loki")
+    loki_config = yaml.safe_load((path / "loki.yaml").read_text())
+    loki_config["common"]["compactor_grpc_address"] = "loki:9095"
+    loki_config["querier"] = {"query_store_only": True}
+    loki_config["storage_config"]["tsdb_shipper"]["resync_interval"] = "1s"
+    (path / "loki-reader.yaml").write_text(renderer.dump(loki_config))
+    services["loki-s3-reader"] = copy.deepcopy(services["loki"])
+    services["loki-s3-reader"]["command"].append("-target=querier")
+    services["loki-s3-reader"]["volumes"] = ["./loki-reader.yaml:/etc/loki/config.yaml:ro",
+        "./loki-limits.yaml:/etc/loki/limits.yaml:ro", "loki-reader:/loki"]
+    definition["volumes"]["loki-reader"] = None
+    (path / "compose.yaml").write_text(renderer.dump(definition))
+    stack("up", "--detach", "--no-deps", "cortex-s3-reader", "loki-s3-reader")
+    cortex = endpoint("cortex-s3-reader", 9009)
+    metric_query = urlencode({"query": 'relohome_heartbeat_seconds{service_name="smoke",environment="staging"}',
+                              "time": metric_time + 1})
+    result = eventually(lambda: request(cortex + "/prometheus/api/v1/query?" + metric_query,
+                                       headers=tenant)["data"]["result"], timeout=120)
+    assert len(result) == 1 and float(result[0]["value"][1]) > 0
+    loki = endpoint("loki-s3-reader", 3100)
+    def stored_logs():
+        response = request(loki + "/loki/api/v1/query_range?" + log_query, headers=tenant)
+        return response if response["data"]["result"] else None
+
+    result = eventually(stored_logs, timeout=120)
+    assert "application.log" in json.dumps(result["data"]["result"])
+    stats = result["data"]["stats"]
+    assert stats["ingester"]["totalReached"] == 0
+    assert stats["querier"]["store"]["totalChunksDownloaded"] > 0
+    print("Cortex and Loki S3-only reads verified with fresh volumes and no ingester reads", flush=True)
 
 
 def main(smoke=False, verify_images=False):
@@ -154,6 +223,8 @@ def main(smoke=False, verify_images=False):
             "LF_NEXTAUTH_SECRET", "OBS_ADMIN_PASSWORD", "GRAFANA_ADMIN_PASSWORD")}
         env.update(local_storage_environment())
         env.update(OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled",
+                   GRAFANA_ADMIN_USER="admin", OBSERVABILITY_ENVIRONMENTS="staging", LANGFUSE_PRODUCTION_AUTH="",
+                   LANGFUSE_URL="http://localhost:3000", GRAFANA_URL="http://localhost:3001",
                    LANGFUSE_INIT_ORG_ID="smoke-" + secrets.token_hex(8),
                    LANGFUSE_STAGING_PROJECT_ID="smoke-staging", LANGFUSE_PRODUCTION_PROJECT_ID="smoke-production",
                    OBSERVABILITY_INGEST_NETWORK=project + "-ingest")
@@ -184,15 +255,19 @@ def main(smoke=False, verify_images=False):
         container_env = [arg for key, value in env.items() for arg in ("-e", f"{key}={value}")]
         docker("run", "--rm", *container_env, "-v", f"{path / 'Caddyfile'}:/etc/caddy/Caddyfile:ro",
                caddy, "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile")
-        docker("run", "--rm", "-v", f"{path / 'loki.yaml'}:/etc/loki/config.yaml:ro",
+        docker("run", "--rm", *container_env, "-v", f"{path / 'loki.yaml'}:/etc/loki/config.yaml:ro",
                "-v", f"{path / 'loki-limits.yaml'}:/etc/loki/limits.yaml:ro", services["loki"]["image"],
-               "-config.file=/etc/loki/config.yaml", "-verify-config=true")
-        docker("run", "--rm", "--entrypoint", "promtool", "-v", f"{path}:/etc/prometheus:ro",
-               services["prometheus"]["image"], "check", "config", "/etc/prometheus/prometheus.yaml")
-        print("Coolify-rendered Collector, gateway, Loki and Prometheus configs validated", flush=True)
+               "-config.file=/etc/loki/config.yaml", "-config.expand-env=true", "-verify-config=true")
+        docker("run", "--rm", *container_env, "-v", f"{path / 'cortex.yaml'}:/etc/cortex.yaml:ro",
+               services["cortex"]["image"], "-config.file=/etc/cortex.yaml", "-config.expand-env=true", "-modules")
+        print("Coolify-rendered Collector, gateway, Loki and Cortex configs parsed", flush=True)
         if not smoke:
             return
         add_smoke_object_storage(definition)
+        # Test-only: flush the active Loki index at shutdown for the S3 readback proof.
+        loki_config = yaml.safe_load((path / "loki.yaml").read_text())
+        loki_config["ingester"]["wal"]["flush_on_shutdown"] = True
+        (path / "loki.yaml").write_text(renderer.dump(loki_config))
         shutil.copyfile(ROOT / "tests/observability_discord_receiver.py", path / "discord.py")
         services["discord-capture"] = {"image": services["retention"]["image"], "command": ["python", "/app/discord.py"],
             "volumes": ["./discord.py:/app/discord.py:ro"], "ports": ["127.0.0.1:0:8080"], "mem_limit": "64m"}
@@ -202,7 +277,7 @@ def main(smoke=False, verify_images=False):
         alerts = yaml.safe_load(alerts_path.read_text())
         alerts["policies"][0].update(group_wait="1s", group_interval="5s")
         alerts_path.write_text(renderer.dump(alerts))
-        for name, port in {"langfuse": 3000, "grafana": 3000, "prometheus": 9090, "loki": 3100, "telemetry-gateway": 8080,
+        for name, port in {"langfuse": 3000, "grafana": 3000, "cortex": 9009, "loki": 3100, "telemetry-gateway": 8080,
                            "postgres": 5432}.items():
             services[name]["ports"] = [f"127.0.0.1:0:{port}"]
         for name in ("staging", "production"):
@@ -231,9 +306,13 @@ def main(smoke=False, verify_images=False):
             assert any(item["type"] == "discord" and item["uid"] == "rh-discord"
                        and item["name"] == "relohome-discord" for item in contacts)
             rules = request(grafana + "/api/v1/provisioning/alert-rules", headers=gf_auth)
-            expected_rules = {"rh-http-errors", "rh-ai-errors", "rh-provider-limits", "rh-chat-latency",
-                              "rh-heartbeat", "rh-collector-down", "rh-export-failures", "rh-retention"}
-            assert expected_rules.issubset({rule["uid"] for rule in rules})
+            expected_rules = {"rh-staging-" + name for name in ("http-errors", "ai-errors", "provider-limits", "chat-latency",
+                              "heartbeat", "collector-down", "export-failures", "retention")}
+            assert expected_rules == {rule["uid"] for rule in rules}
+            assert all(rule["data"][0]["datasourceUid"] == "cortex-staging" for rule in rules)
+            for tenant in ("staging", "production"):
+                datasource = request(grafana + "/api/datasources/uid/cortex-" + tenant, headers=gf_auth)
+                assert datasource["type"] == "prometheus" and datasource["url"] == "http://cortex:9009/prometheus"
             dashboard = request(grafana + "/api/dashboards/uid/relohome-overview", headers=gf_auth)
             assert len(dashboard["dashboard"]["panels"]) >= 10
             source = request(grafana + "/api/datasources/uid/loki-staging", headers=gf_auth)
@@ -243,11 +322,12 @@ def main(smoke=False, verify_images=False):
             col_auth = {"Authorization": "Bearer " + passwords["staging"]}
             gateway = endpoint("telemetry-gateway", 8080)
             stage_auth = {"Authorization": "Basic " + base64.b64encode(f'staging:{passwords["staging"]}'.encode()).decode()}
-            try:
-                request(gateway + "/production/v1/logs", headers=stage_auth, body={})
-                raise AssertionError("Staging credentials crossed the production boundary")
-            except HTTPError as error:
-                assert error.code == 401
+            for signal in ("logs", "metrics", "traces"):
+                try:
+                    request(gateway + "/production/v1/" + signal, headers=stage_auth, body={})
+                    raise AssertionError("Staging credentials crossed the production boundary")
+                except HTTPError as error:
+                    assert error.code == 401
             trace_id = secrets.token_hex(16)
             now = time.time_ns()
             resource = {"attributes": [{"key": "service.name", "value": {"stringValue": "smoke"}},
@@ -271,10 +351,44 @@ def main(smoke=False, verify_images=False):
                                headers={"X-Scope-OrgID": "production"})["data"]["result"]
             request(col + "/v1/metrics", headers=col_auth, body={"resourceMetrics": [{"resource": resource, "scopeMetrics": [{"metrics": [
                 {"name": "relohome.heartbeat", "unit": "s", "gauge": {"dataPoints": [{"asDouble": time.time(), "timeUnixNano": str(now)}]}}]}]}]})
-            prom = endpoint("prometheus", 9090)
+            cortex = endpoint("cortex", 9009)
+            cortex_auth = {"X-Scope-OrgID": "staging"}
             metric_query = urlencode({"query": 'relohome_heartbeat_seconds{service_name="smoke",environment="staging"}'})
-            eventually(lambda: request(prom + "/api/v1/query?" + metric_query)["data"]["result"])
-            print("Traces, logs, metrics, redaction and environment isolation verified", flush=True)
+            eventually(lambda: request(cortex + "/prometheus/api/v1/query?" + metric_query, headers=cortex_auth)["data"]["result"])
+            assert not request(cortex + "/prometheus/api/v1/query?" + metric_query,
+                               headers={"X-Scope-OrgID": "production"})["data"]["result"]
+            for name in ("collectors", "retention"):
+                internal_query = urlencode({"query": f'up{{service_name="{name}",environment="staging"}}'})
+                eventually(lambda: request(cortex + "/prometheus/api/v1/query?" + internal_query,
+                                          headers=cortex_auth)["data"]["result"])
+            request(col + "/v1/metrics", headers=col_auth, body={"resourceMetrics": [{"resource": resource,
+                "scopeMetrics": [{"metrics": [
+                    {"name": "relohome.http.requests", "sum": {"aggregationTemporality": 2, "isMonotonic": True,
+                        "dataPoints": [{"asInt": "7", "startTimeUnixNano": str(now - 1000000000),
+                            "timeUnixNano": str(time.time_ns()), "attributes": [{"key": "status", "value": {"stringValue": "200"}}]}]}},
+                    {"name": "relohome.http.duration", "unit": "s", "histogram": {"aggregationTemporality": 2,
+                        "dataPoints": [{"count": "2", "sum": 0.7, "bucketCounts": ["1", "1", "0"],
+                            "explicitBounds": [0.25, 1], "startTimeUnixNano": str(now - 1000000000),
+                            "timeUnixNano": str(time.time_ns())}]}},
+                ]}]}]})
+            for name in ("relohome_http_requests_total", "relohome_http_duration_seconds_count",
+                         "relohome_http_duration_seconds_bucket", "otelcol_process_memory_rss",
+                         "otelcol_exporter_sent_metric_points_total", "relohome_retention_last_run_success"):
+                query = urlencode({"query": name + '{environment="staging"}'})
+                eventually(lambda: request(cortex + "/prometheus/api/v1/query?" + query,
+                                          headers=cortex_auth)["data"]["result"])
+            # A caller-supplied tenant header cannot override gateway routing.
+            request(gateway + "/staging/v1/metrics", headers={**stage_auth, "X-Scope-OrgID": "production"},
+                    body={"resourceMetrics": [{"resource": {"attributes": [{"key": "service.name",
+                        "value": {"stringValue": "tenant-routing-probe"}}]}, "scopeMetrics": [{"metrics": [
+                        {"name": "relohome.routing.probe", "gauge": {"dataPoints": [{"asInt": "1",
+                            "timeUnixNano": str(time.time_ns())}]}}]}]}]})
+            route_query = urlencode({"query": 'relohome_routing_probe{service_name="tenant-routing-probe"}'})
+            eventually(lambda: request(cortex + "/prometheus/api/v1/query?" + route_query,
+                                      headers=cortex_auth)["data"]["result"])
+            assert not request(cortex + "/prometheus/api/v1/query?" + route_query,
+                               headers={"X-Scope-OrgID": "production"})["data"]["result"]
+            print("Traces, logs, metric types, redaction, tenant isolation and internal scrapes verified", flush=True)
             db_host = endpoint("postgres", 5432).removeprefix("http://")
             connected_id = application_trace(path, col, passwords["staging"],
                 f'postgresql://langfuse:{env["LF_POSTGRES_PASSWORD"]}@{db_host}/langfuse')
@@ -328,8 +442,12 @@ def main(smoke=False, verify_images=False):
             query = urlencode({"traceId": retry_id, "limit": 10, "fields": "core"})
             eventually(lambda: request(lf + "/api/public/v2/observations?" + query, headers=auth).get("data"))
             print("Queued export recovered after gateway outage", flush=True)
+            storage_log_query = urlencode({"query": '{service_name="smoke",environment="staging"}',
+                "start": str(now - 1000000000), "end": str(now + 1000000000), "limit": 10})
+            verify_s3_readback(path, definition, stack, endpoint, metric_time=now / 10**9,
+                               log_query=storage_log_query)
         except Exception:
-            print(stack("logs", "--tail", "10", "otel-staging", "telemetry-gateway", "langfuse-worker", "grafana")[-12000:], flush=True)
+            print(stack("logs", "--tail", "10", "otel-staging", "telemetry-gateway", "langfuse-worker", "grafana", "cortex", "loki")[-12000:], flush=True)
             raise
         finally:
             stack("down", "--volumes", "--remove-orphans", timeout=120)

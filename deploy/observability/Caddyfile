@@ -27,6 +27,19 @@
                 header_up X-Scope-OrgID staging
             }
         }
+        handle /v1/metrics {
+            rewrite * /api/v1/otlp/v1/metrics
+            reverse_proxy cortex:9009 {
+                header_up -Authorization
+                header_up X-Scope-OrgID staging
+            }
+        }
+        handle /retention/metrics {
+            rewrite * /metrics/staging
+            reverse_proxy retention:9101 {
+                header_up -Authorization
+            }
+        }
         respond 404
     }
     handle_path /production/* {
@@ -45,6 +58,19 @@
             reverse_proxy loki:3100 {
                 header_up -Authorization
                 header_up X-Scope-OrgID production
+            }
+        }
+        handle /v1/metrics {
+            rewrite * /api/v1/otlp/v1/metrics
+            reverse_proxy cortex:9009 {
+                header_up -Authorization
+                header_up X-Scope-OrgID production
+            }
+        }
+        handle /retention/metrics {
+            rewrite * /metrics/production
+            reverse_proxy retention:9101 {
+                header_up -Authorization
             }
         }
         respond 404

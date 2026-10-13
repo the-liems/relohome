@@ -63,11 +63,15 @@ def cleanup(client, *, now=None, dry_run=False, sleep=time.sleep, verification_a
 
 class MetricsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path != "/metrics":
+        selected = {"/metrics/staging": "staging", "/metrics/production": "production"}.get(self.path)
+        if self.path != "/metrics" and selected is None:
             self.send_error(404)
             return
-        lines = []
+        lines = ["# TYPE relohome_retention_last_run_success gauge",
+                 "# TYPE relohome_retention_last_success_timestamp_seconds gauge"]
         for environment, values in list(STATE.items()):
+            if selected is not None and environment != selected:
+                continue
             for metric, value in values.items():
                 lines.append(f'relohome_retention_{metric}{{environment="{environment}"}} {value}')
         payload = ("\n".join(lines) + "\n").encode()

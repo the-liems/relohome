@@ -18,6 +18,35 @@ receivers:
         max_request_body_size: 8388608
         auth:
           authenticator: bearertokenauth/app
+  prometheus/internal:
+    config:
+      scrape_configs:
+        - job_name: collectors
+          scrape_interval: 15s
+          static_configs:
+            - targets: [127.0.0.1:8888]
+          # Preserve the scrape job as service.name instead of the Collector's target_info identity.
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: target_info
+              action: drop
+        - job_name: retention
+          scrape_interval: 15s
+          metrics_path: /${env:OTEL_DEPLOYMENT_ENVIRONMENT}/retention/metrics
+          basic_auth:
+            username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
+            password: ${env:OBSERVABILITY_INGEST_PASSWORD}
+          static_configs:
+            - targets: ["${env:OBSERVABILITY_GATEWAY_URL}"]
+          relabel_configs:
+            - source_labels: [__address__]
+              regex: '(https?)://([^/]+)/?'
+              target_label: __scheme__
+              replacement: '$$1'
+            - source_labels: [__address__]
+              regex: 'https?://([^/]+)/?'
+              target_label: __address__
+              replacement: '$$1'
 processors:
   memory_limiter:
     check_interval: 1s
@@ -77,11 +106,6 @@ exporters:
       initial_interval: 1s
       max_interval: 30s
       max_elapsed_time: 0s
-  prometheus:
-    endpoint: 0.0.0.0:8889
-    resource_to_telemetry_conversion:
-      enabled: true
-    metric_expiration: 5m
 service:
   extensions: [health_check, file_storage, bearertokenauth/app, basicauth/gateway]
   telemetry:
@@ -109,4 +133,8 @@ service:
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, filter/metrics, resource/environment, transform/privacy, batch]
-      exporters: [prometheus]
+      exporters: [otlphttp/gateway]
+    metrics/internal:
+      receivers: [prometheus/internal]
+      processors: [memory_limiter, resource/environment, batch]
+      exporters: [otlphttp/gateway]

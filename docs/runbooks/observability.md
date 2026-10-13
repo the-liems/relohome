@@ -3,7 +3,7 @@
 Implementation of [#106](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/106).
 Applications export OpenTelemetry to one Collector per environment. A shared
 platform stores traces in Langfuse, operational logs in Loki and metrics in
-Prometheus. Grafana owns dashboards, alert evaluation, notification policies and
+single-instance Cortex backed by S3. Grafana owns dashboards, alert evaluation, notification policies and
 the Discord contact point. Application services never receive the Discord webhook.
 
 ```mermaid
@@ -14,8 +14,9 @@ flowchart LR
     PC --> G
     G --> LF[Langfuse: separate projects]
     G --> L[Loki: separate tenants]
-    M[Prometheus] --> SC
-    M --> PC
+    G --> M[Cortex: separate tenants]
+    M --> CS3[Cortex S3 bucket]
+    L --> LS3[Loki S3 bucket]
     F[Grafana] --> M
     F --> L
     F -->|Trace links| LF
@@ -38,32 +39,37 @@ checks and the local smoke stack.
 
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
-`relohome-observability-ingest` network. Only the gateway and Prometheus join that
-network from the shared platform; databases, Loki and Redis remain on the
+`relohome-observability-ingest` network. Only the gateway joins that
+network from the shared platform; databases, Cortex, Loki and Redis remain on the
 platform's private network. Langfuse Web and Worker connect to the existing
 S3-compatible bucket through its configured endpoint. Do not attach applications
 to the storage network.
 
 Docker bridge networks do not span hosts. For a separate observability host,
-provide VPN/private routed connectivity or authenticated HTTPS to the gateway,
-and private Prometheus reachability to each Collector's ports 8888/8889. Configure
-`OBSERVABILITY_GATEWAY_URL` and scrape targets accordingly before enabling export.
+provide VPN/private routed connectivity or authenticated HTTPS to the gateway.
+Set `OBSERVABILITY_GATEWAY_URL` to its origin (scheme, host and optional port,
+without a path). The Collector sends all signals outbound, scrapes its own
+internal metrics on localhost:8888 and fetches its environment's retention
+metrics through the authenticated gateway. No inbound central scrape is needed.
 Never expose Collector OTLP, scrape endpoints, Loki or storage ports publicly.
 
 The gateway authenticates staging and production independently, assigns a fixed
-Loki tenant and injects the corresponding Langfuse project key. An application
+Loki/Cortex tenant and injects the corresponding Langfuse project key. An application
 cannot choose its destination by changing an environment label or tenant header.
 Collector bearer tokens and gateway passwords must differ between environments.
 
-The shared operations team is trusted to read both environments. Grafana filters
-and Prometheus labels do not restrict query access. Staging-only operators require
+The shared operations team is trusted to read both environments. Grafana has a
+separate fixed-tenant Cortex and Loki datasource for each environment; its
+operators can access both. Dashboard filters do not restrict query access.
+Staging-only operators require
 separate query access controls/backends before being granted access. Shared
-backends still share capacity and failure risk; this deployment is not HA.
+backends still share capacity and failure risk. This deployment uses one process
+per backend; observability availability and HA are outside this PR's scope.
 
 ## Preflight
 
 1. Verify host memory and disk headroom independently of the application budget.
-   Configured platform memory limits total about 11 GiB, plus 512 MiB per
+   Configured platform memory limits total about 12.375 GiB, plus 512 MiB per
    Collector; these limits are ceilings, not evidence of sufficient capacity.
    Langfuse/ClickHouse initialization and load can require additional headroom.
    Inspect actual RSS, queue growth and disk growth during staging. Prefer a
@@ -82,8 +88,8 @@ backends still share capacity and failure risk; this deployment is not HA.
    requires enough capacity to start a disposable copy of the platform.
 4. Identify the actual existing application network for each environment with
    `docker network ls`. Plan authenticated HTTPS domains for Grafana and Langfuse.
-   Confirm application → Collector, Collector → gateway and Prometheus →
-   Collector connectivity. The readiness endpoints of applications do not depend
+   Confirm application → Collector and Collector → gateway
+   connectivity, plus backend access to the three configured S3 buckets. The readiness endpoints of applications do not depend
    on observability.
 
 ## Bootstrap the shared platform
@@ -144,6 +150,18 @@ Grant scoped List/Get/Put/Delete permissions and configure the eight-day event
 prefix lifecycle described below. The platform does not create the bucket,
 manage its policy or deploy MinIO. Batch exports and media storage are not enabled.
 
+Loki and Cortex use their own private buckets. Set `LOKI_S3_BUCKET`,
+`LOKI_S3_ENDPOINT`, `LOKI_S3_REGION`, `LOKI_S3_ACCESS_KEY_ID` and
+`LOKI_S3_SECRET_ACCESS_KEY`; configure the corresponding `CORTEX_S3_*` variables
+for Cortex. Their endpoints use **host[:port] without `https://`**. TLS is enabled
+unless `*_S3_INSECURE=true`; that setting is intended for local HTTP fixtures.
+Use `LOKI_S3_FORCE_PATH_STYLE=true` or `CORTEX_S3_BUCKET_LOOKUP_TYPE=path` when the
+provider requires path-style access. Cortex also accepts `auto` (default) or
+`virtual-hosted`. Give each backend List/Get/Put/Delete access to its own bucket.
+The compactor in each backend controls retention; do not apply Langfuse's
+eight-day lifecycle or blanket object expiry to these two buckets. Local Loki
+and Cortex volumes still hold WAL, active indexes and caches.
+
 Set the Discord webhook as `DISCORD_WEBHOOK_URL` on the **Grafana/platform
 resource**. The provisioned `relohome-discord` contact point, routing policy and
 rules are managed as code. View them in Grafana Alerting; change their source
@@ -201,8 +219,8 @@ as a zero-cost call.
 
 Before enabling production, render the shared stack again with
 `--environments staging production` and set
-`OBSERVABILITY_ENVIRONMENTS=staging,production`. This adds production scrape
-targets, expected heartbeat inventory and retention. Deploy the production
+`OBSERVABILITY_ENVIRONMENTS=staging,production`. This adds production alert rules,
+expected heartbeat inventory in its Cortex tenant and trace retention. Deploy the production
 Collector and enable its applications with their own token. Keep the same stack
 and dashboard definitions. Initial collection samples all non-health requests;
 measure overhead and growth before changing sampling or retention.
@@ -240,10 +258,20 @@ telemetry. Application requests and payments remain independent of export.
 
 ## Dashboards and alerts
 
-The Collector's internal Prometheus reader explicitly disables type and unit
-suffixes. Keep the provisioned queries aligned with its scraped names, including
-`otelcol_exporter_send_failed_spans` and `otelcol_process_memory_rss`; application
-metrics exported on port 8889 retain their standard Prometheus suffixes.
+Cortex receives metrics over native OTLP. Its suffix normalization produces
+application counters such as `relohome_http_requests_total` and histograms such
+as `relohome_http_duration_seconds_bucket`. Internal counters scraped by each
+Collector become `otelcol_exporter_send_failed_spans_total`; the memory gauge
+remains `otelcol_process_memory_rss`. There is no port 8889 application exporter
+or standalone Prometheus service. The Collector's `prometheus/internal` receiver,
+PromQL expressions and Grafana's `prometheus` datasource type remain because
+Cortex implements the Prometheus query API.
+
+Each enabled environment gets its own Grafana alert group and fixed-tenant
+Cortex datasource. Cortex's local ruler evaluates only the expected-service
+recording rules so missing heartbeats remain detectable when an application has
+never emitted metrics. Grafana evaluates all alert conditions and sends Discord
+notifications.
 
 Open **ReloHome operations** in Grafana and choose the environment. Expand a log
 record's `trace_id` to open its project-specific Langfuse trace. Verify the
@@ -256,19 +284,19 @@ generated URL after entering real project IDs.
 | Provider rate limits | At least 3 over 10 minutes |
 | Chat latency | p95 >120 seconds over 15 minutes, at least 10 requests |
 | Missing service heartbeat | Expected service has no heartbeat newer than 120 seconds |
-| Collector unavailable | Failed scrape for 2 minutes |
+| Collector unavailable | Failed or missing self-scrape series for 2 minutes |
 | Telemetry export failure/drop | Nonzero failure rate persisting for 5 minutes |
 | Trace cleanup failure | Failed cleanup for 15 minutes |
 
 Notification groups include environment and service; resolved notifications are
 enabled. Check Collector auth, fixed environment, DNS, queue depth and backend
-health before changing thresholds. A completely unavailable Grafana/host cannot
-send its own alerts; an external availability monitor is separate work.
+health before changing thresholds. These checks cover application and collection failures while the shared
+backend is running; availability of the observability system is outside scope.
 
 ## Retention, upgrades and rollback
 
-Prometheus retains up to 30 days, with a 10 GB size ceiling that can shorten this.
-Loki's compactor applies seven-day retention. Langfuse OSS lacks built-in scheduled
+Cortex's compactor retains metric blocks for 30 days in S3.
+Loki's compactor applies seven-day retention in its S3 bucket. Langfuse OSS lacks built-in scheduled
 retention, so the project-scoped worker enumerates observations older than seven
 days, deletes their trace IDs using supported APIs, and verifies asynchronous
 deletion. It runs every 24 hours, retries failures after 15 minutes and exposes
@@ -297,7 +325,22 @@ a substitute for restoring a compatible backup.
 Rollback application telemetry by setting `OBSERVABILITY_ENABLED=false` and
 redeploying. Keep volumes for investigation and stop the independent observability
 resources if needed. Do not use `down --volumes` on a real deployment. To remove an
-environment, also remove its scrape/inventory configuration and retention target.
+environment, rerender the enabled inventory/alert configuration and remove its
+retention target.
+
+### Moving an existing preview from local storage
+
+This changes the metrics backend and Loki storage; it does not migrate historical
+data. Preserve the previous Prometheus volume if its history is needed. New
+metrics go to Cortex, and Grafana provisioning replaces the old Prometheus
+datasource and global alert rules with per-environment Cortex definitions.
+
+The supplied Loki schema is for a new S3 deployment. For a populated local-Loki
+instance, retain its previous filesystem schema and volume, and introduce a
+future-dated S3 schema period as a separate operator migration. Do not replace an
+existing schema period in place and expect old chunks to move automatically.
+Keep old storage until its retention window expires or perform an explicit
+migration. The PR does not delete or modify any live volume or bucket.
 
 ### Updating an existing preview deployment to ReloHome names
 
@@ -317,7 +360,7 @@ Set `LANGFUSE_INIT_ORG_ID` and the two `LANGFUSE_*_PROJECT_ID` variables to the
 existing stored IDs. Bootstrap defaults do not rename stored organizations or
 projects; change their display names through Langfuse. Preserve their API keys.
 Grafana's new dashboard UID is `relohome-overview`, its folder is `ReloHome`, and
-its alert/contact-point UIDs use `rh-`. Retire the old provisioned rules and
+its alert UIDs use `rh-{environment}-` and contact-point UID is `rh-discord`. Retire the old provisioned rules and
 dashboards after verifying the replacements, so both sets do not remain active.
 This code change does not move stored data or alter a running deployment.
 
@@ -332,8 +375,11 @@ Collector filters and dashboard/alert queries together when changing these names
 
 Python telemetry lives in `packages/python/observability` as
 `relohome-observability` / `relohome_observability`, following the #112 package
-boundaries now on `main`. The gateway, backend, both Python MCP applications and
-shared MCP HTTP declare their dependency; each runtime image installs its wheel.
+boundaries now on `main`. Canonical applications live in `apps/agent-api`
+(`relohome_agent`), `apps/browser-gateway` (`relohome_gateway`), `apps/flights-mcp`
+and `apps/payments-mcp`; the web UI is in `apps/web`. The gateway, backend, both
+Python MCP applications and shared MCP HTTP declare their telemetry dependency;
+each runtime image installs its wheel.
 `src/observability` contains temporary compatibility aliases tracked for removal
 under #115. Image checks import canonical entrypoints in isolated Python from
 `/tmp`, without checkout path injection. This source migration does not change
@@ -351,7 +397,10 @@ credentials, test-only object storage and loopback-only ports. It overrides
 inherited bucket settings with local test values and never contacts the real
 bucket. It checks provisioning/ingestion/isolation and queue recovery, exercises
 Python/LangGraph → Node MCP → PostgreSQL, captures Grafana firing/resolved webhook
-payloads locally and verifies trace deletion.
+payloads locally and verifies trace deletion. It flushes Loki/Cortex, then starts
+query-only readers with empty volumes and verifies that both read the exported
+data from their disposable S3 buckets. This uses test-only flush/scan settings;
+the deployed compactor and storage configuration stays unchanged.
 Install the Python requirements and run `npm ci && npm run build` in
 the repository root before this command. It removes only that project's containers
 and volumes. If the
@@ -362,4 +411,6 @@ References: [Langfuse OTLP](https://langfuse.com/integrations/native/opentelemet
 [retention licensing](https://langfuse.com/docs/administration/data-retention),
 [deletion API](https://langfuse.com/docs/administration/data-deletion),
 [Loki OTLP](https://grafana.com/docs/loki/latest/send-data/otel/),
+[Cortex OTLP](https://cortexmetrics.io/docs/guides/use-opentelemetry-collector-to-send-metrics-to-cortex/),
+[Cortex configuration](https://cortexmetrics.io/docs/configuration/configuration-file/),
 [Grafana provisioning](https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/).

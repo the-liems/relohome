@@ -1,0 +1,69 @@
+# One process and one replica. Local volumes hold WAL/cache; S3 holds metric blocks.
+target: distributor,ingester,querier,ruler,compactor,store-gateway
+auth_enabled: true
+server:
+  http_listen_port: 9009
+  grpc_listen_port: 9095
+storage:
+  engine: blocks
+distributor:
+  ring:
+    kvstore:
+      store: inmemory
+  otlp:
+    add_metric_suffixes: true
+    convert_all_attributes: false
+    disable_target_info: true
+    allow_delta_temporality: false
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+    min_ready_duration: 0s
+blocks_storage:
+  backend: s3
+  s3:
+    bucket_name: ${CORTEX_S3_BUCKET}
+    endpoint: ${CORTEX_S3_ENDPOINT}
+    region: ${CORTEX_S3_REGION}
+    access_key_id: ${CORTEX_S3_ACCESS_KEY_ID}
+    secret_access_key: ${CORTEX_S3_SECRET_ACCESS_KEY}
+    insecure: ${CORTEX_S3_INSECURE}
+    bucket_lookup_type: ${CORTEX_S3_BUCKET_LOOKUP_TYPE}
+  tsdb:
+    dir: /cortex/tsdb
+    retention_period: 6h
+    wal_compression_type: snappy
+  bucket_store:
+    sync_dir: /cortex/bucket-sync
+    index_cache:
+      backend: inmemory
+      inmemory:
+        max_size_bytes: 134217728
+store_gateway:
+  sharding_enabled: false
+querier:
+  max_concurrent: 4
+  active_query_tracker_dir: /cortex/active-queries
+  store_gateway_addresses: 127.0.0.1:9095
+compactor:
+  data_dir: /cortex/compactor
+  sharding_enabled: false
+  sharding_ring:
+    kvstore:
+      store: inmemory
+limits:
+  compactor_blocks_retention_period: 30d
+  promote_resource_attributes: [service.name, service.namespace, environment]
+ruler:
+  rule_path: /cortex/rules
+  evaluation_interval: 30s
+  enable_sharding: false
+ruler_storage:
+  backend: local
+  local:
+    directory: /etc/cortex/rules

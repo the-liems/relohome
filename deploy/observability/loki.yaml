@@ -9,14 +9,26 @@ common:
     kvstore:
       store: inmemory
   storage:
-    filesystem:
-      chunks_directory: /loki/chunks
-      rules_directory: /loki/rules
+    s3:
+      endpoint: ${LOKI_S3_ENDPOINT}
+      region: ${LOKI_S3_REGION}
+      bucketnames: ${LOKI_S3_BUCKET}
+      access_key_id: ${LOKI_S3_ACCESS_KEY_ID}
+      secret_access_key: ${LOKI_S3_SECRET_ACCESS_KEY}
+      s3forcepathstyle: ${LOKI_S3_FORCE_PATH_STYLE}
+      insecure: ${LOKI_S3_INSECURE}
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/index-cache
+ingester:
+  wal:
+    dir: /loki/wal
 schema_config:
   configs:
     - from: "2024-04-01"
       store: tsdb
-      object_store: filesystem
+      object_store: s3
       schema: v13
       index:
         prefix: index_
@@ -24,7 +36,7 @@ schema_config:
 compactor:
   working_directory: /loki/compactor
   retention_enabled: true
-  delete_request_store: filesystem
+  delete_request_store: s3
 limits_config:
   allow_structured_metadata: true
   retention_period: 168h

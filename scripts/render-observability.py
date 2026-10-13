@@ -16,16 +16,17 @@ def dump(value):
     return yaml.safe_dump(value, sort_keys=False, width=140)
 
 
-def alert(uid, title, expression, duration="0s"):
+def alert(uid, title, expression, duration="0s", *, environment):
+    datasource_uid = "cortex-" + environment
     return {
-        "uid": uid, "title": title, "condition": "B", "for": duration,
+        "uid": f"rh-{environment}-{uid}", "title": f"{title} ({environment})", "condition": "B", "for": duration,
         "noDataState": "OK", "execErrState": "Error",
-        "labels": {"team": "relohome", "severity": "warning"},
+        "labels": {"team": "relohome", "severity": "warning", "environment": environment},
         "annotations": {"summary": title, "description": "Check the ReloHome dashboard and correlated traces."},
         "data": [
-            {"refId": "A", "datasourceUid": "prometheus", "relativeTimeRange": {"from": 900, "to": 0},
+            {"refId": "A", "datasourceUid": datasource_uid, "relativeTimeRange": {"from": 900, "to": 0},
              "model": {"refId": "A", "expr": expression, "instant": True, "range": False,
-                       "datasource": {"type": "prometheus", "uid": "prometheus"}}},
+                       "datasource": {"type": "prometheus", "uid": datasource_uid}}},
             {"refId": "B", "datasourceUid": "__expr__", "relativeTimeRange": {"from": 0, "to": 0},
              "model": {"refId": "B", "type": "threshold", "expression": "A",
                        "conditions": [{"type": "query", "evaluator": {"type": "gt", "params": [0]},
@@ -34,30 +35,34 @@ def alert(uid, title, expression, duration="0s"):
     }
 
 
-def alert_config():
+def alert_config(environments=("staging",)):
     http_total = 'sum by (environment, service_name) (increase(relohome_http_requests_total[10m]))'
     http_failed = 'sum by (environment, service_name) (increase(relohome_http_requests_total{status=~"5.."}[10m]))'
     operations = 'sum by (environment, service_name, kind) (increase(relohome_operations_total{kind=~"agent|tool|llm"}[10m]))'
     errors = 'sum by (environment, service_name, kind) (increase(relohome_operations_total{kind=~"agent|tool|llm",outcome="error"}[10m]))'
-    delivery_counters = ["exporter_send_failed_spans", "exporter_send_failed_log_records",
-                         "exporter_enqueue_failed_spans", "exporter_enqueue_failed_log_records",
+    delivery_counters = ["exporter_send_failed_spans", "exporter_send_failed_log_records", "exporter_send_failed_metric_points",
+                         "exporter_enqueue_failed_spans", "exporter_enqueue_failed_log_records", "exporter_enqueue_failed_metric_points",
                          "receiver_refused_spans", "receiver_refused_log_records", "receiver_refused_metric_points",
                          "receiver_failed_spans", "receiver_failed_log_records", "receiver_failed_metric_points"]
-    # The Collector reader explicitly disables type/unit suffixes for these queries.
-    delivery_errors = " or ".join(f"(rate(otelcol_{name}[5m]) > 0)" for name in delivery_counters)
-    rules = [
-        alert("rh-http-errors", "ReloHome HTTP error rate", f'({http_failed} / {http_total} > 0.05) and ({http_total} >= 20)'),
-        alert("rh-ai-errors", "ReloHome agent/tool/provider failures", f'({errors} / {operations} > 0.05) and ({operations} >= 20)'),
-        alert("rh-provider-limits", "ReloHome provider rate limits", 'sum by (environment, service_name, provider) (increase(relohome_provider_rate_limits_total[10m])) >= 3'),
-        alert("rh-chat-latency", "ReloHome chat p95 above 120 seconds", '(histogram_quantile(0.95, sum by (le, environment, service_name) (rate(relohome_http_duration_seconds_bucket{route=~".*/chat"}[15m]))) > 120) and (sum by (environment, service_name) (increase(relohome_http_duration_seconds_count{route=~".*/chat"}[15m])) >= 10)'),
-        alert("rh-heartbeat", "ReloHome service heartbeat missing", 'relohome_expected_service_info unless on (environment, service_name) (max by (environment, service_name) (relohome_heartbeat_seconds) > time() - 120)'),
-        alert("rh-collector-down", "ReloHome Collector unavailable", 'up{job="collectors"} == bool 0', "2m"),
-        alert("rh-export-failures", "ReloHome telemetry export failures", f'sum by (environment) ({delivery_errors}) > 0', "5m"),
-        alert("rh-retention", "ReloHome trace retention cleanup failing", '(relohome_retention_last_run_success == bool 0) or (up{job="retention"} == bool 0)', "15m"),
+    # Cortex adds the counter suffix after the Collector scrape-to-OTLP conversion.
+    delivery_errors = " or ".join(f"(rate(otelcol_{name}_total[5m]) > 0)" for name in delivery_counters)
+    specs = [
+        ("http-errors", "ReloHome HTTP error rate", f'({http_failed} / {http_total} > 0.05) and ({http_total} >= 20)'),
+        ("ai-errors", "ReloHome agent/tool/provider failures", f'({errors} / {operations} > 0.05) and ({operations} >= 20)'),
+        ("provider-limits", "ReloHome provider rate limits", 'sum by (environment, service_name, provider) (increase(relohome_provider_rate_limits_total[10m])) >= 3'),
+        ("chat-latency", "ReloHome chat p95 above 120 seconds", '(histogram_quantile(0.95, sum by (le, environment, service_name) (rate(relohome_http_duration_seconds_bucket{route=~".*/chat"}[15m]))) > 120) and (sum by (environment, service_name) (increase(relohome_http_duration_seconds_count{route=~".*/chat"}[15m])) >= 10)'),
+        ("heartbeat", "ReloHome service heartbeat missing", 'relohome_expected_service_info unless on (environment, service_name) (max by (environment, service_name) (relohome_heartbeat_seconds) > time() - 120)'),
+        ("collector-down", "ReloHome Collector unavailable", '(up{service_name="collectors"} == bool 0) or absent(up{service_name="collectors"})', "2m"),
+        ("export-failures", "ReloHome telemetry export failures", f'sum by (environment) ({delivery_errors}) > 0', "5m"),
+        ("retention", "ReloHome trace retention cleanup failing", '(relohome_retention_last_run_success == bool 0) or (up{service_name="retention"} == bool 0) or absent(up{service_name="retention"})', "15m"),
     ]
     return {
         "apiVersion": 1,
-        "groups": [{"orgId": 1, "name": "relohome", "folder": "ReloHome", "interval": "30s", "rules": rules}],
+        "groups": [{"orgId": 1, "name": "relohome-" + env, "folder": "ReloHome", "interval": "30s",
+                    "rules": [alert(*spec, environment=env) for spec in specs]} for env in environments],
+        "deleteRules": [{"orgId": 1, "uid": "rh-" + spec[0]} for spec in specs] + [
+            {"orgId": 1, "uid": f"rh-{env}-{spec[0]}"} for env in ("staging", "production")
+            if env not in environments for spec in specs],
         "contactPoints": [{"orgId": 1, "name": "relohome-discord", "receivers": [{"uid": "rh-discord", "type": "discord",
             "disableResolveMessage": False, "settings": {"url": "$DISCORD_WEBHOOK_URL",
             "message": '{{ range .Alerts }}[{{ .Status }}] {{ .Labels.environment }} {{ .Labels.service_name }}: {{ .Annotations.summary }}\n{{ .GeneratorURL }}\n{{ end }}'}}]}],
@@ -67,9 +72,12 @@ def alert_config():
 
 
 def datasources():
-    sources = [{"name": "Prometheus", "uid": "prometheus", "type": "prometheus", "access": "proxy",
-                "url": "http://prometheus:9090", "isDefault": True, "editable": False}]
+    sources = []
     for env in ("staging", "production"):
+        sources.append({"name": "Cortex " + env, "uid": "cortex-" + env, "type": "prometheus", "access": "proxy",
+            "url": "http://cortex:9009/prometheus", "isDefault": env == "staging", "editable": False,
+            "jsonData": {"httpHeaderName1": "X-Scope-OrgID", "httpMethod": "POST"},
+            "secureJsonData": {"httpHeaderValue1": env}})
         sources.append({"name": "Loki " + env, "uid": "loki-" + env, "type": "loki", "access": "proxy",
             "url": "http://loki:3100", "editable": False,
             "jsonData": {"httpHeaderName1": "X-Scope-OrgID", "derivedFields": [{
@@ -77,7 +85,7 @@ def datasources():
                 "url": "${LANGFUSE_URL}/project/${LANGFUSE_" + env.upper() + "_PROJECT_ID}/traces/$${__value.raw}",
                 "urlDisplayLabel": "Open trace in Langfuse",
             }]}, "secureJsonData": {"httpHeaderValue1": env}})
-    return {"apiVersion": 1, "datasources": sources}
+    return {"apiVersion": 1, "deleteDatasources": [{"name": "Prometheus", "orgId": 1}], "datasources": sources}
 
 
 def dashboard():
@@ -93,7 +101,7 @@ def dashboard():
         ("Collector memory", 'otelcol_process_memory_rss{environment="$environment"}', "bytes"),
         ("Trace cleanup", 'relohome_retention_last_run_success{environment="$environment"}', "short"),
     ]
-    panels = [{"id": i + 1, "title": title, "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"},
+    panels = [{"id": i + 1, "title": title, "type": "timeseries", "datasource": {"type": "prometheus", "uid": "cortex-${environment}"},
         "gridPos": {"x": (i % 2) * 12, "y": (i // 2) * 8, "w": 12, "h": 8},
         "targets": [{"refId": "A", "expr": query, "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"}],
         "fieldConfig": {"defaults": {"unit": unit}, "overrides": []}, "options": {"legend": {"displayMode": "list"}}}
@@ -112,23 +120,21 @@ def dashboard():
 
 
 def generated(environments):
-    scrape = [{"job_name": "prometheus", "static_configs": [{"targets": ["localhost:9090"]}]},
-              {"job_name": "retention", "static_configs": [{"targets": ["retention:9101"]}]}]
-    for job, port in (("applications", 8889), ("collectors", 8888)):
-        scrape.append({"job_name": job, "honor_labels": job == "applications", "static_configs": [
-            {"targets": [f"otel-{env}:{port}"], "labels": {"environment": env}} for env in environments]})
-    return {
-        "prometheus.yaml": dump({"global": {"scrape_interval": "15s", "evaluation_interval": "30s"},
-                                 "rule_files": ["/etc/prometheus/expected-services.yaml"], "scrape_configs": scrape}),
-        "expected-services.yaml": dump({"groups": [{"name": "relohome-inventory", "rules": [
-            {"record": "relohome_expected_service_info", "expr": "vector(1)", "labels": {"service_name": name, "environment": env}}
-            for env in environments for name in SERVICES]}]}),
-        "grafana/alerts.yaml": dump(alert_config()),
+    result = {
+        "cortex-rules/" + env + "/expected-services.yaml": dump({"groups": [
+            {"name": "relohome-inventory", "interval": "30s", "rules": [
+                {"record": "relohome_expected_service_info", "expr": "vector(1)",
+                 "labels": {"service_name": name, "environment": env}} for name in SERVICES]}
+        ] if env in environments else []}) for env in ("staging", "production")
+    }
+    result.update({
+        "grafana/alerts.yaml": dump(alert_config(environments)),
         "grafana/datasources.yaml": dump(datasources()),
         "grafana/dashboards.yaml": dump({"apiVersion": 1, "providers": [{"name": "ReloHome", "orgId": 1, "folder": "ReloHome",
             "type": "file", "disableDeletion": True, "options": {"path": "/var/lib/grafana/dashboards"}}]}),
         "grafana/overview.json": json.dumps(dashboard(), indent=2) + "\n",
-    }
+    })
+    return result
 
 
 def render(output: Path, *, kind="stack", coolify=False, environments=("staging",)):
