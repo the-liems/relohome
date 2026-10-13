@@ -97,10 +97,10 @@ async def test_exact_decisions_endpoint_and_batch_contract():
     async def provider(request):
         calls.append(json.loads(request.content))
         assert str(request.url) == ENDPOINT
-        assert request.headers["Authorization"] == "Bearer test-secret"
+        assert request.headers["Authorization"] == "Bearer sk-or-v1-test"
         return httpx.Response(200, json=envelope())
 
-    client = JevClient("test-secret", transport=httpx.MockTransport(provider))
+    client = JevClient("sk-or-v1-test", transport=httpx.MockTransport(provider))
     try:
         result = await client.decide({"request": "synthetic"}, PLAN_QUESTIONS)
         assert result.input_tokens == 321
@@ -140,7 +140,7 @@ async def test_errors_never_echo_provider_body_or_follow_redirect(status):
     def provider(request):
         return httpx.Response(status, text="Bearer private-token", headers={"location": "https://malicious.invalid"})
 
-    client = JevClient("secret", transport=httpx.MockTransport(provider))
+    client = JevClient("sk-or-v1-test", transport=httpx.MockTransport(provider))
     try:
         with pytest.raises(JevError, match="^provider_error$"):
             await client.decide({}, PLAN_QUESTIONS)
@@ -156,7 +156,7 @@ async def test_timeout_has_no_retry_and_safe_code():
         calls.append(request)
         await asyncio.sleep(1)
 
-    client = JevClient("secret", timeout_s=0.01, transport=httpx.MockTransport(provider))
+    client = JevClient("sk-or-v1-test", timeout_s=0.01, transport=httpx.MockTransport(provider))
     try:
         with pytest.raises(JevError, match="^timeout$"):
             await client.decide({}, PLAN_QUESTIONS)
@@ -172,7 +172,7 @@ async def test_timeout_has_no_retry_and_safe_code():
     ids=["invalid-json", "oversized-response"],
 )
 async def test_invalid_json_and_reply_size_limit(body, code):
-    client = JevClient("secret", transport=httpx.MockTransport(lambda request: httpx.Response(200, content=body)))
+    client = JevClient("sk-or-v1-test", transport=httpx.MockTransport(lambda request: httpx.Response(200, content=body)))
     try:
         with pytest.raises(JevError, match=code):
             await client.decide({}, PLAN_QUESTIONS)
@@ -222,7 +222,8 @@ def test_followup_preserves_provenance_and_soft_preferences_not_consent():
     )
     output = plan_projection(state, plan)
     assert output["previous_plan"]
-    assert output["confirmed_facts"]["city"]["evidence"] == "Hà Nội"
+    assert "evidence" not in output["confirmed_facts"]["city"]
+    assert output["confirmed_facts"]["city"]["value"] == output["proposed_plan"][0]["inputs"]["city"]
     assert output["soft_preferences"] == {"max_price_vnd": 5_000_000}
     assert "max_price_vnd" not in output["confirmed_facts"]
 
@@ -269,7 +270,7 @@ def test_real_flight_and_housing_fact_fields_survive_projection():
         ],
         "agent_assessment": {"reason": "Chưa biết hành lý"},
     }
-    assert assessment_projection(inp, result)["provider_facts"]["offers"] == result.data["offers"]
+    assert assessment_projection(inp, result, synthetic_text=True)["provider_facts"]["offers"] == result.data["offers"]
     inp, result = result_input()
     result.data["comparison"] = {
         "rows": [
@@ -281,7 +282,7 @@ def test_real_flight_and_housing_fact_fields_survive_projection():
         ],
         "fees_verified": False,
     }
-    assert assessment_projection(inp, result)["provider_facts"]["comparison"] == result.data["comparison"]
+    assert assessment_projection(inp, result, synthetic_text=True)["provider_facts"]["comparison"] == result.data["comparison"]
 
 
 @pytest.mark.asyncio
@@ -294,7 +295,7 @@ async def test_background_does_not_inherit_private_request_context():
         observed.append(private_context.get())
         return httpx.Response(200, json=envelope())
 
-    observer = ShadowGuardrail(JevClient("secret", transport=httpx.MockTransport(provider)))
+    observer = ShadowGuardrail(JevClient("sk-or-v1-test", transport=httpx.MockTransport(provider)))
     try:
         state, plan = plan_state()
         observer.observe_plan(state, plan)
@@ -308,7 +309,7 @@ async def test_background_does_not_inherit_private_request_context():
 @pytest.mark.asyncio
 async def test_ledger_capacity_skips_without_eviction_or_cross_thread_reuse(monkeypatch):
     monkeypatch.setattr("relohome_agent.agents.guardrails.shadow.MAX_TRACKED_TURNS", 1)
-    observer = ShadowGuardrail(JevClient("secret"))
+    observer = ShadowGuardrail(JevClient("sk-or-v1-test"))
     state, plan = plan_state()
     observer.observe_plan(state, plan)
     observer.observe_plan({**state, "thread_id": "another-owner-thread"}, plan)
@@ -327,7 +328,7 @@ def test_assessment_projection_restricts_evidence_and_excludes_raw_payload():
             "details": {"private-provider-id": {"title": "A", "phone": "0901234567", "price_vnd": 4_000_000}},
         }
     )
-    output = assessment_projection(inp, result)
+    output = assessment_projection(inp, result, synthetic_text=True)
     assert output["provider_facts"]["details"] == [{"title": "A", "price_vnd": 4_000_000}]
     assert "private-provider-id" not in json.dumps(output)
     assert "private-token" not in json.dumps(output)
@@ -342,7 +343,7 @@ async def test_shadow_submission_does_not_await_model_and_close_cancels():
         event.set()
         await asyncio.Event().wait()
 
-    observer = ShadowGuardrail(JevClient("secret", transport=httpx.MockTransport(provider)))
+    observer = ShadowGuardrail(JevClient("sk-or-v1-test", transport=httpx.MockTransport(provider)))
     state, plan = plan_state()
     observer.observe_plan(state, plan)
     assert observer.counts["submitted"] == 1
@@ -356,8 +357,10 @@ async def test_shadow_submission_does_not_await_model_and_close_cancels():
 
 
 @pytest.mark.asyncio
-async def test_turn_limit_concurrency_cap_and_typed_ui_zero_calls():
-    observer = ShadowGuardrail(JevClient("secret"), max_pending=2)
+async def test_turn_limit_concurrency_cap_and_typed_ui_zero_calls(monkeypatch):
+    # Admission contract independently of privacy exclusion of current narrative assessments.
+    monkeypatch.setattr("relohome_agent.agents.guardrails.shadow.assessment_projection", lambda *_: {})
+    observer = ShadowGuardrail(JevClient("sk-or-v1-test"), max_pending=2)
     state, plan = plan_state()
     inp, result = result_input()
     observer.observe_assessment(inp, result.model_copy(update={"usage": AgentUsage()}))
@@ -376,7 +379,7 @@ async def test_turn_limit_concurrency_cap_and_typed_ui_zero_calls():
 @pytest.mark.asyncio
 async def test_audit_never_logs_input_or_private_scope(caplog):
     observer = ShadowGuardrail(
-        JevClient("secret", transport=httpx.MockTransport(lambda request: httpx.Response(200, json=envelope())))
+        JevClient("sk-or-v1-test", transport=httpx.MockTransport(lambda request: httpx.Response(200, json=envelope())))
     )
     state, plan = plan_state()
     caplog.set_level(logging.INFO, logger="relohome_agent.agents.guardrails.shadow")
@@ -391,7 +394,7 @@ async def test_audit_never_logs_input_or_private_scope(caplog):
 
 @pytest.mark.asyncio
 async def test_unavailable_shadow_does_not_modify_plan_or_grant_permissions():
-    observer = ShadowGuardrail(JevClient("secret", transport=httpx.MockTransport(lambda request: httpx.Response(503))))
+    observer = ShadowGuardrail(JevClient("sk-or-v1-test", transport=httpx.MockTransport(lambda request: httpx.Response(503))))
     state, plan = plan_state()
     planner = FixedPlanner(plan)
     planner.uses_llm = True
