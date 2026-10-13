@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { roommate, RoommateError } from "./client";
 import { ErrorNotice } from "./ErrorNotice";
 import { rt } from "./text";
+import { RoommateFeatures } from "./Features";
 type Result = Record<string, unknown>;
 type Pending = {
   path: string;
@@ -10,6 +11,8 @@ type Pending = {
   done: (result: Result) => void;
 };
 export function useOperation() {
+  const draftsEnabled =
+    useContext(RoommateFeatures).includes("operation_drafts");
   const current = useRef<Pending | null>(null),
     locked = useRef(false);
   const [busy, setBusy] = useState(false),
@@ -23,6 +26,12 @@ export function useOperation() {
     setError(null);
     setNotFound(false);
     try {
+      if (draftsEnabled)
+        await roommate("/operation-drafts", "PUT", {
+          path: operation.path,
+          method: operation.method,
+          body: operation.body,
+        });
       const result = await roommate<Result>(
         operation.path,
         operation.method,
@@ -36,7 +45,14 @@ export function useOperation() {
       const unknown =
         e instanceof RoommateError && e.code === "operation_unknown";
       setUncertain(unknown);
-      if (!unknown) current.current = null;
+      if (!unknown) {
+        current.current = null;
+        if (draftsEnabled)
+          void roommate(
+            "/operation-drafts/" + operation.body.operation_key,
+            "DELETE",
+          ).catch(() => {});
+      }
     } finally {
       locked.current = false;
       setBusy(false);

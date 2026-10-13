@@ -55,6 +55,14 @@ Roommate, moving, payment, flight theo runbook hiện có. Công cụ web dùng 
 backup API (bao gồm WAL), kiểm `quick_check`, lưu ảnh/key và manifest SHA256.
 Nếu dùng `SIU_TRAVELER_KEY` external, giữ secret đó trong secret manager riêng.
 
+Trên Linux/POSIX, thư mục backup có mode 0700 và file 0600. Trên Windows,
+công cụ bỏ ACL kế thừa của **thư mục mới tạo** và chỉ cấp quyền cho account đang
+chạy cùng SYSTEM; file/thư mục con kế thừa ACL riêng này. Dùng SID, không dùng tên
+account phụ thuộc ngôn ngữ. Nếu không lấy được SID hoặc thiết lập ACL thất bại,
+công cụ dừng trước khi copy database/ảnh/khóa. Không dùng kết quả `stat().st_mode`
+trên NTFS để kết luận archive đã riêng tư. Tham khảo
+[Microsoft icacls](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls).
+
 Chạy image `location-migrate` **mới trước** Platform/Location mới. Compose đã
 `depends_on: service_completed_successfully`; runner có advisory lock, checksum
 và transaction từng migration. `023_housing_publication_guards.sql` thêm revision,

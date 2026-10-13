@@ -21,10 +21,10 @@ npm run moving:up
 npm run moving:verify
 ```
 
-`moving:up` tự tạo mật khẩu DB và token MCP nếu chưa cấu hình. Các giá trị được
-lưu ở `.runtime/moving-secrets.json` (Git ignore, không gửi lên GitHub). Chúng là
-secret nội bộ hệ thống, không phải thông tin AhaMove cần cấp thêm. Giữ file này
-khi dùng lại volume DB; không thay mật khẩu admin nếu volume đã được khởi tạo.
+`moving:up` đọc mật khẩu DB và token MCP từ `.env.local` (`npm run dev:init` tạo sẵn;
+máy cũ chuyển giá trị từ `.runtime/moving-secrets.json` sang). Chúng là secret nội bộ
+hệ thống, không phải thông tin AhaMove cần cấp thêm. Giữ nguyên giá trị khi dùng lại
+volume DB; không thay mật khẩu admin nếu volume đã được khởi tạo.
 Đổi mật khẩu database đang tồn tại cần thực hiện ở PostgreSQL trước.
 
 Compose luôn dùng AhaMove staging và tắt tạo/cập nhật/hủy/đánh giá. PostgreSQL

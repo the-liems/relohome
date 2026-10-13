@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@lifeflow/contracts": "0.1.0",
-    "dotenv": "^17.2.3",
     "pg": "^8.23.0"
   },
   "devDependencies": {

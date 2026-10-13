@@ -146,6 +146,13 @@ services:
       ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
       ROOMMATE_STATE_DIR: /app/private-roommate
       ROOMMATE_DEMO_ENABLED: "false"
+      # Opt in to shared PostgreSQL after provisioning/import; never silently
+      # replace the database from an existing private SQLite volume.
+      ROOMMATE_STORAGE: ${ROOMMATE_STORAGE:-sqlite}
+      ROOMMATE_DATABASE_URL: ${ROOMMATE_DATABASE_URL:-}
+      ROOMMATE_DATABASE_SCHEMA: ${ROOMMATE_DATABASE_SCHEMA:-roommate}
+      ROOMMATE_DATABASE_POOL_SIZE: ${ROOMMATE_DATABASE_POOL_SIZE:-8}
+      ROOMMATE_CONTACT_KEY: ${ROOMMATE_CONTACT_KEY:-}
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
     volumes: [agent-data:/app/data, roommate-private:/app/private-roommate]

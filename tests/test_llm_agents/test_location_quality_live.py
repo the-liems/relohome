@@ -1,9 +1,7 @@
 """Actual PostGIS/MCP records and Moving pin logic; no LLM calls or fake data."""
 
-import importlib.util
 import os
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -16,14 +14,10 @@ from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real PostGIS/MCP opt-in")
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def environment():
-    spec = importlib.util.spec_from_file_location("local_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    return runner.environment("api")
+    return dict(os.environ)
 
 
 def listing_id(env, condition):

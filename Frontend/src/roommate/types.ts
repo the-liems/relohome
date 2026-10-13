@@ -85,6 +85,7 @@ export type Availability = {
   cities: City[];
   terms_version: string;
   demo_enabled?: boolean;
+  features?: string[];
 };
 export type OwnProfile = {
   version: number;
@@ -115,6 +116,12 @@ export type RequestSummary = {
   grant_state: string | null;
   grant_expires_at: string | null;
   available: boolean;
+  counterparty?: {
+    display_name: string | null;
+    avatar_id?: string | null;
+  } | null;
+  preview?: string | null;
+  unread?: boolean;
 };
 export type RequestDetail = RequestSummary & {
   intro?: Omit<Profile, "preferences"> & { reviewed_at: string };
@@ -123,7 +130,30 @@ export type RequestDetail = RequestSummary & {
 export type Inbox = {
   items: RequestSummary[];
   received_pending: number;
+  total?: number;
+  offset?: number;
+  limit?: number | null;
   profile_reminder: { expires_at: string } | null;
+};
+export type Notification = {
+  id: string;
+  kind: string;
+  resource_id: string;
+  created_at: string;
+  read: boolean;
+};
+export type Notifications = {
+  items: Notification[];
+  unread: number;
+  total: number;
+  offset: number;
+  limit: number;
+};
+export type Media = {
+  media_id: string;
+  status: string;
+  mime: string;
+  created: number;
 };
 export type Lease = {
   request_id: string;

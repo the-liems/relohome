@@ -8,7 +8,12 @@ import { ProfileSummary } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
 import { emptyProfile, type OwnProfile, type Profile } from "./types";
 import { deadlineLabel, rt, stateName } from "./text";
-export function MyProfile() {
+import { AvatarEditor } from "./AvatarEditor";
+export function MyProfile({
+  mediaEnabled = false,
+}: {
+  mediaEnabled?: boolean;
+}) {
   const intro = useResource<Profile>("/me/intro"),
     own = useResource<OwnProfile>("/me/profile");
   const [content, setContent] = useState(emptyProfile()),
@@ -229,6 +234,9 @@ export function MyProfile() {
           <ProfileSummary profile={own.value.content} />
         )}
       </aside>
+      {mediaEnabled && (
+        <AvatarEditor profile={own.value} changed={own.reload} />
+      )}
       {preview && (
         <ProfilePreview
           content={content}

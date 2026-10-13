@@ -5,18 +5,59 @@ backup API so WAL contents are included. Never publish or commit this archive.
 """
 
 import argparse
+import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 
 
+def _restrict_windows_directory(directory: Path) -> None:
+    """Protect a newly created directory before copying any account data or keys."""
+    try:
+        options = {
+            "check": True,
+            "capture_output": True,
+            "text": True,
+            "timeout": 10,
+            "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        }
+        identity = subprocess.run(["whoami.exe", "/user", "/fo", "csv", "/nh"], **options)
+        sid = next(csv.reader(identity.stdout.splitlines()))[1].strip()
+        if not re.fullmatch(r"S-1-(?:\d+-)*\d+", sid):
+            raise ValueError("Invalid account SID.")
+        # The new directory has only inherited ACEs. Remove them and grant the
+        # operator and SYSTEM access, inherited by all copied files/directories.
+        subprocess.run(
+            [
+                "icacls.exe",
+                str(directory.resolve()),
+                "/inheritance:r",
+                "/grant:r",
+                f"*{sid}:(OI)(CI)F",
+                "*S-1-5-18:(OI)(CI)F",
+                "/q",
+            ],
+            **options,
+        )
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError, StopIteration) as error:
+        raise ValueError("Cannot secure the Windows backup directory; no backup data was copied.") from error
+
+
 def backup(destination: Path, database: Path, media: Path, key: Path) -> dict:
-    destination.mkdir(mode=0o700, parents=True, exist_ok=False)
     if not database.is_file():
         raise ValueError("Web database does not exist.")
+    if not key.is_file() and not os.getenv("SIU_TRAVELER_KEY"):
+        raise ValueError("Traveler encryption key is missing. Preserve the external key separately if configured.")
+    destination.mkdir(mode=0o700, parents=True, exist_ok=False)
+    if os.name == "nt":
+        _restrict_windows_directory(destination)
+    else:
+        destination.chmod(0o700)
     target = destination / "siu-web.sqlite3"
     with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as source:
         with sqlite3.connect(target) as copy:
@@ -28,8 +69,6 @@ def backup(destination: Path, database: Path, media: Path, key: Path) -> dict:
         shutil.copytree(media, destination / "housing-media")
     if key.is_file():
         shutil.copy2(key, destination / "siu-web-traveler.key")
-    elif not os.getenv("SIU_TRAVELER_KEY"):
-        raise ValueError("Traveler encryption key is missing. Preserve the external key separately if configured.")
     files = {}
     for path in destination.rglob("*"):
         if path.is_file():

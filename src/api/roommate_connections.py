@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from typing import Literal
+
+from fastapi import APIRouter, Query
 
 from src.api.roommate_access import Context, TrustedActor, perform
 from src.roommate.api_models import AcceptInput, ContactLeaseView, ContactUpdate, OperationInput, SendInput
@@ -28,8 +30,14 @@ def send(body: SendInput, actor: TrustedActor, ctx: Context):
 
 
 @router.get("/me/requests")
-def inbox(actor: TrustedActor, ctx: Context):
-    return perform(InboxService(ctx).list, actor)
+def inbox(
+    actor: TrustedActor,
+    ctx: Context,
+    offset: int = Query(0, ge=0),
+    limit: int | None = Query(None, ge=1, le=50),
+    direction: Literal["sent", "received"] | None = None,
+):
+    return perform(InboxService(ctx).list, actor, offset=offset, limit=limit, direction=direction)
 
 
 @router.get("/requests/{identifier}")

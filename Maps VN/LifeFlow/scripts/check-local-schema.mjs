@@ -38,7 +38,7 @@ try {
   }
 } catch {
   // Never print a connection URL, environment or database exception containing credentials.
-  console.error('Database compatibility check failed. Check Docker, data/integration.env and the database role.')
+  console.error('Database compatibility check failed. Check Docker, .env.local and the database role.')
   process.exitCode = 1
 } finally {
   await pool?.end()

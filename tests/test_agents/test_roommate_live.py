@@ -1,8 +1,6 @@
 """Opt-in real Intake/Planner + real private Roommate store; no per-person LLM calls."""
 
-import importlib.util
 import os
-from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -24,11 +22,7 @@ pytestmark = [
 
 
 async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp_path, monkeypatch):
-    root = Path(__file__).resolve().parents[2]
-    spec = importlib.util.spec_from_file_location("local_runner", root / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    env = runner.environment("api")
+    env = dict(os.environ)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     runtime = RoommateRuntime.open(

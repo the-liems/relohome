@@ -1,5 +1,83 @@
 # Chạy MVP tích hợp trên máy — không deploy
 
+## Local configuration
+
+Use root `.env.example` as the committed template and ignored `.env.local` as the
+single source of actual local values. `npm run dev:init` initializes a fresh setup;
+existing installations must copy their current credentials, not rotate passwords.
+
+`.env.local` is loaded as the process environment, so it is one shared namespace:
+**every name in it means one thing**. Generic names that several services read with
+different values (`DATABASE_URL`, `MCP_AUTH_TOKEN`) never appear in it; the file uses
+unique names instead, and each place that starts a service translates them:
+
+| Shared name | Service reads | Translated by |
+| --- | --- | --- |
+| `BACKEND_DATABASE_URL` | Backend `DATABASE_URL` | Backend settings (unique name wins) |
+| `LOCATION_DATABASE_URL`, `LOCATION_ADMIN_/INGEST_DATABASE_URL` (optional) | Location `DATABASE_URL`, `ADMIN_/INGEST_DATABASE_URL` | Location config (unique name wins) |
+| `LOCATION_MCP_AUTH_TOKEN` | Location `MCP_AUTH_TOKEN`; backend client reads it as is | Location server (accepts both names); Compose `environment:` |
+| `FLIGHT_/PAYMENT_/MOVING_MCP_AUTH_TOKEN` | Each server's `MCP_AUTH_TOKEN` | Server settings (accept both names); Compose `environment:` |
+
+Without the optional URLs, Location uses `POSTGRES_*` and Moving uses
+`MOVING_DATABASE_URL`. Where both are present, the unique name wins over a generic
+name inherited from the shell; containers and tests may still set the generic names.
+
+Startup passes the file natively, with no launcher or allowlist: npm dev scripts use
+`node --env-file=…` / `tsx --env-file=…` (Python commands go through Node and inherit
+the environment), and Compose uses `--env-file`. Exported shell values take precedence
+and a missing file fails before startup. For another file, run the entrypoint directly:
+
+```sh
+# From repository root (exactly one selected env file):
+node --env-file=/absolute/path/team.env "Maps VN/LifeFlow/mcp-server/dist/http-server.js"
+node --env-file=/absolute/path/team.env scripts/python.mjs -m uvicorn src.main:app
+docker compose --env-file /absolute/path/team.env -f compose.agents.yaml config
+# Existing integration launcher (staging safety overrides) also accepts a file:
+python scripts/local-integration.py location --env-file /absolute/path/team.env
+```
+
+Do not append `--env-file` after a Node application path: those arguments belong to
+the application. Keep values literal (no `${VAR}`), because native loaders differ in
+interpolation. Only `VITE_*` values reach browser code; never put secrets under that
+prefix. URLs are explicit: when changing a service port, update its client URL too.
+
+### Unit tests versus live tests
+
+`npm run test:python` and `npm run test:ts` never load `.env.local`. Unit tests use
+fake settings, temporary files or values they generate. A test that starts a service
+passes that service's variables explicitly in the child `env`.
+
+Live tests read only the process environment. `npm run test:live` passes the selected
+file with `node --env-file`, after an explicit opt-in:
+
+```sh
+# Export RELOHOME_LIVE_CHECKS=1 plus the specific suite's RUN_* opt-in flag first.
+npm run test:live -- python
+npm run test:live -- python --env-file /absolute/path/team.env tests/test_llm_agents/test_integrated_live.py -v
+npm run test:live -- moving
+```
+
+Do not add dotenv loading to a test module or a global conftest.
+
+### Migration and containers
+
+Transfer existing values from root `.env`, `data/integration.env`, the old service
+`.env`, and (if used) `.runtime/moving-secrets.json`. Rename the backend's
+`DATABASE_URL` to `BACKEND_DATABASE_URL` and keep the Location token once as
+`LOCATION_MCP_AUTH_TOKEN`; move a custom Location URL to `LOCATION_DATABASE_URL` (and the
+admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the file. Preserve running database credentials and use the connection preflight
+(`local-integration.py check`) before starting services.
+
+```sh
+make mcp-up
+make agents-up
+docker compose --env-file .env.local -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+```
+
+Production/Coolify configuration, production start commands and image env-file
+exclusions are unchanged. Windows bulk-start scripts retain default-port readiness
+checks.
+
 ## Đã nối những gì?
 
 React (Frontend/) → gateway session → FastAPI → LangGraph: Intake LLM → Planner LLM → các task theo domain.
@@ -40,15 +118,17 @@ không tự ghi đè spec hoặc coi mọi đề xuất trong đó là quyết �
 
 ## Máy đang có dữ liệu
 
-Nếu đã có database Location từ `Maps VN/LifeFlow` (ví dụ container `lifeflow-postgis`, DB `lifeflow`, cổng 5433), dùng lại kết nối trong `Maps VN/LifeFlow/.env`. Script khởi tạo mới sẽ lấy cấu hình PostgreSQL này; không import/restore sang database khác. Kiểm tra `data/integration.env` trỏ đúng database đang dùng trước khi chạy các service. Container hiện có có thể khởi động bằng `docker start lifeflow-postgis`; không chạy thêm bộ Compose database ở cổng đó.
+Existing installations: migrate existing values into root `.env.local` before starting services.
+Keep the current database names, users, ports and passwords; initialization does not rotate them.
+Start existing containers with `docker start` when appropriate; do not initialize a replacement database.
 
 Các lệnh Compose/restore bên dưới dành cho bộ snapshot local riêng khi chưa có database Location.
 
-Không chạy lại import/restore/init nếu đã có `data/integration.env` và DB.
+Không chạy lại import/restore/init nếu đã có `.env.local` và DB.
 Chạy từ gốc repo, sau khi Docker Desktop sẵn sàng:
 
 ```powershell
-docker compose --env-file data/integration.env -f config/local-integration.compose.yaml up -d
+docker compose --env-file .env.local -f config/local-integration.compose.yaml up -d
 docker compose -f config/local-routing.compose.yaml up -d
 ```
 
@@ -76,7 +156,7 @@ Kiểm tra schema riêng, không gọi LLM:
 ```
 
 Script tái sử dụng service đã chạy và ready, **không tự nạp code/cấu hình mới**.
-Sau khi pull code, đổi DB hoặc `.env`, dừng đúng process cũ rồi chạy lại; không
+Sau khi pull code, đổi DB hoặc `.env.local`, dừng đúng process cũ rồi chạy lại; không
 mở process thứ hai cùng cổng. Có thể dùng các terminal riêng bên dưới để dễ dừng.
 Lệnh `Start-Process` cũ vẫn dùng được nhưng không có redirect log/readiness nên
 khó biết service nào thoát sớm.
@@ -127,10 +207,10 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
 ## Thiết lập trên máy mới
 
 1. Python 3.11+, Node 24+, Docker; tạo `.venv`, cài `requirements.txt`.
-2. Sao chép `.env.example` thành `.env`, điền key thật riêng: OpenAI, AhaMove staging,
-   SerpApi và ZaloPay sandbox. Liên hệ báo giá phải là liên hệ thật được phép sử dụng.
-3. Chạy `python scripts/init-local-integration.py` sinh token và mật khẩu riêng.
+2. Chạy `npm run dev:init` để tạo `.env.local` và sinh token/mật khẩu nội bộ.
    Script từ chối ghi đè cấu hình đã tồn tại; không in secret.
+3. Điền key provider trong `.env.local`: OpenAI, AhaMove staging, SerpApi và ZaloPay sandbox.
+   Liên hệ báo giá phải là liên hệ thật được phép sử dụng.
 4. Nhập ZIP bằng PowerShell:
 
 ```powershell
@@ -144,7 +224,7 @@ Không mở hai process trùng cổng. Chỉ một worker FastAPI cho bộ lưu 
    `pg_restore` không mang theo thống kê của planner PostgreSQL; thiếu bước này thì tìm
    nhà quanh một điểm (center + bán kính) chạm statement timeout 8 s và graph báo
    `Database query timed out`. DB đã restore bằng bản script cũ: chạy một lần
-   `docker compose --env-file data/integration.env -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
+   `docker compose --env-file .env.local -f config/local-integration.compose.yaml exec -T postgis psql -U <POSTGRES_ADMIN_USER> -d <POSTGRES_DB> -c ANALYZE`.
 7. Khởi động OSRM và các process như phần trên.
 
 Nếu restore thất bại, không chạy migrations chồng lên restore chưa xong.
@@ -167,10 +247,10 @@ dump cũ đang mount), restore, `ANALYZE` và migrate/grant cho DB mới. Tham s
 không tự xóa DB hay volume.
 
 Sau khi kiểm số lượng/nguồn, sửa **chỉ** `POSTGRES_DB` trong
-`data/integration.env`, rồi khởi động lại sáu service. Ngày 05/10 đã chuyển từ
+`.env.local`, rồi khởi động lại sáu service. Ngày 05/10 đã chuyển từ
 `lifeflow_verified` sang `lifeflow_quangdung_20261005`; DB cũ vẫn còn.
 Muốn quay lại: đặt `POSTGRES_DB=lifeflow_verified` rồi restart service.
-Không đổi key/mật khẩu trong `.env` chỉ để đổi tên DB.
+Không đổi key/mật khẩu trong `.env.local` chỉ để đổi tên DB.
 
 ZIP mới không mang lịch sử quote/order Moving của DB cũ. Đổi lại DB cũ có thể
 đọc lịch sử đó; việc chuyển DB không tự sao chép lịch sử. Không coi checkpoint
