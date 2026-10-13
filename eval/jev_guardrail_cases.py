@@ -29,7 +29,7 @@ def plan_case(name, text, inputs, expected="supported", *, carried=None, soft=No
         }
     plan = Plan(version=1, tasks=[Task(id="synthetic-task", agent=AgentName.PROPERTY, inputs=inputs)])
     state = {"messages": [HumanMessage(text)], "intake": intake}
-    return {"id": name, "point": "plan", "state": plan_projection(state, plan), "expected": {"constraints": expected}}
+    return {"id": name, "point": "plan", "state": plan_projection(state, plan, synthetic_text=True), "expected": {"constraints": expected}}
 
 
 def assessment_case(name, text, facts, claim, *, grounding="supported", injection="clean", domain=AgentName.PROPERTY):
@@ -46,7 +46,7 @@ def assessment_case(name, text, facts, claim, *, grounding="supported", injectio
     return {
         "id": name,
         "point": "assessment",
-        "state": assessment_projection(inp, result),
+        "state": assessment_projection(inp, result, synthetic_text=True),
         "expected": {"grounding": grounding, "injection": injection},
     }
 

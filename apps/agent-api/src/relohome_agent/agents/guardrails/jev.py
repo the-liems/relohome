@@ -13,10 +13,20 @@ import httpx
 ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 MODEL = "typesafe/jev-1.13"
 MAX_REPLY_BYTES = 64_000
+OPENROUTER_KEY = re.compile(r"sk-or-v1-[A-Za-z0-9_-]+")
 
 
 class JevError(Exception):
     """Only a fixed safe code: never include response bodies, URLs or credentials."""
+
+
+def openrouter_key(explicit: str, compatibility: str = "") -> str:
+    """An invalid explicit override must not silently fall back or leave this process."""
+    if explicit:
+        if not OPENROUTER_KEY.fullmatch(explicit):
+            raise JevError("invalid_credential")
+        return explicit
+    return compatibility if OPENROUTER_KEY.fullmatch(compatibility) else ""
 
 
 @dataclass(frozen=True)
@@ -73,6 +83,8 @@ def parse_decision(raw: dict, questions: dict) -> Decision:
 
 class JevClient:
     def __init__(self, key: str, *, timeout_s: float = 1.5, transport=None):
+        if not openrouter_key(key):
+            raise JevError("invalid_credential")
         self.timeout_s = timeout_s
         self.http = httpx.AsyncClient(
             headers={"Authorization": f"Bearer {key}"},

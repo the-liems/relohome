@@ -17,7 +17,7 @@ from statistics import median
 from time import perf_counter
 
 from dotenv import dotenv_values
-from relohome_agent.agents.guardrails.jev import JevClient, JevError
+from relohome_agent.agents.guardrails.jev import JevClient, JevError, openrouter_key
 from relohome_agent.agents.guardrails.policy import ASSESSMENT_QUESTIONS, PLAN_QUESTIONS, POLICY_VERSION
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -90,10 +90,10 @@ def main():
     if not args.env_file.is_file():
         parser.error("Credential file not found")
     values = dotenv_values(args.env_file)
-    key = values.get("OPENROUTER_API_KEY") or ""
-    if not key:
-        candidate = values.get("OPENAI_API_KEY") or ""
-        key = candidate if candidate.startswith("sk-or-v1-") else ""
+    try:
+        key = openrouter_key(values.get("OPENROUTER_API_KEY") or "", values.get("OPENAI_API_KEY") or "")
+    except JevError:
+        parser.error("Invalid OpenRouter credential format (value never logged)")
     if not key:
         parser.error("OpenRouter key missing (never use an ordinary OpenAI key)")
     asyncio.run(evaluate(key, args.timeout))
