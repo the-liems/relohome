@@ -1,8 +1,10 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
+import { waitForUiMotion } from "./helpers/ui-motion";
 
 async function auditAccessibility(page: Page) {
+  await waitForUiMotion(page);
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

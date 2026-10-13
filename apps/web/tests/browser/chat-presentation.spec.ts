@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { waitForUiMotion } from "./helpers/ui-motion";
 
 async function fixture(page: Page) {
   const writes: string[] = [];
@@ -67,6 +68,7 @@ test("landing service actions are visible keyboard-operable buttons in both pale
     await expect(action).toBeFocused();
     const geometry = await action.boundingBox();
     expect(geometry!.height).toBeGreaterThanOrEqual(44);
+    await waitForUiMotion(page);
     const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(audit.violations.map(v => v.id)).toEqual([]);
     await page.keyboard.press("Enter");

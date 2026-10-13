@@ -102,3 +102,15 @@ Kiểm chứng: build frontend pass; 12 browser regression pass trên desktop/mo
 Ảnh trước/sau bản đồ thật và screenshot Housing: `data/ui-design-system/map-harmony/`. Kiểm tra responsive: `data/ui-design-system/map-logo-responsive/`. Cổng gateway `8503` phục vụ asset build mới; dùng Ctrl+F5 và đổi Light/Dark để kiểm tra.
 
 Kiểm tra trước push bản bổ sung: 44/44 contract và 16/16 browser regression pass. Đã kiểm chứng test cache phát hiện việc đảo điều kiện hết hạn rồi khôi phục source bằng `finally`. Test layout Flight trước đây có fixture chỉ khai báo task Housing; fixture được đổi đúng task Flight và khôi phục Housing khi chuyển sang kiểm tra map, giữ nguyên các assertions. Không thay logic nhận diện dịch vụ của ứng dụng. CI được theo dõi trên head mới của PR #146, không dùng kết quả head cũ để kết luận cho phần bổ sung.
+
+## Sửa feedback review PR #146 — 2026-10-14
+
+Tái hiện trên Chrome: welcome desktop 1366×650 tràn 121 px; nhãn `.mv-payment-tile strong` có tương phản 4,435:1 sau animation. Lớp visual mới ghi đè quy tắc compact của `ui/pages.css`, làm ô dịch vụ/gap/title cao hơn vùng hội thoại.
+
+- Thêm compact rules sau spacious defaults: laptop thấp dùng title/gap/card gọn hơn; mobile thấp dùng icon + tên dịch vụ cùng một hàng, bỏ mũi tên trang trí để không ép tên Flight xuống ba dòng. Giữ sáu dịch vụ, hai starter prompt, cảnh báo xác nhận giao dịch, cache resume và composer; vùng bấm tối thiểu 44 px.
+- Moving Light Mode dùng semantic token `--service-moving: #a44310`; trên nền tile `#e6edf3` đạt **5,244:1**. Dark giữ palette hiện có, label đạt **7,694:1** trên `#213044`. Token cũng cải thiện các nhãn Moving dùng chung, không hardcode riêng một component.
+- Helper test `waitForUiMotion()` đợi browser render và finite animations kết thúc trước screenshot/axe. Kiểm tra theme thật vẫn bật animation; không sửa CI, không sleep cố định, không giảm chuẩn contrast.
+
+Build frontend pass. **18 browser regression pass**, gồm welcome/service entry/theme/form/cache/CTA desktop/mobile. Test đổi theme lặp thêm ba lần mỗi project: **6/6 pass**. Test bố cục có và không có nút resume ở hai viewport được báo, hai theme, kiểm tất cả control nằm trong vùng hội thoại và cao ít nhất 44 px. Screenshot/axe welcome không có lỗi hoặc pageerror; scroll delta sau sửa 0 px desktop, tối đa 1 px do rounding ở mobile với resume, mọi control vẫn nằm trong vùng hiển thị.
+
+Evidence local: `data/ui-design-system/pr146-review-fixes/audit.json` và screenshot cùng thư mục. Asset build mới được gateway 8503 phục vụ. CI của commit mới cần hoàn tất trước merge, không dùng kết quả head cũ.
