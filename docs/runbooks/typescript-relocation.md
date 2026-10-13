@@ -34,23 +34,19 @@ callers. PR #107 telemetry is not merged in this base and is not relocated here.
 
 ## Retained assets and compatibility
 
-SQL, data, map demo, Dockerfile.moving, Compose files, scripts, `.env`, `.runtime`,
-and routing assets remain under their existing directories until #115. Never
-move local credentials or databases to `apps/`. The services and shared
-packages read no `.env` file themselves (#130, #133): each npm script passes the
-repository-root `.env.local` with `--env-file`, and process variables win.
-Relative importer paths launched through the
-platform npm workspace keep the former workspace base; explicit launcher working
-directories keep their existing meaning. SQL and report defaults resolve to the
-retained asset directory.
+The location slice (#115) moved SQL to `deploy/database/`, the map demo to
+`examples/map-app/`, Streamlit to `examples/location-streamlit/`, scripts to
+`scripts/relohome/`, and location/Moving infrastructure to `deploy/location/`
+and `deploy/moving/`. Data, `.env`, `.runtime` and routing assets retain their
+existing paths. Never move credentials or databases to `apps/`.
 
-Before #115 removes that directory, update both the platform `resourceRoot` and
-Moving migration resolver atomically with the SQL relocation. The platform
-fallback is for the image layout (`/app/database`); in a checkout without the
-legacy assets it would point to `apps/database`, whereas Moving would point to
-root `database`. Keep `runtime-paths.test.ts` and both migration image checks as
-gates for that follow-up; do not rely on either current fallback as the final
-repository asset location.
+Services and shared packages read no `.env` file themselves (#130, #133): each
+npm script passes repository-root `.env.local` explicitly. Existing process
+variables win. Relative importer values from the platform npm workspace retain
+the former workspace base; explicit launcher working directories retain their
+meaning. Local SQL resolves under `deploy/`, reports under `eval/location/`;
+images retain `/app/database` and `/app/reports`. Keep `runtime-paths.test.ts`
+and both migration-image first-run/rerun checks as gates.
 
 Docker uses repository-root contexts and allowlists. Its disposable manifest/lock
 adapter preserves `/app/{platform-api,mcp-server,moving-api,moving-mcp-server,packages}`;
@@ -89,3 +85,13 @@ rerun imports, regenerate credentials, or rename volumes to undo this move.
 Windows launcher execution and staging existing-data/digest rollback require their
 respective environments and remain explicit #116 evidence gates. No production
 rollout is part of this change.
+
+## Location assets follow-up (#115)
+
+SQL now lives in `deploy/database/`; local Platform resourceRoot is `deploy/`
+and Moving resolves `deploy/database/` directly. Images retain `/app/database`.
+The resource-path regression still preserves old relative input paths. The
+[location guide](../location/README.md) and
+[validation evidence](../integration/location-relocation.md) cover examples,
+launchers and unchanged state/Compose identities. The former source table above
+remains historical context.

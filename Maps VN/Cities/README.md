@@ -41,14 +41,14 @@ It does not check polygon topology or certify administrative correctness; inspec
 new boundaries on a map and validate topology in PostGIS/GDAL before release.
 
 Set `BOUNDARY_SOURCE_DIR` to the absolute path of this `boundaries/` directory in
-your local LifeFlow environment. The existing places importer reads every GeoJSON
+your local ReloHome environment. The existing places importer reads every GeoJSON
 there. Filenames become database IDs: preserve `hcm`, `hanoi`, and `danang`.
 Do not place temporary, historical, or unregistered GeoJSON files in this directory.
 
 ### Where the application loads these files
 
-From `Maps VN/LifeFlow/`, `npm run db:import:places` invokes
-[`platform-api/src/import-places.ts`](../LifeFlow/platform-api/src/import-places.ts).
+From the repository root, `npm run db:import:places` invokes
+[`platform-api/src/import-places.ts`](../../apps/platform-api/src/import-places.ts).
 It reads `BOUNDARY_SOURCE_DIR`, enumerates `.geojson` files, and calls
 `importBoundaries()` to upsert their polygons into PostGIS's
 `geo.administrative_areas`. The same command then imports POIs and therefore also
@@ -56,8 +56,8 @@ requires `POI_SOURCE_PATH` and database configuration. It is a database mutation
 not a validation command.
 
 Runtime spatial queries read that table, for example in
-[`housing-service.ts`](../LifeFlow/packages/housing-query/src/housing-service.ts)
-and [`place-service.ts`](../LifeFlow/packages/housing-query/src/place-service.ts).
+[`housing-service.ts`](../../packages/housing-query/src/housing-service.ts)
+and [`place-service.ts`](../../packages/housing-query/src/place-service.ts).
 This importer requires local files; it does not fetch S3 URLs or read the catalog.
 If boundaries later move to DVC, run `dvc pull` before validation and import.
 

@@ -58,7 +58,7 @@ Ngoài phạm vi: hợp đồng thuê, thu tiền thuê/cọc trong ứng dụng
 ## Lệnh kiểm chứng
 
 - Backend Python: `.\.venv\Scripts\python.exe -m pytest tests -q`
-- Location platform: `npm.cmd test` và `npm.cmd run build` trong `Maps VN/LifeFlow`
+- Location platform: `npm.cmd test` và `npm.cmd run build` tại repository root
 - Frontend: `npm.cmd run build` trong `Frontend`
 - Browser: Playwright contract và live suites liên quan Housing/Landlord.
 

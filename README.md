@@ -15,7 +15,7 @@ The [product brief](docs/product.md) defines the intended customer flow and open
 
 - React browser application in [`apps/web/`](apps/web/README.md), with the authenticated Python gateway in [`apps/browser-gateway/`](apps/browser-gateway/README.md).
 - FastAPI agent API and LangGraph workflow in [`apps/agent-api/src/relohome_agent/agents/`](apps/agent-api/src/relohome_agent/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
-- Location/Housing/Map and Moving services in [`Maps VN/LifeFlow/`](Maps%20VN/LifeFlow/README.md).
+- Location/Housing/Map and Moving services: [current guide](docs/location/README.md), [map example](examples/map-app/README.md), and [Streamlit lab](docs/location/STREAMLIT_MVP.md).
 - Flight search and Payment MCP servers in `apps/flights-mcp/` and `apps/payments-mcp/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
 - Separate Intake and Routing services in `apps/intake-api/` and `apps/orchestrator-api/`; their execution gateway is disconnected by default.
 

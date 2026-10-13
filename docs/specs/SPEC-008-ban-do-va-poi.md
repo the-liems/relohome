@@ -9,13 +9,13 @@ nhập. MapLibre vẽ basemap và layer tương tác; POI hiển thị được 
 qua Platform API. Basemap hiện dùng style OpenFreeMap qua mạng, chưa phải bộ
 PMTiles/style tự lưu trữ. Đây là hai nguồn khác nhau.
 
-POI OSM được nhập vào bảng địa điểm chuẩn và bảng nguồn. POI riêng của LifeFlow
+POI OSM được nhập vào bảng địa điểm chuẩn và bảng nguồn. POI riêng của ReloHome
 hoặc partner cũng phải có nguồn và ghi vào PostGIS qua luồng ingest; không sửa
 file OSM gốc. Không coi dữ liệu GeoJSON nguồn là bộ POI đã được xác minh.
 
 ## Giao diện và hành vi
 
-- UI: [`map-app/src/components/MapView.tsx`](../../Maps%20VN/LifeFlow/map-app/src/components/MapView.tsx).
+- UI: [`map-app/src/components/MapView.tsx`](../../examples/map-app/src/components/MapView.tsx).
 - API: `POST /v1/places/map`, `GET /v1/places/:placeId`.
 - Schema yêu cầu: [`PlaceMapRequestSchema`](../../packages/contracts/src/place.ts);
   nguồn dữ liệu: [`PlaceService`](../../packages/housing-query/src/place-service.ts).
@@ -40,5 +40,5 @@ offline. Thiết kế style riêng bằng Maputnik/PMTiles là công việc khá
   dữ liệu nhập riêng giữ thông tin nguồn để truy vết.
 
 Kiểm chứng: [test API](../../apps/platform-api/tests/api.integration.test.ts),
-[test UI](../../Maps%20VN/LifeFlow/map-app/tests/lifeflow.spec.ts).
+[test UI](../../examples/map-app/tests/relohome.spec.ts).
 Quyết định liên quan: [ADR-009](../adr/ADR-009-postgis-poi-nguon-du-lieu.md).

@@ -28,11 +28,11 @@ The workflow uses each service's Dockerfile:
 | --- | --- | --- |
 | `web` | `apps/web/Dockerfile` | Repository root |
 | `backend` | `Dockerfile` | Repository root |
-| `platform`, `location-migrate` | `apps/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
-| `location` | `apps/location-mcp/Dockerfile` | `Maps VN/LifeFlow` |
+| `platform`, `location-migrate` | `apps/platform-api/Dockerfile` | repository root (`.`) |
+| `location` | `apps/location-mcp/Dockerfile` | repository root (`.`) |
 | `flights-mcp` | `apps/flights-mcp/Dockerfile` | Repository root |
 | `payments-mcp` | `apps/payments-mcp/Dockerfile` | Repository root |
-| `moving-api`, `moving-mcp`, `moving-migrate` | `Maps VN/LifeFlow/Dockerfile.moving` | `Maps VN/LifeFlow` |
+| `moving-api`, `moving-mcp`, `moving-migrate` | `deploy/moving/Dockerfile.moving` | repository root (`.`) |
 
 Coolify pulls these images; GitHub Actions builds them. Dockerfiles are shared
 with other deployment methods and have no Coolify-specific build requirements.

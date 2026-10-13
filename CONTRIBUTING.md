@@ -66,3 +66,8 @@ Tham gia repo này đồng nghĩa với việc bạn đồng ý tuân thủ
 
 Python package installation, runtime paths, wheel validation and compatibility removal:
 [Python packaging guide](docs/integration/python-packaging.md).
+
+Location examples and infrastructure follow the [ReloHome location guide](docs/location/README.md).
+Run all npm commands from repository root; map and location Streamlit sources
+are under `examples/`, SQL under `deploy/database/`, and launchers under
+`scripts/relohome/`. Keep ignored legacy state and credentials in place.

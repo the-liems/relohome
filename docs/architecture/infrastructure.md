@@ -57,7 +57,7 @@ deployment:
 |---|---|
 | `Dockerfile`, `docker-compose.yml` | Partial backend/Flight/Payment stack; built images and data mounts, without source mounts or hot reload |
 | [Local integration helper](../../scripts/local-integration.py), `config/local-integration.compose.yaml`, `config/local-routing.compose.yaml` | Integrated application orchestration, including Payment over stdio |
-| `Maps VN/LifeFlow/compose.moving.yaml`, `Maps VN/LifeFlow/compose.moving.ci.yaml` | Moving runtime and disposable CI overlay |
+| `deploy/moving/compose.moving.yaml`, `deploy/moving/compose.moving.ci.yaml` | Moving runtime and disposable CI overlay |
 | `compose.agents.yaml` | Separate legacy standalone-agent harness, not the integrated graph |
 | `.github/workflows/ci.yml`, `.github/workflows/agent-services.yml` | Existing validation; standalone-agent images are built locally for CI and removed afterward |
 | `.github/workflows/moving-containers.yml` | Existing Moving validation and GHCR publisher |
@@ -426,7 +426,7 @@ name and port suffix must match the deployed service and listening port; update
 them together if that contract changes.
 
 Preserve Moving's separate migration/admin and runtime roles from
-[`compose.moving.yaml`](<../../Maps VN/LifeFlow/compose.moving.yaml>):
+[`compose.moving.yaml`](<../../deploy/moving/compose.moving.yaml>):
 
 | Existing Compose input | Coolify-generated reference | Consumer mapping |
 |---|---|---|

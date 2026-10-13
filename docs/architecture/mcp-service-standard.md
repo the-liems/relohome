@@ -1,4 +1,4 @@
-# LifeFlow MCP service standard
+# ReloHome MCP service standard
 
 Status: implemented initially by Moving; existing services can adopt it without
 changing their domain contracts.
@@ -56,6 +56,6 @@ No tool may accept an arbitrary URL, SQL query, header or provider payload.
 
 ## Testing rule
 
-LifeFlow Moving intentionally has no mocked provider response or mock AhaMove
+ReloHome Moving intentionally has no mocked provider response or mock AhaMove
 server. Pure policy/schema checks may run locally; real provider behavior is
 verified by opt-in staging integration tests and documented UAT.
