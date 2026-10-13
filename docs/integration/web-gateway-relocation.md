@@ -144,3 +144,22 @@ The unchanged deterministic suites exercise login, conversation/account history,
 housing/viewing, moving, checkout approval and Roommate fixtures. Provider flags
 remain disabled. The existing broad UI failures still require #116 triage;
 no visual/product behavior changes are mixed into this relocation.
+
+## Combined image evidence
+
+[ARM64 web image build and smoke](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/actions/runs/38356033354/job/115159850612)
+passed for implementation commit `bcb84ee`: installed gateway/shared imports
+from `/tmp` under `python -I`, default non-root startup, health, HTML index,
+emitted JavaScript and nested SPA fallback. The complete CI run also passed,
+including all ten application images. No image was published or deployed by
+this PR run.
+
+Local Docker attempts encountered registry connection resets/timeouts; npm
+also returned success after silently dropping an optional Linux Rolldown binding
+whose download failed. The final Docker build adds longer build-only download
+timeouts and verifies `vite --version` before caching the dependency layer.
+That check was verified to reject the incomplete cached Linux install and to
+succeed with the complete local install. These changes do not alter application
+sources, dependency versions or runtime configuration. Duplicate local downloads
+were stopped once the CI runtime gate passed. Subsequent CI reruns validate the
+final build guard/documentation revision before merge.

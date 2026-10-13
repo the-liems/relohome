@@ -5,7 +5,10 @@ WORKDIR /web
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/web/scripts ./apps/web/scripts
-RUN npm ci --workspace apps/web --include-workspace-root=false
+# Verify the native bundler before caching a successful dependency layer: npm can
+# report success after a network failure fetching an optional platform binding.
+RUN npm ci --workspace apps/web --include-workspace-root=false --fetch-timeout=900000 \
+    && npm exec --offline --workspace apps/web -- vite --version
 COPY apps/web/ ./apps/web/
 RUN npm run build --workspace apps/web
 
