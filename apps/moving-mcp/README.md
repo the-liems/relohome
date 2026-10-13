@@ -8,8 +8,8 @@ npm run build:ts
 npm run dev:moving-mcp:http
 ```
 
-Configure the existing `Maps VN/LifeFlow/.env`, or set `LIFEFLOW_ENV_FILE`
-explicitly. Root `npm run test:ts` runs portable checks;
+Configure the repository-root `.env.local` (`npm run dev:init` creates it); the
+npm scripts pass it with `--env-file`. Root `npm run test:ts` runs portable checks;
 `npm run test:ts:database` runs the location database suites with synthetic
 imports in disposable PostGIS. Moving provider checks remain explicit opt-ins.
 

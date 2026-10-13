@@ -68,10 +68,7 @@ def main():
                       "POSTGRES_APP_USER": "test_app", "POSTGRES_APP_PASSWORD": password,
                       "POSTGRES_INGEST_USER": "test_ingest", "POSTGRES_INGEST_PASSWORD": password,
                       "DATABASE_URL": url, "ADMIN_DATABASE_URL": url, "INGEST_DATABASE_URL": url}
-            env_file = directory / "test.env"
-            env_file.write_text("\n".join(f"{key}={value}" for key, value in config.items()), encoding="utf-8")
-            env_file.chmod(0o600)
-            env = {**os.environ, **config, "LIFEFLOW_ENV_FILE": str(env_file),
+            env = {**os.environ, **config,
                    "RUN_POI_CANONICAL_TESTS": "1", "RUN_POI_DATASET_TESTS": "1", "RUN_POI_V2_INTEGRATION": "1",
                    "POI_ROUNDTRIP_DB": "lifeflow_poi_test_roundtrip", "POI_V2_SOURCE_PATH": str(directory / "pois.jsonl"),
                    "ADMIN_AREA_SOURCE_PATH": str(directory / "areas.jsonl"), "OSM_PBF_PATH": str(directory / "source.pbf"),
