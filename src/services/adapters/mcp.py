@@ -52,7 +52,7 @@ def unwrap(result: CallToolResult) -> Any:
     if result.isError:
         message = " ".join(texts).strip() or "tool returned an error"
         shape = _error_shape(message)
-        if shape is not None:  # @lifeflow/mcp-core: {code, message, retryable}
+        if shape is not None:  # @relohome/mcp-core: {code, message, retryable}
             raise ToolCallError(shape["code"], str(shape.get("message", ""))[:500], retryable=shape["retryable"])
         raise ToolCallError(_error_code(message), message[:500], retryable=_retryable(message))
     data = result.structuredContent

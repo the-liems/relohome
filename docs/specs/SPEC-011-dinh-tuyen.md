@@ -11,8 +11,8 @@ gọi thời gian OSRM là thời gian giao hàng được đối tác cam kết
 
 ## Giao diện và hành vi
 
-- API: `POST /v1/routes`; schema [`route.ts`](../../Maps%20VN/LifeFlow/packages/contracts/src/route.ts).
-- Service: [`route-service.ts`](../../Maps%20VN/LifeFlow/packages/housing-query/src/route-service.ts).
+- API: `POST /v1/routes`; schema [`route.ts`](../../packages/contracts/src/route.ts).
+- Service: [`route-service.ts`](../../packages/housing-query/src/route-service.ts).
 - MCP `calculate_route_between_entities` tra hai endpoint housing/place/coordinate
   rồi dùng chung RouteService; city bắt buộc, profile mặc định motorcycle,
   snap mặc định 100 m. Trả metadata và warning cho vị trí approximate/unknown.
@@ -62,7 +62,7 @@ trung tâm là bằng chứng graph phủ đủ cả thành phố.
   cả ba profile có snap không quá 100 m hoặc báo không có tuyến đúng thực tế.
   Kiểm tra từng graph mới trước khi chuyển container production.
 
-Kiểm chứng: [test route](../../Maps%20VN/LifeFlow/packages/housing-query/tests/route-service.test.ts).
+Kiểm chứng: [test route](../../packages/housing-query/tests/route-service.test.ts).
 Kết quả runtime ba thành phố × ba profile và các điểm biên được ghi trong
 [handoff](../integration/location-service-implementation-status.md)
 (smoke test không chứng minh toàn bộ độ phủ).

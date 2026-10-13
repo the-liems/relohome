@@ -115,7 +115,7 @@ kiểm HTTP/readiness/configuration rồi gỡ đúng container test. Không đ�
 ## 5. Cập nhật registry
 
 ```powershell
-npm --prefix 'Maps VN/LifeFlow' run build --workspace=@lifeflow/contracts
+npm --prefix 'Maps VN/LifeFlow' run build --workspace=@relohome/contracts
 node scripts/export-agent-registry.mjs
 node scripts/export-agent-registry.mjs --check
 ```

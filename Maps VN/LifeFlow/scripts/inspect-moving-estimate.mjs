@@ -1,5 +1,5 @@
 // Read-only staging diagnostic. Prints response structure and price/error fields only, never contacts/tokens.
-import { AhaMoveClient, getMovingRuntimeConfig, toAhaMoveOrderBase } from '@lifeflow/moving-service'
+import { AhaMoveClient, getMovingRuntimeConfig, toAhaMoveOrderBase } from '@relohome/moving-service'
 const config = getMovingRuntimeConfig()
 if (config.environment !== 'staging') throw new Error('Staging only')
 const route = JSON.parse(process.env.MOVING_LIVE_QUOTE_INPUTS || '{}')

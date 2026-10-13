@@ -73,9 +73,9 @@ not seed or synthesize production counters.
 
 ```powershell
 cd "Maps VN/LifeFlow"
-npm run build --workspace @lifeflow/contracts
-npm run build --workspace @lifeflow/housing-query
-npm run build --workspace @lifeflow/platform-api
+npm run build --workspace @relohome/contracts
+npm run build --workspace @relohome/housing-query
+npm run build --workspace @relohome/platform-api
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.test.ts --pool=threads --maxWorkers=1
 # Needs a migrated local PostGIS (DATABASE_URL / ADMIN_DATABASE_URL); creates and removes its own test rows.
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1

@@ -2,10 +2,10 @@
 
 Use **Node 24**, **npm 11**, and **Python 3.11**. `.nvmrc` selects Node 24;
 the legacy MVP workflow now uses the same runtime as service images and CI.
-This change does not relocate services. The accepted #118 contract names the
-root `relohome`; existing child names remain until #111/#115, and `siu-ai-web`
-stays unchanged. Workspace commands select paths so staged package renames do
-not break them; owning move PRs update those paths and lock metadata together.
+The root workspace is `relohome`. TypeScript services and libraries now live in
+`apps/` and `packages/` with `@relohome/*` names; `siu-ai-web` and the map demo's
+name remain unchanged. See the [TypeScript relocation runbook](typescript-relocation.md)
+for retained assets, compatibility, database checks, and rollback.
 
 ## Install from a clean checkout
 

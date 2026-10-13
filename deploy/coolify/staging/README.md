@@ -28,8 +28,8 @@ The workflow uses each service's Dockerfile:
 | --- | --- | --- |
 | `web` | `Frontend/Dockerfile` | Repository root |
 | `backend` | `Dockerfile` | Repository root |
-| `platform`, `location-migrate` | `Maps VN/LifeFlow/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
-| `location` | `Maps VN/LifeFlow/mcp-server/Dockerfile` | `Maps VN/LifeFlow` |
+| `platform`, `location-migrate` | `apps/platform-api/Dockerfile` | `Maps VN/LifeFlow` |
+| `location` | `apps/location-mcp/Dockerfile` | `Maps VN/LifeFlow` |
 | `flights-mcp` | `src/mcp_servers/flights/Dockerfile` | Repository root |
 | `payments-mcp` | `src/mcp_servers/payments/Dockerfile` | Repository root |
 | `moving-api`, `moving-mcp`, `moving-migrate` | `Maps VN/LifeFlow/Dockerfile.moving` | `Maps VN/LifeFlow` |

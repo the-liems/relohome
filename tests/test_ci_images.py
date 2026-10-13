@@ -44,13 +44,13 @@ class ImageSelectionTests(unittest.TestCase):
                          {"web", "backend", "flights-mcp", "payments-mcp"})
 
     def test_shared_mcp_core_rebuilds_location_and_moving(self):
-        self.assertEqual(self.selected("Maps VN/LifeFlow/packages/mcp-core/src/index.ts"),
+        self.assertEqual(self.selected("packages/mcp-core/src/index.ts"),
                          {"location", *MOVING})
 
     def test_shared_contracts_and_lockfile_rebuild_all_typescript_images(self):
-        for path in ("packages/contracts/src/moving.ts", "package.json", "tsconfig.base.json"):
+        for path in ("packages/contracts/src/moving.ts", "tsconfig.base.json"):
             with self.subTest(path=path):
-                self.assertEqual(self.selected("Maps VN/LifeFlow/" + path), TYPESCRIPT)
+                self.assertEqual(self.selected(path), TYPESCRIPT)
 
     def test_root_workspace_lock_rebuilds_web_and_all_typescript_images(self):
         for path in ("package.json", "package-lock.json"):
@@ -58,16 +58,16 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("scripts/docker-npm.mjs"), TYPESCRIPT)
 
     def test_domain_dependencies_and_migration_inputs(self):
-        self.assertEqual(self.selected("Maps VN/LifeFlow/packages/housing-query/src/query.ts"),
+        self.assertEqual(self.selected("packages/housing-query/src/query.ts"),
                          {"platform", "location", "location-migrate"})
-        self.assertEqual(self.selected("Maps VN/LifeFlow/moving-api/src/app.ts"), MOVING)
+        self.assertEqual(self.selected("apps/moving-api/src/app.ts"), MOVING)
         self.assertEqual(self.selected("Maps VN/LifeFlow/database/moving/schema.sql"), {"moving-migrate"})
         self.assertEqual(self.selected("Maps VN/LifeFlow/database/migrations/008_moving_service.sql"),
                          {"location-migrate", "moving-migrate"})
 
     def test_dockerfiles_and_ignore_files_rebuild_their_consumers(self):
         self.assertEqual(self.selected("Maps VN/LifeFlow/Dockerfile.moving.dockerignore"), MOVING)
-        self.assertEqual(self.selected("Maps VN/LifeFlow/platform-api/Dockerfile"), {"platform", "location-migrate"})
+        self.assertEqual(self.selected("apps/platform-api/Dockerfile"), {"platform", "location-migrate"})
         self.assertEqual(self.selected("Maps VN/LifeFlow/.dockerignore"), ALL_SERVICES)
         self.assertEqual(self.selected(".dockerignore"), ALL_SERVICES)
 
@@ -119,7 +119,7 @@ class ImageSelectionTests(unittest.TestCase):
             git("init", "-q")
             git("config", "user.email", "ci-test@example.test")
             git("config", "user.name", "CI test")
-            old = root / "Maps VN/LifeFlow/moving-api/old.ts"
+            old = root / "apps/moving-api/old.ts"
             old.parent.mkdir(parents=True)
             old.write_text("old code\n")
             git("add", ".")
@@ -132,7 +132,7 @@ class ImageSelectionTests(unittest.TestCase):
             git("commit", "-qm", "move")
             with patch.object(IMAGES, "ROOT", root):
                 paths = IMAGES.changed_paths(base)
-            self.assertCountEqual(paths, ["Maps VN/LifeFlow/moving-api/old.ts", "Frontend/new.ts"])
+            self.assertCountEqual(paths, ["apps/moving-api/old.ts", "Frontend/new.ts"])
             self.assertEqual(self.selected(*paths), {"web", *MOVING})
 
 

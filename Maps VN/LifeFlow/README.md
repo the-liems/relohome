@@ -1,4 +1,8 @@
-# Nền tảng bản đồ và vị trí LifeFlow
+# Nền tảng bản đồ và vị trí ReloHome
+
+TypeScript source now lives in repository-root `apps/` and `packages/`.
+See the [relocation runbook](../../docs/runbooks/typescript-relocation.md).
+This directory retains data, scripts, environment files and compatibility commands until #115.
 
 ## Cập nhật POI — 04/10/2026
 
@@ -268,7 +272,7 @@ Cấu hình dành cho MCP client:
   "command": "node",
   "args": [
     "--env-file=<repository>/.env.local",
-    "<repository>/Maps VN/LifeFlow/mcp-server/dist/server.js"
+    "<repository>/apps/location-mcp/dist/server.js"
   ]
 }
 ```
@@ -366,7 +370,7 @@ Sau khi import, chạy test dữ liệu thật:
 
 ```powershell
 $env:RUN_POI_V2_INTEGRATION = '1'
-npm exec --workspace @lifeflow/platform-api -- vitest run tests/poi-v2.integration.test.ts
+npm exec --workspace @relohome/platform-api -- vitest run tests/poi-v2.integration.test.ts
 Remove-Item Env:RUN_POI_V2_INTEGRATION
 ```
 

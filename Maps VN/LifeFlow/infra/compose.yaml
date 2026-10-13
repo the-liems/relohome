@@ -24,7 +24,7 @@ services:
     container_name: lifeflow-location-mcp
     build:
       context: ../../..
-      dockerfile: Maps VN/LifeFlow/mcp-server/Dockerfile
+      dockerfile: apps/location-mcp/Dockerfile
     restart: unless-stopped
     depends_on:
       postgis:

@@ -71,16 +71,16 @@ không truyền secret trên command line. Backup trước khi xóa.
 
 ```powershell
 npm run build
-node platform-api/dist/deduplicate-pois.js --install-schema --report reports/poi-dry-run.json
+node ../../apps/platform-api/dist/deduplicate-pois.js --install-schema --report reports/poi-dry-run.json
 
 $poiManifest = Get-Content reports/poi-dry-run.json -Raw | ConvertFrom-Json
-node platform-api/dist/deduplicate-pois.js --apply --expect-hash $poiManifest.manifest_hash --report reports/poi-applied.json
+node ../../apps/platform-api/dist/deduplicate-pois.js --apply --expect-hash $poiManifest.manifest_hash --report reports/poi-applied.json
 
 # rows_to_delete phải bằng 0 sau apply. Thư mục export phải chưa tồn tại.
-node platform-api/dist/deduplicate-pois.js --report reports/poi-after.json --export reports/clean-poi
+node ../../apps/platform-api/dist/deduplicate-pois.js --report reports/poi-after.json --export reports/clean-poi
 
 # Chuyển cả thư mục sang máy đích đã cài schema.
-node platform-api/dist/deduplicate-pois.js --import-clean reports/clean-poi
+node ../../apps/platform-api/dist/deduplicate-pois.js --import-clean reports/clean-poi
 ```
 
 Apply kiểm tra fingerprint/count housing, anchors, housing staging, source/media

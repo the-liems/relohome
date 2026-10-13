@@ -6,7 +6,7 @@
 - Parent issue: [Moving integration #9](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/9)
 - Customer-facing requirements review: [#31](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/31); shared interaction review: [#28](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/28)
 - Related ADRs: ADR-001, ADR-002, ADR-003, ADR-004, ADR-005
-- Canonical schemas: `Maps VN/LifeFlow/packages/contracts/src/moving.ts`
+- Canonical schemas: `packages/contracts/src/moving.ts`
 
 ## Problem
 
@@ -150,7 +150,7 @@ and the linked issues and PRs, with measured evidence in evaluation reports.
 The Moving MCP tool catalog and schemas are documented in
 [`../api/ahamove-v3-integration.md`](../api/ahamove-v3-integration.md). AhaMove
 provider payloads are mapped inside `packages/moving-service`; callers use the
-provider-independent models in `@lifeflow/contracts`.
+provider-independent models in `@relohome/contracts`.
 
 ## Failure and recovery
 
