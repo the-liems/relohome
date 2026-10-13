@@ -156,7 +156,7 @@ OTEL_COLLECTOR_TOKEN=<staging-token>
 The application Compose supplies each service name, release SHA and encoded
 `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20...`. When starting a service
 directly, set these OTLP headers yourself and preload Node with
-`--import @lifeflow/telemetry/register`. Python entry points initialize telemetry
+`--import @relohome/telemetry/register`. Python entry points initialize telemetry
 before constructing clients. Keep legacy LangSmith tracing disabled.
 
 The current application uses HTTP for Payment MCP. Python Flight/Payment servers
@@ -264,10 +264,22 @@ environment, also remove its scrape/inventory configuration and retention target
 
 ## Validation
 
+The TypeScript telemetry workspace is `packages/telemetry`
+(`@relohome/telemetry`) and participates in the root build/test commands after
+the #111 relocation. Its `./register` export must still preload before service
+modules. Keep `service.name`, the `lifeflow` resource namespace, metric names,
+Grafana identifiers and environment routing stable during source renames.
+
+Python telemetry currently remains in `src/observability`. The #112 packaging
+handoff is `relohome-observability` / `relohome_observability` under
+`packages/python/observability`; carry its dependencies into every consuming
+wheel/image, including shared MCP HTTP, and rerun export/privacy checks outside
+the checkout when that packaging change lands. This source migration does not
+change the shared observability deployment or enable telemetry automatically.
+
 ```bash
-python -m pytest tests/test_observability.py -q
+python -m pytest tests/test_observability.py tests/test_observability_export.py -q
 python scripts/validate-observability.py --images --smoke
-cd 'Maps VN/LifeFlow'
 npm run build
 npm run test:ci
 ```
@@ -277,7 +289,7 @@ credentials and loopback-only ports, checks provisioning/ingestion/isolation and
 queue recovery, exercises Python/LangGraph → Node MCP → PostgreSQL, captures
 Grafana firing/resolved webhook payloads locally and verifies trace deletion.
 Install the Python requirements and run `npm ci && npm run build` in
-`Maps VN/LifeFlow` before this command. It removes only that project's containers
+the repository root before this command. It removes only that project's containers
 and volumes. If the
 process is forcibly interrupted, inspect `p044-observability-test-*` resources
 and clean up that exact test project before retrying.

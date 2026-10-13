@@ -23,8 +23,8 @@ services:
     image: lifeflow-location-mcp:${MCP_IMAGE_TAG:-0.1.0}
     container_name: lifeflow-location-mcp
     build:
-      context: ..
-      dockerfile: mcp-server/Dockerfile
+      context: ../../..
+      dockerfile: apps/location-mcp/Dockerfile
     restart: unless-stopped
     depends_on:
       postgis:
@@ -49,7 +49,7 @@ services:
       MCP_PORT: 3000
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1],lifeflow-location-mcp}
       MCP_ALLOWED_ORIGIN_HOSTS: ${MCP_ALLOWED_ORIGIN_HOSTS:-localhost,127.0.0.1,[::1]}
-      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?Set MCP_AUTH_TOKEN}
+      MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?Set LOCATION_MCP_AUTH_TOKEN in .env.local}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

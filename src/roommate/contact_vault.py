@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 
@@ -5,7 +6,12 @@ from cryptography.fernet import Fernet, InvalidToken
 
 
 class ContactVault:
-    def __init__(self, key_path: Path, *, create: bool = True):
+    def __init__(self, key_path: Path, *, create: bool = True, key_value: str = ""):
+        if key_value:
+            self._key = key_value.encode("ascii")
+            self.fingerprint = hashlib.sha256(key_value.encode("ascii")).hexdigest()
+            self.fernet = Fernet(key_value.encode("ascii"))
+            return
         key_path.parent.mkdir(parents=True, exist_ok=True)
         if create:
             try:
@@ -17,10 +23,20 @@ class ContactVault:
                     stream.write(Fernet.generate_key())
                     stream.flush()
                     os.fsync(stream.fileno())
-        self.fernet = Fernet(key_path.read_bytes())
+        key = key_path.read_bytes()
+        self._key = key
+        self.fingerprint = hashlib.sha256(key).hexdigest()
+        self.fernet = Fernet(key)
 
     def seal(self, value: str) -> bytes:
         return self.fernet.encrypt(value.encode("utf-8"))
+
+    def backup_key(self, target: Path) -> None:
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(self._key)
+            stream.flush()
+            os.fsync(stream.fileno())
 
     def open(self, sealed: bytes) -> str:
         try:

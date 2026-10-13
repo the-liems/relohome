@@ -32,7 +32,7 @@ and all backend validation remain unchanged.
 
 - `Frontend/src/housingInteraction.ts`: basket and coordinate validation.
 - `Frontend/src/components/HousingDirections.tsx`: transient permission lifecycle.
-- `Maps VN/LifeFlow/packages/contracts/src/route.ts`: entity route contract.
+- `packages/contracts/src/route.ts`: entity route contract.
 - The same file owns the separate `DeviceRouteRequestSchema`/response for
   `/v1/routes/device`. Device routing never enables an agent/MCP external fallback.
 - `src/roommate/models.py`, `policy.py`, `demo.py`: real eligibility and DEMO boundary.

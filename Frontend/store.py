@@ -62,6 +62,9 @@ class Store:
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(landlord_sync)")}
         if "baseline" not in columns:  # databases created before the column existed
             self.db.execute("ALTER TABLE landlord_sync ADD COLUMN baseline TEXT NOT NULL DEFAULT ''")
+        session_columns = {row[1] for row in self.db.execute("PRAGMA table_info(sessions)")}
+        if "workspace" not in session_columns:
+            self.db.execute("ALTER TABLE sessions ADD COLUMN workspace TEXT NOT NULL DEFAULT 'customer'")
         self.db.execute("UPDATE runs SET status='unknown' WHERE status='running'")
         self.db.commit()
 
@@ -105,22 +108,23 @@ class Store:
             self.db.execute("UPDATE saved SET thread='' WHERE owner=? AND thread=?", (owner, thread))
             self.db.execute("DELETE FROM threads WHERE id=? AND owner=?", (thread, owner))
 
-    def create_session(self, owner):
+    def create_session(self, owner, workspace="customer"):
         token = secrets.token_urlsafe(40)
         self.write("DELETE FROM sessions WHERE expires < ?", (time.time(),))
         self.write(
-            "INSERT INTO sessions VALUES (?,?,?)",
+            "INSERT INTO sessions(token,owner,expires,workspace) VALUES (?,?,?,?)",
             (
                 hashlib.sha256(token.encode()).hexdigest(),
                 owner,
                 time.time() + 86400 * 14,
+                workspace,
             ),
         )
         return token
 
     def session_user(self, token):
         return self.one(
-            "SELECT u.* FROM sessions s JOIN users u ON u.id=s.owner WHERE s.token=? AND s.expires>?",
+            "SELECT u.*,s.workspace FROM sessions s JOIN users u ON u.id=s.owner WHERE s.token=? AND s.expires>?",
             (hashlib.sha256(token.encode()).hexdigest(), time.time()),
         )
 

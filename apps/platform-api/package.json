@@ -1,0 +1,35 @@
+{
+  "name": "@relohome/platform-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --import @relohome/telemetry/register --import tsx --env-file=../../.env.local src/server.ts",
+    "start": "node --import @relohome/telemetry/register dist/server.js",
+    "db:migrate": "tsx --env-file=../../.env.local src/migrate.ts",
+    "db:import:places": "tsx --env-file=../../.env.local src/import-places.ts",
+    "db:import:pois:v2": "tsx --env-file=../../.env.local src/import-pois-v2.ts",
+    "db:import:housing": "tsx --env-file=../../.env.local src/import-housing.ts",
+    "db:report:pois": "tsx --env-file=../../.env.local src/report-poi-coverage.ts",
+    "db:deduplicate:pois": "tsx --env-file=../../.env.local src/deduplicate-pois.ts",
+    "db:import:areas": "tsx --env-file=../../.env.local src/import-admin-areas.ts",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@relohome/contracts": "0.1.0",
+    "@relohome/housing-query": "0.1.0",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.0",
+    "zod": "^4.1.12",
+    "@relohome/telemetry": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/pg": "^8.15.6",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.18"
+  }
+}

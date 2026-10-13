@@ -102,10 +102,10 @@ khai bằng TypeScript SDK chính thức; xem
 
 ## Build và chuyển image độc lập
 
-Build từ thư mục gốc `LifeFlow`:
+Build từ thư mục gốc repository:
 
 ```powershell
-docker build -f mcp-server/Dockerfile -t lifeflow-location-mcp:0.1.0 .
+docker build -f "apps/location-mcp/Dockerfile" -t lifeflow-location-mcp:0.1.0 .
 ```
 
 Image không chứa database, dữ liệu crawl, PBF hay graph OSRM. Khi chuyển image sang máy khác,
@@ -159,10 +159,11 @@ Không tạo MCP container riêng cho từng tool. Một image `lifeflow-locatio
 ## Checklist nghiệm thu
 
 ```powershell
-npm run build
-npm exec --workspace @lifeflow/mcp-server -- vitest run tests/mcp-http.integration.test.ts
-docker compose --env-file .env -f infra/compose.yaml config
-docker build -f mcp-server/Dockerfile -t lifeflow-location-mcp:0.1.0 .
+# repository root
+npm run build:ts
+npm exec --offline --workspace @relohome/location-mcp -- vitest run tests/mcp-http.integration.test.ts
+docker compose --env-file "Maps VN/LifeFlow/.env" -f "Maps VN/LifeFlow/infra/compose.yaml" config --quiet
+docker build -f "apps/location-mcp/Dockerfile" -t lifeflow-location-mcp:0.1.0 .
 ```
 
 Kết quả đạt khi `/healthz` trả `200`, `/readyz` trả `200`, request không có token bị từ chối

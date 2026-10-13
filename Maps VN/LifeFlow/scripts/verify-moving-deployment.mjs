@@ -1,9 +1,7 @@
 // Read-only verification of running containers or a deployed staging instance.
 import assert from 'node:assert/strict'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import { loadMovingEnvironment } from '@lifeflow/moving-service'
 
-loadMovingEnvironment()
 const token = process.env.MOVING_MCP_AUTH_TOKEN
 if (!token) throw new Error('MOVING_MCP_AUTH_TOKEN is required.')
 const mcp = new URL(process.env.MOVING_MCP_URL || 'http://127.0.0.1:4400/mcp')

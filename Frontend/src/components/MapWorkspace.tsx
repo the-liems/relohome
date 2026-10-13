@@ -13,7 +13,6 @@ import {
   House as HouseIcon,
   Layers,
   MapPin,
-  MessageCircle,
   Navigation,
   Ruler,
   SlidersHorizontal,
@@ -39,7 +38,7 @@ import {
   mapRequest,
   searchRequest,
   shortPrice,
-  stackListings,
+  individualListings,
   toHouse,
   viewportCount,
 } from "../mapWorkspace";
@@ -50,6 +49,8 @@ import {
   MAP_THEME,
   PILL,
   POI_ICON_EXPRESSION,
+  POI_GROUP_LABELS,
+  type PoiGroup,
   registerMapImages,
   tuneBasemap,
 } from "../mapStyle";
@@ -156,6 +157,8 @@ export function MapWorkspace({
     [sheet, setSheet] = useState(false),
     [selecting, setSelecting] = useState<string | null>(null);
   const [pois, setPois] = useState<Data | null>(null);
+  const [poiDetail, setPoiDetail] = useState<Data | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [roommateEnabled, setRoommateEnabled] = useState(false);
@@ -289,6 +292,8 @@ export function MapWorkspace({
   useEffect(() => {
     setFilters(initialFilters);
     setStack(null);
+    setDetail(null);
+    setPoiDetail(null);
     const box = focus?.viewport;
     if (box && map.current)
       fitMapBox(map.current, box, { padding: 48, duration: 700 });
@@ -357,22 +362,7 @@ export function MapWorkspace({
           m.addSource("ws-pois", {
             type: "geojson",
             data: { type: "FeatureCollection", features: [] },
-            cluster: true,
-            clusterMaxZoom: 16,
-            clusterRadius: 38,
-          });
-          m.addLayer({
-            id: "ws-poi-cluster",
-            type: "circle",
-            source: "ws-pois",
-            filter: ["has", "point_count"],
-            paint: {
-              "circle-color": MAP_THEME.cluster.low,
-              "circle-radius": 13,
-              "circle-opacity": 0.75,
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#fff",
-            },
+            cluster: false,
           });
           m.addLayer({
             id: "ws-poi",
@@ -390,7 +380,7 @@ export function MapWorkspace({
                 17,
                 0.9,
               ],
-              "icon-allow-overlap": true,
+              "icon-allow-overlap": false,
             },
           });
           m.addLayer({
@@ -478,13 +468,12 @@ export function MapWorkspace({
                 zoom: Math.min(m.getZoom() + 2, 18),
               });
           });
-          m.on("click", "ws-poi-cluster", (e) => {
+          m.on("click", "ws-poi", (e) => {
             const f = e.features?.[0];
-            if (f)
-              m.easeTo({
-                center: (f.geometry as any).coordinates,
-                zoom: Math.min(m.getZoom() + 1.5, 18),
-              });
+            if (f?.properties?.place_id) {
+              setDetail(null);
+              setPoiDetail({ ...f.properties });
+            }
           });
           m.on("click", ["ws-listing", "ws-listing-active"], (e) => {
             const key = e.features?.[0]?.properties?.key;
@@ -500,7 +489,7 @@ export function MapWorkspace({
             "ws-listing",
             "ws-listing-active",
             "ws-choice",
-            "ws-poi-cluster",
+            "ws-poi",
           ]) {
             m.on(
               "mouseenter",
@@ -641,13 +630,17 @@ export function MapWorkspace({
     }
   }
 
-  const stacks = useMemo(() => stackListings(markers), [markers]);
+  const stacks = useMemo(() => individualListings(markers), [markers]);
   function openStack(key: string) {
     const group = latest.current.stacks.find((s) => s.key === key);
     if (!group) return;
-    if (group.houses.length === 1) void openDetail(group.houses[0]);
+    // A choice list is needed only after clicking an exactly shared source pin.
+    const atPoint = latest.current.stacks
+      .filter((s) => s.lat === group.lat && s.lng === group.lng)
+      .flatMap((s) => s.houses);
+    if (atPoint.length === 1) void openDetail(atPoint[0]);
     else {
-      setStack(group.houses);
+      setStack(atPoint);
       setListOpen(true);
       setSheet(true);
     }
@@ -747,6 +740,7 @@ export function MapWorkspace({
   ]);
 
   async function openDetail(h: House) {
+    setPoiDetail(null);
     setDetail(h);
     try {
       const full = await api<House>("/housing/" + encodeURIComponent(h.id));
@@ -981,6 +975,25 @@ export function MapWorkspace({
                 }
                 onMouseEnter={() => setHovered(h.id)}
                 onMouseLeave={() => setHovered(null)}
+                tabIndex={0}
+                aria-label={uiText("Xem ") + h.title}
+                onClick={(event) => {
+                  if (
+                    !(event.target as Element).closest(
+                      "button, a, input, select, textarea",
+                    )
+                  )
+                    void openDetail(h);
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.target === event.currentTarget &&
+                    ["Enter", " "].includes(event.key)
+                  ) {
+                    event.preventDefault();
+                    void openDetail(h);
+                  }
+                }}
               >
                 <button
                   className="ws-card-photo"
@@ -1137,9 +1150,21 @@ export function MapWorkspace({
         </p>
       </aside>
 
-      <section className="ws-map" aria-label={uiText("Bản đồ nhà ở")}>
+      <section
+        className="ws-map"
+        aria-label={uiText("Bản đồ nhà ở")}
+        aria-busy={!ready}
+      >
         <div className="ws-top">
-          <div className="ws-filterbar">
+          <div className={"ws-filterbar " + (filtersOpen ? "expanded" : "")}>
+            <button
+              className="ws-pill-button ws-filter-toggle"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal size={15} />
+              {uiText("Bộ lọc")}
+            </button>
             {!listOpen && (
               <button
                 className="ws-pill-button"
@@ -1236,7 +1261,9 @@ export function MapWorkspace({
                 {uiText(CHIP_LABELS[k])}:{" "}
                 {k === "administrative_area_ids"
                   ? areaName || uiText("đã chọn")
-                  : chipValue(v)}
+                  : k === "amenities" && Array.isArray(v)
+                    ? v.map((a) => uiText(AMENITY_LABELS[a] || a)).join(", ")
+                    : chipValue(v)}
                 <button
                   aria-label={uiText("Bỏ ") + uiText(CHIP_LABELS[k])}
                   onClick={() => setFilters(({ [k]: _, ...f }) => f)}
@@ -1246,8 +1273,8 @@ export function MapWorkspace({
               </span>
             ))}
             <span className="ws-spacer" />
-            <button className="ws-pill-button" onClick={onExit}>
-              <MessageCircle size={15} />
+            <button className="ws-pill-button ws-back-chat" onClick={onExit}>
+              <ChevronLeft size={18} />
               {uiText(" Về hội thoại")}
             </button>
           </div>
@@ -1341,6 +1368,69 @@ export function MapWorkspace({
           onChoose={choose}
         />
       </section>
+
+      {poiDetail && (
+        <aside
+          className="ws-detail ws-poi-detail"
+          aria-label={uiText("Chi tiết tiện ích")}
+        >
+          <div className="ws-poi-heading">
+            <MapPin size={20} />
+            <h3>{poiDetail.name || uiText("Tiện ích")}</h3>
+            <button
+              className="icon-button"
+              aria-label={uiText("Đóng chi tiết")}
+              onClick={() => setPoiDetail(null)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="ws-detail-body">
+            <p className="chip">
+              {uiText(
+                POI_GROUP_LABELS[poiDetail.group as PoiGroup] ||
+                  poiDetail.category ||
+                  "Tiện ích",
+              )}
+            </p>
+            <p>
+              {formatAddress({
+                raw: poiDetail.raw,
+                housenumber:
+                  poiDetail.housenumber || poiDetail["addr:housenumber"],
+                street: poiDetail.street || poiDetail["addr:street"],
+                ward: poiDetail.ward || poiDetail["addr:suburb"],
+                district: poiDetail.district || poiDetail["addr:district"],
+                city: poiDetail.city || poiDetail["addr:city"],
+              })}
+            </p>
+            {poiDetail.opening_hours && (
+              <p>
+                {uiText("Giờ mở cửa")}: {poiDetail.opening_hours}
+              </p>
+            )}
+            {poiDetail.phone && (
+              <p>
+                {uiText("Điện thoại")}: {poiDetail.phone}
+              </p>
+            )}
+            {safeUrl(poiDetail.website) && (
+              <a
+                href={safeUrl(poiDetail.website)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {uiText("Website")}
+              </a>
+            )}
+            <small className="muted">
+              {uiText(
+                "Thông tin theo dữ liệu bản đồ; hãy kiểm tra lại trước khi đến.",
+              )}
+            </small>
+          </div>
+        </aside>
+      )}
 
       {detail && (
         <aside className="ws-detail" aria-label={uiText("Chi tiết nhà")}>

@@ -1,5 +1,29 @@
 # Roommate Discovery — Implementation checklist
 
+## Production expansion — 12/10/2026
+
+Theo yêu cầu hoàn thiện cho người dùng thật, kế hoạch RP ở đầu [plan.md](plan.md). Những checkpoint bên dưới là lịch sử, không thay evidence mới.
+
+- [x] RP-01 Storage/query — SQLite read concurrency + map 100 hồ sơ <=6 SELECT; focused 173 pass ở checkpoint. Domain scoring không thay đổi.
+- [x] RP-02 Schema — additive v1→v2, raw backup trước migration; giữ ID/version/deadline/ciphertext.
+- [x] RP-03 PostgreSQL — real PG race/consent/restore và role không superuser đạt.
+- [x] Checkpoint storage — 194 focused tests (domain/API/PG/Agent/gateway); policy/scoring không sửa.
+- [x] RP-04 Inbox API — pagination/counterparty/unread/events/reminder, preview không contact và fresh permissions.
+- [x] RP-05 Inbox UI — names/previews/badges/poll/reminder/paging/read; UI và real browser đạt.
+- [x] RP-06 Media/settings — upload/review/attach/delete, quản lý contact/blocks; erase gỡ cả contact memory khỏi UI.
+- [x] RP-07 Moderation — queue/filter/reason/audit + stats thật; reviewed không tự restrict; server role kiểm soát.
+- [x] RP-08 UX/room — city-scoped picker/check thành phố khi biết rõ, unknown không đoán; explicit consent và VI/EN/Axe.
+- [x] Checkpoint UX — 26 UI tests +4 real browser tests; desktop/mobile, VI/EN/sáng/tối/keyboard.
+- [x] RP-09 Hardening — shared budgets/body/array caps/dedupe/safe errors/route metrics, giữ quota nghiệp vụ.
+- [x] RP-10 Retry — encrypted server draft TTL30m/actor scope; explicit retry sau reload cùng key/payload; không PII trong browser storage.
+- [x] RP-11 Data lifecycle — own export/erase/maintenance; quota/restriction/audit giữ nguyên. Retention backup/audit cần owner cấu hình cloud.
+- [x] RP-12 Cloud ops — private DB/key snapshot/import/rollback/check/provision; SQLite↔PG, readonly snapshot và dedicated role đạt; chưa áp cloud thật.
+- [x] Checkpoint operations — deployment 35 tests +62 subtests, Linux CI scripts 33 tests +73 subtests; không sửa state/key live.
+- [x] RP-13 Code/handoff — [bàn giao](../docs/integration/roommate-production-2026-10-12.md), build/CI-scope Ruff/gates local; mutation expiry bị test bắt lỗi và source khôi phục nguyên byte.
+- [ ] Release cloud — role/secrets/volume/backup/retention/moderator thật, staging rehearsal/cutover/load test và remote CI trước mở công khai.
+
+Full regression cuối: 870 pass /96 skip /16 lỗi Bash/symlink/Linux path trên Windows (gồm subtests); các nhóm đó qua Linux 33 tests +73 subtests. CI-scope Ruff và Vite/TypeScript đạt. Handoff ghi rõ cấu hình vận hành thật chưa được áp trên cloud.
+
 - Plan chi tiết: [plan.md](plan.md).
 - Product spec: [roommate-service.md](../docs/ideas/roommate-service.md).
 - Feature issue: [#65](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/65).

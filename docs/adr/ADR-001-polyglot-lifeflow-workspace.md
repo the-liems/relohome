@@ -1,5 +1,12 @@
 # ADR-001 — Polyglot LifeFlow workspace
 
+Pending layout revision: [ADR-025](ADR-025-monorepo-layout.md) proposes to
+supersede only the source-layout portions on acceptance. Existing status and
+domain decisions remain unchanged while ADR-025 is Proposed. The #118 naming
+contract is accepted by #121; #110 consolidates npm installation at the root
+without relocating services. See [root tooling](../runbooks/root-tooling.md).
+Full source-layout supersession still awaits acceptance of the broader ADR.
+
 - Date: 2026-09-25
 - Status: Accepted
 - Related specs: SPEC-004

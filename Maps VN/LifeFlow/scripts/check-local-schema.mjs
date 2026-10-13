@@ -1,5 +1,5 @@
 /** Read-only compatibility check. Never migrates, cleans or imports data. */
-import { createDatabasePool, getApplicationRuntimeConfig } from '@lifeflow/housing-query'
+import { createDatabasePool, getApplicationRuntimeConfig } from '@relohome/housing-query'
 
 if (Number(process.versions.node.split('.')[0]) < 24) {
   console.error('Node.js 24+ is required by LifeFlow.')
@@ -11,6 +11,12 @@ try {
   pool = createDatabasePool(getApplicationRuntimeConfig().databaseUrl, 1)
   const required = [
     ['housing.listings', 'id'],
+    ['housing.properties','location_confirmed_at'],
+    ['housing.units','revision'],
+    ['housing.managed_listings','approved_revision'],
+    ['housing.listing_media','storage_key'],
+    ['housing.managed_listing_visibility','is_public'],
+    ['housing.listing_reviews','reviewed_revision'],
     ['catalog.places', 'id'],
     ['catalog.poi_aliases', 'canonical_place_id'],
     ['catalog.poi_aliases', 'legacy_name'],
@@ -28,11 +34,11 @@ try {
     console.error('Run from the repository root: .venv/Scripts/python.exe scripts/local-integration.py migrate')
     process.exitCode = 1
   } else {
-    console.log('Database reachable; Housing/Location schema (011-012) is compatible. No data changed.')
+    console.log('Database reachable; Housing/Location schema (through 023) is compatible. No data changed.')
   }
 } catch {
   // Never print a connection URL, environment or database exception containing credentials.
-  console.error('Database compatibility check failed. Check Docker, data/integration.env and the database role.')
+  console.error('Database compatibility check failed. Check Docker, .env.local and the database role.')
   process.exitCode = 1
 } finally {
   await pool?.end()

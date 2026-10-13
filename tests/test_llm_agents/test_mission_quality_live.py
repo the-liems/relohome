@@ -17,7 +17,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
-from test_domain_missions_live import ROOT, live_environment, saved_state
+from test_domain_missions_live import ROOT, saved_state
 
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskRequest
@@ -26,6 +26,7 @@ from src.agents.subagents.services.location import LocationSubagent
 from src.agents.subagents.services.read_llm import ReadLlmAgent
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual services and paid LLM opt-in")
 BASELINE_COMMIT = "b18fb4b944e2a9cacc34a3e73cd8ade7b055fdf9"
@@ -48,12 +49,11 @@ def baseline_module(path):
 
 def test_real_ab_pagination_mission():
     async def run():
-        env = live_environment()
         client = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
@@ -70,7 +70,11 @@ def test_real_ab_pagination_mission():
             ("new", ReadLlmAgent),
         ):
             adapter = LocationSubagent(client, AgentName.PROPERTY)
-            agent = cls(env["OPENAI_API_KEY"], env.get("AGENT_HOUSING_MODEL", "gpt-6-luna"), adapter)
+            agent = cls(
+                live.env_test("OPENAI_API_KEY"),
+                live.env_test("AGENT_HOUSING_MODEL", required=False) or "gpt-6-luna",
+                adapter,
+            )
             request = AgentTaskRequest(
                 request_id=uuid.uuid4().hex,
                 thread_id="quality_ab_" + uuid.uuid4().hex,
@@ -127,12 +131,11 @@ def resumed_client():
     if not thread:
         pytest.skip("Supply an existing real selected-home conversation; no fabricated history")
     state = saved_state(thread)
-    env = live_environment()
     assert state["intake"].user_confirmed_facts.get("selected:property"), "Select a real home before this test"
     with httpx.Client(
-        base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1"),
+        base_url=live.api_url(),
         timeout=240,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": state["user_id"]},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": state["user_id"]},
     ) as client:
         yield client, thread, state
 

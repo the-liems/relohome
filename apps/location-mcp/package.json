@@ -1,0 +1,31 @@
+{
+  "name": "@relohome/location-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --import @relohome/telemetry/register --import tsx --env-file=../../.env.local src/server.ts",
+    "dev:http": "node --import @relohome/telemetry/register --import tsx --env-file=../../.env.local src/http-server.ts",
+    "start": "node --import @relohome/telemetry/register dist/server.js",
+    "start:http": "node --import @relohome/telemetry/register dist/http-server.js",
+    "pretest": "npm run build",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@relohome/contracts": "0.1.0",
+    "@relohome/housing-query": "0.1.0",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.1.0",
+    "zod": "^4.1.12",
+    "@relohome/mcp-core": "0.1.0",
+    "@relohome/telemetry": "0.1.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.1.0",
+    "@types/node": "^24.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.18"
+  }
+}

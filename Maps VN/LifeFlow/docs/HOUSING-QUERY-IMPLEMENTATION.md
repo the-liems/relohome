@@ -18,9 +18,9 @@
 | Hợp đồng dùng chung | `packages/contracts` | Zod schema cho địa điểm, tuyến đường và nhà ở |
 | Dịch vụ truy vấn | `packages/housing-query` | Bộ lọc SQL/PostGIS và kiểm tra thời gian đi lại qua OSRM |
 | Database migration | `database/migrations` | Schema, role, constraint, index và bảng audit |
-| Bộ nhập POI | `platform-api/src/import-places.ts` | Nhập dữ liệu theo phiên bản, truy nguồn và nhận diện bản ghi trùng |
-| Platform API | `platform-api` | Bảy endpoint factual chạy cục bộ |
-| MCP server | `mcp-server` | Sáu tool chỉ đọc qua `stdio` |
+| Bộ nhập POI | `apps/platform-api/src/import-places.ts` | Nhập dữ liệu theo phiên bản, truy nguồn và nhận diện bản ghi trùng |
+| Platform API | `apps/platform-api` | Bảy endpoint factual chạy cục bộ |
+| MCP server | `apps/location-mcp` | Sáu tool chỉ đọc qua `stdio` |
 | Tích hợp bản đồ | `map-app/src/services/platform-poi.ts` | Tải POI theo thành phố qua API và fallback GeoJSON |
 | Vận hành | `Start-LifeFlow.ps1`, `Stop-LifeFlow.ps1` | Khởi động lặp lại được và dừng không xóa dữ liệu |
 

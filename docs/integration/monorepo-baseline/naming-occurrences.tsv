@@ -1,0 +1,1242 @@
+kind	path	line	case_variants	match_count	review_lane	matrix_category	decision	token_decisions
+content	.env.example	131	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.env.example	134	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	15	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/agent-services.yml	16	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	30	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/agent-services.yml	31	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	66	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	.github/workflows/agent-services.yml	67	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/agent-services.yml	71	lifeflow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	73	lifeflow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	79	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	.github/workflows/agent-services.yml	80	lifeflow	2	source-or-runtime-review	M15	preserve	1:M15:preserve; 2:M15:preserve
+content	.github/workflows/ci.yml	103	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	.github/workflows/ci.yml	109	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	.github/workflows/ci.yml	116	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/ci.yml	126	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/ci.yml	152	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	.github/workflows/ci.yml	156	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	.github/workflows/ci.yml	169	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	.github/workflows/ci.yml	190	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	.github/workflows/moving-containers.yml	49	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/moving-containers.yml	65	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/moving-containers.yml	106	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/mvp.yml	39	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.github/workflows/mvp.yml	44	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.gitignore	70	LifeFlow	1	source-or-runtime-review	M24	preserve	1:M24:preserve
+content	.gitignore	71	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.gitignore	72	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.gitignore	73	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.gitignore	74	LifeFlow	1	source-or-runtime-review	M24	preserve	1:M24:preserve
+content	.gitignore	75	LifeFlow	1	source-or-runtime-review	M24	preserve	1:M24:preserve
+content	.gitignore	91	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	.gitignore	92	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	ARCHITECTURE.md	37	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	ARCHITECTURE.md	38	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	ARCHITECTURE.md	78	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	CHECKPOINT-POI-INGESTION-V2.md	1	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	31	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	37	LifeFlow,lifeflow	2	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	60	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	65	LifeFlow,lifeflow	2	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	74	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	101	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	115	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	122	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	134	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	140	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	151	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	152	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	168	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	196	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	CHECKPOINT-POI-INGESTION-V2.md	222	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Frontend/README.md	456	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Frontend/README.md	529	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Frontend/SERVICE_AUDIT.md	194	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Frontend/SERVICE_AUDIT.md	226	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Frontend/SERVICE_AUDIT.md	244	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Frontend/roommate_gateway.py	61	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Frontend/server.py	259	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Frontend/server.py	577	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Frontend/src/components/MapPanel.tsx	17	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Frontend/src/mapScope.ts	8	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Frontend/src/mapStyle.ts	1	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Frontend/tests/roommate_test_server.py	37	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/Cities/README.md	44	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/Cities/README.md	50	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/Cities/README.md	51	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/Cities/README.md	59	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/Cities/README.md	60	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/.env.example	1	lifeflow	1	source-or-runtime-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/.env.example	2	lifeflow	1	compatibility-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/.env.example	4	lifeflow	1	compatibility-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/.env.example	6	lifeflow	1	compatibility-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/.env.example	15	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/.env.example	66	LifeFlow	1	source-or-runtime-review	M24	preserve	1:M24:preserve
+content	Maps VN/LifeFlow/Dockerfile.moving	12	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	13	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	14	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	15	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	16	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	17	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	18	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	19	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	20	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	21	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	22	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/Dockerfile.moving	26	LifeFlow	1	source-or-runtime-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/README.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/README.md	48	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	65	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	66	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	78	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	79	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	84	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/README.md	134	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	136	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	137	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	140	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/README.md	141	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/README.md	152	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	168	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/README.md	180	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/README.md	181	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/README.md	194	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/README.md	197	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/README.md	208	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/README.md	261	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	272	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	275	LIFEFLOW,LifeFlow	2	compatibility-review	M16;M24	preserve	1:M16:preserve; 2:M24:preserve
+content	Maps VN/LifeFlow/README.md	323	lifeflow	1	documentation-mixed-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/README.md	326	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	333	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/README.md	345	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	354	lifeflow	1	documentation-mixed-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/README.md	373	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/README.md	384	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	424	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/README.md	428	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	16	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	21	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	25	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	28	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	41	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/STREAMLIT_MVP.md	64	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/Setup-Routing.ps1	110	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	11	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	12	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	13	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	41	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	50	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	64	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	114	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	115	LifeFlow	1	display-prompt-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/Start-LifeFlow.ps1	117	lifeflow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	7	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	8	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	9	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	17	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	20	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	30	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	33	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	50	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/Stop-LifeFlow.ps1	52	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/compose.moving.ci.yaml	4	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/compose.moving.ci.yaml	8	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/compose.moving.ci.yaml	14	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/compose.moving.yaml	1	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/compose.moving.yaml	43	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/compose.moving.yaml	55	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/compose.moving.yaml	66	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/database/migrations/002_core_tables.sql	49	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/database/migrations/002_core_tables.sql	138	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/database/migrations/009_mobility_readiness.sql	5	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/database/migrations/009_mobility_readiness.sql	22	lifeflow	2	compatibility-review	M10	preserve	1:M10:preserve; 2:M10:preserve
+content	Maps VN/LifeFlow/database/moving/001_audit.sql	1	LifeFlow	1	source-or-runtime-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/database/rollbacks/housing_query_performance.sql	18	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/demo/__init__.py	1	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/agent.py	4	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/agent.py	16	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/agent.py	163	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/agent.py	276	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	24	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	25	lifeflow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	26	lifeflow	2	source-or-runtime-review	M04	rename	1:M04:rename; 2:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	27	lifeflow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	28	lifeflow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	34	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	37	LifeFlow	1	compatibility-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	42	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	53	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/demo/mcp_client.py	57	lifeflow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/mcp_client.py	122	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/demo/streamlit_app.py	1	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	14	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	16	LIFEFLOW	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	17	LIFEFLOW	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	76	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	77	LIFEFLOW,LifeFlow	2	source-or-runtime-review	M04	rename	1:M04:rename; 2:M04:rename
+content	Maps VN/LifeFlow/demo/streamlit_app.py	205	LifeFlow	1	source-or-runtime-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	15	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	17	LIFEFLOW	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	50	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	51	LIFEFLOW,LifeFlow	2	source-or-runtime-review	M04	rename	1:M04:rename; 2:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	54	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	82	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	167	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	244	LifeFlow	1	source-or-runtime-review	M04	rename	1:M04:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	307	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/demo/tool_lab_app.py	308	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	71	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	72	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	295	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	312	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	7	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	66	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	104	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	105	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	107	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	157	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md	33	lifeflow	1	documentation-mixed-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md	58	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	25	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	29	LifeFlow,lifeflow	2	documentation-mixed-review	M14;M22	mixed	1:M22:rename; 2:M14:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	34	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	35	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	42	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	45	lifeflow	1	documentation-mixed-review	M13	preserve	1:M13:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	78	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	79	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	133	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	1	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	21	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	33	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	34	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	68	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	69	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	70	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	78	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	97	LifeFlow	2	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	108	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	120	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	125	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	137	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	140	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	161	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	178	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	179	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	246	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	252	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	258	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	563	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	612	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	617	lifeflow	1	compatibility-review	M19	preserve	1:M19:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	618	lifeflow	1	compatibility-review	M19	preserve	1:M19:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	619	lifeflow	1	compatibility-review	M19	preserve	1:M19:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	620	lifeflow	1	compatibility-review	M19	preserve	1:M19:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	621	lifeflow	1	compatibility-review	M19	preserve	1:M19:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	725	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	738	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	858	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	862	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	938	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	43	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	54	LIFEFLOW	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	130	LIFEFLOW	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	153	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	179	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	180	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	200	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	226	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	231	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	237	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	238	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	239	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	240	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	241	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	242	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	243	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	244	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	245	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	246	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	247	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	248	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	249	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	255	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	262	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	274	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	300	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	10	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	11	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	27	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	31	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	32	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	49	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	95	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	98	LIFEFLOW,LifeFlow	2	compatibility-review	M16;M24	preserve	1:M16:preserve; 2:M24:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	105	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	108	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	116	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	123	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	156	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	163	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	165	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/docs/POI-CANONICALIZATION.md	69	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/docs/POI-CANONICALIZATION.md	132	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	1	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	6	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	15	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	23	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	24	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	50	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	71	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/infra/compose.yaml	72	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/map-app/README.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/map-app/README.md	3	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	Maps VN/LifeFlow/map-app/README.md	16	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	Maps VN/LifeFlow/map-app/README.md	22	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/map-app/README.md	28	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/map-app/README.md	29	lifeflow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/map-app/index.html	7	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	Maps VN/LifeFlow/map-app/package-lock.json	2	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/map-app/package-lock.json	8	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/map-app/package.json	2	lifeflow	1	package-source-review	M02	rename	1:M02:rename
+content	Maps VN/LifeFlow/map-app/package.json	11	lifeflow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/map-app/package.json	14	lifeflow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/map-app/playwright.config.ts	8	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/map-app/playwright.config.ts	15	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/map-app/playwright.config.ts	16	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/map-app/src/App.tsx	263	LifeFlow	2	display-prompt-review	M06	rename	1:M06:rename; 2:M06:rename
+content	Maps VN/LifeFlow/map-app/src/components/MapView.tsx	157	LIFEFLOW	2	compatibility-review	M20	preserve	1:M20:preserve; 2:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/components/MapView.tsx	308	LIFEFLOW	2	compatibility-review	M20	preserve	1:M20:preserve; 2:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	62	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	67	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	71	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	74	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	77	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	6	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	7	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	29	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	30	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	101	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	102	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	103	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	107	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	110	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	111	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	145	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	148	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	149	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	157	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	160	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	161	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	190	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	196	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	199	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	200	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	211	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	214	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	215	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	231	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	232	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	264	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	265	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	277	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	281	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	294	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	295	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	296	lifeflow	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	304	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	305	LIFEFLOW	1	compatibility-review	M20	preserve	1:M20:preserve
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	11	lifeflow	3	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	12	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	19	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	20	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	21	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	22	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	23	lifeflow	3	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename
+content	Maps VN/LifeFlow/mcp-server/Dockerfile	24	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/package.json	16	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/package.json	17	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/package.json	21	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/create-server.ts	6	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/create-server.ts	8	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/create-server.ts	10	LifeFlow	2	source-or-runtime-review	M05	rename	1:M05:rename; 2:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/create-server.ts	12	lifeflow	1	source-or-runtime-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	9	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	10	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	15	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	24	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	25	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	27	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	32	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	38	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	51	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	97	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	104	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/http-server.ts	116	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/runtime.ts	9	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/runtime.ts	10	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/runtime.ts	12	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/runtime.ts	18	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/server.ts	2	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/server.ts	3	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/server.ts	5	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/server.ts	8	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/server.ts	11	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/mcp-server/src/tools/audit.ts	8	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/housing-tools.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/housing-tools.ts	9	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/housing-tools.ts	11	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/location-tools.ts	6	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/location-tools.ts	9	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/location-tools.ts	11	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/place-tools.ts	7	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/place-tools.ts	8	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/place-tools.ts	12	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/place-tools.ts	14	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/routing-tools.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/routing-tools.ts	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/routing-tools.ts	5	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/routing-tools.ts	7	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/types.ts	7	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/mcp-server/src/tools/types.ts	9	LifeFlow	1	source-or-runtime-review	M05	rename	1:M05:rename
+content	Maps VN/LifeFlow/mcp-server/tests/mcp-http.integration.test.ts	10	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/mcp-server/tests/mcp-http.integration.test.ts	41	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	Maps VN/LifeFlow/mcp-server/tests/mcp-http.integration.test.ts	56	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts	16	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts	23	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts	34	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	Maps VN/LifeFlow/moving-api/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-api/package.json	13	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-api/src/app.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-api/src/app.ts	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-api/src/app.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-api/src/app.ts	26	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/moving-api/src/app.ts	36	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/moving-api/src/server.ts	7	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/package.json	17	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/package.json	18	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/package.json	19	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts	12	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts	13	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts	14	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts	39	lifeflow	1	source-or-runtime-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/moving-mcp-server/src/http-app.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/http-app.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/http-app.ts	78	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	Maps VN/LifeFlow/moving-mcp-server/src/http-server.ts	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/server.ts	7	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/src/server.ts	16	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/moving-mcp-server/tests/auth.test.ts	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/tests/http.live.test.ts	3	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/moving-mcp-server/tests/live.staging.test.ts	14	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/moving-mcp-server/tests/live.staging.test.ts	21	LIFEFLOW	2	compatibility-review	M16	preserve	1:M16:preserve; 2:M16:preserve
+content	Maps VN/LifeFlow/package-lock.json	2	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	8	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	25	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	28	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	29	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	30	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	44	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	47	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	58	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	61	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	62	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	63	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	668	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	672	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	676	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	680	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	684	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	688	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	692	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	696	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2857	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2868	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2871	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2882	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2891	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2894	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2906	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2910	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package-lock.json	2911	lifeflow	1	generated-metadata-review	M09	rename	1:M09:rename
+content	Maps VN/LifeFlow/package.json	2	lifeflow	1	package-source-review	M02	rename	1:M02:rename
+content	Maps VN/LifeFlow/package.json	17	lifeflow	5	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename; 4:M01:rename; 5:M01:rename
+content	Maps VN/LifeFlow/package.json	22	lifeflow	8	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename; 4:M01:rename; 5:M01:rename; 6:M01:rename; 7:M01:rename; 8:M01:rename
+content	Maps VN/LifeFlow/package.json	23	lifeflow	8	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename; 4:M01:rename; 5:M01:rename; 6:M01:rename; 7:M01:rename; 8:M01:rename
+content	Maps VN/LifeFlow/package.json	24	lifeflow	5	package-source-review	M01	rename	1:M01:rename; 2:M01:rename; 3:M01:rename; 4:M01:rename; 5:M01:rename
+content	Maps VN/LifeFlow/package.json	27	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	30	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	31	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	32	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	33	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	34	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	35	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	36	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	37	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	38	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	39	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	40	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	41	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	43	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/package.json	46	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/package.json	47	lifeflow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	Maps VN/LifeFlow/packages/contracts/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/contracts/src/common.ts	23	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/contracts/src/common.ts	30	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/contracts/src/location.ts	89	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/housing-query/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/package.json	19	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/config.ts	12	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/config.ts	35	lifeflow	1	source-or-runtime-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/device-routing-policy.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/housing-service.ts	14	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/location-service.ts	10	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/place-service.ts	10	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/place-service.ts	287	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/poi-canonicalization.ts	95	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/poi-canonicalization.ts	100	lifeflow	2	compatibility-review	M10	preserve	1:M10:preserve; 2:M10:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/poi-canonicalization.ts	151	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/packages/housing-query/src/route-endpoint-service.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/route-service.ts	8	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/src/spatial-scope.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/housing-query/tests/poi-canonicalization.integration.test.ts	19	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/packages/housing-query/tests/poi-canonicalization.integration.test.ts	153	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/packages/housing-query/tests/poi-canonicalization.integration.test.ts	205	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/packages/mcp-core/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/package.json	20	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/src/config.ts	12	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/packages/moving-service/src/config.ts	52	lifeflow	1	source-or-runtime-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/packages/moving-service/src/mapper.ts	6	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/src/migrate.ts	20	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/packages/moving-service/src/migrate.ts	56	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/packages/moving-service/src/moving-service.ts	15	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/src/repository.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/packages/moving-service/tests/live.staging.test.ts	12	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/platform-api/Dockerfile	11	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	12	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	18	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	19	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	20	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	21	lifeflow	2	package-source-review	M01	rename	1:M01:rename; 2:M01:rename
+content	Maps VN/LifeFlow/platform-api/Dockerfile	22	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/package.json	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/package.json	21	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/package.json	22	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/app.ts	14	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/app.ts	29	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/clean-pois.ts	6	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/clean-pois.ts	59	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/platform-api/src/clean-pois.ts	63	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/platform-api/src/housing-management.ts	3	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/housing-management.ts	667	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/housing-reviews.ts	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/import-admin-areas.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/import-housing.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/import-housing.ts	47	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-housing.ts	305	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-housing.ts	335	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-housing.ts	428	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-places.ts	4	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/import-places.ts	179	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	203	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	224	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	260	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	290	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	331	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/migrate.ts	5	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/migrate.ts	30	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/platform-api/src/migrate.ts	50	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/platform-api/src/migrate.ts	66	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	Maps VN/LifeFlow/platform-api/src/migrate.ts	86	lifeflow	1	source-or-runtime-review	M12	preserve	1:M12:preserve
+content	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	8	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	13	lifeflow	1	compatibility-review	M13	preserve	1:M13:preserve
+content	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	87	lifeflow	1	compatibility-review	M13	preserve	1:M13:preserve
+content	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	101	lifeflow	1	compatibility-review	M13	preserve	1:M13:preserve
+content	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	135	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	Maps VN/LifeFlow/platform-api/src/report-poi-coverage.ts	4	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/src/server.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/api.integration.test.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/api.integration.test.ts	21	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	Maps VN/LifeFlow/platform-api/tests/entity-route-api.test.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/housing-management.integration.test.ts	4	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/housing-management.test.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/housing-reviews.integration.test.ts	3	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/poi-dataset.integration.test.ts	6	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/platform-api/tests/poi-dataset.integration.test.ts	16	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/platform-api/tests/poi-dataset.integration.test.ts	17	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/platform-api/tests/poi-dataset.integration.test.ts	33	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/platform-api/tests/poi-v2.integration.test.ts	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/scripts/check-local-schema.mjs	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/scripts/check-local-schema.mjs	5	LifeFlow	1	source-or-runtime-review	M25	preserve	1:M25:preserve
+content	Maps VN/LifeFlow/scripts/inspect-moving-estimate.mjs	2	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/scripts/moving-stack.mjs	7	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/scripts/test-moving-native.mjs	15	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	18	LifeFlow	1	source-or-runtime-review	M23	preserve	1:M23:preserve
+content	Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	23	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	Maps VN/LifeFlow/scripts/verify-moving-ci.sh	28	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	Maps VN/LifeFlow/scripts/verify-moving-ci.sh	41	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	Maps VN/LifeFlow/scripts/verify-moving-deployment.mjs	4	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	README.md	18	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	README.md	30	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	compose.agents.yaml	3	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	compose.agents.yaml	6	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	compose.agents.yaml	26	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	compose.coolify.yaml	73	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	config/agent-services/registry.json	3	LifeFlow	1	generated-metadata-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	27	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	28	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	31	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	32	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	33	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	34	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	35	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	36	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	41	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	42	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	45	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	46	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	47	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	48	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	49	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	50	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	51	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	56	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	57	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	60	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	61	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	62	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	63	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	64	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	65	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	66	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	95	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	96	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	99	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	100	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	101	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	102	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	103	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	104	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	105	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	106	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	111	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	112	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	115	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	116	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	117	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	118	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	119	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	120	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	121	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	122	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	127	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	128	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	131	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	132	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	133	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	134	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	135	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	136	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	137	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	138	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	config/ci/application-images.json	139	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/ci/application-images.json	140	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	config/local-integration.compose.yaml	1	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	config/local-routing.compose.yaml	1	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	deploy/coolify/staging/README.md	31	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	deploy/coolify/staging/README.md	32	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	deploy/coolify/staging/README.md	35	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	deploy/coolify/staging/moving.md	8	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	deploy/coolify/staging/moving.md	46	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/adr/ADR-001-polyglot-lifeflow-workspace.md	1	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-001-polyglot-lifeflow-workspace.md	11	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-001-polyglot-lifeflow-workspace.md	17	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-001-polyglot-lifeflow-workspace.md	22	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-002-service-adapter-boundary.md	9	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-003-approval-idempotency-and-recovery.md	24	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-004-one-mcp-server-per-domain.md	15	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-004-one-mcp-server-per-domain.md	21	LifeFlow,lifeflow	2	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve
+content	docs/adr/ADR-005-moving-container-http-boundary.md	16	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-007-independent-workspaces.md	8	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-007-independent-workspaces.md	11	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-007-independent-workspaces.md	19	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-008-contract-ownership.md	22	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/adr/ADR-009-postgis-poi-nguon-du-lieu.md	9	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-009-postgis-poi-nguon-du-lieu.md	29	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/adr/ADR-011-ranh-gioi-gia-doi-tac.md	14	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-011-ranh-gioi-gia-doi-tac.md	23	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-011-ranh-gioi-gia-doi-tac.md	29	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/ADR-011-ranh-gioi-gia-doi-tac.md	36	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/adr/README.md	12	LifeFlow,lifeflow	3	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve
+content	docs/api/ahamove-v3-integration.md	7	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/api/ahamove-v3-integration.md	47	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/api/ahamove-v3-integration.md	64	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/api/moving-internal-approvals.md	4	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/api/moving-internal-approvals.md	29	lifeflow	1	documentation-mixed-review	M18	preserve	1:M18:preserve
+content	docs/architecture/agent-graph.md	1078	lifeflow	1	documentation-mixed-review	M17	preserve	1:M17:preserve
+content	docs/architecture/agent-graph.md	2089	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/architecture/infrastructure.md	60	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/architecture/infrastructure.md	429	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/architecture/mcp-service-standard.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/architecture/mcp-service-standard.md	11	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/architecture/mcp-service-standard.md	12	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/architecture/mcp-service-standard.md	59	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/architecture/mvp-architecture.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/architecture/mvp-architecture.md	127	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/architecture/mvp-architecture.md	463	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/architecture/mvp-architecture.md	465	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/architecture/mvp-architecture.md	467	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	docs/design/housing-query-performance.md	33	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/design/housing-query-performance.md	52	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/design/housing-query-performance.md	56	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/design/housing-query-performance.md	59	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/ideas/housing-platform-upgrade.md	20	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/ideas/housing-platform-upgrade.md	23	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/ideas/housing-platform-upgrade.md	24	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/ideas/housing-platform-upgrade.md	143	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/integration/README.md	28	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/README.md	29	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/domain-agents-2026-09-30.md	59	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/domain-agents-2026-09-30.md	70	LIFEFLOW	1	compatibility-review	M23	preserve	1:M23:preserve
+content	docs/integration/housing-viewing-review-fixes-2026-10-09.md	31	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/llm-agents-handoff.md	125	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/llm-agents-handoff.md	128	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/integration/llm-agents-handoff.md	129	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-data-quality-plan-2026-10-04.md	20	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	160	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	161	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	162	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	163	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	164	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	165	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	437	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	488	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	566	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-quality-plan-2026-10-04.md	580	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-data-status.md	21	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-data-status.md	43	LifeFlow,lifeflow	3	compatibility-review	M13	preserve	1:M13:preserve
+content	docs/integration/location-data-status.md	44	LifeFlow	2	documentation-mixed-review	M13	preserve	1:M13:preserve
+content	docs/integration/location-data-status.md	47	LifeFlow	1	documentation-mixed-review	M13	preserve	1:M13:preserve
+content	docs/integration/location-data-status.md	49	LifeFlow	1	documentation-mixed-review	M13	preserve	1:M13:preserve
+content	docs/integration/location-data-status.md	141	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-data-status.md	142	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-change-plan.md	176	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-change-plan.md	242	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-change-plan.md	243	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-change-plan.md	244	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-implementation-status.md	3	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-service-implementation-status.md	77	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-service-implementation-status.md	166	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-service-implementation-status.md	167	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-service-implementation-status.md	248	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/location-service-implementation-status.md	313	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-response.md	55	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-response.md	67	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-response.md	140	lifeflow	1	documentation-mixed-review	M10	preserve	1:M10:preserve
+content	docs/integration/location-service-response.md	211	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	docs/integration/location-service-response.md	303	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/location-service-response.md	341	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-response.md	342	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-response.md	343	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/integration/location-service-response.md	344	LifeFlow	3	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename; 3:M03:rename
+content	docs/integration/location-service-response.md	345	LifeFlow	2	documentation-mixed-review	M03	rename	1:M03:rename; 2:M03:rename
+content	docs/integration/mainland-map-moving-studio-update-2026-10-04.md	41	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/map-backend-update-2026-09-30.md	133	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/map-backend-update-2026-09-30.md	139	LifeFlow	2	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve
+content	docs/integration/map-housing-osrm-audit-2026-10-04.md	89	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/map-housing-osrm-audit-2026-10-04.md	148	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/map-workspace-2026-10-01.md	3	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/map-workspace-2026-10-01.md	55	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/moving-service-response.md	130	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/multiturn-quality-2026-09-30.md	80	LIFEFLOW	1	compatibility-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	18	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	59	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	63	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	64	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	65	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	66	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	67	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	68	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	69	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	70	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	71	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	72	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	73	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	74	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	75	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	81	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	82	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	98	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	99	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	100	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	110	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	111	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	112	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	113	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	189	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	196	LifeFlow	2	documentation-mixed-review	M22	rename	1:M22:rename; 2:M22:rename
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	208	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	228	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	276	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-changes-and-data-handoff-2026-10-04.md	277	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	23	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	24	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	25	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	26	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	27	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	28	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	29	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	41	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	60	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	64	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	98	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	164	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	183	lifeflow	1	documentation-mixed-review	M14	preserve	1:M14:preserve
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	192	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-housing-performance-handoff-2026-10-10.md	201	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/integration/quangdung-review-fixes-2026-10-08.md	74	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/search-scope-roommate-2026-10-08.md	86	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/search-scope-roommate-2026-10-08.md	121	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	142	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	361	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	362	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	363	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	364	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	403	LifeFlow	4	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve; 4:M23:preserve
+content	docs/integration/siu-ai-agent-first-frontend-plan.md	404	LifeFlow	3	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve
+content	docs/integration/system-runtime-audit-2026-10-07.md	9	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/turn-rules-fixes-2026-10-01.md	3	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/integration/vietnam-map-moving-update-2026-10-04.md	36	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/moving-and-orchestrator-requests.md	66	lifeflow	1	documentation-mixed-review	M18	preserve	1:M18:preserve
+content	docs/moving-and-orchestrator-requests.md	143	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/moving-and-orchestrator-requests.md	145	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	docs/review/khoa-retest.md	9	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/khoa-retest.md	92	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	1	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	62	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	73	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	107	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	108	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	109	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/mvp-architecture.md	119	lifeflow	2	documentation-mixed-review	M14	preserve	1:M14:preserve; 2:M14:preserve
+content	docs/review/mvp-architecture.md	131	lifeflow	2	documentation-mixed-review	M14	preserve	1:M14:preserve; 2:M14:preserve
+content	docs/review/mvp-architecture.md	631	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/quangdung-housing-validation-2026-10-09.md	33	lifeflow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/review/quangdung-housing-validation-2026-10-09.md	45	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	docs/runbooks/agent-services.md	93	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/agent-services.md	95	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/agent-services.md	107	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/agent-services.md	108	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/agent-services.md	118	LifeFlow,lifeflow	2	documentation-mixed-review	M01;M03	rename	1:M03:rename; 2:M01:rename
+content	docs/runbooks/ahamove-staging.md	6	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/ahamove-staging.md	11	LifeFlow	1	documentation-mixed-review	M24	preserve	1:M24:preserve
+content	docs/runbooks/ahamove-staging.md	35	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/ahamove-staging.md	58	LifeFlow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/ahamove-staging.md	60	LIFEFLOW,LifeFlow	2	compatibility-review	M16;M24	preserve	1:M16:preserve; 2:M24:preserve
+content	docs/runbooks/housing-management.md	26	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/housing-management.md	73	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/housing-management.md	74	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/runbooks/housing-management.md	75	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/runbooks/housing-management.md	76	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/runbooks/local-mvp.md	32	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/local-mvp.md	43	LifeFlow,lifeflow	5	documentation-mixed-review	M03;M12;M14;M24	mixed	1:M03:rename; 2:M14:preserve; 3:M12:preserve; 4:M24:preserve; 5:M14:preserve
+content	docs/runbooks/local-mvp.md	140	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/local-mvp.md	160	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	docs/runbooks/local-mvp.md	171	lifeflow	2	documentation-mixed-review	M12	preserve	1:M12:preserve; 2:M12:preserve
+content	docs/runbooks/local-mvp.md	172	lifeflow	1	documentation-mixed-review	M12	preserve	1:M12:preserve
+content	docs/runbooks/moving-containers.md	11	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/moving-containers.md	12	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/runbooks/moving-containers.md	17	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/moving-containers.md	18	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/moving-containers.md	61	lifeflow	1	documentation-mixed-review	M17	preserve	1:M17:preserve
+content	docs/runbooks/moving-containers.md	110	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/runbooks/moving-containers.md	113	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/moving-containers.md	114	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/moving-containers.md	115	lifeflow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	docs/runbooks/roommate.md	28	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	docs/runbooks/self-hosted-ci.md	47	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/README.md	64	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-004-ahamove-moving-service.md	9	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-004-ahamove-moving-service.md	13	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/SPEC-004-ahamove-moving-service.md	153	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	docs/specs/SPEC-007-location-platform.md	1	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/SPEC-007-location-platform.md	14	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-007-location-platform.md	53	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-007-location-platform.md	54	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	12	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	18	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	20	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	21	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	42	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-ban-do-va-poi.md	43	LifeFlow,lifeflow	2	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-008-service-tools.md	24	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-009-tim-kiem-va-tien-ich-gan.md	17	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-009-tim-kiem-va-tien-ich-gan.md	18	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-009-tim-kiem-va-tien-ich-gan.md	46	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-009-tim-kiem-va-tien-ich-gan.md	47	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-010-tim-nha-o.md	15	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-010-tim-nha-o.md	16	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-010-tim-nha-o.md	47	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-010-tim-nha-o.md	48	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-011-dinh-tuyen.md	14	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-011-dinh-tuyen.md	15	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-011-dinh-tuyen.md	65	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	14	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	21	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	22	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	25	lifeflow	1	documentation-mixed-review	M10	preserve	1:M10:preserve
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	38	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	docs/specs/SPEC-012-vung-dich-vu-va-gia.md	45	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-013-mcp-vi-tri.md	13	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-013-mcp-vi-tri.md	14	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-013-mcp-vi-tri.md	47	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-015-maps-and-location-experience.md	142	LifeFlow	3	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve
+content	docs/specs/SPEC-015-maps-and-location-experience.md	143	LifeFlow	3	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve
+content	docs/specs/SPEC-015-maps-and-location-experience.md	144	LifeFlow	3	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve; 3:M23:preserve
+content	docs/specs/SPEC-015-maps-and-location-experience.md	145	LifeFlow	2	documentation-mixed-review	M23	preserve	1:M23:preserve; 2:M23:preserve
+content	docs/specs/SPEC-016-housing-search.md	17	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-016-housing-search.md	27	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-018-search-scope-and-roommate-map.md	73	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-018-search-scope-and-roommate-map.md	74	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-020-housing-controls-roommate-discovery.md	35	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-021-housing-product-v1.md	30	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/SPEC-021-housing-product-v1.md	61	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	docs/specs/internal-mcp-auth.md	5	lifeflow	1	documentation-mixed-review	M01	rename	1:M01:rename
+content	eval/device-routing-2026-10-08.md	29	LifeFlow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/device-routing-2026-10-08.md	36	LifeFlow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/moving-form-latency-2026-10-05.md	21	lifeflow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/persona-regression-2026-10-05.md	19	lifeflow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/persona-regression-2026-10-05.md	158	lifeflow	1	compatibility-review	M23	preserve	1:M23:preserve
+content	eval/read-latency-2026-10-05.md	107	lifeflow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/read-latency-2026-10-05.md	114	lifeflow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/read-latency-2026-10-05.md	119	lifeflow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	eval/read-latency-2026-10-05.md	163	LifeFlow	1	historical-evidence-review	M23	preserve	1:M23:preserve
+content	location-service-requests.md	3	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	location-service-requests.md	103	lifeflow	1	compatibility-review	M23	preserve	1:M23:preserve
+content	location-service-requests.md	112	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	location-service-requests.md	115	lifeflow	1	compatibility-review	M23	preserve	1:M23:preserve
+content	location-service-requests.md	116	LifeFlow	1	documentation-mixed-review	M23	preserve	1:M23:preserve
+content	scripts/export-agent-registry.mjs	8	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	scripts/export-agent-registry.mjs	10	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	scripts/export-agent-registry.mjs	56	LifeFlow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	scripts/export-agent-registry.mjs	60	LifeFlow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	scripts/housing-geocode-apply.py	31	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	scripts/housing-geocode-apply.py	123	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/housing-geocode-apply.py	125	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/housing-geocode-full.py	76	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/housing-geocode-full.py	760	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/housing-geocode.py	242	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/init-local-integration.py	15	lifeflow	1	compatibility-review	M12	preserve	1:M12:preserve
+content	scripts/init-local-integration.py	46	LifeFlow	1	source-or-runtime-review	M24	preserve	1:M24:preserve
+content	scripts/local-integration.py	17	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	scripts/local-integration.py	66	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	scripts/local-integration.py	92	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	scripts/local-integration.py	169	LifeFlow	2	source-or-runtime-review	M03	rename	1:M03:rename; 2:M03:rename
+content	scripts/normalize-housing-room-bedrooms.py	36	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/normalize-housing-room-bedrooms.py	73	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	scripts/normalize-housing-room-bedrooms.py	105	lifeflow	1	compatibility-review	M10	preserve	1:M10:preserve
+content	scripts/restore-local-snapshot.py	36	lifeflow	1	compatibility-review	M13	preserve	1:M13:preserve
+content	scripts/restore-local-snapshot.py	39	lifeflow	1	compatibility-review	M13	preserve	1:M13:preserve
+content	scripts/restore-local-snapshot.py	65	lifeflow	1	compatibility-review	M21	preserve	1:M21:preserve
+content	scripts/restore-local-snapshot.py	82	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	scripts/smoke-agent-containers.py	64	lifeflow	1	source-or-runtime-review	M21	preserve	1:M21:preserve
+content	scripts/smoke-agent-containers.py	72	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	scripts/smoke-agent-containers.py	82	lifeflow	1	source-or-runtime-review	M18	preserve	1:M18:preserve
+content	scripts/smoke-mcp-containers.sh	37	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	scripts/start-local-mvp.ps1	21	lifeflow	3	compatibility-review	M14	preserve	1:M14:preserve; 2:M14:preserve; 3:M14:preserve
+content	scripts/test-migration-image.py	38	lifeflow	1	compatibility-review	M11	preserve	1:M11:preserve
+content	src/agent_services/intake/app.py	21	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	src/agent_services/intake/app.py	22	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	src/agent_services/intake/service.py	12	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agent_services/orchestrator/app.py	38	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	src/agent_services/orchestrator/app.py	40	lifeflow	1	compatibility-review	M17	preserve	1:M17:preserve
+content	src/agent_services/orchestrator/planner.py	10	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agents/README.md	9	LifeFlow	1	documentation-mixed-review	M22	rename	1:M22:rename
+content	src/agents/README.md	77	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	src/agents/README.md	78	LifeFlow	1	documentation-mixed-review	M15	preserve	1:M15:preserve
+content	src/agents/intake_llm.py	113	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agents/planner_llm.py	68	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agents/subagents/services/domain_tools.py	267	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/agents/subagents/services/domain_tools.py	386	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/agents/subagents/services/flight.py	20	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/agents/subagents/services/location.py	28	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/agents/subagents/services/moving_llm.py	100	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agents/subagents/services/read_llm.py	25	LifeFlow	1	display-prompt-review	M07	rename	1:M07:rename
+content	src/agents/subagents/services/read_llm.py	99	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/api/routes.py	396	LifeFlow	1	source-or-runtime-review	M08	preserve	1:M08:preserve
+content	src/mcp_servers/http_service.py	1	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	src/services/adapters/commit.py	201	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/services/adapters/commit.py	241	lifeflow	1	source-or-runtime-review	M18	preserve	1:M18:preserve
+content	src/services/adapters/commit.py	380	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/services/adapters/commit.py	439	lifeflow	1	source-or-runtime-review	M18	preserve	1:M18:preserve
+content	src/services/adapters/commit.py	458	LifeFlow	1	source-or-runtime-review	M07	preserve	1:M07:preserve
+content	src/services/adapters/mcp.py	55	lifeflow	1	package-source-review	M01	rename	1:M01:rename
+content	src/services/adapters/moving_approval.py	43	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	src/ui/agent_chat.py	12	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	src/ui/agent_chat.py	13	LifeFlow	1	display-prompt-review	M06	rename	1:M06:rename
+content	src/ui/mvp_components.py	12	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tasks/plan.md	29	LifeFlow	1	documentation-mixed-review	M03	rename	1:M03:rename
+content	tests/test_agent_services/test_live_llm.py	20	LIFEFLOW	2	compatibility-review	M16	preserve	1:M16:preserve; 2:M16:preserve
+content	tests/test_agent_services/test_live_llm.py	58	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_agents/test_map_workspace.py	242	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	tests/test_agents/test_moving_feedback.py	93	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	tests/test_agents/test_service_subagents.py	178	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	tests/test_agents/test_service_subagents.py	222	LifeFlow	1	source-or-runtime-review	M26	rename	1:M26:rename
+content	tests/test_api/test_viewing_live.py	62	lifeflow	1	compatibility-review	M18	preserve	1:M18:preserve
+content	tests/test_ci_container_smoke.py	111	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	tests/test_ci_container_smoke.py	125	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_container_smoke.py	169	lifeflow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	tests/test_ci_container_smoke.py	170	lifeflow	1	compatibility-review	M15	preserve	1:M15:preserve
+content	tests/test_ci_images.py	47	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	53	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	56	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	58	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	tests/test_ci_images.py	59	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	60	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	64	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	65	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	66	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+content	tests/test_ci_images.py	117	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	tests/test_ci_images.py	130	LifeFlow	1	source-or-runtime-review	M15	preserve	1:M15:preserve
+content	tests/test_llm_agents/test_location_quality_live.py	39	lifeflow	1	compatibility-review	M14	preserve	1:M14:preserve
+content	tests/test_llm_agents/test_moving_form_live.py	356	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_llm_agents/test_moving_form_live.py	357	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_llm_agents/test_moving_form_live.py	395	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_llm_agents/test_moving_form_live.py	397	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_llm_agents/test_moving_live.py	65	LIFEFLOW	1	compatibility-review	M16	preserve	1:M16:preserve
+content	tests/test_llm_agents/test_moving_live.py	69	LifeFlow	1	source-or-runtime-review	M03	rename	1:M03:rename
+path	Maps VN/LifeFlow/.dockerignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/.env.example	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/.gitignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Dockerfile.moving	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Dockerfile.moving.dockerignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Extract-Poi-V2.ps1	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/README.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/STREAMLIT_MVP.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Setup-Routing.ps1	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Start-LifeFlow.ps1	0	LifeFlow	2	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/Stop-LifeFlow.ps1	0	LifeFlow	2	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/compose.moving.ci.yaml	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/compose.moving.staging-write.yaml	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/compose.moving.yaml	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/config/poi-tags-filter.txt	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/001_extensions_and_schemas.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/002_core_tables.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/003_seed_categories.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/004_import_duplicate_count.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/005_administrative_area_search.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/006_poi_ingestion_v2.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/007_poi_osmium_area_identity.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/008_address_search.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/008_moving_service.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/009_mobility_readiness.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/010_housing_ingestion.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/011_poi_canonical_identity.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/012_poi_physical_cleanup.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/013_housing_product_v1.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/014_housing_host_profiles.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/015_housing_viewing_requests.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/016_self_service_places_are_housing_anchors.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/017_housing_contact_messages.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/018_housing_landlord_reviews.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/019_housing_map_points.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/020_housing_map_display.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/021_housing_text_indexes.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/migrations/022_normalize_search_path_independent.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/moving/001_audit.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/database/rollbacks/housing_query_performance.sql	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/__init__.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/agent.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/mcp_client.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/requirements.txt	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/streamlit_app.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/test_demo.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/demo/tool_lab_app.py	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/CHECKPOINT-RESOLVE-LOCATION-SEARCH-AREAS.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/HOUSING-CRAWL-PLAYBOOK.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/HOUSING-QUERY-IMPLEMENTATION.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/LIFEFLOW-MCP-POSTGIS-PLAN.md	0	LIFEFLOW,LifeFlow	2	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/MAP-FILE-AUDIT-AND-HANDOFF.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/MCP-CONTAINER-HANDOFF.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/docs/POI-CANONICALIZATION.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/infra/compose.yaml	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/infra/osrm/profiles/motorcycle.lua	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/.env.example	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/.gitignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/.oxlintrc.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/README.md	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/index.html	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/package-lock.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/playwright.config.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/public/data/accommodations.geojson	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/public/favicon.svg	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/public/icons.svg	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/scripts/copy-maplibre-worker.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/scripts/prepare-poi.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/App.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/CitySwitcher.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/HousingCard.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/HousingDetailDrawer.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/HousingFilterBar.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/HousingPopup.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/HousingResultsPanel.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/MapView.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/PoiPopup.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/RoutePanel.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/SearchBar.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/components/housing-ui.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/config/cities.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/config/map-theme.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/config/poi-groups.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/index.css	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/main.tsx	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/services/osrm.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/services/platform-housing.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/services/platform-poi.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/services/poi.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/src/types/index.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/tests/lifeflow.spec.ts	0	LifeFlow,lifeflow	2	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/tsconfig.app.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/tsconfig.node.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/map-app/vite.config.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/Dockerfile	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/Dockerfile.dockerignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/create-server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/http-server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/runtime.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/audit.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/housing-tools.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/location-tools.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/place-tools.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/routing-tools.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/src/tools/types.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/tests/mcp-http.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/mcp-server/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-api/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-api/src/app.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-api/src/server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-api/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/src/http-app.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/src/http-server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/src/server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/tests/auth.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/tests/http.live.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/tests/live.staging.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/moving-mcp-server/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/package-lock.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/common.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/housing.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/index.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/location.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/moving.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/place.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/src/route.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/tests/contracts.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/tests/device-route.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/tests/entity-route.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/tests/search-scope.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/contracts/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/config.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/current-offer.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/cursor.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/database.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/device-routing-policy.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/errors.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/execution.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/housing-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/index.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/location-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/place-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/poi-canonicalization.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/poi-label.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/review-summary.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/route-endpoint-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/route-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/src/spatial-scope.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/device-routing-policy.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/execution.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/housing-query.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/map-points.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/poi-canonicalization.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/route-service.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tests/spatial-scope.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/housing-query/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/mcp-core/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/mcp-core/src/auth.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/mcp-core/src/index.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/mcp-core/tests/auth.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/mcp-core/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/ahamove-client.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/config.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/database.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/errors.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/hash.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/index.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/mapper.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/migrate.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/moving-service.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/src/repository.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/tests/live.staging.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/packages/moving-service/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/Dockerfile	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/Dockerfile.dockerignore	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/package.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/app.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/clean-pois.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/deduplicate-pois.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/housing-management.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/housing-reviews.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/import-admin-areas.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/import-housing.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/import-places.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/import-pois-v2.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/migrate.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/poi-dataset.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/poi-normalization.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/report-poi-coverage.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/src/server.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/api.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/entity-route-api.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/housing-management.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/housing-management.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/housing-reviews.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/housing-reviews.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/poi-dataset.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/poi-normalization.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tests/poi-v2.integration.test.ts	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/platform-api/tsconfig.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/reports/poi-coverage-v2.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/check-device-provider.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/check-device-routing.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/check-local-schema.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/inspect-moving-estimate.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/moving-stack.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/test-moving-native.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/verify-housing-query-performance.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/verify-moving-ci.sh	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/scripts/verify-moving-deployment.mjs	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	Maps VN/LifeFlow/tsconfig.base.json	0	LifeFlow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24
+path	docs/adr/ADR-001-polyglot-lifeflow-workspace.md	0	lifeflow	1	tracked-source-path-review	M03	rename	tracked source path -> path-map.tsv target_path; persisted siblings stay M24

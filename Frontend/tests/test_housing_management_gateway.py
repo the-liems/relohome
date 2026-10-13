@@ -55,6 +55,8 @@ async def test_housing_image_upload_is_sanitized_and_registered(tmp_path, monkey
     monkeypatch.setenv("SIU_HOUSING_MEDIA_DIR", str(tmp_path / "media"))
 
     def provider(request):
+        if request.method == "GET":
+            return httpx.Response(200, json={"public": False})
         body = json.loads(request.content)
         assert body["url"].startswith("https://example.test/web/media/housing/")
         assert body["url"].endswith(".png")
@@ -132,7 +134,7 @@ async def test_host_profile_routes_and_outcome_codes(tmp_path, monkeypatch):
         saved = await client.put("/web/api/housing-management/host/profile", json={"poster_type": "owner"})
         assert saved.json() == {"method": "PUT", "path": "/v1/host/profile"}
         review = await client.post("/web/api/housing-management/moderation/host/abc123/review", json={})
-        assert review.json()["path"] == "/v1/moderation/host/abc123/review"
+        assert review.status_code == 403
         assert (await client.post("/web/api/housing-management/moderation/host/a.b/review", json={})).status_code == 404
         # The workspace needs the outcome code; nothing else from upstream is forwarded.
         blocked = await client.post("/web/api/housing-management/landlord/properties", json={})
@@ -380,7 +382,7 @@ async def test_review_gateway_preserves_session_identity_and_pagination(tmp_path
         assert json.loads(captured[-1].content) == {"rating": 4, "body": ""}
         withdrawn = await client.request("DELETE", f"/web/api/housing-management/housing/{listing}/review", json={})
         assert withdrawn.status_code == 200
-        assert (await client.get("/web/api/housing-management/moderation/housing/reviews")).status_code == 200
+        assert (await client.get("/web/api/housing-management/moderation/housing/reviews")).status_code == 403
         assert (
             await client.post(
                 f"/web/api/housing-management/housing/reviews/{listing}/report", json={"reason": "Cần kiểm tra."}

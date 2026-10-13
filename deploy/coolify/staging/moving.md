@@ -5,7 +5,7 @@ Chưa tạo resource, domain hay token Coolify từ workspace.
 
 ## Images và processes
 
-Build từ `Maps VN/LifeFlow/Dockerfile.moving`, context `Maps VN/LifeFlow`:
+Build từ `Maps VN/LifeFlow/Dockerfile.moving`, context gốc repository (`.`):
 
 | Target / image suffix | Start command | Port | Loại |
 |---|---|---|---|

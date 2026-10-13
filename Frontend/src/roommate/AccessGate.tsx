@@ -4,6 +4,9 @@ import { roommate, RoommateError } from "./client";
 import { ErrorNotice } from "./ErrorNotice";
 import type { Access } from "./types";
 import { rt } from "./text";
+import { useContext } from "react";
+import { RoommateFeatures } from "./Features";
+import { PrivacyPanel } from "./PrivacyPanel";
 export function AccessGate({
   access,
   done,
@@ -11,12 +14,18 @@ export function AccessGate({
   access: Access;
   done: () => void;
 }) {
+  const privacyEnabled = useContext(RoommateFeatures).includes("privacy");
   const [adult, setAdult] = useState(false),
     [terms, setTerms] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null);
   if (access.reason === "service_restricted")
-    return <ErrorNotice error={new RoommateError("service_restricted", 403)} />;
+    return (
+      <>
+        <ErrorNotice error={new RoommateError("service_restricted", 403)} />
+        {privacyEnabled && <PrivacyPanel />}
+      </>
+    );
   return (
     <section className="rm-access rm-panel">
       <ShieldCheck size={26} aria-hidden="true" />

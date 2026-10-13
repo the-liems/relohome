@@ -57,7 +57,7 @@ def test_budget_is_not_inherited_when_named_district_changes():
     )
     args = (session, [AgentName.PROPERTY], {AgentName.PROPERTY: "cheap"}, GraphSettings().prefill_ttl, AT)
     assert "max_price_vnd" not in prefill_from_memory({"city": "Hà Nội", "district": "Cầu Giấy"}, *args)
-    assert "max_price_vnd" in prefill_from_memory({"city": "Hà Nội", "district": "Hai Bà Trưng"}, *args)
+    assert "max_price_vnd" not in prefill_from_memory({"city": "Hà Nội", "district": "Hai Bà Trưng"}, *args)
 
 
 def test_unknown_district_history_cannot_authorize_a_budget_for_a_new_named_area():

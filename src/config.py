@@ -2,13 +2,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -28,7 +27,12 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
     # Database
-    database_url: str = "sqlite:///./data/app.db"
+    # BACKEND_DATABASE_URL is the unique name in the shared local environment and wins
+    # over a generic inherited DATABASE_URL; containers may still set DATABASE_URL.
+    database_url: str = Field(
+        default="sqlite:///./data/app.db",
+        validation_alias=AliasChoices("BACKEND_DATABASE_URL", "DATABASE_URL", "database_url"),
+    )
 
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
@@ -40,6 +44,11 @@ class Settings(BaseSettings):
     roommate_moderators: str = ""
     roommate_demo_enabled: bool = False
     roommate_demo_dataset: Path | None = None
+    roommate_storage: Literal["sqlite", "postgres"] = "sqlite"
+    roommate_database_url: SecretStr = SecretStr("")
+    roommate_contact_key: SecretStr = SecretStr("")
+    roommate_database_schema: str = "roommate"
+    roommate_database_pool_size: int = Field(default=8, ge=1, le=32)
     agent_api_token: SecretStr = SecretStr("")
 
 

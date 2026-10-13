@@ -2,11 +2,12 @@
 # Build with the repository root as the context.
 FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /web
-COPY Frontend/package*.json ./
-COPY Frontend/scripts ./scripts
-RUN npm ci
-COPY Frontend/ ./
-RUN npm run build
+COPY package.json package-lock.json ./
+COPY Frontend/package.json ./Frontend/package.json
+COPY Frontend/scripts ./Frontend/scripts
+RUN npm ci --workspace Frontend --include-workspace-root=false
+COPY Frontend/ ./Frontend/
+RUN npm run build --workspace Frontend
 
 FROM python:3.11-slim AS python-build
 WORKDIR /app
@@ -24,7 +25,7 @@ RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data && chown appuser:appuser /app/data
 # Every top-level gateway module (server, store, roommate_gateway, ...); tests check imports resolve.
 COPY --chmod=u=rwX,go=rX Frontend/*.py ./Frontend/
-COPY --chmod=u=rwX,go=rX --from=frontend-build /web/dist ./Frontend/dist
+COPY --chmod=u=rwX,go=rX --from=frontend-build /web/Frontend/dist ./Frontend/dist
 USER appuser
 EXPOSE 8503
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \

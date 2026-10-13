@@ -71,13 +71,13 @@ def eventually(check, timeout=90):
 
 
 def application_trace(path, collector, token, database_url):
-    workspace = ROOT / "Maps VN/LifeFlow"
+    workspace = ROOT
     env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "OBSERVABILITY_CONTENT_MODE": "redacted",
            "OTEL_EXPORTER_OTLP_ENDPOINT": collector, "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20" + token,
            "OTEL_DEPLOYMENT_ENVIRONMENT": "staging", "OTEL_SERVICE_NAME": "smoke-node",
            "SMOKE_DATABASE_URL": database_url, "SMOKE_MCP_TOKEN": "smoke-" + secrets.token_hex(32)}
     with (path / "node.stdout").open("w") as stdout, (path / "node.stderr").open("w") as stderr:
-        child = subprocess.Popen(["node", "--import", "@lifeflow/telemetry/register",
+        child = subprocess.Popen(["node", "--import", "@relohome/telemetry/register",
             "packages/telemetry/tests/mcp-postgres.mjs"], cwd=workspace, env=env, stdout=stdout, stderr=stderr)
         try:
             endpoint = eventually(lambda: next((line for line in (path / "node.stdout").read_text().splitlines()

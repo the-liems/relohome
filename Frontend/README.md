@@ -411,15 +411,13 @@ thoại/email, liên hệ chính xác gửi ở bước phê duyệt.
 
 ## Chạy ứng dụng
 
-Cần Python environment của repo, Node 22.12+ và các service theo [runbook local](../docs/runbooks/local-mvp.md).
+Cần Python environment của repo, Node 24/npm 11 và các service theo [runbook local](../docs/runbooks/local-mvp.md).
 
 Từ gốc repo:
 
 ```powershell
-cd Frontend
 npm ci
-npm run build
-cd ..
+npm run build:web
 .venv/Scripts/python.exe scripts/local-integration.py ui
 ```
 
@@ -430,8 +428,7 @@ Mở **http://127.0.0.1:8503**. Agent API cần chạy tại 8000; map khám ph�
 Giữ gateway tại 8503. Trong terminal khác:
 
 ```powershell
-cd Frontend
-npm run dev
+npm run dev:web
 ```
 
 Mở **http://127.0.0.1:5174**. Vite proxy `/web/api` tới gateway. Nếu gateway đổi địa chỉ, đặt `SIU_GATEWAY_URL` trước khi chạy Vite.

@@ -6,6 +6,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5174",
     channel: "chrome",
+    // Optional user-installed Chrome for Testing; default remains system Chrome.
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH },
     headless: true,
     screenshot: "only-on-failure",
   },

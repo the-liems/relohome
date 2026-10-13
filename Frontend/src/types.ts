@@ -1,6 +1,7 @@
 // Domain payloads are additive. Unknown component types fall back to explanatory text.
 export type Data = Record<string, any>;
 export interface User {
+  is_admin?: boolean;
   id: string;
   email: string;
   name: string;

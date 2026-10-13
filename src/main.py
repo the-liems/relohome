@@ -1,4 +1,6 @@
+import logging
 from contextlib import asynccontextmanager
+from time import monotonic
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +15,9 @@ from src.api.roommate_connections import router as roommate_connections_router
 from src.api.roommate_discovery import router as roommate_discovery_router
 from src.api.roommate_map import router as roommate_map_router
 from src.api.roommate_media import router as roommate_media_router
+from src.api.roommate_notifications import router as roommate_notifications_router
+from src.api.roommate_operations import router as roommate_operations_router
+from src.api.roommate_privacy import router as roommate_privacy_router
 from src.api.roommate_profiles import router as roommate_profiles_router
 from src.api.roommate_safety import router as roommate_safety_router
 from src.api.routes import router
@@ -22,6 +27,7 @@ from src.api.web_actions import router as web_actions_router
 from src.config import get_settings
 from src.observability import initialize
 from src.observability.asgi import TelemetryMiddleware
+from src.roommate.background import RoommateMaintenance
 from src.roommate.runtime import RoommateRuntime
 
 initialize("backend")
@@ -34,14 +40,19 @@ async def lifespan(app: FastAPI):
     roommate = RoommateRuntime.open(settings)
     app.state.roommate_runtime = roommate
     service = None
+    maintenance = RoommateMaintenance(roommate) if roommate else None
     try:
         service = await AgentService.open(roommate_runtime=roommate)
         app.state.agent_service = service
         if service.checkout is not None:
             # Chạy tiếp công việc hoàn tất còn dở sau khi khởi động lại (payment-design §7.4).
             await service.checkout.start()
+        if maintenance:
+            maintenance.start()
         yield
     finally:
+        if maintenance:
+            await maintenance.stop()
         if service:
             if service.checkout is not None:
                 await service.checkout.stop()
@@ -82,14 +93,22 @@ app.include_router(roommate_connections_router, prefix="/api/v1")
 app.include_router(roommate_safety_router, prefix="/api/v1")
 app.include_router(roommate_media_router, prefix="/api/v1")
 app.include_router(roommate_map_router, prefix="/api/v1")
+app.include_router(roommate_notifications_router, prefix="/api/v1")
+app.include_router(roommate_privacy_router, prefix="/api/v1")
+app.include_router(roommate_operations_router, prefix="/api/v1")
 
 
 @app.middleware("http")
 async def roommate_private_cache(request, call_next):
+    started = monotonic()
     response = await call_next(request)
     if request.url.path.startswith("/api/v1/roommate/") and not request.url.path.endswith("/availability"):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Pragma"] = "no-cache"
+        route = getattr(request.scope.get("route"), "path", "unknown")
+        logging.getLogger("roommate.http").info(
+            "roommate_request route=%s status=%d seconds=%.3f", route, response.status_code, monotonic() - started
+        )
     return response
 
 

@@ -44,6 +44,12 @@ class SqlSafety:
 
     def report(self, actor: str, target: str, reason: str, now: datetime) -> str:
         require_transaction(self.db)
+        existing = self.db.execute(
+            "SELECT id FROM reports WHERE actor=? AND target=? AND reason=? AND status='open' ORDER BY created,id LIMIT 1",
+            (actor, target, reason),
+        ).fetchone()
+        if existing:
+            return existing[0]
         identifier = uuid4().hex
         self.db.execute(
             "INSERT INTO reports(id,actor,target,reason,created) VALUES (?,?,?,?,?)",
@@ -54,9 +60,21 @@ class SqlSafety:
     def reports(self) -> list[dict]:
         return [dict(row) for row in self.db.execute("SELECT * FROM reports ORDER BY created,id")]
 
-    def resolve_report(self, identifier: str) -> None:
+    def resolve_report(self, identifier: str, moderator: str | None = None, now: datetime | None = None) -> None:
         require_transaction(self.db)
+        row = self.db.execute("SELECT target,status FROM reports WHERE id=?", (identifier,)).fetchone()
+        if not row:
+            from src.roommate.access import RoommateError
+
+            raise RoommateError("report_unavailable", status=404)
+        if row["status"] == "reviewed":
+            return
         self.db.execute("UPDATE reports SET status='reviewed' WHERE id=?", (identifier,))
+        if moderator is not None and now is not None:
+            self.db.execute(
+                "INSERT INTO moderation VALUES (?,?,?,?,?,?)",
+                (uuid4().hex, moderator, row["target"], "report_review", identifier, utc(now).timestamp()),
+            )
 
     def moderate(self, moderator: str, target: str, restricted: bool, reason: str, now: datetime) -> None:
         require_transaction(self.db)

@@ -45,7 +45,7 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | Every job | Bash and Git |
 | Python CI, agent services, map data, MVP, Coolify deployment | Python 3.11 and pip, provided by `actions/setup-python` |
 | Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
-| MVP | Node.js 22 and npm (existing workspace validation version) |
+| MVP | Node.js 24 and npm 11, matching root tooling |
 | Application images, PostGIS, MCP images, agent services, Moving validation/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
 | Agent services | Docker Buildx |
 | MCP images | Make, awk, basename, dirname, xargs, Docker Buildx |
@@ -74,11 +74,25 @@ creation directly. Python images use `COPY --chmod=u=rwX,go=rX` for source/confi
 readable and directories traversable by existing non-root service users. Source
 remains root-owned; the Dockerfile frontend is pinned to 1.14 for symbolic modes.
 The normal MCP and agent smoke checks validate container startup.
-Migration image jobs strip group/other permissions from the build context before
-building, then run each image twice against a disposable database. The checker
-uses PyYAML from the job-local environment to read database image tags from
-`compose.coolify.yaml`. PR jobs also log into GHCR so they can pull private
-PostGIS images; publishing remains limited to main.
+
+## Migration SQL validation
+
+Before publishing, migration image jobs execute the built image's default migration
+command against a disposable PostgreSQL/PostGIS database. These checks validate
+that the SQL applies successfully, creates the expected schema and migration
+history, and grants access to application roles. A second run must succeed with
+unchanged migration history. SQL errors or failed assertions fail the job before
+the image is pushed.
+
+The jobs build from the normal checkout. File ownership and modes are defined by
+the Dockerfiles' `COPY` instructions; CI does not alter build-context permissions.
+The checker uses PyYAML from the job-local environment to read database image tags
+from `compose.coolify.yaml`. Each test uses isolated databases and credentials and
+cleans up its containers and network on exit. PR jobs also log into GHCR so they
+can pull private PostGIS images; publishing remains limited to main.
+
+Coverage includes fresh database setup and rerunning the same migrations.
+Upgrades from older release schemas remain a separate follow-up.
 
 ## Workflow ownership and release coordination
 
@@ -182,3 +196,7 @@ actionlint -ignore 'unexpected key "queue" for "concurrency" section'
 Keep `queue: max` with `cancel-in-progress: false`; GitHub rejects `queue: max`
 with cancellation enabled. Other lint diagnostics remain enabled. Remove the
 exception when actionlint supports the property.
+
+Root installation/build/test commands and browser prerequisites are documented in
+[root tooling](root-tooling.md). npm CI caches use the single root lockfile; the
+`lifeflow-typescript` job key remains unchanged for branch protection.

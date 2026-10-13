@@ -1,0 +1,26 @@
+{
+  "name": "@relohome/mcp-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run tests --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "@types/node": "^24.10.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@relohome/telemetry": "0.1.0"
+  }
+}

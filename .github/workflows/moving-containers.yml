@@ -46,7 +46,7 @@ jobs:
             while IFS= read -r path; do
               case "$path" in
                 *.md) continue ;;
-                'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
+                'package.json'|'package-lock.json'|'scripts/docker-npm.mjs'|'tsconfig.base.json'|'packages/contracts/'*|'packages/mcp-core/'*|'packages/moving-service/'*|'apps/moving-api/'*|'apps/moving-mcp/'*|'Maps VN/LifeFlow/'*|'.github/workflows/moving-containers.yml'|'scripts/check-ci-runner.sh') validate=true ;;
               esac
             done < <(git diff --name-only "$BASE_SHA" HEAD)
             echo "validate=$validate" >> "$GITHUB_OUTPUT"
@@ -72,7 +72,8 @@ jobs:
         working-directory: .
         run: bash scripts/check-ci-runner.sh node docker compose
       - name: Build and test moving workspaces
-        run: npm ci && npm run build:moving && npm run test:ci
+        working-directory: .
+        run: npm ci && npm run build:ts && npm run test:ci
       - name: Validate scripts and Compose
         shell: bash
         run: |
@@ -127,7 +128,8 @@ jobs:
             echo "$name=$value" >> "$GITHUB_ENV"
           done
       - name: Build TypeScript workspaces
-        run: npm ci && npm run build
+        working-directory: .
+        run: npm ci && npm run build:ts
       - name: Start staging containers
         run: docker compose -f compose.moving.yaml -f compose.moving.ci.yaml up --build -d --wait --wait-timeout 180
       - name: Verify containers and staging API

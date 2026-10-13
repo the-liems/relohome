@@ -11,7 +11,13 @@ import { ContactPicker } from "./ContactPicker";
 import { ErrorNotice } from "./ErrorNotice";
 import type { Contact, RequestDetail } from "./types";
 import { dateLabel, deadlineLabel, rt, stateName } from "./text";
-export function ConnectionDetail() {
+import { ServiceSuggestions } from "../components/ServiceSuggestions";
+import { roommate } from "./client";
+export function ConnectionDetail({
+  notificationsEnabled = false,
+}: {
+  notificationsEnabled?: boolean;
+}) {
   const { requestId = "" } = useParams(),
     detail = useResource<RequestDetail>(
       "/requests/" + encodeURIComponent(requestId),
@@ -44,6 +50,14 @@ export function ConnectionDetail() {
       withdraw: rt("Rút yêu cầu", "Withdraw request"),
       revoke: rt("Thu hồi quyền liên hệ", "Revoke contact access"),
     })[value] || value;
+  useEffect(() => {
+    if (notificationsEnabled && record?.available)
+      void roommate(
+        "/requests/" + encodeURIComponent(requestId) + "/read",
+        "POST",
+        {},
+      ).catch(() => {});
+  }, [requestId, record?.available, notificationsEnabled]);
   return (
     <section className="rm-detail">
       <Link className="text-button" to="/roommate?tab=inbox">
@@ -173,6 +187,9 @@ export function ConnectionDetail() {
                 {rt("Tải lại trạng thái", "Refresh status")}
               </button>
             </div>
+            {record.state === "accepted" && record.grant_state === "active" && (
+              <ServiceSuggestions service="roommate" />
+            )}
           </aside>
         </div>
       ) : (

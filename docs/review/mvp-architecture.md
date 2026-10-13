@@ -104,9 +104,9 @@ flowchart LR
 | Agent API | `src/api/routes.py`, `web_actions.py` | Kiểm `ChatRequest` (map_view, place_choice, moving_locations), khoá 1 lượt/thread, chạy graph, trả `ChatResponse`; `/chat/{id}/state` trả thêm `selections` và `progress` (`src/agents/progress.py`) |
 | Agent graph | `src/agents/graph.py`, `nodes/` | Intake → Orchestrator → Executor → subagent → Validator → Respond (mục 4) |
 | Subagent | `src/agents/subagents/services/` | `ReadLlmAgent` (Housing, Map, Flight, Payment) và `MovingLlmAgent` |
-| Location MCP | `Maps VN/LifeFlow/mcp-server` | Địa giới, địa điểm, nhà, tiện ích, đường đi (PostGIS + OSRM) |
-| Platform API | `Maps VN/LifeFlow/platform-api` | REST cho workspace bản đồ: `/v1/housing/map`, `/v1/housing/search`, `/v1/places/map`, `/v1/routes/entities`… |
-| Moving MCP | `Maps VN/LifeFlow/moving-mcp-server`, `packages/moving-service` | Bọc AhaMove partner API v3 (staging) |
+| Location MCP | `apps/location-mcp` | Địa giới, địa điểm, nhà, tiện ích, đường đi (PostGIS + OSRM) |
+| Platform API | `apps/platform-api` | REST cho workspace bản đồ: `/v1/housing/map`, `/v1/housing/search`, `/v1/places/map`, `/v1/routes/entities`… |
+| Moving MCP | `apps/moving-mcp`, `packages/moving-service` | Bọc AhaMove partner API v3 (staging) |
 | Flight MCP | `src/mcp_servers/flights` | Tìm chuyến qua SerpApi; booking chỉ có engine giả lập, không bật |
 | Payment MCP | `src/mcp_servers/payments` | ZaloPay sandbox; chỉ tra cứu qua chat |
 

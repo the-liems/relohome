@@ -41,6 +41,20 @@ jobs:
     runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 30
 
+    services:
+      roommate-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: roommate_test
+          POSTGRES_PASSWORD: roommate-ci-test-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
     steps:
       - uses: actions/checkout@v4
 
@@ -62,16 +76,17 @@ jobs:
         run: bash scripts/check-ci-runner.sh python node
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/ scripts/deploy-coolify.py scripts/test-migration-image.py scripts/select-ci-images.py scripts/render-observability.py scripts/validate-observability.py deploy/observability/retention.py
+        run: npm run lint:python
 
       - name: Run tests
-        run: python -m pytest tests/ Frontend/tests/ -v --tb=short
+        run: npm run test:python
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
+          ROOMMATE_TEST_DATABASE_URL: postgresql://postgres:roommate-ci-test-only@127.0.0.1:${{ job.services['roommate-postgres'].ports[5432] }}/roommate_test
 
       - name: Clean up Python environment
         if: always()
@@ -111,10 +126,6 @@ jobs:
     runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 30
 
-    defaults:
-      run:
-        working-directory: Maps VN/LifeFlow
-
     steps:
       - uses: actions/checkout@v4
 
@@ -123,7 +134,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: Maps VN/LifeFlow/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Verify runner tools
         working-directory: .
@@ -146,10 +157,13 @@ jobs:
           done
           npm run build
 
+      - name: Lint TypeScript
+        run: npm run lint:ts
+
       - name: Run portable workspace tests
         env:
           NODE_OPTIONS: --max-old-space-size=512
-        run: npm run test:ci && npm exec --workspace @lifeflow/mcp-server -- vitest run tests/mcp-http.integration.test.ts
+        run: npm run test:ci
 
   application-images:
     name: Application images

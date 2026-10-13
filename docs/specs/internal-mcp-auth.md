@@ -2,7 +2,7 @@
 
 Flight, Payment, Location and Moving follow one bearer-token contract. Python
 implements it in `src/mcp_servers/http_service.py`; TypeScript services share
-`@lifeflow/mcp-core`. Both run the same authentication test vectors.
+`@relohome/mcp-core`. Both run the same authentication test vectors.
 
 Each HTTP service requires `MCP_AUTH_TOKEN` before serving requests. Use a separate
 random secret for each service, generated with `openssl rand -hex 32`. Tokens must

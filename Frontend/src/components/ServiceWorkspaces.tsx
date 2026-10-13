@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   ChevronDown,
   CreditCard,
@@ -47,8 +48,8 @@ import {
   validateMovingForm,
 } from "./MovingOptionsForm";
 
-// Selecting an option is the same structured action as in the chat cards; the parent returns to
-// the conversation afterwards so the user can continue with other services.
+// Selecting an option uses the same structured action as chat cards. The parent keeps
+// the selection visible and offers an explicit button for the next plan step.
 interface WorkspaceProps {
   readOnly?: boolean;
   data: Data;
@@ -114,6 +115,7 @@ export function FlightWorkspace({
   onSelect,
   onOutbound,
   onPay,
+  onEdit,
   onExit,
 }: WorkspaceProps) {
   const [sort, setSort] = useState("price"),
@@ -314,6 +316,11 @@ export function FlightWorkspace({
               {uiText(" chuyến · giá tại thời điểm tra cứu · chưa đặt vé")}
             </p>
           </div>
+          {onEdit && !readOnly && (
+            <button className="ws-pill-button" disabled={chat.busy} onClick={onEdit}>
+              <CalendarDays size={15} />{uiText("Chỉnh hành trình")}
+            </button>
+          )}
           {onPay && selectedInList && (
             <button className="primary" onClick={onPay}>
               <CreditCard size={15} />

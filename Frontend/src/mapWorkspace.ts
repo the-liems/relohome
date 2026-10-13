@@ -95,6 +95,7 @@ export function mapRequest(
     property_type: asList(filters.property_type),
     bounding_box,
     zoom,
+    cluster: false,
     limit: MAP_WORKSPACE.mapLimit,
   };
 }
@@ -152,7 +153,15 @@ export function toHouse(row: Data): House {
   } as House;
 }
 
-// Group listings sharing a coordinate (approximate geocodes stack many listings on one point).
+export function individualListings(markers: House[]) {
+  // One feature per listing; collision handling hides labels, not data.
+  // Never invent offsets to separate approximate source coordinates.
+  return markers
+    .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lng))
+    .map((h) => ({ key: h.id, lat: h.lat!, lng: h.lng!, houses: [h] }));
+}
+
+// Legacy helper for consumers still using coincident-pin grouping.
 export function stackListings(
   markers: House[],
 ): { key: string; lat: number; lng: number; houses: House[] }[] {

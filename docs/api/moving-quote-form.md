@@ -66,9 +66,9 @@ nếu mất phản hồi, đọc state trước khi thử lại.
 ## Kiểm thử thật
 
 `tests/test_llm_agents/test_moving_form_live.py` mặc định skip. Operator phải cấp
-`RUN_LIVE_MOVING_FORM=1` và `MOVING_FORM_LIVE_INPUTS` (tuyến được phép thử, ngày giờ
-tương lai, gói xe thật đã chọn từ catalog), cùng cấu hình runtime/Moving MCP staging.
-Chạy `python -m pytest tests/test_llm_agents/test_moving_form_live.py -v -s`.
+`RUN_LIVE_MOVING_FORM=1`, `MOVING_FORM_LIVE_INPUTS` trong `.env.test` (tuyến được phép thử,
+ngày giờ tương lai, gói xe thật đã chọn từ catalog) và token Moving MCP staging đang chạy.
+Chạy `npm run test:live -- python tests/test_llm_agents/test_moving_form_live.py -v -s --moving-mcp-token <token>`.
 Backend gateway chạy thật qua ASGI; Moving đi qua HTTP MCP thật, lưu quote thật và
 gọi AhaMove staging. Không mock provider, không gọi LLM, không đặt/hủy/thu tiền.
 Không đưa contact/key vào body test, log hoặc git.

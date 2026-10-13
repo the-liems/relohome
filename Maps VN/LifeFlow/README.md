@@ -1,4 +1,8 @@
-# Nền tảng bản đồ và vị trí LifeFlow
+# Nền tảng bản đồ và vị trí ReloHome
+
+TypeScript source now lives in repository-root `apps/` and `packages/`.
+See the [relocation runbook](../../docs/runbooks/typescript-relocation.md).
+This directory retains data, scripts, environment files and compatibility commands until #115.
 
 ## Cập nhật POI — 04/10/2026
 
@@ -45,11 +49,9 @@ Yêu cầu: Docker Desktop đang chạy, Node.js/npm đã cài và PowerShell.
 ### Cài lần đầu
 
 ```powershell
-Set-Location "D:\DEMO_AI\DEMO_1\Maps VN\LifeFlow"
-npm install
-Set-Location .\map-app
-npm install
-Set-Location ..
+Set-Location "D:\DEMO_AI\DEMO_1" # repository root; Node 24/npm 11
+npm ci
+Set-Location "Maps VN/LifeFlow"
 ```
 
 Nếu các container OSRM chưa từng được tạo trên máy, tạo và kiểm tra graph một
@@ -269,11 +271,9 @@ Cấu hình dành cho MCP client:
 {
   "command": "node",
   "args": [
-    "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
-  ],
-  "env": {
-    "LIFEFLOW_ENV_FILE": "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\.env"
-  }
+    "--env-file=<repository>/.env.local",
+    "<repository>/apps/location-mcp/dist/server.js"
+  ]
 }
 ```
 
@@ -370,7 +370,7 @@ Sau khi import, chạy test dữ liệu thật:
 
 ```powershell
 $env:RUN_POI_V2_INTEGRATION = '1'
-npm exec --workspace @lifeflow/platform-api -- vitest run tests/poi-v2.integration.test.ts
+npm exec --workspace @relohome/platform-api -- vitest run tests/poi-v2.integration.test.ts
 Remove-Item Env:RUN_POI_V2_INTEGRATION
 ```
 

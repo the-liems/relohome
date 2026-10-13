@@ -4,22 +4,20 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import httpx
 import pytest
-from dotenv import dotenv_values
+
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Real services opt-in")
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def client():
-    env = dotenv_values(ROOT / "data/integration.env")
     return httpx.Client(
-        base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1"),
+        base_url=live.api_url(),
         timeout=240,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": "context_" + uuid.uuid4().hex},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": "context_" + uuid.uuid4().hex},
     )
 
 
@@ -74,7 +72,7 @@ def test_selected_house_as_moving_pickup_with_vague_time():
 
 
 def test_bad_date_then_correction_and_reverse_previous_points():
-    route = json.loads(dotenv_values(ROOT / ".env")["MOVING_LIVE_QUOTE_INPUTS"])
+    route = json.loads(live.env_test("MOVING_LIVE_QUOTE_INPUTS"))
     pins = {
         "pickup": {"address": route["from_address"], **route["pickup_coordinate"], "confirmed": True},
         "destination": {"address": route["to_address"], **route["destination_coordinate"], "confirmed": True},

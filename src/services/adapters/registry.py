@@ -61,7 +61,7 @@ PAYMENT_SIMULATION_TOOLS = frozenset({"simulate_payment_result"})  # chỉ có �
 
 
 class ServiceSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file_encoding="utf-8", extra="ignore")
 
     # fake: FakeAgent + FakeTransaction; live: nối các service đã cấu hình bên dưới
     agent_subagents: Literal["fake", "live"] = "live"

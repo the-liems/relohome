@@ -1,5 +1,5 @@
 import { formatUi, t as uiText } from "../uiPreferences";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   Check,
@@ -12,9 +12,14 @@ import { ApiError, api, money, requestId } from "../api";
 import type { Data } from "../types";
 import { Dialog } from "./Dialog";
 import { ContactThread } from "./ContactThread";
+import { ViewingPreparation } from "./ViewingPreparation";
+import { ViewingScheduler } from "./ViewingScheduler";
+import type { ViewingSchedulerState } from "../useViewingScheduler";
+import { scheduleEligible } from "../viewingSchedule";
+import { ViewingSlotPicker } from "./ViewingSlotPicker";
 
 // Choose several homes, schedule viewings, decide one (docs/review/housing-viewing-design.md).
-// Limits, slot length and suggested deposit come from the server; nothing is fixed here.
+// Backend controls slots, duration and deposit; the grouped UI caps each round at three.
 
 const STATUS: Record<string, string> = {
   selected: "Chưa hẹn xem",
@@ -75,63 +80,6 @@ const when = (iso?: string) =>
 
 function errorOf(e: unknown) {
   return (e as Error).message || uiText("Có lỗi xảy ra. Hãy thử lại.");
-}
-
-function SlotPicker({
-  slots,
-  busy,
-  label,
-  onPick,
-}: {
-  slots: string[];
-  busy: boolean;
-  label: string;
-  onPick: (slot: string) => void;
-}) {
-  const days = useMemo(() => [...new Set(slots.map(dayOf))], [slots]);
-  const [day, setDay] = useState(days[0] || ""),
-    [slot, setSlot] = useState("");
-  if (!days.length)
-    return <p className="muted small">{uiText("Chưa có khung giờ trống.")}</p>;
-  return (
-    <div className="viewing-picker">
-      <select
-        aria-label={uiText("Ngày xem")}
-        value={day}
-        onChange={(e) => {
-          setDay(e.target.value);
-          setSlot("");
-        }}
-      >
-        {days.map((d) => (
-          <option key={d} value={d}>
-            {dayLabel(d)}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={uiText("Giờ xem")}
-        value={slot}
-        onChange={(e) => setSlot(e.target.value)}
-      >
-        <option value="">{uiText("Chọn giờ")}</option>
-        {slots
-          .filter((s) => dayOf(s) === day)
-          .map((s) => (
-            <option key={s} value={s}>
-              {hm(s)}
-            </option>
-          ))}
-      </select>
-      <button
-        className="secondary"
-        disabled={busy || !slot}
-        onClick={() => onPick(slot)}
-      >
-        {uiText(label)}
-      </button>
-    </div>
-  );
 }
 
 function DecideDialog({
@@ -329,13 +277,25 @@ export function ViewingPanel({
   viewing,
   onChanged,
   onMovingForm,
+  availableServices = [],
+  onPrepare,
+  scheduler,
+  footerHost,
 }: {
   threadId: string;
   viewing: Data;
   onChanged: () => Promise<void> | void;
   onMovingForm?: () => void;
+  availableServices?: string[];
+  onPrepare?: (service: string, item: Data) => void;
+  scheduler: ViewingSchedulerState;
+  footerHost: HTMLElement | null;
 }) {
   const [chatting, setChatting] = useState<Data | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scheduler.step === "selection") panel.current?.querySelector<HTMLSelectElement>('select[aria-invalid="true"]')?.focus();
+  }, [scheduler.errors, scheduler.step]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [deciding, setDeciding] = useState<Data | null>(null),
@@ -349,8 +309,10 @@ export function ViewingPanel({
     try {
       await api(`${base}/${step}`, "POST", body);
       await onChanged();
+      return true;
     } catch (e) {
       setError(errorOf(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -358,14 +320,22 @@ export function ViewingPanel({
   const decided = items.find((i) =>
     ["agreed", "reported_paid"].includes(i.status),
   );
+  const prepared = scheduler.rows
+    .filter((row) => ["saved", "unchanged"].includes(row.status))
+    .map((row) => items.find((item) => item.listing_id === row.listing_id))
+    .find(Boolean);
   return (
-    <div className="viewing-panel">
-      <p className="muted small">
-        {formatUi(
-          "Chọn tối đa {0} căn để hẹn xem. Với tin do chủ nhà quản lý trên ReloHome, giờ hẹn được gửi tới chủ nhà để xác nhận; tin từ nguồn khác vẫn là lịch thử, app chưa liên hệ chủ nhà. Chỉ chốt sau khi đã gặp chủ nhà.",
-          [viewing.max_selected],
-        )}
-      </p>
+    <div className="viewing-panel" ref={panel}>
+      {scheduler.step === "selection" && <>
+      <div className="bulk-selection-tools">
+        <label className="bulk-all"><input type="checkbox" aria-label={uiText("Chọn tất cả")}
+          checked={scheduler.eligible.length > 0 && scheduler.selected.length === scheduler.eligible.length}
+          ref={el => { if(el) el.indeterminate = scheduler.selected.length > 0 && scheduler.selected.length < scheduler.eligible.length; }}
+          disabled={busy || scheduler.busy || scheduler.blocked || !scheduler.eligible.length || scheduler.eligible.length > scheduler.limit || scheduler.unresolved.length > 0}
+          onChange={e => scheduler.setChecked(e.target.checked ? scheduler.eligible.map(i => i.listing_id) : [])}/>{uiText("Chọn tất cả")}</label>
+        <span className="muted small">{formatUi("Tối đa {0} căn/lượt", [scheduler.limit])}</span>
+      </div>
+      {scheduler.unresolved.length > 0 && <p className="notice amber small" role="status">{uiText("Có lịch chưa rõ kết quả. Kiểm tra trạng thái trước khi đặt lại.")}<button className="text-button" onClick={() => scheduler.setStep("result")}>{uiText("Kiểm tra trạng thái")}</button></p>}
       {viewing.legacy_chosen && (
         <section className="checkout-card">
           <header>
@@ -426,7 +396,9 @@ export function ViewingPanel({
       {items.map((item) => (
         <section className="checkout-card viewing-item" key={item.listing_id}>
           <header>
-            <Home size={17} />
+            <label className="bulk-card-toggle"><input type="checkbox" className="bulk-card-checkbox" aria-label={formatUi("Đặt lịch cho {0}", [item.title])}
+              checked={scheduler.selected.includes(item.listing_id)} disabled={busy || scheduler.busy || scheduler.blocked || !scheduleEligible(item) || scheduler.unresolved.includes(item.listing_id) || (!scheduler.selected.includes(item.listing_id) && scheduler.selected.length >= scheduler.limit)}
+              onChange={() => scheduler.toggle(item.listing_id)} /></label>
             <strong>{item.title}</strong>
             <span
               className={
@@ -439,14 +411,19 @@ export function ViewingPanel({
               {uiText(statusLabel(item, Boolean(viewing.test_visit_anytime)))}
             </span>
           </header>
-          <p className="small">
-            {item.snapshot?.address}
-            {item.snapshot?.price_vnd
-              ? formatUi(" · {0}/tháng (tham khảo)", [
-                  money(item.snapshot.price_vnd),
-                ])
-              : ""}
+          <p className="small bulk-card-meta" title={item.snapshot?.address}>
+            <span className="bulk-card-price">{item.snapshot?.price_vnd ? formatUi("{0}/tháng (tham khảo)", [money(item.snapshot.price_vnd)]) : uiText("Chưa có giá")}</span>
+            <span className="bulk-card-address">{item.snapshot?.address}</span>
           </p>
+          {item.viewing?.slot && <p className="small bulk-card-slot"><CalendarClock size={14}/>{formatUi("Lịch xem {0}", [when(item.viewing.slot)])}</p>}
+          {scheduleEligible(item) && <ViewingSlotPicker
+            title={item.title}
+            slots={viewing.slots || []}
+            value={scheduler.draftFor(item.listing_id)}
+            disabled={busy || scheduler.busy || scheduler.blocked || scheduler.unresolved.length > 0 || (!scheduler.selected.includes(item.listing_id) && scheduler.selected.length >= scheduler.limit)}
+            onChange={draft => scheduler.changeDraft(item.listing_id, draft)}
+            error={scheduler.errors[item.listing_id]}
+          />}
           {item.snapshot?.location_accuracy &&
             item.snapshot.location_accuracy !== "rooftop" && (
               <p className="muted small">
@@ -455,15 +432,9 @@ export function ViewingPanel({
                 )}
               </p>
             )}
-          {item.viewing?.slot && (
+          {item.viewing?.travel?.from_previous && (
             <p className="small">
-              <CalendarClock size={13} />{" "}
-              {formatUi("Lịch xem {0}", [when(item.viewing.slot)])}
-              {item.viewing.travel?.from_previous
-                ? formatUi(" · từ lịch trước: {0}", [
-                    item.viewing.travel.from_previous,
-                  ])
-                : ""}
+              {formatUi(" · từ lịch trước: {0}", [item.viewing.travel.from_previous])}
             </p>
           )}
           {item.landlord?.sync === "failed" && item.viewing?.slot && (
@@ -483,7 +454,7 @@ export function ViewingPanel({
           {item.landlord && landlordClosed(item.landlord) && (
             <p className="notice amber small">
               {uiText(
-                "Yêu cầu liên hệ của căn này đã được đóng hoặc hủy, nên chủ nhà không còn giữ giờ hẹn. Chọn giờ bên dưới để gửi lại.",
+                "Yêu cầu đã đóng. Chọn lại ngày/giờ để gửi lịch mới.",
               )}
             </p>
           )}
@@ -491,15 +462,7 @@ export function ViewingPanel({
             !landlordClosed(item.landlord) && (
               <p className="notice amber small">
                 {uiText(
-                  "Chủ nhà không nhận giờ này. Chọn giờ khác bên dưới, ReloHome sẽ gửi lại cho chủ nhà.",
-                )}
-              </p>
-            )}
-          {item.landlord?.viewing_status === "requested" &&
-            !landlordClosed(item.landlord) && (
-              <p className="muted small">
-                {uiText(
-                  "Giờ hẹn đã được gửi vào hộp thư của chủ nhà. Chủ nhà xác nhận thì bạn mới ghi kết quả buổi xem và chốt được.",
+                  "Chủ nhà không nhận giờ này. Chọn ngày/giờ khác để gửi lại.",
                 )}
               </p>
             )}
@@ -511,35 +474,6 @@ export function ViewingPanel({
               )}
             </button>
           )}
-          {item.status === "viewing_scheduled" && (
-            <p className="muted small">
-              {formatUi(
-                "Từ {0}, ghi kết quả gặp chủ nhà tại đây; đã gặp và chủ nhà đồng ý thì mới chốt được.",
-                [when(item.viewing?.slot)],
-              )}
-            </p>
-          )}
-          {item.status === "selected" && (
-            <p className="muted small">
-              {uiText(
-                "Hẹn lịch xem trước; sau buổi gặp chủ nhà bạn ghi kết quả rồi mới chốt.",
-              )}
-            </p>
-          )}
-          {(["selected", "viewing_scheduled", "backup"].includes(item.status) ||
-            (item.status === "visit_due" &&
-              item.landlord &&
-              landlordClosed(item.landlord))) &&
-            !(item.status === "backup" && item.backup_from === "visited") && (
-              <SlotPicker
-                slots={viewing.slots || []}
-                busy={busy}
-                label={item.viewing ? "Đổi lịch" : "Hẹn xem"}
-                onPick={(slot) =>
-                  void post("schedule", { listing_id: item.listing_id, slot })
-                }
-              />
-            )}
           {(!item.landlord ||
             (item.landlord.viewing_status === "confirmed" &&
               !landlordClosed(item.landlord))) &&
@@ -650,6 +584,9 @@ export function ViewingPanel({
               </button>
             )}
           </div>
+          {onPrepare && !viewing.landlord_unavailable && (
+            <ViewingPreparation item={item} available={availableServices} disabled={busy || scheduler.busy || scheduler.blocked} onOpen={onPrepare} />
+          )}
           {item.status === "agreed" && reporting && (
             <form
               className="agreement"
@@ -703,6 +640,12 @@ export function ViewingPanel({
           )}
         </section>
       ))}
+      </>}
+      <ViewingScheduler viewing={viewing} scheduler={scheduler} footerHost={footerHost} disabled={busy} statusOf={item => statusLabel(item, Boolean(viewing.test_visit_anytime))} />
+      {scheduler.step === "result" && prepared && onPrepare && !viewing.landlord_unavailable && <>
+        <p className="muted small">{formatUi("Chuẩn bị cho căn: {0}", [prepared.title])}</p>
+        <ViewingPreparation item={prepared} available={availableServices} disabled={busy || scheduler.busy || scheduler.blocked} onOpen={onPrepare}/>
+      </>}
       {movingHint && (
         <div className="notice">
           <p>{uiText(movingHint)}</p>

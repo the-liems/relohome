@@ -5,7 +5,6 @@ The tool-session test uses the running Location service and zero LLM calls.
 """
 
 import asyncio
-import importlib.util
 import os
 import uuid
 from datetime import timedelta
@@ -26,26 +25,19 @@ from src.agents.subagents.services.domain_tools import DomainToolSession
 from src.agents.subagents.services.location import LocationSubagent, _meters
 from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import LOCATION_READ_TOOLS
+from tests import live
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="Actual local services opt-in")
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def live_environment():
-    spec = importlib.util.spec_from_file_location("mission_local_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    return runner.environment("api")
-
-
 def test_grounded_tools_with_real_location_and_no_llm():
     async def run():
-        env = live_environment()
         mcp = McpToolClient(
             McpEndpoint(
                 service="location",
-                url=env["LOCATION_MCP_URL"],
-                token=env["LOCATION_MCP_AUTH_TOKEN"],
+                url=live.mcp_url("location"),
+                token=live.mcp_token("location"),
                 allowed_tools=LOCATION_READ_TOOLS,
             )
         )
@@ -150,13 +142,12 @@ def test_grounded_tools_with_real_location_and_no_llm():
 
 @pytest.fixture
 def client():
-    env = live_environment()
     resumed = os.getenv("RUN_LIVE_MISSION_RESUME_THREAD")
     actor = saved_state(resumed)["user_id"] if resumed else "mission_" + uuid.uuid4().hex
     with httpx.Client(
-        base_url=os.getenv("RUN_LIVE_API_URL", "http://127.0.0.1:18000/api/v1"),
+        base_url=live.api_url(),
         timeout=240,
-        headers={"Authorization": "Bearer " + env["AGENT_API_TOKEN"], "X-User-Id": actor},
+        headers={"Authorization": "Bearer " + live.api_token(), "X-User-Id": actor},
     ) as http:
         yield http
 
@@ -165,7 +156,7 @@ def saved_state(thread):
     """Resume a real checkpoint to avoid paying for an already-passed search."""
 
     async def load():
-        async with AsyncSqliteSaver.from_conn_string(str(ROOT / "data/agent-runtime/checkpoints.sqlite3")) as saver:
+        async with AsyncSqliteSaver.from_conn_string(str(live.agent_state_dir() / "checkpoints.sqlite3")) as saver:
             saver.serde = checkpoint_serde()
             saved = await saver.aget_tuple({"configurable": {"thread_id": thread}})
             assert saved is not None, "Resume thread must be an existing real conversation"

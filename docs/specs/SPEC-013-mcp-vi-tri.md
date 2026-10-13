@@ -10,8 +10,8 @@ trong Maps workspace. Phía graph quản lý lựa chọn tool và hội thoại
 
 ## Giao diện và hành vi
 
-- Tool đăng ký tại [`mcp-server/src/create-server.ts`](../../Maps%20VN/LifeFlow/mcp-server/src/create-server.ts);
-  schema chia sẻ từ [contracts](../../Maps%20VN/LifeFlow/packages/contracts/src/).
+- Tool đăng ký tại [`mcp-server/src/create-server.ts`](../../apps/location-mcp/src/create-server.ts);
+  schema chia sẻ từ [contracts](../../packages/contracts/src).
 - Nhóm nhà: `search_housing`, `get_housing`.
 - Nhóm vị trí: `search_places`, `get_place`, `search_areas`,
   `resolve_location`, `find_nearby_places`.
@@ -44,6 +44,6 @@ rộng alias/viết tắt. Handoff và giới hạn timeout/cancellation đượ
   tế, không dựng listing, lời khuyên hay báo giá.
 - **SPEC-013/AC-04:** Server chạy độc lập với root Python agent.
 
-Kiểm chứng: [test MCP](../../Maps%20VN/LifeFlow/mcp-server/tests/mcp.integration.test.ts).
+Kiểm chứng: [test MCP](../../apps/location-mcp/tests/mcp.integration.test.ts).
 Quyết định liên quan: [ADR-007](../adr/ADR-007-independent-workspaces.md),
 [ADR-008](../adr/ADR-008-contract-ownership.md).

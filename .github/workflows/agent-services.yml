@@ -12,8 +12,10 @@ on:
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
-      - 'Maps VN/LifeFlow/packages/contracts/**'
-      - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/contracts/**'
+      - 'apps/moving-mcp/src/create-server.ts'
   push:
     branches: [khoa, main]
     paths:
@@ -27,8 +29,10 @@ on:
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
-      - 'Maps VN/LifeFlow/packages/contracts/**'
-      - 'Maps VN/LifeFlow/moving-mcp-server/src/create-server.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/contracts/**'
+      - 'apps/moving-mcp/src/create-server.ts'
 permissions:
   contents: read
 defaults:
@@ -63,8 +67,7 @@ jobs:
       - name: Verify Node.js
         run: bash scripts/check-ci-runner.sh node
       - name: Build shared contracts
-        run: npm ci && npm run build --workspace=@lifeflow/contracts
-        working-directory: Maps VN/LifeFlow
+        run: npm ci && npm run build --workspace=@relohome/contracts
       - name: Verify agent registry
         run: node scripts/export-agent-registry.mjs --check
       - name: Build intake image

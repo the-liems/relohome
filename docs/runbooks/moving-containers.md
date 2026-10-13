@@ -14,17 +14,17 @@ tại LifeFlow hoặc thư mục gốc repository. Không sửa/di chuyển file
 Trong PowerShell tại thư mục gốc repo:
 
 ```powershell
+npm ci # repository root
 Set-Location 'Maps VN/LifeFlow'
 $env:LIFEFLOW_ENV_FILE = (Resolve-Path '../../.env').Path
-npm ci
 npm run moving:up
 npm run moving:verify
 ```
 
-`moving:up` tự tạo mật khẩu DB và token MCP nếu chưa cấu hình. Các giá trị được
-lưu ở `.runtime/moving-secrets.json` (Git ignore, không gửi lên GitHub). Chúng là
-secret nội bộ hệ thống, không phải thông tin AhaMove cần cấp thêm. Giữ file này
-khi dùng lại volume DB; không thay mật khẩu admin nếu volume đã được khởi tạo.
+`moving:up` đọc mật khẩu DB và token MCP từ `.env.local` (`npm run dev:init` tạo sẵn;
+máy cũ chuyển giá trị từ `.runtime/moving-secrets.json` sang). Chúng là secret nội bộ
+hệ thống, không phải thông tin AhaMove cần cấp thêm. Giữ nguyên giá trị khi dùng lại
+volume DB; không thay mật khẩu admin nếu volume đã được khởi tạo.
 Đổi mật khẩu database đang tồn tại cần thực hiện ở PostgreSQL trước.
 
 Compose luôn dùng AhaMove staging và tắt tạo/cập nhật/hủy/đánh giá. PostgreSQL
@@ -107,12 +107,12 @@ Overlay không được áp dụng trong bài test tự động. `moving:up` v�
 cơ sở read-only. Không chạy `config` thiếu `--quiet` vì có thể in secrets.
 Xem [contract approval](../api/moving-internal-approvals.md).
 
-Build context luôn là `Maps VN/LifeFlow`, không phải riêng thư mục MCP.
+Build context là gốc repository để dùng root lockfile. Từ gốc repo:
 
 ```powershell
-docker build -f Dockerfile.moving --target moving-mcp -t lifeflow/moving-mcp:local .
-docker build -f Dockerfile.moving --target moving-api -t lifeflow/moving-api:local .
-docker build -f Dockerfile.moving --target moving-migrate -t lifeflow/moving-migrate:local .
+docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-mcp -t lifeflow/moving-mcp:local .
+docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-api -t lifeflow/moving-api:local .
+docker build -f "Maps VN/LifeFlow/Dockerfile.moving" --target moving-migrate -t lifeflow/moving-migrate:local .
 ```
 
 Các image dùng user `node`, chỉ chứa output build và dependencies production.

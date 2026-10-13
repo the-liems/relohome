@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from collections.abc import Callable
 from datetime import datetime
 from itertools import combinations
@@ -131,6 +132,35 @@ def pick_clear(results: list[dict]) -> dict | None:
         return exact[0]
     first_score, second_score = (r.get("match_score") or 0 for r in results[:2])
     return results[0] if first_score - second_score >= CLEAR_MARGIN else None
+
+
+def pick_named_area(results: list[dict], text: str, city_bbox: dict | None = None) -> dict | None:
+    """Never turn a partial name/numeric match or another administrative unit into a polygon.
+
+    Bare names may match the current dataset's unit (e.g. Cầu Giấy → Phường
+    Cầu Giấy). An explicit unit remains explicit (Quận 5 ≠ Phường 5).
+    City bounds further exclude same-name candidates from another city.
+    """
+
+    def normalized(value: str) -> str:
+        value = unicodedata.normalize("NFD", value.casefold().replace("đ", "d"))
+        return " ".join("".join(c for c in value if not unicodedata.combining(c)).split())
+
+    unit = r"^(?:quan|huyen|phuong|xa|thi tran|thi xa|thanh pho|tinh)\s+"
+    query = normalized(text)
+    explicit_unit = bool(re.match(unit, query))
+    matching = []
+    for area in results:
+        if area.get("match_type") == "fuzzy":
+            continue
+        name = normalized(str(area.get("name") or ""))
+        if (name if explicit_unit else re.sub(unit, "", name)) != query:
+            continue
+        bbox = area.get("bounding_box")
+        if city_bbox and bbox and not _encloses(city_bbox, bbox):
+            continue
+        matching.append(area)
+    return pick_clear(matching)
 
 
 def _meters(a: dict, b: dict) -> float:
@@ -394,6 +424,7 @@ class LocationSubagent:
             city_scope = pick_city_area(areas)
             if city_scope is None:
                 return self._choose(req, tools, "city", inp["city"], areas)
+            scope_bbox = city_scope.get("bounding_box")
         if area:
             pass
         elif inp.get("near") and inp.get("near_coordinate"):
@@ -435,7 +466,7 @@ class LocationSubagent:
                 (await tools.call("search_areas", {"text": inp["district"], "limit": 5, "include_geometry": True}))
                 or {}
             ).get("results") or []
-            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            found = pick_named_area(areas, inp["district"])
             if found is None:
                 return self._choose(req, tools, "district", inp["district"], areas)
             area = {"administrative_area_ids": [found["area_id"]]}
@@ -452,7 +483,7 @@ class LocationSubagent:
             if scope_bbox:
                 arguments["bounding_box"] = scope_bbox
             areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
-            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            found = pick_named_area(areas, inp["district"], scope_bbox)
             if found is not None:
                 administrative_scope = found
                 # administrative_area_ids uses OR, not AND: keep only the narrowest scope.
@@ -512,11 +543,15 @@ class LocationSubagent:
         candidates, missing, quotes = [], [], []
         excluded = 0
         ordered = (
-            sorted(results, key=lambda r: (
-                bool(any(str(f).startswith("price_") for f in r.get("quality_flags", []))),
-                (r.get("price") or {}).get("amount") or float("inf"),
-            ))
-            if search_compare else rank_listings(results)
+            sorted(
+                results,
+                key=lambda r: (
+                    bool(any(str(f).startswith("price_") for f in r.get("quality_flags", []))),
+                    (r.get("price") or {}).get("amount") or float("inf"),
+                ),
+            )
+            if search_compare
+            else rank_listings(results)
         )
         for r in ordered:
             if len(candidates) >= limit:
@@ -589,15 +624,18 @@ class LocationSubagent:
                 rent = candidate["price_vnd"] if not candidate["price_unverified"] else None
                 area_m2 = candidate["area_m2"]
                 deposit = candidate["deposit_vnd"]
-                rows.append({
-                    **candidate,
-                    "rent_vnd": rent,
-                    "rent_per_m2_vnd": round(rent / area_m2)
-                    if rent is not None and isinstance(area_m2, (int, float)) and area_m2 > 0 else None,
-                    "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
-                    "cost_basis": "rent_plus_deposit_only_not_final_total",
-                    "unknown_cost_fields": ["electricity", "water", "service_fees"],
-                })
+                rows.append(
+                    {
+                        **candidate,
+                        "rent_vnd": rent,
+                        "rent_per_m2_vnd": round(rent / area_m2)
+                        if rent is not None and isinstance(area_m2, (int, float)) and area_m2 > 0
+                        else None,
+                        "known_move_in_vnd": rent + deposit if rent is not None and deposit is not None else None,
+                        "cost_basis": "rent_plus_deposit_only_not_final_total",
+                        "unknown_cost_fields": ["electricity", "water", "service_fees"],
+                    }
+                )
             data["comparison"] = {
                 "rows": rows,
                 "scope": "new_search_results_only",
@@ -701,7 +739,7 @@ class LocationSubagent:
                 areas = []
             # Only a real name match may move the map; a fuzzy neighbour (e.g. no polygon for a
             # legacy district) falls back to the listings actually returned.
-            found = pick_clear([a for a in areas if a.get("match_type") != "fuzzy"])
+            found = pick_named_area(areas, search_request["district"], scope_bbox)
             if found and found.get("bounding_box"):
                 # Listings may carry a legacy district larger than today's polygon of the same
                 # name; cover both the polygon and the listings actually returned.
@@ -711,7 +749,7 @@ class LocationSubagent:
     def _not_found(self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str) -> AgentTaskResult:
         question = (
             f'Mình chưa có tọa độ đáng tin cậy cho "{text}". Bạn có thể ghim địa điểm trên bản đồ '
-            'hoặc yêu cầu tìm theo quận/thành phố thay thế.'
+            "hoặc yêu cầu tìm theo quận/thành phố thay thế."
             if field == "near"
             else f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?'
         )
@@ -719,9 +757,7 @@ class LocationSubagent:
             req,
             tools,
             status="needs_input",
-            questions=[
-                Question(field=field, text=question)
-            ],
+            questions=[Question(field=field, text=question)],
         )
 
     async def _map(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:

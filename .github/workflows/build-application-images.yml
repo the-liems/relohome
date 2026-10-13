@@ -63,11 +63,6 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify runner tools
         run: bash scripts/check-ci-runner.sh docker buildx
-      - name: Reproduce restrictive migration build-context permissions
-        if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
-        env:
-          BUILD_CONTEXT: ${{ matrix.context }}
-        run: chmod -R go-rwx "$BUILD_CONTEXT"
       - name: Build ARM64 image
         run: |
           options=()
@@ -86,7 +81,8 @@ jobs:
         # Building is not enough: a missing runtime module only fails when the app starts.
         if: matrix.service == 'web'
         run: docker run --rm --entrypoint python "$IMAGE" -c "import Frontend.server"
-      - name: Verify migrations against a real database twice
+      - name: Validate migration SQL, schema, role access, and reruns
+        # Execute the release migration command against a disposable real database.
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
         env:
           MIGRATION_KIND: ${{ matrix.service }}

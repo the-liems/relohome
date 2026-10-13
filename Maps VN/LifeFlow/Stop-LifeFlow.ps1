@@ -45,7 +45,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
             }
         }
         Set-Location -LiteralPath $rootPath
-        docker compose --env-file .env -f infra/compose.yaml stop postgis
+        docker compose --env-file ../../.env.local -f infra/compose.yaml stop postgis
         if ($LASTEXITCODE -ne 0) {
             throw 'Failed to stop the LifeFlow PostGIS container.'
         }

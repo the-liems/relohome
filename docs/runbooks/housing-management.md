@@ -12,6 +12,7 @@ the same PostGIS schemas and only become public after moderation.
 | Variable | Purpose |
 | --- | --- |
 | `AGENT_API_TOKEN` | Shared server secret used by the browser gateway and Platform API. Never expose it to JavaScript. |
+| `VIETMAP_API_KEY` | Server-only Autocomplete v4 and Place v4 for property location confirmation. |
 | `HOUSING_MODERATOR_IDS` | Comma-separated trusted account IDs that may verify posters and approve properties and listings. |
 | `HOUSING_MESSAGE_RATE_PER_MINUTE` | Optional, default 10. Messages one sender may post per minute in a tenant–landlord conversation. |
 | `HOST_TERMS_VERSION` | Optional. Empty: no poster-terms step. A value makes posters accept that version before adding homes. |
@@ -50,8 +51,9 @@ listing is reviewed.
 6. The owner changes availability independently to `vacant`, `rented` or `paused`.
 7. Hiding or deleting a listing immediately removes it from public Housing reads.
 
-Moderators use the "Duyệt tin" tab in `/landlord`; it appears only when the
-queue endpoint accepts the signed-in account. A moderator cannot approve a property
+Admins sign in through `/admin` using the separate Admin login entry. The
+landlord workspace has no moderation tab; browser moderation requires an Admin
+session and backend permission on every operation. A moderator cannot approve a property
 or listing they manage. Self-service listings are stored with `source_type = 'user'`
 and `attributes.self_service = true`, so public reads keep the existing contract.
 
@@ -71,9 +73,9 @@ not seed or synthesize production counters.
 
 ```powershell
 cd "Maps VN/LifeFlow"
-npm run build --workspace @lifeflow/contracts
-npm run build --workspace @lifeflow/housing-query
-npm run build --workspace @lifeflow/platform-api
+npm run build --workspace @relohome/contracts
+npm run build --workspace @relohome/housing-query
+npm run build --workspace @relohome/platform-api
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.test.ts --pool=threads --maxWorkers=1
 # Needs a migrated local PostGIS (DATABASE_URL / ADMIN_DATABASE_URL); creates and removes its own test rows.
 node node_modules/vitest/vitest.mjs run platform-api/tests/housing-management.integration.test.ts --pool=threads --maxWorkers=1
@@ -85,3 +87,15 @@ npx playwright test tests/browser/housing-product.spec.ts --project=desktop
 
 For gateway tests, use the project virtual environment and a writable pytest temp
 directory. Tests use HTTP fixtures and do not create real listings.
+
+## Cloud release and publication guards
+
+See [the cloud runbook](housing-cloud.md) for persistent volumes, operator account
+provisioning, backup/restore, HTTPS and rollout order. Migration 023 is additive;
+previously reviewed inventory is preserved. New managed listings require complete
+content, valid photos and a confirmed provider location. Important edits invalidate
+approval transactionally; stale submissions/reviews receive 409. Uploaded images
+are private until the listing is public. Legacy reviewed properties without a host
+profile retain their previous publication; editing them still requires the current
+profile/location workflow before reapproval. Imported records retain their original
+identities and coordinate accuracy.

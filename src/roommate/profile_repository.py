@@ -3,6 +3,7 @@ from datetime import datetime
 
 from src.roommate.clock import utc
 from src.roommate.models import RoommateProfile, RoommateSearchCriteria
+from src.roommate.policy import TERMS_VERSION
 from src.roommate.ports import ProfileRecord
 from src.roommate.storage import require_transaction
 
@@ -50,6 +51,29 @@ class SqlProfiles:
             for row in self.db.execute(
                 "SELECT content FROM profiles WHERE state='active' AND city=? AND expires>? ORDER BY owner",
                 (city, utc(now).timestamp()),
+            )
+        ]
+
+    def expired(self, now: datetime) -> list[ProfileRecord]:
+        return [
+            ProfileRecord.model_validate_json(row[0])
+            for row in self.db.execute(
+                "SELECT content FROM profiles WHERE state='active' AND expires<=? ORDER BY owner",
+                (utc(now).timestamp(),),
+            )
+        ]
+
+    def active_rooms(self, identifiers: set[str], now: datetime) -> list[ProfileRecord]:
+        if not identifiers:
+            return []
+        placeholders = ",".join("?" for _ in identifiers)
+        return [
+            ProfileRecord.model_validate_json(row[0])
+            for row in self.db.execute(
+                "SELECT p.content FROM profiles p JOIN access a ON a.actor=p.owner "
+                "WHERE p.state='active' AND p.expires>? AND a.adult=1 AND a.terms=? "
+                f"AND json_extract(p.content,'$.content.room.listing_id') IN ({placeholders}) ORDER BY p.owner",
+                (utc(now).timestamp(), TERMS_VERSION, *sorted(identifiers)),
             )
         ]
 
