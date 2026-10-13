@@ -7,6 +7,7 @@ MCP_IMAGE_TAG ?= latest
 run:
 	npm run dev:agent
 
+# Installed ReloHome demos; keep .env.local, runtime root, cwd and default ports.
 ui:
 	npm run dev:flight-demo
 

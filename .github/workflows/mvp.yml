@@ -27,9 +27,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Lint local stack
-        run: ruff check src tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
+        run: ruff check examples/streamlit apps/agent-api apps/flights-mcp apps/payments-mcp apps/intake-api apps/orchestrator-api packages/python tests scripts/local-integration.py scripts/init-local-integration.py scripts/restore-local-snapshot.py
       - name: Check Python compilation
-        run: python -m compileall -q src
+        run: python -m compileall -q examples/streamlit/src apps/*/src/relohome_* packages/python/*/src
       - name: Test SQLite persistence
         run: pytest tests/test_llm_agents/test_runtime_storage.py -q
       - uses: actions/setup-node@v4

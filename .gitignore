@@ -121,3 +121,6 @@ Maps\ VN/Routing/**
 # Canonical TypeScript workspaces (#111)
 apps/*/dist/
 packages/*/dist/
+
+# Persisted housing media remains at the legacy path; Frontend is not a source root.
+/Frontend/data/
