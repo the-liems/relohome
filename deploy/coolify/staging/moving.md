@@ -5,7 +5,7 @@ Chưa tạo resource, domain hay token Coolify từ workspace.
 
 ## Images và processes
 
-Build từ `Maps VN/LifeFlow/Dockerfile.moving`, context gốc repository (`.`):
+Build từ `deploy/moving/Dockerfile.moving`, context gốc repository (`.`):
 
 | Target / image suffix | Start command | Port | Loại |
 |---|---|---|---|
@@ -43,7 +43,7 @@ instance riêng; khi dùng chung cluster, chọn role riêng như `moving_app_st
 và dùng đúng role đó trong runtime URL. Runtime app không nhận credential admin.
 Job dùng lại migration canonical `008_moving_service.sql` và bổ sung audit table,
 không tạo dữ liệu mẫu, không cần PostGIS. Runtime được giới hạn các bảng Moving
-và INSERT vào audit. Không chạy đồng thời migrator LifeFlow cũ và Moving migrator.
+và INSERT vào audit. Không chạy đồng thời migrator ReloHome cũ và Moving migrator.
 
 Giữ `AHAMOVE_WRITE_ENABLED=false`, `AHAMOVE_RATING_ENABLED=false`,
 `AHAMOVE_PRODUCTION_ENABLED=false` cho giai đoạn discovery/read-only staging.

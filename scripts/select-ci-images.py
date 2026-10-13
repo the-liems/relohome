@@ -16,7 +16,7 @@ GLOBAL_INPUTS = (
     ".dockerignore",
 )
 NON_IMAGE_INPUTS = (
-    "docs/", "tests/", "examples/streamlit/", "examples/design-reference/", "apps/browser-gateway/tests/", "apps/web/tests/", "deploy/", "eval/", "presentation/",
+    "docs/", "tests/", "examples/streamlit/", "examples/design-reference/", "apps/browser-gateway/tests/", "apps/web/tests/", "eval/", "presentation/",
 )
 
 
@@ -40,6 +40,10 @@ def select_images(catalog, paths):
                 affected.append(image["service"])
         if affected:
             selected.update(affected)
+        elif path.startswith("deploy/"):
+            # Explicit catalog dependencies take priority: deploy/ now includes
+            # migration SQL and the Moving Dockerfile as well as runtime config.
+            continue
         elif not path.endswith(".md"):
             # New packages, build tooling, or unknown dependencies must not be
             # silently omitted. Narrow this only when their consumers are known.

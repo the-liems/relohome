@@ -27,12 +27,10 @@ mypy and retained location-demo UI dependencies. Runtime requirements remain
 unchanged. Python package extraction belongs to #112.
 
 `package-lock.json` is the only authoritative npm lock. It covers eight service
-and library workspaces, `apps/web`, and the supported map demo. The old
-`Maps VN/LifeFlow/package.json` is a scripts-only compatibility entrypoint,
-not another npm workspace or installation root. Use root `npm ci` even when
-working on one app. Its existing operational commands still preserve their
-CWD, `.env` discovery, ports and persistent `.runtime` files. #111 owns updating
-its workspace selectors and #115 owns retiring the wrapper after callers move.
+and library workspaces, `apps/web`, and the supported map demo. The map workspace is `examples/map-app/` (`@relohome/map-app`). The nested
+scripts-only wrapper has been retired; every operation has a root equivalent.
+Use root `npm ci` even when working on one app. Root launchers explicitly load
+`.env.local`; ports and persistent `Maps VN/LifeFlow/.runtime/` files are unchanged.
 There is no duplicate old/new workspace during a rename.
 
 Excluded intentionally: Python projects (pip), static HTML design references

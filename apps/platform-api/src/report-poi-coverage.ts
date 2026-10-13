@@ -1,9 +1,9 @@
-import { resourceRoot as root } from './runtime-paths.js'
+import { reportRoot } from './runtime-paths.js'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createDatabasePool, getRuntimeConfig } from '@relohome/housing-query'
 
-const reportPath = resolve(root, 'reports/poi-coverage-v2.json')
+const reportPath = resolve(reportRoot, 'poi-coverage-v2.json')
 const pool = createDatabasePool(getRuntimeConfig().databaseUrl, 2)
 
 async function main() {
@@ -57,7 +57,7 @@ async function main() {
     canonical: totals.rows[0],
     coverage: coverage.rows,
   }
-  await mkdir(resolve(root, 'reports'), { recursive: true })
+  await mkdir(reportRoot, { recursive: true })
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
   process.stdout.write(`POI coverage report: ${reportPath}\n`)
   process.stdout.write(`Canonical places: ${totals.rows[0].canonical_total}\n`)

@@ -34,7 +34,6 @@
     "dockerfile": "apps/platform-api/Dockerfile",
     "target": "platform",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/housing-query/",
@@ -50,7 +49,6 @@
     "dockerfile": "apps/location-mcp/Dockerfile",
     "target": "",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/housing-query/",
@@ -67,12 +65,11 @@
     "dockerfile": "apps/platform-api/Dockerfile",
     "target": "location-migrate",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/housing-query/",
       "apps/platform-api/",
-      "Maps VN/LifeFlow/database/migrations/",
+      "deploy/database/migrations/",
       "package.json",
       "package-lock.json",
       "scripts/docker-npm.mjs"
@@ -103,10 +100,9 @@
   {
     "service": "moving-api",
     "context": ".",
-    "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+    "dockerfile": "deploy/moving/Dockerfile.moving",
     "target": "moving-api",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/mcp-core/",
@@ -121,10 +117,9 @@
   {
     "service": "moving-mcp",
     "context": ".",
-    "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+    "dockerfile": "deploy/moving/Dockerfile.moving",
     "target": "moving-mcp",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/mcp-core/",
@@ -139,18 +134,17 @@
   {
     "service": "moving-migrate",
     "context": ".",
-    "dockerfile": "Maps VN/LifeFlow/Dockerfile.moving",
+    "dockerfile": "deploy/moving/Dockerfile.moving",
     "target": "moving-migrate",
     "paths": [
-      "Maps VN/LifeFlow/package.json",
       "tsconfig.base.json",
       "packages/contracts/",
       "packages/mcp-core/",
       "packages/moving-service/",
       "apps/moving-api/",
       "apps/moving-mcp/",
-      "Maps VN/LifeFlow/database/moving/",
-      "Maps VN/LifeFlow/database/migrations/008_moving_service.sql",
+      "deploy/database/moving/",
+      "deploy/database/migrations/008_moving_service.sql",
       "package.json",
       "package-lock.json",
       "scripts/docker-npm.mjs"

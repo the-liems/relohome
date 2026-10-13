@@ -14,7 +14,7 @@ import {
   focusMapPoint,
 } from "../mapScope";
 
-// Same MapLibre basemap and semantic colors as LifeFlow map-app/config/map-theme.ts.
+// Same MapLibre basemap and semantic colors as ReloHome examples/map-app/src/config/map-theme.ts.
 const theme = {
   fill: "#d6efe9",
   border: "#176e69",

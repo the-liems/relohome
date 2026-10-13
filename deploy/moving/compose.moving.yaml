@@ -1,0 +1,76 @@
+name: lifeflow-moving
+
+x-provider: &provider
+  AHAMOVE_ENV: staging
+  AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
+  AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
+  AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
+  AHAMOVE_WRITE_ENABLED: "false"
+  AHAMOVE_RATING_ENABLED: "false"
+  AHAMOVE_PRODUCTION_ENABLED: "false"
+  MOVING_DATABASE_URL: postgresql://moving_app:${MOVING_DB_APP_PASSWORD:?Set MOVING_DB_APP_PASSWORD}@moving-db:5432/moving
+
+x-runtime: &runtime
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  stop_grace_period: 35s
+  mem_limit: 512m
+  cpus: 1.0
+  depends_on:
+    moving-migrate:
+      condition: service_completed_successfully
+
+services:
+  moving-db:
+    image: postgres:16.13-bookworm
+    environment:
+      POSTGRES_USER: moving_admin
+      POSTGRES_PASSWORD: ${MOVING_DB_ADMIN_PASSWORD:?Set MOVING_DB_ADMIN_PASSWORD}
+      POSTGRES_DB: moving
+    volumes: [moving-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U moving_admin -d moving']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  moving-migrate:
+    image: lifeflow/moving-migrate:${RELEASE_SHA:-local}
+    build: { context: ../.., dockerfile: deploy/moving/Dockerfile.moving, target: moving-migrate, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    environment:
+      MOVING_DATABASE_ADMIN_URL: postgresql://moving_admin:${MOVING_DB_ADMIN_PASSWORD:?Set MOVING_DB_ADMIN_PASSWORD}@moving-db:5432/moving
+      MOVING_DB_APP_USER: moving_app
+      MOVING_DB_APP_PASSWORD: ${MOVING_DB_APP_PASSWORD:?Set MOVING_DB_APP_PASSWORD}
+    depends_on:
+      moving-db: { condition: service_healthy }
+    restart: "no"
+
+  moving-mcp:
+    <<: *runtime
+    image: lifeflow/moving-mcp:${RELEASE_SHA:-local}
+    build: { context: ../.., dockerfile: deploy/moving/Dockerfile.moving, target: moving-mcp, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    environment:
+      <<: *provider
+      MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?Set MOVING_MCP_AUTH_TOKEN}
+      MCP_WRITE_TOKEN: ${MOVING_MCP_WRITE_TOKEN:-}
+      MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
+    ports: ['127.0.0.1:${MOVING_MCP_PORT:-4400}:4400']
+
+  moving-api:
+    <<: *runtime
+    image: lifeflow/moving-api:${RELEASE_SHA:-local}
+    build: { context: ../.., dockerfile: deploy/moving/Dockerfile.moving, target: moving-api, args: { RELEASE_SHA: '${RELEASE_SHA:-local}' } }
+    environment:
+      <<: *provider
+      AHAMOVE_WEBHOOK_AUTH_MODE: ${AHAMOVE_WEBHOOK_AUTH_MODE:-api-key}
+      AHAMOVE_WEBHOOK_SECRET: ${AHAMOVE_WEBHOOK_SECRET:?Set AHAMOVE_WEBHOOK_SECRET}
+      MOVING_APPROVAL_TOKEN: ${MOVING_APPROVAL_TOKEN:-}
+    ports: ['127.0.0.1:${MOVING_API_PORT:-4200}:4200']
+
+volumes:
+  moving-data:

@@ -90,7 +90,7 @@ def main():
     )
     migration_env["POSTGRES_DB"] = database
     subprocess.run(
-        ["node", "../../apps/platform-api/dist/migrate.js"], cwd=ROOT / "Maps VN/LifeFlow", env=migration_env, check=True
+        ["node", "apps/platform-api/dist/migrate.js"], cwd=ROOT, env=migration_env, check=True
     )
     print(
         f"Snapshot restored into {database}; ANALYZE/migrations completed. Existing DBs unchanged; temporary dump copy removed."

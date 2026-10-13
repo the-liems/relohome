@@ -452,7 +452,7 @@ Local đã xóa vật lý 20.853 POI có tên trùng; còn 131.191 POI active. K
 ẩn bản ghi ở frontend. POI khác tầng/loại tiện ích và dữ liệu nhà được giữ riêng;
 ID/tọa độ cũ vẫn đọc được qua mapping để lịch sử và pin đã chọn hoạt động.
 Bộ dữ liệu xuất nằm ở `../data/poi-clean/2026-10-04/` (không commit vào Git).
-Xem [runbook POI](../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
+Xem [runbook POI](../../docs/location/POI-CANONICALIZATION.md).
 
 ### Map Việt Nam và hai ô A/B Moving — 04/10/2026
 

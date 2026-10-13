@@ -74,7 +74,7 @@ loading to a test module; read vendor values with `tests.live.env_test(...)`.
 ### Migration and containers
 
 Transfer existing values from root `.env`, `data/integration.env`, the old service
-`.env`, and (if used) `.runtime/moving-secrets.json`. Rename the backend's
+`.env`, and (if used) `Maps VN/LifeFlow/.runtime/moving-secrets.json`. Rename the backend's
 `DATABASE_URL` to `BACKEND_DATABASE_URL` and keep the Location token once as
 `LOCATION_MCP_AUTH_TOKEN`; move a custom Location URL to `LOCATION_DATABASE_URL` (and the
 admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from the file. Preserve running database credentials and use the connection preflight
@@ -83,7 +83,7 @@ admin/ingest variants). Remove generic `MCP_AUTH_TOKEN` and `DATABASE_URL` from 
 ```sh
 make mcp-up
 make agents-up
-docker compose --env-file .env.local -f "Maps VN/LifeFlow/infra/compose.yaml" up -d postgis
+docker compose --env-file .env.local -f "deploy/location/compose.yaml" up -d postgis
 ```
 
 Production/Coolify configuration, production start commands and image env-file
@@ -120,7 +120,7 @@ The old `*_MCP_STDIO` flags no longer enable a transport.
 | `apps/browser-gateway/` | Gateway và lưu tài khoản/hội thoại |
 | `examples/streamlit/src/relohome_demos/` | Demo Streamlit Flight, Payment và agent-chat được hỗ trợ |
 | `apps/flights-mcp/` and `apps/payments-mcp/` | Flight/Payment MCP Python |
-| `Maps VN/LifeFlow/` | Workspace TypeScript Housing/Map/Moving đã có; không di chuyển phá import |
+| `apps/`, `packages/`, `examples/map-app/` | Workspace TypeScript Housing/Map/Moving |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
 | `config/local-*.compose.yaml` | PostGIS và OSRM local, không phải deploy |
 | `docs/specs/`, `docs/adr/`, `docs/runbooks/`, `eval/` | Yêu cầu, quyết định, vận hành, bằng chứng |

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def discover_projects():
     projects = []
-    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml", "examples/streamlit/pyproject.toml")
+    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml", "examples/*/pyproject.toml")
     for pattern in patterns:
         for path in sorted(ROOT.glob(pattern)):
             metadata = tomllib.loads(path.read_text())
@@ -43,7 +43,7 @@ PROJECTS = discover_projects()
 
 
 def test_every_project_is_discovered():
-    assert len(PROJECTS) == 14
+    assert len(PROJECTS) == 15
     assert all(project["files"] for project in PROJECTS)
 
 

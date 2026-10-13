@@ -70,8 +70,8 @@ async def moving():
         "AHAMOVE_ENV": "staging",
     }
     process = subprocess.Popen(
-        ["node", "../../apps/moving-mcp/dist/http-server.js"],
-        cwd=ROOT / "Maps VN/LifeFlow",
+        ["node", "apps/moving-mcp/dist/http-server.js"],
+        cwd=ROOT,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

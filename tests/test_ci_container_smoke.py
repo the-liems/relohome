@@ -126,7 +126,7 @@ class MCPSmokeTests(unittest.TestCase):
                     "COMPOSE_PROJECT_NAME": project,
                 }
                 result = subprocess.run(
-                    ["bash", str(ROOT / "Maps VN/LifeFlow/scripts/verify-moving-ci.sh")],
+                    ["bash", str(ROOT / "scripts/relohome/verify-moving-ci.sh")],
                     cwd=self.directory, env=env, capture_output=True, timeout=15,
                 )
                 self.assertEqual(result.returncode == 0, mode == "")

@@ -44,7 +44,7 @@ that the image jobs complete and the staging deployment workflow is triggered.
 | --- | --- |
 | Every job | Bash and Git |
 | Python CI, agent services, map data, MVP, Coolify deployment | Python 3.11 and pip, provided by `actions/setup-python` |
-| Python CI (deployment selector tests), LifeFlow, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
+| Python CI (deployment selector tests), ReloHome, Moving validation/staging, agent services | Node.js 24 and npm, provided by `actions/setup-node` |
 | MVP | Node.js 24 and npm 11, matching root tooling |
 | Application images, PostGIS, MCP images, agent services, Moving validation/staging | Docker CLI and access to a Linux container engine through a Docker-compatible API |
 | Agent services | Docker Buildx |

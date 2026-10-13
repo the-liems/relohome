@@ -15,6 +15,7 @@
 -e ./apps/payments-mcp
 -e ./apps/intake-api
 -e ./apps/orchestrator-api
+-e ./examples/location-streamlit
 -e ./examples/streamlit
 
 ruff>=0.8.0

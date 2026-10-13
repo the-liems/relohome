@@ -111,3 +111,10 @@ agents-up:
 
 agents-down:
 	docker compose --env-file .env.local -f compose.agents.yaml down
+
+.PHONY: ui-location ui-location-tools
+ui-location:
+	npm run dev:location-demo
+
+ui-location-tools:
+	npm run dev:location-tool-lab
