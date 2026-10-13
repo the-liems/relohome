@@ -38,7 +38,7 @@ checks and the local smoke stack.
 
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
-`lifeflow-observability-ingest` network. Only the gateway and Prometheus join that
+`relohome-observability-ingest` network. Only the gateway and Prometheus join that
 network from the shared platform; databases, Loki and Redis remain on the
 platform's private network. Langfuse Web and Worker connect to the existing
 S3-compatible bucket through its configured endpoint. Do not attach applications
@@ -91,8 +91,8 @@ backends still share capacity and failure risk; this deployment is not HA.
 Render the staging-first platform:
 
 ```bash
-python scripts/render-observability.py --coolify --output /tmp/lifeflow-observability
-python scripts/render-observability.py --kind collector --coolify --output /tmp/lifeflow-collector
+python scripts/render-observability.py --coolify --output /tmp/relohome-observability
+python scripts/render-observability.py --kind collector --coolify --output /tmp/relohome-collector
 ```
 
 Create independent Coolify Docker Compose resources from the generated
@@ -112,7 +112,7 @@ signs. Enter literal hashes in Coolify secret fields.
 
 Initially `LANGFUSE_STAGING_AUTH` and `LANGFUSE_PRODUCTION_AUTH` may be empty.
 Start the platform and sign in with the initialized operator account. Create
-`lifeflow-staging` and `lifeflow-production` projects and independent project API
+`relohome-staging` and `relohome-production` projects and independent project API
 keys. Set each `LANGFUSE_*_AUTH` to base64 of `public-key:secret-key`, and set each
 `LANGFUSE_*_PROJECT_ID` to its actual project ID, not its display name. Keep those
 keys only in the platform resource; the gateway and retention worker use them.
@@ -145,7 +145,7 @@ prefix lifecycle described below. The platform does not create the bucket,
 manage its policy or deploy MinIO. Batch exports and media storage are not enabled.
 
 Set the Discord webhook as `DISCORD_WEBHOOK_URL` on the **Grafana/platform
-resource**. The provisioned `lifeflow-discord` contact point, routing policy and
+resource**. The provisioned `relohome-discord` contact point, routing policy and
 rules are managed as code. View them in Grafana Alerting; change their source
 configuration and redeploy to make lasting edits. Use Grafana's contact-point
 test during rollout, then verify a controlled firing and resolution in the
@@ -245,7 +245,7 @@ suffixes. Keep the provisioned queries aligned with its scraped names, including
 `otelcol_exporter_send_failed_spans` and `otelcol_process_memory_rss`; application
 metrics exported on port 8889 retain their standard Prometheus suffixes.
 
-Open **LifeFlow operations** in Grafana and choose the environment. Expand a log
+Open **ReloHome operations** in Grafana and choose the environment. Expand a log
 record's `trace_id` to open its project-specific Langfuse trace. Verify the
 generated URL after entering real project IDs.
 
@@ -299,13 +299,36 @@ redeploying. Keep volumes for investigation and stop the independent observabili
 resources if needed. Do not use `down --volumes` on a real deployment. To remove an
 environment, also remove its scrape/inventory configuration and retention target.
 
+### Updating an existing preview deployment to ReloHome names
+
+New deployments use `relohome` identifiers. For an earlier preview deployment,
+coordinate the naming update across application SDKs, Collectors and the shared
+platform; old publishers would be rejected by the new application-metric filter.
+Historical `lifeflow_*` metric series retain their old names. Use the old queries
+for historical data; the new dashboard and alerts query `relohome_*` series.
+
+Preserve the deployment's effective Compose project name and existing volume
+mounts when upgrading: changing a Compose project name can select fresh volumes,
+including the Collector queue. Keep the existing Coolify resources and verify
+their resolved mounts before redeploying. Set `OBSERVABILITY_INGEST_NETWORK` to
+the same existing network on the platform and both Collector resources.
+
+Set `LANGFUSE_INIT_ORG_ID` and the two `LANGFUSE_*_PROJECT_ID` variables to the
+existing stored IDs. Bootstrap defaults do not rename stored organizations or
+projects; change their display names through Langfuse. Preserve their API keys.
+Grafana's new dashboard UID is `relohome-overview`, its folder is `ReloHome`, and
+its alert/contact-point UIDs use `rh-`. Retire the old provisioned rules and
+dashboards after verifying the replacements, so both sets do not remain active.
+This code change does not move stored data or alter a running deployment.
+
 ## Validation
 
 The TypeScript telemetry workspace is `packages/telemetry`
 (`@relohome/telemetry`) and participates in the root build/test commands after
 the #111 relocation. Its `./register` export must still preload before service
-modules. Keep `service.name`, the `lifeflow` resource namespace, metric names,
-Grafana identifiers and environment routing stable during source renames.
+modules. The resource namespace, instrumentation scopes, metrics and custom
+attributes use `relohome`; Grafana displays **ReloHome**. Deploy SDK publishers,
+Collector filters and dashboard/alert queries together when changing these names.
 
 Python telemetry lives in `packages/python/observability` as
 `relohome-observability` / `relohome_observability`, following the #112 package

@@ -9,12 +9,12 @@ export const enabled = () => process.env.OBSERVABILITY_ENABLED === 'true'
 export const healthPaths = new Set(['/health', '/healthz', '/ready', '/readyz', '/metrics'])
 
 function createInstruments(provider: MeterProvider) {
-  const meter = provider.getMeter('lifeflow')
+  const meter = provider.getMeter('relohome')
   return {
-    operations: meter.createCounter('lifeflow.operations'),
-    operationDuration: meter.createHistogram('lifeflow.operation.duration', { unit: 's' }),
-    httpRequests: meter.createCounter('lifeflow.http.requests'),
-    httpDuration: meter.createHistogram('lifeflow.http.duration', { unit: 's' }),
+    operations: meter.createCounter('relohome.operations'),
+    operationDuration: meter.createHistogram('relohome.operation.duration', { unit: 's' }),
+    httpRequests: meter.createCounter('relohome.http.requests'),
+    httpDuration: meter.createHistogram('relohome.http.duration', { unit: 's' }),
   }
 }
 
@@ -32,7 +32,7 @@ function instruments() {
 
 export function logEvent(event: string, attributes: Attributes = {}, severity = SeverityNumber.INFO) {
   if (!enabled()) return
-  try { logs.getLogger('lifeflow').emit({ body: event, attributes, severityNumber: severity }) } catch { /* fail open */ }
+  try { logs.getLogger('relohome').emit({ body: event, attributes, severityNumber: severity }) } catch { /* fail open */ }
 }
 
 export async function toolOperation<T>(name: string, input: unknown, metadata: unknown, handler: () => Promise<T>): Promise<T> {
@@ -44,10 +44,10 @@ export async function toolOperation<T>(name: string, input: unknown, metadata: u
     keys: Object.keys, get: (object, key) => object[key] as string | undefined,
   })
   const started = performance.now()
-  return trace.getTracer('lifeflow').startActiveSpan(name, {
+  return trace.getTracer('relohome').startActiveSpan(name, {
     kind: SpanKind.SERVER,
     attributes: { 'rpc.system': 'mcp', 'rpc.method': name, 'langfuse.observation.type': 'tool',
-      'lifeflow.operation': name, 'lifeflow.kind': 'tool' },
+      'relohome.operation': name, 'relohome.kind': 'tool' },
   }, parent, async span => {
     let outcome = 'success'
     try {
@@ -67,7 +67,7 @@ export async function toolOperation<T>(name: string, input: unknown, metadata: u
       throw error
     } finally {
       const duration = (performance.now() - started) / 1000
-      span.setAttribute('lifeflow.outcome', outcome)
+      span.setAttribute('relohome.outcome', outcome)
       const labels = { operation: name, kind: 'tool', outcome }
       const meter = instruments()
       meter.operations.add(1, labels)

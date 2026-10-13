@@ -1,4 +1,4 @@
-name: lifeflow-observability
+name: relohome-observability
 x-service: &service
   restart: unless-stopped
   security_opt: [no-new-privileges:true]
@@ -41,10 +41,10 @@ services:
       <<: *langfuse-env
       NEXTAUTH_SECRET: ${LF_NEXTAUTH_SECRET:?}
       AUTH_DISABLE_SIGNUP: "true"
-      LANGFUSE_INIT_ORG_ID: lifeflow
-      LANGFUSE_INIT_ORG_NAME: LifeFlow
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-relohome}
+      LANGFUSE_INIT_ORG_NAME: ReloHome
       LANGFUSE_INIT_USER_EMAIL: ${OBS_ADMIN_EMAIL:?}
-      LANGFUSE_INIT_USER_NAME: LifeFlow Operator
+      LANGFUSE_INIT_USER_NAME: ReloHome Operator
       LANGFUSE_INIT_USER_PASSWORD: ${OBS_ADMIN_PASSWORD:?}
     depends_on: *langfuse-depends
     ports: ["127.0.0.1:3000:3000"]
@@ -137,14 +137,14 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:?}
       LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3000}
-      LANGFUSE_STAGING_PROJECT_ID: ${LANGFUSE_STAGING_PROJECT_ID:-lifeflow-staging}
-      LANGFUSE_PRODUCTION_PROJECT_ID: ${LANGFUSE_PRODUCTION_PROJECT_ID:-lifeflow-production}
+      LANGFUSE_STAGING_PROJECT_ID: ${LANGFUSE_STAGING_PROJECT_ID:-relohome-staging}
+      LANGFUSE_PRODUCTION_PROJECT_ID: ${LANGFUSE_PRODUCTION_PROJECT_ID:-relohome-production}
     ports: ["127.0.0.1:3001:3000"]
     volumes:
       - grafana:/var/lib/grafana
-      - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/lifeflow.yaml:ro
-      - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/lifeflow.yaml:ro
-      - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/lifeflow.yaml:ro
+      - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/relohome.yaml:ro
+      - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/relohome.yaml:ro
+      - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/relohome.yaml:ro
       - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
   retention:
     <<: *service
@@ -163,7 +163,7 @@ services:
 networks:
   default:
   ingestion:
-    name: lifeflow-observability-ingest
+    name: ${OBSERVABILITY_INGEST_NETWORK:-relohome-observability-ingest}
 volumes:
   postgres:
   clickhouse:

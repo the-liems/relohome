@@ -435,7 +435,7 @@ class MovingExecution:
         key = json.dumps([client.endpoint.service, name, args], sort_keys=True)
         if key in self.cache:
             self.run.usage.cached_calls += 1
-            with operation(name, "cache", attributes={"lifeflow.cache_hit": True}):
+            with operation(name, "cache", attributes={"relohome.cache_hit": True}):
                 return self.cache[key]
         catalog_read = client is self.agent.moving and name == "list_moving_services"
         if catalog_read:
@@ -445,7 +445,7 @@ class MovingExecution:
                 self.run.usage.cached_calls += 1
                 self.tool_timings.append({"tool": name, "elapsed_ms": 0, "cache_hit": True})
                 self.cache[key] = observed
-                with operation(name, "cache", attributes={"lifeflow.cache_hit": True}):
+                with operation(name, "cache", attributes={"relohome.cache_hit": True}):
                     return observed
         if self.run.usage.provider_calls >= min(self.req.budget.max_provider_calls, 8):
             raise LLMError("LLM_BUDGET", "Hết ngân sách gọi provider.")

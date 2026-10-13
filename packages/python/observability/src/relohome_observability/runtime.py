@@ -25,8 +25,8 @@ _propagator = TraceContextTextMapPropagator()  # No baggage: never propagate ide
 SAFE_ATTRIBUTES = frozenset({
     "http.request.method", "http.method", "http.response.status_code", "http.status_code", "http.route",
     "db.system", "db.system.name", "db.operation", "db.operation.name", "server.address", "server.port",
-    "network.protocol.version", "rpc.system", "rpc.method", "error.type", "lifeflow.operation", "lifeflow.kind",
-    "lifeflow.outcome", "lifeflow.origin_trace_id", "lifeflow.cache_hit", "langfuse.session.id",
+    "network.protocol.version", "rpc.system", "rpc.method", "error.type", "relohome.operation", "relohome.kind",
+    "relohome.outcome", "relohome.origin_trace_id", "relohome.cache_hit", "langfuse.session.id",
     "langfuse.environment", "langfuse.observation.type", "langfuse.observation.input", "langfuse.observation.output",
     "gen_ai.system", "gen_ai.provider.name", "gen_ai.operation.name", "gen_ai.request.model",
     "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens", "langfuse.observation.level",
@@ -46,14 +46,14 @@ def instruments():
 def _instruments(provider):
     # The provider changes after bootstrap (and in isolated tests). Do not retain
     # instruments belonging to the previous provider or a shutdown exporter.
-    meter = provider.get_meter("lifeflow")
+    meter = provider.get_meter("relohome")
     return SimpleNamespace(
-        operations=meter.create_counter("lifeflow.operations"),
-        operation_duration=meter.create_histogram("lifeflow.operation.duration", unit="s"),
-        http_requests=meter.create_counter("lifeflow.http.requests"),
-        http_duration=meter.create_histogram("lifeflow.http.duration", unit="s"),
-        rate_limits=meter.create_counter("lifeflow.provider.rate_limits"),
-        llm_tokens=meter.create_counter("lifeflow.llm.tokens"),
+        operations=meter.create_counter("relohome.operations"),
+        operation_duration=meter.create_histogram("relohome.operation.duration", unit="s"),
+        http_requests=meter.create_counter("relohome.http.requests"),
+        http_duration=meter.create_histogram("relohome.http.duration", unit="s"),
+        rate_limits=meter.create_counter("relohome.provider.rate_limits"),
+        llm_tokens=meter.create_counter("relohome.llm.tokens"),
     )
 
 
@@ -132,7 +132,7 @@ def initialize(service_name: str):
         from opentelemetry.sdk.trace.sampling import ALWAYS_ON, ParentBased
 
         resource = Resource({
-            "service.name": os.getenv("OTEL_SERVICE_NAME", service_name), "service.namespace": "lifeflow",
+            "service.name": os.getenv("OTEL_SERVICE_NAME", service_name), "service.namespace": "relohome",
             "service.version": os.getenv("RELEASE_SHA", "development"),
             "deployment.environment.name": os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "development"),
         })
@@ -151,21 +151,21 @@ def initialize(service_name: str):
             max_queue_size=2048, max_export_batch_size=256, schedule_delay_millis=5000,
         ))
         set_logger_provider(logs)
-        _logger = logs.get_logger("lifeflow")
+        _logger = logs.get_logger("relohome")
         providers.append(logs)
         reader = PeriodicExportingMetricReader(
             OTLPMetricExporter(endpoint=endpoint + "/v1/metrics", timeout=3),
             export_interval_millis=15000, export_timeout_millis=5000,
         )
         meter_provider = MeterProvider(resource=resource, metric_readers=[reader], views=[View(
-            instrument_name="lifeflow.*.duration", aggregation=ExplicitBucketHistogramAggregation(
+            instrument_name="relohome.*.duration", aggregation=ExplicitBucketHistogramAggregation(
                 boundaries=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300]),
         )])
         metrics.set_meter_provider(meter_provider)
         providers.append(meter_provider)
         from opentelemetry.metrics import Observation
-        metrics.get_meter("lifeflow").create_observable_gauge(
-            "lifeflow.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
+        metrics.get_meter("relohome").create_observable_gauge(
+            "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
         )
         HTTPXClientInstrumentor().instrument()
         from .sqlite import instrument_shortcuts
@@ -264,7 +264,7 @@ def operation(name: str, kind="internal", *, inputs=None, remote=None, origin=No
         yield Operation(trace.INVALID_SPAN)
         return
     started = time.monotonic()
-    attrs = {"lifeflow.operation": name, "lifeflow.kind": kind,
+    attrs = {"relohome.operation": name, "relohome.kind": kind,
              "langfuse.observation.type": {"llm": "generation", "tool": "tool", "agent": "agent",
                                             "workflow": "chain"}.get(kind, "span")}
     attrs.update(attributes or {})
@@ -280,8 +280,8 @@ def operation(name: str, kind="internal", *, inputs=None, remote=None, origin=No
         linked = trace.get_current_span(extract(origin)).get_span_context()
         if linked.is_valid:
             links.append(Link(linked))
-            attrs["lifeflow.origin_trace_id"] = format(linked.trace_id, "032x")
-    with trace.get_tracer("lifeflow").start_as_current_span(
+            attrs["relohome.origin_trace_id"] = format(linked.trace_id, "032x")
+    with trace.get_tracer("relohome").start_as_current_span(
         name, context=parent, links=links, attributes=attrs,
         kind=SpanKind.SERVER if remote else SpanKind.INTERNAL,
         record_exception=False, set_status_on_exception=False,
@@ -303,7 +303,7 @@ def operation(name: str, kind="internal", *, inputs=None, remote=None, origin=No
             raise
         finally:
             elapsed = time.monotonic() - started
-            span.set_attribute("lifeflow.outcome", op.outcome)
+            span.set_attribute("relohome.outcome", op.outcome)
             labels = {"operation": name, "kind": kind, "outcome": op.outcome}
             instruments().operations.add(1, labels)
             instruments().operation_duration.record(elapsed, labels)

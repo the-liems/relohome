@@ -17,8 +17,8 @@ import { healthPaths } from './index.js'
 
 const safeAttributes = new Set(['http.request.method', 'http.method', 'http.response.status_code', 'http.status_code',
   'http.route', 'db.system', 'db.system.name', 'db.operation', 'db.operation.name', 'server.address', 'server.port',
-  'network.protocol.version', 'rpc.system', 'rpc.method', 'error.type', 'lifeflow.operation', 'lifeflow.kind',
-  'lifeflow.outcome', 'lifeflow.cache_hit', 'langfuse.session.id', 'langfuse.environment', 'langfuse.observation.type',
+  'network.protocol.version', 'rpc.system', 'rpc.method', 'error.type', 'relohome.operation', 'relohome.kind',
+  'relohome.outcome', 'relohome.cache_hit', 'langfuse.session.id', 'langfuse.environment', 'langfuse.observation.type',
   'langfuse.observation.input', 'langfuse.observation.output', 'langfuse.observation.level'])
 
 export class SanitizingSpanProcessor implements SpanProcessor {
@@ -56,7 +56,7 @@ class MetadataLogProcessor implements LogRecordProcessor {
   constructor(private delegate: LogRecordProcessor) {}
   onEmit(record: ReadWriteLogRecord, parent?: Context) {
     // Pino payloads/exception messages are not safe to export. Our own logs use a fixed schema.
-    const own = record.instrumentationScope.name === 'lifeflow'
+    const own = record.instrumentationScope.name === 'relohome'
     if (!own) {
       record.setBody('application.log')
       for (const key of Object.keys(record.attributes)) delete record.attributes[key]
@@ -71,15 +71,15 @@ const endpoint = (process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4
 const batch = { maxQueueSize: 2048, maxExportBatchSize: 256, scheduledDelayMillis: 5000, exportTimeoutMillis: 5000 }
 const sdk = new NodeSDK({
   autoDetectResources: false,
-  resource: resourceFromAttributes({ 'service.name': process.env.OTEL_SERVICE_NAME || 'lifeflow-node',
-    'service.namespace': 'lifeflow', 'service.version': process.env.RELEASE_SHA || 'development',
+  resource: resourceFromAttributes({ 'service.name': process.env.OTEL_SERVICE_NAME || 'relohome-node',
+    'service.namespace': 'relohome', 'service.version': process.env.RELEASE_SHA || 'development',
     'deployment.environment.name': process.env.OTEL_DEPLOYMENT_ENVIRONMENT || 'development' }),
   textMapPropagator: new W3CTraceContextPropagator(),
   sampler: new ParentBasedSampler({ root: new AlwaysOnSampler() }),
   spanProcessors: [new SanitizingSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: `${endpoint}/v1/traces`, timeoutMillis: 3000 }), batch))],
   logRecordProcessors: [new MetadataLogProcessor(new BatchLogRecordProcessor({ exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs`, timeoutMillis: 3000 }), ...batch }))],
   metricReaders: [new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics`, timeoutMillis: 3000 }), exportIntervalMillis: 15000, exportTimeoutMillis: 5000 })],
-  views: [{ instrumentName: 'lifeflow.*.duration', aggregation: { type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+  views: [{ instrumentName: 'relohome.*.duration', aggregation: { type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
     options: { boundaries: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300] } } }],
   instrumentations: [
     new HttpInstrumentation({ ignoreIncomingRequestHook: req => healthPaths.has((req.url || '').split('?')[0] || ''),
@@ -90,7 +90,7 @@ const sdk = new NodeSDK({
 })
 sdk.start()
 const { metrics } = await import('@opentelemetry/api')
-metrics.getMeter('lifeflow').createObservableGauge('lifeflow.heartbeat', { unit: 's' })
+metrics.getMeter('relohome').createObservableGauge('relohome.heartbeat', { unit: 's' })
   .addCallback(result => result.observe(Date.now() / 1000))
 // Do not export console arguments: they may include arbitrary payloads or errors.
 const { logEvent } = await import('./index.js')

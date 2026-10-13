@@ -118,7 +118,7 @@ def test_interrupts_and_background_links_do_not_hold_request_open(spans):
     with operation("payment.fulfilment", "job", origin=origin):
         pass
     exported = {item.name: item for item in spans.get_finished_spans()}
-    assert exported["confirmation"].attributes["lifeflow.outcome"] == "paused"
+    assert exported["confirmation"].attributes["relohome.outcome"] == "paused"
     assert exported["confirmation"].status.status_code.name != "ERROR"
     job = exported["payment.fulfilment"]
     assert job.parent is None
@@ -449,7 +449,7 @@ async def test_metric_instruments_are_created_once_for_repeated_requests(spans, 
                 pass
         assert len(created) == 6
         assert set(created.values()) == {1}
-        assert records.count(("lifeflow.operations", 1)) == 3
+        assert records.count(("relohome.operations", 1)) == 3
         provider = Provider()
         with operation("replacement.provider"):
             pass

@@ -1,4 +1,4 @@
-name: lifeflow-telemetry-${OTEL_DEPLOYMENT_ENVIRONMENT:?}
+name: relohome-telemetry-${OTEL_DEPLOYMENT_ENVIRONMENT:?}
 services:
   collector:
     image: otel/opentelemetry-collector-contrib:0.162.0
@@ -29,6 +29,6 @@ networks:
     name: ${APPLICATION_NETWORK:?}
   ingestion:
     external: true
-    name: lifeflow-observability-ingest
+    name: ${OBSERVABILITY_INGEST_NETWORK:-relohome-observability-ingest}
 volumes:
   queue:

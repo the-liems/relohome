@@ -69,7 +69,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         lines = []
         for environment, values in list(STATE.items()):
             for metric, value in values.items():
-                lines.append(f'lifeflow_retention_{metric}{{environment="{environment}"}} {value}')
+                lines.append(f'relohome_retention_{metric}{{environment="{environment}"}} {value}')
         payload = ("\n".join(lines) + "\n").encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")

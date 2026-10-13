@@ -153,7 +153,10 @@ def main(smoke=False, verify_images=False):
             "LF_POSTGRES_PASSWORD", "LF_CLICKHOUSE_PASSWORD", "LF_REDIS_PASSWORD", "LF_SALT", "LF_ENCRYPTION_KEY",
             "LF_NEXTAUTH_SECRET", "OBS_ADMIN_PASSWORD", "GRAFANA_ADMIN_PASSWORD")}
         env.update(local_storage_environment())
-        env.update(OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled")
+        env.update(OBS_ADMIN_EMAIL="smoke@example.com", DISCORD_WEBHOOK_URL="http://127.0.0.1:9/disabled",
+                   LANGFUSE_INIT_ORG_ID="smoke-" + secrets.token_hex(8),
+                   LANGFUSE_STAGING_PROJECT_ID="smoke-staging", LANGFUSE_PRODUCTION_PROJECT_ID="smoke-production",
+                   OBSERVABILITY_INGEST_NETWORK=project + "-ingest")
         passwords = {name: secrets.token_hex(16) for name in ("staging", "production")}
         caddy = services["telemetry-gateway"]["image"]
         for name, password in passwords.items():
@@ -225,10 +228,13 @@ def main(smoke=False, verify_images=False):
             gf_auth = {"Authorization": "Basic " + base64.b64encode(f'admin:{env["GRAFANA_ADMIN_PASSWORD"]}'.encode()).decode()}
             eventually(lambda: request(grafana + "/api/health").get("database") == "ok")
             contacts = request(grafana + "/api/v1/provisioning/contact-points", headers=gf_auth)
-            assert any(item["type"] == "discord" for item in contacts)
+            assert any(item["type"] == "discord" and item["uid"] == "rh-discord"
+                       and item["name"] == "relohome-discord" for item in contacts)
             rules = request(grafana + "/api/v1/provisioning/alert-rules", headers=gf_auth)
-            assert len(rules) >= 8
-            dashboard = request(grafana + "/api/dashboards/uid/lifeflow-overview", headers=gf_auth)
+            expected_rules = {"rh-http-errors", "rh-ai-errors", "rh-provider-limits", "rh-chat-latency",
+                              "rh-heartbeat", "rh-collector-down", "rh-export-failures", "rh-retention"}
+            assert expected_rules.issubset({rule["uid"] for rule in rules})
+            dashboard = request(grafana + "/api/dashboards/uid/relohome-overview", headers=gf_auth)
             assert len(dashboard["dashboard"]["panels"]) >= 10
             source = request(grafana + "/api/datasources/uid/loki-staging", headers=gf_auth)
             assert source["jsonData"]["derivedFields"][0]["url"].endswith("/traces/${__value.raw}")
@@ -246,7 +252,7 @@ def main(smoke=False, verify_images=False):
             now = time.time_ns()
             resource = {"attributes": [{"key": "service.name", "value": {"stringValue": "smoke"}},
                                        {"key": "environment", "value": {"stringValue": "production"}}]}
-            trace_payload = {"resourceSpans": [{"resource": resource, "scopeSpans": [{"scope": {"name": "lifeflow"}, "spans": [
+            trace_payload = {"resourceSpans": [{"resource": resource, "scopeSpans": [{"scope": {"name": "relohome"}, "spans": [
                 {"traceId": trace_id, "spanId": secrets.token_hex(8), "name": "smoke.call", "kind": 2,
                  "startTimeUnixNano": str(now), "endTimeUnixNano": str(now + 1000000)}]}]}]}
             request(col + "/v1/traces", headers=col_auth, body=trace_payload)
@@ -264,9 +270,9 @@ def main(smoke=False, verify_images=False):
             assert not request(loki + "/loki/api/v1/query_range?" + log_query,
                                headers={"X-Scope-OrgID": "production"})["data"]["result"]
             request(col + "/v1/metrics", headers=col_auth, body={"resourceMetrics": [{"resource": resource, "scopeMetrics": [{"metrics": [
-                {"name": "lifeflow.heartbeat", "unit": "s", "gauge": {"dataPoints": [{"asDouble": time.time(), "timeUnixNano": str(now)}]}}]}]}]})
+                {"name": "relohome.heartbeat", "unit": "s", "gauge": {"dataPoints": [{"asDouble": time.time(), "timeUnixNano": str(now)}]}}]}]}]})
             prom = endpoint("prometheus", 9090)
-            metric_query = urlencode({"query": 'lifeflow_heartbeat_seconds{service_name="smoke",environment="staging"}'})
+            metric_query = urlencode({"query": 'relohome_heartbeat_seconds{service_name="smoke",environment="staging"}'})
             eventually(lambda: request(prom + "/api/v1/query?" + metric_query)["data"]["result"])
             print("Traces, logs, metrics, redaction and environment isolation verified", flush=True)
             db_host = endpoint("postgres", 5432).removeprefix("http://")
@@ -297,7 +303,7 @@ def main(smoke=False, verify_images=False):
             eventually(lambda: "[firing]" in json.dumps(request(capture)))
             request(col + "/v1/metrics", headers=col_auth, body={"resourceMetrics": [
                 {"resource": {"attributes": [{"key": "service.name", "value": {"stringValue": name}}]},
-                 "scopeMetrics": [{"metrics": [{"name": "lifeflow.heartbeat", "unit": "s", "gauge": {
+                 "scopeMetrics": [{"metrics": [{"name": "relohome.heartbeat", "unit": "s", "gauge": {
                      "dataPoints": [{"asDouble": time.time(), "timeUnixNano": str(time.time_ns())}]}}]}]}
                 for name in renderer.SERVICES]})
             eventually(lambda: "[resolved]" in json.dumps(request(capture)))

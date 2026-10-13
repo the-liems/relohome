@@ -28,7 +28,7 @@ class TelemetryMiddleware:
         if method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
             method = "OTHER"
         status, started = 500, time.monotonic()
-        with trace.get_tracer("lifeflow").start_as_current_span(
+        with trace.get_tracer("relohome").start_as_current_span(
             method, context=parent, kind=SpanKind.SERVER, attributes={"http.request.method": method},
             record_exception=False, set_status_on_exception=False,
         ) as span:

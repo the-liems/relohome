@@ -22,7 +22,7 @@ def _execute(wrapped, method, *args, **kwargs):
     statement = args[0] if args else kwargs.get("sql", "")
     verb = str(statement).split(maxsplit=1)[0].upper() if statement else "QUERY"
     verb = verb if verb in {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "PRAGMA", "BEGIN", "COMMIT", "ROLLBACK"} else "QUERY"
-    with trace.get_tracer("lifeflow.sqlite").start_as_current_span(
+    with trace.get_tracer("relohome.sqlite").start_as_current_span(
         "db." + verb, kind=SpanKind.CLIENT,
         attributes={"db.system": "sqlite", "db.operation.name": verb},
         record_exception=False, set_status_on_exception=False,

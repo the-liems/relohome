@@ -40,6 +40,15 @@ it('preloads ESM instrumentation, propagates across HTTP, and exports only sanit
     expect(tool.traceId).toBe(root.traceId)
     expect(tool.parentSpanId).toBe(root.spanId)
     expect(tool.status.code).toBe(2)
+    expect(tool.attributes).toEqual(expect.arrayContaining([
+      { key: 'relohome.operation', value: { stringValue: 'echo' } },
+      { key: 'relohome.kind', value: { stringValue: 'tool' } },
+      { key: 'relohome.outcome', value: { stringValue: 'error' } },
+    ]))
+    const traceResources = requests.filter(item => item.path === '/v1/traces').flatMap(item => item.payload.resourceSpans)
+    expect(traceResources.every(item => item.resource.attributes.some((attribute: any) =>
+      attribute.key === 'service.namespace' && attribute.value.stringValue === 'relohome'))).toBe(true)
+    expect(traceResources.flatMap(item => item.scopeSpans).some(item => item.scope.name === 'relohome')).toBe(true)
     expect(spans.some(item => item.kind === 2)).toBe(true)
     expect(spans.some(item => item.kind === 3)).toBe(true)
     const exported = JSON.stringify(requests)
@@ -50,7 +59,7 @@ it('preloads ESM instrumentation, propagates across HTTP, and exports only sanit
     expect(requests.some(item => item.path === '/v1/metrics')).toBe(true)
     const httpPoints = requests.filter(item => item.path === '/v1/metrics')
       .flatMap(item => item.payload.resourceMetrics).flatMap(item => item.scopeMetrics).flatMap(item => item.metrics)
-      .filter(item => item.name === 'lifeflow.http.requests').flatMap(item => item.sum.dataPoints)
+      .filter(item => item.name === 'relohome.http.requests').flatMap(item => item.sum.dataPoints)
     const httpLabels = httpPoints.map(point => Object.fromEntries(point.attributes.map((attribute: any) =>
       [attribute.key, attribute.value.stringValue])))
     expect(httpLabels).toEqual(expect.arrayContaining([

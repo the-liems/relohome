@@ -32,10 +32,10 @@ it('records after late SDK startup and uses a replacement provider without losin
   await toolOperation('lookup', {}, undefined, async () => ({ ok: true }))
   await first.provider.forceFlush()
   const firstMetrics = first.exporter.getMetrics().flatMap(resource => resource.scopeMetrics).flatMap(scope => scope.metrics)
-  expect(firstMetrics.find(metric => metric.descriptor.name === 'lifeflow.http.requests')?.dataPoints).toEqual([
+  expect(firstMetrics.find(metric => metric.descriptor.name === 'relohome.http.requests')?.dataPoints).toEqual([
     expect.objectContaining({ attributes: { method: 'GET', route: '/mcp', status: '200' }, value: 2 }),
   ])
-  expect(firstMetrics.find(metric => metric.descriptor.name === 'lifeflow.operations')?.dataPoints).toEqual([
+  expect(firstMetrics.find(metric => metric.descriptor.name === 'relohome.operations')?.dataPoints).toEqual([
     expect.objectContaining({ attributes: { operation: 'lookup', kind: 'tool', outcome: 'success' }, value: 1 }),
   ])
 
@@ -44,7 +44,7 @@ it('records after late SDK startup and uses a replacement provider without losin
   observeHttp('POST', '/mcp', 401, 10)
   await replacement.provider.forceFlush()
   const replacementMetrics = replacement.exporter.getMetrics().flatMap(resource => resource.scopeMetrics).flatMap(scope => scope.metrics)
-  expect(replacementMetrics.find(metric => metric.descriptor.name === 'lifeflow.http.requests')?.dataPoints).toEqual([
+  expect(replacementMetrics.find(metric => metric.descriptor.name === 'relohome.http.requests')?.dataPoints).toEqual([
     expect.objectContaining({ attributes: { method: 'POST', route: '/mcp', status: '401' }, value: 1 }),
   ])
 })

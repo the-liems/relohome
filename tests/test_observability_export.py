@@ -56,6 +56,16 @@ def test_python_sdk_auth_and_payment_stdio_propagation(tmp_path):
         assert tool["status"]["code"] == "STATUS_CODE_ERROR"
         assert any(span["name"].startswith("db.") for span in spans)
         assert {path for path, _ in received} == set(formats)
+        resources = [resource for _, payload in received for groups in payload.values() for resource in groups]
+        assert all({attribute["key"]: attribute["value"] for attribute in resource["resource"]["attributes"]}[
+            "service.namespace"] == {"stringValue": "relohome"} for resource in resources)
+        scopes = [scope for resource in resources for key, groups in resource.items()
+                  if key.startswith("scope") for scope in groups]
+        assert {scope["scope"]["name"] for scope in scopes} >= {"relohome", "relohome.sqlite"}
+        names = {metric["name"] for scope in scopes for metric in scope.get("metrics", [])}
+        assert {"relohome.operations", "relohome.heartbeat"} <= names
+        assert not any(name.startswith("lifeflow") for name in names)
+        assert any(attribute["key"] == "relohome.outcome" for span in spans for attribute in span["attributes"])
     finally:
         receiver.shutdown()
         receiver.server_close()

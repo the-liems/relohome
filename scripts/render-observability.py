@@ -20,8 +20,8 @@ def alert(uid, title, expression, duration="0s"):
     return {
         "uid": uid, "title": title, "condition": "B", "for": duration,
         "noDataState": "OK", "execErrState": "Error",
-        "labels": {"team": "lifeflow", "severity": "warning"},
-        "annotations": {"summary": title, "description": "Check the LifeFlow dashboard and correlated traces."},
+        "labels": {"team": "relohome", "severity": "warning"},
+        "annotations": {"summary": title, "description": "Check the ReloHome dashboard and correlated traces."},
         "data": [
             {"refId": "A", "datasourceUid": "prometheus", "relativeTimeRange": {"from": 900, "to": 0},
              "model": {"refId": "A", "expr": expression, "instant": True, "range": False,
@@ -35,10 +35,10 @@ def alert(uid, title, expression, duration="0s"):
 
 
 def alert_config():
-    http_total = 'sum by (environment, service_name) (increase(lifeflow_http_requests_total[10m]))'
-    http_failed = 'sum by (environment, service_name) (increase(lifeflow_http_requests_total{status=~"5.."}[10m]))'
-    operations = 'sum by (environment, service_name, kind) (increase(lifeflow_operations_total{kind=~"agent|tool|llm"}[10m]))'
-    errors = 'sum by (environment, service_name, kind) (increase(lifeflow_operations_total{kind=~"agent|tool|llm",outcome="error"}[10m]))'
+    http_total = 'sum by (environment, service_name) (increase(relohome_http_requests_total[10m]))'
+    http_failed = 'sum by (environment, service_name) (increase(relohome_http_requests_total{status=~"5.."}[10m]))'
+    operations = 'sum by (environment, service_name, kind) (increase(relohome_operations_total{kind=~"agent|tool|llm"}[10m]))'
+    errors = 'sum by (environment, service_name, kind) (increase(relohome_operations_total{kind=~"agent|tool|llm",outcome="error"}[10m]))'
     delivery_counters = ["exporter_send_failed_spans", "exporter_send_failed_log_records",
                          "exporter_enqueue_failed_spans", "exporter_enqueue_failed_log_records",
                          "receiver_refused_spans", "receiver_refused_log_records", "receiver_refused_metric_points",
@@ -46,22 +46,22 @@ def alert_config():
     # The Collector reader explicitly disables type/unit suffixes for these queries.
     delivery_errors = " or ".join(f"(rate(otelcol_{name}[5m]) > 0)" for name in delivery_counters)
     rules = [
-        alert("lf-http-errors", "LifeFlow HTTP error rate", f'({http_failed} / {http_total} > 0.05) and ({http_total} >= 20)'),
-        alert("lf-ai-errors", "LifeFlow agent/tool/provider failures", f'({errors} / {operations} > 0.05) and ({operations} >= 20)'),
-        alert("lf-provider-limits", "LifeFlow provider rate limits", 'sum by (environment, service_name, provider) (increase(lifeflow_provider_rate_limits_total[10m])) >= 3'),
-        alert("lf-chat-latency", "LifeFlow chat p95 above 120 seconds", '(histogram_quantile(0.95, sum by (le, environment, service_name) (rate(lifeflow_http_duration_seconds_bucket{route=~".*/chat"}[15m]))) > 120) and (sum by (environment, service_name) (increase(lifeflow_http_duration_seconds_count{route=~".*/chat"}[15m])) >= 10)'),
-        alert("lf-heartbeat", "LifeFlow service heartbeat missing", 'lifeflow_expected_service_info unless on (environment, service_name) (max by (environment, service_name) (lifeflow_heartbeat_seconds) > time() - 120)'),
-        alert("lf-collector-down", "LifeFlow Collector unavailable", 'up{job="collectors"} == bool 0', "2m"),
-        alert("lf-export-failures", "LifeFlow telemetry export failures", f'sum by (environment) ({delivery_errors}) > 0', "5m"),
-        alert("lf-retention", "LifeFlow trace retention cleanup failing", '(lifeflow_retention_last_run_success == bool 0) or (up{job="retention"} == bool 0)', "15m"),
+        alert("rh-http-errors", "ReloHome HTTP error rate", f'({http_failed} / {http_total} > 0.05) and ({http_total} >= 20)'),
+        alert("rh-ai-errors", "ReloHome agent/tool/provider failures", f'({errors} / {operations} > 0.05) and ({operations} >= 20)'),
+        alert("rh-provider-limits", "ReloHome provider rate limits", 'sum by (environment, service_name, provider) (increase(relohome_provider_rate_limits_total[10m])) >= 3'),
+        alert("rh-chat-latency", "ReloHome chat p95 above 120 seconds", '(histogram_quantile(0.95, sum by (le, environment, service_name) (rate(relohome_http_duration_seconds_bucket{route=~".*/chat"}[15m]))) > 120) and (sum by (environment, service_name) (increase(relohome_http_duration_seconds_count{route=~".*/chat"}[15m])) >= 10)'),
+        alert("rh-heartbeat", "ReloHome service heartbeat missing", 'relohome_expected_service_info unless on (environment, service_name) (max by (environment, service_name) (relohome_heartbeat_seconds) > time() - 120)'),
+        alert("rh-collector-down", "ReloHome Collector unavailable", 'up{job="collectors"} == bool 0', "2m"),
+        alert("rh-export-failures", "ReloHome telemetry export failures", f'sum by (environment) ({delivery_errors}) > 0', "5m"),
+        alert("rh-retention", "ReloHome trace retention cleanup failing", '(relohome_retention_last_run_success == bool 0) or (up{job="retention"} == bool 0)', "15m"),
     ]
     return {
         "apiVersion": 1,
-        "groups": [{"orgId": 1, "name": "lifeflow", "folder": "LifeFlow", "interval": "30s", "rules": rules}],
-        "contactPoints": [{"orgId": 1, "name": "lifeflow-discord", "receivers": [{"uid": "lf-discord", "type": "discord",
+        "groups": [{"orgId": 1, "name": "relohome", "folder": "ReloHome", "interval": "30s", "rules": rules}],
+        "contactPoints": [{"orgId": 1, "name": "relohome-discord", "receivers": [{"uid": "rh-discord", "type": "discord",
             "disableResolveMessage": False, "settings": {"url": "$DISCORD_WEBHOOK_URL",
             "message": '{{ range .Alerts }}[{{ .Status }}] {{ .Labels.environment }} {{ .Labels.service_name }}: {{ .Annotations.summary }}\n{{ .GeneratorURL }}\n{{ end }}'}}]}],
-        "policies": [{"orgId": 1, "receiver": "lifeflow-discord", "group_by": ["alertname", "environment", "service_name"],
+        "policies": [{"orgId": 1, "receiver": "relohome-discord", "group_by": ["alertname", "environment", "service_name"],
                       "group_wait": "30s", "group_interval": "5m", "repeat_interval": "4h"}],
     }
 
@@ -82,16 +82,16 @@ def datasources():
 
 def dashboard():
     queries = [
-        ("HTTP requests / second", 'sum by (service_name) (rate(lifeflow_http_requests_total{environment="$environment"}[5m]))', "reqps"),
-        ("HTTP 5xx / second", 'sum by (service_name) (rate(lifeflow_http_requests_total{environment="$environment",status=~"5.."}[5m]))', "reqps"),
-        ("Request p95", 'histogram_quantile(0.95,sum by (le,service_name) (rate(lifeflow_http_duration_seconds_bucket{environment="$environment"}[5m])))', "s"),
-        ("Agent and tool outcomes", 'sum by (kind,outcome) (rate(lifeflow_operations_total{environment="$environment"}[5m]))', "ops"),
-        ("LLM tokens", 'sum by (model,direction) (increase(lifeflow_llm_tokens_total{environment="$environment"}[1h]))', "short"),
-        ("Provider rate limits", 'sum by (provider) (increase(lifeflow_provider_rate_limits_total{environment="$environment"}[10m]))', "short"),
-        ("Service heartbeat age", 'time() - max by (service_name) (lifeflow_heartbeat_seconds{environment="$environment"})', "s"),
+        ("HTTP requests / second", 'sum by (service_name) (rate(relohome_http_requests_total{environment="$environment"}[5m]))', "reqps"),
+        ("HTTP 5xx / second", 'sum by (service_name) (rate(relohome_http_requests_total{environment="$environment",status=~"5.."}[5m]))', "reqps"),
+        ("Request p95", 'histogram_quantile(0.95,sum by (le,service_name) (rate(relohome_http_duration_seconds_bucket{environment="$environment"}[5m])))', "s"),
+        ("Agent and tool outcomes", 'sum by (kind,outcome) (rate(relohome_operations_total{environment="$environment"}[5m]))', "ops"),
+        ("LLM tokens", 'sum by (model,direction) (increase(relohome_llm_tokens_total{environment="$environment"}[1h]))', "short"),
+        ("Provider rate limits", 'sum by (provider) (increase(relohome_provider_rate_limits_total{environment="$environment"}[10m]))', "short"),
+        ("Service heartbeat age", 'time() - max by (service_name) (relohome_heartbeat_seconds{environment="$environment"})', "s"),
         ("Collector queues", 'otelcol_exporter_queue_size{environment="$environment"}', "short"),
         ("Collector memory", 'otelcol_process_memory_rss{environment="$environment"}', "bytes"),
-        ("Trace cleanup", 'lifeflow_retention_last_run_success{environment="$environment"}', "short"),
+        ("Trace cleanup", 'relohome_retention_last_run_success{environment="$environment"}', "short"),
     ]
     panels = [{"id": i + 1, "title": title, "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"},
         "gridPos": {"x": (i % 2) * 12, "y": (i // 2) * 8, "w": 12, "h": 8},
@@ -103,8 +103,8 @@ def dashboard():
         "gridPos": {"x": 0, "y": 40, "w": 24, "h": 12},
         "targets": [{"refId": "A", "expr": '{environment="$environment"}', "queryType": "range"}],
         "options": {"showTime": True, "showLabels": False, "wrapLogMessage": True}})
-    return {"uid": "lifeflow-overview", "title": "LifeFlow operations", "schemaVersion": 39, "version": 1,
-            "tags": ["lifeflow"], "timezone": "browser", "refresh": "30s", "time": {"from": "now-1h", "to": "now"},
+    return {"uid": "relohome-overview", "title": "ReloHome operations", "schemaVersion": 39, "version": 1,
+            "tags": ["relohome"], "timezone": "browser", "refresh": "30s", "time": {"from": "now-1h", "to": "now"},
             "templating": {"list": [{"name": "environment", "label": "Environment", "type": "custom",
                 "query": "staging,production", "current": {"text": "staging", "value": "staging"},
                 "options": [{"text": env, "value": env, "selected": env == "staging"} for env in ("staging", "production")]}]},
@@ -120,12 +120,12 @@ def generated(environments):
     return {
         "prometheus.yaml": dump({"global": {"scrape_interval": "15s", "evaluation_interval": "30s"},
                                  "rule_files": ["/etc/prometheus/expected-services.yaml"], "scrape_configs": scrape}),
-        "expected-services.yaml": dump({"groups": [{"name": "lifeflow-inventory", "rules": [
-            {"record": "lifeflow_expected_service_info", "expr": "vector(1)", "labels": {"service_name": name, "environment": env}}
+        "expected-services.yaml": dump({"groups": [{"name": "relohome-inventory", "rules": [
+            {"record": "relohome_expected_service_info", "expr": "vector(1)", "labels": {"service_name": name, "environment": env}}
             for env in environments for name in SERVICES]}]}),
         "grafana/alerts.yaml": dump(alert_config()),
         "grafana/datasources.yaml": dump(datasources()),
-        "grafana/dashboards.yaml": dump({"apiVersion": 1, "providers": [{"name": "LifeFlow", "orgId": 1, "folder": "LifeFlow",
+        "grafana/dashboards.yaml": dump({"apiVersion": 1, "providers": [{"name": "ReloHome", "orgId": 1, "folder": "ReloHome",
             "type": "file", "disableDeletion": True, "options": {"path": "/var/lib/grafana/dashboards"}}]}),
         "grafana/overview.json": json.dumps(dashboard(), indent=2) + "\n",
     }

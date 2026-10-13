@@ -311,10 +311,10 @@ async def test_fulfilment_retry_reports_each_attempt_outcome(env, monkeypatch):
         assert completed.status == "done" and completed.last_error == ""
         spans = [span for span in exporter.get_finished_spans() if span.name == "payment.fulfilment"]
         assert [span.status.status_code.name for span in spans] == ["ERROR", "UNSET"]
-        assert [span.attributes["lifeflow.outcome"] for span in spans] == ["error", "success"]
+        assert [span.attributes["relohome.outcome"] for span in spans] == ["error", "success"]
         points = [point for resource in reader.get_metrics_data().resource_metrics
                   for scope in resource.scope_metrics for metric in scope.metrics
-                  if metric.name == "lifeflow.operations" for point in metric.data.data_points
+                  if metric.name == "relohome.operations" for point in metric.data.data_points
                   if point.attributes.get("operation") == "payment.fulfilment"]
         assert {point.attributes["outcome"]: point.value for point in points} == {"error": 1, "success": 1}
     finally:
