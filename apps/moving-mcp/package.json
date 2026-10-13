@@ -9,9 +9,9 @@
     "start": "node dist/server.js",
     "dev:http": "tsx --env-file=../../.env.local src/http-server.ts",
     "start:http": "node dist/http-server.js",
-    "test:http": "node --env-file=../../.env.local ../../../node_modules/vitest/vitest.mjs run tests/http.live.test.ts",
+    "test:http": "node --env-file=../../.env.local ../../node_modules/vitest/vitest.mjs run tests/http.live.test.ts",
     "test": "vitest run tests --passWithNoTests",
-    "test:live": "node --env-file=../../.env.local ../../../node_modules/vitest/vitest.mjs run tests/live.staging.test.ts"
+    "test:live": "node --env-file=../../.env.local ../../node_modules/vitest/vitest.mjs run tests/live.staging.test.ts"
   },
   "dependencies": {
     "@relohome/contracts": "0.1.0",

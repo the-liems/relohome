@@ -53,8 +53,9 @@ def main():
                 "-p", "127.0.0.1::5432", "-e", "POSTGRES_USER=test_admin",
                 "-e", "POSTGRES_PASSWORD=" + password, "-e", "POSTGRES_DB=lifeflow_poi_test_main",
                 IMAGE, stdout=subprocess.DEVNULL)
+            # TCP only: the image's first-start setup server listens on the socket alone.
             for _ in range(45):
-                ready = subprocess.run(["docker", "exec", name, "pg_isready", "-U", "test_admin"],
+                ready = subprocess.run(["docker", "exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "test_admin"],
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 if ready.returncode == 0:
                     break
@@ -67,7 +68,7 @@ def main():
                       "POSTGRES_ADMIN_USER": "test_admin", "POSTGRES_ADMIN_PASSWORD": password,
                       "POSTGRES_APP_USER": "test_app", "POSTGRES_APP_PASSWORD": password,
                       "POSTGRES_INGEST_USER": "test_ingest", "POSTGRES_INGEST_PASSWORD": password,
-                      "DATABASE_URL": url, "ADMIN_DATABASE_URL": url, "INGEST_DATABASE_URL": url}
+                      "LOCATION_DATABASE_URL": url, "LOCATION_ADMIN_DATABASE_URL": url, "LOCATION_INGEST_DATABASE_URL": url}
             env = {**os.environ, **config,
                    "RUN_POI_CANONICAL_TESTS": "1", "RUN_POI_DATASET_TESTS": "1", "RUN_POI_V2_INTEGRATION": "1",
                    "POI_ROUNDTRIP_DB": "lifeflow_poi_test_roundtrip", "POI_V2_SOURCE_PATH": str(directory / "pois.jsonl"),
@@ -76,8 +77,9 @@ def main():
             for database in ["lifeflow_poi_test_main", "lifeflow_poi_test_roundtrip"]:
                 if database.endswith("roundtrip"):
                     run("docker", "exec", name, "createdb", "-U", "test_admin", database)
-                migration_env = {**env, "POSTGRES_DB": database,
-                                 "ADMIN_DATABASE_URL": url.rsplit("/", 1)[0] + "/" + database}
+                database_url = url.rsplit("/", 1)[0] + "/" + database
+                migration_env = {**env, "POSTGRES_DB": database, "LOCATION_DATABASE_URL": database_url,
+                                 "LOCATION_ADMIN_DATABASE_URL": database_url, "LOCATION_INGEST_DATABASE_URL": database_url}
                 run("node", "apps/platform-api/dist/migrate.js", env=migration_env)
             # Query cleanup suites run before the shared imported snapshot is seeded.
             run("npm", "run", "test", "--workspace", "packages/housing-query", env=env)

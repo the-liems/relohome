@@ -20,6 +20,8 @@ beforeAll(async () => {
     cwd: rootDirectory,
     env: {
       ...getDefaultEnvironment(),
+      ...Object.fromEntries(Object.entries(process.env).filter(([name, value]) =>
+        value !== undefined && /^(LOCATION_|POSTGRES_|OSRM_|MCP_|COMMUTE_)/.test(name))) as Record<string, string>,
     },
     stderr: 'inherit',
   })
