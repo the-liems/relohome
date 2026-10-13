@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run tests",
-    "test:live": "node --env-file=../../../../.env.local ../../../../node_modules/vitest/vitest.mjs run tests/live.staging.test.ts"
+    "test:live": "node ../../../../scripts/python.mjs scripts/local-integration.py moving --cwd \"Maps VN/LifeFlow/packages/moving-service\" -- vitest run tests/live.staging.test.ts"
   },
   "dependencies": {
     "@lifeflow/contracts": "0.1.0",

@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx --env-file=../../../.env.local src/server.ts",
+    "dev": "node ../../../scripts/python.mjs scripts/local-integration.py moving --cwd \"Maps VN/LifeFlow/moving-mcp-server\" -- tsx src/server.ts",
     "start": "node dist/server.js",
-    "dev:http": "tsx --env-file=../../../.env.local src/http-server.ts",
+    "dev:http": "node ../../../scripts/python.mjs scripts/local-integration.py moving --cwd \"Maps VN/LifeFlow/moving-mcp-server\" -- tsx src/http-server.ts",
     "start:http": "node dist/http-server.js",
-    "test:http": "node --env-file=../../../.env.local ../../../node_modules/vitest/vitest.mjs run tests/http.live.test.ts",
+    "test:http": "node ../../../scripts/python.mjs scripts/local-integration.py moving --cwd \"Maps VN/LifeFlow/moving-mcp-server\" -- vitest run tests/http.live.test.ts",
     "test": "vitest run tests --passWithNoTests",
-    "test:live": "node --env-file=../../../.env.local ../../../node_modules/vitest/vitest.mjs run tests/live.staging.test.ts"
+    "test:live": "node ../../../scripts/python.mjs scripts/local-integration.py moving --cwd \"Maps VN/LifeFlow/moving-mcp-server\" -- vitest run tests/live.staging.test.ts"
   },
   "dependencies": {
     "@lifeflow/contracts": "0.1.0",

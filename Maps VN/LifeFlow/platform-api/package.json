@@ -5,15 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx --env-file=../../../.env.local src/server.ts",
+    "dev": "node ../../../scripts/python.mjs scripts/local-integration.py platform --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/server.ts",
     "start": "node dist/server.js",
-    "db:migrate": "tsx --env-file=../../../.env.local src/migrate.ts",
-    "db:import:places": "tsx --env-file=../../../.env.local src/import-places.ts",
-    "db:import:pois:v2": "tsx --env-file=../../../.env.local src/import-pois-v2.ts",
-    "db:import:housing": "tsx --env-file=../../../.env.local src/import-housing.ts",
-    "db:report:pois": "tsx --env-file=../../../.env.local src/report-poi-coverage.ts",
-    "db:deduplicate:pois": "tsx --env-file=../../../.env.local src/deduplicate-pois.ts",
-    "db:import:areas": "tsx --env-file=../../../.env.local src/import-admin-areas.ts",
+    "db:migrate": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/migrate.ts",
+    "db:import:places": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/import-places.ts",
+    "db:import:pois:v2": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/import-pois-v2.ts",
+    "db:import:housing": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/import-housing.ts",
+    "db:report:pois": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/report-poi-coverage.ts",
+    "db:deduplicate:pois": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/deduplicate-pois.ts",
+    "db:import:areas": "node ../../../scripts/python.mjs scripts/local-integration.py migrate --cwd \"Maps VN/LifeFlow/platform-api\" -- tsx src/import-admin-areas.ts",
     "test": "vitest run tests"
   },
   "dependencies": {

@@ -267,11 +267,13 @@ Cấu hình dành cho MCP client:
 {
   "command": "node",
   "args": [
-    "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\mcp-server\\dist\\server.js"
-  ],
-  "env": {
-    "LIFEFLOW_ENV_FILE": "D:\\DEMO_AI\\DEMO_1\\Maps VN\\LifeFlow\\.env"
-  }
+    "<repository>/scripts/python.mjs",
+    "scripts/local-integration.py",
+    "location",
+    "--",
+    "node",
+    "<repository>/Maps VN/LifeFlow/mcp-server/dist/server.js"
+  ]
 }
 ```
 

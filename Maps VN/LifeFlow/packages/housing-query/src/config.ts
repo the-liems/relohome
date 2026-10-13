@@ -49,7 +49,7 @@ export function getApplicationRuntimeConfig(): ApplicationRuntimeConfig {
     throw new Error('COMMUTE_CANDIDATE_LIMIT must be an integer between 1 and 1000.')
   }
 
-  const resolvedDatabaseUrl = databaseUrl(
+  const resolvedDatabaseUrl = process.env.DATABASE_URL || databaseUrl(
     required('POSTGRES_APP_USER'),
     required('POSTGRES_APP_PASSWORD'),
   )

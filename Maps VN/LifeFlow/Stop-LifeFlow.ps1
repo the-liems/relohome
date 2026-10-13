@@ -12,8 +12,9 @@ $containers = @(
 if (Test-Path -LiteralPath $apiPidPath) {
     $apiPid = [int](Get-Content -LiteralPath $apiPidPath -Raw)
     $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $apiPid" -ErrorAction SilentlyContinue
-    if ($processInfo -and $processInfo.CommandLine -like '*platform-api*dist*server.js*') {
-        Stop-Process -Id $apiPid
+    if ($processInfo -and ($processInfo.CommandLine -like '*platform-api*dist*server.js*' -or $processInfo.CommandLine -like '*scripts/local-integration.py platform*')) {
+        & taskkill /PID $apiPid /T /F | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Failed to stop the API process tree" }
         Write-Host 'Stopped LifeFlow Platform API.' -ForegroundColor Green
     }
     elseif ($processInfo) {

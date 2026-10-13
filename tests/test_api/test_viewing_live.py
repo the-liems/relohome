@@ -1,6 +1,6 @@
 """Issue #84: actual Location MCP, LangGraph checkpoints and API, no mocked provider.
 
-Opt in RUN_HOUSING_VIEWING_LIVE=1 and VIEWING_ENV_FILE=<local .env>.
+Opt in RUN_HOUSING_VIEWING_LIVE=1 with configuration injected by the live-test command.
 Uses an isolated temporary state database; no LLM, booking or payment calls.
 Only scheduling/decision records in that private database are written.
 """
@@ -9,7 +9,6 @@ import asyncio
 import os
 from dataclasses import replace
 from datetime import datetime
-from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -31,9 +30,8 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 async def test_real_api_decision_retry_concurrency_and_paid_protection(tmp_path):
-    env_file = Path(os.environ["VIEWING_ENV_FILE"])
     settings = ServiceSettings(
-        _env_file=env_file,
+
         agent_subagents="live",
         agent_state_dir=str(tmp_path / "runtime"),
         agent_writes_enabled=False,

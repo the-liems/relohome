@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import subprocess
 import threading
 from collections import deque
@@ -15,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from scripts.service_environment import service_environment
 
 
 class McpClientError(RuntimeError):
@@ -36,7 +40,7 @@ class LifeFlowMcpClient:
         if not self.env_path.exists():
             raise McpClientError(f"Thiếu cấu hình LifeFlow: {self.env_path}")
 
-        child_env = {**{k: v for k, v in dotenv_values(self.env_path).items() if v is not None}, **os.environ}
+        child_env = service_environment("location", {**{k: v for k, v in dotenv_values(self.env_path).items() if v is not None}, **os.environ}, os.environ)
 
         self.process = subprocess.Popen(
             ["node", str(self.server_path)],

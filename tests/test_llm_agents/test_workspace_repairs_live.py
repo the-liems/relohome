@@ -5,7 +5,6 @@ The API must run the checked-out source (default local port 8000).
 """
 
 import asyncio
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -29,10 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def environment():
-    spec = importlib.util.spec_from_file_location("workspace_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    return runner.environment("api")
+    return dict(os.environ)
 
 
 def test_comparison_reads_exact_real_ids_without_new_search():

@@ -1,7 +1,6 @@
 """Regression against live local graph/MCP only; no mocks or transaction writes."""
 
 import asyncio
-import importlib.util
 import os
 import uuid
 from pathlib import Path
@@ -34,10 +33,7 @@ def checkpoint(thread, full=False):
 
 @pytest.fixture
 def client():
-    spec = importlib.util.spec_from_file_location("local_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    env = runner.environment("api")
+    env = dict(os.environ)
     resumed = (
         checkpoint(os.environ["RUN_LIVE_RESUME_THREAD"], full=True) if os.getenv("RUN_LIVE_RESUME_THREAD") else None
     )

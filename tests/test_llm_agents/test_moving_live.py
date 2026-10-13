@@ -13,7 +13,6 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
-from dotenv import load_dotenv
 
 from src.agents.common import utcnow
 from src.agents.contracts import AgentTaskRequest
@@ -25,7 +24,6 @@ from src.services.adapters.mcp import McpEndpoint, McpToolClient
 from src.services.adapters.registry import MOVING_READ_TOOLS
 
 ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(ROOT / ".env.local")
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.skipif(os.getenv("RUN_LIVE_MOVING_AGENT") != "1", reason="Live isolated database runner required"),

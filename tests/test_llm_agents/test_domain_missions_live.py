@@ -5,7 +5,6 @@ The tool-session test uses the running Location service and zero LLM calls.
 """
 
 import asyncio
-import importlib.util
 import os
 import uuid
 from datetime import timedelta
@@ -32,10 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def live_environment():
-    spec = importlib.util.spec_from_file_location("mission_local_runner", ROOT / "scripts/local-integration.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    return runner.environment("api")
+    return dict(os.environ)
 
 
 def test_grounded_tools_with_real_location_and_no_llm():
