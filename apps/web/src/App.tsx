@@ -1879,7 +1879,8 @@ function Chat() {
                               "map",
                             ].includes(c.type),
                           )
-                          .map((c) => {
+                          .filter((c) => !c.data?.comparison)
+                          .map((c, _index, components) => {
                             const target = journey.find(
                               (t) => t.c.task_id === c.task_id,
                             );
@@ -1887,12 +1888,14 @@ function Chat() {
                               target && hasSelection(thread, target);
                             return (
                               <div key={c.id} className="chat-service-summary">
-                                <span>
-                                  {chosen
-                                    ? uiText("Đã chọn")
-                                    : uiText("Có kết quả")}
-                                  : {uiText(domainLabels[c.type] || c.type)}
-                                </span>
+                                {(chosen ||
+                                  hasMultipleRequestedServices(thread) ||
+                                  components.length > 1) && (
+                                  <span>
+                                    {chosen ? `${uiText("Đã chọn")}: ` : ""}
+                                    {uiText(domainLabels[c.type] || c.type)}
+                                  </span>
+                                )}
                                 {!chosen && target && (
                                   <button
                                     className="text-button"

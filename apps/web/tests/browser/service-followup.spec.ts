@@ -522,3 +522,45 @@ test("a current single-service intent uses suggestions while retaining older man
   await expect(page.getByRole("navigation",{name:"Dịch vụ trong kế hoạch",exact:true})).toBeVisible();
   expect(f.posts).toHaveLength(1);
 });
+
+test("single-service chat drops redundant success label but keeps the workspace action", async ({ page }) => {
+  const f = await fixture(page, "flight");
+  f.thread.messages[0].content.response.text = "Mình có 1 chuyến bay trong lượt này. Bạn mở danh sách để xem giờ bay và giá nhé.";
+  await page.goto("/ai/th_followup");
+  await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+  const summary = page.locator(".chat-service-summary");
+  await expect(summary.locator("span")).toHaveCount(0);
+  await expect(summary.getByRole("button", { name: "Xem phương án" })).toBeVisible();
+  await expect(page.locator(".assistant-bubble .prose")).toHaveText(f.thread.messages[0].content.response.text);
+  await summary.getByRole("button", { name: "Xem phương án" }).click();
+  await expect(page.getByRole("region", { name: "Chuyến bay", exact: true })).toBeVisible();
+  expect(f.posts).toHaveLength(0);
+});
+
+test("multi-service chat keeps domain labels without a blanket success claim", async ({ page }) => {
+  const f = await fixture(page, "flight", "map");
+  await page.goto("/ai/th_followup");
+  await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+  const summary = page.locator(".chat-service-summary");
+  await expect(summary.locator("span")).toHaveText("Chuyến bay");
+  await expect(summary).not.toContainText("Có kết quả");
+  await expect(page.getByRole("navigation", { name: "Dịch vụ trong kế hoạch", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(summary.locator("span")).toHaveText("Flights");
+  expect(f.posts).toHaveLength(0);
+});
+
+test("comparison table stays separate from search summaries and preserves service navigation", async ({ page }) => {
+  const f = await fixture(page, "flight");
+  f.thread.messages[0].content.ui.components.push({
+    id: "comparison", task_id: "compare", type: "property", data: {
+      comparison: { rows: [{ id: "fixture-home", title: "Căn kiểm thử", rent_vnd: 3000000 }] },
+    },
+  });
+  await page.goto("/ai/th_followup");
+  await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+  await expect(page.locator("#comparison-comparison")).toBeVisible();
+  await expect(page.locator(".chat-service-summary")).toHaveCount(1);
+  await expect(page.locator(".chat-service-summary span")).toHaveCount(0);
+  expect(f.posts).toHaveLength(0);
+});

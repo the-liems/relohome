@@ -184,9 +184,10 @@ def describe_result(
             ]
         if availability == "disabled":
             return ["Dịch vụ Tìm người ở cùng chưa được bật."]
-        return [
-            f"Có {len(data.get('profile_refs') or [])} hồ sơ trong trang kết quả. Mở dịch vụ để xem thông tin hiện tại; hệ thống không tự ghép cặp hoặc gửi yêu cầu liên hệ."
-        ]
+        count = len(data.get("profile_refs") or [])
+        if not count:
+            return ["Chưa có hồ sơ phù hợp trong trang này. Bạn thử đổi tiêu chí tìm nhé."]
+        return [f"Có {count} hồ sơ trong trang này. Bạn mở Ghép trọ để xem và tự chọn người muốn kết nối nhé."]
     if agent == AgentName.PAYMENT:
         payment = data.get("payment") or {}
         lines.append(
@@ -200,35 +201,37 @@ def describe_result(
                     + (" (còn trang kết quả khác)." if comparison.get("has_more") else ".")
                     if comparison.get("scope") == "new_search_results_only"
                     else f"Đã đọc lại {len(comparison.get('rows', []))} căn để so sánh."
-                ) + " Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
+                )
+                + " Bảng dữ kiện bên dưới không coi phí chưa biết là 0."
             ]
         candidates = data.get("candidates") or []
         if selected_property and candidates:
             chosen = candidates[0]
             lines.append(
-                f"Căn bạn đã chọn: {chosen.get('title') or chosen.get('id')}"
-                f" — {vnd(chosen.get('price_vnd'))}/tháng."
+                f"Căn bạn đã chọn: {chosen.get('title') or chosen.get('id')} — {vnd(chosen.get('price_vnd'))}/tháng."
             )
         elif candidates:
             # The map receives the complete candidates via results_view. Chat
             # describes this page, not a duplicated catalogue or market total.
-            lines.append(f"Đã tìm được {len(candidates)} căn trong lượt này. Mở bản đồ để xem và chọn.")
+            lines.append(f"Mình tìm được {len(candidates)} căn trong lượt này. Bạn mở bản đồ xem thử nhé.")
         else:
-            lines.append("Chưa tìm thấy phòng phù hợp.")
+            lines.append("Chưa có căn phù hợp trong lượt này. Bạn thử đổi khu vực hoặc tiêu chí nhé.")
         if data.get("search_radius_m") and not selected_property:
             lines.append(
                 f"Bán kính tìm: {data['search_radius_m']} m đường thẳng"
                 + (" (mặc định, có thể đổi)." if data.get("radius_is_default") else ".")
             )
         if any(c.get("price_unverified") for c in candidates):
-            lines.append(
-                "Có giá chưa xác minh, chưa tính vào tổng ngân sách; xem cảnh báo trên từng tin."
-            )
+            lines.append("Giá chưa xác minh chưa tính vào ngân sách; mình đã đánh dấu trên từng tin.")
     elif agent == AgentName.MAP:
         routing = data.get("routing") or {}
         if route := routing.get("route"):
+            profile = {"driving": "ô tô", "motorcycle": "xe máy", "walking": "đi bộ"}.get(
+                str(routing.get("profile")), "phương tiện đã chọn"
+            )
             lines.append(
-                f"Đường đi ({routing.get('profile')}): {route['distance_meters'] / 1000:.2f} km, khoảng {route['duration_seconds'] / 60:.0f} phút. Thời gian OSRM ước tính, không gồm giao thông trực tiếp."
+                f"Tuyến {profile}: khoảng {route['distance_meters'] / 1000:.2f} km, "
+                f"{route['duration_seconds'] / 60:.0f} phút. Đây là ước tính, chưa tính giao thông thực tế."
             )
             if routing.get("warnings"):
                 lines.append("Vị trí đầu hoặc cuối tuyến chỉ gần đúng/chưa rõ độ chính xác; tuyến đường là ước tính.")
@@ -238,15 +241,17 @@ def describe_result(
             )
             lines.append(f"Quanh {(titles or {}).get(key, key)}: {names or 'chưa có dữ liệu'}")
     elif agent == AgentName.FLIGHT:
-        if data.get("trip_type") == "round_trip":
-            lines.append(
-                f"Vé khứ hồi, về ngày {data.get('return_date')}. Chiều đi (giá khứ hồi thấp nhất, giá tham khảo):"
-            )
-        for offer in data.get("offers", [])[:5]:
-            prefix = "từ " if offer.get("kind") == "round_trip_outbound" else ""
-            lines.append(f"{offer.get('carrier')} {offer.get('depart_at')} — {prefix}{vnd(offer.get('fare_vnd'))}")
-        if data.get("trip_type") == "round_trip":
-            lines.append("Chọn chuyến đi trên giao diện để xem chiều về và giá cả hành trình.")
+        # Full offers stay in the workspace payload, not a second catalogue in chat.
+        if "offers" in data:
+            count = len(data.get("offers") or [])
+            if not count:
+                lines.append("Chưa có chuyến bay phù hợp trong lượt này. Bạn thử đổi ngày hoặc hành trình nhé.")
+            elif data.get("trip_type") == "round_trip":
+                return_day = f", về ngày {data['return_date']}" if data.get("return_date") else ""
+                lines.append(f"Mình có {count} chuyến đi cho hành trình khứ hồi{return_day}.")
+                lines.append("Bạn chọn chuyến đi để xem chiều về và giá cả hành trình nhé; giá hiện tại là tham khảo.")
+            else:
+                lines.append(f"Mình có {count} chuyến bay trong lượt này. Bạn mở danh sách để xem giờ bay và giá nhé.")
         if data.get("booking"):
             booking = data["booking"]
             lines.append(f"Đặt chỗ {booking.get('pnr') or booking.get('booking_id')}: {booking.get('status')}")
@@ -266,8 +271,13 @@ def describe_result(
             )
         for service in data.get("services", []):
             lines.append(service.get("service_name") or service.get("name") or service["service_id"])
-        for quote in data.get("quotes", [])[:5]:
-            lines.append(f"{quote.get('vehicle') or quote.get('provider')}: {vnd(quote.get('price_vnd'))}")
+        if "quotes" in data:
+            count = len(data.get("quotes") or [])
+            lines.append(
+                f"Mình có {count} báo giá chuyển đồ. Bạn xem các gói xe để chọn nhé; chưa đặt đơn."
+                if count
+                else "Chưa lấy được báo giá cho tuyến này. Bạn kiểm tra lại điểm giao nhận và thời gian nhé."
+            )
         if data.get("order"):
             order = data["order"]
             lines.append(
@@ -301,11 +311,17 @@ def data_notes(data: dict, agent: AgentName | None = None) -> list[str]:
     if agent == AgentName.PROPERTY:
         labels = {
             **DATA_NOTES,
-            "has_more": "Còn kết quả khác; đây không phải toàn bộ thị trường.",
             "approximate_origins": "Có vị trí gần đúng; khoảng cách tới tiện ích là ước lượng.",
         }
-    notes = [labels[k] for k in ("has_more", "approximate_origins") if data.get(k)]
-    notes += [labels[w] for w in data.get("warnings") or [] if w in labels]
+    # Pagination/market scope is shown in the housing workspace. The chat count
+    # explicitly describes this turn, never the market or all matching listings.
+    keys = ("approximate_origins",) if agent == AgentName.PROPERTY else ("has_more", "approximate_origins")
+    notes = [labels[k] for k in keys if data.get(k)]
+    notes += [
+        labels[w]
+        for w in data.get("warnings") or []
+        if w in labels and not (agent == AgentName.PROPERTY and w == "has_more")
+    ]
     return list(dict.fromkeys(notes))
 
 
@@ -358,7 +374,9 @@ def results_view(state: WorkflowState) -> tuple[list[str], dict, set[str], list[
                 # options actually appeared to support the next ordinal reference.
                 view[task.id]["displayed_option_ids"] = [c["id"] for c in chosen]
         asked_city = intake.constraints.values.get("city") if intake and task.agent == AgentName.RELOCATION else None
-        target.extend(describe_result(task.agent, display_data, titles, asked_city, selected_property=selected_property))
+        target.extend(
+            describe_result(task.agent, display_data, titles, asked_city, selected_property=selected_property)
+        )
         if fresh:
             notes.extend(data_notes(display_data, task.agent))
         if fresh:
@@ -510,7 +528,9 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
         )
     elif code == OutcomeCode.ANSWER:
         kind = "ANSWER"
-        head = "" if state.get("housing_selection_changed") and not fresh_view else "Đây là kết quả mình tìm được:"
+        # The result/empty-state sentence already introduces the answer. Avoid a
+        # generic success heading, especially when the provider returned no matches.
+        head = ""
         failed = [
             {"agent": t.agent.value, "task_id": t.id}
             for t in (plan.tasks if plan else [])
@@ -556,7 +576,7 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
                 if task.agent == AgentName.PROPERTY and not result.data.get("comparison"):
                     # Keep the full model rationale in the structured result;
                     # it must not turn a short search reply back into an essay.
-                    notes.append("Kết quả còn hạn chế theo đánh giá của AI, chưa phải xác nhận từ nhà cung cấp.")
+                    notes.append("AI chưa xác minh đủ tiêu chí bạn cần; đây chưa phải xác nhận từ bên cho thuê.")
                 elif not result.data.get("comparison"):
                     notes.append(
                         f"Agent {task.agent.value} đánh giá còn hạn chế (không phải xác nhận từ nhà cung cấp): "
@@ -566,7 +586,11 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
             data["limited_tasks"] = limited
             if kind == "ANSWER":
                 kind = "PARTIAL"
-                head = "Mình đã lấy được dữ liệu, nhưng chưa xác minh đủ mọi yêu cầu:"
+                head = (
+                    ""
+                    if all(t.agent == AgentName.PROPERTY for t in (plan.tasks if plan else []))
+                    else "Mình có kết quả, nhưng còn tiêu chí chưa xác minh:"
+                )
         summary = state.get("cost_summary")
         if summary:
             data["cost_summary"] = summary.model_dump(mode="json")
