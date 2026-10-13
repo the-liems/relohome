@@ -94,8 +94,8 @@ Frontend/public/maplibre/
 
 # Map data retained for city-boundary ingestion and legacy map tests
 !Maps\ VN/Cities/boundaries/*.geojson
-!Maps\ VN/LifeFlow/map-app/public/data/
-!Maps\ VN/LifeFlow/map-app/public/data/*.geojson
+!examples/map-app/public/data/
+!examples/map-app/public/data/*.geojson
 
 # DVC keeps pointers in Git; all raw and generated map bytes stay outside Git.
 Maps\ VN/Raw/**
@@ -121,3 +121,15 @@ Maps\ VN/Routing/**
 # Canonical TypeScript workspaces (#111)
 apps/*/dist/
 packages/*/dist/
+
+# Relocated location source; persistent legacy state remains above.
+Maps\ VN/LifeFlow/database/backups/*.sql
+Maps\ VN/LifeFlow/database/backups/*.dump
+Maps\ VN/LifeFlow/backups/
+Maps\ VN/LifeFlow/coverage/
+Maps\ VN/LifeFlow/map-app/public/maplibre/
+Maps\ VN/LifeFlow/map-app/dist-ssr/
+deploy/database/backups/*.sql
+deploy/database/backups/*.dump
+examples/map-app/*.tsbuildinfo
+examples/map-app/playwright-report/
