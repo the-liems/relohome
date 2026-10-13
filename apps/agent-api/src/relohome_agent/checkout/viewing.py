@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any, Literal
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from relohome_agent.agents.common import utcnow
@@ -362,7 +363,9 @@ class ViewingService:
     def visit(self, user_id: str, thread_id: str, listing_id: str, outcome: VisitOutcome) -> dict:
         tx = self._item(user_id, thread_id, listing_id)
         if tx.status not in {"viewing_scheduled", "visited", "backup"}:
-            raise CheckoutError(409, "Không thể sửa kết quả xem căn đã chốt hoặc đã báo trả tiền.", "visit_state_conflict")
+            raise CheckoutError(
+                409, "Không thể sửa kết quả xem căn đã chốt hoặc đã báo trả tiền.", "visit_state_conflict"
+            )
         viewing = tx.details.get("viewing") or {}
         start = _parse(viewing.get("slot"))
         if start is None or (start > self.clock() and not self.settings.visit_anytime):
@@ -528,16 +531,30 @@ class ViewingService:
                 self.store.put_tx(self._touch(other))
         return chosen.option_id
 
-    def report_paid(self, user_id: str, thread_id: str, amount_vnd: int, paid_on: str) -> dict:
-        chosen = next((t for t in self.active(user_id, thread_id) if t.status == "agreed"), None)
+    def report_paid(
+        self, user_id: str, thread_id: str, amount_vnd: int, paid_on: str, report_key: str | None = None
+    ) -> dict:
+        chosen = next((t for t in self.active(user_id, thread_id) if t.status in {"agreed", "reported_paid"}), None)
         if chosen is None:
             raise CheckoutError(409, "Hãy chốt căn trước khi báo đã trả chủ nhà.")
         try:
             date.fromisoformat(paid_on)
         except ValueError:
             raise CheckoutError(422, "Ngày trả chưa hợp lệ.") from None
+        previous = chosen.details.get("reported_payment")
+        if previous and (not report_key or previous.get("report_key") == report_key):
+            if previous["amount_vnd"] != int(amount_vnd) or previous["paid_on"] != paid_on:
+                raise CheckoutError(409, "Khóa báo cáo đã dùng cho nội dung khác.")
+            return self.item_view(chosen)
+        if previous:
+            chosen.details.setdefault("reported_payment_history", []).append(previous)
         chosen.status = "reported_paid"
-        chosen.details["reported_payment"] = {"amount_vnd": int(amount_vnd), "paid_on": paid_on, "verified": False}
+        chosen.details["reported_payment"] = {
+            "amount_vnd": int(amount_vnd),
+            "paid_on": paid_on,
+            "verified": False,
+            "report_key": report_key or str(uuid4()),
+        }
         self.store.put_tx(self._touch(chosen))
         return self.item_view(chosen)
 

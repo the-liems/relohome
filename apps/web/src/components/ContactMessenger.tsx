@@ -1,0 +1,226 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { Bell, MessageCircle, Minus, X } from "lucide-react";
+import { api } from "../api";
+import type { Data } from "../types";
+import { t, formatUi } from "../uiPreferences";
+import { ContactThread } from "./ContactThread";
+import "./contactMessenger.css";
+
+type Conversation = { id: string; title: string; role: "tenant" | "landlord" };
+const Context = createContext({
+  open: (_id: string, _title: string, _role: "tenant" | "landlord") => {},
+  refresh: () => {},
+});
+export const useContactMessenger = () => useContext(Context);
+const summary = (row: Data) =>
+  row.payment_status === "pending"
+    ? row.role === "landlord"
+      ? t("Người thuê báo đã chuyển tiền")
+      : t("Chờ chủ nhà xác nhận nhận tiền")
+    : row.payment_status === "confirmed"
+      ? t("Chủ nhà đã xác nhận nhận tiền")
+      : row.payment_status === "rejected"
+        ? t("Chủ nhà phản hồi báo cáo chuyển tiền")
+        : row.viewing_status === "declined"
+          ? t("Chủ nhà đề xuất giờ xem khác")
+          : row.viewing_status === "confirmed"
+            ? t("Lịch xem đã được xác nhận")
+            : row.viewing_status === "requested"
+              ? t("Có yêu cầu xác nhận lịch xem")
+              : t("Có cập nhật mới");
+
+export function ContactMessengerProvider({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: ReactNode;
+}) {
+  const [rows, setRows] = useState<Data[]>([]),
+    [current, setCurrent] = useState<Conversation | null>(null),
+    [expanded, setExpanded] = useState(false),
+    [list, setList] = useState(false),
+    [notice, setNotice] = useState("");
+  const previous = useRef("");
+  const viewer = useRef(userId);
+  viewer.current = userId;
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<Data>(
+        "/housing-management/housing/contact-notifications",
+        "GET",
+        undefined,
+        undefined,
+        { "X-SIU-User": userId },
+      );
+      if (viewer.current !== userId) return;
+      const items = data.items || [];
+      const stamp = JSON.stringify(
+        items.map((row: Data) => [
+          row.id,
+          row.unread,
+          row.update_unread,
+          row.updated_at,
+        ]),
+      );
+      if (previous.current && previous.current !== stamp) {
+        window.dispatchEvent(new Event("housing-contact-update"));
+        if (items.some((row: Data) => row.unread > 0 || row.update_unread))
+          setNotice(t("Có tin nhắn hoặc cập nhật mới về nhà thuê."));
+      }
+      previous.current = stamp;
+      setRows(items);
+    } catch {
+      /* Open conversations show actionable errors; background polling stays quiet. */
+    }
+  }, [userId]);
+  useEffect(() => {
+    setCurrent(null);
+    setRows([]);
+    previous.current = "";
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 10000);
+    return () => clearInterval(timer);
+  }, [refresh]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const open = useCallback(
+    (id: string, title: string, role: "tenant" | "landlord") => {
+      setCurrent({ id, title, role });
+      setExpanded(true);
+      setList(false);
+      setNotice("");
+    },
+    [],
+  );
+  const unread = rows.reduce(
+    (count, row) =>
+      count + Number(row.unread || 0) + (row.update_unread ? 1 : 0),
+    0,
+  );
+  return (
+    <Context.Provider value={{ open, refresh: () => void refresh() }}>
+      {children}
+      <aside
+        className="contact-messenger"
+        aria-label={t("Tin nhắn và cập nhật nhà thuê")}
+      >
+        {notice && (
+          <div className="contact-messenger-toast" role="status">
+            {notice}
+          </div>
+        )}
+        {list && (
+          <section className="contact-messenger-panel">
+            <header>
+              <strong>{t("Tin nhắn & cập nhật")}</strong>
+              <button
+                onClick={() => setList(false)}
+                aria-label={t("Đóng danh sách tin nhắn")}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="contact-messenger-conversations">
+              {rows.length ? (
+                rows.map((row) => (
+                  <button
+                    className={row.unread || row.update_unread ? "unread" : ""}
+                    key={row.id}
+                    onClick={() => open(row.id, row.title, row.role)}
+                  >
+                    <strong>{row.title}</strong>
+                    <span>{summary(row)}</span>
+                    {row.unread > 0 && (
+                      <small>
+                        {formatUi("{0} tin chưa đọc", [row.unread])}
+                      </small>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <p>{t("Chưa có cuộc trò chuyện.")}</p>
+              )}
+            </div>
+          </section>
+        )}
+        {current && expanded && (
+          <section
+            className="contact-messenger-panel"
+            role="dialog"
+            aria-label={formatUi("Tin nhắn · {0}", [current.title])}
+          >
+            <header>
+              <div>
+                <strong>{current.title}</strong>
+                <small>
+                  {current.role === "landlord" ? t("Người thuê") : t("Chủ nhà")}
+                </small>
+              </div>
+              <button
+                onClick={() => setExpanded(false)}
+                aria-label={t("Thu gọn tin nhắn")}
+              >
+                <Minus size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  setCurrent(null);
+                  setExpanded(false);
+                }}
+                aria-label={t("Đóng tin nhắn")}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <ContactThread
+              key={userId + current.id}
+              requestId={current.id}
+              viewerId={userId}
+              expectedRole={current.role}
+              onRead={() => void refresh()}
+            />
+          </section>
+        )}
+        <div className="contact-messenger-controls">
+          {current && !expanded && (
+            <button
+              className="contact-messenger-minimized"
+              onClick={() => setExpanded(true)}
+            >
+              <MessageCircle size={18} />
+              {current.title}
+            </button>
+          )}
+          <button
+            className="contact-messenger-toggle"
+            onClick={() => {
+              setList((value) => !value);
+              setExpanded(false);
+              setNotice("");
+            }}
+            aria-expanded={list}
+            aria-label={formatUi("Tin nhắn và cập nhật · {0} chưa đọc", [
+              unread,
+            ])}
+          >
+            <Bell size={20} />
+            <span>{t("Tin nhắn")}</span>
+            {unread > 0 && <b>{unread}</b>}
+          </button>
+        </div>
+      </aside>
+    </Context.Provider>
+  );
+}

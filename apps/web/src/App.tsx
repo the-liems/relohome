@@ -109,6 +109,7 @@ import { AdminWorkspace } from "./admin/Workspace";
 import { LandlordWorkspace } from "./landlord/Workspace";
 import { forgetActiveChat, readActiveChat, rememberActiveChat } from "./activeChatSession";
 import { ResumeChat } from "./components/ResumeChat";
+import { ContactMessengerProvider } from "./components/ContactMessenger";
 
 interface AppContext {
   user: User;
@@ -317,7 +318,7 @@ export default function App() {
         resetThreads,
       }}
     >
-      <Shell>
+      <ContactMessengerProvider userId={user.id}><Shell>
         <Routes>
           <WebRoute path="/ai" element={<Chat />} />
           <WebRoute path="/ai/:threadId" element={<Chat />} />
@@ -369,7 +370,7 @@ export default function App() {
             }
           />
         </Routes>
-      </Shell>
+      </Shell></ContactMessengerProvider>
       {toast && (
         <div className="toast" role="status">
           {toast}

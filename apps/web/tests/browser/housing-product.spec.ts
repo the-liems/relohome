@@ -728,3 +728,57 @@ test("Admin uses the existing dark theme and English language controls", async (
     .analyze();
   expect(accessibility.violations.map((v) => v.id)).toEqual([]);
 });
+
+test("declining a time requires suitable proposals, with no generic completion shortcuts", async ({ page }) => {
+  const proposed = ["2027-02-10T09:00:00+07:00", "2027-02-10T10:30:00+07:00"];
+  const writes: any[] = [];
+  await page.route("**/web/api/landlord/viewing-options", route => route.fulfill({json:{slots:proposed}}));
+  await page.route("**/web/api/housing-management/landlord/contact-requests/*/viewing-options", route => {
+    writes.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});
+  });
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  await expect(page.getByRole("button",{name:"Đã liên hệ",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Hoàn tất",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Từ chối",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Không nhận giờ này",exact:true}).click();
+  const modal = page.getByRole("dialog",{name:"Đề xuất giờ xem trong 7 ngày tới"});
+  await expect(modal.getByRole("button",{name:"Gửi giờ thay thế"})).toBeDisabled();
+  await modal.getByRole("checkbox",{name:"09:00",exact:true}).check();
+  await modal.getByRole("button",{name:"Gửi giờ thay thế"}).click();
+  await expect.poll(()=>writes.length).toBe(1);
+  expect(writes[0]).toEqual({revision:1,slots:[proposed[0]]});
+});
+
+test("owner reviews reported transfers and archives completed requests without deleting conversation history", async ({ page }) => {
+  const report = {id:listingId,amount_vnd:9000000,paid_on:"2026-10-13",status:"pending",revision:1,agreement:{deposit_vnd:4500000,first_month_vnd:4500000},reason:null};
+  const row: any = {id:"99999999-9999-4999-8999-999999999999",listing_id:listingId,tenant_user_id:"tenant-2",message:"Người thuê đặt lịch xem nhà qua ReloHome.",status:"viewing",revision:4,title:"Phòng sáng thoáng",unit_code:"P.301",property_name:"Nhà Nguyễn Trãi",viewing_slot:"2026-10-10T06:00:00Z",viewing_status:"confirmed",created_at:"2026-10-09T08:00:00Z",payment_report:report,unread:1};
+  let archived=false;
+  const writes:any[]=[];
+  await page.route("**/web/api/housing-management/landlord/contact-requests",route=>route.fulfill({json:{items:archived?[]:[row]}}));
+  await page.route("**/web/api/housing-management/landlord/contact-requests/*/payment-review",route=>{
+    const body=route.request().postDataJSON();writes.push(body);report.status=body.decision==='confirm'?'confirmed':'rejected';report.revision++;report.reason=body.reason||null;if(body.decision==='confirm') row.status='resolved';row.revision++;return route.fulfill({json:report});
+  });
+  await page.route("**/web/api/housing-management/landlord/contact-requests/*/archive",route=>{archived=true;return route.fulfill({json:{archived:true}})});
+  await page.goto("/landlord");await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  await expect(page.getByText("Người thuê báo đã chuyển tiền",{exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Xóa khỏi hộp thư",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Chưa nhận / không khớp"}).click();
+  await page.getByRole("dialog").getByRole("textbox").fill("Chưa thấy tiền vào tài khoản");
+  await page.getByRole("button",{name:"Gửi phản hồi"}).click();
+  await expect(page.getByText("Chưa thấy tiền vào tài khoản",{exact:true})).toBeVisible();
+  expect(writes[0]).toMatchObject({decision:"reject",reason:"Chưa thấy tiền vào tài khoản",revision:1});
+  // A corrected report arrives from the tenant; reload the workspace to receive it.
+  report.status='pending';report.revision=1;await page.reload();await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  page.once("dialog",dialog=>dialog.accept());
+  await page.getByRole("button",{name:"Xác nhận đã nhận tiền",exact:true}).click();
+  await expect(page.getByText("Đã xác nhận nhận tiền · hoàn tất",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Nhắn tin với người thuê"}).click();
+  await expect(page.locator(".contact-messenger-panel")).toBeVisible();
+  await expect(page.locator(".contact-thread-list li.theirs").last()).toContainText("Chiều mai em qua được không ạ?");
+  await page.getByRole("button",{name:"Thu gọn tin nhắn"}).click();
+  await page.getByRole("button",{name:"Xóa khỏi hộp thư",exact:true}).click();
+  await expect(page.getByText("Chưa có yêu cầu",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:/Phòng sáng thoáng/}).last().click();
+  await expect(page.getByText("Chiều mai em qua được không ạ?",{exact:true})).toBeVisible();
+});

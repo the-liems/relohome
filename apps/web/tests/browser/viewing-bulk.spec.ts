@@ -494,3 +494,16 @@ test("green compact cards, accessible keyboard controls and pinned footer across
     fullPage: true,
   });
 });
+
+test("replacement calendar contains only owner suggestions even when visit time is bypassed", async ({ page }) => {
+  const f=await fixture(page);
+  Object.assign(f.items[0],{status:"visit_due",viewing:{slot:slots[0]},landlord:{request_id:"request-1",request_status:"new",viewing_status:"declined",viewing_options:[slots[1]]},available_slots:[slots[1]]});
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  const time=page.getByLabel(`Giờ xem · ${titles[0]}`,{exact:true});
+  await expect(time.locator("option")).toHaveText(["Chọn giờ","10:30"]);
+  await time.selectOption(slots[1]);
+  await page.getByRole("button",{name:"Xem lại lịch",exact:true}).click();
+  await page.getByRole("button",{name:"Xác nhận 1 lịch",exact:true}).click();
+  await expect.poll(()=>f.posts.filter(p=>p.path.endsWith("/schedule")).length).toBe(1);
+  expect(f.posts.find(p=>p.path.endsWith("/schedule"))?.body).toEqual({listing_id:"home-0",slot:slots[1]});
+});

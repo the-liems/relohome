@@ -490,13 +490,13 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
         })
       ).status,
     ).toBe(409)
-    const declined = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing`, {
-      decision: 'decline',
+    const later = new Date(Date.now() + 2 * 86_400_000).toISOString()
+    const declined = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing-options`, {
+      slots: [later],
       revision: request.revision,
     })
     expect(declined.body.viewing_status).toBe('declined')
     // The tenant picks another time; the landlord confirms it.
-    const later = new Date(Date.now() + 2 * 86_400_000).toISOString()
     expect(
       (
         await call(tenant, 'PUT', `/v1/housing/${listingId}/viewing`, {
@@ -907,4 +907,67 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect((await app.inject({method:'GET',url:`/v1/housing/${a}`})).statusCode).toBe(404)
   })
 
+})
+
+it('handoff: proposed times, distinct senders, payment review, visibility and per-owner archive', async () => {
+  const owner = `test-handoff-owner-${run}`, tenant = `test-handoff-tenant-${run}`
+  await host(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {decision:'verify',method:'phone_call'})
+  const p = await property(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})
+  const id = await listing(owner, await unit(owner,p,'H.1'), [])
+  await call(owner,'POST',`/v1/landlord/listings/${id}/submit`,{})
+  await call(MODERATOR,'POST',`/v1/moderation/housing/listings/${id}/review`,{decision:'approve'})
+  const slot = new Date(Date.now()+86400000).toISOString(), later = new Date(Date.now()+172800000).toISOString()
+  expect((await call(owner,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
+  expect((await call(owner,'POST',`/v1/housing/${id}/contact-requests`,{message:'Tự liên hệ'})).status).toBe(409)
+  const booked = await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})
+  const request = booked.body.id, path = `/v1/landlord/contact-requests/${request}`
+  const current = async () => (await admin.query('SELECT * FROM housing.contact_requests WHERE id=$1',[request])).rows[0]
+  expect((await call(owner,'POST',path+'/archive',{revision:(await current()).revision})).status).toBe(409)
+  const proposal = {revision:(await current()).revision,slots:[later]}
+  expect((await call(tenant,'POST',path+'/viewing-options',proposal)).status).toBe(403)
+  expect([403,404]).toContain((await call(OTHER,'POST',path+'/viewing-options',proposal)).status)
+  expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[new Date(Date.now()+8*86400000).toISOString()]})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/viewing-options',proposal)).status).toBe(200)
+  expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
+  expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot:later})).status).toBe(200)
+  expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:(await current()).revision})).status).toBe(200)
+  expect((await call(owner,'PATCH',path,{status:'resolved',revision:(await current()).revision})).status).toBe(409)
+  const messages = `/v1/housing/contact-requests/${request}/messages`
+  await call(tenant,'POST',messages,{body:'Em sẽ chuyển tiền sau khi xem.'})
+  await call(owner,'POST',messages,{body:'Chủ nhà xác nhận lịch.'})
+  const thread = (await call(tenant,'GET',messages)).body
+  expect(thread.viewer_id).toBe(tenant)
+  expect(thread.messages.map((m: {sender_user_id:string}) => m.sender_user_id)).toEqual([tenant,owner])
+  expect([403,404]).toContain((await call(OTHER,'GET',messages)).status)
+  const paid = {report_key:randomUUID(),amount_vnd:8000000,paid_on:new Date().toISOString().slice(0,10),agreement:{deposit_vnd:4000000,first_month_vnd:4000000}}
+  const reportPath = `/v1/housing/${id}/payment-reports`
+  const report = await call(tenant,'POST',reportPath,paid)
+  expect(report.status,JSON.stringify(report.body)).toBe(201)
+  expect(report.body.amount_vnd).toBe(8000000)
+  expect((await call(tenant,'POST',reportPath,paid)).body.id).toBe(report.body.id)
+  expect((await call(tenant,'POST',reportPath,{...paid,amount_vnd:1})).status).toBe(409)
+  expect((await call(tenant,'POST',reportPath,{...paid,report_key:randomUUID()})).status).toBe(409)
+  expect((await call(tenant,'DELETE',`/v1/housing/${id}/viewing`)).status).toBe(409)
+  const notifications = (await call(owner,'GET','/v1/housing/contact-notifications')).body.items
+  expect(notifications.find((r: {id:string})=>r.id===request)).toMatchObject({payment_status:'pending',update_unread:true,role:'landlord'})
+  const review = {report_id:report.body.id,revision:report.body.revision,decision:'reject',reason:'Chưa nhận được khoản tiền này'}
+  expect((await call(tenant,'POST',path+'/payment-review',review)).status).toBe(403)
+  expect([403,404]).toContain((await call(OTHER,'POST',path+'/payment-review',review)).status)
+  expect((await call(owner,'POST',path+'/payment-review',{...review,reason:''})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/payment-review',review)).body.status).toBe('rejected')
+  const second = await call(tenant,'POST',reportPath,{...paid,report_key:randomUUID()})
+  expect(second.status).toBe(201)
+  const decisions = await Promise.all([1,2].map(()=>call(owner,'POST',path+'/payment-review',{report_id:second.body.id,revision:second.body.revision,decision:'confirm'})))
+  expect(decisions.map(r=>r.status).sort()).toEqual([200,409])
+  expect((await current()).status).toBe('resolved')
+  const publicRow = await admin.query('SELECT is_public FROM housing.managed_listing_visibility WHERE listing_id=$1',[id])
+  expect(publicRow.rows[0].is_public).toBe(false)
+  expect((await app.inject({method:'GET',url:`/v1/housing/${id}`})).statusCode).toBe(404)
+  expect((await call(owner,'POST',path+'/archive',{revision:(await current()).revision})).body.archived).toBe(true)
+  expect((await call(owner,'GET','/v1/landlord/contact-requests')).body.items.some((r: {id:string})=>r.id===request)).toBe(false)
+  expect((await call(tenant,'GET','/v1/housing/contact-requests/me')).body.items.some((r: {id:string})=>r.id===request)).toBe(true)
+  expect((await call(tenant,'GET',messages)).body.messages).toHaveLength(2)
+  expect((await admin.query('SELECT count(*)::int AS n FROM housing.rent_payment_reports WHERE request_id=$1',[request])).rows[0].n).toBe(2)
 })

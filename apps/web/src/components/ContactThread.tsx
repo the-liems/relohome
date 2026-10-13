@@ -17,28 +17,53 @@ const REFRESH_MS = 15_000; // a light poll while the conversation is open
 export function ContactThread({
   requestId,
   onRead,
+  viewerId,
+  expectedRole,
 }: {
   requestId: string;
   onRead?: () => void;
+  viewerId?: string;
+  expectedRole?: "tenant" | "landlord";
 }) {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [text, setText] = useState(""),
     [sending, setSending] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const identity = requestId + ":" + viewerId + ":" + expectedRole;
+  const active = useRef(identity);
+  active.current = identity;
   const read = useRef(onRead);
   read.current = onRead;
   const path = `/housing-management/housing/contact-requests/${encodeURIComponent(requestId)}/messages`;
   const load = useCallback(async () => {
     try {
-      setData(await api<Data>(path));
+      const response = await api<Data>(
+        path,
+        "GET",
+        undefined,
+        undefined,
+        viewerId ? { "X-SIU-User": viewerId } : undefined,
+      );
+      if (active.current !== identity) return;
+      if (expectedRole && response.role !== expectedRole)
+        throw new Error(
+          uiText(
+            "Tài khoản hiện tại không khớp bên đang trò chuyện. Hãy kiểm tra tài khoản và dùng hai phiên đăng nhập riêng.",
+          ),
+        );
+      setData(response);
       setError("");
       read.current?.();
     } catch (e) {
+      if (active.current !== identity) return;
+      setData(null);
       setError((e as Error).message);
     }
-  }, [path]);
+  }, [path, viewerId, expectedRole, identity]);
   useEffect(() => {
+    setData(null);
+    setText("");
     void load();
     const timer = window.setInterval(() => void load(), REFRESH_MS);
     return () => window.clearInterval(timer);
@@ -52,7 +77,13 @@ export function ContactThread({
     setSending(true);
     setError("");
     try {
-      await api(path, "POST", { body: text.trim() });
+      await api(
+        path,
+        "POST",
+        { body: text.trim() },
+        undefined,
+        viewerId ? { "X-SIU-User": viewerId } : undefined,
+      );
       setText("");
       await load();
     } catch (e) {
@@ -79,6 +110,7 @@ export function ContactThread({
     {
       id: "request",
       sender_role: "tenant",
+      sender_user_id: request.tenant_user_id,
       body: request.message,
       created_at: request.created_at,
     },
@@ -86,21 +118,27 @@ export function ContactThread({
   ];
   return (
     <div className="contact-thread">
-      <ol className="contact-thread-list" aria-label={uiText("Tin nhắn")}>
-        {rows.map((m) => (
-          <li key={m.id} className={m.sender_role === role ? "mine" : "theirs"}>
-            <span className="contact-thread-who">
-              {m.sender_role === role
-                ? uiText("Bạn")
-                : m.sender_role === "landlord"
-                  ? uiText("Chủ nhà")
-                  : uiText("Người thuê")}
-              {" · "}
-              {dateTime(m.created_at)}
-            </span>
-            <p>{m.body}</p>
-          </li>
-        ))}
+      <ol className="contact-thread-list" tabIndex={0} aria-label={uiText("Tin nhắn")}>
+        {rows.map((m) => {
+          const mine =
+            m.sender_user_id && data.viewer_id
+              ? m.sender_user_id === data.viewer_id
+              : m.sender_role === role;
+          return (
+            <li key={m.id} className={mine ? "mine" : "theirs"}>
+              <span className="contact-thread-who">
+                {mine
+                  ? uiText("Bạn")
+                  : m.sender_role === "landlord"
+                    ? uiText("Chủ nhà")
+                    : uiText("Người thuê")}
+                {" · "}
+                {dateTime(m.created_at)}
+              </span>
+              <p>{m.body}</p>
+            </li>
+          );
+        })}
       </ol>
       <div ref={end} />
       <p className="contact-thread-hint small">

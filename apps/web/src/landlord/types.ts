@@ -102,6 +102,20 @@ export interface ContactRequest {
   property_name: string;
   viewing_slot: string | null;
   viewing_status: "requested" | "confirmed" | "declined" | "cancelled" | null;
+  viewing_options?: string[];
+  payment_report?: {
+    id: string;
+    status: "pending" | "confirmed" | "rejected";
+    revision: number;
+    amount_vnd: number;
+    paid_on: string;
+    reason: string | null;
+    agreement: {
+      deposit_vnd?: number;
+      first_month_vnd?: number;
+      move_in?: string | null;
+    };
+  } | null;
   source: "contact" | "viewing";
   unread: number;
 }

@@ -28,13 +28,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
 from relohome_flight.schemas import Contact, Passenger
-from relohome_gateway.roommate_gateway import attach_roommate_gateway
-from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
-from relohome_gateway.store import Store, TravelerProfiles, password_hash
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
+
+from relohome_gateway.roommate_gateway import attach_roommate_gateway
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.store import Store, TravelerProfiles, password_hash
 
 COOKIE = "siu_session"
 
@@ -52,10 +53,11 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide|preview))?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+/media/[0-9a-f-]+$"),
-    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
+    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/(?:viewing|viewing-options|payment-review|archive))?$"),
     re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events|reviews|review)$"),
     re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
     re.compile(r"^housing/contact-requests/me$"),
+    re.compile(r"^housing/contact-notifications$"),
     re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
     re.compile(r"^moderation/housing/listings(?:/[0-9a-f-]+)?$"),
@@ -823,7 +825,27 @@ def create_app(database=None, transport=None):
                         "request_status": row["status"],
                         "request_id": row.get("id"),
                         "unread": row.get("unread", 0),
+                        "viewing_options": row.get("viewing_options", []),
                     }
+                if (
+                    row
+                    and row.get("payment_report")
+                    and ((item.get("reported_payment") or {}).get("report_key") or item.get("transaction_id"))
+                    == row["payment_report"].get("report_key")
+                ):
+                    item["payment_report"] = row["payment_report"]
+                elif item.get("reported_payment") and row:
+                    item["payment_sync"] = "failed"
+                landlord = item.get("landlord") or {}
+                options = landlord.get("viewing_options") or []
+                if options and landlord.get("request_status") in OPEN_CONTACT:
+                    item["available_slots"] = [
+                        candidate
+                        for candidate in view.get("slots", [])
+                        if any(same_instant(candidate, option) for option in options)
+                    ]
+                elif landlord.get("viewing_status") == "declined" and landlord.get("request_status") in OPEN_CONTACT:
+                    item["available_slots"] = []
             return view
 
         # What this step wants the landlord inbox to hold: a time per booked home, or a withdrawal.
@@ -899,11 +921,62 @@ def create_app(database=None, transport=None):
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
 
+    @app.get("/web/api/landlord/viewing-options")
+    async def landlord_slots(request: Request):
+        return await checkout_call("GET", "/ui/viewings/slots", user(request)["id"])
+
+    async def sync_reported_payments(owner, view):
+        if not isinstance(view, dict):
+            return view
+        for item in view.get("items", []):
+            payment = item.get("reported_payment")
+            if not payment:
+                continue
+            if item.get("payment_report") and item["payment_report"].get("report_key") == (
+                payment.get("report_key") or item.get("transaction_id")
+            ):
+                continue
+            try:
+                detail = await upstream("GET", f"/housing/{item['listing_id']}", owner, platform=True)
+            except HTTPException:
+                item["payment_sync"] = "failed"
+                continue
+            if not isinstance(detail, dict) or not detail.get("management"):
+                continue
+            payload = {
+                "report_key": payment.get("report_key") or item.get("transaction_id"),
+                "amount_vnd": payment["amount_vnd"],
+                "paid_on": payment["paid_on"],
+                "agreement": item.get("agreement") or {},
+            }
+            try:
+                report = await upstream(
+                    "POST", f"/housing/{item['listing_id']}/payment-reports", owner, payload, platform=True
+                )
+            except HTTPException:
+                item["payment_sync"] = "failed"
+                continue
+            if isinstance(report, dict) and report.get("id"):
+                item["payment_report"] = report
+                item.pop("payment_sync", None)
+            else:
+                item["payment_sync"] = "failed"
+        return view
+
     @app.post("/web/api/threads/{thread}/viewings/{step}")
     async def viewing_step(
         thread: str,
         step: Literal[
-            "unselect", "schedule", "cancel", "visit", "decide", "reopen", "paid", "moving-mode", "landlord-retry"
+            "unselect",
+            "schedule",
+            "cancel",
+            "visit",
+            "decide",
+            "reopen",
+            "paid",
+            "moving-mode",
+            "landlord-retry",
+            "payment-retry",
         ],
         request: Request,
     ):
@@ -911,13 +984,57 @@ def create_app(database=None, transport=None):
         owned(thread, owner)
         if step == "visit":
             await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
+        if step == "schedule":
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            if not isinstance(page, dict):
+                raise HTTPException(503, "Chưa kiểm tra được giờ chủ nhà đề xuất.")
+            row = next(
+                (
+                    row
+                    for row in page.get("items", [])
+                    if row.get("listing_id") == body.get("listing_id") and row.get("status") in OPEN_CONTACT
+                ),
+                None,
+            )
+            if (
+                row
+                and row.get("viewing_options")
+                and not any(same_instant(option, body.get("slot")) for option in row["viewing_options"])
+            ):
+                raise HTTPException(409, "Hãy chọn một trong các giờ chủ nhà đề xuất.")
+        if step == "paid":
+            previous = await landlord_viewings(
+                owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+            )
+            chosen = next(
+                (item for item in previous.get("items", []) if item.get("status") in {"agreed", "reported_paid"}), None
+            )
+            if chosen:
+                report = chosen.get("payment_report") or {}
+                key = (chosen.get("reported_payment") or {}).get("report_key")
+                if report.get("status") in {"pending", "confirmed"}:
+                    payment = chosen.get("reported_payment") or {}
+                    if (
+                        body.get("request_id") != key
+                        or body.get("amount_vnd") != payment.get("amount_vnd")
+                        or body.get("paid_on") != payment.get("paid_on")
+                    ):
+                        raise HTTPException(409, "Báo cáo chuyển tiền đang chờ hoặc đã được chủ nhà xác nhận.")
+                    return previous
+                await require_landlord_confirmation(thread, owner, chosen["listing_id"])
+        if step == "payment-retry":
+            view = await landlord_viewings(
+                owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+            )
+            return await sync_reported_payments(owner, view)
         if step == "landlord-retry":
             # Tenant asks to resend times the landlord inbox has not received; nothing changes locally.
             result = await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
             return await landlord_viewings(owner, result, thread=thread, sync=True)
         result = await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
         scheduled = str(body.get("listing_id", "")) if step == "schedule" else None
-        return await landlord_viewings(owner, result, thread=thread, scheduled=scheduled, sync=True)
+        view = await landlord_viewings(owner, result, thread=thread, scheduled=scheduled, sync=True)
+        return await sync_reported_payments(owner, view) if step == "paid" else view
 
     async def require_landlord_confirmation(thread, owner, listing_id):
         """A home managed on ReloHome needs the landlord to confirm the booked time before the tenant
@@ -1058,6 +1175,9 @@ def create_app(database=None, transport=None):
         if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
             raise HTTPException(404)
         row = user(request)
+        expected = request.headers.get("x-siu-user")
+        if expected and expected != row["id"]:
+            raise HTTPException(409, "Phiên đăng nhập đã đổi tài khoản. Hãy tải lại trang trước khi tiếp tục.")
         if resource.startswith("moderation/") and row.get("workspace") != "admin":
             raise HTTPException(403, "Hãy đăng nhập khu Admin để kiểm duyệt.")
         if request.method == "POST" and resource.startswith("landlord/listings/") and resource.endswith("/media"):

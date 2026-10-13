@@ -32,11 +32,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { ApiError, dateTime, money, requestId } from "../api";
+import { ApiError, api, dateTime, money, requestId } from "../api";
 import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
 import { EmptyState } from "../components/UiStates";
-import { ContactThread } from "../components/ContactThread";
+import { useContactMessenger } from "../components/ContactMessenger";
+import { Dialog } from "../components/Dialog";
 import { LandlordReviews } from "../components/HousingReviews";
 import { housingManagement, uploadListingImage } from "./client";
 import {
@@ -186,8 +187,8 @@ export function LandlordWorkspace() {
   const [host, setHost] = useState<HostProfilePage | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const [hostPage, summary, propertyPage, inbox] = await Promise.all([
@@ -211,6 +212,12 @@ export function LandlordWorkspace() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => void load(true);
+    window.addEventListener("housing-contact-update", refresh);
+    return () => window.removeEventListener("housing-contact-update", refresh);
   }, [load]);
 
   const newContacts = contacts.filter(
@@ -1629,61 +1636,66 @@ function InboxPanel({
   initialThread?: string;
   changed: () => Promise<void>;
 }) {
+  const messenger = useContactMessenger();
   const [busy, setBusy] = useState<string | null>(null),
-    [error, setError] = useState(""),
-    [openThread, setOpenThread] = useState(initialThread),
-    // Opened conversations are read; avoid reloading the whole workspace (it would close them).
-    [read, setRead] = useState<Set<string>>(new Set());
+    [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
-  const filtered = contacts.filter(
-    (item) =>
-      filter === "all" ||
-      (filter === "unread" && item.unread > 0 && !read.has(item.id)) ||
-      (filter === "viewing" && item.viewing_status === "requested") ||
-      (filter === "closed" && ["resolved", "declined"].includes(item.status)) ||
-      (filter === "new" && item.status === "new"),
-  );
-  async function update(
-    item: ContactRequest,
-    status: ContactRequest["status"],
-  ) {
-    setBusy(item.id);
-    setError("");
-    try {
-      await housingManagement(`landlord/contact-requests/${item.id}`, "PATCH", {
-        status,
-        revision: item.revision,
-      });
-      await changed();
-    } catch (cause) {
-      setError((cause as Error).message);
-    } finally {
-      setBusy(null);
+  const [proposal, setProposal] = useState<ContactRequest | null>(null);
+  const [slots, setSlots] = useState<string[]>([]),
+    [chosen, setChosen] = useState<string[]>([]);
+  const [rejecting, setRejecting] = useState<ContactRequest | null>(null),
+    [reason, setReason] = useState("");
+  const initialOpened = useRef("");
+  useEffect(() => {
+    const item = contacts.find((row) => row.id === initialThread);
+    if (item && initialOpened.current !== item.id) {
+      initialOpened.current = item.id;
+      messenger.open(item.id, item.title, "landlord");
     }
-  }
-  // Viewing time booked by the tenant in their "Xem nhà" tab (viewing-landlord-confirmation §3).
-  async function answerViewing(
-    item: ContactRequest,
-    decision: "confirm" | "decline",
-  ) {
+  }, [initialThread, contacts, messenger]);
+  async function action(item: ContactRequest, suffix: string, body: Data) {
     setBusy(item.id);
     setError("");
     try {
       await housingManagement(
-        `landlord/contact-requests/${item.id}/viewing`,
+        `landlord/contact-requests/${item.id}/${suffix}`,
         "POST",
-        {
-          decision,
-          revision: item.revision,
-        },
+        body,
       );
       await changed();
+      messenger.refresh();
+      return true;
+    } catch (cause) {
+      setError((cause as Error).message);
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function propose(item: ContactRequest) {
+    setBusy(item.id);
+    setError("");
+    try {
+      const page = await api<Data>("/landlord/viewing-options");
+      setSlots(page.slots || []);
+      setChosen([]);
+      setProposal(item);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
       setBusy(null);
     }
   }
+  const filtered = contacts.filter(
+    (item) =>
+      filter === "all" ||
+      (filter === "unread" && item.unread > 0) ||
+      (filter === "viewing" && item.viewing_status === "requested") ||
+      (filter === "payment" && item.payment_report?.status === "pending") ||
+      (filter === "closed" &&
+        (["resolved", "declined"].includes(item.status) ||
+          item.viewing_status === "cancelled")),
+  );
   return (
     <section className="ll-panel ll-inbox">
       <div className="ll-section-heading">
@@ -1692,7 +1704,7 @@ function InboxPanel({
           <h2>{t("Yêu cầu liên hệ")}</h2>
           <p>
             {t(
-              "Chỉ tài khoản quản lý đã xác minh mới thấy và xử lý các yêu cầu này.",
+              "Xác nhận lịch xem, trao đổi và phản hồi chuyển tiền với người thuê.",
             )}
           </p>
         </div>
@@ -1710,18 +1722,18 @@ function InboxPanel({
         >
           {[
             ["all", "Tất cả yêu cầu"],
-            ["new", "Yêu cầu mới"],
             ["unread", "Chưa đọc"],
             ["viewing", "Lịch xem cần xác nhận"],
+            ["payment", "Chờ xác nhận chuyển tiền"],
             ["closed", "Đã xử lý"],
           ].map(([key, label]) => (
             <option key={key} value={key}>
-              {t(label!)}
+              {t(label)}
             </option>
           ))}
         </select>
       </div>
-      {filtered.length === 0 ? (
+      {!filtered.length ? (
         <EmptyState
           icon={<Inbox />}
           title={t("Chưa có yêu cầu")}
@@ -1730,7 +1742,11 @@ function InboxPanel({
       ) : (
         <div className="ll-contact-list">
           {filtered.map((item) => {
-            const open = ["new", "contacted", "viewing"].includes(item.status);
+            const open = ["new", "contacted", "viewing"].includes(item.status),
+              payment = item.payment_report;
+            const closed =
+              ["resolved", "declined"].includes(item.status) ||
+              item.viewing_status === "cancelled";
             return (
               <article
                 key={item.id}
@@ -1752,7 +1768,7 @@ function InboxPanel({
                 <blockquote>{item.message}</blockquote>
                 {item.viewing_slot && item.viewing_status && (
                   <div className={`ll-viewing ${item.viewing_status}`}>
-                    <CalendarClock size={16} aria-hidden="true" />
+                    <CalendarClock size={16} />
                     <span>
                       <strong>
                         {formatUi("Giờ xem người thuê chọn: {0}", [
@@ -1766,14 +1782,20 @@ function InboxPanel({
                         <button
                           className="primary"
                           disabled={busy === item.id}
-                          onClick={() => void answerViewing(item, "confirm")}
+                          onClick={() =>
+                            void action(item, "viewing", {
+                              decision: "confirm",
+                              revision: item.revision,
+                            })
+                          }
                         >
-                          <CheckCircle2 size={15} /> {t("Xác nhận giờ xem")}
+                          <CheckCircle2 size={15} />
+                          {t("Xác nhận giờ xem")}
                         </button>
                         <button
                           className="secondary"
                           disabled={busy === item.id}
-                          onClick={() => void answerViewing(item, "decline")}
+                          onClick={() => void propose(item)}
                         >
                           {t("Không nhận giờ này")}
                         </button>
@@ -1781,79 +1803,244 @@ function InboxPanel({
                     )}
                   </div>
                 )}
-                <small>
-                  {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
-                </small>
-                <button
-                  className="text-button ll-thread-toggle"
-                  aria-expanded={openThread === item.id}
-                  onClick={() =>
-                    setOpenThread(openThread === item.id ? "" : item.id)
-                  }
-                >
-                  <MessageSquareText size={15} />{" "}
-                  {openThread === item.id
-                    ? t("Ẩn tin nhắn")
-                    : t("Nhắn tin với người thuê")}
-                  {item.unread > 0 &&
-                    !read.has(item.id) &&
-                    openThread !== item.id && (
-                      <span className="ll-count">{item.unread}</span>
-                    )}
-                </button>
-                {openThread === item.id && (
-                  <ContactThread
-                    requestId={item.id}
-                    onRead={() =>
-                      setRead((ids) =>
-                        ids.has(item.id) ? ids : new Set([...ids, item.id]),
-                      )
-                    }
-                  />
-                )}
-                {open && (
-                  <div className="ll-contact-actions">
-                    {item.status === "new" && (
-                      <button
-                        className="primary"
-                        disabled={busy === item.id}
-                        onClick={() => void update(item, "contacted")}
-                      >
-                        {t("Đã liên hệ")}
-                      </button>
-                    )}
-                    {item.status !== "viewing" &&
-                      !["requested", "confirmed"].includes(
-                        item.viewing_status || "",
-                      ) && (
-                        <button
-                          className="secondary"
-                          disabled={busy === item.id}
-                          onClick={() => void update(item, "viewing")}
-                        >
-                          {t("Đã hẹn xem")}
-                        </button>
-                      )}
+                {open && item.viewing_status === "declined" && (
+                  <div className="ll-handoff-card">
+                    <strong>{t("Giờ bạn đề xuất cho người thuê")}</strong>
+                    <ul>
+                      {(item.viewing_options || []).map((slot) => (
+                        <li key={slot}>{dateTime(slot)}</li>
+                      ))}
+                    </ul>
                     <button
-                      className="text-button"
+                      className="secondary"
                       disabled={busy === item.id}
-                      onClick={() => void update(item, "resolved")}
+                      onClick={() => void propose(item)}
                     >
-                      {t("Hoàn tất")}
-                    </button>
-                    <button
-                      className="text-button"
-                      disabled={busy === item.id}
-                      onClick={() => void update(item, "declined")}
-                    >
-                      {t("Từ chối")}
+                      {t("Cập nhật giờ phù hợp")}
                     </button>
                   </div>
                 )}
+                {payment && (
+                  <div className="ll-handoff-card" role="status">
+                    <strong>
+                      {t(
+                        payment.status === "pending"
+                          ? "Người thuê báo đã chuyển tiền"
+                          : payment.status === "confirmed"
+                            ? "Đã xác nhận nhận tiền · hoàn tất"
+                            : "Đã phản hồi chưa nhận / chưa khớp",
+                      )}
+                    </strong>
+                    <p>
+                      {formatUi("Số tiền: {0} · ngày chuyển: {1}", [
+                        money(payment.amount_vnd),
+                        payment.paid_on.slice(0, 10),
+                      ])}
+                    </p>
+                    <p>
+                      {formatUi("Thỏa thuận: cọc {0} + tháng đầu {1}", [
+                        money(payment.agreement.deposit_vnd || 0),
+                        money(payment.agreement.first_month_vnd || 0),
+                      ])}
+                      {payment.agreement.move_in
+                        ? formatUi(" · dọn vào {0}", [
+                            payment.agreement.move_in,
+                          ])
+                        : ""}
+                    </p>
+                    {payment.reason && <p>{payment.reason}</p>}
+                    {payment.status === "pending" && open && (
+                      <div className="ll-viewing-actions">
+                        <button
+                          className="primary"
+                          disabled={busy === item.id}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                t(
+                                  "Xác nhận đã nhận khoản tiền này? Yêu cầu sẽ hoàn tất và phòng được đánh dấu đã thuê.",
+                                ),
+                              )
+                            )
+                              void action(item, "payment-review", {
+                                report_id: payment.id,
+                                revision: payment.revision,
+                                decision: "confirm",
+                              });
+                          }}
+                        >
+                          {t("Xác nhận đã nhận tiền")}
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy === item.id}
+                          onClick={() => {
+                            setRejecting(item);
+                            setReason("");
+                          }}
+                        >
+                          {t("Chưa nhận / không khớp")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <small>
+                  {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
+                </small>
+                <div className="ll-contact-actions">
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      messenger.open(item.id, item.title, "landlord")
+                    }
+                  >
+                    <MessageSquareText size={15} />
+                    {t("Nhắn tin với người thuê")}
+                    {item.unread > 0 && (
+                      <span className="ll-count">{item.unread}</span>
+                    )}
+                  </button>
+                  {closed && payment?.status !== "pending" && (
+                    <button
+                      className="text-button"
+                      disabled={busy === item.id}
+                      onClick={() =>
+                        void action(item, "archive", {
+                          revision: item.revision,
+                        })
+                      }
+                    >
+                      <Trash2 size={15} />
+                      {t("Xóa khỏi hộp thư")}
+                    </button>
+                  )}
+                </div>
               </article>
             );
           })}
         </div>
+      )}
+      {proposal && (
+        <Dialog
+          title={t("Đề xuất giờ xem trong 7 ngày tới")}
+          onClose={() => {
+            if (!busy) setProposal(null);
+          }}
+        >
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (
+                await action(proposal, "viewing-options", {
+                  revision: proposal.revision,
+                  slots: chosen,
+                })
+              )
+                setProposal(null);
+            }}
+          >
+            <p>
+              {t(
+                "Người thuê chỉ được chọn những giờ bạn đề xuất. Chọn ít nhất một khung giờ phù hợp.",
+              )}
+            </p>
+            <div className="ll-proposal-days">
+              {[...new Set(slots.map((slot) => slot.slice(0, 10)))].map(
+                (day) => (
+                  <fieldset key={day}>
+                    <legend>{day.split("-").reverse().join("/")}</legend>
+                    <div>
+                      {slots
+                        .filter((slot) => slot.startsWith(day))
+                        .map((slot) => (
+                          <label key={slot}>
+                            <input
+                              type="checkbox"
+                              checked={chosen.includes(slot)}
+                              onChange={(event) =>
+                                setChosen((values) =>
+                                  event.target.checked
+                                    ? [...values, slot]
+                                    : values.filter((value) => value !== slot),
+                                )
+                              }
+                            />
+                            {slot.slice(11, 16)}
+                          </label>
+                        ))}
+                    </div>
+                  </fieldset>
+                ),
+              )}
+            </div>
+            {!slots.length && (
+              <p role="status">
+                {t(
+                  "Chưa có khung giờ khả dụng trong tuần tới. Hãy tải lại sau.",
+                )}
+              </p>
+            )}
+            {error && <p role="alert">{error}</p>}
+            <div className="form-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={Boolean(busy)}
+                onClick={() => setProposal(null)}
+              >
+                {t("Hủy")}
+              </button>
+              <button
+                className="primary"
+                disabled={Boolean(busy) || !chosen.length}
+              >
+                {t("Gửi giờ thay thế")}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      {rejecting?.payment_report && (
+        <Dialog
+          title={t("Phản hồi chuyển tiền")}
+          onClose={() => {
+            if (!busy) setRejecting(null);
+          }}
+        >
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const payment = rejecting.payment_report!;
+              if (
+                await action(rejecting, "payment-review", {
+                  report_id: payment.id,
+                  revision: payment.revision,
+                  decision: "reject",
+                  reason,
+                })
+              )
+                setRejecting(null);
+            }}
+          >
+            <label>
+              {t("Lý do / thông tin cần kiểm tra")}
+              <textarea
+                required
+                maxLength={1000}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </label>
+            {error && <p role="alert">{error}</p>}
+            <button
+              className="primary"
+              disabled={Boolean(busy) || !reason.trim()}
+            >
+              {t("Gửi phản hồi")}
+            </button>
+          </form>
+        </Dialog>
       )}
     </section>
   );

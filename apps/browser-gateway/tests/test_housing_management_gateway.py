@@ -342,6 +342,7 @@ async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, mon
             "request_status": "viewing",
             "request_id": "r1",
             "unread": 2,
+            "viewing_options": [],
         }
         # Even a confirmed contact cannot stand in for a missing booked slot.
         view["items"][0].pop("viewing")
@@ -541,9 +542,9 @@ async def test_contact_list_outage_is_reported_and_a_changed_booking_drops_the_r
         )
         thread = (await client.post("/web/api/threads")).json()["id"]
         url = f"/web/api/threads/{thread}/viewings"
-        booked = (await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})).json()
-        assert booked["landlord_unavailable"] is True
-        assert booked["items"][0]["landlord"] == {"sync": "failed"}
+        booked = await client.post(url + "/schedule", json={"listing_id": listing, "slot": slot})
+        assert booked.status_code == 503  # cannot bypass unknown owner-proposed restrictions
+        assert writes == []
         # The tenant cancels before the platform recovers: the pending send must not reopen it.
         state["view"] = {"items": [{"listing_id": listing, "status": "selected"}]}
         state["me"] = "up"
@@ -793,3 +794,155 @@ async def test_closed_confirmed_request_does_not_authorize_recording_a_visit(tmp
         )
         assert response.status_code == 409
         assert visits == []
+
+
+@pytest.mark.asyncio
+async def test_handoff_allowlist_and_stale_browser_session_cannot_send_as_another_account(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    calls = []
+
+    def provider(request):
+        calls.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        registered = (
+            await client.post(
+                "/web/api/auth/register",
+                json={"email": "handoff@example.test", "password": "a-long-password", "name": "Tenant"},
+            )
+        ).json()
+        path = f"/web/api/housing-management/housing/contact-requests/{LISTING}/messages"
+        assert (
+            await client.post(path, json={"body": "Hello"}, headers={"X-SIU-User": "old-account"})
+        ).status_code == 409
+        assert calls == []
+        assert (
+            await client.post(path, json={"body": "Hello"}, headers={"X-SIU-User": registered["id"]})
+        ).status_code == 200
+        assert calls[-1].headers["X-User-Id"] == registered["id"]
+        for suffix in ["viewing-options", "payment-review", "archive"]:
+            assert (
+                await client.post(f"/web/api/housing-management/landlord/contact-requests/{LISTING}/{suffix}", json={})
+            ).status_code == 200
+        assert (await client.get("/web/api/housing-management/housing/contact-notifications")).status_code == 200
+        assert (
+            await client.post(f"/web/api/housing-management/housing/{LISTING}/payment-reports", json={})
+        ).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_owner_proposals_limit_calendar_and_block_non_proposed_slot_before_agent_write(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    old = "2026-10-14T09:00:00+07:00"
+    suggested = "2026-10-15T10:00:00+07:00"
+    row = {
+        "id": LISTING,
+        "listing_id": LISTING,
+        "status": "new",
+        "viewing_status": "declined",
+        "viewing_slot": old,
+        "viewing_options": ["2026-10-15T03:00:00Z"],
+    }
+    view = {
+        "items": [{"listing_id": LISTING, "status": "visit_due", "viewing": {"slot": old}}],
+        "slots": [old, suggested],
+    }
+    writes = []
+
+    def provider(request):
+        if request.url.path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if request.method == "POST" and request.url.path.endswith("/viewings/schedule"):
+            writes.append(json.loads(request.content))
+        return httpx.Response(200, json=view)
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "proposal@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        path = f"/web/api/threads/{thread}/viewings"
+        assert (await client.get(path)).json()["items"][0]["available_slots"] == [suggested]
+        assert (await client.post(path + "/schedule", json={"listing_id": LISTING, "slot": old})).status_code == 409
+        assert writes == []
+        row["viewing_options"] = []
+        assert (await client.get(path)).json()["items"][0]["available_slots"] == []
+
+
+@pytest.mark.asyncio
+async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overwritten(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    slot = "2026-10-14T09:00:00+07:00"
+    item = {
+        "listing_id": LISTING,
+        "status": "agreed",
+        "viewing": {"slot": slot},
+        "agreement": {"deposit_vnd": 5, "first_month_vnd": 5},
+    }
+    view = {"items": [item]}
+    row = {
+        "id": LISTING,
+        "listing_id": LISTING,
+        "status": "viewing",
+        "viewing_status": "confirmed",
+        "viewing_slot": slot,
+    }
+    state, writes = {"fail": True}, []
+
+    def provider(request):
+        path = request.url.path
+        if path.endswith("/housing/contact-requests/me"):
+            return httpx.Response(200, json={"items": [row]})
+        if path == f"/v1/housing/{LISTING}":
+            return httpx.Response(200, json={"management": {"accepts_contact_requests": True}})
+        if path.endswith("/payment-reports"):
+            writes.append(json.loads(request.content))
+            if state["fail"]:
+                return httpx.Response(503, json={"message": "unavailable"})
+            report = {"id": LISTING, "status": "pending", **writes[-1]}
+            row["payment_report"] = report
+            return httpx.Response(201, json=report)
+        if path.endswith("/viewings/paid"):
+            data = json.loads(request.content)
+            item.update(
+                status="reported_paid",
+                reported_payment={
+                    "report_key": data["request_id"],
+                    "amount_vnd": data["amount_vnd"],
+                    "paid_on": data["paid_on"],
+                },
+            )
+        return httpx.Response(200, json=view)
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "money@example.test", "password": "a-long-password", "name": "Tenant"},
+        )
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        path = f"/web/api/threads/{thread}/viewings"
+        body = {"request_id": "report-key-one", "amount_vnd": 10, "paid_on": "2026-10-13"}
+        first = await client.post(path + "/paid", json=body)
+        assert first.status_code == 200 and first.json()["items"][0]["payment_sync"] == "failed"
+        state["fail"] = False
+        retried = await client.post(path + "/payment-retry", json={})
+        assert retried.json()["items"][0]["payment_report"]["status"] == "pending"
+        assert writes[0] == writes[1] and writes[1]["agreement"]["first_month_vnd"] == 5
+        assert (await client.post(path + "/paid", json={**body, "request_id": "another-key"})).status_code == 409
+        row["payment_report"]["status"], row["status"] = "confirmed", "resolved"
+        assert (await client.post(path + "/paid", json=body)).status_code == 200  # retry after lost response
+        assert (await client.post(path + "/paid", json={**body, "amount_vnd": 11})).status_code == 409

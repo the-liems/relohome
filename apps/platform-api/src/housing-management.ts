@@ -242,7 +242,7 @@ function messageRate() {
 
 // Who may read a conversation: the tenant who sent the request, or an active manager of the property.
 // Anyone else gets 404 so request IDs cannot be probed.
-async function conversationRole(pool: DatabasePool, user: string, requestId: string) {
+export async function conversationRole(pool: Pick<DatabasePool, 'query'>, user: string, requestId: string) {
   const result = await pool.query(
     `SELECT cr.*,l.title,
        CASE WHEN cr.tenant_user_id=$2 THEN 'tenant'
@@ -254,6 +254,16 @@ async function conversationRole(pool: DatabasePool, user: string, requestId: str
   const row = result.rows[0]
   if (!row?.role) throw new ManagementError(404, 'Không tìm thấy cuộc trò chuyện.')
   return row as Record<string, unknown> & { role: 'tenant' | 'landlord' }
+}
+
+async function notOwnContact(pool: DatabasePool, user: string, listing: string) {
+  const result = await pool.query(
+    `SELECT 1 FROM housing.listings l JOIN housing.management_members mm
+    ON mm.property_id=l.property_id WHERE l.id=$1 AND mm.user_id=$2 AND mm.status<>'revoked'`,
+    [listing, user],
+  )
+  if (result.rowCount)
+    throw new ManagementError(409, 'Hãy dùng tài khoản người thuê khác để liên hệ nhà bạn quản lý.', 'self_contact')
 }
 
 // Unread messages for one side of a conversation (SQL fragment over alias `cr`).
@@ -1105,6 +1115,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
     const input = ContactInput.parse(request.body)
+    await notOwnContact(pool, user, listingId)
     const eligible = await pool.query(
       `SELECT 1 FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
        WHERE ml.listing_id=$1 AND ml.publication_status='published' AND ml.availability_status='vacant' AND l.status='active'
@@ -1114,7 +1125,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!eligible.rowCount) throw new ManagementError(409, 'Tin hiện không nhận yêu cầu liên hệ.')
     try {
       const result = await pool.query(
-        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message) VALUES($1,$2,$3)
+        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,landlord_activity_at) VALUES($1,$2,$3,now())
          RETURNING id,status,revision,created_at`,
         [listingId, user, input.message],
       )
@@ -1135,10 +1146,12 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name,
-         cr.viewing_slot,cr.viewing_status,cr.source,${unreadFor('landlord')}
+         cr.viewing_slot,cr.viewing_status,cr.viewing_options,cr.source,
+         (SELECT to_jsonb(r) FROM housing.rent_payment_reports r WHERE r.request_id=cr.id ORDER BY created_at DESC,id DESC LIMIT 1) AS payment_report,${unreadFor('landlord')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        LEFT JOIN housing.units u ON u.id=l.unit_id JOIN housing.properties p ON p.id=l.property_id
        JOIN housing.management_members mm ON mm.property_id=p.id AND mm.user_id=$1 AND mm.status='active'
+       WHERE NOT EXISTS(SELECT 1 FROM housing.contact_archives a WHERE a.request_id=cr.id AND a.user_id=$1)
        ORDER BY (cr.viewing_status='requested') DESC,(cr.status='new') DESC,cr.created_at DESC`,
       [user],
     )
@@ -1149,7 +1162,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,
-         cr.viewing_slot,cr.viewing_status,cr.viewing_updated_at,cr.source,${unreadFor('tenant')}
+         cr.viewing_slot,cr.viewing_status,cr.viewing_options,cr.viewing_updated_at,cr.source,
+         (SELECT to_jsonb(r) FROM housing.rent_payment_reports r WHERE r.request_id=cr.id ORDER BY created_at DESC,id DESC LIMIT 1) AS payment_report,${unreadFor('tenant')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        WHERE cr.tenant_user_id=$1 ORDER BY cr.created_at DESC`,
       [user],
@@ -1163,6 +1177,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
     const input = ViewingInput.parse(request.body)
+    await notOwnContact(pool, user, listingId)
     const slot = new Date(input.slot)
     if (slot.getTime() <= Date.now()) throw new ManagementError(422, 'Giờ xem đã qua.')
     const eligible = await pool.query(
@@ -1173,11 +1188,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     if (!eligible.rowCount) throw new ManagementError(409, 'Tin này không nhận lịch xem qua ReloHome.', 'not_managed')
     const open = await pool.query(
-      `SELECT id,viewing_slot,viewing_status FROM housing.contact_requests
+      `SELECT id,revision,viewing_slot,viewing_status,viewing_options FROM housing.contact_requests
        WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')`,
       [listingId, user],
     )
     const current = open.rows[0]
+    const options = current?.viewing_options as string[] | undefined
+    if (options?.length && !options.some(value => new Date(value).getTime() === slot.getTime())) {
+      throw new ManagementError(409, 'Hãy chọn một trong các giờ chủ nhà đề xuất.', 'viewing_option_required')
+    }
     const sameSlot = current?.viewing_slot && new Date(current.viewing_slot).getTime() === slot.getTime()
     // A slot the landlord already answered stays answered; the tenant has to pick a different time.
     if (current && sameSlot && ['requested', 'confirmed', 'declined'].includes(current.viewing_status)) {
@@ -1190,15 +1209,19 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (current) {
       const updated = await pool.query(
         `UPDATE housing.contact_requests SET viewing_slot=$2,viewing_status='requested',viewing_updated_at=now(),
-           revision=revision+1,updated_at=now() WHERE id=$1 RETURNING id,viewing_status`,
-        [current.id, slot],
+           revision=revision+1,source='viewing',updated_at=now(),landlord_activity_at=now() WHERE id=$1 AND revision=$3 AND status IN ('new','contacted','viewing')
+             AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=$1 AND r.status IN ('pending','confirmed'))
+             AND (jsonb_array_length(viewing_options)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(viewing_options) option WHERE option::timestamptz=$2::timestamptz))
+           RETURNING id,viewing_status`,
+        [current.id, slot, current.revision],
       )
+      if (!updated.rowCount) throw new ManagementError(409, 'Lịch hoặc báo cáo chuyển tiền đã thay đổi; hãy tải lại.')
       return { ...updated.rows[0], changed: true }
     }
     try {
       const created = await pool.query(
-        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,viewing_updated_at,source)
-         VALUES($1,$2,'Người thuê đặt lịch xem nhà qua ReloHome.',$3,'requested',now(),'viewing') RETURNING id,viewing_status`,
+        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,viewing_updated_at,source,landlord_activity_at)
+         VALUES($1,$2,'Người thuê đặt lịch xem nhà qua ReloHome.',$3,'requested',now(),'viewing',now()) RETURNING id,viewing_status`,
         [listingId, user, slot],
       )
       await pool.query(
@@ -1217,27 +1240,49 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.delete('/v1/housing/:listingId/viewing', async request => {
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
-    // A request that only existed for this viewing and was never handled closes with it.
-    const result = await pool.query(
-      `UPDATE housing.contact_requests SET viewing_status='cancelled',viewing_updated_at=now(),
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(
+        "SELECT id FROM housing.contact_requests WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing') FOR UPDATE",
+        [listingId, user],
+      )
+      const pending = await client.query(
+        `SELECT 1 FROM housing.rent_payment_reports r JOIN housing.contact_requests cr ON cr.id=r.request_id
+        WHERE cr.listing_id=$1 AND cr.tenant_user_id=$2 AND r.status IN ('pending','confirmed')`,
+        [listingId, user],
+      )
+      if (pending.rowCount)
+        throw new ManagementError(409, 'Báo cáo chuyển tiền đang chờ hoặc đã xác nhận; không hủy lịch này.')
+      const result = await client.query(
+        `UPDATE housing.contact_requests SET viewing_status='cancelled',viewing_updated_at=now(),
          status=CASE WHEN source='viewing' AND status='new' THEN 'declined' ELSE status END,
-         revision=revision+1,updated_at=now()
-       WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')
-         AND viewing_status IN ('requested','confirmed')
+         revision=revision+1,updated_at=now(),landlord_activity_at=now()
+         WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')
+         AND viewing_status IN ('requested','confirmed','declined')
        RETURNING id,status,viewing_status`,
-      [listingId, user],
-    )
-    return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
+        [listingId, user],
+      )
+      await client.query('COMMIT')
+      return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   })
 
   app.post('/v1/landlord/contact-requests/:requestId/viewing', async request => {
     const user = actor(request)
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const input = ViewingDecision.parse(request.body)
+    if (input.decision === 'decline')
+      throw new ManagementError(422, 'Hãy đề xuất giờ thay thế trong 7 ngày tới.', 'viewing_options_required')
     const confirmed = input.decision === 'confirm'
     const result = await pool.query(
       `UPDATE housing.contact_requests cr SET viewing_status=$2,viewing_updated_at=now(),
-         status=CASE WHEN $2='confirmed' THEN 'viewing' ELSE cr.status END,revision=cr.revision+1,updated_at=now()
+         status=CASE WHEN $2='confirmed' THEN 'viewing' ELSE cr.status END,revision=cr.revision+1,updated_at=now(),tenant_activity_at=now()
        FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
        WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
          AND cr.viewing_status='requested' AND cr.status IN ('new','contacted','viewing')
@@ -1253,16 +1298,22 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const conversation = await conversationRole(pool, user, requestId)
+    const readAt = new Date()
     const messages = await pool.query(
-      `SELECT id,sender_role,body,created_at FROM housing.contact_messages WHERE request_id=$1 ORDER BY created_at,id`,
+      `SELECT id,sender_role,sender_user_id,body,created_at FROM housing.contact_messages WHERE request_id=$1 ORDER BY created_at,id`,
       [requestId],
     )
-    await pool.query(`UPDATE housing.contact_requests SET ${conversation.role}_read_at=now() WHERE id=$1`, [requestId])
+    await pool.query(
+      `UPDATE housing.contact_requests SET ${conversation.role}_read_at=$2,${conversation.role}_activity_read_at=$2 WHERE id=$1`,
+      [requestId, readAt],
+    )
     return {
       role: conversation.role,
+      viewer_id: user,
       request: {
         id: conversation.id,
         listing_id: conversation.listing_id,
+        tenant_user_id: conversation.tenant_user_id,
         title: conversation.title,
         status: conversation.status,
         message: conversation.message,
@@ -1283,6 +1334,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!['new', 'contacted', 'viewing'].includes(String(conversation.status))) {
       throw new ManagementError(409, 'Yêu cầu đã đóng; không gửi thêm tin nhắn được.')
     }
+    if (conversation.role === 'tenant') await notOwnContact(pool, user, String(conversation.listing_id))
     const recent = await pool.query(
       `SELECT count(*)::int AS n FROM housing.contact_messages
        WHERE request_id=$1 AND sender_user_id=$2 AND created_at > now() - interval '1 minute'`,
@@ -1292,12 +1344,13 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       throw new ManagementError(429, 'Bạn gửi hơi nhanh; chờ một chút rồi gửi tiếp.')
     const created = await pool.query(
       `INSERT INTO housing.contact_messages(request_id,sender_role,sender_user_id,body) VALUES($1,$2,$3,$4)
-       RETURNING id,sender_role,body,created_at`,
+       RETURNING id,sender_role,sender_user_id,body,created_at`,
       [requestId, conversation.role, user, input.body],
     )
     // The landlord's first reply means the request has been answered.
     await pool.query(
       `UPDATE housing.contact_requests SET ${conversation.role}_read_at=now(),updated_at=now(),
+         ${conversation.role === 'tenant' ? 'landlord' : 'tenant'}_activity_at=now(),
          status=CASE WHEN $2='landlord' AND status='new' THEN 'contacted' ELSE status END,
          revision=CASE WHEN $2='landlord' AND status='new' THEN revision+1 ELSE revision END
        WHERE id=$1`,
@@ -1311,8 +1364,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const input = z.object({ revision: Revision }).parse(request.body)
     const result = await pool.query(
-      `UPDATE housing.contact_requests SET status='declined',revision=revision+1,updated_at=now()
-       WHERE id=$1 AND tenant_user_id=$2 AND revision=$3 AND status IN ('new','contacted')
+      `UPDATE housing.contact_requests SET status='declined',viewing_status=CASE WHEN viewing_slot IS NOT NULL THEN 'cancelled' ELSE viewing_status END,revision=revision+1,updated_at=now(),landlord_activity_at=now()
+       WHERE id=$1 AND tenant_user_id=$2 AND revision=$3
+         AND (status IN ('new','contacted') OR (status='viewing' AND viewing_slot IS NOT NULL))
+         AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=$1 AND r.status IN ('pending','confirmed'))
        RETURNING id,status,revision,updated_at`,
       [requestId, user, input.revision],
     )
@@ -1328,6 +1383,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       `UPDATE housing.contact_requests cr SET status=$2,revision=cr.revision+1,updated_at=now()
        FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
        WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
+         AND cr.source='contact' AND cr.viewing_status IS NULL
+         AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=cr.id)
        RETURNING cr.id,cr.status,cr.revision,cr.updated_at`,
       [requestId, input.status, user, input.revision],
     )
