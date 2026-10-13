@@ -4,19 +4,19 @@ import pytest
 from cryptography.fernet import Fernet
 from relohome_agent.config import Settings
 from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.operations import backup, import_snapshot
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.requests import RequestService
 
-from src.roommate.connections import ContactRef
-from src.roommate.operations import backup, import_snapshot
-from src.roommate.ports import Actor
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.requests import RequestService
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_postgres_portable_backup_restores_sqlite_consent_and_original_retry(tmp_path, pg_store):
-    from src.roommate.contact_vault import ContactVault
-    from src.roommate.location_catalog import AreaCatalog
+    from relohome_roommate.contact_vault import ContactVault
+    from relohome_roommate.location_catalog import AreaCatalog
 
     key = Fernet.generate_key().decode()
     vault = ContactVault(tmp_path / "unused", key_value=key)
@@ -61,10 +61,10 @@ def test_postgres_portable_backup_restores_sqlite_consent_and_original_retry(tmp
 
 
 def test_cleanup_removes_expired_encrypted_draft_but_retains_operation_and_quota(tmp_path):
-    from src.roommate.contact_vault import ContactVault
-    from src.roommate.maintenance import reconcile
-    from src.roommate.services.operation_drafts import OperationDraftService
-    from src.roommate.storage import Storage
+    from relohome_roommate.contact_vault import ContactVault
+    from relohome_roommate.maintenance import reconcile
+    from relohome_roommate.services.operation_drafts import OperationDraftService
+    from relohome_roommate.storage import Storage
 
     with Storage(tmp_path / "db") as db:
         ctx = prepare(db)
@@ -79,9 +79,9 @@ def test_cleanup_removes_expired_encrypted_draft_but_retains_operation_and_quota
 
 
 def test_sqlite_snapshot_imports_postgres_without_mutating_backup(tmp_path, pg_store):
-    from src.roommate.contact_vault import ContactVault
-    from src.roommate.location_catalog import AreaCatalog
-    from src.roommate.storage import Storage
+    from relohome_roommate.contact_vault import ContactVault
+    from relohome_roommate.location_catalog import AreaCatalog
+    from relohome_roommate.storage import Storage
 
     vault = ContactVault(tmp_path / "key")
     source = RoommateRuntime(tmp_path / "source.sqlite3", vault, AreaCatalog(), frozenset({"mod"}), "test-token")

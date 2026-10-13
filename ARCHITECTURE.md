@@ -37,6 +37,8 @@ flowchart LR
 | Location platform | `apps/platform-api/`, `apps/location-mcp/`, `examples/map-app/`, `deploy/database/` | Housing/POI queries, geographic data, routes, REST API, and MCP tools |
 | Moving service | `packages/moving-service/` | AhaMove adapter, quotes, approval records, order actions, and webhooks |
 | Flight and Payment | `apps/flights-mcp/` and `apps/payments-mcp/` | Flight search and payment tools with provider-specific configuration |
+| Streamlit examples | `examples/streamlit/src/relohome_demos/` | Flight, Payment and agent-chat HTTP demos; shared library dependencies only |
+| Static references | `examples/design-reference/` | HTML/image design evidence, outside runtime images |
 | Standalone agent services | `apps/intake-api/` and `apps/orchestrator-api/` | Separate Intake and Routing APIs; execution gateway disconnected by default |
 
 The integrated entrypoint is `AgentService.open()`. It requires live-mode configuration and an LLM API key. It persists graph checkpoints and runtime records in SQLite and wraps configured domains with LLM agents. The standalone services have a separate lifecycle and runbook.
@@ -78,3 +80,9 @@ the same release contract and data cutover/recovery gates.
 Follow the [local MVP runbook](docs/runbooks/local-mvp.md), [frontend guide](apps/web/README.md), [Location guide](docs/location/README.md), and [Moving container runbook](docs/runbooks/moving-containers.md). The root Compose file starts the backend and Flight/Payment MCP containers; other services have separate setup.
 
 Review evidence is under [docs/review/](docs/review/) and [eval/](eval/). Dated reports describe the configurations they tested. Existing Python test failures and runtime review findings remain open; this documentation cleanup does not certify production readiness.
+
+Python source entrypoints use installed `relohome_*` namespaces. The only retained
+legacy module identifier is `src.agents.models`, registered in memory for stored
+LangGraph checkpoints and rollback readers. `Frontend/` has no source modules;
+its ignored `data/housing-media` path remains the local media default. See the
+[example/shim accounting](docs/integration/python-examples-and-shims.md).

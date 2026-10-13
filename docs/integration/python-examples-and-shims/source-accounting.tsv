@@ -1,0 +1,106 @@
+original	destination_or_canonical_module	disposition	owner_and_gate
+Frontend/__init__.py	relohome_gateway	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/admin_provision.py	relohome_gateway.admin_provision	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/cloud_backup.py	relohome_gateway.cloud_backup	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/roommate_gateway.py	relohome_gateway.roommate_gateway	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/runtime_paths.py	relohome_gateway.runtime_paths	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/server.py	relohome_gateway.server	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+Frontend/store.py	relohome_gateway.store	forwarder/namespace deleted	#113 gateway maintainers; removal #115; external census #116
+src/__init__.py	namespace shell removed	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agent_services/__init__.py	namespace shell removed	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agent_services/common.py	relohome_agent_services.common	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agent_services/intake/__init__.py	relohome_intake	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/agent_services/intake/app.py	relohome_intake.app	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/agent_services/intake/models.py	relohome_agent_services.intake_models	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agent_services/llm.py	relohome_agent_services.llm	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agent_services/orchestrator/__init__.py	relohome_orchestrator	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/agent_services/orchestrator/app.py	relohome_orchestrator.app	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/agents/__init__.py	namespace shell removed; persisted models registered in memory	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/agents/models.py	relohome_agent.agents.models	source shim deleted; persisted alias retained in serializer	agent maintainers; explicit persisted-format transition + checkpoint/backup migration or expiry + retirement of rollback images
+src/main.py	relohome_agent.main	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/__init__.py	namespace shell removed	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/__init__.py	relohome_flights_mcp	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/flights/__main__.py	relohome_flights_mcp.__main__	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/flights/booking_engine.py	relohome_flight.booking_engine	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/catalog.py	relohome_flight.catalog	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/errors.py	relohome_flight.errors	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/schemas.py	relohome_flight.schemas	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/search/__init__.py	relohome_flight.search	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/search/base.py	relohome_flight.search.base	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/search/mock.py	relohome_flight.search.mock	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/search/serpapi.py	relohome_flight.search.serpapi	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/server.py	relohome_flights_mcp.server	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/flights/settings.py	relohome_flight.settings	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/storage.py	relohome_flight.storage	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/flights/tools.py	relohome_flights_mcp.tools	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/http_service.py	relohome_mcp_http	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/__init__.py	relohome_payments_mcp	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/payments/__main__.py	relohome_payments_mcp.__main__	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/payments/engine.py	relohome_payment.engine	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/errors.py	relohome_payment.errors	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/gateways/__init__.py	relohome_payment.gateways	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/gateways/base.py	relohome_payment.gateways.base	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/gateways/mock.py	relohome_payment.gateways.mock	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/gateways/zalopay.py	relohome_payment.gateways.zalopay	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/privacy.py	relohome_payment.privacy	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/schemas.py	relohome_payment.schemas	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/server.py	relohome_payments_mcp.server	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/mcp_servers/payments/settings.py	relohome_payment.settings	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/storage.py	relohome_payment.storage	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/mcp_servers/payments/tools.py	relohome_payments_mcp.tools	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/models/__init__.py	relohome_contracts	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/models/moving_options.py	relohome_contracts.moving_options	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/models/schemas.py	relohome_contracts.schemas	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/access.py	relohome_roommate.access	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/agent_projection.py	relohome_roommate.agent_projection	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/api_models.py	relohome_roommate.api_models	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/background.py	relohome_roommate.background	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/clock.py	relohome_roommate.clock	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/connection_repository.py	relohome_roommate.connection_repository	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/connections.py	relohome_roommate.connections	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/contact_vault.py	relohome_roommate.contact_vault	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/demo.py	relohome_roommate.demo	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/eligibility.py	relohome_roommate.eligibility	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/factors.py	relohome_roommate.factors	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/location_catalog.py	relohome_roommate.location_catalog	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/maintenance.py	relohome_roommate.maintenance	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/media.py	relohome_roommate.media	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/migrations.py	relohome_roommate.migrations	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/models.py	relohome_roommate.models	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/normalization.py	relohome_roommate.normalization	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/notifications.py	relohome_roommate.notifications	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/operations.py	relohome_roommate.operations	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/policy.py	relohome_roommate.policy	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/ports.py	relohome_roommate.ports	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/postgres.py	relohome_roommate.postgres	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/profile_repository.py	relohome_roommate.profile_repository	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/ranking.py	relohome_roommate.ranking	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/runtime.py	relohome_agent.roommate_runtime	forwarder/namespace deleted	#114 application maintainers; removal #115; external census #116
+src/roommate/safety_repository.py	relohome_roommate.safety_repository	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/scoring.py	relohome_roommate.scoring	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/access.py	relohome_roommate.services.access	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/consent.py	relohome_roommate.services.consent	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/contacts.py	relohome_roommate.services.contacts	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/discovery.py	relohome_roommate.services.discovery	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/inbox.py	relohome_roommate.services.inbox	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/lifecycle.py	relohome_roommate.services.lifecycle	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/limits.py	relohome_roommate.services.limits	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/moderation.py	relohome_roommate.services.moderation	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/notifications.py	relohome_roommate.services.notifications	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/operation_drafts.py	relohome_roommate.services.operation_drafts	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/privacy.py	relohome_roommate.services.privacy	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/profiles.py	relohome_roommate.services.profiles	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/requests.py	relohome_roommate.services.requests	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/resources.py	relohome_roommate.services.resources	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/services/safety.py	relohome_roommate.services.safety	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/storage.py	relohome_roommate.storage	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/roommate/views.py	relohome_roommate.views	forwarder/namespace deleted	#112 packaging/domain maintainers; removal #115; external census #116
+src/ui/__init__.py	examples/streamlit/src/relohome_demos/__init__.py	moved installable demo	#115 demo maintainers
+src/ui/agent_chat.py	examples/streamlit/src/relohome_demos/agent_chat.py	moved installable demo	#115 demo maintainers
+src/ui/flight_client.py	examples/streamlit/src/relohome_demos/flight_client.py	moved installable demo	#115 demo maintainers
+src/ui/flight_demo.py	examples/streamlit/src/relohome_demos/flight_demo.py	moved installable demo	#115 demo maintainers
+src/ui/map_picker.py	examples/streamlit/src/relohome_demos/map_picker.py	moved installable demo	#115 demo maintainers
+src/ui/mcp_client.py	examples/streamlit/src/relohome_demos/mcp_client.py	moved installable demo	#115 demo maintainers
+src/ui/mvp_components.py	examples/streamlit/src/relohome_demos/mvp_components.py	moved installable demo	#115 demo maintainers
+src/ui/payment_client.py	examples/streamlit/src/relohome_demos/payment_client.py	moved installable demo	#115 demo maintainers
+src/ui/payment_demo.py	examples/streamlit/src/relohome_demos/payment_demo.py	moved installable demo	#115 demo maintainers

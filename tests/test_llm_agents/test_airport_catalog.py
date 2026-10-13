@@ -1,6 +1,6 @@
 """Actual checked-in airport catalog; no provider stubs."""
 
-from src.mcp_servers.flights.catalog import find_airports
+from relohome_flight.catalog import find_airports
 
 
 def test_full_city_names_resolve_actual_catalog():

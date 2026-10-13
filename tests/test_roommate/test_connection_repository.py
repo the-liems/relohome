@@ -3,12 +3,11 @@ from datetime import UTC, datetime, timedelta
 from threading import Barrier
 
 import pytest
-
-from src.roommate.connection_repository import RepositoryPolicyError, SqlConnections
-from src.roommate.connections import ContactConsent, ContactRef, IntroSnapshot, RequestRecord
-from src.roommate.models import ProfileFacts
-from src.roommate.policy import REQUEST_TTL
-from src.roommate.storage import Storage
+from relohome_roommate.connection_repository import RepositoryPolicyError, SqlConnections
+from relohome_roommate.connections import ContactConsent, ContactRef, IntroSnapshot, RequestRecord
+from relohome_roommate.models import ProfileFacts
+from relohome_roommate.policy import REQUEST_TTL
+from relohome_roommate.storage import Storage
 
 NOW = datetime(2026, 10, 7, tzinfo=UTC)
 

@@ -1,13 +1,13 @@
 import pytest
+from relohome_roommate.contact_vault import ContactVault
+from relohome_roommate.ports import Actor
+from relohome_roommate.storage import Storage
 
-from src.roommate.contact_vault import ContactVault
-from src.roommate.ports import Actor
-from src.roommate.storage import Storage
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_recoverable_draft_is_encrypted_owner_only_and_not_replayed(tmp_path):
-    from src.roommate.services.operation_drafts import OperationDraftService
+    from relohome_roommate.services.operation_drafts import OperationDraftService
 
     with Storage(tmp_path / "db") as db:
         ctx = prepare(db)

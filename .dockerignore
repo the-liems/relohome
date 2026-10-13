@@ -25,3 +25,7 @@ docker-compose.yml
 
 **/build
 **/*.egg-info
+
+# Examples/static references and legacy local media do not belong in runtime images.
+examples/
+Frontend/

@@ -4,12 +4,11 @@ import json
 from uuid import uuid4
 
 import pytest
+from relohome_agent_services.common import ServiceError
 from relohome_agent_services.intake_models import Fact, IntakeRequest, Understanding
 from relohome_intake.service import normalize
 from relohome_orchestrator.models import InputReference, PlanDraft, PlanTask
 from relohome_orchestrator.registry import Registry, validate_plan
-
-from src.agent_services.common import ServiceError
 
 
 def catalog_task(task_id="areas", depends_on=None):

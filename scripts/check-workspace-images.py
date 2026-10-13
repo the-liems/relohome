@@ -10,6 +10,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = {
+    "backend": (8000, "/health", 200),
+    "flights-mcp": (8765, "/health", 200),
+    "payments-mcp": (8766, "/health", 200),
+    "intake": (8000, "/health", 200),
+    "orchestrator": (8000, "/health", 200),
     "web": (8503, "/health", 200),
     "platform": (4100, "/", 404),  # /health requires a real PostGIS database
     "location": (3000, "/healthz", 200),
@@ -18,6 +23,8 @@ SERVICES = {
     "location-migrate": None,
     "moving-migrate": None,
 }
+
+PYTHON_SERVICES = {"backend", "web", "flights-mcp", "payments-mcp", "intake", "orchestrator"}
 
 
 def docker(*args, **kwargs):
@@ -32,6 +39,24 @@ def check(image, name):
         if image["target"]:
             command += ["--target", image["target"]]
         docker(*command, image["context"])
+        if name in PYTHON_SERVICES:
+            docker(
+                "run",
+                "-i",
+                "--rm",
+                "--network",
+                "none",
+                "--workdir",
+                "/tmp",
+                "--entrypoint",
+                "python",
+                tag,
+                "-I",
+                "-",
+                name,
+                "--require-nonroot",
+                input=(ROOT / "scripts/check-python-install.py").read_bytes(),
+            )
         if name == "web":
             subprocess.run([sys.executable, str(ROOT / "scripts/smoke-web-image.py"), tag], check=True)
             return
@@ -65,6 +90,10 @@ def check(image, name):
             "MOVING_MCP_AUTH_TOKEN": "workspace-smoke-token-0123456789012345",
             "MOVING_MCP_HOST": "0.0.0.0",
             "APP_ENV": "test",
+            "OPENAI_API_KEY": "workspace-smoke-no-provider-access",
+            "AGENT_API_TOKEN": "workspace-smoke-token-0123456789012345",
+            "INTAKE_API_TOKEN": "workspace-smoke-token-0123456789012345",
+            "ORCHESTRATOR_API_TOKEN": "workspace-smoke-token-0123456789012345",
         }
         args = ["run", "-d", "--name", container, "--network", "none"]
         for key, value in env.items():
@@ -74,7 +103,7 @@ def check(image, name):
         url = f"http://127.0.0.1:{port}{path}"
         probe = (
             ["python", "-c", f"import urllib.request; urllib.request.urlopen('{url}', timeout=2)"]
-            if name == "web"
+            if name in PYTHON_SERVICES
             else [
                 "node",
                 "-e",
@@ -96,11 +125,13 @@ def check(image, name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("services", nargs="*", help="Defaults to web and all six TypeScript images")
+    parser.add_argument("services", nargs="*", help="Defaults to all six Python and six TypeScript images")
     args = parser.parse_args()
     names = args.services or list(SERVICES)
     if set(names) - SERVICES.keys():
         parser.error("Supported services: " + ", ".join(SERVICES))
     catalog = {item["service"]: item for item in json.loads((ROOT / "config/ci/application-images.json").read_text())}
+    for service in ("intake", "orchestrator"):
+        catalog[service] = {"context": ".", "dockerfile": "Dockerfile.agents", "target": service}
     for name in names:
         check(catalog[name], name)

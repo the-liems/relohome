@@ -46,7 +46,7 @@ trong tương lai.
 ## Giao diện demo (Streamlit)
 
 ```bash
-make ui            # hoặc: streamlit run src/ui/flight_demo.py
+make ui            # hoặc: streamlit run examples/streamlit/src/relohome_demos/flight_demo.py
 ```
 
 Start the Flight HTTP service first and set `FLIGHT_MCP_URL` and the matching

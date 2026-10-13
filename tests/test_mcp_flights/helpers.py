@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 
-from src.mcp_servers.flights.schemas import Contact, FlightSearchRequest, HoldBookingRequest, Passenger
-from src.mcp_servers.flights.settings import VN_TZ
+from relohome_flight.schemas import Contact, FlightSearchRequest, HoldBookingRequest, Passenger
+from relohome_flight.settings import VN_TZ
 
 TODAY = date(2026, 10, 1)
 FLIGHT_DAY = date(2026, 10, 10)

@@ -14,12 +14,12 @@ from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKin
 from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.wiring import live_deps
 from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_flight.settings import FlightSettings
 from relohome_flights_mcp.server import create_server as flight_server
+from relohome_payment.settings import PaymentSettings
 from relohome_payments_mcp.server import create_server as payment_server
 from relohome_payments_mcp.tools import build_services as payment_services
 
-from src.mcp_servers.flights.settings import FlightSettings
-from src.mcp_servers.payments.settings import PaymentSettings
 from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 

@@ -1,6 +1,6 @@
-# THE LIEMS (P-044) — Multi-Service AI System
+# ReloHome (P-044) — Multi-Service AI System
 
-THE LIEMS is developing an AI system for people planning a relocation. Finding a home, arranging transport for belongings, and booking travel require separate vendors, repeated details, and decisions that affect one another. The intended product turns the customer's goal into one plan they can review, change, and approve step by step.
+ReloHome is an AI system for people planning a relocation. Finding a home, arranging transport for belongings, and booking travel require separate vendors, repeated details, and decisions that affect one another. The intended product turns the customer's goal into one plan they can review, change, and approve step by step.
 
 ## Customer journey
 
@@ -17,16 +17,18 @@ The [product brief](docs/product.md) defines the intended customer flow and open
 - FastAPI agent API and LangGraph workflow in [`apps/agent-api/src/relohome_agent/agents/`](apps/agent-api/src/relohome_agent/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
 - Location/Housing/Map and Moving services: [current guide](docs/location/README.md), [map example](examples/map-app/README.md), and [Streamlit lab](docs/location/STREAMLIT_MVP.md).
 - Flight search and Payment MCP servers in `apps/flights-mcp/` and `apps/payments-mcp/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
+- Supported [Streamlit demos](examples/streamlit/README.md) in `examples/streamlit/`: Flight (8501), Payment (8502), and local agent-chat (8501). [Static design references](examples/design-reference/) are retained separately.
 - Separate Intake and Routing services in `apps/intake-api/` and `apps/orchestrator-api/`; their execution gateway is disconnected by default.
 
 The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
 
 ## Run locally
 
-After pulling the web/gateway relocation (#113) into an existing checkout, run
-`npm ci` and `npm run setup:python` from the repository root before launching
-services or tests. This updates the old editable gateway mapping; see the
-[migration instructions](docs/integration/web-gateway-relocation.md#development-and-tests).
+After pulling a Python source relocation, run `npm run setup:python` from the
+repository root before launching services or tests. All Python callers use
+installed `relohome_*` namespaces. See the
+[example/shim migration](docs/integration/python-examples-and-shims.md) for
+reinstall, persisted checkpoint compatibility, validation and rollback.
 
 Start with the [local MVP runbook](docs/runbooks/local-mvp.md) for dependencies, provider credentials, database snapshots, service startup, and recovery. Follow the [frontend README](apps/web/README.md) to build and run the browser application at port 8503. The agent runtime requires an LLM API key and a trusted gateway token; copying `.env.example` alone does not configure the services.
 

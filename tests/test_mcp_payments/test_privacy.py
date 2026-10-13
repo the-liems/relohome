@@ -5,17 +5,17 @@ import re
 from pathlib import Path
 
 import pytest
-
-from src.mcp_servers.payments.engine import PaymentEngine
-from src.mcp_servers.payments.errors import InvalidRequestError, PaymentNotFoundError
-from src.mcp_servers.payments.privacy import (
+from relohome_payment.engine import PaymentEngine
+from relohome_payment.errors import InvalidRequestError, PaymentNotFoundError
+from relohome_payment.privacy import (
     check_opaque_ref,
     gateway_ref_pattern,
     new_gateway_ref,
     pseudonym,
     redact_secrets,
 )
-from src.mcp_servers.payments.storage import PaymentDatabase
+from relohome_payment.storage import PaymentDatabase
+
 from tests.test_mcp_payments.helpers import TEST_KEY1, TEST_KEY2, FakeClock, FakeZaloPay
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

@@ -4,7 +4,7 @@ Cảm ơn bạn đã quan tâm. Repo này gồm hai phần với quy trình revi
 
 | Phần | Đường dẫn | Ai duyệt |
 |------|-----------|----------|
-| Code template | `src/`, `tests/`, `scripts/`, Dockerfile… | Maintainer bất kỳ |
+| Code template | `apps/`, `packages/`, `examples/`, `tests/`, `scripts/`, Dockerfile… | Maintainer bất kỳ |
 | **Technical Book** | `docs/guide/**` | **Bắt buộc** @AI20K-Build-Phase/book-maintainers |
 
 ## Technical Book — lưu ý quan trọng
@@ -71,3 +71,8 @@ Location examples and infrastructure follow the [ReloHome location guide](docs/l
 Run all npm commands from repository root; map and location Streamlit sources
 are under `examples/`, SQL under `deploy/database/`, and launchers under
 `scripts/relohome/`. Keep ignored legacy state and credentials in place.
+
+Python examples are installed from `examples/streamlit` by `requirements-dev.txt`.
+Use canonical `relohome_*` imports; examples depend on shared libraries and call
+applications over HTTP. Reinstall requirements after source moves. See the
+[example and shim migration](docs/integration/python-examples-and-shims.md).

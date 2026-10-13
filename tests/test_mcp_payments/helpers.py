@@ -3,8 +3,7 @@ from typing import Any
 from urllib.parse import parse_qsl
 
 import httpx
-
-from src.mcp_servers.payments.settings import VN_TZ
+from relohome_payment.settings import VN_TZ
 
 # Bộ key GIẢ chỉ dùng trong test (không phải key sandbox công khai của ZaloPay)
 TEST_APP_ID = 9999

@@ -10,11 +10,11 @@ from relohome_agent.agents.wiring import AgentService
 from relohome_agent.config import Settings
 from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_roommate.models import RoommateProfile
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.profiles import ProfileService
 
-from src.roommate.models import RoommateProfile
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.profiles import ProfileService
 from tests import live
 
 pytestmark = [

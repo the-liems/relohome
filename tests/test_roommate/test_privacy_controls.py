@@ -1,14 +1,15 @@
-from src.roommate.connections import ContactRef
-from src.roommate.ports import Actor
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.requests import RequestService
-from src.roommate.storage import Storage
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.requests import RequestService
+from relohome_roommate.storage import Storage
+
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 
 
 def test_erasure_removes_private_content_preserves_quota_and_closes_consent(tmp_path):
-    from src.roommate.services.privacy import PrivacyService
+    from relohome_roommate.services.privacy import PrivacyService
 
     with Storage(tmp_path / "db") as db:
         ctx = prepare(db)

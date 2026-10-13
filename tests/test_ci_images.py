@@ -32,7 +32,7 @@ class ImageSelectionTests(unittest.TestCase):
     def test_frontend_and_python_consumers(self):
         self.assertEqual(self.selected("apps/browser-gateway/src/relohome_gateway/server.py"), {"web"})
         self.assertEqual(self.selected("apps/web/src/App.tsx"), {"web"})
-        self.assertEqual(self.selected("Frontend/server.py"), {"web"})
+        self.assertEqual(self.selected("examples/streamlit/src/relohome_demos/flight_demo.py", "examples/design-reference/support.js"), set())
         self.assertEqual(self.selected("requirements.txt", "config/agents.yaml"), {"web", "backend"})
         self.assertEqual(self.selected("apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py"), {"backend"})
 

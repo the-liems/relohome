@@ -1,10 +1,9 @@
 import sqlite3
 
 import pytest
-
-from src.roommate.contact_vault import ContactVault
-from src.roommate.migrations import migrate
-from src.roommate.storage import Storage
+from relohome_roommate.contact_vault import ContactVault
+from relohome_roommate.migrations import migrate
+from relohome_roommate.storage import Storage
 
 
 def test_bootstrap_restart_and_rollback(tmp_path):

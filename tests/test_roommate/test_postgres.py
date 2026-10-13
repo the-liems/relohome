@@ -1,11 +1,12 @@
 """Real PostgreSQL parity tests. CI provisions ROOMMATE_TEST_DATABASE_URL."""
 
-from src.roommate.connections import ContactRef
-from src.roommate.models import RoommateSearchCriteria
-from src.roommate.ports import Actor
-from src.roommate.services.consent import ConsentService
-from src.roommate.services.discovery import DiscoveryService
-from src.roommate.services.requests import RequestService
+from relohome_roommate.connections import ContactRef
+from relohome_roommate.models import RoommateSearchCriteria
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.consent import ConsentService
+from relohome_roommate.services.discovery import DiscoveryService
+from relohome_roommate.services.requests import RequestService
+
 from tests.test_roommate.test_profile_lifecycle import complete
 from tests.test_roommate.test_request_lifecycle import prepare
 
@@ -44,8 +45,7 @@ def test_existing_schema_runs_with_dedicated_non_superuser_role(pg_store):
 
     from psycopg import sql
     from psycopg.conninfo import make_conninfo
-
-    from src.roommate.postgres import PostgresPool
+    from relohome_roommate.postgres import PostgresPool
 
     role = "rmtest_roommate_" + uuid4().hex
     password = uuid4().hex

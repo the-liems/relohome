@@ -133,3 +133,6 @@ deploy/database/backups/*.sql
 deploy/database/backups/*.dump
 examples/map-app/*.tsbuildinfo
 examples/map-app/playwright-report/
+
+# Persisted housing media remains at the legacy path; Frontend is not a source root.
+/Frontend/data/

@@ -2,11 +2,11 @@ import io
 
 import pytest
 from PIL import Image, PngImagePlugin
+from relohome_roommate.access import RoommateError
+from relohome_roommate.media import MediaService, sanitized_image
+from relohome_roommate.ports import Actor
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateError
-from src.roommate.media import MediaService, sanitized_image
-from src.roommate.ports import Actor
-from src.roommate.storage import Storage
 from tests.test_roommate.test_request_lifecycle import prepare
 
 

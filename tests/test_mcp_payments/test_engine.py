@@ -1,7 +1,7 @@
 import pytest
+from relohome_payment.engine import PaymentEngine
+from relohome_payment.errors import InvalidRequestError, PaymentStateError
 
-from src.mcp_servers.payments.engine import PaymentEngine
-from src.mcp_servers.payments.errors import InvalidRequestError, PaymentStateError
 from tests.test_mcp_payments.helpers import FakeClock
 
 

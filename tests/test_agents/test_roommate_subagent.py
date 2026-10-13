@@ -4,10 +4,10 @@ from relohome_agent.agents.subagents.conformance import check_conformance, sampl
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
 from relohome_agent.agents.subagents.services.roommate import RoommateSubagent
 from relohome_agent.agents.wiring import AgentService
+from relohome_roommate.ports import Actor
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.profiles import ProfileService
 
-from src.roommate.ports import Actor
-from src.roommate.services.access import AccessService
-from src.roommate.services.profiles import ProfileService
 from tests.test_roommate.test_discovery_api import make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 

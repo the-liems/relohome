@@ -118,7 +118,7 @@ The old `*_MCP_STDIO` flags no longer enable a transport.
 | `apps/agent-api/src/relohome_agent/api/` | API hội thoại, xác nhận và demo thanh toán |
 | `apps/web/` | React/Vite |
 | `apps/browser-gateway/` | Gateway và lưu tài khoản/hội thoại |
-| `src/ui/` | Giao diện Streamlit cũ, giữ để tham khảo |
+| `examples/streamlit/src/relohome_demos/` | Demo Streamlit Flight, Payment và agent-chat được hỗ trợ |
 | `apps/flights-mcp/` and `apps/payments-mcp/` | Flight/Payment MCP Python |
 | `apps/`, `packages/`, `examples/map-app/` | Workspace TypeScript Housing/Map/Moving |
 | `scripts/` | Khởi tạo, nhập snapshot, restore, chạy local |
@@ -322,8 +322,8 @@ với đơn AhaMove hay vé máy bay.
 ## Kiểm tra không gọi API trả phí
 
 ```powershell
-.venv/Scripts/python.exe -m ruff check src tests
-.venv/Scripts/python.exe -m compileall -q src
+.venv/Scripts/python.exe -m ruff check examples/streamlit apps/agent-api apps/flights-mcp apps/payments-mcp apps/intake-api apps/orchestrator-api packages/python tests
+.venv/Scripts/python.exe -m compileall -q examples/streamlit/src apps/agent-api/src apps/browser-gateway/src apps/flights-mcp/src apps/payments-mcp/src apps/intake-api/src apps/orchestrator-api/src packages/python
 .venv/Scripts/python.exe -m pytest tests/test_llm_agents/test_runtime_storage.py -q
 ```
 
@@ -334,3 +334,7 @@ Workflow `MVP local validation` chỉ lint/build/SQLite, không triển khai ho�
 Xem [bằng chứng và giới hạn](../../eval/mvp-local-2026-09-30.md).
 Đo Housing/Flight, đa lượt và UI sau cập nhật 05/10:
 [read latency](../../eval/read-latency-2026-10-05.md).
+
+Demo Streamlit: [hướng dẫn](../../examples/streamlit/README.md). Cài lại
+`requirements-dev.txt` sau khi cập nhật để dùng import `relohome_demos`.
+`Frontend/data/housing-media` vẫn là dữ liệu local; không xóa khi gỡ source shim.

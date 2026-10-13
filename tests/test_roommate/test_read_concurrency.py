@@ -3,15 +3,15 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from relohome_agent.api.roommate_map import router
+from relohome_roommate.access import RoommateContext
+from relohome_roommate.clock import FrozenClock
+from relohome_roommate.models import RoommateSearchCriteria
+from relohome_roommate.policy import TERMS_VERSION
+from relohome_roommate.ports import Actor, ProfileRecord
+from relohome_roommate.services.access import AccessService
+from relohome_roommate.services.discovery import DiscoveryService
+from relohome_roommate.storage import Storage
 
-from src.roommate.access import RoommateContext
-from src.roommate.clock import FrozenClock
-from src.roommate.models import RoommateSearchCriteria
-from src.roommate.policy import TERMS_VERSION
-from src.roommate.ports import Actor, ProfileRecord
-from src.roommate.services.access import AccessService
-from src.roommate.services.discovery import DiscoveryService
-from src.roommate.storage import Storage
 from tests.test_roommate.test_discovery_api import headers, make_app
 from tests.test_roommate.test_profile_lifecycle import complete
 
