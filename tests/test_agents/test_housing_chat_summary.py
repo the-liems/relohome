@@ -59,7 +59,8 @@ def test_new_search_is_brief_but_keeps_all_map_and_dependency_data(count):
 
     assert reply.kind == "ANSWER"
     assert f"{count} căn trong lượt này" in reply.text
-    assert "Mở bản đồ để xem và chọn" in reply.text
+    assert "Bạn mở bản đồ xem thử nhé" in reply.text
+    assert "Đây là kết quả" not in reply.text
     assert len(reply.text.split()) < 35
     assert "Contract listing" not in reply.text
     assert "Contract address" not in reply.text
@@ -75,16 +76,19 @@ def test_price_warnings_are_aggregated_without_losing_per_listing_flags():
         candidate["quality_flags"] = ["price_unverified"]
     reply = compose(state, None)
 
-    assert reply.text.count("giá chưa xác minh") == 1
-    assert "chưa tính vào tổng ngân sách" in reply.text
+    assert reply.text.lower().count("giá chưa xác minh") == 1
+    assert "chưa tính vào ngân sách" in reply.text
     assert len(reply.text.split()) < 55
     assert all(c["price_unverified"] for c in reply.data["results"]["search"]["data"]["candidates"])
-    assert all(c["quality_flags"] == ["price_unverified"] for c in reply.data["results"]["search"]["data"]["candidates"])
+    assert all(
+        c["quality_flags"] == ["price_unverified"] for c in reply.data["results"]["search"]["data"]["candidates"]
+    )
 
 
 def test_no_matches_does_not_claim_results_or_prompt_a_choice():
     reply = compose(search_state(0), None)
-    assert "Chưa tìm thấy phòng phù hợp" in reply.text
+    assert "Chưa có căn phù hợp" in reply.text
+    assert "Đây là kết quả" not in reply.text
     assert "Đã tìm được" not in reply.text
     assert "xem và chọn" not in reply.text
     assert reply.data["results"]["search"]["data"]["candidates"] == []
@@ -100,7 +104,8 @@ def test_radius_pagination_and_location_accuracy_are_still_disclosed():
     )
     reply = compose(state, None)
     assert "3000 m đường thẳng (mặc định, có thể đổi)" in reply.text
-    assert "Còn kết quả khác; đây không phải toàn bộ thị trường" in reply.text
+    assert "toàn bộ thị trường" not in reply.text
+    assert reply.data["results"]["search"]["data"]["has_more"] is True
     assert reply.text.count("khoảng cách tới tiện ích là ước lượng") == 1
     assert "vị trí gần đúng" in reply.text
     assert len(reply.text.split()) < 75
@@ -116,7 +121,7 @@ def test_selected_home_keeps_identity_price_and_full_search_without_booking_clai
     assert "Căn bạn đã chọn: Contract listing 2 with a long title — 3.000.000đ/tháng" in reply.text
     assert "Contract listing 1" not in reply.text
     assert "Đã tìm được 1 căn" not in reply.text
-    assert "giá chưa xác minh" in reply.text
+    assert "giá chưa xác minh" in reply.text.lower()
     assert "đã đặt" not in reply.text.lower()
     assert result["displayed_option_ids"] == ["contract-2"]
     assert len(result["data"]["candidates"]) == 5
@@ -142,8 +147,10 @@ def test_multi_service_clarification_and_other_domain_results_are_not_hidden():
     reply = compose(state, None)
 
     assert reply.kind == "CLARIFY"
-    assert "Đã tìm được 5 căn" in reply.text
-    assert "Contract Air" in reply.text
+    assert "Mình tìm được 5 căn" in reply.text
+    assert "Mình có 1 chuyến bay" in reply.text
+    assert "Contract Air" not in reply.text
+    assert reply.data["results"]["flight"]["data"]["offers"][0]["carrier"] == "Contract Air"
     assert "sandbox" in reply.text
     assert "Bạn muốn xe đến lúc mấy giờ?" in reply.text
     assert reply.questions[0].field == "relocation.move_time"
@@ -157,7 +164,7 @@ def test_partial_failure_is_not_presented_as_all_services_succeeding():
     reply = compose(state, None)
     assert reply.kind == "PARTIAL"
     assert "Mình mới hoàn thành được một phần yêu cầu" in reply.text
-    assert "Đã tìm được 5 căn" in reply.text
+    assert "Mình tìm được 5 căn" in reply.text
     assert reply.data["failed_tasks"] == [{"agent": "relocation", "task_id": "moving"}]
 
 
@@ -171,8 +178,8 @@ def test_long_model_assessment_is_not_repeated_but_limits_and_rationale_are_reta
     state = search_state(agent_assessment=assessment)
     reply = compose(state, None)
     assert reply.kind == "PARTIAL"
-    assert "còn hạn chế theo đánh giá của AI" in reply.text
-    assert "chưa phải xác nhận từ nhà cung cấp" in reply.text
+    assert "AI chưa xác minh đủ tiêu chí" in reply.text
+    assert "chưa phải xác nhận từ bên cho thuê" in reply.text
     assert "Contract model" not in reply.text
     assert len(reply.text.split()) < 65
     assert reply.data["limited_tasks"]["search"] == assessment
@@ -188,9 +195,9 @@ def test_comparison_stays_separate_and_full_table_is_retained():
     assert reply.data["results"]["search"]["data"]["comparison"] == comparison
 
 
-def test_nonhousing_formatting_and_notes_remain_unchanged():
+def test_moving_summary_is_brief_and_location_warning_remains():
     assert describe_result(AgentName.RELOCATION, {"quotes": [{"vehicle": "Contract VAN", "price_vnd": 300_000}]}) == [
-        "Contract VAN: 300.000đ"
+        "Mình có 1 báo giá chuyển đồ. Bạn xem các gói xe để chọn nhé; chưa đặt đơn."
     ]
     assert data_notes({"destination_location_approximate": True, "warnings": ["destination_location_approximate"]}) == [
         "Vị trí phòng chỉ gần đúng; giá chuyển đồ có thể thay đổi khi đặt."
