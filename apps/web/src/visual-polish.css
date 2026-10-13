@@ -77,7 +77,20 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 
 /* Welcome: clear, generously sized entry points alongside the existing chat. */
 .chat-header { border-bottom-color: var(--ui-line); }
-.chat-home-link { background: var(--ui-accent-soft); color: var(--ui-accent); }
+.chat-home-link { width: 48px; height: 48px; font-size: 16px; background: var(--ui-accent-soft); color: var(--ui-accent); }
+.chat-header .chat-brand .chat-title { font-size: 23px; font-weight: 750; letter-spacing: -.035em; line-height: 1.25; color: var(--ui-text); }
+.landing-upgrade .landing-brand { font-size: 28px; }
+@media (max-width: 767px) {
+  .chat-header .chat-brand .chat-title { font-size: 20px; }
+  .landing-upgrade .landing-brand { font-size: 21px; }
+  .chat-home-link { width: 44px; height: 44px; }
+}
+:root[data-theme="dark"] .maplibregl-ctrl-attrib {
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+}
+:root[data-theme="dark"] .maplibregl-ctrl-attrib a { color: var(--ui-text); }
+:root[data-theme="dark"] .maplibregl-ctrl-attrib a:hover { color: var(--service-route); }
 .welcome { padding-block: 12px; }
 .welcome h1 { font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -.035em; line-height: 1.18; }
 .welcome-heading .welcome-icon { width: 36px; height: 36px; border-radius: var(--radius-control); }
@@ -264,6 +277,25 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 }
 .landing-header { background: var(--ui-surface); border-bottom-color: var(--ui-line); box-shadow: var(--shadow-card); }
 .landing-nav-cta { background: var(--ui-accent-strong); color: var(--ui-on-accent); border-color: var(--ui-accent-strong); }
+.landing-upgrade .landing-inline-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--ui-accent-strong);
+  border-radius: var(--radius-control);
+  background: var(--ui-accent-strong);
+  color: var(--ui-on-accent);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+}
+.landing-upgrade .landing-inline-cta:hover { background: var(--ui-accent-hover); border-color: var(--ui-accent-hover); color: var(--ui-on-accent); text-decoration: none; }
+.landing-upgrade .landing-inline-cta:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; }
+.welcome .resume-chat { display: inline-flex; gap: 10px; min-height: 44px; border-color: var(--ui-accent); color: var(--ui-accent); margin-bottom: 4px; }
 .lp-service-index { background: var(--ui-surface); border-bottom: 1px solid var(--ui-line); }
 .landing-upgrade .lp-service-index > .landing-container { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding-block: 16px; }
 .landing-upgrade .lp-service-index a { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 12px 8px; border-radius: var(--radius-control); text-align: center; color: var(--ui-text); min-height: 88px; font-size: 13px; }

@@ -107,6 +107,8 @@ import { rt as roommateText } from "./roommate/text";
 import { GuidesPage } from "./guides/GuidesPage";
 import { AdminWorkspace } from "./admin/Workspace";
 import { LandlordWorkspace } from "./landlord/Workspace";
+import { forgetActiveChat, readActiveChat, rememberActiveChat } from "./activeChatSession";
+import { ResumeChat } from "./components/ResumeChat";
 
 interface AppContext {
   user: User;
@@ -219,6 +221,7 @@ export default function App() {
   }
   async function deleteThread(id: string) {
     await api("/threads/" + encodeURIComponent(id), "DELETE");
+    if (user) forgetActiveChat(user.id, id);
     forgetDraft(id);
     if (location.pathname === "/ai/" + id) navigate("/ai", { replace: true });
     await refresh();
@@ -227,6 +230,8 @@ export default function App() {
   async function resetThreads() {
     const result = await api<Data>("/threads", "DELETE");
     const kept: Data[] = result.kept || [];
+    const active = user ? readActiveChat(user.id) : null;
+    if (user && active && !kept.some((item) => item.id === active.threadId)) forgetActiveChat(user.id);
     threads
       .filter((t) => !kept.some((k) => k.id === t.id))
       .forEach((t) => forgetDraft(t.id));
@@ -564,8 +569,7 @@ function Shell({ children }: { children: ReactNode }) {
       // Private mode or blocked storage: the next login simply opens chat.
     }
   }, [hostMode, location.pathname]);
-  const [history, setHistory] = useState(false),
-    [removing, setRemoving] = useState<Thread | null>(null);
+  const [removing, setRemoving] = useState<Thread | null>(null);
   const isChat = location.pathname.startsWith("/ai");
   const active = threads.find((t) => location.pathname === "/ai/" + t.id);
   return (
@@ -586,11 +590,9 @@ function Shell({ children }: { children: ReactNode }) {
               </Link>
               <div>
                 <p className="chat-title">
-                  {active?.title ||
-                    uiText("Một cuộc trò chuyện, nhiều điều được giải quyết")}
+                  ReloHome
                 </p>
                 <p>
-                  ReloHome <span>·</span>
                   {uiText(" Cùng bạn sắp xếp cuộc sống")}
                 </p>
               </div>
@@ -634,14 +636,6 @@ function Shell({ children }: { children: ReactNode }) {
                   <i />
                   {status ? uiText("AI đã kết nối") : uiText("Chưa kết nối AI")}
                 </span>
-                <button
-                  className="secondary"
-                  aria-label={uiText("Lịch sử")}
-                  onClick={() => setHistory(true)}
-                >
-                  <History size={17} />
-                  <span>{uiText("Lịch sử")}</span>
-                </button>
                 {active && (
                   <button
                     className="icon-button outlined"
@@ -694,7 +688,6 @@ function Shell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-      {history && <HistoryDrawer onClose={() => setHistory(false)} />}
       {removing && (
         <DeleteThreadDialog
           thread={removing}
@@ -755,89 +748,6 @@ function ResetThreadsDialog({ onClose }: { onClose: () => void }) {
         )}
       </p>
     </ConfirmDialog>
-  );
-}
-
-function HistoryDrawer({ onClose }: { onClose: () => void }) {
-  const { threads } = useApp();
-  const [query, setQuery] = useState(""),
-    [removing, setRemoving] = useState<Thread | null>(null),
-    [resetting, setResetting] = useState(false);
-  if (removing)
-    return (
-      <DeleteThreadDialog thread={removing} onClose={() => setRemoving(null)} />
-    );
-  if (resetting)
-    return <ResetThreadsDialog onClose={() => setResetting(false)} />;
-  return (
-    <Dialog title={uiText("Cuộc trò chuyện của bạn")} onClose={onClose}>
-      <div className="search-row">
-        <Search size={17} />
-        <input
-          aria-label={uiText("Tìm theo tiêu đề…")}
-          placeholder={uiText("Tìm theo tiêu đề…")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      <Link className="primary full" to="/ai" onClick={onClose}>
-        <Plus size={17} />
-        {uiText("Cuộc trò chuyện mới")}
-      </Link>
-      <div className="history-list">
-        {threads
-          .filter((t) =>
-            t.title
-              .toLocaleLowerCase("vi")
-              .includes(query.toLocaleLowerCase("vi")),
-          )
-          .map((t) => (
-            <div className="history-item" key={t.id}>
-              <Link to={"/ai/" + t.id} onClick={onClose}>
-                <MessageCircle size={19} />
-                <span>
-                  <strong>{t.title}</strong>
-                  <small>{dateTime(t.updated)}</small>
-                </span>
-                <ChevronRight size={16} />
-              </Link>
-              <button
-                className="icon-button"
-                aria-label={uiText("Xóa cuộc trò chuyện ") + t.title}
-                title={uiText("Xóa cuộc trò chuyện")}
-                onClick={() => setRemoving(t)}
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-      </div>
-      {threads.length > 0 &&
-        !threads.some((t) =>
-          t.title
-            .toLocaleLowerCase("vi")
-            .includes(query.toLocaleLowerCase("vi")),
-        ) && (
-          <EmptyState
-            icon={<Search size={24} />}
-            title={uiText("Không có yêu cầu phù hợp")}
-            text={uiText("Thử đổi từ khóa hoặc trạng thái lọc.")}
-          />
-        )}
-      {threads.length ? (
-        <button
-          className="text-button danger"
-          onClick={() => setResetting(true)}
-        >
-          <Trash2 size={14} />
-          {uiText(" Xóa tất cả và làm mới ReloHome")}
-        </button>
-      ) : (
-        <p className="muted">
-          {uiText("Cuộc trò chuyện đầu tiên của bạn sẽ xuất hiện ở đây.")}
-        </p>
-      )}
-    </Dialog>
   );
 }
 
@@ -904,9 +814,12 @@ function Chat() {
     setLoading(true);
     api<Thread>("/threads/" + threadId, "GET", undefined, abort.signal)
       .then((t) => {
-        if (version === generation.current && !inFlight.current) setThread(t);
+        if (version === generation.current && !inFlight.current) {
+          setThread(t);
+        }
       })
       .catch((e) => {
+        if (e instanceof ApiError && (e.status === 404 || e.status === 403)) forgetActiveChat(user.id, threadId);
         if (e.name !== "AbortError") setError(e.message);
       })
       .finally(() => {
@@ -914,6 +827,9 @@ function Chat() {
       });
     return () => abort.abort();
   }, [threadId, user.id]);
+  useEffect(() => {
+    if (thread && thread.id === threadId) rememberActiveChat(user.id, thread.id);
+  }, [thread?.id, thread?.revision, threadId, user.id]);
   useEffect(() => {
     sessionStorage.setItem(
       "siu-draft-" + user.id + "-" + (threadId || "new"),
@@ -1695,6 +1611,7 @@ function Chat() {
                   <br className="desktop-only" />
                   {uiText(" Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.")}
                 </p>
+                <ResumeChat key={user.id} owner={user.id} />
                 <div
                   className="quick-grid"
                   role="group"
@@ -2354,7 +2271,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             <h1>{uiText("Tài khoản của tôi")}</h1>
             <p>
               {uiText(
-                "Mọi cuộc trò chuyện và lựa chọn của bạn, ở cùng một nơi.",
+                "Quản lý tài khoản, lựa chọn và dịch vụ của bạn.",
               )}
             </p>
           </div>
@@ -2367,6 +2284,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               )
                 return;
               await api("/logout", "POST");
+              forgetActiveChat(user.id);
               onLogout();
             }}
           >
@@ -2393,15 +2311,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             <p>{user.email}</p>
           </div>
           <div className="account-overview-stats">
-            <div>
-              <span className="account-stat-icon">
-                <MessageCircle size={18} />
-              </span>
-              <span>
-                <strong>{threads.length}</strong>
-                <small>{uiText("Cuộc trò chuyện")}</small>
-              </span>
-            </div>
+
             <div>
               <span className="account-stat-icon saved">
                 <Heart size={18} />
@@ -2516,6 +2426,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             <p className="muted small">
               {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
             </p>
+            <button className="text-button danger" onClick={() => setResetting(true)}><Trash2 size={16} aria-hidden="true" />{uiText("Xóa dữ liệu trò chuyện")}</button>
           </section>
         ) : tab !== "saved" ? (
           <div className="account-grid">
@@ -2630,37 +2541,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </form>
             </section>
             {tab === "profile" && <TravelerProfileForm />}
-            <section className="surface recent-activity">
-              <h3>{uiText("Hội thoại gần đây")}</h3>
-              {threads.slice(0, 5).map((t) => (
-                <Link key={t.id} to={"/ai/" + t.id}>
-                  <span className="service-icon blue">
-                    <MessageCircle size={17} />
-                  </span>
-                  <span>
-                    <strong>{t.title}</strong>
-                    <small>{dateTime(t.updated)}</small>
-                  </span>
-                  <ChevronRight size={15} />
-                </Link>
-              ))}
-              {!threads.length && (
-                <p className="muted">
-                  {uiText(
-                    "Chưa có hoạt động nào. Bắt đầu một cuộc trò chuyện cùng ReloHome.",
-                  )}
-                </p>
-              )}
-              {threads.length > 0 && (
-                <button
-                  className="text-button danger"
-                  onClick={() => setResetting(true)}
-                >
-                  <Trash2 size={14} />
-                  {uiText(" Xóa tất cả trò chuyện và làm mới ReloHome")}
-                </button>
-              )}
-            </section>
+
           </div>
         ) : saved.length ? (
           <>

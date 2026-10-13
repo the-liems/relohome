@@ -194,11 +194,18 @@ test("layout regression: flight timeline, housing and history inputs keep separa
 }, info) => {
   test.setTimeout(120000);
   const { thread, component, turns } = await fixture(page);
+  const housingPlan = thread.state.plan;
+  const housingStatus = thread.state.task_status;
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     thread.messages = [];
+    thread.state.plan = {
+      ...housingPlan,
+      tasks: [{ id: "flight", agent: "flight", inputs: { origin: "SGN", destination: "HAN", depart_date: tomorrow() } }],
+    };
+    thread.state.task_status = { flight: "done" };
     seed(thread, [
       {
         id: "layout-flight",
@@ -246,6 +253,8 @@ test("layout regression: flight timeline, housing and history inputs keep separa
       fullPage: true,
     });
     thread.messages = [];
+    thread.state.plan = housingPlan;
+    thread.state.task_status = housingStatus;
     seed(thread, [component]);
     await page.goto("/ai/th_ui");
     await expect(
@@ -254,12 +263,7 @@ test("layout regression: flight timeline, housing and history inputs keep separa
     await page.getByRole("button", { name: "Hiện khung chat" }).click();
     await assertInputIconSpacing(page.locator(".ws-dock-input"));
     await page.getByRole("button", { name: "Ẩn khung chat" }).click();
-    await page.getByRole("button", { name: "Lịch sử", exact: true }).click();
-    const dialog = page.getByRole("dialog", {
-      name: "Cuộc trò chuyện của bạn",
-    });
-    await assertInputIconSpacing(dialog.locator(".search-row"));
-    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "Mở tài khoản" }).click();
     await assertInputIconSpacing(page.locator(".history-search"));
     expect(
@@ -1108,7 +1112,7 @@ test("appearance: language and theme persist without changing conversation data 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(
     page.getByRole("button", { name: "History", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: "Message ReloHome", exact: true }),
   ).toHaveValue(draft);
@@ -3541,15 +3545,10 @@ test("a conversation can be deleted, and all conversations reset", async ({
 
   seed(thread);
   await page.reload();
-  await page.getByRole("button", { name: "Lịch sử" }).click();
-  await expect(
-    page.getByRole("button", {
-      name: "Xóa cuộc trò chuyện Tìm nhà tại Quận 1",
-    }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Xóa tất cả và làm mới ReloHome" })
-    .click();
+  await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
+  await page.goto("/account");
+  await page.getByRole("tab", { name: "Đăng nhập & bảo mật", exact: true }).click();
+  await page.getByRole("button", { name: "Xóa dữ liệu trò chuyện", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Xóa tất cả và làm mới ReloHome?" })
     .getByRole("button", { name: "Xóa tất cả" })
@@ -3762,7 +3761,7 @@ test("account reads saved request history and supports search, status filters an
   await expect(page).toHaveURL(/\/ai\/th_ui$/);
 });
 
-test("account profile and preferences persist, history returns to its thread, and logout ends the session", async ({
+test("account profile and preferences persist, the saved thread remains accessible, and logout ends the session", async ({
   page,
 }) => {
   const { thread } = await fixture(page);
@@ -3805,10 +3804,8 @@ test("account profile and preferences persist, history returns to its thread, an
     page.getByRole("combobox", { name: "Thành phố", exact: true }),
   ).toHaveValue("Hà Nội");
   await page.getByRole("link", { name: "Về chat", exact: true }).click();
-  await page.getByRole("button", { name: "Lịch sử", exact: true }).click();
-  const history = page.getByRole("dialog", { name: "Cuộc trò chuyện của bạn" });
-  await history.getByRole("textbox").fill("Quận 1");
-  await history.getByRole("link", { name: /Tìm nhà tại Quận 1/ }).click();
+  await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
+  await page.goto("/ai/th_ui");
   await expect(page).toHaveURL(/\/ai\/th_ui$/);
   await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
   await expect(
