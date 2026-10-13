@@ -1,4 +1,4 @@
-# Kiến trúc MVP hiện tại — LifeFlow / SIU AI
+# Kiến trúc MVP hiện tại — ReloHome / SIU AI
 
 Cập nhật: **05/10/2026**, đối chiếu implementation trong workspace đang chạy demo.
 Đối tượng đọc: teammate ghép agent, backend, service và UI.
@@ -124,7 +124,7 @@ flowchart LR
 | Typed quote API / thao tác UI | [moving_quotes.py](../../apps/agent-api/src/relohome_agent/api/moving_quotes.py), [web_actions.py](../../apps/agent-api/src/relohome_agent/api/web_actions.py), [routes.py](../../apps/agent-api/src/relohome_agent/api/routes.py) |
 | Trạng thái bền vững | [sqlite_runtime.py](../../apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py), [progress.py](../../apps/agent-api/src/relohome_agent/agents/progress.py) |
 | Endpoint, credential, allowlist | [registry.py](../../apps/agent-api/src/relohome_agent/services/adapters/registry.py), [mcp.py](../../apps/agent-api/src/relohome_agent/services/adapters/mcp.py) |
-| TypeScript services | [LifeFlow](../../Maps%20VN/LifeFlow/) |
+| TypeScript services | [ReloHome location](../location/README.md) |
 | Python Flight / Payment | [flights](../../src/mcp_servers/flights/), [payments](../../src/mcp_servers/payments/) |
 
 `apps/intake-api/src/relohome_intake/` và `apps/orchestrator-api/src/relohome_orchestrator/` còn chứa

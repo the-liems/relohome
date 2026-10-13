@@ -64,7 +64,7 @@ $env:HOUSING_SOURCE_VERSION = 'housing-clean-2026-09-26'
 npm run db:import:housing
 ```
 
-Nạp housing cần DB đã có schema và dữ liệu địa giới/POI cho các truy vấn liên quan. Đối với VM mới, dùng dump/graph được ghi ở [status dữ liệu](location-data-status.md). ZIP cũ đã xóa; bộ backup chỉ giữ data/checksum, không chứa source/hướng dẫn deploy. Migration một mình không nạp dữ liệu. Xem thêm [hướng dẫn importer](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md).
+Nạp housing cần DB đã có schema và dữ liệu địa giới/POI cho các truy vấn liên quan. Đối với VM mới, dùng dump/graph được ghi ở [status dữ liệu](location-data-status.md). ZIP cũ đã xóa; bộ backup chỉ giữ data/checksum, không chứa source/hướng dẫn deploy. Migration một mình không nạp dữ liệu. Xem thêm [hướng dẫn importer](../location/HOUSING-DATA-IMPORT.md).
 
 Lấy `area_id` đúng từ `search_areas`, đối chiếu tên và bbox, rồi kiểm tra trên DB đích:
 
@@ -300,7 +300,7 @@ Các mốc P0/P1/P2 dưới đây là **thứ tự và điều kiện hoàn tấ
 
 ## 7. Bằng chứng coverage POI cho L3
 
-Nguồn: [reports/poi-coverage-v2.json](../../Maps%20VN/LifeFlow/reports/poi-coverage-v2.json), `generated_at = 2026-09-24T15:53:09.652Z`. Đây là số liệu **bbox bản đồ TP.HCM của báo cáo**, không phải live DB, ranh giới hành chính hay vùng AhaMove.
+Nguồn: [reports/poi-coverage-v2.json](../../eval/location/poi-coverage-v2.json), `generated_at = 2026-09-24T15:53:09.652Z`. Đây là số liệu **bbox bản đồ TP.HCM của báo cáo**, không phải live DB, ranh giới hành chính hay vùng AhaMove.
 
 | Category | Số POI trong báo cáo bbox HCM |
 |---|---:|
@@ -339,7 +339,7 @@ Các ca cần có trong bài kiểm tích hợp chung: không dấu/viết tắt
 ## 10. Điểm tựa trong code đã đối chiếu
 
 - [Contract housing](../../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts), [query housing](../../Maps%20VN/LifeFlow/packages/housing-query/src/housing-service.ts), [importer housing](../../Maps%20VN/LifeFlow/platform-api/src/import-housing.ts).
-- [Contract location](../../Maps%20VN/LifeFlow/packages/contracts/src/location.ts), [location service](../../Maps%20VN/LifeFlow/packages/housing-query/src/location-service.ts), [normalize_search](../../Maps%20VN/LifeFlow/database/migrations/005_administrative_area_search.sql).
+- [Contract location](../../Maps%20VN/LifeFlow/packages/contracts/src/location.ts), [location service](../../Maps%20VN/LifeFlow/packages/housing-query/src/location-service.ts), [normalize_search](../../deploy/database/migrations/005_administrative_area_search.sql).
 - [Nearby tool](../../Maps%20VN/LifeFlow/mcp-server/src/tools/place-tools.ts), [place service](../../Maps%20VN/LifeFlow/packages/housing-query/src/place-service.ts).
 - [HTTP MCP](../../Maps%20VN/LifeFlow/mcp-server/src/http-server.ts), [tool audit và error envelope](../../Maps%20VN/LifeFlow/mcp-server/src/tools/audit.ts), [routing và timeout](../../Maps%20VN/LifeFlow/packages/housing-query/src/route-service.ts).
-- [API route registry](../../Maps%20VN/LifeFlow/platform-api/src/app.ts), [SPEC-012 hiện tại](../specs/SPEC-012-vung-dich-vu-va-gia.md), [ADR ownership hiện tại](../adr/ADR-008-contract-ownership.md), [agent demo](../../Maps%20VN/LifeFlow/demo/agent.py).
+- [API route registry](../../Maps%20VN/LifeFlow/platform-api/src/app.ts), [SPEC-012 hiện tại](../specs/SPEC-012-vung-dich-vu-va-gia.md), [ADR ownership hiện tại](../adr/ADR-008-contract-ownership.md), [agent demo](../../examples/location-streamlit/src/relohome_location_demo/agent.py).

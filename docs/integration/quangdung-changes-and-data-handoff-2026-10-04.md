@@ -273,8 +273,8 @@ provider thật trong đợt cuối; không coi test UI fixture là giao dịch 
 
 ## 7. Tài liệu chi tiết
 
-- [POI: quy tắc, bảo vệ dữ liệu, export/import và khôi phục](../../Maps%20VN/LifeFlow/docs/POI-CANONICALIZATION.md).
-- [Housing: importer và chuẩn hóa](../../Maps%20VN/LifeFlow/docs/HOUSING-DATA-IMPORT.md).
+- [POI: quy tắc, bảo vệ dữ liệu, export/import và khôi phục](../location/POI-CANONICALIZATION.md).
+- [Housing: importer và chuẩn hóa](../location/HOUSING-DATA-IMPORT.md).
 - [Map Việt Nam, Moving A/B và khởi động](vietnam-map-moving-update-2026-10-04.md).
 - [Studio và bằng chứng đợt trước](mainland-map-moving-studio-update-2026-10-04.md).
 - [README frontend](../../Frontend/README.md).

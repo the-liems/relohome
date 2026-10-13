@@ -1,5 +1,7 @@
 # Kiến trúc nhánh `mvp` (LifeFlow / SIU AI)
 
+> Historical record: commands and source paths below describe the original checkout. Use the [current ReloHome location guide](../location/README.md) for operation.
+
 Tài liệu đọc hiểu cấu trúc nhánh `mvp`: hệ thống gồm những phần nào, chạy thế nào, Orchestrator lập kế hoạch và
 điều phối ra sao, từng subagent gọi tool gì. Mục 8 mô tả các lỗi tìm được khi chạy bộ case
 [mvp-multiflow-test-cases.json](mvp-multiflow-test-cases.json) trên stack thật.

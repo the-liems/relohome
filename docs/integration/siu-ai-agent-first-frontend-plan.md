@@ -400,7 +400,7 @@ Kiểm thử fixture/contract và E2E có thể chạy thường xuyên. Test t�
 - [Agent API](../../src/api/routes.py), [API prefix](../../src/main.py), [HTTP schemas](../../src/models/schemas.py), [Agent models](../../src/agents/models.py).
 - [Response composer](../../src/agents/nodes/respond.py), [Location adapter](../../src/agents/subagents/services/location.py), [service registry/allowlist](../../src/services/adapters/registry.py).
 - [Streamlit chat hiện tại](../../src/ui/agent_chat.py), [ZaloPay sandbox riêng](../../src/api/sandbox_payments.py).
-- [Map app](../../Maps%20VN/LifeFlow/map-app/src/App.tsx), [MapView](../../Maps%20VN/LifeFlow/map-app/src/components/MapView.tsx), [map theme](../../Maps%20VN/LifeFlow/map-app/src/config/map-theme.ts), [map housing client](../../Maps%20VN/LifeFlow/map-app/src/services/platform-housing.ts).
+- [Map app](../../examples/map-app/src/App.tsx), [MapView](../../examples/map-app/src/components/MapView.tsx), [map theme](../../examples/map-app/src/config/map-theme.ts), [map housing client](../../examples/map-app/src/services/platform-housing.ts).
 - [Housing contracts](../../Maps%20VN/LifeFlow/packages/contracts/src/housing.ts), [housing query](../../Maps%20VN/LifeFlow/packages/housing-query/src/housing-service.ts), [Platform API](../../Maps%20VN/LifeFlow/platform-api/src/app.ts).
 - [Bàn giao MVP](mvp-completion-2026-09-30.md), [trạng thái Location](location-service-implementation-status.md), [trạng thái dữ liệu](location-data-status.md), [runbook local](../runbooks/local-mvp.md).
 

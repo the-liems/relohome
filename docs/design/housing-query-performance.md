@@ -30,7 +30,7 @@ Ngày: 10/10/2026. Baseline sản phẩm: ghi chú đo đạc mức 1 (tài li�
 - [x] Query map/search; parity 24 bộ request, 65 so sánh; integration kiểm tra nearby/commute.
 - [x] Giá tương lai/hết hạn/overlap; giữ đúng tie-break gốc; không cần refresh để đổi giá.
 - [x] Tìm chữ và resolve: giữ ngữ nghĩa cũ, index đúng biểu thức, có cải thiện đo được.
-- [x] Build toàn LifeFlow; chạy test PostGIS của các workspace bị ảnh hưởng.
+- [x] Build toàn ReloHome; chạy test PostGIS của các workspace bị ảnh hưởng.
 - [x] Benchmark cùng DB, cùng request; ghi cả phương án loại bỏ và hướng rollback.
 
 ## Thử nghiệm trước triển khai
@@ -49,16 +49,16 @@ Không bổ sung cache có độ trễ cho giá hay tình trạng phòng ở bư
 Chạy migration mới trước khi chạy code query mới. Role app chỉ đọc read model; trigger
 chạy dưới quyền owner với `search_path` cố định. Quay về code query cũ được ngay vì
 không sửa bảng gốc. Nếu thật sự cần tháo schema, dùng
-`Maps VN/LifeFlow/database/rollbacks/housing_query_performance.sql` **sau** khi quay về
+`deploy/database/rollbacks/housing_query_performance.sql` **sau** khi quay về
 code cũ; thường chỉ rollback code là đủ. Script không nằm trong thư mục migrations
 nên không chạy tự động khi deploy.
 
-Trong thư mục `Maps VN/LifeFlow`, với env trỏ đúng database:
+Từ repository root, với env trỏ đúng database:
 
 ```sh
 npm run db:migrate --workspace @relohome/platform-api
 npm run build
-node scripts/verify-housing-query-performance.mjs 9b2b2db
+node scripts/relohome/verify-housing-query-performance.mjs 9b2b2db
 ```
 
 Migration 019 tạo/backfill read model và covering index cho offers. Migration 020 thêm

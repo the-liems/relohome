@@ -11,7 +11,7 @@ thiết kế cũ, không phải file đã tồn tại. Xem
 ## Mục đích và phạm vi
 
 Cho phép hỏi một tuyến có nằm trong vùng phục vụ đã lưu hay không; nếu là
-dịch vụ nội bộ LifeFlow và có biểu giá hiệu lực thì trả ước tính từ tuyến
+dịch vụ nội bộ ReloHome và có biểu giá hiệu lực thì trả ước tính từ tuyến
 OSRM. Đây là khả năng sẵn sàng tích hợp, **không phải** kết nối báo giá trực
 tiếp với Ahamove hoặc Grab.
 
@@ -35,7 +35,7 @@ API báo giá được cấp quyền: estimate Ahamove/Grab vẫn `not_configure
 
 - **SPEC-012/AC-01:** Phân biệt `available`, `unavailable`,
   `not_configured` theo dữ liệu vùng còn hiệu lực và cả hai đầu tuyến.
-- **SPEC-012/AC-02:** Chỉ giá LifeFlow hợp lệ mới dùng OSRM và rule version;
+- **SPEC-012/AC-02:** Chỉ giá ReloHome hợp lệ mới dùng OSRM và rule version;
   thiếu rule trả `not_configured`, không tạo số tiền mặc định.
 - **SPEC-012/AC-03:** Ahamove/Grab không trả tiền ước tính hoặc coi dữ liệu
   vùng là báo giá từ đối tác.

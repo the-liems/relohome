@@ -2,14 +2,15 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resourceRoot, resolveInputPath } from '../src/runtime-paths.js'
+import { reportRoot, resourceRoot, resolveInputPath } from '../src/runtime-paths.js'
 
 const repo = fileURLToPath(new URL('../../..', import.meta.url))
 afterEach(() => vi.restoreAllMocks())
 
 describe('relocated platform resources', () => {
   it('reads the existing migration assets', () => {
-    expect(resolve(resourceRoot)).toBe(resolve(repo, 'Maps VN/LifeFlow'))
+    expect(resolve(resourceRoot)).toBe(resolve(repo, 'deploy'))
+    expect(resolve(reportRoot)).toBe(resolve(repo, 'eval/location'))
     expect(readFileSync(resolve(resourceRoot, 'database/migrations/001_extensions_and_schemas.sql'), 'utf8'))
       .toContain('CREATE EXTENSION')
   })

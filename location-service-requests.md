@@ -1,5 +1,7 @@
 # Location service ↔ agent graph: yêu cầu tích hợp cho MVP
 
+> Historical record: commands and source paths below describe the original checkout. Use the [current ReloHome location guide](docs/location/README.md) for operation.
+
 - Gửi: Dũng (chủ service Location: housing, place, route — `Maps VN/LifeFlow`)
 - Từ: Doan (agent graph / AI service)
 - Ngày: 2026-09-29

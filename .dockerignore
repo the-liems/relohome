@@ -7,6 +7,11 @@ __pycache__
 **/__pycache__
 **/*.pyc
 data/
+# Location source has moved; this tree contains persistent credentials/state
+# and large Cities/Raw/Extracts/Routing assets, never application build inputs.
+Maps VN/
+**/node_modules
+**/dist
 .pytest_cache
 .ruff_cache
 docs/

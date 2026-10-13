@@ -8,7 +8,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const rootDirectory = resolve(packageDirectory, '../../Maps VN/LifeFlow')
+const rootDirectory = resolve(packageDirectory, '../..')
 
 let client: Client
 

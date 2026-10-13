@@ -10,7 +10,7 @@
 
 ## Problem
 
-LifeFlow needs factual moving-service discovery, quotes, booking and lifecycle
+ReloHome needs factual moving-service discovery, quotes, booking and lifecycle
 tracking. The agent must be able to collect pickup and destination details,
 compare available vehicles, present complete costs, obtain an explicit user
 decision, create no more than one external order, and recover when provider

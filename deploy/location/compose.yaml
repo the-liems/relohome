@@ -1,0 +1,72 @@
+name: lifeflow
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.5
+    container_name: lifeflow-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    volumes:
+      - lifeflow-postgis-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  location-mcp:
+    image: lifeflow-location-mcp:${MCP_IMAGE_TAG:-0.1.0}
+    container_name: lifeflow-location-mcp
+    build:
+      context: ../..
+      dockerfile: apps/location-mcp/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      COMMUTE_CANDIDATE_LIMIT: ${COMMUTE_CANDIDATE_LIMIT:-100}
+      OSRM_HCM_DRIVING_URL: http://host.docker.internal:5000
+      OSRM_HANOI_DRIVING_URL: http://host.docker.internal:5001
+      OSRM_DANANG_DRIVING_URL: http://host.docker.internal:5002
+      OSRM_HCM_WALKING_URL: http://host.docker.internal:5010
+      OSRM_HANOI_WALKING_URL: http://host.docker.internal:5011
+      OSRM_DANANG_WALKING_URL: http://host.docker.internal:5012
+      OSRM_HCM_MOTORCYCLE_URL: http://host.docker.internal:5020
+      OSRM_HANOI_MOTORCYCLE_URL: http://host.docker.internal:5021
+      OSRM_DANANG_MOTORCYCLE_URL: http://host.docker.internal:5022
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 3000
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1],lifeflow-location-mcp}
+      MCP_ALLOWED_ORIGIN_HOSTS: ${MCP_ALLOWED_ORIGIN_HOSTS:-localhost,127.0.0.1,[::1]}
+      MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?Set LOCATION_MCP_AUTH_TOKEN in .env.local}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${MCP_BIND_ADDRESS:-127.0.0.1}:${MCP_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  lifeflow-postgis-data:
+    name: lifeflow-postgis-data
