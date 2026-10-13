@@ -70,5 +70,12 @@
   "src.roommate.services.operation_drafts": "relohome_roommate.services.operation_drafts",
   "src.roommate.services.privacy": "relohome_roommate.services.privacy",
   "src.roommate.services.resources": "relohome_roommate.services.resources",
-  "src.roommate.runtime": "relohome_agent.roommate_runtime"
+  "src.roommate.runtime": "relohome_agent.roommate_runtime",
+  "src.main": "relohome_agent.main",
+  "src.agent_services.intake.app": "relohome_intake.app",
+  "src.agent_services.orchestrator.app": "relohome_orchestrator.app",
+  "src.mcp_servers.flights.server": "relohome_flights_mcp.server",
+  "src.mcp_servers.flights.tools": "relohome_flights_mcp.tools",
+  "src.mcp_servers.payments.server": "relohome_payments_mcp.server",
+  "src.mcp_servers.payments.tools": "relohome_payments_mcp.tools"
 }

@@ -11,13 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def discover_projects():
     projects = []
-    patterns = (
-        "packages/python/*/pyproject.toml",
-        "src/pyproject.toml",
-        "apps/browser-gateway/pyproject.toml",
-        "src/mcp_servers/*/pyproject.toml",
-        "src/agent_services/*/pyproject.toml",
-    )
+    patterns = ("packages/python/*/pyproject.toml", "apps/*/pyproject.toml")
     for pattern in patterns:
         for path in sorted(ROOT.glob(pattern)):
             metadata = tomllib.loads(path.read_text())

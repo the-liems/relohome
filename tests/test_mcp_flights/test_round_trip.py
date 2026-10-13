@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import pytest
 from pydantic import ValidationError
+from relohome_flights_mcp.tools import FlightServices, FlightTools
 
 from src.mcp_servers.flights.booking_engine import BookingEngine
 from src.mcp_servers.flights.errors import InvalidRequestError
@@ -14,7 +15,6 @@ from src.mcp_servers.flights.search import SerpApiFlightSearch
 from src.mcp_servers.flights.search.serpapi import build_params
 from src.mcp_servers.flights.settings import FlightSettings
 from src.mcp_servers.flights.storage import FlightDatabase, OfferCache
-from src.mcp_servers.flights.tools import FlightServices, FlightTools
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, adult, make_hold, make_search
 
 RETURN_DAY = FLIGHT_DAY + timedelta(days=4)

@@ -1,0 +1,16 @@
+**
+!apps/
+!apps/flights-mcp/
+!apps/flights-mcp/**
+**/.env*
+**/__pycache__
+**/*.db
+**/*.key
+**/*.pem
+
+!packages/
+!packages/python/
+!packages/python/**
+**/__pycache__
+**/build
+**/*.egg-info
