@@ -1,6 +1,10 @@
 // Map visuals ported from ReloHome map-app (config/map-theme.ts, config/poi-groups.ts and the
 // marker/basemap helpers in components/MapView.tsx) so the chat workspace matches that app.
-import type { Map as LibreMap } from "maplibre-gl";
+import type {
+  DataDrivenPropertyValueSpecification,
+  ExpressionSpecification,
+  Map as LibreMap,
+} from "maplibre-gl";
 
 export const BASEMAP_STYLE_URL =
   "https://tiles.openfreemap.org/styles/positron";
@@ -43,6 +47,54 @@ export const MAP_THEME = {
   },
 } as const;
 
+// Cartographic palette: slate land/roads keep Emerald reserved for housing choices.
+// The existing light palette above stays intact.
+export const DARK_MAP_THEME = {
+  primary: "#65d9ab",
+  primaryDark: "#1d4c3f",
+  housingMarker: {
+    fill: "#203c3b",
+    border: "#57b99c",
+    text: "#c5f4e3",
+    hoverFill: "#30574d",
+    selectedText: "#09281e",
+  },
+  basemap: {
+    land: "#182332",
+    residential: "#202d3e",
+    water: "#1e3d52",
+    waterway: "#36566c",
+    park: "#253c39",
+    wood: "#293d38",
+    building: "#314156",
+    buildingOutline: "#3b4b5f",
+    minorRoad: "#3d4d63",
+    majorRoad: "#596e86",
+    motorway: "#8296ad",
+    roadInner: "#34465d",
+    roadCasing: "#263548",
+    label: "#cbd8e6",
+    shieldText: "#263548",
+    shieldHalo: "#f7f9f8",
+  },
+} as const;
+
+function isDarkMap() {
+  return document.documentElement.dataset.theme === "dark";
+}
+
+export function housingPriceColor(): ExpressionSpecification {
+  const dark = isDarkMap();
+  return [
+    "case",
+    ["get", "roommate"],
+    "#713f12",
+    ["==", ["get", "state"], "selected"],
+    dark ? DARK_MAP_THEME.housingMarker.selectedText : "#ffffff",
+    dark ? DARK_MAP_THEME.housingMarker.text : MAP_THEME.housingMarker.text,
+  ];
+}
+
 export type PoiGroup = keyof typeof MAP_THEME.categories;
 export const POI_GROUP_LABELS: Record<PoiGroup, string> = {
   accommodation: "Lưu trú",
@@ -67,41 +119,48 @@ export const POI_ICON_EXPRESSION: any = [
   "poi-utility",
 ];
 
+const imageThemes = new WeakMap<LibreMap, boolean>();
 export function registerMapImages(map: LibreMap) {
+  const dark = isDarkMap();
+  const theme = dark ? DARK_MAP_THEME : MAP_THEME;
+  const changed = imageThemes.get(map) !== dark;
   const pills = [
     [PILL.roommate, "#fde047", "#a16207", "rgba(161, 98, 7, 0.2)", 4.5],
     [
       PILL.normal,
-      MAP_THEME.housingMarker.fill,
-      MAP_THEME.housingMarker.border,
+      theme.housingMarker.fill,
+      theme.housingMarker.border,
       "rgba(24, 92, 86, 0.28)",
       4.5,
     ],
     [
       PILL.hover,
-      MAP_THEME.housingMarker.hoverFill,
-      MAP_THEME.primaryDark,
+      theme.housingMarker.hoverFill,
+      theme.primaryDark,
       "rgba(194, 65, 12, 0.26)",
       3.5,
     ],
     [
       PILL.selected,
-      MAP_THEME.primary,
-      MAP_THEME.primaryDark,
+      theme.primary,
+      theme.primaryDark,
       "rgba(194, 65, 12, 0.28)",
       3.5,
     ],
   ] as const;
   for (const [name, fill, border, shadow, width] of pills) {
-    if (map.hasImage(name)) continue;
+    if (map.hasImage(name) && !changed) continue;
     const image = pillImage(fill, border, shadow, width);
-    if (image)
-      map.addImage(name, image, {
-        pixelRatio: 2,
-        stretchX: [[28, 92]],
-        stretchY: [[22, 34]],
-        content: [20, 12, 100, 44],
-      });
+    if (image) {
+      if (map.hasImage(name)) map.updateImage(name, image);
+      else
+        map.addImage(name, image, {
+          pixelRatio: 2,
+          stretchX: [[28, 92]],
+          stretchY: [[22, 34]],
+          content: [20, 12, 100, 44],
+        });
+    }
   }
   for (const [group, color] of Object.entries(MAP_THEME.categories) as [
     PoiGroup,
@@ -112,6 +171,7 @@ export function registerMapImages(map: LibreMap) {
     const image = poiIcon(group, color);
     if (image) map.addImage(name, image, { pixelRatio: 2 });
   }
+  imageThemes.set(map, dark);
 }
 
 function canvas(width: number, height: number) {
@@ -268,6 +328,16 @@ function glyph(c: CanvasRenderingContext2D, group: PoiGroup) {
 
 // Quieter basemap like map-app: hide noisy POI labels, soften land/building/road colours.
 const observedMaps = new WeakSet<LibreMap>();
+// Save only paints changed exclusively for dark mode. Layer instances expire on
+// style reload, so switching back restores the provider's original light styling.
+type DarkPaintProperty = "line-color" | "fill-color";
+const originalPaints = new WeakMap<
+  object,
+  Map<
+    DarkPaintProperty,
+    DataDrivenPropertyValueSpecification<string> | undefined
+  >
+>();
 export function tuneBasemap(map: LibreMap) {
   if (!observedMaps.has(map)) {
     observedMaps.add(map);
@@ -281,36 +351,46 @@ export function tuneBasemap(map: LibreMap) {
       window.removeEventListener("siu:appearance-change", update),
     );
   }
-  const dark = document.documentElement.dataset.theme === "dark";
-  const b = dark
-    ? {
-        land: "#17221c",
-        residential: "#1b2820",
-        water: "#1c3540",
-        waterway: "#2b4e5b",
-        park: "#223c2c",
-        wood: "#23372a",
-        building: "#33483b",
-        buildingOutline: "#3e5445",
-        minorRoad: "#3c5045",
-        majorRoad: "#5c7065",
-        motorway: "#71887a",
-        roadInner: "#273b30",
-      }
-    : MAP_THEME.basemap;
+  const dark = isDarkMap();
+  const b = dark ? DARK_MAP_THEME.basemap : MAP_THEME.basemap;
   const noisy = /(poi|shop|restaurant|cafe|bar|lodging|transit|bus_stop)/i;
   for (const layer of map.getStyle().layers || []) {
     try {
+      const instance = map.getLayer(layer.id)!;
+      if (!dark) {
+        const originals = originalPaints.get(instance);
+        originals?.forEach((value, property) =>
+          map.setPaintProperty(layer.id, property, value),
+        );
+        originalPaints.delete(instance);
+      }
+      const darkPaint = (property: DarkPaintProperty, value: string) => {
+        let originals = originalPaints.get(instance);
+        if (!originals) originalPaints.set(instance, (originals = new Map()));
+        if (!originals.has(property))
+          originals.set(property, map.getPaintProperty(layer.id, property));
+        map.setPaintProperty(layer.id, property, value);
+      };
       if (layer.type === "symbol" && layer.source === "openmaptiles") {
+        // Provider road shields have a light sprite even in dark mode.
+        const shield = /shield/.test(layer.id);
         map.setPaintProperty(
           layer.id,
           "text-color",
-          dark ? "#d7e5dc" : "#42564a",
+          dark
+            ? shield
+              ? DARK_MAP_THEME.basemap.shieldText
+              : DARK_MAP_THEME.basemap.label
+            : "#42564a",
         );
         map.setPaintProperty(
           layer.id,
           "text-halo-color",
-          dark ? "#17221c" : "#f7f9f8",
+          dark
+            ? shield
+              ? DARK_MAP_THEME.basemap.shieldHalo
+              : DARK_MAP_THEME.basemap.land
+            : "#f7f9f8",
         );
       }
       if (layer.type === "symbol" && noisy.test(layer.id))
@@ -322,7 +402,7 @@ export function tuneBasemap(map: LibreMap) {
       if (layer.type === "fill" && layer.id === "building") {
         map.setPaintProperty(layer.id, "fill-color", b.building);
         map.setPaintProperty(layer.id, "fill-outline-color", b.buildingOutline);
-        map.setPaintProperty(layer.id, "fill-opacity", 0.34);
+        map.setPaintProperty(layer.id, "fill-opacity", dark ? 0.22 : 0.34);
       }
       if (layer.type === "fill" && layer.id === "water")
         map.setPaintProperty(layer.id, "fill-color", b.water);
@@ -349,10 +429,43 @@ export function tuneBasemap(map: LibreMap) {
         /^highway_motorway_(inner|subtle)$/.test(layer.id)
       )
         map.setPaintProperty(layer.id, "line-color", b.motorway);
+      if (
+        dark &&
+        layer.type === "line" &&
+        /^(highway|tunnel)_motorway_(bridge_)?(casing|inner)$/.test(layer.id)
+      )
+        darkPaint(
+          "line-color",
+          layer.id.endsWith("casing")
+            ? DARK_MAP_THEME.basemap.roadCasing
+            : b.motorway,
+        );
+      if (
+        dark &&
+        layer.type === "line" &&
+        /^(railway|aeroway-|road_pier)/.test(layer.id)
+      )
+        darkPaint(
+          "line-color",
+          /casing|dashline/.test(layer.id) ? b.roadInner : b.majorRoad,
+        );
+      if (
+        dark &&
+        layer.type === "fill" &&
+        /^(aeroway-area|road_area_pier|landcover_ice_shelf|landcover_glacier)$/.test(
+          layer.id,
+        )
+      )
+        darkPaint("fill-color", b.residential);
     } catch {
       // Optional basemap layers differ between style versions; skip what is absent.
     }
   }
+  // Refresh existing overlays in place: preserve source data, camera and selection.
+  if (map.hasImage(PILL.normal)) registerMapImages(map);
+  for (const id of ["ws-listing", "ws-listing-active"])
+    if (map.getLayer(id))
+      map.setPaintProperty(id, "text-color", housingPriceColor());
 }
 
 export const CLUSTER_COLOR: any = [

@@ -78,3 +78,27 @@ Build lại thành công. Kiểm tra bổ sung 36 trường hợp (9 màn hình 
 - Npm dependencies được cài theo lockfile mới. Backend, package layout, API, database và `.github/` không có diff so với main.
 - Bàn giao qua nhánh `QuangDung` → PR vào `main`; push fast-forward, không force-push lịch sử nhánh dùng chung.
 - Kiểm tra lại trên nhánh ổn định sau tích hợp: `npm run build:web` pass; `npm run test:contracts` 42/42 pass; bảy suite browser liên quan 110/110 pass trong một lượt chạy. Lượt trước bị gián đoạn do checkout khi Vite còn chạy, đã bỏ kết quả lượt đó và chạy lại đầy đủ.
+
+## Header, lịch sử chat và phiên đang làm
+
+Theo xác nhận mới nhất, backend tiếp tục giữ hội thoại và kế hoạch. Không thay source backend hoặc thời hạn lưu dữ liệu server. Frontend bỏ nút/drawer lịch sử chat, danh sách hội thoại gần đây và bộ đếm hội thoại trong tài khoản. Header luôn là “ReloHome”, không dùng prompt làm tên thương hiệu. Lịch sử yêu cầu dịch vụ và thao tác bảo mật/xóa dữ liệu đã có vẫn hoạt động.
+
+`activeChatSession.ts` chỉ lưu `{threadId, expiresAt}` theo ID tài khoản trong localStorage, không lưu transcript hoặc dữ liệu kế hoạch. Hạn 24 giờ được gia hạn khi phiên đang làm cập nhật. Trang bắt đầu có một nút “Tiếp tục phiên đang làm”; không tự chuyển sang hội thoại cũ hoặc thay routing các ô dịch vụ. Hết hạn chỉ bỏ cache trình duyệt, không xóa dữ liệu backend. Logout, xóa phiên và reset dữ liệu đồng bộ cache; storage bị chặn không ngăn chat hoạt động.
+
+Các `landing-inline-cta` được trình bày như nút: nền Emerald, border, padding, chiều cao tối thiểu 44 px, icon mũi tên, hover và focus. Link, điểm đến và nghiệp vụ hiện có được giữ nguyên.
+
+Kiểm chứng phần bổ sung: build pass; 44 contract test pass; 12 browser regression về cache, logout, xóa dữ liệu, theme và profile pass. Tám screenshot/axe trường hợp Landing và Housing (Light/Dark, desktop/mobile) không có lỗi axe, JavaScript hoặc tràn ngang. Artifact local: `data/ui-design-system/chat-header-cta/`. Bàn giao cùng bản đồ và logo qua nhánh `QuangDung`, PR #146 vào `main`.
+
+## Logo và bản đồ Dark Mode
+
+- Wordmark trên header ứng dụng tăng lên 23 px ở desktop và 20 px trên mobile, giữ tên cố định ReloHome. Tile RH là 48 px ở desktop, 44 px trên mobile. Wordmark Landing là 28 px/21 px.
+- `mapStyle.ts` giữ nguyên palette Light Mode, thêm `DARK_MAP_THEME` dùng nền slate/navy, nước xanh trầm, công viên xanh dịu, giảm opacity khối nhà. Các lớp cầu, cao tốc, hầm, đường sắt và sân bay được xử lý đầy đủ để tránh nét trắng chói. Nhãn số hiệu đường dùng chữ tối trên sprite sáng của nhà cung cấp.
+- Marker giá ở Dark Mode dùng nền xanh trầm, viền Emerald và chữ sáng; marker được chọn có nền Emerald sáng/chữ tối. Marker ghép trọ màu vàng giữ nguyên ý nghĩa. `housingPriceColor()` được dùng khi khởi tạo và khi đổi theme.
+- Đổi theme cập nhật paint và ảnh marker tại chỗ bằng `updateImage`; không tạo lại map hoặc source, không đổi camera, dữ liệu, lựa chọn hoặc logic tìm nhà. Paint chỉ áp dụng cho Dark Mode được lưu theo instance layer rồi khôi phục khi trở về Light Mode. API tham khảo: [MapLibre Map](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/#updateimage).
+- Chỉ sửa frontend, browser test và tài liệu. Không sửa backend, database, orchestration, API contract hay CI. Bàn giao trên `QuangDung` → PR #146, giữ main đã refactor làm gốc.
+
+Kiểm chứng: build frontend pass; 12 browser regression pass trên desktop/mobile về header, cache, CTA, camera và routing; test bản đồ được chạy lại sau khi bổ sung nhãn số hiệu đường. Kiểm tra render thực bằng MapLibre/OpenFreeMap tại Cầu Giấy và trong Housing: không có lỗi map/JavaScript; bốn trường hợp Housing thật về basemap không có lỗi axe hoặc tràn ngang. Dữ liệu tin nhà của bộ kiểm tra dùng fixture local, không phát sinh giao dịch. Tám trường hợp Landing/Housing bổ sung ở 320 px và 768 px cũng không có lỗi axe/JavaScript/tràn ngang. Axe kiểm tra DOM; phần canvas được kiểm tra bằng ảnh và assertions paint/marker, không coi axe là chứng nhận tương phản toàn bộ bản đồ.
+
+Ảnh trước/sau bản đồ thật và screenshot Housing: `data/ui-design-system/map-harmony/`. Kiểm tra responsive: `data/ui-design-system/map-logo-responsive/`. Cổng gateway `8503` phục vụ asset build mới; dùng Ctrl+F5 và đổi Light/Dark để kiểm tra.
+
+Kiểm tra trước push bản bổ sung: 44/44 contract và 16/16 browser regression pass. Đã kiểm chứng test cache phát hiện việc đảo điều kiện hết hạn rồi khôi phục source bằng `finally`. Test layout Flight trước đây có fixture chỉ khai báo task Housing; fixture được đổi đúng task Flight và khôi phục Housing khi chuyển sang kiểm tra map, giữ nguyên các assertions. Không thay logic nhận diện dịch vụ của ứng dụng. CI được theo dõi trên head mới của PR #146, không dùng kết quả head cũ để kết luận cho phần bổ sung.
