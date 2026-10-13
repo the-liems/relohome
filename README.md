@@ -14,10 +14,10 @@ The [product brief](docs/product.md) defines the intended customer flow and open
 ## Current application
 
 - React browser application in [`apps/web/`](apps/web/README.md), with the authenticated Python gateway in [`apps/browser-gateway/`](apps/browser-gateway/README.md).
-- FastAPI agent API and LangGraph workflow in [`src/agents/`](src/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
+- FastAPI agent API and LangGraph workflow in [`apps/agent-api/src/relohome_agent/agents/`](apps/agent-api/src/relohome_agent/agents/README.md), with LLM intake, planning, domain tools, confirmation, and local SQLite persistence.
 - Location/Housing/Map and Moving services in [`Maps VN/LifeFlow/`](Maps%20VN/LifeFlow/README.md).
-- Flight search and Payment MCP servers in `src/mcp_servers/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
-- Separate Intake and Routing services in `src/agent_services/`; their execution gateway is disconnected by default.
+- Flight search and Payment MCP servers in `apps/flights-mcp/` and `apps/payments-mcp/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
+- Separate Intake and Routing services in `apps/intake-api/` and `apps/orchestrator-api/`; their execution gateway is disconnected by default.
 
 The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
 

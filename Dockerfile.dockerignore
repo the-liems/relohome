@@ -1,8 +1,9 @@
 **
 !requirements.txt
 !requirements-runtime.txt
-!src/
-!src/**
+!apps/
+!apps/agent-api/
+!apps/agent-api/**
 !config/
 !config/**
 **/node_modules

@@ -174,7 +174,7 @@ async def test_moving_quote_to_selected_room(with_upstream):
         }
     )
     agent = MovingSubagent(
-        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+        client, geo, QuoteContact("ReloHome", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
     )
     upstream = {
         "t1": UpstreamResult(
@@ -218,7 +218,7 @@ async def test_moving_selected_room_requires_precise_current_location(accuracy):
         }
     )
     agent = MovingSubagent(
-        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+        client, geo, QuoteContact("ReloHome", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
     )
     result = await agent.run(
         sample_request(

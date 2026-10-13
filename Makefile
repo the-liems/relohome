@@ -1,7 +1,7 @@
 .PHONY: run ui ui-payment mcp-build mcp-up mcp-down test lint format typecheck check clean
 
-# Mỗi MCP server là một thư mục src/mcp_servers/<tên>/ có Dockerfile riêng -> image/service <tên>-mcp
-MCP_SERVERS := $(notdir $(patsubst %/Dockerfile,%,$(wildcard src/mcp_servers/*/Dockerfile)))
+# Mỗi MCP server là một thư mục apps/<tên>-mcp/ có Dockerfile riêng -> image/service <tên>-mcp
+MCP_SERVERS := $(patsubst %-mcp,%,$(notdir $(patsubst %/Dockerfile,%,$(foreach app,$(wildcard apps/*-mcp/pyproject.toml),$(wildcard $(dir $(app))Dockerfile)))))
 MCP_IMAGE_TAG ?= latest
 
 run:
@@ -16,7 +16,7 @@ ui-payment:
 mcp-build:
 	@for s in $(MCP_SERVERS); do \
 		echo "==> build $$s-mcp"; \
-		docker buildx build --load -f src/mcp_servers/$$s/Dockerfile -t $$s-mcp:$(MCP_IMAGE_TAG) . || exit 1; \
+		docker buildx build --load -f apps/$$s-mcp/Dockerfile -t $$s-mcp:$(MCP_IMAGE_TAG) . || exit 1; \
 	done
 
 mcp-up:

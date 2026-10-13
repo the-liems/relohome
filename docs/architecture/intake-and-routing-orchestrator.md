@@ -131,9 +131,9 @@ registry. Không cho model tự tạo URL hoặc tên tool.
 
 ## Gắn vào repository hiện tại
 
-`src/agents/graph.py` hiện chỉ `analyze -> respond`; `example_node.py` tạo chuỗi
-minh họa, chưa phân loại hoặc gọi MCP. `src/api/routes.py` nhận `/chat` rồi gọi
-graph không có `thread_id`. Cần nâng cấp trong `src/agents/` và `src/api/`, không
+`apps/agent-api/src/relohome_agent/agents/graph.py` hiện chỉ `analyze -> respond`; `example_node.py` tạo chuỗi
+minh họa, chưa phân loại hoặc gọi MCP. `apps/agent-api/src/relohome_agent/api/routes.py` nhận `/chat` rồi gọi
+graph không có `thread_id`. Cần nâng cấp trong `apps/agent-api/src/relohome_agent/agents/` và `apps/agent-api/src/relohome_agent/api/`, không
 đặt logic điều phối vào các Moving/Housing MCP server.
 
 Các nhánh đang tách: `khoa` có Moving MCP HTTP; `QuangDung` có Location MCP HTTP;

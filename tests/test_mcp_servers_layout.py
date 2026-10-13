@@ -1,15 +1,17 @@
-"""Quy ước (ADR-014): mỗi service cung cấp một MCP server đóng gói bằng Dockerfile riêng."""
+"""ADR-013/025: Python MCP apps retain their independent container contracts."""
 
+import json
+import tomllib
 from pathlib import Path
 
 import pytest
 
-MCP_ROOT = Path(__file__).resolve().parents[1] / "src" / "mcp_servers"
-SERVERS = sorted(p for p in MCP_ROOT.iterdir() if (p / "__init__.py").exists())
+APPS = Path(__file__).resolve().parents[1] / "apps"
+SERVERS = sorted(p.parent for p in APPS.glob("*-mcp/pyproject.toml"))
 
 
 def test_there_is_at_least_one_mcp_server() -> None:
-    assert SERVERS
+    assert {p.name for p in SERVERS} == {"flights-mcp", "payments-mcp"}
 
 
 @pytest.mark.parametrize("server", SERVERS, ids=lambda p: p.name)
@@ -17,7 +19,13 @@ def test_mcp_server_is_containerized(server: Path) -> None:
     dockerfile = server / "Dockerfile"
     assert dockerfile.exists(), f"{server.name}: thiếu Dockerfile"
     content = dockerfile.read_text(encoding="utf-8")
-    for required in ("HEALTHCHECK", "USER ", "EXPOSE ", "streamable-http"):
+    for required in ("HEALTHCHECK", "/health", "USER ", "EXPOSE ", "streamable-http"):
         assert required in content, f"{server.name}/Dockerfile thiếu '{required}'"
-    assert (server / "__main__.py").exists(), f"{server.name}: cần __main__.py để chạy bằng python -m"
+    user = next(line.split()[1] for line in content.splitlines() if line.startswith("USER "))
+    assert user not in {"root", "0", "0:0"}
+    metadata = tomllib.loads((server / "pyproject.toml").read_text())
+    namespace = metadata["tool"]["setuptools"]["packages"]["find"]["include"][0].removesuffix("*")
+    assert (server / "src" / namespace / "__main__.py").exists()
+    command = next(json.loads(line[4:]) for line in content.splitlines() if line.startswith("CMD "))
+    assert command == ["python", "-m", namespace, "--transport", "streamable-http"]
     assert (server / "requirements.txt").exists(), f"{server.name}: cần requirements.txt riêng cho image"

@@ -1,6 +1,10 @@
-"""MCP server thanh toán (mock / ZaloPay sandbox). Xem README.md cùng thư mục."""
+"""Temporary launch compatibility; removal gate #115, see docs/integration/agent-app-relocation.md."""
 
-from relohome_payments_mcp.server import create_server
-from relohome_payments_mcp.tools import PaymentServices, build_services
+if __name__ == "relohome_payments_mcp":
+    raise ImportError(
+        "Stale editable install maps relohome_payments_mcp to src/mcp_servers/payments/; "
+        "run `npm run setup:python` from the repository root "
+        "to reinstall from apps/payments-mcp."
+    )
 
-__all__ = ["PaymentServices", "build_services", "create_server"]
+from relohome_payments_mcp import PaymentServices, build_services, create_server  # noqa: E402, F401

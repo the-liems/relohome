@@ -90,7 +90,7 @@ async def test_moving_asks_when_address_only_matches_a_district_or_time_missing(
     )
     client = moving_client()
     agent = MovingSubagent(
-        client, geo, QuoteContact("LifeFlow", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
+        client, geo, QuoteContact("ReloHome", "19001234"), clock=lambda: datetime(2026, 11, 1, tzinfo=VN_TZ)
     )
     req = sample_request(
         AgentName.RELOCATION,

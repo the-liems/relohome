@@ -35,7 +35,7 @@ cp .env.example .env
 
 ```bash
 # Chạy server
-uvicorn src.main:app --reload
+uvicorn relohome_agent.main:app --reload
 
 # Mở browser: http://localhost:8000/docs
 # → Phải thấy Swagger UI

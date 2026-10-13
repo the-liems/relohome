@@ -12,6 +12,7 @@ GLOBAL_INPUTS = (
     "config/ci/",
     "scripts/select-ci-images.py",
     "scripts/check-ci-runner.sh",
+    "scripts/check-python-install.py",
     ".dockerignore",
 )
 NON_IMAGE_INPUTS = (

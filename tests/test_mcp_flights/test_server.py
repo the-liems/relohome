@@ -4,10 +4,10 @@ import pytest
 from mcp import ClientSession
 from mcp.shared.exceptions import McpError
 from mcp.shared.memory import create_connected_server_and_client_session
+from relohome_flights_mcp.server import create_server
+from relohome_flights_mcp.tools import FlightServices
 
-from src.mcp_servers.flights.server import create_server
 from src.mcp_servers.flights.settings import FlightSettings
-from src.mcp_servers.flights.tools import FlightServices
 from tests.test_mcp_flights.helpers import FLIGHT_DAY, FakeClock
 
 READ_ONLY_TOOLS = {"search_airports", "search_flights", "search_return_flights", "get_offer"}

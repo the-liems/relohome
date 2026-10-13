@@ -34,15 +34,14 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("apps/web/src/App.tsx"), {"web"})
         self.assertEqual(self.selected("Frontend/server.py"), {"web"})
         self.assertEqual(self.selected("requirements.txt", "config/agents.yaml"), {"web", "backend"})
-        self.assertEqual(self.selected("src/services/storage.py"), {"web", "backend"})
+        self.assertEqual(self.selected("apps/agent-api/src/relohome_agent/services/adapters/sqlite_runtime.py"), {"backend"})
 
     def test_flights_changes_include_python_consumers(self):
-        self.assertEqual(self.selected("src/mcp_servers/flights/server.py"), {"web", "backend", "flights-mcp"})
-        self.assertEqual(self.selected("src/mcp_servers/__init__.py"),
-                         {"web", "backend", "flights-mcp", "payments-mcp"})
+        self.assertEqual(self.selected("apps/flights-mcp/src/relohome_flights_mcp/server.py"), {"flights-mcp"})
+        self.assertEqual(self.selected("apps/payments-mcp/src/relohome_payments_mcp/server.py"), {"payments-mcp"})
 
     def test_shared_http_service_rebuilds_all_consumers(self):
-        self.assertEqual(self.selected("src/mcp_servers/http_service.py"),
+        self.assertEqual(self.selected("packages/python/mcp-http/src/relohome_mcp_http/__init__.py"),
                          {"web", "backend", "flights-mcp", "payments-mcp"})
 
     def test_extracted_python_domains_rebuild_their_mcp_images(self):

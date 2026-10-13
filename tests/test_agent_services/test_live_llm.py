@@ -4,7 +4,7 @@ import os
 from uuid import uuid4
 
 import pytest
-from relohome_intake.models import IntakeRequest
+from relohome_agent_services.intake_models import IntakeRequest
 from relohome_intake.service import IntakeService
 from relohome_orchestrator.engine import Orchestrator
 from relohome_orchestrator.models import PlanRequest

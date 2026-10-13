@@ -1,6 +1,6 @@
 # Chạy Intake và Routing Orchestrator riêng
 
-Hai service mới nằm trong `src/agent_services/`; chưa nối `/chat` của app cũ.
+Hai service mới nằm trong `apps/intake-api/` and `apps/orchestrator-api/`; chưa nối `/chat` của app cũ.
 Không có Executor agent riêng. Orchestrator tự quản lý planning/scheduling/tool-call
 policy. Bản này chưa có MCP adapter kết nối domain, nên không tạo đơn hay lấy giá thật.
 
@@ -48,13 +48,13 @@ Không chạy nhiều host/replica chia sẻ SQLite qua network filesystem.
 
 ```powershell
 .venv/Scripts/python.exe -m pip install -r requirements-agents.txt
-.venv/Scripts/python.exe -m uvicorn src.agent_services.intake.app:app --port 8011 --no-access-log
+.venv/Scripts/python.exe -m uvicorn relohome_intake.app:app --port 8011 --no-access-log
 ```
 
 Mở terminal khác:
 
 ```powershell
-.venv/Scripts/python.exe -m uvicorn src.agent_services.orchestrator.app:app --port 8012 --no-access-log
+.venv/Scripts/python.exe -m uvicorn relohome_orchestrator.app:app --port 8012 --no-access-log
 ```
 
 Trong Swagger, bấm Authorize và nhập service token tương ứng. Schema hiện trực tiếp

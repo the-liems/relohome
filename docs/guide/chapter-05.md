@@ -50,7 +50,7 @@ FastAPI có thể không phù hợp khi:
 - Project nhỏ, prototype nhanh không cần production-ready
 - Team đã quen Django và không muốn học framework mới
 
-> 💡 **MẸO:** Cài đặt FastAPI kèm uvicorn (ASGI server) để chạy: `pip install fastapi uvicorn`. Uvicorn là server ASGI hiệu năng cao, tương tự như Gunicorn cho WSGI. Trong production, chạy uvicorn với multiple workers: `uvicorn src.main:app --workers 4`.
+> 💡 **MẸO:** Cài đặt FastAPI kèm uvicorn (ASGI server) để chạy: `pip install fastapi uvicorn`. Uvicorn là server ASGI hiệu năng cao, tương tự như Gunicorn cho WSGI. Trong production, chạy uvicorn với multiple workers: `uvicorn relohome_agent.main:app --workers 4`.
 
 ---
 
