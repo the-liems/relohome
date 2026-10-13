@@ -11,6 +11,7 @@ import secrets
 import signal
 import subprocess
 import time
+from pathlib import Path
 from uuid import uuid4
 
 
@@ -93,7 +94,7 @@ def main():
             assert get(name, "/health")[0] == 200
             # A fresh interpreter checks installed packages while reusing this run's owned container.
             docker(
-                "exec", "--workdir", "/tmp", name, "python", "-I", "-c", f"import relohome_{service}.app",
+                "exec", "--workdir", "/tmp", name, "python", "-I", "-c", Path(__file__).with_name("check-python-install.py").read_text(), service, "--require-nonroot",
             )
             status, readiness = get(name, "/ready")
             if service == "intake":

@@ -1,9 +1,10 @@
 **
 !requirements-agents.txt
-!src/
-!src/__init__.py
-!src/agent_services/
-!src/agent_services/**
+!apps/
+!apps/intake-api/
+!apps/intake-api/**
+!apps/orchestrator-api/
+!apps/orchestrator-api/**
 !config/
 !config/agent-services/
 !config/agent-services/registry.json

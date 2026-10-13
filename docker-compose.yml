@@ -29,11 +29,11 @@ services:
       timeout: 10s
       retries: 3
 
-  # ---- MCP servers: mỗi service một container, Dockerfile nằm trong src/mcp_servers/<tên>/ ----
+  # ---- MCP servers: mỗi service một container, Dockerfile nằm trong apps/<tên>-mcp/ ----
   flights-mcp:
     build:
       context: .
-      dockerfile: src/mcp_servers/flights/Dockerfile
+      dockerfile: apps/flights-mcp/Dockerfile
     image: flights-mcp:latest
     ports:
       - "8765:8765"
@@ -52,7 +52,7 @@ services:
   payments-mcp:
     build:
       context: .
-      dockerfile: src/mcp_servers/payments/Dockerfile
+      dockerfile: apps/payments-mcp/Dockerfile
     image: payments-mcp:latest
     ports:
       - "8766:8766"

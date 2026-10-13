@@ -116,8 +116,9 @@ jobs:
         run: |
           # Fallback if cancellation interrupted the smoke script's EXIT trap.
           docker ps -aq --filter "label=lifeflow.ci.mcp=$MCP_IMAGE_TAG" | xargs -r docker rm -fv
-          for dockerfile in src/mcp_servers/*/Dockerfile; do
-            server=$(basename "$(dirname "$dockerfile")")
+          for project in apps/*-mcp/pyproject.toml; do
+            dockerfile="${project%/pyproject.toml}/Dockerfile"
+            server=$(basename "$(dirname "$dockerfile")" -mcp)
             docker image rm "$server-mcp:$MCP_IMAGE_TAG" || true
           done
 

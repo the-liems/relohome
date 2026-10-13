@@ -2,7 +2,8 @@ name: Intake and routing CI
 on:
   pull_request:
     paths:
-      - 'src/agent_services/**'
+      - 'apps/intake-api/**'
+      - 'apps/orchestrator-api/**'
       - 'packages/python/agent-services/**'
       - 'config/agent-services/**'
       - 'tests/test_agent_services/**'
@@ -10,6 +11,7 @@ on:
       - 'Dockerfile.agents*'
       - 'compose.agents.yaml'
       - 'scripts/*agent*'
+      - 'scripts/check-python-install.py'
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
@@ -20,7 +22,8 @@ on:
   push:
     branches: [khoa, main]
     paths:
-      - 'src/agent_services/**'
+      - 'apps/intake-api/**'
+      - 'apps/orchestrator-api/**'
       - 'packages/python/agent-services/**'
       - 'config/agent-services/**'
       - 'tests/test_agent_services/**'
@@ -28,6 +31,7 @@ on:
       - 'Dockerfile.agents*'
       - 'compose.agents.yaml'
       - 'scripts/*agent*'
+      - 'scripts/check-python-install.py'
       - 'scripts/check-ci-runner.sh'
       - 'scripts/setup-ci-python.sh'
       - '.github/workflows/agent-services.yml'
@@ -60,7 +64,7 @@ jobs:
       - name: Install agent dependencies
         run: pip install -r requirements-dev.txt
       - name: Lint agent services
-        run: ruff check src/agent_services tests/test_agent_services scripts/smoke-agent-containers.py
+        run: ruff check apps/intake-api apps/orchestrator-api tests/test_agent_services scripts/smoke-agent-containers.py
       - name: Test agent services
         run: pytest tests/test_agent_services -q
       - uses: actions/setup-node@v4
