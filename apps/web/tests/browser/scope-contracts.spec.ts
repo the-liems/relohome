@@ -1,5 +1,34 @@
 // Pure contracts: no network interception, invented provider result, LLM or UI fixture.
 import { expect, test } from "@playwright/test";
+import { ACTIVE_CHAT_TTL, forgetActiveChat, readActiveChat, rememberActiveChat } from "../../src/activeChatSession";
+
+test("active chat cache retains only one owned pointer for 24 hours and expires without deleting backend data", () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  rememberActiveChat("alice", "th_first", 1000, storage);
+  expect(readActiveChat("alice", 1000, storage)).toEqual({ threadId: "th_first", expiresAt: 1000 + ACTIVE_CHAT_TTL });
+  expect(readActiveChat("bob", 1000, storage)).toBeNull();
+  rememberActiveChat("alice", "th_second", 2000, storage);
+  expect(readActiveChat("alice", 2000, storage)?.threadId).toBe("th_second");
+  expect(JSON.parse([...values.values()][0])).toEqual({ threadId: "th_second", expiresAt: 2000 + ACTIVE_CHAT_TTL });
+  forgetActiveChat("alice", "th_first", storage);
+  expect(readActiveChat("alice", 2000, storage)?.threadId).toBe("th_second");
+  expect(readActiveChat("alice", 2000 + ACTIVE_CHAT_TTL, storage)).toBeNull();
+  expect(values.size).toBe(0);
+  rememberActiveChat("alice", "th_first", 3000, storage);
+  forgetActiveChat("alice", undefined, storage);
+  expect(readActiveChat("alice", 3000, storage)).toBeNull();
+});
+
+test("active chat cache tolerates unavailable storage and rejects malformed entries", () => {
+  const blocked = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); }, removeItem() { throw new Error("blocked"); } };
+  expect(() => rememberActiveChat("alice", "th_first", 1000, blocked)).not.toThrow();
+  expect(() => forgetActiveChat("alice", undefined, blocked)).not.toThrow();
+  expect(readActiveChat("alice", 1000, blocked)).toBeNull();
+  for (const value of ['{', '{}', '{"threadId":"","expiresAt":9999}', '{"threadId":"../../admin","expiresAt":9999}', '{"threadId":"th_first","expiresAt":"9999"}']) {
+    expect(readActiveChat("alice", 1000, { getItem: () => value, setItem() {}, removeItem() {} })).toBeNull();
+  }
+});
 import { searchScopeFeature } from "../../src/searchScope";
 import {
   filtersFromSearch,

@@ -529,6 +529,7 @@ test("single-service chat drops redundant success label but keeps the workspace 
   await page.goto("/ai/th_followup");
   await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
   const summary = page.locator(".chat-service-summary");
+  await expect(summary).toHaveAttribute("data-service", "flight");
   await expect(summary.locator("span")).toHaveCount(0);
   await expect(summary.getByRole("button", { name: "Xem phương án" })).toBeVisible();
   await expect(page.locator(".assistant-bubble .prose")).toHaveText(f.thread.messages[0].content.response.text);

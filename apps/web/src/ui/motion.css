@@ -1,6 +1,6 @@
 /* Calm micro-interactions. Animate position, never text/background opacity or prices. */
 :root[data-theme] :is(button, a, input, select, textarea) {
-  transition-property: border-color, outline-color, transform;
+  transition-property: color, background-color, border-color, outline-color, box-shadow, transform;
   transition-duration: 140ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
 }

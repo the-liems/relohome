@@ -210,7 +210,7 @@ export function PlanProgress({ progress }: { progress?: Data }) {
                       className={"plan-step " + item.state}
                       data-task={item.task_id}
                     >
-                      <span className="plan-step-icon">
+                      <span className="plan-step-icon" data-service={item.agent}>
                         <d.icon size={16} />
                       </span>
                       <span className="plan-step-body">

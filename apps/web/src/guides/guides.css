@@ -49,7 +49,7 @@
   transition: background .18s ease, border-color .18s ease, transform .18s ease;
 }
 .guides-filters button:hover { border-color: var(--service-guide, var(--ui-accent)); transform: translateY(-1px); }
-.guides-filters button[aria-pressed="true"] { background: var(--service-guide, var(--ui-accent)); border-color: var(--service-guide, var(--ui-accent)); color: #fff; }
+.guides-filters button[aria-pressed="true"] { background: var(--service-guide, var(--ui-accent)); border-color: var(--service-guide, var(--ui-accent)); color: var(--ui-on-accent); }
 .guides-count { margin: 18px 0 0; color: var(--ui-muted); font-size: 13px; }
 
 .guides-list {

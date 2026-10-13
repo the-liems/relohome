@@ -5795,7 +5795,7 @@ input[type="checkbox"] {
 }
 .checkout-qr .qr-image {
   width: min(240px, 70vw);
-  background: #fff;
+  background: var(--ui-qr-surface);
   padding: 8px;
   border-radius: 12px;
 }
@@ -5940,6 +5940,6 @@ input[type="checkbox"] {
   font-weight: 700;
 }
 .viewing-item .viewing-landlord.declined {
-  color: var(--ui-danger, #9c382a);
+  color: var(--ui-danger);
   font-weight: 700;
 }

@@ -1,0 +1,194 @@
+/* Cover: the house belongs to the scene, while the left edge remains readable. */
+.landing-hero {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: 100%;
+  min-height: clamp(640px, calc(100svh - 82px), 840px);
+  padding: 0;
+  overflow: hidden;
+  background: var(--hero-bg);
+  color: var(--hero-text);
+}
+
+.landing-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.landing-hero-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 54%;
+  animation: cover-settle 650ms ease-out both;
+}
+
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  filter: none;
+  background:
+    linear-gradient(90deg, var(--hero-overlay-start) 0%, var(--hero-overlay-start) 28%, var(--hero-overlay-mid) 51%, var(--hero-overlay-end) 78%, var(--hero-overlay-end) 100%),
+    linear-gradient(0deg, var(--hero-overlay-floor) 0%, transparent 40%);
+}
+
+:root[data-theme="dark"] .landing-hero::before {
+  background:
+    linear-gradient(90deg, var(--hero-overlay-start) 0%, var(--hero-overlay-start) 30%, var(--hero-overlay-mid) 54%, var(--hero-overlay-end) 82%, var(--hero-overlay-end) 100%),
+    linear-gradient(0deg, var(--hero-mobile-end) 0%, transparent 42%);
+}
+
+.landing-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-height: clamp(640px, calc(100svh - 82px), 840px);
+  padding-block: 56px 76px;
+}
+
+.landing-hero-copy {
+  max-width: 650px;
+}
+
+.landing-hero .landing-kicker,
+.landing-hero .landing-hero-trust,
+.landing-hero .landing-scope {
+  color: var(--hero-muted);
+}
+
+.landing-hero .landing-kicker > span,
+.landing-hero .landing-scope i {
+  background: var(--hero-accent);
+}
+
+.landing-hero h1 {
+  max-width: 650px;
+  margin-block: 22px 24px;
+  color: var(--hero-text);
+  font-size: clamp(44px, 5.1vw, 72px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.landing-hero h1 em {
+  color: var(--hero-accent);
+}
+
+.landing-hero .landing-hero-copy > p {
+  max-width: 560px;
+  color: var(--hero-muted);
+  font-size: clamp(15px, 1.25vw, 18px);
+  line-height: 1.65;
+}
+
+.landing-hero .landing-primary,
+:root[data-theme="dark"] .landing-hero .landing-primary {
+  min-height: 54px;
+  background: var(--hero-accent);
+  color: var(--hero-on-accent);
+  font-size: 15px;
+  box-shadow: none;
+}
+
+.landing-hero .landing-primary:hover,
+:root[data-theme="dark"] .landing-hero .landing-primary:hover {
+  background: var(--hero-accent-hover);
+}
+
+.landing-hero .landing-text-link {
+  color: var(--hero-text);
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: var(--hero-link-line);
+  text-underline-offset: 5px;
+}
+
+.landing-hero .landing-hero-trust {
+  margin-top: 28px;
+  font-size: 12px;
+}
+
+.landing-hero .landing-scope {
+  font-size: 12px;
+}
+
+@keyframes cover-settle {
+  from { opacity: .7; transform: scale(1.012); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 800px) {
+  .landing-hero,
+  .landing-hero-inner {
+    min-height: 690px;
+  }
+  .landing-hero-inner {
+    padding-block: 52px 72px;
+  }
+  .landing-hero-media img {
+    object-position: 67% center;
+  }
+  .landing-hero::before,
+  :root[data-theme="dark"] .landing-hero::before {
+    background: linear-gradient(90deg, var(--hero-overlay-start) 0%, var(--hero-overlay-mid) 63%, var(--hero-overlay-end) 100%);
+  }
+  .landing-hero-copy {
+    max-width: 600px;
+  }
+  .landing-hero h1 {
+    max-width: 550px;
+    font-size: clamp(38px, 7vw, 56px);
+  }
+}
+
+@media (max-width: 600px) {
+  .landing-hero,
+  .landing-hero-inner {
+    min-height: 690px;
+  }
+  .landing-hero-inner {
+    align-items: flex-start;
+    padding-block: 50px 82px;
+  }
+  .landing-hero-media img {
+    object-position: 69% center;
+  }
+  .landing-hero::before,
+  :root[data-theme="dark"] .landing-hero::before {
+    background: linear-gradient(180deg, var(--hero-mobile-start) 0%, var(--hero-mobile-mid) 35%, var(--hero-overlay-mid) 67%, var(--hero-mobile-end) 100%);
+  }
+  .landing-hero h1 {
+    font-size: clamp(36px, 9vw, 46px);
+    letter-spacing: -.035em;
+  }
+  .landing-hero .landing-hero-copy > p {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .landing-hero-actions {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .landing-hero .landing-primary {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-media img {
+    animation: none;
+  }
+}

@@ -46,6 +46,7 @@ import {
   BASEMAP_STYLE_URL,
   CLUSTER_COLOR,
   CLUSTER_RADIUS,
+  housingPriceColor,
   MAP_THEME,
   PILL,
   POI_ICON_EXPRESSION,
@@ -438,14 +439,7 @@ export function MapWorkspace({
                 "symbol-sort-key": ["get", "rank"],
               },
               paint: {
-                "text-color": [
-                  "case",
-                  ["get", "roommate"],
-                  "#713f12",
-                  ["==", ["get", "state"], "selected"],
-                  "#ffffff",
-                  MAP_THEME.housingMarker.text,
-                ],
+                "text-color": housingPriceColor(),
               },
             });
           }
@@ -892,7 +886,7 @@ export function MapWorkspace({
     </button>
   );
   return (
-    <div className={"map-workspace " + (listOpen ? "" : "list-closed")}>
+    <div className={"map-workspace " + (listOpen ? "" : "list-closed")} data-service="property">
       <aside
         className={"ws-list " + (sheet ? "open" : "")}
         aria-label={uiText("Nhà trong vùng bản đồ")}

@@ -30,21 +30,23 @@ import "../landing-experience.css";
 
 type CopyPair = readonly [string, string];
 const services = [
-  { icon: House, href: "#services", label: ["Tìm nhà", "Find a home"] },
+  { service: "property", icon: House, href: "#services", label: ["Tìm nhà", "Find a home"] },
   {
+    service: "map",
     icon: Compass,
     href: "#services",
     label: ["Bản đồ & đường đi", "Maps & routes"],
   },
-  { icon: Truck, href: "#relocation", label: ["Chuyển đồ", "Moving"] },
-  { icon: Plane, href: "#relocation", label: ["Chuyến bay", "Flights"] },
-  { icon: UsersRound, href: "#next", label: ["Ghép trọ", "Roommates"] },
+  { service: "relocation", icon: Truck, href: "#relocation", label: ["Chuyển đồ", "Moving"] },
+  { service: "flight", icon: Plane, href: "#relocation", label: ["Chuyến bay", "Flights"] },
+  { service: "roommate", icon: UsersRound, href: "#next", label: ["Ghép trọ", "Roommates"] },
   {
+    service: "landlord",
     icon: Building2,
     href: "#landlord",
     label: ["Dành cho chủ nhà", "For landlords"],
   },
-  { icon: BookOpen, href: "#guide", label: ["Cẩm nang", "Guides"] },
+  { service: "guides", icon: BookOpen, href: "#guide", label: ["Cẩm nang", "Guides"] },
 ] as const;
 const journeySteps = [
   {
@@ -280,7 +282,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
         >
           <div className="landing-container">
             {services.map((service) => (
-              <a key={service.href + service.label[0]} href={service.href}>
+              <a key={service.href + service.label[0]} data-service={service.service} href={service.href}>
                 <service.icon size={18} aria-hidden="true" />
                 {pick(service.label)}
               </a>
@@ -318,7 +320,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
             </p>
           </div>
           <div className="lp-needs-layout">
-            <article className="lp-home-feature">
+            <article className="lp-home-feature" data-service="property">
               <div className="lp-feature-copy">
                 <span className="lp-eyebrow">
                   <House size={17} aria-hidden="true" />
@@ -426,7 +428,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
                   "From where you are to where you belong.",
                 )}
               </h3>
-              <div className="lp-relocation-row">
+              <div className="lp-relocation-row" data-service="flight">
                 <span className="lp-icon-tile">
                   <Plane size={22} aria-hidden="true" />
                 </span>
@@ -442,7 +444,7 @@ export function LandingPage({ signedIn }: { signedIn: boolean }) {
                   </p>
                 </div>
               </div>
-              <div className="lp-relocation-row">
+              <div className="lp-relocation-row" data-service="relocation">
                 <span className="lp-icon-tile">
                   <Truck size={22} aria-hidden="true" />
                 </span>

@@ -83,7 +83,7 @@ test("guide previews open the actual public articles, not placeholder destinatio
   for (const id of ["xem-phong", "ngan-sach-thue", "hop-dong-thue"]) {
     await page.locator(`.lp-guide-link[href='/guides?article=${id}']`).click();
     await expect(page.locator(".guides-reader-header h1")).toBeVisible();
-    await expect(page.locator(".guides-reader-body section")).toHaveCount(3);
+    await expect(page.locator('.guides-reader-body > section[id^="guide-section-"]')).toHaveCount(3);
     await page.goto("/");
   }
 });

@@ -1,19 +1,19 @@
 .landing-page {
-  --landing-bg: #fbfaf6;
-  --landing-surface: #ffffff;
-  --landing-soft: #edf3e9;
-  --landing-line: #dce5dc;
-  --landing-ink: #183b2a;
+  --landing-bg: var(--ui-bg);
+  --landing-surface: var(--ui-surface);
+  --landing-soft: var(--ui-soft);
+  --landing-line: var(--ui-line);
+  --landing-ink: var(--ui-text);
   background: var(--landing-bg);
   color: var(--ui-text);
   overflow-x: clip;
 }
 :root[data-theme="dark"] .landing-page {
-  --landing-bg: #101914;
-  --landing-surface: #1a281f;
-  --landing-soft: #20372a;
-  --landing-line: #354b3e;
-  --landing-ink: #a5d9b7;
+  --landing-bg: var(--ui-bg);
+  --landing-surface: var(--ui-surface);
+  --landing-soft: var(--ui-soft);
+  --landing-line: var(--ui-line);
+  --landing-ink: var(--ui-accent);
 }
 .landing-container {
   width: min(1200px, calc(100% - 64px));
@@ -110,19 +110,19 @@
   color: var(--ui-text);
 }
 .landing-primary {
-  background: #183b2a;
-  color: #fff;
+  background: var(--ui-text);
+  color: var(--ui-on-accent);
   padding: 15px 22px;
   min-height: 51px;
-  box-shadow: 0 6px 16px #183b2a10;
+  box-shadow: var(--shadow-card);
 }
 .landing-primary:hover {
-  background: #256348;
+  background: var(--ui-accent-hover);
   transform: translateY(-1px);
 }
 :root[data-theme="dark"] .landing-primary {
-  background: #a1d8b4;
-  color: #112d1c;
+  background: var(--ui-accent-strong);
+  color: var(--ui-on-accent);
 }
 .landing-menu-button {
   display: none;
@@ -224,8 +224,8 @@
   border: 1px solid var(--landing-line);
   border-radius: 30px;
   overflow: hidden;
-  background: #f5f4ec;
-  box-shadow: 0 24px 70px #183b2a0a;
+  background: var(--ui-soft);
+  box-shadow: var(--shadow-overlay);
 }
 .landing-image-frame img {
   display: block;
@@ -246,7 +246,7 @@
   border-radius: 14px;
   background: color-mix(in srgb, var(--landing-surface) 97%, transparent);
   color: var(--landing-ink);
-  box-shadow: 0 10px 35px #183b2a12;
+  box-shadow: var(--shadow-raised);
 }
 .landing-float strong {
   display: block;
@@ -726,7 +726,7 @@
     padding: 20px;
     background: var(--landing-surface);
     border-bottom: 1px solid var(--landing-line);
-    box-shadow: 0 12px 18px #183b2a08;
+    box-shadow: var(--shadow-card);
   }
   .landing-nav.open {
     display: flex;

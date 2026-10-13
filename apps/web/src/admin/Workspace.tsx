@@ -121,7 +121,7 @@ export function AdminWorkspace({
           </button>
         </div>
       </header>
-      <main className="ll-workspace">
+      <main className="ll-workspace" data-service="landlord">
         <div className="ll-heading">
           <div>
             <span className="ll-kicker">{t("KIỂM DUYỆT")}</span>

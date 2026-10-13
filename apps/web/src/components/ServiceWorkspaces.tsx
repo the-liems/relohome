@@ -293,7 +293,7 @@ export function FlightWorkspace({
     );
   }
   return (
-    <div className="svc-workspace">
+    <div className="svc-workspace" data-service="flight">
       <section className="svc-main" aria-label={uiText("Chuyến bay")}>
         <header className="svc-head">
           <span className="service-icon blue">
@@ -601,7 +601,7 @@ export function MovingWorkspace({
     route.destination?.lng,
   ]);
   return (
-    <div className="map-workspace moving-booking">
+    <div className="map-workspace moving-booking" data-service="relocation">
       <aside
         className={"ws-list " + (sheetOpen ? "open" : "")}
         aria-label={uiText("Phương án chuyển đồ")}
@@ -1302,7 +1302,7 @@ export function MovingRequestWorkspace({
     }
   }
   return (
-    <div className="map-workspace moving-booking">
+    <div className="map-workspace moving-booking" data-service="relocation">
       <aside
         className={"ws-list " + (sheetOpen ? "open" : "")}
         aria-label={uiText("Thông tin chuyển đồ")}
