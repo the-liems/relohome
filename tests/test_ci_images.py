@@ -84,6 +84,24 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("apps/platform-api/Dockerfile"), {"platform", "location-migrate"})
         self.assertEqual(self.selected(".dockerignore"), ALL_SERVICES)
 
+    def test_provisioner_context_and_inputs(self):
+        image = next(image for image in CATALOG if image["service"] == "provisioner")
+        self.assertEqual(image, {"service": "provisioner", "context": "deploy/provisioner",
+                                 "dockerfile": "deploy/provisioner/Dockerfile", "target": "",
+                                 "paths": ["deploy/provisioner/"]})
+        for path in ("deploy/provisioner/provision.sh", "deploy/provisioner/Dockerfile",
+                     "deploy/provisioner/Dockerfile.dockerignore", "deploy/provisioner/.dockerignore"):
+            self.assertEqual(self.selected(path), {"provisioner"})
+
+    def test_release_tag_is_commit_and_provisioner_has_smoke_checks(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/build-application-images.yml").read_text())
+        build = workflow["jobs"]["build"]
+        self.assertEqual(build["env"]["RELEASE_TAG"], "${{ github.sha }}")
+        smoke = next(step for step in build["steps"] if step.get("name") == "Smoke provisioner image")
+        self.assertEqual(smoke["if"], "matrix.service == 'provisioner'")
+        self.assertIn('docker run --rm --network none --entrypoint aws "$IMAGE" --version', smoke["run"])
+        self.assertIn('test -x /usr/local/bin/provision.sh', smoke["run"])
+
     def test_unknown_paths_and_shared_ci_changes_rebuild_everything(self):
         for path in ("new-package/build.config", "scripts/select-ci-images.py", "config/ci/application-images.json",
                      ".github/workflows/build-application-images.yml", "scripts/check-ci-runner.sh"):

@@ -157,5 +157,14 @@
       "scripts/docker-npm.mjs",
       "packages/telemetry/"
     ]
+  },
+  {
+    "service": "provisioner",
+    "context": "deploy/provisioner",
+    "dockerfile": "deploy/provisioner/Dockerfile",
+    "target": "",
+    "paths": [
+      "deploy/provisioner/"
+    ]
   }
 ]

@@ -7,10 +7,10 @@ x-telemetry: &telemetry-env
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
   OTEL_EXPORTER_OTLP_HEADERS: Authorization=Bearer%20${OTEL_COLLECTOR_TOKEN:-}
-  RELEASE_SHA: ${RELEASE_TAG}
+  RELEASE_SHA: ${SOURCE_COMMIT}
 
-# Image-only Coolify definition. CD sets image tags and the public proxy rule.
-# All other variable references are resolved by Coolify. Only web gets a domain.
+# Coolify reads this Compose file from Git at the pinned commit.
+# Coolify resolves runtime variables and SOURCE_COMMIT. Only web gets a domain.
 x-app: &app
   init: true
   restart: unless-stopped
@@ -38,7 +38,7 @@ x-location: &location-env
 x-moving: &moving-env
   AHAMOVE_ENV: ${AHAMOVE_ENV:-staging}
   AHAMOVE_BASE_URL: ${AHAMOVE_BASE_URL:-https://partner-apistg.ahamove.com/v3}
-  # CD requires either the user token or both API key and mobile before restart.
+  # Supply either the user token or both API key and mobile.
   AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
   AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
   AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
@@ -52,6 +52,8 @@ x-osrm: &osrm
   <<: *app
   image: ghcr.io/project-osrm/osrm-backend@sha256:729461bcc9ae9e6aafa92c0f93db9b060a32e85d5e72092c01ae4a4a9f1eb564
   volumes: [routing-data:/data:ro]
+  depends_on:
+    provisioner: {condition: service_completed_successfully}
   healthcheck: &osrm-health
     test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:5000/nearest/v1/driving/106.7,10.77"]
     interval: 30s
@@ -75,10 +77,31 @@ x-osrm-driving: &osrm-driving
         read -r -t 4 response <&3;
         [[ "$${response}" == *" 200 "* ]]
 
+# replace after upload, see deploy/README.md
+x-blobs:
+  location-dump: &location-dump "0000000000000000000000000000000000000000000000000000000000000000.tar.gz"
+
 services:
+  provisioner:
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/provisioner:${SOURCE_COMMIT}
+    init: true
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+    exclude_from_hc: true
+    environment:
+      DATA_S3_BUCKET: ${DATA_S3_BUCKET:?}
+      AWS_ACCESS_KEY_ID: ${DATA_S3_ACCESS_KEY_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${DATA_S3_SECRET_ACCESS_KEY:?}
+      AWS_DEFAULT_REGION: ${DATA_S3_REGION:?}
+      DATA_S3_ENDPOINT: ${DATA_S3_ENDPOINT:-}
+      # replace after upload, see deploy/README.md
+      SYNC_TARGETS: "routing-data=1111111111111111111111111111111111111111111111111111111111111111.tar.gz"
+      FETCH_BLOBS: *location-dump
+    volumes: [routing-data:/volumes/routing-data, blob-cache:/cache]
+
   web:
     <<: *app
-    image: ${IMAGE_PREFIX}/web:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/web:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: web
       <<: *telemetry-env
@@ -104,21 +127,21 @@ services:
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
-    # healthcheck calls the container directly. Coolify escapes $ in labels, so the
-    # deployment script renders the host from Coolify APP_URL before submission.
+    # healthcheck calls the container directly. CD turns Coolify label escaping off
+    # so Compose resolves the domain and project name at deployment.
     # Resource-specific router names allow environments to share a proxy.
     labels:
-      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule=Host(`${DEPLOY_HOST}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
-      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.entrypoints=https
-      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.tls=true
-      - traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.service=noop@internal
+      - traefik.http.routers.p044-${COMPOSE_PROJECT_NAME}-internal.rule=Host(`${SERVICE_FQDN_WEB}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.p044-${COMPOSE_PROJECT_NAME}-internal.entrypoints=https
+      - traefik.http.routers.p044-${COMPOSE_PROJECT_NAME}-internal.tls=true
+      - traefik.http.routers.p044-${COMPOSE_PROJECT_NAME}-internal.service=noop@internal
     depends_on:
       backend: {condition: service_healthy}
       platform: {condition: service_healthy}
 
   backend:
     <<: *app
-    image: ${IMAGE_PREFIX}/backend:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/backend:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: backend
       <<: *telemetry-env
@@ -192,7 +215,7 @@ services:
 
   flights-mcp:
     <<: *app
-    image: ${IMAGE_PREFIX}/flights-mcp:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/flights-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: flights-mcp
       <<: *telemetry-env
@@ -206,7 +229,7 @@ services:
 
   payments-mcp:
     <<: *app
-    image: ${IMAGE_PREFIX}/payments-mcp:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/payments-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: payments-mcp
       <<: *telemetry-env
@@ -235,9 +258,38 @@ services:
       timeout: 5s
       retries: 20
 
+  location-seed:
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    platform: linux/arm64
+    restart: "no"
+    exclude_from_hc: true
+    volumes: [blob-cache:/cache:ro]
+    environment:
+      SEED_BLOB: *location-dump
+      PGHOST: postgis
+      PGUSER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
+      PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+      PGDATABASE: ${POSTGRES_DB:-p044_location}
+    depends_on:
+      postgis: {condition: service_healthy}
+      provisioner: {condition: service_completed_successfully}
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        if [ "$$(psql -tAc "select to_regclass('public.lifeflow_schema_migrations') is not null")" = t ]; then
+          echo "Location database already initialized; skipping seed"
+          exit 0
+        fi
+        tar -xzf "/cache/$$SEED_BLOB" -C /tmp lifeflow.dump
+        psql -v ON_ERROR_STOP=1 -c "DROP EXTENSION IF EXISTS postgis_tiger_geocoder, postgis_topology, fuzzystrmatch, postgis CASCADE; DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;"
+        pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump
+        psql -v ON_ERROR_STOP=1 -c ANALYZE
+        echo "Restored location database from $$SEED_BLOB"
+
   location-migrate:
     <<: *app
-    image: ${IMAGE_PREFIX}/location-migrate:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
@@ -248,10 +300,11 @@ services:
       POSTGRES_INGEST_PASSWORD: ${POSTGRES_INGEST_PASSWORD:?}
     depends_on:
       postgis: {condition: service_healthy}
+      location-seed: {condition: service_completed_successfully}
 
   platform:
     <<: *app
-    image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/platform:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: platform
       <<: [*location-env, *telemetry-env]
@@ -277,7 +330,7 @@ services:
 
   location:
     <<: *app
-    image: ${IMAGE_PREFIX}/location:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: location
       <<: [*location-env, *telemetry-env]
@@ -303,7 +356,7 @@ services:
 
   moving-migrate:
     <<: *app
-    image: ${IMAGE_PREFIX}/moving-migrate:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
@@ -315,7 +368,7 @@ services:
 
   moving-mcp:
     <<: *app
-    image: ${IMAGE_PREFIX}/moving-mcp:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-mcp
       <<: [*moving-env, *telemetry-env]
@@ -326,7 +379,7 @@ services:
 
   moving-api:
     <<: *app
-    image: ${IMAGE_PREFIX}/moving-api:${RELEASE_TAG}
+    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-api:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-api
       <<: [*moving-env, *telemetry-env]
@@ -374,3 +427,4 @@ volumes:
   location-data:
   moving-data:
   routing-data:
+  blob-cache:
