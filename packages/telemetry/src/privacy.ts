@@ -39,7 +39,10 @@ export function sanitize(value: unknown, personal = true, depth = 0): unknown {
 }
 
 export function content(value: unknown): string | undefined {
-  const mode = process.env.OBSERVABILITY_CONTENT_MODE || 'redacted'
+  // Free text cannot be reliably anonymized with patterns. Production never
+  // exports payload content, including under a legacy redacted/raw setting.
+  if (['APP_ENV', 'OTEL_DEPLOYMENT_ENVIRONMENT'].some(key => process.env[key]?.trim().toLowerCase() === 'production')) return undefined
+  const mode = (process.env.OBSERVABILITY_CONTENT_MODE || 'metadata').trim().toLowerCase()
   if (!['redacted', 'raw'].includes(mode)) return undefined
   try {
     const result = JSON.stringify(sanitize(value, mode !== 'raw'))

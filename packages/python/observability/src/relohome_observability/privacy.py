@@ -31,7 +31,12 @@ URL = re.compile(r"https?://[^\s\"<>]+")
 
 
 def mode() -> str:
-    value = os.getenv("OBSERVABILITY_CONTENT_MODE", "redacted").lower()
+    # Legacy deployments may still request redacted/raw. Neither can reliably
+    # remove private names or addresses embedded in ordinary text.
+    if any(os.getenv(key, "").strip().lower() == "production"
+           for key in ("APP_ENV", "OTEL_DEPLOYMENT_ENVIRONMENT")):
+        return "metadata"
+    value = os.getenv("OBSERVABILITY_CONTENT_MODE", "metadata").strip().lower()
     return value if value in {"metadata", "redacted", "raw"} else "metadata"
 
 

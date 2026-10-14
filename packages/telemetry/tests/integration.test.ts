@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { expect, it } from 'vitest'
 
-it('preloads ESM instrumentation, propagates across HTTP, and exports only sanitized OTLP', async () => {
+it.each([
+  { environment: 'staging', mode: 'redacted' },
+  { environment: 'staging', mode: undefined },
+  { environment: 'production', mode: 'redacted' },
+  { environment: 'production', mode: 'raw' },
+])('preloads ESM and exports safe OTLP with $environment/$mode content', async ({ environment, mode }) => {
   const requests: Array<{ path: string, payload: any }> = []
   const receiver = createServer(async (req, res) => {
     const chunks: Buffer[] = []
@@ -19,8 +24,8 @@ it('preloads ESM instrumentation, propagates across HTTP, and exports only sanit
   let child: ReturnType<typeof spawn> | undefined
   try {
     child = spawn(process.execPath, ['--import', '@relohome/telemetry/register', fileURLToPath(new URL('./fixture.mjs', import.meta.url))], {
-      env: { ...process.env, OBSERVABILITY_ENABLED: 'true', OBSERVABILITY_CONTENT_MODE: 'redacted',
-        OTEL_DEPLOYMENT_ENVIRONMENT: 'staging', OTEL_SERVICE_NAME: 'node-fixture',
+      env: { ...process.env, OBSERVABILITY_ENABLED: 'true', OBSERVABILITY_CONTENT_MODE: mode,
+        APP_ENV: environment, OTEL_DEPLOYMENT_ENVIRONMENT: environment, OTEL_SERVICE_NAME: 'node-fixture',
         OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${port}`, OTEL_EXPORTER_OTLP_HEADERS: '' },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -55,6 +60,11 @@ it('preloads ESM instrumentation, propagates across HTTP, and exports only sanit
     expect(exported).not.toContain('person@example.com')
     expect(exported).not.toContain('fixture-secret')
     expect(exported).not.toContain('private-error-message')
+    if (mode === undefined || environment === 'production') {
+      expect(exported).not.toContain('SYNTHETIC_PRIVATE')
+      expect(spans.flatMap(item => item.attributes).some(attribute =>
+        ['langfuse.observation.input', 'langfuse.observation.output'].includes(attribute.key))).toBe(false)
+    }
     expect(requests.some(item => item.path === '/v1/logs')).toBe(true)
     expect(requests.some(item => item.path === '/v1/metrics')).toBe(true)
     const httpPoints = requests.filter(item => item.path === '/v1/metrics')

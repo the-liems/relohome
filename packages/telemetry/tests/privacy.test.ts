@@ -3,6 +3,19 @@ import { content } from '../src/privacy.js'
 
 afterEach(() => vi.unstubAllEnvs())
 describe('telemetry privacy', () => {
+  it('omits free-text identity and addresses by default', () => {
+    vi.stubEnv('OBSERVABILITY_CONTENT_MODE', undefined)
+    const payload = { input: 'SYNTHETIC_NAME lives at 123 SYNTHETIC_ADDRESS', pickup_address: 'SYNTHETIC_ADDRESS' }
+    expect(content(payload)).toBeUndefined()
+  })
+  it.each(['APP_ENV', 'OTEL_DEPLOYMENT_ENVIRONMENT'])('production %s overrides every legacy payload mode', key => {
+    vi.stubEnv(key, ' Production ')
+    const payload = { input: 'SYNTHETIC_NAME lives at 123 SYNTHETIC_ADDRESS' }
+    for (const mode of ['metadata', 'redacted', 'raw', 'invalid']) {
+      vi.stubEnv('OBSERVABILITY_CONTENT_MODE', mode)
+      expect(content(payload)).toBeUndefined()
+    }
+  })
   it.each(['redacted', 'raw'])('always strips secrets in %s mode without changing inputs', mode => {
     vi.stubEnv('OBSERVABILITY_CONTENT_MODE', mode)
     const input = { apiKey: 'private-key', contact: { name: 'Private Person', email: 'person@example.com' },
