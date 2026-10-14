@@ -509,7 +509,7 @@ test("replacement calendar contains only owner suggestions even when visit time 
 });
 
 for (const theme of ["light", "dark"]) {
-  test(`tenant bell sits below the plan tab with account names in ${theme} theme`, async ({
+  test(`tenant bell stays at the lower right edge with account names in ${theme} theme`, async ({
     page,
   }) => {
     await fixture(page);
@@ -574,11 +574,10 @@ for (const theme of ["light", "dark"]) {
     await expect(bell).toBeVisible();
     await expect
       .poll(async () => {
-        const p = await plan.boundingBox(),
-          b = await bell.boundingBox();
-        return b!.y - (p!.y + p!.height);
+        const b = await bell.boundingBox();
+        return page.viewportSize()!.height - (b!.y + b!.height);
       })
-      .toBeGreaterThanOrEqual(7);
+      .toBe(24);
     for (const control of [plan, bell]) {
       const colors = await control.evaluate((element) => {
         const s = getComputedStyle(element),
@@ -618,11 +617,10 @@ for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width: 320, height: 568 });
       await expect
         .poll(async () => {
-          const p = await plan.boundingBox(),
-            b = await bell.boundingBox();
-          return b!.y - (p!.y + p!.height);
+          const b = await bell.boundingBox();
+          return page.viewportSize()!.height - (b!.y + b!.height);
         })
-        .toBeGreaterThanOrEqual(7);
+        .toBe(24);
       const panel = await page
         .locator(".contact-messenger-panel")
         .boundingBox();

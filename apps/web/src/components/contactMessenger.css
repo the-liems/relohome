@@ -137,10 +137,6 @@
 .contact-messenger-toggle[aria-expanded="true"] {
   background: var(--ui-accent-hover, #05583e);
 }
-body:has(.plan-peek-tab) .contact-messenger-toggle {
-  top: var(--ui-plan-tab-bottom, 320px);
-  bottom: auto;
-}
 .contact-messenger-toggle b {
   position: absolute;
   top: -6px;

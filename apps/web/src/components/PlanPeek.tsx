@@ -69,24 +69,6 @@ export function PlanPeek({
   const [open, setOpen] = useState(params.get("panel") === "plan");
   const [tab, setTab] = useState(params.get("planTab") || "progress");
   const button = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const element = button.current;
-    if (!element) return;
-    const placeBell = () =>
-      document.documentElement.style.setProperty(
-        "--ui-plan-tab-bottom",
-        `${element.getBoundingClientRect().bottom + 8}px`,
-      );
-    placeBell();
-    const observer = new ResizeObserver(placeBell);
-    observer.observe(element);
-    window.addEventListener("resize", placeBell);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", placeBell);
-      document.documentElement.style.removeProperty("--ui-plan-tab-bottom");
-    };
-  }, []);
   const panel = useRef<HTMLElement>(null);
   const panelId = useId();
   const state = thread?.state || {};

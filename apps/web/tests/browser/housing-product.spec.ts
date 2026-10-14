@@ -802,6 +802,7 @@ test("owner bell is a bright edge tab and conversations use tenant names", async
   await expect(bell).not.toContainText("Tin nhắn");
   const box = await bell.boundingBox();
   expect(box!.x + box!.width).toBe(page.viewportSize()!.width);
+  expect(page.viewportSize()!.height - (box!.y + box!.height)).toBe(24);
   await bell.click();
   const row = page.locator(".contact-messenger-conversations > button");
   await expect(row.locator("strong")).toHaveText("Khánh");
