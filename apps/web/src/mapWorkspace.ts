@@ -161,6 +161,29 @@ export function individualListings(markers: House[]) {
     .map((h) => ({ key: h.id, lat: h.lat!, lng: h.lng!, houses: [h] }));
 }
 
+// Display one counted pin only for exactly identical source coordinates. Keep
+// original House objects/IDs; no proximity clustering, rounding or moved positions.
+export function coincidentListings(markers: House[]) {
+  const groups = new Map<
+    string,
+    { key: string; lat: number; lng: number; houses: House[] }
+  >();
+  const seen = new Set<string>();
+  for (const h of markers) {
+    if (!Number.isFinite(h.lat) || !Number.isFinite(h.lng) || seen.has(h.id))
+      continue;
+    seen.add(h.id);
+    const key = JSON.stringify([h.lat, h.lng]);
+    let group = groups.get(key);
+    if (!group) {
+      group = { key, lat: h.lat!, lng: h.lng!, houses: [] };
+      groups.set(key, group);
+    }
+    group.houses.push(h);
+  }
+  return [...groups.values()];
+}
+
 // Legacy helper for consumers still using coincident-pin grouping.
 export function stackListings(
   markers: House[],

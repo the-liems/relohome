@@ -1,4 +1,4 @@
-import { formatUi } from "../uiPreferences";
+import { formatUi, useUiPreferences } from "../uiPreferences";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
@@ -38,7 +38,7 @@ import {
   mapRequest,
   searchRequest,
   shortPrice,
-  individualListings,
+  coincidentListings,
   toHouse,
   viewportCount,
 } from "../mapWorkspace";
@@ -137,6 +137,7 @@ export function MapWorkspace({
   onSelect: (h: House) => Promise<void>;
   onExit: () => void;
 }) {
+  const { locale } = useUiPreferences();
   const container = useRef<HTMLDivElement>(null),
     map = useRef<LibreMap | null>(null);
   const [ready, setReady] = useState(false),
@@ -151,7 +152,7 @@ export function MapWorkspace({
     [cursor, setCursor] = useState<string | null>(null),
     [loading, setLoading] = useState(false),
     [listError, setListError] = useState("");
-  const [stack, setStack] = useState<House[] | null>(null),
+  const [stackKey, setStackKey] = useState<string | null>(null),
     [hovered, setHovered] = useState<string | null>(null),
     [detail, setDetail] = useState<House | null>(null),
     [listOpen, setListOpen] = useState(true),
@@ -292,7 +293,7 @@ export function MapWorkspace({
   // Chat answers replace the area filters and move the map to the area the agent resolved.
   useEffect(() => {
     setFilters(initialFilters);
-    setStack(null);
+    setStackKey(null);
     setDetail(null);
     setPoiDetail(null);
     const box = focus?.viewport;
@@ -624,17 +625,19 @@ export function MapWorkspace({
     }
   }
 
-  const stacks = useMemo(() => individualListings(markers), [markers]);
+  const stacks = useMemo(() => coincidentListings(markers), [markers]);
+  // Derive the open group from current markers, not a stale snapshot after filtering.
+  const stack = stacks.find((s) => s.key === stackKey)?.houses ?? null;
   function openStack(key: string) {
     const group = latest.current.stacks.find((s) => s.key === key);
     if (!group) return;
     // A choice list is needed only after clicking an exactly shared source pin.
-    const atPoint = latest.current.stacks
-      .filter((s) => s.lat === group.lat && s.lng === group.lng)
-      .flatMap((s) => s.houses);
-    if (atPoint.length === 1) void openDetail(atPoint[0]);
-    else {
-      setStack(atPoint);
+    const atPoint = group.houses;
+    if (atPoint.length === 1) {
+      setStackKey(null);
+      void openDetail(atPoint[0]);
+    } else {
+      setStackKey(group.key);
       setListOpen(true);
       setSheet(true);
     }
@@ -697,12 +700,11 @@ export function MapWorkspace({
             roommate: roomProfiles.length > 0,
             rank: -s.houses.length,
             label:
-              (roomProfiles.length
-                ? `${realRoom ? "Ghép trọ" : "DEMO"} (${new Set(roomProfiles.map((p) => p.listing_id)).size} phòng) · `
-                : "") +
-              (s.houses.length > 1
-                ? `${s.houses.length} căn`
-                : shortPrice(s.houses[0])),
+              s.houses.length > 1
+                ? formatUi("{0} căn", [s.houses.length])
+                : (roomProfiles.length
+                    ? `${realRoom ? "Ghép trọ" : "DEMO"} (${new Set(roomProfiles.map((p) => p.listing_id)).size} phòng) · `
+                    : "") + shortPrice(s.houses[0]),
           },
         };
       }),
@@ -731,6 +733,7 @@ export function MapWorkspace({
     JSON.stringify(choices),
     pois,
     roomMarkers,
+    locale,
   ]);
 
   async function openDetail(h: House) {
@@ -886,7 +889,10 @@ export function MapWorkspace({
     </button>
   );
   return (
-    <div className={"map-workspace " + (listOpen ? "" : "list-closed")} data-service="property">
+    <div
+      className={"map-workspace " + (listOpen ? "" : "list-closed")}
+      data-service="property"
+    >
       <aside
         className={"ws-list " + (sheet ? "open" : "")}
         aria-label={uiText("Nhà trong vùng bản đồ")}
@@ -912,7 +918,7 @@ export function MapWorkspace({
             <span className="eyebrow">{uiText("NHÀ Ở QUANH ĐÂY")}</span>
             <h2>
               {stack
-                ? formatUi("{0} tin chung điểm bản đồ", [stack.length])
+                ? formatUi("{0} căn chung điểm bản đồ", [stack.length])
                 : formatUi("{0} lựa chọn", [countLabel])}
             </h2>
           </div>
@@ -927,7 +933,7 @@ export function MapWorkspace({
         {stack && (
           <button
             className="text-button ws-unstack"
-            onClick={() => setStack(null)}
+            onClick={() => setStackKey(null)}
           >
             <X size={14} />
             {uiText(" Bỏ lọc theo vị trí này")}
