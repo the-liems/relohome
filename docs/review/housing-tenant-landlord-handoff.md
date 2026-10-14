@@ -71,4 +71,6 @@ Earlier main integration conflicts were resolved locally in gateway, App, map im
 
 Before PR publication, main `1da2070` (PR #168) was fetched and merged into this feature branch without conflicts. Its Git-pinned Coolify Application deployment, provisioner, data pins and Compose remain unchanged. Backend/cloud connection instructions: [housing-handoff-coolify.md](../runbooks/housing-handoff-coolify.md). GitHub PR CI and authenticated cloud acceptance are distinct from the local results above.
 
+After that main sync: full Python regression passed **1,162 tests, 103 skipped and 98 subtests**; the deployment/image/provisioner subset passed **63 tests and 46 subtests**. TypeScript workspace builds, Web production build, Python lint and diff whitespace checks passed. Previously validated browser and disposable PostGIS results above apply to the unchanged Housing implementation; these suites were not repeated for the deployment-only main update. No local secret values were found in outgoing commit history, and local environment/account files remain untracked.
+
 Manual local test scenario: [housing-local-test-scenario.md](housing-local-test-scenario.md). Use separate browser sessions and complete one room’s flow at a time.
