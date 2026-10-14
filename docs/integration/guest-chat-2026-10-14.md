@@ -75,6 +75,16 @@ SELECT COUNT(*) FROM guest_sessions WHERE claimed=0 AND claim_target IS NOT NULL
 
 ## Bằng chứng kiểm tra
 
+### Tích hợp main và PR
+
+- Đã rebase trên `main` tại `331f03d` (merge PR #107 observability). Giải quyết 2 conflict, giữ `traced_node`/`invoke_graph`, middleware không tin trace từ browser và toàn bộ observability của main.
+- Sau rebase: **601 backend/observability/packaging tests passed, 2 skipped**; `npm run lint:python`, build web và **44 contract tests** đạt.
+- Repo local còn cache/egg-info của layout `src/` cũ; đã chuyển 221 file generated vào `.tmp/legacy-src-cache-20261014/`, không xóa source. Test packaging chạy Python UTF8 trên Windows đạt.
+- [PR #165 — QuangDung → main](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/165). Đã push, chưa merge/deploy; xem checks của PR để biết CI mới nhất.
+- CI của commit code `14371c2` đạt: **17 success, 2 skipped** theo điều kiện workflow Moving; GitHub báo `mergeable=true`, `clean`. [CI run](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/actions/runs/38517505922). Các cập nhật tài liệu sau đó phải kiểm checks ở head mới.
+
+### Kiểm tra tính năng trước khi rebase
+
 - Backend Agent/API/checkout/gateway: **554 passed, 2 skipped** theo điều kiện có sẵn; test ACL backup Windows chạy với quyền phù hợp, không bỏ assertion.
 - Focused session/bearer/policy/concurrency/chunked body/expiry retry/durable claim: **12 passed**, nằm trong bộ trên.
 - Browser gợi ý dịch vụ/chat presentation/service entry/viewing suggestions: **58 passed** desktop/mobile.
@@ -89,7 +99,7 @@ SELECT COUNT(*) FROM guest_sessions WHERE claimed=0 AND claim_target IS NOT NULL
 ### Giới hạn của kiểm tra rộng
 
 - Test cũ `app.spec.ts: chat, housing details, selection, saved, plan and reload` vẫn kỳ vọng thẻ nhà trong chat/nhãn `Đang hiển thị 2 căn` đã không còn trong UI hiện tại. Đối chiếu App nguyên bản `main` cũng lỗi desktop/mobile. Không skip/delete test; team cần cập nhật scenario theo map workspace trước gate E2E đầy đủ.
-- Bộ deployment mở rộng trên Windows: test Compose lọc env làm CLI không tìm thấy plugin, báo `unknown flag: --env-file`; bash CI có khác biệt shell/timeout. Render riêng với môi trường Docker chuẩn đạt. Chưa có bằng chứng Linux CI toàn bộ xanh; không sửa `.github` hoặc hạ gate.
+- Bộ deployment mở rộng trên Windows: test Compose lọc env làm CLI không tìm thấy plugin, báo `unknown flag: --env-file`; bash CI có khác biệt shell/timeout. Render riêng với môi trường Docker chuẩn đạt; CI Linux trên PR đã xanh ở commit code nêu trên. Không sửa `.github` hoặc hạ gate. CI xanh không đồng nghĩa toàn bộ browser E2E/staging thủ công đã đạt.
 - Chưa kiểm staging multi-tab/account thật, load test cloud hoặc giao dịch thật. Gate release còn lại: [todo](../../tasks/guest-chat/todo.md).
 
 ## Test thủ công

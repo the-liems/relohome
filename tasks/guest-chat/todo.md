@@ -21,6 +21,7 @@ Acceptance/dependencies/verification: [plan.md](plan.md). Product: [proposal](..
 - [ ] Cloud: chốt quota/hạn mức USD ở vendor, trusted proxy IP, backup retention/load test.
 - [ ] Staging: multi-tab với account thật, TTL/cleanup trên volume cloud, rollback flag thực tế.
 - [ ] Linux CI hiện có xanh và toàn bộ E2E; cập nhật scenario cũ theo map workspace, không bỏ/hạ gate.
-- [ ] Release: team review → push/PR → deploy được cho phép. Chưa thực hiện trong đợt này.
+- [x] Rebase main `331f03d`, push QuangDung và mở [PR #165](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/165); 601 test backend/observability/packaging và 44 contract đạt sau rebase.
+- [ ] Release: team review → merge/deploy được cho phép. Chưa thực hiện trong đợt này.
 
 Các item còn mở là gate cloud. Không suy từ readiness local rằng toàn bộ release đã hoàn tất; xem giới hạn kiểm tra trong bàn giao.
