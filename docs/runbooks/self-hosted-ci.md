@@ -7,8 +7,8 @@ run on Linux x64 or ARM64 with the required tools. Application release builds in
 When adding x64 capacity, retain available ARM64 capacity for release builds.
 MCP and agent smoke builds use the Docker engine's native architecture; a remote
 engine may differ from its runner host.
-**Deploy staging** and **Deploy production** call the shared `deploy-coolify.yml`
-submission workflow.
+**Deploy to Coolify** (`deploy.yml`) deploys Git-pinned Applications and waits
+for rollout completion and health. See the [deployment runbook](../../deploy/README.md).
 Agent and Map workflows also watch the shared runner preflight; Moving change
 detection requests validation when it changes. Agent CI watches the Python
 environment helper too.
@@ -63,7 +63,7 @@ by the runner's standard trust store. CD has no custom CA secret or insecure TLS
 The deployment selector uses Node 24 bundled with `actions/github-script@v8`
 (requires runner >= 2.327.1); the Python tests use Node 24 explicitly installed by
 `actions/setup-node`. Most jobs have a 30-minute execution timeout; Coolify
-deployment uses 10 minutes and the PostGIS build uses 40.
+deployment uses 75 minutes and the PostGIS build uses 40.
 Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
 
@@ -112,17 +112,19 @@ include both old and new paths. Unknown inputs, CI configuration changes, or an
 unreadable diff select all images. Known documentation and test-only changes can
 skip application images; validation and smoke jobs still run.
 
-Pushes and manual CI runs always build all ten release images. GHCR publishing
-is allowed only on `main`, using `<commit-sha>-<ci-run-id>` tags. `CI results`
-always runs and rejects failed/cancelled validation, failed selection, or skipped
+Pushes and manual CI runs always build all eleven release images, including
+the provisioner. GHCR publishing is allowed only on `main`, using full
+`<commit-sha>` tags. `CI results` always runs and rejects failed/cancelled validation, failed selection, or skipped
 requested image builds. Only a PR with zero selected images may skip builds.
-`Deploy staging` still consumes a successful complete main CI run and verifies
-every image manifest before submitting the deployment.
+`Deploy to Coolify` automatically selects successful main push CI runs; manual
+CI runs do not trigger it. It verifies each SHA-tagged application manifest in
+the selected Compose before deploying, then checks the deployed commit and
+Application health. Manual dispatch can select any retained SHA on main.
 
 `Moving containers` owns domain validation and the explicitly requested provider
-staging check. Application CI owns its release images, so Moving no longer
-publishes separate commit-only tags or repeats the release image matrix. Manual
-Moving staging verification still builds its own disposable Compose stack.
+staging check. Application CI owns its release images, so the Moving workflow
+no longer publishes images or repeats the release image matrix. Manual Moving
+staging verification still builds its own disposable Compose stack.
 PostGIS remains an independent infrastructure-image publisher.
 
 Use `CI results` and the existing `Moving container gate` as the stable required
@@ -139,8 +141,8 @@ pending. This PR does not change repository protection settings.
   `packages: read`, using a temporary `DOCKER_CONFIG` under `RUNNER_TEMP`.
   The token needs pull access to the selected private packages; grant this
   repository access in each package's Actions access settings where needed.
-  The job checks every distinct image manifest before contacting Coolify and
-  removes the temporary registry credentials with `always()`. It does not pull
+  The job checks every distinct SHA-tagged application manifest before contacting
+  Coolify and removes the temporary registry credentials with `always()`. It does not pull
   image layers or start containers. Coolify keeps its own server pull credential.
 
 - MCP and agent smoke jobs build images tagged by run ID and attempt, use
@@ -182,20 +184,8 @@ Actual container compatibility and runner availability must additionally be
 verified in Actions. Python assertion fixes are tracked separately in #45–#50.
 
 The deployment tests also require Node 24:
-`python -m pytest tests/test_coolify_deployment.py apps/browser-gateway/tests/ -q`.
+`npm run deployment:check` (with the configured Python environment).
 They fake registry inspections and API responses; no live deployment is made.
-
-Actionlint 1.7.12 does not yet recognize GitHub's documented `concurrency.queue`
-property ([upstream issue](https://github.com/rhysd/actionlint/issues/680)). With
-that version, use this narrowly scoped exception for the known parser diagnostic:
-
-```sh
-actionlint -ignore 'unexpected key "queue" for "concurrency" section'
-```
-
-Keep `queue: max` with `cancel-in-progress: false`; GitHub rejects `queue: max`
-with cancellation enabled. Other lint diagnostics remain enabled. Remove the
-exception when actionlint supports the property.
 
 Root installation/build/test commands and browser prerequisites are documented in
 [root tooling](root-tooling.md). npm CI caches use the single root lockfile; the

@@ -1,11 +1,11 @@
-"""Release submission: preserve infrastructure and hand rollout to Coolify."""
+"""Pinned Application rollout and Compose deployment contracts."""
 
-import base64
 import importlib.util
 import io
 import json
 import os
 import re
+import shutil
 import ssl
 import subprocess
 import tempfile
@@ -16,320 +16,229 @@ from urllib.error import HTTPError
 
 import yaml
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-
-
-def load_script(name):
-    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), SCRIPTS / (name + ".py"))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-DEPLOY = load_script("deploy-coolify")
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location("deploy_coolify", ROOT / "scripts/deploy-coolify.py")
+DEPLOY = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(DEPLOY)
 SHA = "a" * 40
-REPOSITORY = "ai20k-build-phase-cohort-4/p-044"
-COMPOSE = Path(__file__).parent / "fixtures/coolify-compose.yaml"
-TAG = SHA + "-123-1"
-ENV = {"COOLIFY_URL": "https://coolify.example.test",
-       "COOLIFY_SERVICE_UUID": "staging-service", "COOLIFY_TOKEN": "private-test-token",
-       "RELEASE_TAG": TAG, "IMAGE_PREFIX": "ghcr.io/" + REPOSITORY}
+ENV = {"COOLIFY_URL": "https://coolify.example.test", "COOLIFY_APP_UUID": "staging-app",
+       "COOLIFY_TOKEN": "private-test-token", "DEPLOY_SHA": SHA}
+COMPOSE = {"services": {"app": {"image": DEPLOY.IMAGE_PREFIX + "app:${SOURCE_COMMIT}"},
+                        "worker": {"image": DEPLOY.IMAGE_PREFIX + "worker:${SOURCE_COMMIT}"},
+                        "db": {"image": "postgres:16"}}}
+QUEUED = {"deployments": [{"resource_uuid": "other-app", "deployment_uuid": "other"},
+                          {"resource_uuid": "staging-app", "deployment_uuid": "deployment-1"}]}
+FINISHED = {"status": "finished", "commit": SHA}
 
 
 class DeploymentTests(unittest.TestCase):
-    def invoke(self, responses, image_error=None, compose_text=None, artifacts=None, **settings):
-        requests = []
+    def invoke(self, responses, *, image_error=None, compose=COMPOSE, **settings):
+        self.requests = []
+        self.output = io.StringIO()
 
         def respond(request, **kwargs):
-            requests.append((request, kwargs))
-            value = next(responses)
-            if isinstance(value, Exception):
-                raise value
-            if callable(value):
-                value = value(request)
-            return io.BytesIO(json.dumps(value).encode())
+            self.requests.append((request, kwargs))
+            response = next(responses)
+            if isinstance(response, Exception):
+                raise response
+            return io.BytesIO(json.dumps(response).encode())
 
         with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "compose.yaml"
-            source = Path(directory) / "source.yaml"
-            source.write_text(compose_text if compose_text is not None else COMPOSE.read_text())
-            with patch.dict(os.environ, ENV | settings, clear=True), \
+            source = Path(directory) / "compose.yaml"
+            source.write_text(yaml.safe_dump(compose))
+            with patch.dict(os.environ, ENV, clear=True), \
                     patch.object(DEPLOY, "urlopen", side_effect=respond), \
-                    patch.object(DEPLOY.subprocess, "run", side_effect=image_error), \
-                    patch("sys.stdout", new_callable=io.StringIO):
-                try:
-                    DEPLOY.deploy(source, output)
-                finally:
-                    if artifacts is not None and output.exists():
-                        artifacts.append(output.read_text())
-        return requests
+                    patch.object(DEPLOY.subprocess, "run", side_effect=image_error) as inspect, \
+                    patch("sys.stdout", self.output):
+                DEPLOY.deploy(source, interval=0, **settings)
+        return inspect
 
     @staticmethod
-    def saved():
-        return {"docker_compose_raw": DEPLOY.render(COMPOSE.read_text(), ENV["IMAGE_PREFIX"], TAG)}
+    def prefix():
+        return [{}, {"git_commit_sha": SHA}, QUEUED]
 
-    @staticmethod
-    def variables():
-        return [{"key": "API_TOKEN", "value": "private-test-token"},
-                {"key": "DB_PASSWORD", "value": "private-test-password"},
-                {"key": "AHAMOVE_USER_TOKEN", "value": "private-test-ahamove-token"}]
-
-    def test_running_service_restarts_without_polling(self):
-        requests = self.invoke(iter([self.saved(), {}, self.saved(), self.variables(),
-                                     {"message": "Service restarting request queued."}]))
-        self.assertEqual([(request.get_method(), request.full_url) for request, _ in requests], [
-            ("GET", "https://coolify.example.test/api/v1/services/staging-service"),
-            ("PATCH", "https://coolify.example.test/api/v1/services/staging-service"),
-            ("GET", "https://coolify.example.test/api/v1/services/staging-service"),
-            ("GET", "https://coolify.example.test/api/v1/services/staging-service/envs"),
-            ("POST", "https://coolify.example.test/api/v1/services/staging-service/restart?latest=true"),
+    def test_success_waits_for_deployment_and_application_health(self):
+        inspect = self.invoke(iter(self.prefix() + [{"status": "queued"}, {"status": "in_progress"},
+                                                   FINISHED, {"status": "running:unhealthy"},
+                                                   {"status": "running:healthy"}]))
+        self.assertEqual([call.args[0] for call in inspect.call_args_list], [
+            ["docker", "manifest", "inspect", DEPLOY.IMAGE_PREFIX + "app:" + SHA],
+            ["docker", "manifest", "inspect", DEPLOY.IMAGE_PREFIX + "worker:" + SHA],
         ])
-        self.assertTrue(all(kwargs["context"].check_hostname for _, kwargs in requests))
-        self.assertTrue(all(kwargs["context"].verify_mode == ssl.CERT_REQUIRED for _, kwargs in requests))
+        request = self.requests[0][0]
+        self.assertEqual(request.get_method(), "PATCH")
+        self.assertEqual(json.loads(request.data), {"git_commit_sha": SHA, "is_auto_deploy_enabled": False,
+                                                  "include_source_commit_in_build": True,
+                                                  "is_container_label_escape_enabled": False})
+        self.assertTrue(request.full_url.endswith("/applications/staging-app"))
+        self.assertTrue(self.requests[2][0].full_url.endswith("/deploy?uuid=staging-app"))
+        self.assertEqual(self.requests[2][0].get_method(), "POST")
+        self.assertTrue(self.requests[3][0].full_url.endswith("/deployments/deployment-1"))
+        self.assertTrue(all(kwargs["context"].check_hostname and kwargs["context"].verify_mode == ssl.CERT_REQUIRED
+                            for _, kwargs in self.requests))
+        self.assertEqual(len(self.output.getvalue().splitlines()), 1)
+        self.assertIn(SHA, self.output.getvalue())
+        self.assertNotIn(ENV["COOLIFY_TOKEN"], self.output.getvalue())
 
-    @staticmethod
-    def portable_compose():
-        definition = yaml.safe_load(COMPOSE.read_text())
-        definition["services"]["app"]["labels"] = {
-            "traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule": "Host(`${DEPLOY_HOST}`) && Path(`/health`)"
-        }
-        definition["services"]["app"]["environment"]["APP_URL"] = "${APP_URL:?}"
-        return yaml.safe_dump(definition)
+    def test_missing_images_are_all_listed_before_api_access(self):
+        error = subprocess.CalledProcessError(1, "docker", stderr=b"private registry response")
+        with self.assertRaisesRegex(RuntimeError, "app:" + SHA + ".*worker:" + SHA):
+            self.invoke(iter([]), image_error=error)
+        self.assertEqual(self.requests, [])
 
-    def test_real_compose_proxy_host_and_router_are_specific_to_each_resource(self):
-        source = (SCRIPTS.parent / "compose.coolify.yaml").read_text()
-        for resource, host in (("staging-service", "staging.example.test"),
-                               ("production-service", "app.example.test")):
-            with self.subTest(resource=resource):
-                saved = {}
+    def test_commits_without_git_pinned_images_fail_before_api_access(self):
+        for images in ([], [DEPLOY.IMAGE_PREFIX + "app:old-tag"], ["other/app:${SOURCE_COMMIT}"]):
+            with self.subTest(images=images), self.assertRaises(ValueError) as error:
+                self.invoke(iter([]), compose={"services": {str(i): {"image": image}
+                                                           for i, image in enumerate(images)}})
+            self.assertEqual(str(error.exception),
+                             "This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
+                             "deploy a commit at or after the Git-pinned deployment merge.")
+            self.assertEqual(self.requests, [])
 
-                def save(request):
-                    saved["docker_compose_raw"] = base64.b64decode(json.loads(request.data)["docker_compose_raw"]).decode()
-                    return {}
+    def test_patch_must_retain_commit(self):
+        with self.assertRaisesRegex(RuntimeError, "did not retain git_commit_sha"):
+            self.invoke(iter([{}, {"git_commit_sha": "b" * 40}]))
+        self.assertEqual(len(self.requests), 2)
 
-                variables = [{"key": key, "value": "private-test-value"}
-                             for key in set(re.findall(r"\$\{([A-Z0-9_]+):\?", source)) if key != "APP_URL"]
-                variables.extend([{"key": "APP_URL", "value": "{{environment.APP_URL}}",
-                                   "real_value": "https://" + host},
-                                  {"key": "AHAMOVE_USER_TOKEN", "value": "private-test-token"}])
-                artifacts = []
-                requests = self.invoke(iter([self.saved(), variables, save, saved, variables, {}]),
-                                       compose_text=source, artifacts=artifacts, COOLIFY_SERVICE_UUID=resource,
-                                       DEPLOYMENT_ENVIRONMENT="production")
-                submitted = saved["docker_compose_raw"]
-                definition = yaml.safe_load(submitted)
-                labels = definition["services"]["web"]["labels"]
-                router = f"traefik.http.routers.p044-{resource}-internal"
-                self.assertIn(f"{router}.rule=Host(`{host}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))", labels)
-                self.assertIn(f"{router}.service=noop@internal", labels)
-                self.assertNotIn("${DEPLOY_", submitted)
-                self.assertIn("${POSTGRES_ADMIN_PASSWORD:?}", submitted)
-                self.assertNotIn("private-test-", submitted)
-                self.assertEqual(artifacts, [submitted])
-                self.assertTrue(requests[-1][0].full_url.endswith(f"/{resource}/restart?latest=true"))
+    def test_failed_deployment_prints_only_last_40_non_hidden_lines(self):
+        logs = [{"output": "\n".join(f"line {i}" for i in range(50))}, {"output": "secret", "hidden": True}]
+        with self.assertRaisesRegex(RuntimeError, "status: failed"):
+            self.invoke(iter(self.prefix() + [{"status": "failed", "commit": SHA, "logs": json.dumps(logs)}]))
+        self.assertEqual(self.output.getvalue().splitlines(), [f"line {i}" for i in range(10, 50)])
 
-    def test_resource_placeholder_does_not_require_host_placeholder(self):
-        source = COMPOSE.read_text().replace("custom.label", "router.${DEPLOY_RESOURCE}")
-        saved = {"docker_compose_raw": DEPLOY.render(source, ENV["IMAGE_PREFIX"], TAG).replace(
-            "${DEPLOY_RESOURCE}", "staging-service")}
-        artifacts = []
-        self.invoke(iter([self.saved(), {}, saved, self.variables(), {}]), compose_text=source, artifacts=artifacts)
-        self.assertIn("router.staging-service", artifacts[0])
-        self.assertNotIn("${DEPLOY_RESOURCE}", artifacts[0])
+    def test_cancelled_and_timed_out_deployments_fail(self):
+        for status in ("cancelled-by-user", "in_progress"):
+            with self.subTest(status=status), self.assertRaises(RuntimeError):
+                self.invoke(iter(self.prefix() + [{"status": status}]), deployment_timeout=0)
 
-    def test_diagnostic_artifact_survives_early_failures(self):
-        cases = [
-            ([], subprocess.TimeoutExpired("docker", 30)),
-            ([HTTPError("https://coolify.example.test", 401, "Unauthorized", {}, io.BytesIO())], None),
-            ([self.saved(), [{"key": "APP_URL", "value": ""}]], None),
-        ]
-        for responses, image_error in cases:
-            with self.subTest(responses=len(responses)):
-                artifacts = []
-                with self.assertRaises((RuntimeError, ValueError)):
-                    self.invoke(iter(responses), image_error=image_error,
-                                compose_text=self.portable_compose(), artifacts=artifacts)
-                self.assertEqual(len(artifacts), 1)
-                self.assertIn(ENV["IMAGE_PREFIX"] + "/app:" + TAG, artifacts[0])
-                self.assertIn("p044-staging-service-internal", artifacts[0])
-                self.assertIn("${DEPLOY_HOST}", artifacts[0])
-                self.assertNotIn("private-test-token", artifacts[0])
+    def test_finished_commit_must_match(self):
+        with self.assertRaisesRegex(RuntimeError, "commit mismatch"):
+            self.invoke(iter(self.prefix() + [{"status": "finished", "commit": "b" * 40}]))
 
-    def test_invalid_public_url_stops_before_compose_mutation(self):
-        for app_url in ("", "https://app.example.test/", "http://app.example.test", "https://app.example.test/path",
-                        "https://user:password@app.example.test", "https://app.example.test/` || true"):
-            with self.subTest(app_url=app_url), self.assertRaisesRegex(ValueError, "Coolify APP_URL"):
-                self.invoke(iter([self.saved(), [{"key": "APP_URL", "value": app_url}]]),
-                            compose_text=self.portable_compose())
+    def test_application_must_be_healthy(self):
+        with self.assertRaisesRegex(RuntimeError, "last status: exited:unhealthy"):
+            self.invoke(iter(self.prefix() + [FINISHED, {"status": "exited:unhealthy"}]), health_timeout=0)
 
-    def test_production_rejects_old_staging_only_compose_before_api_access(self):
-        with self.assertRaisesRegex(ValueError, "environment-aware Compose"):
-            self.invoke(iter([]), DEPLOYMENT_ENVIRONMENT="production")
-
-    def test_ahamove_accepts_either_complete_credential_form(self):
-        for credentials in ({"AHAMOVE_USER_TOKEN": " token "},
-                            {"AHAMOVE_API_KEY": " key ", "AHAMOVE_MOBILE": " mobile "}):
-            with self.subTest(keys=list(credentials)):
-                variables = [item for item in self.variables() if not item["key"].startswith("AHAMOVE_")]
-                variables.extend({"key": key, "value": value} for key, value in credentials.items())
-                requests = self.invoke(iter([self.saved(), {}, self.saved(), variables, {}]))
-                self.assertTrue(requests[-1][0].full_url.endswith("/restart?latest=true"))
-
-    def test_incomplete_ahamove_credentials_stop_before_restart(self):
-        for credentials in ({}, {"AHAMOVE_API_KEY": "private-key"}, {"AHAMOVE_MOBILE": "mobile"},
-                            {"AHAMOVE_USER_TOKEN": " ", "AHAMOVE_API_KEY": "private-key", "AHAMOVE_MOBILE": " "}):
-            with self.subTest(keys=list(credentials)):
-                variables = [item for item in self.variables() if not item["key"].startswith("AHAMOVE_")]
-                variables.extend({"key": key, "value": value} for key, value in credentials.items())
-                # No restart response is supplied: attempting it would fail the test.
-                with self.assertRaisesRegex(RuntimeError, "Set AHAMOVE_USER_TOKEN or both AHAMOVE_API_KEY"):
-                    self.invoke(iter([self.saved(), {}, self.saved(), variables]))
-
-    def test_empty_resolved_ahamove_token_stops_before_restart(self):
-        variables = self.variables()
-        variables[-1].update(value="{{environment.AHAMOVE_USER_TOKEN}}", real_value="")
-        with self.assertRaisesRegex(RuntimeError, "Set AHAMOVE_USER_TOKEN or both AHAMOVE_API_KEY"):
-            self.invoke(iter([self.saved(), {}, self.saved(), variables]))
-
-    def test_missing_or_unreadable_image_stops_before_any_coolify_request(self):
-        for error in (subprocess.CalledProcessError(1, "docker", stderr=b"private-registry-response"),
-                      subprocess.TimeoutExpired("docker", 30), FileNotFoundError("docker")):
-            with self.subTest(error=type(error).__name__), self.assertRaisesRegex(RuntimeError, "Cannot read image manifest"):
-                self.invoke(iter([]), image_error=error)
-
-    def test_every_distinct_image_is_checked_before_coolify(self):
-        calls = []
-
-        def inspect(command, **kwargs):
-            calls.append((command, kwargs))
-
-        self.invoke(iter([self.saved(), {}, self.saved(), self.variables(), {}]), image_error=inspect)
-        self.assertEqual([command for command, _ in calls], [
-            ["docker", "manifest", "inspect", ENV["IMAGE_PREFIX"] + "/app:" + TAG],
-            ["docker", "manifest", "inspect", "postgres:16-bookworm"],
-        ])
-        self.assertTrue(all(kwargs["check"] and kwargs["timeout"] == 30 for _, kwargs in calls))
-
-    def test_older_compose_without_ahamove_does_not_require_its_credentials(self):
-        definition = yaml.safe_load(COMPOSE.read_text())
-        environment = definition["services"]["app"]["environment"]
-        for key in list(environment):
-            if key.startswith("AHAMOVE_"):
-                del environment[key]
-        # An unused extension must not impose credentials on the actual services.
-        definition["x-unused"] = {"AHAMOVE_USER_TOKEN": "${AHAMOVE_USER_TOKEN:-}"}
-        source = yaml.safe_dump(definition)
-        saved = {"docker_compose_raw": DEPLOY.render(source, ENV["IMAGE_PREFIX"], TAG)}
-        variables = [item for item in self.variables() if not item["key"].startswith("AHAMOVE_")]
-        requests = self.invoke(iter([saved, {}, saved, variables, {}]), compose_text=source)
-        self.assertTrue(requests[-1][0].full_url.endswith("/restart?latest=true"))
-
-    def test_rejected_restart_request_fails_the_job(self):
-        error = HTTPError("https://coolify.example.test", 503, "Unavailable", {}, io.BytesIO())
-        with self.assertRaisesRegex(RuntimeError, r"POST /services/staging-service/restart\?latest=true returned HTTP 503"):
-            self.invoke(iter([self.saved(), {}, self.saved(), self.variables(), error]))
-
-    def test_wrong_image_references_stop_before_start(self):
-        with self.assertRaisesRegex(RuntimeError, "did not retain"):
-            self.invoke(iter([self.saved(), {}, {"docker_compose_raw": "services: {}"}]))
-
-    def test_infrastructure_changes_must_be_retained_before_start(self):
-        for change in ("volume", "environment", "service"):
-            saved = yaml.safe_load(self.saved()["docker_compose_raw"])
-            if change == "volume":
-                saved["services"]["db"]["volumes"] = ["wrong-data:/var/lib/postgresql/data"]
-            elif change == "environment":
-                saved["services"]["app"]["environment"]["API_TOKEN"] = "wrong-value"
-            else:
-                saved["services"].pop("app")
-            with self.subTest(change=change), self.assertRaisesRegex(RuntimeError, "did not retain"):
-                self.invoke(iter([self.saved(), {}, {"docker_compose_raw": yaml.safe_dump(saved)}]))
-
-    def test_missing_required_variable_stops_before_service_start(self):
-        variables = [item for item in self.variables() if item["key"] != "API_TOKEN"]
-        with self.assertRaisesRegex(RuntimeError, "Set required Coolify variables.*API_TOKEN"):
-            self.invoke(iter([self.saved(), {}, self.saved(), variables]))
-
-    def test_empty_resolved_shared_variable_is_not_treated_as_configured(self):
-        variables = self.variables()
-        for item in variables:
-            if item["key"] == "API_TOKEN":
-                item.update(value="{{environment.API_TOKEN}}", real_value="")
-        with self.assertRaisesRegex(RuntimeError, "Set required Coolify variables.*API_TOKEN"):
-            self.invoke(iter([self.saved(), {}, self.saved(), variables]))
-
-    def test_missing_read_sensitive_stops_before_mutation(self):
-        with self.assertRaisesRegex(RuntimeError, "read:sensitive"):
-            self.invoke(iter([{}]))
-
-    def test_api_error_does_not_disclose_response_body_or_token(self):
-        error = HTTPError("https://coolify.example.test", 403, "private-test-token", {}, io.BytesIO(b"secret-body"))
-        with self.assertRaises(RuntimeError) as raised:
-            self.invoke(iter([error]))
-        self.assertIn("HTTP 403", str(raised.exception))
-        self.assertNotIn("private-test-token", str(raised.exception))
-        self.assertNotIn("secret-body", str(raised.exception))
-
-    def test_unencrypted_control_url_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "HTTPS"):
-            self.invoke(iter([]), COOLIFY_URL="http://coolify.example.test")
-
-    def test_render_preserves_infrastructure_labels_and_runtime_variables(self):
-        source = COMPOSE.read_text()
-        expected = yaml.safe_load(source)
-        expected["services"]["app"]["image"] = ENV["IMAGE_PREFIX"] + "/app:" + TAG
-        rendered = DEPLOY.render(source, ENV["IMAGE_PREFIX"], TAG)
-        self.assertEqual(yaml.safe_load(rendered), expected)
-        self.assertIn("# Minimal stack", rendered)
+    def test_already_queued_missing_deployment_has_clear_error(self):
+        queued = {"deployments": [QUEUED["deployments"][1] | {"message": "Deployment already queued for this commit."}]}
+        error = HTTPError("https://coolify.example.test", 404, "Not found", {}, io.BytesIO())
+        with self.assertRaisesRegex(RuntimeError, "UUID that no longer exists.*already be queued"):
+            self.invoke(iter([{}, {"git_commit_sha": SHA}, queued, error]))
 
 
-class RepositoryContractTests(unittest.TestCase):
+class ComposeContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.compose = yaml.safe_load((SCRIPTS.parent / "compose.coolify.yaml").read_text())
+        cls.source = (ROOT / "compose.coolify.yaml").read_text()
+        cls.compose = yaml.safe_load(cls.source)
+        cls.services = cls.compose["services"]
 
-    def test_environment_entrypoints_use_separate_repository_settings(self):
-        for target in ("staging", "production"):
-            with self.subTest(target=target):
-                workflow = yaml.load((SCRIPTS.parent / f".github/workflows/deploy-{target}.yml").read_text(),
-                                     Loader=yaml.BaseLoader)
-                job = workflow["jobs"][f"deploy-{target}"]
-                self.assertEqual(job["uses"], "./.github/workflows/deploy-coolify.yml")
-                self.assertNotIn("environment", job)
-                self.assertEqual(job["with"]["target"], target)
-                self.assertEqual(job["with"]["coolify_url"], "${{ vars.COOLIFY_" + target.upper() + "_URL }}")
-                self.assertEqual(job["with"]["service_uuid"], "${{ vars.COOLIFY_" + target.upper() + "_SERVICE_UUID }}")
-                self.assertEqual(job["secrets"]["coolify_token"], "${{ secrets.COOLIFY_" + target.upper() + "_TOKEN }}")
-                if target == "production":
-                    self.assertEqual(set(workflow["on"]), {"workflow_dispatch"})
-                else:
-                    self.assertEqual(set(workflow["on"]), {"workflow_dispatch", "workflow_run"})
-        shared = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-coolify.yml").read_text())
-        self.assertNotIn("environment", shared["jobs"]["deploy"])
+    def test_release_images_match_catalog_in_both_directions(self):
+        builds = json.loads((ROOT / "config/ci/application-images.json").read_text())
+        images = {service["image"][len(DEPLOY.IMAGE_PREFIX):].split(":")[0]
+                  for service in self.services.values()
+                  if service["image"].startswith(DEPLOY.IMAGE_PREFIX)
+                  and service["image"].endswith(":${SOURCE_COMMIT}")}
+        self.assertEqual(images, {build["service"] for build in builds})
+        self.assertTrue(all("build" not in service for service in self.services.values()))
+        for obsolete in ("${IMAGE_PREFIX}", "${RELEASE_TAG}", "${DEPLOY_"):
+            self.assertNotIn(obsolete, self.source)
+        self.assertEqual(self.compose["x-telemetry"]["RELEASE_SHA"], "${SOURCE_COMMIT}")
 
-    def test_every_release_image_has_a_workflow_build(self):
-        builds = json.loads((SCRIPTS.parent / "config/ci/application-images.json").read_text())
-        expected = {service["image"].split("/")[-1].split(":")[0]
-                    for service in self.compose["services"].values()
-                    if service["image"].startswith("${IMAGE_PREFIX}/")}
-        self.assertEqual({build["service"] for build in builds}, expected)
-        self.assertTrue(all("build" not in service for service in self.compose["services"].values()))
-
-    def test_volume_sources_do_not_use_coolify_unsupported_interpolation(self):
-        for name, service in self.compose["services"].items():
+    def test_volumes_and_credentials_are_scoped(self):
+        writers, credentials = [], []
+        for name, service in self.services.items():
             for volume in service.get("volumes", []):
-                source = volume.split(":", 1)[0] if isinstance(volume, str) else volume.get("source", "")
-                with self.subTest(service=name, source=source):
-                    self.assertNotIn("${", source)
+                self.assertNotIn("${", volume.split(":", 1)[0])
+                if volume.startswith("routing-data:") and not volume.endswith(":ro"):
+                    writers.append(name)
+            if any(key.startswith(("DATA_S3_", "AWS_")) for key in service.get("environment", {})):
+                credentials.append(name)
+        self.assertEqual(writers, ["provisioner"])
+        self.assertEqual(credentials, ["provisioner"])
+        self.assertEqual(self.services["location-seed"]["volumes"], ["blob-cache:/cache:ro"])
+        self.assertIn("blob-cache", self.compose["volumes"])
 
-    def test_internal_web_paths_are_blocked_at_the_proxy(self):
-        labels = self.compose["services"]["web"]["labels"]
-        rule = next(label.split("=", 1)[1] for label in labels
-                    if label.startswith("traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.rule="))
-        self.assertIn("Host(`${DEPLOY_HOST}`)", rule)
-        for path in ("/health", "/docs", "/redoc", "/openapi.json"):
-            self.assertIn(f"(`{path}`)", rule)
-        self.assertIn("traefik.http.routers.p044-${DEPLOY_RESOURCE}-internal.service=noop@internal", labels)
+    def test_osrm_mounts_and_dependency_chain(self):
+        osrm = [name for name in self.services if re.match(r"^(hcm|hanoi|danang)-", name)]
+        self.assertEqual(len(osrm), 9)
+        for name in osrm:
+            self.assertEqual(self.services[name]["volumes"], ["routing-data:/data:ro"])
+            self.assertEqual(self.services[name]["depends_on"], {"provisioner": {"condition": "service_completed_successfully"}})
+        self.assertEqual(self.services["location-seed"]["depends_on"], {
+            "postgis": {"condition": "service_healthy"}, "provisioner": {"condition": "service_completed_successfully"}})
+        self.assertEqual(self.services["location-migrate"]["depends_on"], {
+            "postgis": {"condition": "service_healthy"}, "location-seed": {"condition": "service_completed_successfully"}})
+
+    def test_one_shots_and_blob_pins(self):
+        for name in ("provisioner", "location-seed", "location-migrate", "moving-migrate"):
+            self.assertEqual(self.services[name]["restart"], "no")
+            self.assertIs(self.services[name]["exclude_from_hc"], True)
+        env = self.services["provisioner"]["environment"]
+        for pin in (env["SYNC_TARGETS"].split("=", 1)[1], env["FETCH_BLOBS"]):
+            self.assertRegex(pin, r"^[0-9a-f]{64}\.tar\.gz$")
+        self.assertEqual(env["FETCH_BLOBS"], self.services["location-seed"]["environment"]["SEED_BLOB"])
+        self.assertEqual(env["FETCH_BLOBS"], self.compose["x-blobs"]["location-dump"])
+        self.assertEqual(self.services["provisioner"]["security_opt"], ["no-new-privileges:true"])
+        self.assertIs(self.services["provisioner"]["init"], True)
+        self.assertNotIn("cap_drop", self.services["provisioner"])
+
+    def test_internal_web_labels(self):
+        router = "traefik.http.routers.p044-${COMPOSE_PROJECT_NAME}-internal"
+        self.assertEqual(self.services["web"]["labels"], [
+            router + ".rule=Host(`${SERVICE_FQDN_WEB}`) && (Path(`/health`) || PathPrefix(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))",
+            router + ".entrypoints=https", router + ".tls=true", router + ".service=noop@internal",
+        ])
+
+    def test_seed_uses_single_transaction_and_removes_upstream_extensions(self):
+        script = self.services["location-seed"]["entrypoint"][2]
+        self.assertIn("select to_regclass('public.lifeflow_schema_migrations') is not null", script)
+        self.assertIn("Location database already initialized; skipping seed", script)
+        self.assertIn('tar -xzf "/cache/$$SEED_BLOB" -C /tmp lifeflow.dump', script)
+        self.assertIn("DROP EXTENSION IF EXISTS postgis_tiger_geocoder, postgis_topology, fuzzystrmatch, postgis CASCADE;", script)
+        self.assertIn("DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;", script)
+        self.assertIn('pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump', script)
+        self.assertIn("-c ANALYZE", script)
+
+    @unittest.skipUnless(shutil.which("sh"), "sh is required")
+    def test_seed_initialization_check_fails_closed(self):
+        shell = shutil.which("sh")
+        script = self.services["location-seed"]["entrypoint"][2].replace("$$", "$")
+        for status, output, succeeds, restores in ((2, "", False, False), (0, "t", True, False),
+                                                   (0, "f", True, True), (0, "", False, False)):
+            with self.subTest(status=status, output=output), tempfile.TemporaryDirectory() as directory:
+                calls_file = Path(directory) / "calls"
+                for name in ("psql", "tar", "pg_restore"):
+                    stub = Path(directory) / name
+                    stub.write_text(f"""#!{shell}
+{{
+  printf '%s' '{name}'
+  printf '\\t%s' "$@"
+  printf '\\n'
+}} >> "$CALLS_FILE"
+""" + ("""case "$*" in
+  *to_regclass*)
+    if [ "$CHECK_STATUS" != 0 ]; then exit "$CHECK_STATUS"; fi
+    printf '%s\\n' "$CHECK_RESULT"
+    ;;
+esac
+""" if name == "psql" else "") + "exit 0\n")
+                    stub.chmod(0o755)
+                result = subprocess.run([shell, "-ec", script], text=True, capture_output=True, timeout=10,
+                                        env=os.environ | {"PATH": directory, "CALLS_FILE": str(calls_file),
+                                                          "CHECK_STATUS": str(status), "CHECK_RESULT": output,
+                                                          "SEED_BLOB": "test.tar.gz", "PGDATABASE": "test"})
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                calls = calls_file.read_text().splitlines()
+                self.assertIn("to_regclass", calls[0])
+                if restores:
+                    self.assertEqual([call.split("\t")[0] for call in calls],
+                                     ["psql", "tar", "psql", "pg_restore", "psql"])
+                    self.assertIn("DROP EXTENSION", calls[2])
+                    self.assertTrue(calls[4].endswith("\t-c\tANALYZE"))
+                else:
+                    self.assertEqual(len(calls), 1)
 
     def test_tester_payment_control_is_limited_to_configured_accounts(self):
         # payment-design D10: the tester "paid" control never ships to production and
@@ -355,97 +264,89 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(exposed, ["web"])
 
 
-
-class ReleaseSelectionTests(unittest.TestCase):
-    """Execute the workflow's selector against GitHub API responses without network access."""
-
+class WorkflowContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        workflow = yaml.safe_load((SCRIPTS.parent / ".github/workflows/deploy-coolify.yml").read_text())
-        cls.script = next(step["with"]["script"] for step in workflow["jobs"]["deploy"]["steps"]
-                          if step.get("id") == "release")
+        cls.source = (ROOT / ".github/workflows/deploy.yml").read_text()
+        cls.workflow = yaml.load(cls.source, Loader=yaml.BaseLoader)
 
-    def select(self, run_id="123", trigger="workflow_dispatch", main_sha=SHA, branch_error=False, **changes):
-        repository = "AI20K-Build-Phase-Cohort-4/P-044"
-        run = {"id": 123, "head_sha": SHA, "path": ".github/workflows/ci.yml",
-               "repository": {"full_name": repository}, "head_repository": {"full_name": repository},
-               "head_branch": "main", "event": "push", "status": "completed", "conclusion": "success"} | changes
+    def test_triggers_inputs_and_runner(self):
+        triggers = self.workflow["on"]
+        self.assertEqual(triggers["workflow_run"], {"workflows": ["CI"], "types": ["completed"], "branches": ["main"]})
+        inputs = triggers["workflow_dispatch"]["inputs"]
+        self.assertEqual(inputs["environment"]["options"], ["staging", "production"])
+        self.assertEqual(inputs["environment"]["type"], "choice")
+        self.assertEqual(inputs["sha"]["required"], "false")
+        job = self.workflow["jobs"]["deploy"]
+        self.assertEqual(job["runs-on"], ["self-hosted", "linux", "team-44"])
+        self.assertEqual(job["timeout-minutes"], "75")
+        self.assertIn("coolify-", job["concurrency"]["group"])
+        self.assertIn("inputs.environment", job["concurrency"]["group"])
+        self.assertEqual(job["concurrency"]["cancel-in-progress"], "false")
+        for condition in ("conclusion == 'success'", "event == 'push'", "github.ref == 'refs/heads/main'"):
+            self.assertIn(condition, job["if"])
+        self.assertEqual(self.workflow["permissions"], {"contents": "read", "packages": "read", "actions": "read"})
+
+    def test_environment_settings_and_pinned_compose(self):
+        for environment in ("STAGING", "PRODUCTION"):
+            for setting in ("URL", "APP_UUID"):
+                self.assertIn(f"vars.COOLIFY_{environment}_{setting}", self.source)
+            self.assertIn(f"secrets.COOLIFY_{environment}_TOKEN", self.source)
+        self.assertIn('git merge-base --is-ancestor "$SHA" origin/main', self.source)
+        self.assertIn('git show "$SHA:compose.coolify.yaml" > release-compose.yaml', self.source)
+        self.assertIn("pip install PyYAML==6.0.3", self.source)
+        self.assertIn("fetch-depth: 0", self.source)
+        self.assertIn("GITHUB_STEP_SUMMARY", self.source)
+        for name in ("deploy-staging.yml", "deploy-production.yml", "deploy-coolify.yml"):
+            self.assertFalse((ROOT / ".github/workflows" / name).exists())
+
+    def select(self, *, event="workflow_run", main=SHA, run_sha=SHA, automatic="", environment="production", sha=""):
+        job = self.workflow["jobs"]["deploy"]
+        script = next(step["with"]["script"] for step in job["steps"] if step.get("id") == "release")
         harness = """
-            const fs = require('node:fs');
-            const {script, run, trigger, main_sha, branch_error} = JSON.parse(fs.readFileSync(0, 'utf8'));
-            const outputs = {}, requests = [];
-            const github = {rest: {actions: {getWorkflowRun: async args => {
-              requests.push(args); return {data: run};
-            }}, repos: {getBranch: async args => {
-              requests.push(args);
-              if (branch_error) throw new Error('Branch lookup failed');
-              return {data: {commit: {sha: main_sha}}};
-            }}}};
-            const context = {eventName: trigger, repo: {owner: 'AI20K-Build-Phase-Cohort-4', repo: 'P-044'}};
-            const core = {setOutput: (key, value) => outputs[key] = value, info: () => {}};
-            const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
-            (async () => {
-              let error = null;
-              try { await new AsyncFunction('github', 'context', 'core', script)(github, context, core); }
-              catch (e) { error = e.message; }
-              process.stdout.write(JSON.stringify({outputs, requests, error}));
-            })();
+          const fs = require('node:fs');
+          const data = JSON.parse(fs.readFileSync(0, 'utf8'));
+          const outputs = {}, notices = [];
+          let calls = 0;
+          const github = {rest: {repos: {getBranch: async () => {
+            calls++; return {data: {commit: {sha: data.main}}};
+          }}}};
+          const context = {eventName: data.event, repo: {}, payload: {workflow_run: {head_sha: data.run_sha}}};
+          const core = {setOutput: (key, value) => outputs[key] = value, notice: value => notices.push(value)};
+          const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+          (async () => {
+            let error = null;
+            try { await new AsyncFunction('github', 'context', 'core', data.script)(github, context, core); }
+            catch (e) { error = e.message; }
+            process.stdout.write(JSON.stringify({outputs, notices, calls, error}));
+          })();
         """
-        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": self.script, "run": run,
-                                                                                "trigger": trigger, "main_sha": main_sha,
-                                                                                "branch_error": branch_error}),
-                                env=os.environ | {"CI_RUN_ID": run_id}, text=True, capture_output=True, check=True)
+        result = subprocess.run(["node", "-e", harness], text=True, capture_output=True, check=True,
+                                input=json.dumps({"script": script, "event": event, "main": main, "run_sha": run_sha}),
+                                env=os.environ | {"STAGING_AUTO_DEPLOY": automatic, "DEPLOY_ENVIRONMENT": environment,
+                                                  "REQUESTED_SHA": sha})
         return json.loads(result.stdout)
 
-    def test_selects_the_source_ci_tag_for_push_and_manual_ci(self):
-        for event in ("push", "workflow_dispatch"):
-            with self.subTest(event=event):
-                result = self.select(event=event)
-                self.assertIsNone(result["error"])
-                self.assertEqual(result["outputs"], {"deploy": "true", "sha": SHA, "tag": SHA + "-123"})
-                self.assertEqual(result["requests"][0]["run_id"], 123)
-
-    def test_rejects_unpublished_or_untrusted_runs(self):
-        for changes in ({"path": ".github/workflows/moving.yml"}, {"head_branch": "develop"},
-                        {"event": "pull_request"}, {"event": "pull_request_target"},
-                        {"status": "in_progress"}, {"conclusion": "failure"}, {"conclusion": "cancelled"},
-                        {"repository": {"full_name": "someone/P-044"}},
-                        {"head_repository": {"full_name": "someone/P-044"}},
-                        {"head_repository": None}, {"head_sha": "main"}):
-            with self.subTest(changes=changes):
-                result = self.select(**changes)
-                self.assertIn("successful, completed main CI run", result["error"])
-                self.assertEqual(result["outputs"], {})
-
-    def test_rejects_invalid_ids_before_api_access(self):
-        for run_id in ("", "0", "-1", "1.2", "123/attempts/1", "9007199254740992"):
-            with self.subTest(run_id=run_id):
-                result = self.select(run_id=run_id)
-                self.assertIn("numeric CI run ID", result["error"])
-                self.assertEqual(result["requests"], [])
-                self.assertEqual(result["outputs"], {})
-
-
-    def test_superseded_automatic_release_skips_before_setup(self):
-        result = self.select(trigger="workflow_run", main_sha="b" * 40)
+    def test_automatic_current_main_deploys_to_staging(self):
+        result = self.select()
         self.assertIsNone(result["error"])
-        self.assertEqual(result["outputs"], {"deploy": "false"})
+        self.assertEqual(result["outputs"], {"deploy": "true", "environment": "staging", "sha": SHA})
 
-    def test_current_automatic_release_can_deploy(self):
-        result = self.select(trigger="workflow_run")
-        self.assertIsNone(result["error"])
-        self.assertEqual(result["outputs"], {"deploy": "true", "sha": SHA, "tag": SHA + "-123"})
-        self.assertEqual(result["requests"][-1]["branch"], "main")
+    def test_disabled_and_superseded_automatic_runs_skip_with_notice(self):
+        for settings in ({"automatic": "false"}, {"main": "b" * 40}):
+            result = self.select(**settings)
+            self.assertIsNone(result["error"])
+            self.assertEqual(result["outputs"], {})
+            self.assertEqual(len(result["notices"]), 1)
 
-    def test_automatic_branch_lookup_failure_stops_release(self):
-        for settings in ({"branch_error": True}, {"main_sha": ""}):
-            with self.subTest(settings=settings):
-                result = self.select(trigger="workflow_run", **settings)
-                self.assertIsNotNone(result["error"])
-                self.assertEqual(result["outputs"], {})
+    def test_manual_commit_defaults_to_main_and_accepts_explicit_sha(self):
+        for sha in ("", "b" * 40):
+            result = self.select(event="workflow_dispatch", sha=sha)
+            self.assertIsNone(result["error"])
+            self.assertEqual(result["outputs"], {"deploy": "true", "environment": "production", "sha": sha or SHA})
 
-    def test_manual_older_release_does_not_need_current_main(self):
-        result = self.select(main_sha="b" * 40, branch_error=True)
-        self.assertIsNone(result["error"])
-        self.assertEqual(result["outputs"]["deploy"], "true")
-        self.assertEqual(len(result["requests"]), 1)
+    def test_invalid_commit_and_main_lookup_fail(self):
+        for settings in ({"sha": "main", "event": "workflow_dispatch"}, {"main": ""}):
+            result = self.select(**settings)
+            self.assertIsNotNone(result["error"])
+            self.assertEqual(result["outputs"], {})

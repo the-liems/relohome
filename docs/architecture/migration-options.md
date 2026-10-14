@@ -1,6 +1,7 @@
 # Coolify scaling and migration options
 
 Status: planned alternatives; no target selected or provisioned.
+Deployment mechanism superseded by [deploy/README.md](../../deploy/README.md).
 Scope and Coolify capabilities reviewed: 2026-10-06. Recheck versions, support,
 quotas, and regional pricing before implementation.
 
@@ -54,7 +55,7 @@ in this repository on `main`; changes use reviewed short-lived branches.
 
 The [canonical planned repository structure](infrastructure.md#planned-repository-structure)
 owns deployment paths and their lifecycle boundaries. Keep environment runtime
-configuration under `deploy/coolify/` and host/bootstrap/network inventory under
+configuration in `compose.coolify.yaml` and host/bootstrap/network inventory under
 `infra/coolify/<installation>/`. Record each environment's resource and destination
 identifiers as deployment inputs; source and destination may coexist during a move.
 

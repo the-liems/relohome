@@ -163,15 +163,15 @@ trực tiếp trên database production.
 
 ## Release qua Coolify hiện có của repo
 
-Đối chiếu main `8566aeb` ngày 14/10/2026 (Asia/Saigon): repo có các biến `COOLIFY_STAGING_URL`,
-`COOLIFY_STAGING_SERVICE_UUID`, `COOLIFY_PRODUCTION_URL`,
-`COOLIFY_PRODUCTION_SERVICE_UUID` và secrets tương ứng. Giữ secrets trên GitHub/
+Dùng [runbook deployment](../../deploy/README.md) với các biến
+`COOLIFY_STAGING_URL`, `COOLIFY_STAGING_APP_UUID`, `COOLIFY_PRODUCTION_URL`,
+`COOLIFY_PRODUCTION_APP_UUID` và secrets token tương ứng. Giữ secrets trên GitHub/
 Coolify; không cố đọc hoặc copy chúng vào `.env` local.
 
 1. Tạo PR từ nhánh nâng cấp vào main. CI PR kiểm tra và build các image bị ảnh
    hưởng; chưa publish/deploy bản PR.
 2. Sau review và merge, CI main publish toàn bộ release.
-   [deploy-staging.yml](../../.github/workflows/deploy-staging.yml) tự deploy khi
+   [deploy.yml](../../.github/workflows/deploy.yml) tự deploy khi
    CI thành công; workflow kiểm main HEAD để tránh đẩy release cũ.
 3. Cấp tài khoản operator trong web container staging bằng công cụ ở bước 3,
    lấy **ID từ database staging**, append vào `HOUSING_MODERATOR_IDS` của Platform
@@ -179,13 +179,14 @@ Coolify; không cố đọc hoặc copy chúng vào `.env` local.
    vào resource đó. Save và redeploy sau thay đổi environment; cấu hình key
    Vietmap ở Platform và chạy smoke test. Giữ cùng bộ image tags đã publish;
    không thay image bằng tag của một PR đang mở.
-4. Production dùng [deploy-production.yml](../../.github/workflows/deploy-production.yml)
-   với CI run ID đã kiểm trên staging. Chọn đúng resource và backup trước rollout;
+4. Production dùng **Deploy to Coolify** trong [deploy.yml](../../.github/workflows/deploy.yml)
+   với `environment=production` và SHA main đã kiểm trên staging. Chọn đúng
+   resource và backup trước rollout;
    account/role/config của production thuộc database production.
 
 Không merge vào main chỉ để vượt deploy guard: merge làm thay đổi code chung và
 khởi động deploy staging tự động. PR phải được review trước bước này.
 
-CI main `8566aeb` và workflow Deploy staging đã thành công khi đối chiếu; đây là
-kết quả Actions, không xác nhận account đã được cấp hay smoke test operator đã
-hoàn tất. Ghi lại CI run ID, release tag và kết quả đăng nhập khi bàn giao.
+Ghi lại commit SHA, blob pins và kết quả đăng nhập khi bàn giao. Job deploy chỉ
+thành công khi deployment finished, commit khớp và Application running:healthy;
+smoke test operator vẫn cần kiểm riêng.

@@ -1,0 +1,133 @@
+name: Deploy to Coolify
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options: [staging, production]
+        default: staging
+      sha:
+        description: Commit SHA (defaults to current main HEAD)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 75
+    concurrency:
+      group: coolify-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select environment and commit
+        id: release
+        uses: actions/github-script@v8
+        env:
+          STAGING_AUTO_DEPLOY: ${{ vars.STAGING_AUTO_DEPLOY }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          REQUESTED_SHA: ${{ inputs.sha }}
+        with:
+          script: |
+            const automatic = context.eventName === 'workflow_run';
+            if (automatic && process.env.STAGING_AUTO_DEPLOY === 'false') {
+              core.notice('Skipping release: staging auto-deploy is disabled.');
+              return;
+            }
+            const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
+            const main = branch.commit?.sha;
+            if (!/^[0-9a-f]{40}$/.test(main || '')) throw new Error('Cannot determine main HEAD.');
+            const sha = automatic ? context.payload.workflow_run.head_sha : (process.env.REQUESTED_SHA || main);
+            if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('Enter a 40-hex commit SHA.');
+            if (automatic && sha !== main) {
+              core.notice(`Skipping release: main has moved past ${sha}.`);
+              return;
+            }
+            const environment = automatic ? 'staging' : process.env.DEPLOY_ENVIRONMENT;
+            if (!['staging', 'production'].includes(environment)) throw new Error('Invalid deployment environment.');
+            core.setOutput('deploy', 'true');
+            core.setOutput('environment', environment);
+            core.setOutput('sha', sha);
+      - name: Validate commit and load Compose
+        if: steps.release.outputs.deploy == 'true'
+        run: |
+          git fetch --no-tags origin main
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$SHA" origin/main
+          git show "$SHA:compose.coolify.yaml" > release-compose.yaml
+        env:
+          SHA: ${{ steps.release.outputs.sha }}
+      - uses: actions/setup-python@v5
+        if: steps.release.outputs.deploy == 'true'
+        with:
+          python-version: "3.11"
+      - name: Create Python environment
+        if: steps.release.outputs.deploy == 'true'
+        run: bash scripts/setup-ci-python.sh
+      - name: Install deployment dependencies
+        if: steps.release.outputs.deploy == 'true'
+        run: pip install PyYAML==6.0.3
+      - name: Authenticate for image availability checks
+        id: registry
+        if: steps.release.outputs.deploy == 'true'
+        run: |
+          command -v docker
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-deploy-docker.XXXXXX")
+          export DOCKER_CONFIG
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          echo "config=$DOCKER_CONFIG" >> "$GITHUB_OUTPUT"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy pinned commit
+        if: steps.release.outputs.deploy == 'true'
+        run: python scripts/deploy-coolify.py --compose release-compose.yaml
+        env:
+          DEPLOY_SHA: ${{ steps.release.outputs.sha }}
+          COOLIFY_URL: ${{ steps.release.outputs.environment == 'staging' && vars.COOLIFY_STAGING_URL || (steps.release.outputs.environment == 'production' && vars.COOLIFY_PRODUCTION_URL || '') }}
+          COOLIFY_TOKEN: ${{ steps.release.outputs.environment == 'staging' && secrets.COOLIFY_STAGING_TOKEN || (steps.release.outputs.environment == 'production' && secrets.COOLIFY_PRODUCTION_TOKEN || '') }}
+          COOLIFY_APP_UUID: ${{ steps.release.outputs.environment == 'staging' && vars.COOLIFY_STAGING_APP_UUID || (steps.release.outputs.environment == 'production' && vars.COOLIFY_PRODUCTION_APP_UUID || '') }}
+      - name: Record deployment and blob pins
+        if: steps.release.outputs.deploy == 'true'
+        run: |
+          python - <<'PY'
+          import os
+          import yaml
+          with open('release-compose.yaml') as source:
+              services = yaml.safe_load(source)['services']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f"Environment: `{os.environ['DEPLOY_ENVIRONMENT']}`\nCommit: `{os.environ['DEPLOY_SHA']}`\n")
+              summary.write(f"Routing: `{services['provisioner']['environment']['SYNC_TARGETS']}`\n")
+              summary.write(f"Location dump: `{services['location-seed']['environment']['SEED_BLOB']}`\n")
+          PY
+        env:
+          DEPLOY_ENVIRONMENT: ${{ steps.release.outputs.environment }}
+          DEPLOY_SHA: ${{ steps.release.outputs.sha }}
+      - name: Clean up environment and registry credentials
+        if: always()
+        run: |
+          if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf -- "$CI_PYTHON_VENV"; fi
+          if [ -n "$REGISTRY_CONFIG" ]; then rm -rf -- "$REGISTRY_CONFIG"; fi
+        env:
+          REGISTRY_CONFIG: ${{ steps.registry.outputs.config }}

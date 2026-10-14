@@ -141,10 +141,10 @@ Kiểm tra native không thay thế kiểm tra image Linux; phải chạy `movin
 
 Workflow `Moving containers` kiểm tra file ứng dụng thay đổi và validate Moving.
 Workflow `CI` sở hữu build/publish ba image release trên `main`, dùng tag
-`<commit-sha>-<ci-run-id>` cùng với các image ứng dụng khác. PR chỉ build image
+`<commit-sha>` cùng với các image ứng dụng khác. PR chỉ build image
 bị ảnh hưởng và không publish GHCR hay dùng credential AhaMove. Required check
 nên chọn `Moving container gate` và `CI results`; các gate luôn kết thúc kể cả
-khi không có image cần build. Không còn publish tag chỉ có commit SHA từ Moving.
+khi không có image cần build. Tag commit SHA do CI ứng dụng publish, không do workflow Moving.
 Thay đổi test/Compose vẫn chạy build TypeScript, kiểm tra contract và validate
 Compose; live tests không tự gọi provider khi PR chưa có credential được duyệt.
 
@@ -155,7 +155,7 @@ cổng ngẫu nhiên và chỉ cleanup stack của chính job. Job staging tự 
 Compose dùng một lần. Image build/publish từ CI
 thành công chưa phải bằng chứng staging của cùng digest đã đạt.
 
-Xem [bàn giao Coolify](../../deploy/coolify/staging/moving.md) để teammate infra
+Xem [bàn giao Coolify](moving-coolify.md) để teammate infra
 gắn đúng image, secrets, network, HTTPS callback và migration vào pipeline deploy.
 
 ## Giới hạn kiểm chứng

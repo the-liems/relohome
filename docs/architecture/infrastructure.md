@@ -4,6 +4,9 @@ Status: planned delivery contract; existing host setup is recorded below.
 Updated: 2026-10-06. This document defines delivery requirements; it does not
 establish implemented automation. Deployment and production-readiness gates
 remain to be verified.
+The implemented delivery is now a Git-pinned Coolify Application; see the
+[deployment runbook](../../deploy/README.md). Release-contract sections below
+describe the earlier Service-based design.
 
 Use Docker Compose for local development, GitHub Actions on self-hosted runners
 for CI, and Coolify for staging and production delivery. Plan expansion through
@@ -34,8 +37,8 @@ Implementation tasks and progress belong in GitHub Issues, not duplicated here.
 | Coolify instance | Existing self-hosted installation; supply its HTTPS origin as the runtime `COOLIFY_URL` input |
 | Deployment CPU | ARM64; build and verify `linux/arm64` images |
 | CI runners | Self-hosted Linux runners labeled `team-44`; application, Moving, and PostGIS image builds additionally require `ARM64` and verify native execution. The persistent runner on the Coolify host includes PR jobs with host Docker access; current exposure described below. See [runner requirements and recovery](../runbooks/self-hosted-ci.md#arm64-runner-availability-and-recovery) |
-| Repository access | Organization blocks GitHub Apps and deploy keys; Coolify does not clone the repository |
-| Delivery source | GitHub Actions checks out source, builds images, and publishes to GHCR; Coolify pulls them |
+| Repository access | Organization blocks GitHub Apps and deploy keys; Coolify clones with a personal access token in the repository URL |
+| Delivery source | GitHub Actions builds SHA-tagged images and publishes to GHCR; Coolify reads Compose from Git at the pinned commit and pulls the images |
 | Registry access | Operator confirmed private-image pulling with a personal credential; verify permissions for each newly published application package |
 | Environment domains | Staging and production have separate domains/resources; final application domain values are runtime setup inputs |
 
@@ -440,7 +443,7 @@ stack; a shared PostgreSQL cluster requires distinct environment role names and
 verified permission boundaries as specified in the handoff. Runtime apps receive
 only the runtime URL, never
 the admin password or admin URL. The migration job receives both credentials
-because it establishes the runtime role. See the [Moving handoff](../../deploy/coolify/staging/moving.md)
+because it establishes the runtime role. See the [Moving handoff](../runbooks/moving-coolify.md)
 for environment database isolation. References reused within one Compose Service
 resolve to the same value; each environment's Service retains its own values.
 
