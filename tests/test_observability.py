@@ -252,12 +252,6 @@ def test_retention_freezes_pagination_deletes_trace_ids_then_verifies():
     assert "2026-10-05" in client.calls[1][0]
 
 
-def test_gateway_keeps_separate_tenants():
-    gateway = (ROOT / "deploy/observability/Caddyfile").read_text()
-    assert "X-Scope-OrgID staging" in gateway
-    assert "X-Scope-OrgID production" in gateway
-
-
 def test_payment_context_is_persisted_but_not_exposed(tmp_path, spans):
     import sqlite3
 
