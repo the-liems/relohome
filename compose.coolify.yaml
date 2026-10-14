@@ -77,9 +77,9 @@ x-osrm-driving: &osrm-driving
         read -r -t 4 response <&3;
         [[ "$${response}" == *" 200 "* ]]
 
-# replace after upload, see deploy/README.md
+# Content-addressed data pins (s3://$DATA_S3_BUCKET/<sha256>.tar.gz); see deploy/README.md.
 x-blobs:
-  location-dump: &location-dump "0000000000000000000000000000000000000000000000000000000000000000.tar.gz"
+  location-dump: &location-dump "e7bf3ea31659a756ecd7e75b935d925368f62317e123eb6b83b5320dcffaa119.tar.gz"
 
 services:
   provisioner:
@@ -94,8 +94,8 @@ services:
       AWS_SECRET_ACCESS_KEY: ${DATA_S3_SECRET_ACCESS_KEY:?}
       AWS_DEFAULT_REGION: ${DATA_S3_REGION:?}
       DATA_S3_ENDPOINT: ${DATA_S3_ENDPOINT:-}
-      # replace after upload, see deploy/README.md
-      SYNC_TARGETS: "routing-data=1111111111111111111111111111111111111111111111111111111111111111.tar.gz"
+      # <volume>=<blob>: rebuilt from the pinned blob on every deploy.
+      SYNC_TARGETS: "routing-data=b021df942ac6aa6a859583429a55db66d354ea50f55ce9b7852ea3d7a031ec1f.tar.gz"
       FETCH_BLOBS: *location-dump
     volumes: [routing-data:/volumes/routing-data, blob-cache:/cache]
 
