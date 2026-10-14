@@ -25,6 +25,7 @@ import { api, housePrice, money, requestId, safeUrl } from "../api";
 import type { Data, House } from "../types";
 import { estimateCost, type CostLine, type Usage } from "../housingCost";
 import { Dialog } from "./Dialog";
+import { HouseGallery } from "./HouseGallery";
 import { TenantHostReviews } from "./HousingReviews";
 
 export const amenities: Record<string, string> = {
@@ -226,7 +227,7 @@ export function HousingDetail({
   return (
     <Dialog title={uiText("Chi tiết nhà")} onClose={onClose}>
       <div className="detail-photo">
-        <HouseImage house={detail} />
+        <HouseGallery key={house.id} house={detail} />
       </div>
       <div className="detail-title">
         <h2>{detail.title}</h2>
