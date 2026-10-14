@@ -99,17 +99,24 @@ per backend; observability availability and HA are outside this PR's scope.
 In Coolify, create each resource as a Git-based Application the same way as the
 main application: a **Public Repository** whose URL carries a read-only personal
 access token (see [deployment setup](../../deploy/README.md#one-time-coolify-setup-per-environment)),
-the **Docker Compose** build pack, branch `main` and base directory `/`:
+the **Docker Compose** build pack, branch `main` and base directory
+`/deploy/observability`:
 
 | Resource | Docker Compose location |
 | --- | --- |
-| Shared platform | `/deploy/observability/compose.yaml` |
-| Staging or production Collector | `/deploy/observability/compose.collector.yaml` |
+| Shared platform | `/compose.yaml` |
+| Staging or production Collector | `/compose.collector.yaml` |
+
+The base directory must be `/deploy/observability`, not `/`. Coolify resolves
+the `./` mount sources from the base directory (it runs Compose with
+`--project-directory` set to it), so a base directory of `/` would look for
+`./grafana/...` at the repository root.
 
 Enable **Preserve repository during deployment** under **General > Build
-pipeline** on each resource. Without it, the config files are not present at
-deploy time; Docker then creates empty directories in their place and the
-containers fail to start. Turn off automatic deployment on push if config changes
+pipeline** on each resource. Coolify then copies the base directory to the
+server for the mounts. Without it, the config files are not present at deploy
+time; Docker then creates empty directories in their place and the containers
+fail to start. Turn off automatic deployment on push if config changes
 should only roll out when an operator redeploys.
 
 Langfuse and Grafana also bind to `127.0.0.1:3000` and `127.0.0.1:3001` on the
