@@ -1,4 +1,4 @@
-import { BookOpen, Compass, House } from "lucide-react";
+import { ArrowUpRight, BookOpen, Compass, House } from "lucide-react";
 import { Link } from "react-router-dom";
 import { t as uiText } from "../uiPreferences";
 import "./serviceSuggestions.css";
@@ -79,14 +79,23 @@ export function ServiceSuggestions({
           ];
           const content = (
             <>
-              <Icon size={15} aria-hidden="true" />
-              {uiText(item.label)}
+              <span className="service-suggestion-icon">
+                <Icon size={18} aria-hidden="true" />
+              </span>
+              <span className="service-suggestion-label">
+                {uiText(item.label)}
+              </span>
+              <ArrowUpRight
+                size={16}
+                className="service-suggestion-arrow"
+                aria-hidden="true"
+              />
             </>
           );
           return onOpen ? (
             <button
               key={item.service}
-              className="secondary"
+              className="secondary service-suggestion"
               data-service={item.service}
               disabled={disabled}
               onClick={() => onOpen(item.service, item.to)}
@@ -94,7 +103,12 @@ export function ServiceSuggestions({
               {content}
             </button>
           ) : (
-            <Link key={item.service} className="secondary" data-service={item.service} to={item.to}>
+            <Link
+              key={item.service}
+              className="secondary service-suggestion"
+              data-service={item.service}
+              to={item.to}
+            >
               {content}
             </Link>
           );

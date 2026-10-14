@@ -121,6 +121,7 @@ interface AppContext {
   notify: (message: string) => void;
   deleteThread: (id: string) => Promise<void>;
   resetThreads: () => Promise<void>;
+  requestLogin: (to?: string) => void;
 }
 const Context = createContext<AppContext>(null!);
 const useApp = () => useContext(Context);
@@ -163,6 +164,8 @@ export default function App() {
     [threads, setThreads] = useState<Thread[]>([]),
     [saved, setSaved] = useState<Saved[]>([]),
     [toast, setToast] = useState("");
+  const [loginOpen, setLoginOpen] = useState(false);
+  const loginDestination = useRef<string | null>(null);
   const navigate = useNavigate(),
     location = useLocation();
   useEffect(() => {
@@ -171,6 +174,24 @@ export default function App() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    const login = () => { if (user?.is_guest) { loginDestination.current = null; setLoginOpen(true); } };
+    window.addEventListener("relohome-login-required", login);
+    return () => window.removeEventListener("relohome-login-required", login);
+  }, [user?.is_guest]);
+  useEffect(() => {
+    if (!user?.is_guest) return;
+    const expired = () => {
+      forgetActiveChat(user.id);
+      setUser(null); setThreads([]); setSaved([]); setStatus(null); setLoginOpen(false);
+      navigate("/ai", { replace: true });
+      setToast(uiText("Phiên khách đã hết hạn. Bạn có thể bắt đầu lại hoặc đăng nhập."));
+      void api<User>("/session").then(setUser).catch(() => {});
+    };
+    const timer = window.setTimeout(expired, Math.max(0, user.expires_at * 1000 - Date.now()));
+    window.addEventListener("relohome-guest-expired", expired);
+    return () => { window.clearTimeout(timer); window.removeEventListener("relohome-guest-expired", expired); };
+  }, [user?.id, user?.is_guest]);
   async function refresh() {
     const results = await Promise.allSettled([
       api<Thread[]>("/threads"),
@@ -191,6 +212,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
   async function save(house: HouseData, thread: string) {
+    if (user?.is_guest) { setLoginOpen(true); return; }
     try {
       const existing = saved.some((s) => s.id === house.id);
       await api(
@@ -219,10 +241,17 @@ export default function App() {
       // Drafts are a convenience; storage may be unavailable.
     }
   }
+  function forgetOwnerDrafts() {
+    if (!user) return;
+    try {
+      Object.keys(sessionStorage).filter(key => key.startsWith("siu-draft-" + user.id + "-")).forEach(key => sessionStorage.removeItem(key));
+    } catch { /* Storage may be unavailable. */ }
+  }
   async function deleteThread(id: string) {
     await api("/threads/" + encodeURIComponent(id), "DELETE");
     if (user) forgetActiveChat(user.id, id);
     forgetDraft(id);
+    if (user?.is_guest) setUser({ ...user, active_thread_id: null });
     if (location.pathname === "/ai/" + id) navigate("/ai", { replace: true });
     await refresh();
     setToast("Đã xóa cuộc trò chuyện.");
@@ -250,8 +279,8 @@ export default function App() {
     );
   }
   if (location.pathname === "/")
-    return <LandingPage signedIn={Boolean(user)} />;
-  if (location.pathname === "/guides" && !user)
+    return <LandingPage signedIn={Boolean(user && !user.is_guest)} />;
+  if (location.pathname === "/guides" && (!user || user.is_guest))
     return <GuidesPage standalone />;
   if (loading)
     return (
@@ -302,6 +331,15 @@ export default function App() {
         }}
       />
     );
+  if (user.is_guest && (location.pathname === "/login" || location.pathname.startsWith("/landlord") || location.pathname.startsWith("/account") || location.pathname.startsWith("/roommate")))
+    return location.pathname.startsWith("/roommate") && !location.search.includes("signin=1")
+      ? <RoommateGuest />
+      : <Login onLogin={(account) => {
+          setUser(account);
+          if (location.pathname === "/login") navigate(user.active_thread_id ? "/ai/" + user.active_thread_id : "/ai", { replace: true });
+        }} />;
+  if (user.is_guest && location.pathname === "/ai" && user.active_thread_id)
+    return <Navigate to={"/ai/" + user.active_thread_id} replace />;
   return (
     <Context.Provider
       value={{
@@ -315,12 +353,12 @@ export default function App() {
         notify: setToast,
         deleteThread,
         resetThreads,
+        requestLogin: (to) => { loginDestination.current = to || null; setLoginOpen(true); },
       }}
     >
       <Shell>
         <Routes>
-          <WebRoute path="/ai" element={<Chat />} />
-          <WebRoute path="/ai/:threadId" element={<Chat />} />
+          <WebRoute path="/ai/:threadId?" element={<Chat />} />
           <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
           <WebRoute path="/guides" element={<GuidesPage />} />
           <WebRoute path="/landlord" element={<LandlordWorkspace />} />
@@ -334,11 +372,13 @@ export default function App() {
             element={
               <Account
                 onLogout={() => {
+                  forgetOwnerDrafts();
                   setUser(null);
                   setThreads([]);
                   setSaved([]);
                   setStatus(null);
-                  navigate("/login", { replace: true });
+                  navigate("/ai", { replace: true });
+                  void api<User>("/session").then(setUser).catch(() => navigate("/login", { replace: true }));
                 }}
               />
             }
@@ -370,6 +410,16 @@ export default function App() {
           />
         </Routes>
       </Shell>
+      {loginOpen && user.is_guest && (
+        <Dialog title={uiText("Đăng nhập để tiếp tục")} onClose={() => { loginDestination.current = null; setLoginOpen(false); }}>
+          <p className="auth-context-note">{uiText("Hội thoại và lựa chọn của bạn được giữ lại. Các thao tác vẫn cần bạn xác nhận.")}</p>
+          <Login embedded onLogin={(account) => {
+            setUser(account); setLoginOpen(false);
+            if (loginDestination.current) navigate(loginDestination.current);
+            loginDestination.current = null;
+          }} />
+        </Dialog>
+      )}
       {toast && (
         <div className="toast" role="status">
           {toast}
@@ -389,13 +439,16 @@ export default function App() {
 function Login({
   onLogin,
   admin = false,
+  embedded = false,
 }: {
   onLogin: (u: User) => void;
   admin?: boolean;
+  embedded?: boolean;
 }) {
   const [register, setRegister] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const LoginRoot = embedded ? "div" : "main";
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -411,12 +464,13 @@ function Login({
       );
     } catch (e) {
       setError((e as Error).message);
+      if (register && e instanceof ApiError && [409, 503].includes(e.status)) setRegister(false);
     } finally {
       setBusy(false);
     }
   }
   return (
-    <main className="login-page">
+    <LoginRoot className={"login-page" + (embedded ? " auth-dialog-login" : "")}>
       <AppearanceControls className="login-appearance" />
       <section className="login-story">
         <Link className="brand" to="/" aria-label={uiText("Trang giới thiệu")}>
@@ -542,7 +596,7 @@ function Login({
           </div>
         </div>
       </section>
-    </main>
+    </LoginRoot>
   );
 }
 
@@ -558,7 +612,7 @@ function rememberedHome() {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  const { user, status, threads } = useApp(),
+  const { user, status, threads, requestLogin } = useApp(),
     location = useLocation();
   const hostMode = location.pathname.startsWith("/landlord");
   useEffect(() => {
@@ -615,6 +669,7 @@ function Shell({ children }: { children: ReactNode }) {
             <AppearanceControls />
             <Link
               className="secondary mode-switch"
+              onClick={(event) => { if (user.is_guest) { event.preventDefault(); requestLogin("/landlord"); } }}
               to={hostMode ? "/ai" : "/landlord"}
               aria-label={
                 hostMode ? uiText("Chế độ thuê nhà") : uiText("Chế độ chủ nhà")
@@ -650,6 +705,7 @@ function Shell({ children }: { children: ReactNode }) {
                   className="icon-button outlined"
                   to="/ai"
                   aria-label={uiText("Cuộc trò chuyện mới")}
+                  onClick={(event) => { if (user.is_guest && active) { event.preventDefault(); setRemoving(active); } }}
                 >
                   <Plus size={20} />
                 </Link>
@@ -664,7 +720,9 @@ function Shell({ children }: { children: ReactNode }) {
                 <span>{uiText("Về chat")}</span>
               </Link>
             )}
-            <Link
+            {user.is_guest ? (
+              <button className="primary guest-signin" onClick={() => requestLogin()}>{uiText("Đăng nhập")}</button>
+            ) : <Link
               className="account-chip"
               to="/account"
               aria-label={uiText("Mở tài khoản")}
@@ -677,7 +735,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <strong>{user.name}</strong>
                 <small>{uiText("Tài khoản")}</small>
               </span>
-            </Link>
+            </Link>}
           </div>
         </header>
         <main
@@ -755,16 +813,16 @@ function Chat() {
   const { threadId } = useParams(),
     [params, setParams] = useSearchParams(),
     navigate = useNavigate(),
-    { user, status, saved, refresh, save, notify } = useApp();
+    { user, status, saved, refresh, save, notify, requestLogin } = useApp();
   const [thread, setThread] = useState<Thread | null>(null),
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [draft, setDraft] = useState(
       () =>
-        sessionStorage.getItem(
+        !user.is_guest ? sessionStorage.getItem(
           "siu-draft-" + user.id + "-" + (threadId || "new"),
-        ) || "",
+        ) || "" : "",
     ),
     [form, setForm] = useState<FormService | null>(null),
     [context, setContext] = useState<HouseData | null>(null),
@@ -780,6 +838,8 @@ function Chat() {
   const reviewedServices = useRef(new Set<string>());
   const viewingBatchBusy = useRef(false);
   const createdThreadForForm = useRef<string | null>(null);
+  const createdThreadForTurn = useRef<string | null>(null);
+  const previousPrincipal = useRef({ id: user.id, guest: Boolean(user.is_guest) });
   const submittedInputReply = useRef<string | null>(null);
   const manualWorkspaceReply = useRef<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null),
@@ -788,9 +848,29 @@ function Chat() {
     inFlight = useRef(false),
     generation = useRef(0),
     currentThread = useRef(threadId);
-  currentThread.current = threadId;
+  // The first POST may finish before React commits the new route. Keep its
+  // freshly created identity during that transition so the reply is not dropped.
+  currentThread.current = threadId ?? createdThreadForTurn.current ?? undefined;
   useEffect(() => {
     const version = ++generation.current;
+    const upgrading = previousPrincipal.current.guest && !user.is_guest && previousPrincipal.current.id !== user.id;
+    previousPrincipal.current = { id: user.id, guest: Boolean(user.is_guest) };
+    if (upgrading) {
+      // Claim keeps the same thread. Refresh authority without resetting the
+      // mounted workspace, form, draft or camera when its principal changes.
+      if (!threadId) return;
+      const abort = new AbortController();
+      void api<Thread>("/threads/" + threadId, "GET", undefined, abort.signal)
+        .then(value => { if (!abort.signal.aborted && currentThread.current === threadId) setThread(value); })
+        .catch(error => { if (error.name !== "AbortError") setError(error.message); });
+      return () => abort.abort();
+    }
+    if (createdThreadForTurn.current === threadId) {
+      createdThreadForTurn.current = null;
+      createdThreadForForm.current = null;
+      setLoading(false);
+      return;
+    }
     setError("");
     setContext(null);
     setFormPrefill(null);
@@ -831,6 +911,7 @@ function Chat() {
     if (thread && thread.id === threadId) rememberActiveChat(user.id, thread.id);
   }, [thread?.id, thread?.revision, threadId, user.id]);
   useEffect(() => {
+    if (user.is_guest) return;
     sessionStorage.setItem(
       "siu-draft-" + user.id + "-" + (threadId || "new"),
       draft,
@@ -879,6 +960,7 @@ function Chat() {
       if (!id) {
         const created = await api<Thread>("/threads", "POST");
         id = created.id;
+        createdThreadForTurn.current = id;
         if (quoteForm) setMovingSubmission({ threadId: id, formKey });
         setThread(created);
         if (form) createdThreadForForm.current = id;
@@ -1595,7 +1677,7 @@ function Chat() {
                   </span>
                   <span className="eyebrow">
                     {uiText("CHÀO ")}
-                    {user.name.toLocaleUpperCase("vi")}
+                    {(user.is_guest ? uiText("Khách") : user.name).toLocaleUpperCase("vi")}
                   </span>
                 </div>
                 <h1>
@@ -1654,6 +1736,7 @@ function Chat() {
                   <Link
                     className="quick-card"
                     data-service="roommate"
+                    onClick={(event) => { if (user.is_guest) { event.preventDefault(); requestLogin("/roommate"); } }}
                     to="/roommate"
                     aria-label={roommateText("Ở ghép", "Roommates")}
                   >
@@ -1703,12 +1786,12 @@ function Chat() {
                   <button
                     onClick={() => {
                       setDraft(
-                        "Tìm phòng ở Hà Nội dưới 5 triệu đồng mỗi tháng",
+                        "Tìm nhà ở khu Ocean Park 2 dưới 5 triệu",
                       );
                       input.current?.focus();
                     }}
                   >
-                    {uiText("“Tìm phòng ở Hà Nội dưới 5 triệu/tháng”")}
+                    {uiText("Tìm nhà ở khu Ocean Park 2 dưới 5 triệu")}
                     <ArrowRight size={16} />
                   </button>
                   <button
@@ -1770,6 +1853,9 @@ function Chat() {
                                 ? guidedReplyText(m.content.response.text, m.content.response.questions || [], inputServices)
                                 : m.content.response.text)}
                           </p>
+                          {user.is_guest && (m.content.response.data?.authentication_required || []).length > 0 && (
+                            <button className="primary guest-action-login" onClick={() => requestLogin()}>{uiText("Đăng nhập để tiếp tục")}</button>
+                          )}
                           {closedResultSummary(m, thread) && (
                             <details className="completed-result-detail">
                               <summary>Xem nội dung kết quả ban đầu</summary>
@@ -1983,9 +2069,9 @@ function Chat() {
                 <small>{uiText("ReloHome đang xử lý yêu cầu của bạn…")}</small>
               </div>
             )}
-            {error && (
+            {error && !!thread?.messages?.length && (
               <div className="notice error" role="alert">
-                {uiText(error)}
+                <span>{uiText(error)}</span>
                 <button
                   className="text-button"
                   onClick={() => {
@@ -2014,6 +2100,14 @@ function Chat() {
               )}
           </div>
           <div className="composer-wrap">
+            {error && !thread?.messages?.length && (
+              <div className="notice error composer-error" role="alert">
+                <span>{uiText(error)}</span>
+                <button className="text-button" onClick={() => { setError(""); reload().catch(value => setError(value.message)); }}>
+                  <RefreshCw size={14} />{uiText("Kiểm tra trạng thái")}
+                </button>
+              </div>
+            )}
             <div className="chat-plan-tools">
               {newMessage && (
                 <button
@@ -2118,7 +2212,7 @@ function Chat() {
                 onChange={(e) => setDraft(e.target.value)}
                 rows={1}
                 placeholder={uiText(
-                  "Nhắn cho ReloHome… cùng bắt đầu một điều mới",
+                  "Nhắn cho ReloHome…",
                 )}
                 aria-label={uiText("Tin nhắn cho ReloHome")}
                 maxLength={5000}

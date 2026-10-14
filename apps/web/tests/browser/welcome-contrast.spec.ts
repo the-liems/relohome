@@ -33,8 +33,14 @@ test("short welcome keeps all service choices and starter prompts above the comp
   await page.emulateMedia({ reducedMotion: "reduce" });
   const measurements: unknown[] = [];
   for (const [width, height] of [
+    [1920, 990],
+    [1536, 792],
+    [1440, 900],
+    [1024, 768],
+    [768, 1024],
     [1366, 650],
     [390, 680],
+    [320, 640],
   ]) {
     await page.setViewportSize({ width, height });
     for (const theme of ["light", "dark"] as const) {
@@ -69,11 +75,12 @@ test("short welcome keeps all service choices and starter prompts above the comp
             const box = el.getBoundingClientRect();
             return {
               overflow: el.scrollHeight - el.clientHeight,
+              scrollTop: el.scrollTop,
               bottom: box.bottom,
               top: box.top,
               controls: [
                 ...el.querySelectorAll(
-                  ".quick-card, .starter > button, .resume-chat",
+                  ".welcome-heading, .welcome h1, .quick-card, .starter > button, .resume-chat, .welcome-note",
                 ),
               ].map((control) => {
                 const bounds = control.getBoundingClientRect();
@@ -81,8 +88,9 @@ test("short welcome keeps all service choices and starter prompts above the comp
                   top: bounds.top,
                   bottom: bounds.bottom,
                   height: bounds.height,
+                  interactive: control.matches("button, a"),
                 };
-              }),
+              }).filter((control) => control.height > 0 || control.interactive),
             };
           });
         measurements.push({ width, height, theme, resume, ...geometry });
@@ -92,10 +100,11 @@ test("short welcome keeps all service choices and starter prompts above the comp
         expect(geometry.overflow, JSON.stringify(geometry)).toBeLessThanOrEqual(
           1,
         );
+        expect(geometry.scrollTop).toBe(0);
         for (const control of geometry.controls) {
           expect(control.top).toBeGreaterThanOrEqual(geometry.top - 1);
           expect(control.bottom).toBeLessThanOrEqual(geometry.bottom + 1);
-          expect(control.height).toBeGreaterThanOrEqual(44);
+          if (control.interactive) expect(control.height).toBeGreaterThanOrEqual(44);
         }
       }
     }
