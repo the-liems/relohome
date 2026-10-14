@@ -25,6 +25,7 @@ from relohome_agent.api.guest_claim import claim as claim_guest_thread
 from relohome_agent.guest_access import allowed as guest_route_allowed
 from relohome_agent.guest_access import is_guest, require_account
 from relohome_contracts.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
+from relohome_observability.fastapi import DiagnosticHTTPException
 from relohome_observability.runtime import invoke_graph
 from relohome_privacy import redact_pii
 
@@ -38,7 +39,10 @@ async def authenticate(
     if service and (service.mode == "live" or is_guest(x_user_id)):
         expected = service.settings.agent_api_token.get_secret_value() if service.settings else ""
         if not expected:
-            raise HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
+            raise DiagnosticHTTPException(
+                503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.",
+                error_type="missing_agent_api_token",
+            )
         if not authorization or not secrets.compare_digest(authorization, "Bearer " + expected):
             raise HTTPException(401, "Authentication required")
         if not x_user_id or x_user_id == "anonymous":
@@ -53,7 +57,7 @@ router = APIRouter(dependencies=[Depends(authenticate)])
 def get_service(request: Request) -> AgentService:
     service = getattr(request.app.state, "agent_service", None)
     if service is None:
-        raise HTTPException(503, "Agent runtime has not started")
+        raise DiagnosticHTTPException(503, "Agent runtime has not started", error_type="agent_runtime_not_started")
     return service
 
 

@@ -27,6 +27,7 @@ from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_observability import initialize
 from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.fastapi import DiagnosticHTTPException, diagnostic_exception_handler
 from relohome_roommate.background import RoommateMaintenance
 
 initialize("backend")
@@ -70,6 +71,7 @@ app = FastAPI(
 )
 
 app.add_middleware(TelemetryMiddleware, service_name="backend")
+app.add_exception_handler(DiagnosticHTTPException, diagnostic_exception_handler)
 
 settings = get_settings()
 app.add_middleware(

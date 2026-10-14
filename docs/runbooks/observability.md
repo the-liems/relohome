@@ -135,6 +135,44 @@ scrubbed in every mode. Loki receives only fixed operational events and bounded
 attributes, never message bodies, SQL or exception text. Metric labels never
 contain user, session, request or trace IDs.
 
+### HTTP failure diagnostics
+
+HTTPX auto-instrumentation creates outbound request spans. Failed automatic spans
+retain `error.type`; for legacy instrumentors that only record an exception event,
+the SDK copies the exception class into `error.type` before removing the event,
+message and stack trace. A failed HTTP span with no more specific cause falls back
+to its numeric HTTP status as `error.type`. These classifications explain the
+failure category, not the full exception message or infrastructure incident.
+
+Application decisions that become handled HTTP errors use a fixed diagnostic code:
+
+| `error.type` | Origin |
+| --- | --- |
+| `missing_agent_api_token` | Gateway or backend has no server authentication token |
+| `agent_runtime_not_started` | Backend has no initialized Agent service |
+| `upstream_invalid_json` | Gateway could not decode the upstream response as JSON |
+
+The optional `relohome_observability.fastapi` bridge carries these codes on
+`DiagnosticHTTPException` and `DiagnosticJSONResponse`. The exception handler or
+response boundary annotates the existing HTTP span and emits one ERROR
+`application.log` with `error_type`, correlated by trace/span ID. An exception
+caught for a successful fallback does not annotate the HTTP span. The bridge
+preserves existing response status, body and headers; codes are internal telemetry,
+not new browser API fields. Unknown codes are ignored and diagnostic failures are
+fail-open. No reason code is added as a metric label.
+
+To investigate `/web/api/status`, find the gateway request by its `x-trace-id`,
+inspect `error.type`, then follow any outbound HTTP span to the backend span and
+its cause. A missing gateway token stops before an outbound Agent API request;
+session-store SQLite spans can still appear. A transport failure has an automatic
+HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
+Use the existing Langfuse trace link from Loki for the corresponding ERROR log.
+
+These attributes already pass the Collector's privacy allowlists. Deploy updated
+gateway/backend images with the updated telemetry package; no Collector or Grafana
+configuration update is required for these diagnostics. Existing stored traces do
+not gain new attributes.
+
 ### Jev shadow metrics
 
 The guardrail observer exports `relohome.guardrail.observations`,

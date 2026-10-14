@@ -5,6 +5,7 @@ import functools
 import inspect
 import logging
 import os
+import re
 import sys
 import time
 from contextlib import contextmanager
@@ -30,6 +31,9 @@ SAFE_ATTRIBUTES = frozenset({
     "langfuse.environment", "langfuse.observation.type", "langfuse.observation.input", "langfuse.observation.output",
     "gen_ai.system", "gen_ai.provider.name", "gen_ai.operation.name", "gen_ai.request.model",
     "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens", "langfuse.observation.level",
+})
+HTTP_ERROR_TYPES = frozenset({
+    "missing_agent_api_token", "agent_runtime_not_started", "upstream_invalid_json",
 })
 
 
@@ -60,6 +64,20 @@ def _instruments(provider):
 def safe_span(span: ReadableSpan) -> ReadableSpan:
     """Drop raw HTTP URLs, SQL, stack traces and arbitrary instrumentor attributes before queueing."""
     attrs = {key: value for key, value in (span.attributes or {}).items() if key in SAFE_ATTRIBUTES}
+    if span.status.status_code == StatusCode.ERROR and "error.type" not in attrs:
+        # Legacy HTTP instrumentors record the exception as an event, without
+        # error.type. Keep only its class before discarding private event data.
+        for event in span.events or ():
+            error_type = (event.attributes or {}).get("exception.type")
+            if event.name == "exception" and isinstance(error_type, str) and re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_.]{0,255}", error_type,
+            ):
+                attrs["error.type"] = error_type
+                break
+        if "error.type" not in attrs:
+            status = attrs.get("http.response.status_code", attrs.get("http.status_code"))
+            if isinstance(status, int) and 400 <= status < 600:
+                attrs["error.type"] = str(status)
     name = span.name
     if "db.system" in attrs or "db.system.name" in attrs:
         statement = (span.attributes or {}).get("db.query.text", (span.attributes or {}).get("db.statement", ""))
@@ -195,6 +213,24 @@ def log_event(event: str, *, severity="INFO", **attributes):
         _logger.emit(body=event, severity_number=severity_number, severity_text=severity, attributes=attributes)
     except Exception:
         pass
+
+
+def record_http_error(error_type: str):
+    """Explain handled HTTP failures using fixed codes, without exporting exception values.
+
+    Automatic instrumentors cover dependency exceptions. Use this only where
+    application logic handles a failure before an instrumentor can observe it.
+    """
+    if not enabled() or not isinstance(error_type, str) or error_type not in HTTP_ERROR_TYPES:
+        return
+    try:
+        span = trace.get_current_span()
+        span.set_attribute("error.type", error_type)
+        span.set_attribute("langfuse.observation.level", "ERROR")
+        span.set_status(Status(StatusCode.ERROR))
+        log_event("application.log", severity="ERROR", source="relohome.http", error_type=error_type)
+    except Exception:
+        pass  # Diagnostic failures must not change the HTTP response.
 
 
 def current_context() -> dict[str, str]:

@@ -16,6 +16,102 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
+    import base64
+    import json
+
+    received = []
+    formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
+               "/v1/metrics": ExportMetricsServiceRequest}
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_POST(self):
+            assert self.headers["Authorization"] == "Bearer fixture-token"
+            message = formats[self.path]()
+            message.ParseFromString(self.rfile.read(int(self.headers["Content-Length"])))
+            received.append((self.path, MessageToDict(message)))
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    worker = threading.Thread(target=receiver.serve_forever, daemon=True)
+    worker.start()
+    try:
+        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "OBSERVABILITY_CONTENT_MODE": "metadata",
+               "APP_ENV": environment, "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
+               "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "http-errors-fixture",
+               "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
+               "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
+        env.pop("PYTHONPATH", None)
+        # Exercise legacy auto-instrumentation: it records exception events rather
+        # than error.type, which must still leave a safe cause after sanitation.
+        env.pop("OTEL_SEMCONV_STABILITY_OPT_IN", None)
+        result = subprocess.run([sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
+                                env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert "telemetry_initialization_failed" not in result.stderr
+        cases = json.loads(result.stdout)
+        spans = [span for path, payload in received if path == "/v1/traces"
+                 for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
+        logs = [record for path, payload in received if path == "/v1/logs"
+                for resource in payload["resourceLogs"] for scope in resource["scopeLogs"] for record in scope["logRecords"]]
+
+        def attributes(record):
+            return {item["key"]: int(item["value"]["intValue"]) if "intValue" in item["value"]
+                    else next(iter(item["value"].values())) for item in record.get("attributes", [])}
+
+        def trace_id(record):
+            return base64.b64decode(record.get("traceId", "")).hex()
+
+        for name, reason in (
+            ("missing_token", "missing_agent_api_token"),
+            ("invalid_json", "upstream_invalid_json"),
+            ("missing_runtime", "agent_runtime_not_started"),
+            ("missing_backend_token", "missing_agent_api_token"),
+        ):
+            case_trace = cases[name]["trace_id"]
+            matching = [span for span in spans if trace_id(span) == case_trace]
+            servers = [span for span in matching if span["kind"] == "SPAN_KIND_SERVER"]
+            assert len(servers) == 1
+            assert not any("http.method" in attributes(span) or "http.request.method" in attributes(span)
+                           for span in matching if span["kind"] == "SPAN_KIND_CLIENT")
+            span = servers[0]
+            assert span["status"]["code"] == "STATUS_CODE_ERROR"
+            assert attributes(span)["error.type"] == reason
+            assert attributes(span)["http.response.status_code"] == cases[name]["status"]
+            correlated = [record for record in logs if trace_id(record) == case_trace
+                          and attributes(record).get("error_type") == reason]
+            assert len(correlated) == 1
+            assert correlated[0]["spanId"] == span["spanId"]
+
+        matching = [span for span in spans if trace_id(span) == cases["connection_error"]["trace_id"]]
+        server = next(span for span in matching if span["kind"] == "SPAN_KIND_SERVER")
+        client = next(span for span in matching if span["kind"] == "SPAN_KIND_CLIENT"
+                      and "error.type" in attributes(span))
+        assert cases["connection_error"]["status"] == 502
+        assert attributes(client)["error.type"].endswith("ConnectError")
+        assert client["parentSpanId"] == server["spanId"]
+        assert all(not span.get("events") and "message" not in span.get("status", {}) for span in spans)
+        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
+        for path, payload in received:
+            if path != "/v1/metrics":
+                continue
+            for resource in payload["resourceMetrics"]:
+                for scope in resource["scopeMetrics"]:
+                    for metric in scope["metrics"]:
+                        if metric["name"] == "relohome.http.requests":
+                            assert all(set(attributes(point)) == {"method", "route", "status"}
+                                       for point in metric["sum"]["dataPoints"])
+    finally:
+        receiver.shutdown()
+        receiver.server_close()
+        worker.join(timeout=5)
+
+
 @pytest.mark.parametrize("domain,tool_name", [("payments", "get_payment"), ("flights", "get_booking")])
 def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
     received = []
