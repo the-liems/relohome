@@ -43,6 +43,7 @@ from relohome_agent.agents.routing import (
 from relohome_agent.agents.state import AgentInput, WorkflowState
 from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
+from relohome_agent.guest_access import READ_AGENTS, is_guest
 from relohome_observability import traced_node
 
 LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
@@ -72,6 +73,25 @@ def make_agent_node(deps: GraphDeps, name: AgentName):
 
     async def invoke(inp: AgentInput) -> dict:
         """Gọi subagent của lĩnh vực qua `run_with_policy`; lỗi là dữ liệu, không raise."""
+        if is_guest(inp.get("user_id")) and name.value not in READ_AGENTS:
+            from relohome_agent.agents.models import TaskResult
+
+            task = inp["task"]
+            return {
+                "task_results": {
+                    task.id: TaskResult(
+                        task_id=task.id,
+                        agent=name,
+                        plan_version=inp["plan_version"],
+                        status="failed",
+                        fetched_at=deps.clock(),
+                        source="authorization",
+                        error_code="unsupported_contract",
+                        error="Đăng nhập để sử dụng dịch vụ này.",
+                        data={"authentication_required": True, "service": name.value},
+                    )
+                }
+            }
         thread_id, request_id = inp["thread_id"], inp["request_id"]
         counts = await deps.usage.counts(thread_id, request_id)
         policy = AgentPolicy(

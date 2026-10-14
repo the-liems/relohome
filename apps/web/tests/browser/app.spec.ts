@@ -1088,7 +1088,7 @@ test("welcome: all starting actions fit before scrolling at laptop and mobile he
   await page.locator(".starter > button").first().click();
   await expect(
     page.getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true }),
-  ).toHaveValue("Tìm phòng ở Hà Nội dưới 5 triệu đồng mỗi tháng");
+  ).toHaveValue("Tìm nhà ở khu Ocean Park 2 dưới 5 triệu");
   expect(turns).toEqual([]);
 });
 
@@ -2455,7 +2455,7 @@ test("service failure preserves user form input", async ({ page }) => {
     r.fulfill({ status: 502, json: { detail: "Dịch vụ chưa phản hồi" } }),
   );
   await page.goto("/ai");
-  await page.getByRole("button", { name: /Tìm nhà/ }).click();
+  await page.getByRole("button", { name: "Tìm nhà Một nơi ở phù hợp với bạn", exact: true }).click();
   const modal = page.getByRole("dialog");
   await modal.getByLabel("Thành phố", { exact: true }).selectOption("Thành phố Hồ Chí Minh");
   await modal.getByLabel("Quận / khu vực", { exact: true }).fill("Quận 7");
@@ -2479,7 +2479,7 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
   await expect(
     page.getByRole("heading", { name: /kế hoạch gì hôm nay/ }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /Tìm nhà/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Tìm nhà Một nơi ở phù hợp với bạn", exact: true })).toBeEnabled();
   await expect(
     page.getByText("Không gian của bạn", { exact: true }),
   ).toHaveCount(0);

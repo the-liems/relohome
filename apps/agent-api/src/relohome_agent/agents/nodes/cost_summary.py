@@ -127,7 +127,13 @@ def make_cost_summary(deps: GraphDeps):
             deps.settings.approval_ttl,
             deps.settings.price_tolerance,
         )
-        update: dict = {"cost_summary": summary}
+        from relohome_agent.guest_access import is_guest
+
+        auth = []
+        if is_guest(state.get("user_id")) and summary.commit_actions:
+            auth = ["booking"]
+            summary = summary.model_copy(update={"commit_actions": []})
+        update: dict = {"cost_summary": summary, "auth_required": auth}
         if not summary.commit_actions:  # chỉ tìm / báo giá (S2): không cần xác nhận
             update["outcome"] = Outcome(node="cost_summary", code=OutcomeCode.ANSWER)
         return update

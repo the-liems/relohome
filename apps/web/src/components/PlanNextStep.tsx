@@ -32,6 +32,7 @@ export function PlanNextStep({
   return (
     <section
       className="plan-next-step"
+      data-service={step.agent}
       aria-label={uiText("Bước tiếp theo trong kế hoạch")}
     >
       <button

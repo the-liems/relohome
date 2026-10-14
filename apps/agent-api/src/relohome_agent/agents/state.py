@@ -41,6 +41,8 @@ class WorkflowState(TypedDict, total=False):
     # --- Input & hội thoại (API ghi) ---
     messages: Annotated[list[AnyMessage], add_messages]
     user_id: str
+    guest_claim: dict | None
+    auth_required: list[str]
     thread_id: str
     request_id: str  # mỗi lượt API tạo mới
     moving_locations: dict | None  # validated explicit user pins; never authored by LLM

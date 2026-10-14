@@ -86,6 +86,14 @@ services:
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+      # Guest chat is opt-in. Keep the existing single gateway worker/replica.
+      RELOHOME_GUEST_ENABLED: ${RELOHOME_GUEST_ENABLED:-false}
+      RELOHOME_GUEST_TURNS_30M: ${RELOHOME_GUEST_TURNS_30M:-10}
+      RELOHOME_GUEST_TURNS_DAY: ${RELOHOME_GUEST_TURNS_DAY:-30}
+      RELOHOME_GUEST_IP_TURNS_30M: ${RELOHOME_GUEST_IP_TURNS_30M:-30}
+      RELOHOME_GUEST_IP_TURNS_DAY: ${RELOHOME_GUEST_IP_TURNS_DAY:-100}
+      RELOHOME_GUEST_GLOBAL_TURNS_DAY: ${RELOHOME_GUEST_GLOBAL_TURNS_DAY:-300}
+      RELOHOME_GUEST_REQUESTS_MINUTE: ${RELOHOME_GUEST_REQUESTS_MINUTE:-120}
       # Encrypts flight booker profiles. Empty: a key file is created in web-data.
       SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
       # Owner-uploaded listing photos live on the persistent web-data volume.

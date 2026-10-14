@@ -669,6 +669,17 @@ def make_respond(deps: GraphDeps):
     async def respond(state: WorkflowState) -> dict:
         """Soạn AgentResponse, gợi ý bước tiếp theo (S9) và ghi bộ nhớ cuối lượt."""
         response = compose(state, deps)
+        from relohome_agent.guest_access import READ_AGENTS, is_guest
+
+        if is_guest(state.get("user_id")):
+            blocked = set(state.get("auth_required") or [])
+            intake = state.get("intake")
+            blocked.update(name.value for name in (intake.domains if intake else []) if name.value not in READ_AGENTS)
+            if blocked:
+                response.data["authentication_required"] = sorted(blocked)
+                response.text += (
+                    "\nĐăng nhập để tiếp tục dịch vụ cần tài khoản. Hội thoại và lựa chọn của bạn được giữ lại."
+                )
         response.suggestions = next_step_suggestions(state, deps.agents, deps.settings.max_suggestions, response.kind)
         update: dict = {
             "response": response,

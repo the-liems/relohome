@@ -20,6 +20,10 @@ from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.progress import plan_progress
 from relohome_agent.agents.selections import selected_option, selection_is_current
 from relohome_agent.agents.wiring import AgentService
+from relohome_agent.api.guest_claim import GuestClaim
+from relohome_agent.api.guest_claim import claim as claim_guest_thread
+from relohome_agent.guest_access import allowed as guest_route_allowed
+from relohome_agent.guest_access import is_guest, require_account
 from relohome_contracts.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 from relohome_observability.runtime import invoke_graph
 from relohome_privacy import redact_pii
@@ -29,7 +33,9 @@ async def authenticate(
     request: Request, authorization: str | None = Header(default=None), x_user_id: str | None = Header(default=None)
 ):
     service = getattr(request.app.state, "agent_service", None)
-    if service and service.mode == "live":
+    if x_user_id and x_user_id.startswith("guest_") and not is_guest(x_user_id):
+        raise HTTPException(401, "Invalid gateway guest identity")
+    if service and (service.mode == "live" or is_guest(x_user_id)):
         expected = service.settings.agent_api_token.get_secret_value() if service.settings else ""
         if not expected:
             raise HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
@@ -37,6 +43,8 @@ async def authenticate(
             raise HTTPException(401, "Authentication required")
         if not x_user_id or x_user_id == "anonymous":
             raise HTTPException(401, "A gateway-verified X-User-Id is required")
+    if is_guest(x_user_id) and not guest_route_allowed(request.url.path, request.method):
+        require_account(x_user_id)
 
 
 router = APIRouter(dependencies=[Depends(authenticate)])
@@ -51,6 +59,11 @@ def get_service(request: Request) -> AgentService:
 
 UserId = Annotated[str, Header(alias="X-User-Id", min_length=1, max_length=128)]
 Service = Annotated[AgentService, Depends(get_service)]
+
+
+@router.post("/chat/guest-claim")
+async def guest_claim(body: GuestClaim, service: Service, user_id: UserId):
+    return await claim_guest_thread(body, service, user_id)
 
 
 @router.get("/map/search")
@@ -309,6 +322,7 @@ async def thread_state(thread_id: str, service: Service, user_id: UserId = "anon
         "pending": pending,
         "selections": _selections(values),
         "progress": plan_progress(values),
+        **({"auth_required": values.get("auth_required") or []} if is_guest(user_id) else {}),
         "checkout": service.checkout.thread_view(user_id, thread_id, values) if service.checkout else None,
         "viewing": service.viewing.thread_view(user_id, thread_id, values) if service.viewing else None,
     }

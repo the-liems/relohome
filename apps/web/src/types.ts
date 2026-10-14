@@ -1,12 +1,27 @@
 // Domain payloads are additive. Unknown component types fall back to explanatory text.
 export type Data = Record<string, any>;
-export interface User {
+export interface AccountUser {
+  kind?: "account";
+  is_guest?: false;
   is_admin?: boolean;
   id: string;
   email: string;
   name: string;
   preferences: Record<string, string>;
 }
+export interface GuestSession {
+  kind: "guest";
+  is_guest: true;
+  is_admin?: false;
+  id: string;
+  email: "";
+  name: string;
+  preferences: Record<string, string>;
+  expires_at: number;
+  active_thread_id: string | null;
+  capabilities: string[];
+}
+export type User = AccountUser | GuestSession;
 export interface House extends Data {
   id: string;
   title: string;

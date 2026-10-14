@@ -55,6 +55,7 @@
   "Kể ReloHome nghe, mình sẽ cùng bạn bắt đầu.": "Tell ReloHome what you have in mind.",
   "Bạn luôn là người xác nhận trước mỗi giao dịch.": "You confirm every transaction before it happens.",
   "Nhắn cho ReloHome… cùng bắt đầu một điều mới": "Message ReloHome… start something new",
+  "Nhắn cho ReloHome…": "Message ReloHome…",
   "Tin nhắn cho ReloHome": "Message ReloHome",
   "Gửi tin nhắn": "Send message",
   "Enter để gửi": "Enter to send",
@@ -570,7 +571,7 @@
   "Tìm địa chỉ hoặc chọn điểm B trên bản đồ": "Search an address or choose B on the map",
   "Chọn phương án vào kế hoạch": "Add option to plan",
   "Trực tiếp": "Direct",
-  "“Tìm phòng ở Hà Nội dưới 5 triệu/tháng”": "“Find a room in Hanoi under VND 5 million/month”",
+  "Tìm nhà ở khu Ocean Park 2 dưới 5 triệu": "Find a home in Ocean Park 2 under VND 5 million",
   "“Tôi muốn tìm nhà và chuyển đồ tới đó”": "“Find a home and get a moving quote”",
   "Ví dụ: đổi thời gian sang 15 giờ": "Example: change the time to 15:00",
   "Điểm cần sửa": "Details to update",
@@ -1605,5 +1606,10 @@
   "Lọc tin theo nhà": "Filter listings by property",
   "Lọc thống kê theo tin": "Filter statistics by listing",
   "Tất cả tin": "All listings",
-  "Đăng nhập khách / chủ nhà": "Customer / landlord sign in"
+  "Đăng nhập khách / chủ nhà": "Customer / landlord sign in",
+  "Đăng nhập để tiếp tục": "Sign in to continue",
+  "Hội thoại và lựa chọn của bạn được giữ lại. Các thao tác vẫn cần bạn xác nhận.": "Your conversation and selections stay in place. Actions still need your confirmation.",
+  "Phiên khách đã hết hạn. Bạn có thể bắt đầu lại hoặc đăng nhập.": "Your guest session has expired. Start again or sign in.",
+  "Đăng nhập để sử dụng chức năng này.": "Sign in to use this feature.",
+  "Bạn đã dùng hết lượt của phiên khách. Hãy chờ hoặc đăng nhập.": "You have reached the guest limit. Wait or sign in."
 }

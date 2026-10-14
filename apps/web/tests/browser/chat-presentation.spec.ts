@@ -3,10 +3,13 @@ import AxeBuilder from "@axe-core/playwright";
 import { waitForUiMotion } from "./helpers/ui-motion";
 
 async function fixture(page: Page) {
+  let signedIn = true;
   const writes: string[] = [];
   const thread = { id: "th_session", title: "Prompt không dùng làm tên thương hiệu", updated: Date.now() / 1000, revision: 1, runs: [], state: { plan: { tasks: [], version: 1 }, intake: { user_confirmed_facts: {} }, task_status: {} }, messages: [{ id: "reply", role: "assistant", created: Date.now() / 1000, content: { response: { kind: "ANSWER", text: "Nội dung phiên đang làm" } } }] };
   await page.route("**/web/api/**", route => {
     const path = new URL(route.request().url()).pathname.replace("/web/api", "");
+    if (path === "/logout") signedIn = false;
+    if (path === "/session" && !signedIn) return route.fulfill({ status: 401, json: { detail: "Vui lòng đăng nhập để tiếp tục." } });
     if (route.request().method() !== "GET") writes.push(path);
     const body = path === "/session" ? { id: "tenant", name: "An", email: "an@example.test", preferences: {} }
       : path === "/status" ? { domains: ["property", "map", "flight", "relocation"] }
