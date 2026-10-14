@@ -36,8 +36,7 @@ they use public pinned images, are not deployed by CD and follow `main` when an
 operator redeploys them. There is no packaging step; edit the files in
 `deploy/observability/` and redeploy.
 Collector and Caddy expand their own environment references, and Grafana
-provisioning keeps its own `$$` escape for trace links. The validation command
-runs these same files in a disposable copy.
+provisioning keeps its own `$$` escape for trace links.
 
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
@@ -80,14 +79,9 @@ per backend; observability availability and HA are outside this PR's scope.
    Budget space for images, all named volumes, ClickHouse merges and Collector
    queues. Queue length bounds batches, not total storage bytes; monitor its
    volume and reserve disk headroom.
-3. Verify pinned image architecture and all backend configuration:
-
-   ```bash
-   python scripts/validate-observability.py --images
-   ```
-
-   This uses Docker, PyYAML and temporary test credentials. Full validation below
-   requires enough capacity to start a disposable copy of the platform.
+3. Confirm each image pinned in `compose.yaml` and `compose.collector.yaml` has
+   an ARM64 build, for example
+   `docker buildx imagetools inspect grafana/grafana:13.2.3`.
 4. Identify the actual existing application network for each environment with
    `docker network ls`. Plan authenticated HTTPS domains for Grafana and Langfuse.
    Confirm application → Collector and Collector → gateway
@@ -465,8 +459,8 @@ The script prints only environment and counts. Never run cleanup with keys for
 an unrelated project.
 
 Back up persistent volumes and encryption secrets according to the deployment's
-backup policy. Pin upgraded images, read their migration notes, rerun validation
-and stage the upgrade first. Downgrading Langfuse after a schema migration is not
+backup policy. Pin upgraded images, read their migration notes, check their
+ARM64 builds and deploy the upgrade to staging first. Downgrading Langfuse after a schema migration is not
 a substitute for restoring a compatible backup.
 
 Rollback application telemetry by setting `OBSERVABILITY_ENABLED=false` and
@@ -535,25 +529,15 @@ Image checks import canonical entrypoints in isolated Python from
 the shared observability deployment or enable telemetry automatically.
 
 ```bash
-python -m pytest tests/test_observability.py tests/test_observability_export.py -q
-python scripts/validate-observability.py --images --smoke
+python -m pytest tests/test_observability.py tests/test_observability_export.py tests/test_observability_config.py -q
 npm run build
 npm run test:ci
 ```
 
-The smoke command creates a unique disposable Docker project with random test
-credentials, test-only object storage and loopback-only ports. It overrides
-inherited bucket settings with local test values and never contacts the real
-bucket. It checks provisioning/ingestion/isolation and queue recovery, exercises
-Python/LangGraph → Node MCP → PostgreSQL and verifies trace deletion. It flushes Loki/Cortex, then starts
-query-only readers with empty volumes and verifies that both read the exported
-data from their disposable S3 buckets. This uses test-only flush/scan settings;
-the deployed compactor and storage configuration stays unchanged.
-Install the Python requirements and run `npm ci && npm run build` in
-the repository root before this command. It removes only that project's containers
-and volumes. If the
-process is forcibly interrupted, inspect `p044-observability-test-*` resources
-and clean up that exact test project before retrying.
+These tests check the SDKs and the committed configuration files; none of them
+start the observability services. Staging is where the stack first runs
+together, so deploy configuration and image changes to staging and check the
+dashboard, alerts and a connected trace before production.
 
 References: [Langfuse OTLP](https://langfuse.com/integrations/native/opentelemetry),
 [retention licensing](https://langfuse.com/docs/administration/data-retention),
