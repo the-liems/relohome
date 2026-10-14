@@ -122,7 +122,8 @@ Set these repository Actions variables and secrets:
 | Optional variable | `STAGING_AUTO_DEPLOY=false` pauses automatic staging deployment |
 
 URLs are HTTPS Coolify origins. UUIDs identify the new Applications. Tokens need
-`read`, `write` and `deploy` abilities for their selected resources. Old Coolify
+`read`, `read:sensitive` (so failed deployments print their log tail), `write`
+and `deploy` abilities for their selected resources. Old Coolify
 Service UUID variables can be deleted after cutover. The runner needs Python,
 Docker CLI for manifest checks, and outbound HTTPS access to Coolify and GHCR;
 see [self-hosted CI](../docs/runbooks/self-hosted-ci.md).
@@ -149,7 +150,7 @@ not enforce that operator check. Deployments are serialized per environment.
 Success means Coolify reports the deployment `finished`, its commit matches the
 requested SHA, and the Application reaches `running:healthy`. CD checks the
 SHA-tagged application manifests first, waits up to 50 minutes for deployment
-and then up to 10 minutes for health; the job has a 60-minute limit overall.
+and then up to 10 minutes for health; the job has a 75-minute limit overall.
 The job summary records the environment, commit and blob pins.
 
 On failure, read the GitHub job log. A failed, cancelled or timed-out Coolify

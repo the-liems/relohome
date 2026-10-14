@@ -228,7 +228,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertEqual(inputs["sha"]["required"], "false")
         job = self.workflow["jobs"]["deploy"]
         self.assertEqual(job["runs-on"], ["self-hosted", "linux", "team-44"])
-        self.assertEqual(job["timeout-minutes"], "60")
+        self.assertEqual(job["timeout-minutes"], "75")
         self.assertIn("coolify-", job["concurrency"]["group"])
         self.assertIn("inputs.environment", job["concurrency"]["group"])
         self.assertEqual(job["concurrency"]["cancel-in-progress"], "false")

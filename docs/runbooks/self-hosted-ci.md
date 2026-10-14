@@ -63,7 +63,7 @@ by the runner's standard trust store. CD has no custom CA secret or insecure TLS
 The deployment selector uses Node 24 bundled with `actions/github-script@v8`
 (requires runner >= 2.327.1); the Python tests use Node 24 explicitly installed by
 `actions/setup-node`. Most jobs have a 30-minute execution timeout; Coolify
-deployment uses 60 minutes and the PostGIS build uses 40.
+deployment uses 75 minutes and the PostGIS build uses 40.
 Python jobs that install dependencies create a fresh virtualenv in `RUNNER_TEMP`
 and remove it with `always()`. Packages never install into the shared interpreter.
 

@@ -29,6 +29,8 @@ def log_tail(deployment):
         logs = []
     lines = [line for entry in logs if not entry.get("hidden")
              for line in entry.get("output", "").splitlines()]
+    if not lines:
+        print("Coolify returned no deployment logs; the token needs read:sensitive to include them.")
     for line in lines[-40:]:
         print(line)
 
