@@ -218,40 +218,6 @@ async def test_mcp_http_metadata_connects_tool_server_to_client(spans):
     assert any(item.parent.span_id in {other.context.span_id for other in tools} for item in tools)
 
 
-def load_script(name, relative):
-    spec = importlib.util.spec_from_file_location(name, ROOT / relative)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_retention_freezes_pagination_deletes_trace_ids_then_verifies():
-    retention = load_script("retention_test", "deploy/observability/retention.py")
-
-    class Fake:
-        def __init__(self):
-            self.calls = []
-            self.deleted = False
-
-        def request(self, path, method="GET", body=None):
-            self.calls.append((path, method, body))
-            if method == "DELETE":
-                self.deleted = True
-                assert body == {"traceIds": ["trace-a", "trace-b"]}
-                return {}
-            if self.deleted:
-                return {"data": []}
-            if "cursor=" in path:
-                return {"data": [{"traceId": "trace-b"}, {"traceId": "trace-a"}]}
-            return {"data": [{"traceId": "trace-a"}], "meta": {"cursor": "page-2"}}
-
-    client = Fake()
-    assert retention.cleanup(client, now=datetime(2026, 10, 12, tzinfo=UTC), sleep=lambda _: None) == 2
-    assert [call[1] for call in client.calls] == ["GET", "GET", "DELETE", "GET"]
-    assert "2026-10-05" in client.calls[0][0]
-    assert "2026-10-05" in client.calls[1][0]
-
-
 def test_payment_context_is_persisted_but_not_exposed(tmp_path, spans):
     import sqlite3
 

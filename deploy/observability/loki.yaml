@@ -1,4 +1,5 @@
-auth_enabled: true
+# One tenant; staging and production are separated by the environment label.
+auth_enabled: false
 server:
   http_listen_port: 3100
 common:
@@ -48,7 +49,5 @@ limits_config:
       attributes_config:
         - action: index_label
           attributes: [service.name, environment]
-runtime_config:
-  file: /etc/loki/limits.yaml
 analytics:
   reporting_enabled: false

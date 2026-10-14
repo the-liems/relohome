@@ -4,20 +4,16 @@ extensions:
   file_storage:
     directory: /var/lib/otelcol
     create_directory: true
-  bearertokenauth/app:
-    token: ${env:OTEL_COLLECTOR_TOKEN}
-  basicauth/gateway:
+  basicauth/langfuse:
     client_auth:
-      username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
-      password: ${env:OBSERVABILITY_INGEST_PASSWORD}
+      username: ${env:LANGFUSE_PUBLIC_KEY}
+      password: ${env:LANGFUSE_SECRET_KEY}
 receivers:
   otlp:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
         max_request_body_size: 8388608
-        auth:
-          authenticator: bearertokenauth/app
   prometheus/internal:
     config:
       scrape_configs:
@@ -30,23 +26,6 @@ receivers:
             - source_labels: [__name__]
               regex: target_info
               action: drop
-        - job_name: retention
-          scrape_interval: 15s
-          metrics_path: /${env:OTEL_DEPLOYMENT_ENVIRONMENT}/retention/metrics
-          basic_auth:
-            username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
-            password: ${env:OBSERVABILITY_INGEST_PASSWORD}
-          static_configs:
-            - targets: ["${env:OBSERVABILITY_GATEWAY_URL}"]
-          relabel_configs:
-            - source_labels: [__address__]
-              regex: '(https?)://([^/]+)/?'
-              target_label: __scheme__
-              replacement: '$$1'
-            - source_labels: [__address__]
-              regex: 'https?://([^/]+)/?'
-              target_label: __address__
-              replacement: '$$1'
 processors:
   memory_limiter:
     check_interval: 1s
@@ -95,23 +74,36 @@ processors:
     send_batch_size: 128
     send_batch_max_size: 256
 exporters:
-  otlphttp/gateway:
-    endpoint: ${env:OBSERVABILITY_GATEWAY_URL}/${env:OTEL_DEPLOYMENT_ENVIRONMENT}
+  # Each signal goes straight to its backend on the shared ingestion network.
+  otlphttp/langfuse:
+    traces_endpoint: http://langfuse:3000/api/public/otel/v1/traces
     auth:
-      authenticator: basicauth/gateway
+      authenticator: basicauth/langfuse
+    headers:
+      x-langfuse-ingestion-version: "4"
     timeout: 10s
-    sending_queue:
+    sending_queue: &queue
       enabled: true
       num_consumers: 2
       queue_size: 200
       storage: file_storage
-    retry_on_failure:
+    retry_on_failure: &retry
       enabled: true
       initial_interval: 1s
       max_interval: 30s
       max_elapsed_time: 0s
+  otlphttp/loki:
+    logs_endpoint: http://loki:3100/otlp/v1/logs
+    timeout: 10s
+    sending_queue: *queue
+    retry_on_failure: *retry
+  otlphttp/cortex:
+    metrics_endpoint: http://cortex:9009/api/v1/otlp/v1/metrics
+    timeout: 10s
+    sending_queue: *queue
+    retry_on_failure: *retry
 service:
-  extensions: [health_check, file_storage, bearertokenauth/app, basicauth/gateway]
+  extensions: [health_check, file_storage, basicauth/langfuse]
   telemetry:
     logs:
       level: warn
@@ -129,16 +121,16 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resource/environment, transform/privacy, batch]
-      exporters: [otlphttp/gateway]
+      exporters: [otlphttp/langfuse]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resource/environment, transform/privacy, batch]
-      exporters: [otlphttp/gateway]
+      exporters: [otlphttp/loki]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, filter/metrics, resource/environment, transform/privacy, batch]
-      exporters: [otlphttp/gateway]
+      exporters: [otlphttp/cortex]
     metrics/internal:
       receivers: [prometheus/internal]
       processors: [memory_limiter, resource/environment, batch]
-      exporters: [otlphttp/gateway]
+      exporters: [otlphttp/cortex]
