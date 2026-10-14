@@ -92,14 +92,14 @@ checks. Existing format drift and staging gates are recorded in the
 ## Data and configuration
 
 Follow [local MVP setup](docs/runbooks/local-mvp.md) for credentials, snapshots,
-service startup and recovery, and [map data](docs/runbooks/map-data.md) for DVC/LFS,
+service startup and recovery, and [map data](docs/runbooks/map-data.md) for DVC,
 catalogs and routing prerequisites. Source moves do not relocate persistent state:
 
 - `data/` retains web DB/key pairs, Flight/Payment DBs, agent checkpoints/PII key,
   integration state and other configured stores; private Roommate state defaults
   to `logs/private-roommate` ([Roommate runbook](docs/runbooks/roommate.md)).
 - `Maps VN/Cities/`, `Maps VN/Routing/`, `Maps VN/Extracts/` and raw artifacts stay
-  fixed. Keep DVC/LFS dataset identities and existing graph/extraction outputs.
+  fixed. Keep DVC dataset identities and existing graph/extraction outputs.
 - `Maps VN/LifeFlow/.runtime/` retains launcher PIDs/logs and `moving-secrets.json`.
   `Frontend/data/housing-media` remains the local media default;
   container media remains `/app/data/housing-media`.

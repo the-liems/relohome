@@ -419,7 +419,7 @@ compose.coolify.yaml	compose.coolify.yaml	existing domain / CODEOWNERS	retain; u
 config/agent-services/registry.json	config/agent-services/registry.json	existing domain / CODEOWNERS	retain; update references if affected
 config/local-integration.compose.yaml	config/local-integration.compose.yaml	existing domain / CODEOWNERS	retain; update references if affected
 config/local-routing.compose.yaml	config/local-routing.compose.yaml	existing domain / CODEOWNERS	retain; update references if affected
-data/project-data-quangdung-20261008.zip	data/project-data-quangdung-20261008.zip	existing domain / CODEOWNERS	retain; update references if affected
+data/project-data-quangdung-20261008.zip	data/project-data-quangdung-20261008.zip	existing domain / CODEOWNERS	remove from Git and Git LFS (#164); ZIP shared outside Git, verified with the .sha256 sidecar
 data/project-data-quangdung-20261008.zip.sha256	data/project-data-quangdung-20261008.zip.sha256	existing domain / CODEOWNERS	retain; update references if affected
 data/roommate-demo-30.json	data/roommate-demo-30.json	existing domain / CODEOWNERS	retain; update references if affected
 deploy/coolify/staging/README.md	deploy/coolify/staging/README.md	existing domain / CODEOWNERS	retain; update references if affected
