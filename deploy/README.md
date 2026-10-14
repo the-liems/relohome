@@ -159,6 +159,8 @@ errors, follow the reported error and inspect that deployment in Coolify.
 
 ## Rollback
 
+Only commits at or after this deployment change can be deployed or rolled back to; older commits use the retired Service-based flow and CD rejects them.
+
 Dispatch the same workflow with an older full SHA on `main`:
 
 ```sh

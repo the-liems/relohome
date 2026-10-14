@@ -47,11 +47,14 @@ def deploy(compose_path, *, interval=10, deployment_timeout=3000, health_timeout
     if not token:
         raise ValueError("Set the Coolify API token")
     definition = yaml.safe_load(Path(compose_path).read_text())
-    images = {service.get("image", "") for service in definition["services"].values()}
+    images = {service.get("image", "") for service in definition["services"].values()
+              if service.get("image", "").startswith(IMAGE_PREFIX)
+              and service.get("image", "").endswith(":${SOURCE_COMMIT}")}
+    if not images:
+        raise ValueError("This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
+                         "deploy a commit at or after the Git-pinned deployment merge.")
     missing = []
     for image in sorted(images):
-        if not (image.startswith(IMAGE_PREFIX) and image.endswith(":${SOURCE_COMMIT}")):
-            continue
         image = image.replace("${SOURCE_COMMIT}", sha)
         try:
             subprocess.run(["docker", "manifest", "inspect", image], check=True,

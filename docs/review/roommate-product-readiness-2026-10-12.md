@@ -224,4 +224,4 @@ Chưa cần recommender dùng LLM, vector database, microservice Roommate, chat 
 - [Storage](../../src/roommate/storage.py), [schema](../../src/roommate/migrations.py), [runtime](../../src/roommate/runtime.py), [discovery](../../src/roommate/services/discovery.py), [map rooms](../../src/api/roommate_map.py).
 - [Profile lifecycle](../../src/roommate/services/profiles.py), [consent](../../src/roommate/services/consent.py), [contacts](../../src/roommate/services/contacts.py), [media](../../src/roommate/media.py), [moderation](../../src/roommate/services/moderation.py).
 - [Inbox backend](../../src/roommate/services/inbox.py), [Inbox UI](../../Frontend/src/roommate/Inbox.tsx), [operation UI](../../Frontend/src/roommate/useOperation.tsx), [room editor](../../Frontend/src/roommate/ProfileEditor.tsx).
-- [Cloud Compose](../../compose.coolify.yaml), [production deployment](../../deploy/coolify/production/README.md), [gateway](../../Frontend/roommate_gateway.py).
+- [Cloud Compose](../../compose.coolify.yaml), [production deployment](../../deploy/README.md), [gateway](../../Frontend/roommate_gateway.py).

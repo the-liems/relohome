@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import shutil
 import ssl
 import subprocess
 import tempfile
@@ -31,7 +32,7 @@ FINISHED = {"status": "finished", "commit": SHA}
 
 
 class DeploymentTests(unittest.TestCase):
-    def invoke(self, responses, *, image_error=None, **settings):
+    def invoke(self, responses, *, image_error=None, compose=COMPOSE, **settings):
         self.requests = []
         self.output = io.StringIO()
 
@@ -44,7 +45,7 @@ class DeploymentTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "compose.yaml"
-            source.write_text(yaml.safe_dump(COMPOSE))
+            source.write_text(yaml.safe_dump(compose))
             with patch.dict(os.environ, ENV, clear=True), \
                     patch.object(DEPLOY, "urlopen", side_effect=respond), \
                     patch.object(DEPLOY.subprocess, "run", side_effect=image_error) as inspect, \
@@ -84,6 +85,16 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "app:" + SHA + ".*worker:" + SHA):
             self.invoke(iter([]), image_error=error)
         self.assertEqual(self.requests, [])
+
+    def test_commits_without_git_pinned_images_fail_before_api_access(self):
+        for images in ([], [DEPLOY.IMAGE_PREFIX + "app:old-tag"], ["other/app:${SOURCE_COMMIT}"]):
+            with self.subTest(images=images), self.assertRaises(ValueError) as error:
+                self.invoke(iter([]), compose={"services": {str(i): {"image": image}
+                                                           for i, image in enumerate(images)}})
+            self.assertEqual(str(error.exception),
+                             "This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
+                             "deploy a commit at or after the Git-pinned deployment merge.")
+            self.assertEqual(self.requests, [])
 
     def test_patch_must_retain_commit(self):
         with self.assertRaisesRegex(RuntimeError, "did not retain git_commit_sha"):
@@ -189,6 +200,46 @@ class ComposeContractTests(unittest.TestCase):
         self.assertIn("DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;", script)
         self.assertIn('pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump', script)
         self.assertIn("-c ANALYZE", script)
+
+    @unittest.skipUnless(shutil.which("sh"), "sh is required")
+    def test_seed_initialization_check_fails_closed(self):
+        shell = shutil.which("sh")
+        script = self.services["location-seed"]["entrypoint"][2].replace("$$", "$")
+        for status, output, succeeds, restores in ((2, "", False, False), (0, "t", True, False),
+                                                   (0, "f", True, True), (0, "", False, False)):
+            with self.subTest(status=status, output=output), tempfile.TemporaryDirectory() as directory:
+                calls_file = Path(directory) / "calls"
+                for name in ("psql", "tar", "pg_restore"):
+                    stub = Path(directory) / name
+                    stub.write_text(f"""#!{shell}
+{{
+  printf '%s' '{name}'
+  printf '\\t%s' "$@"
+  printf '\\n'
+}} >> "$CALLS_FILE"
+""" + ("""case "$*" in
+  *to_regclass*)
+    if [ "$CHECK_STATUS" != 0 ]; then exit "$CHECK_STATUS"; fi
+    printf '%s\\n' "$CHECK_RESULT"
+    ;;
+esac
+""" if name == "psql" else "") + "exit 0\n")
+                    stub.chmod(0o755)
+                result = subprocess.run([shell, "-ec", script], text=True, capture_output=True, timeout=10,
+                                        env=os.environ | {"PATH": directory, "CALLS_FILE": str(calls_file),
+                                                          "CHECK_STATUS": str(status), "CHECK_RESULT": output,
+                                                          "SEED_BLOB": "test.tar.gz", "PGDATABASE": "test"})
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                calls = calls_file.read_text().splitlines()
+                self.assertIn("to_regclass", calls[0])
+                if restores:
+                    self.assertEqual([call.split("\t")[0] for call in calls],
+                                     ["psql", "tar", "psql", "pg_restore", "psql"])
+                    self.assertIn("DROP EXTENSION", calls[2])
+                    self.assertTrue(calls[4].endswith("\t-c\tANALYZE"))
+                else:
+                    self.assertEqual(len(calls), 1)
+
     def test_tester_payment_control_is_limited_to_configured_accounts(self):
         # payment-design D10: the tester "paid" control never ships to production and
         # only listed gateway accounts see it. An unset list means nobody.

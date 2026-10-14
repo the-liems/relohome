@@ -277,10 +277,12 @@ services:
       - sh
       - -ec
       - |
-        if [ "$$(psql -tAc "select to_regclass('public.lifeflow_schema_migrations') is not null")" = t ]; then
-          echo "Location database already initialized; skipping seed"
-          exit 0
-        fi
+        initialized=$$(psql -tAc "select to_regclass('public.lifeflow_schema_migrations') is not null")
+        case "$$initialized" in
+          t) echo "Location database already initialized; skipping seed"; exit 0 ;;
+          f) ;;
+          *) echo "Unexpected initialization check result: $$initialized" >&2; exit 1 ;;
+        esac
         tar -xzf "/cache/$$SEED_BLOB" -C /tmp lifeflow.dump
         psql -v ON_ERROR_STOP=1 -c "DROP EXTENSION IF EXISTS postgis_tiger_geocoder, postgis_topology, fuzzystrmatch, postgis CASCADE; DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;"
         pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump
