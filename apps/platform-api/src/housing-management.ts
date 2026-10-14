@@ -1041,10 +1041,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     const hosts = await pool.query(
       `SELECT hp.user_id,hp.poster_type,hp.display_name,hp.legal_name,hp.phone,hp.broker_license_no,hp.business_name,
-         hp.tax_code,hp.updated_at,hp.revision,
+         hp.tax_code,hp.updated_at,hp.revision,(hp.user_id <> $1) AS can_review,
          (SELECT count(*)::int FROM housing.management_members mm WHERE mm.user_id=hp.user_id AND mm.status='pending') AS pending_properties,
          (SELECT count(*)::int FROM housing.managed_listings ml WHERE ml.created_by=hp.user_id AND ml.publication_status='pending_review') AS pending_listings
-       FROM housing.host_profiles hp WHERE hp.status='pending' AND hp.user_id <> $1 ORDER BY hp.updated_at`,
+       FROM housing.host_profiles hp WHERE hp.status='pending' ORDER BY hp.updated_at`,
       [user],
     )
     return {

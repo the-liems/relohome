@@ -215,6 +215,27 @@ export function LandlordWorkspace() {
   }, [load]);
 
   useEffect(() => {
+    if (editingProfile) return;
+    let active = true;
+    const refreshProfile = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const page = await housingManagement<HostProfilePage>("host/profile");
+        if (active) setHost(page);
+      } catch {
+        // Keep the last known profile; explicit workspace loads show errors.
+      }
+    };
+    const timer = window.setInterval(() => void refreshProfile(), 15000);
+    window.addEventListener("focus", refreshProfile);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshProfile);
+    };
+  }, [editingProfile]);
+
+  useEffect(() => {
     const refresh = () => void load(true);
     window.addEventListener("housing-contact-update", refresh);
     return () => window.removeEventListener("housing-contact-update", refresh);
@@ -223,17 +244,14 @@ export function LandlordWorkspace() {
   const newContacts = contacts.filter(
     (item) => item.status === "new" || item.unread > 0,
   ).length;
-  // First visit in owner mode: the poster profile comes before anything else (host-mode-design §3.2).
-  // Moderators who do not post themselves are not pushed into the poster form or banner.
-  const showProfileForm =
-    editingProfile ||
-    (host !== null && !host.profile && properties.length === 0);
+  // Ask once when adding the first home; subsequent homes reuse the account profile.
+  const showProfileForm = editingProfile;
   const showHostBanner = Boolean(host);
   const startProperty = () => {
     setTab("properties");
     setSelected(null);
-    if (needsProfile(host)) setEditingProfile(true);
-    else setCreateProperty(true);
+    setCreateProperty(true);
+    setEditingProfile(needsProfile(host));
   };
   const tabs: [Tab, string, typeof Inbox, number][] = [
     ["overview", "Tổng quan", BarChart3, 0],
@@ -262,7 +280,7 @@ export function LandlordWorkspace() {
           </p>
         </div>
         <div className="ll-heading-actions">
-          <button className="primary" onClick={startProperty}>
+          <button className="primary" onClick={startProperty} disabled={loading}>
             <Plus size={17} /> {t("Thêm nhà")}
           </button>
         </div>
@@ -302,11 +320,10 @@ export function LandlordWorkspace() {
       ) : showProfileForm && host ? (
         <HostProfileForm
           page={host}
-          close={
-            host.profile || properties.length
-              ? () => setEditingProfile(false)
-              : undefined
-          }
+          close={() => {
+            setEditingProfile(false);
+            setCreateProperty(false);
+          }}
           saved={(page) => {
             setHost(page);
             setEditingProfile(false);
@@ -2085,9 +2102,11 @@ function HostLine({
 export function ModerationPanel({
   queue,
   changed,
+  viewerId,
 }: {
   queue: ModerationQueue | null;
   changed: () => Promise<void>;
+  viewerId: string;
 }) {
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState(""),
@@ -2160,6 +2179,11 @@ export function ModerationPanel({
                     dateTime(h.updated_at),
                   ])}
                 </small>
+                {(h.user_id === viewerId || h.can_review === false) && (
+                  <p className="ll-form-hint">
+                    {t("Hồ sơ của bạn cần một Admin khác xác minh.")}
+                  </p>
+                )}
                 <div className="ll-review-inputs">
                   <select
                     aria-label={t("Cách đã xác minh")}
@@ -2191,7 +2215,12 @@ export function ModerationPanel({
               <div className="ll-review-actions">
                 <button
                   className="primary"
-                  disabled={busy === h.user_id || !methods[h.user_id]}
+                  disabled={
+                    busy === h.user_id ||
+                    !methods[h.user_id] ||
+                    h.user_id === viewerId ||
+                    h.can_review === false
+                  }
                   onClick={() =>
                     void run(
                       h.user_id,
@@ -2209,7 +2238,11 @@ export function ModerationPanel({
                 </button>
                 <button
                   className="secondary"
-                  disabled={busy === h.user_id}
+                  disabled={
+                    busy === h.user_id ||
+                    h.user_id === viewerId ||
+                    h.can_review === false
+                  }
                   onClick={() =>
                     void run(
                       h.user_id,
@@ -2263,6 +2296,7 @@ export function ModerationPanel({
                 className="primary"
                 disabled={
                   busy === p.id ||
+                  p.user_id === viewerId ||
                   p.host_status !== "verified" ||
                   !p.location_confirmed_at
                 }

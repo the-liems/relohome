@@ -48,3 +48,7 @@ An existing managed contact keeps its confirmation requirement when a listing be
 The user requested local testing before opening a PR. No PR, remote push, main merge or cloud deployment is part of this local handoff.
 
 Latest bell/name update: 33 housing gateway tests, 56 housing/viewing desktop/mobile browser cases, and the disposable PostGIS suites passed. Platform and Web production builds passed.
+
+Host profiles are requested when the first home is added and reused for subsequent homes. Merely entering the landlord workspace no longer forces onboarding. Saving the first profile continues into the home form. Admin's pending-profile queue includes its own profile with `can_review: false` and disabled actions; backend self-verification remains forbidden. Pending-profile/location counters link to the identity queue. Admin refreshes on focus and every fifteen seconds; landlord profile status refreshes on the same triggers. No existing profile is automatically approved or rewritten.
+
+Profile-flow validation: 28 housing-product desktop/mobile cases passed, followed by 8 final changed-flow cases including stale-form revision protection. Disposable PostGIS passed 65 Housing Query, 65 Platform and 7 Location MCP tests. Both production builds passed. The real local Admin queue now shows its one existing pending own profile with self-review disabled; the profile remains pending and no moderation decision was applied. Updated assets are served on ports 8503 and 8504.

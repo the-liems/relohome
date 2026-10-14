@@ -1605,5 +1605,8 @@
   "Lọc tin theo nhà": "Filter listings by property",
   "Lọc thống kê theo tin": "Filter statistics by listing",
   "Tất cả tin": "All listings",
-  "Đăng nhập khách / chủ nhà": "Customer / landlord sign in"
+  "Đăng nhập khách / chủ nhà": "Customer / landlord sign in",
+  "Khai hồ sơ một lần khi thêm căn đầu tiên. Các căn sau dùng lại hồ sơ này.": "Complete your profile once when adding your first home. Later homes reuse this profile.",
+  "Hồ sơ đã gửi để Admin xác minh. Bạn vẫn tạo được nhà, phòng và bản nháp; các căn tiếp theo dùng lại hồ sơ này. Tin chỉ công khai sau khi người đăng, địa điểm và nội dung được duyệt.": "Your profile has been sent to Admin for verification. You can still create homes, rooms and drafts; later homes reuse this profile. Listings become public after the host, location and content are approved.",
+  "Hồ sơ của bạn cần một Admin khác xác minh.": "Another Admin must verify your profile."
 }

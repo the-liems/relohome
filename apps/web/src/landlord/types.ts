@@ -187,6 +187,7 @@ export interface HostProfilePage {
 }
 
 export interface ModerationHost {
+  can_review?: boolean;
   revision: number;
   user_id: string;
   poster_type: PosterType;

@@ -22,6 +22,7 @@ const verifiedProfile = {
 let profile: Record<string, unknown> | null = verifiedProfile;
 let properties = true;
 let savedProfile: unknown = null;
+let profileSaves = 0;
 let messages: Record<string, string>[] = [];
 let propertyPayload: unknown = null;
 
@@ -31,6 +32,7 @@ test.beforeEach(async ({ page }) => {
   profile = verifiedProfile;
   properties = true;
   savedProfile = null;
+  profileSaves = 0;
   propertyPayload = null;
   messages = [
     {
@@ -67,6 +69,7 @@ test.beforeEach(async ({ page }) => {
       });
     if (path.endsWith("/host/profile")) {
       if (route.request().method() === "PUT") {
+        profileSaves++;
         savedProfile = route.request().postDataJSON();
         profile = {
           ...verifiedProfile,
@@ -594,13 +597,17 @@ test("changing the address clears its previous map confirmation", async ({
   await expect(page.getByRole("button", { name: /Duyệt tin/ })).toHaveCount(0);
 });
 
-test("first visit in owner mode asks for the poster profile, then shows its review state", async ({
+test("first home asks once for the poster profile and subsequent homes reuse it", async ({
   page,
 }) => {
   profile = null;
   properties = false;
   await page.goto("/ai");
   await page.getByRole("link", { name: "Chế độ chủ nhà" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Bắt đầu cho thuê trên ReloHome" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Thêm nhà", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Bắt đầu cho thuê trên ReloHome" }),
   ).toBeVisible();
@@ -617,6 +624,18 @@ test("first visit in owner mode asks for the poster profile, then shows its revi
     .fill("CC-0042");
   await page.getByRole("button", { name: "Gửi hồ sơ để xác minh" }).click();
   await expect(page.getByText("Hồ sơ đang chờ xác minh")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Thêm nhà hoặc tòa nhà" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Bắt đầu cho thuê trên ReloHome" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Thêm nhà", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Thêm nhà hoặc tòa nhà" }),
+  ).toBeVisible();
+  expect(profileSaves).toBe(1);
   expect(savedProfile).toEqual({
     poster_type: "broker",
     display_name: "Anh Tuấn môi giới",
@@ -818,4 +837,100 @@ test("owner bell is a bright edge tab and conversations use tenant names", async
   await expect(
     page.getByRole("dialog", { name: "Tin nhắn · Phòng sáng thoáng – Khánh" }),
   ).toBeVisible();
+});
+
+
+test("Admin sees own pending profile with blocked actions and queue refreshes on focus", async ({
+  page,
+}) => {
+  moderator = true;
+  let items: any[] = [];
+  await page.route(
+    "**/web/api/housing-management/moderation/housing/queue",
+    (route) =>
+      route.fulfill({ json: { hosts: items, properties: [], listings: [] } }),
+  );
+  await page.goto("/admin");
+  const metric = page.getByRole("button", { name: /Người đăng chờ xác minh/ });
+  await expect(metric.locator("strong")).toHaveText("0");
+  items = [
+    {
+      ...verifiedProfile,
+      status: "pending",
+      user_id: "owner",
+      can_review: false,
+      pending_properties: 0,
+      pending_listings: 0,
+      updated_at: "2026-10-14T10:00:00Z",
+    },
+  ];
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(metric.locator("strong")).toHaveText("1");
+  await metric.click();
+  await expect(
+    page.getByText("Hồ sơ của bạn cần một Admin khác xác minh."),
+  ).toBeVisible();
+  await page.getByLabel("Cách đã xác minh").selectOption("phone_call");
+  await expect(
+    page.getByRole("button", { name: "Đã xác minh", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Cần bổ sung", exact: true }),
+  ).toBeDisabled();
+  expect(reviewed).toEqual([]);
+});
+
+test("owner receives profile verification on focus without entering profile again", async ({
+  page,
+}) => {
+  profile = { ...verifiedProfile, status: "pending" };
+  await page.goto("/landlord");
+  await expect(page.getByText("Hồ sơ đang chờ xác minh")).toBeVisible();
+  profile = verifiedProfile;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByText("Hồ sơ đang chờ xác minh")).toHaveCount(0);
+  await page.getByRole("button", { name: "Thêm nhà", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Thêm nhà hoặc tòa nhà" }),
+  ).toBeVisible();
+  expect(profileSaves).toBe(0);
+});
+
+test("a profile refresh preserves the revision of an open edit form", async ({
+  page,
+}) => {
+  profile = { ...verifiedProfile, status: "pending" };
+  let submitted: any = null;
+  await page.route(
+    "**/web/api/housing-management/host/profile",
+    async (route) => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      submitted = route.request().postDataJSON();
+      return route.fulfill({
+        status: 409,
+        json: { detail: "Hồ sơ đã được cập nhật ở nơi khác." },
+      });
+    },
+  );
+  await page.goto("/landlord");
+  await page.getByRole("button", { name: "Sửa hồ sơ", exact: true }).click();
+  await page.getByLabel("Tên hiển thị với người thuê").fill("Tên đang sửa");
+  profile = { ...verifiedProfile, status: "pending", revision: 9 };
+  const refreshed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/host/profile") &&
+      response.request().method() === "GET",
+  );
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("housing-contact-update")),
+  );
+  await refreshed;
+  await page.getByRole("button", { name: "Lưu hồ sơ", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Hồ sơ đã được cập nhật ở nơi khác.",
+  );
+  expect(submitted.revision).toBe(verifiedProfile.revision);
+  await expect(page.getByLabel("Tên hiển thị với người thuê")).toHaveValue(
+    "Tên đang sửa",
+  );
 });

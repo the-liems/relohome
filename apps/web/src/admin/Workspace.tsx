@@ -56,6 +56,17 @@ export function AdminWorkspace({
     const timer = setTimeout(() => void load(), 200);
     return () => clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [load]);
   async function open(id: string) {
     setBusy(true);
     setError("");
@@ -168,7 +179,7 @@ export function AdminWorkspace({
           </p>
         )}
         {tab === "identity" ? (
-          <ModerationPanel queue={queue} changed={load} />
+          <ModerationPanel queue={queue} changed={load} viewerId={user.id} />
         ) : tab === "reviews" ? (
           <ReviewModerationPanel />
         ) : detail ? (
@@ -265,14 +276,14 @@ export function AdminWorkspace({
         ) : (
           <section className="ll-panel">
             <div className="ll-status-metrics">
-              <div>
+              <button type="button" onClick={() => setTab("identity")}>
                 <strong>{queue?.hosts.length ?? "—"}</strong>
                 <span>{t("Người đăng chờ xác minh")}</span>
-              </div>
-              <div>
+              </button>
+              <button type="button" onClick={() => setTab("identity")}>
                 <strong>{queue?.properties.length ?? "—"}</strong>
                 <span>{t("Nhà chờ xác minh")}</span>
-              </div>
+              </button>
               <div>
                 <strong>{queue?.listings.length ?? "—"}</strong>
                 <span>{t("Tin chờ duyệt")}</span>

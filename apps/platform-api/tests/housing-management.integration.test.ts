@@ -399,7 +399,8 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
       poster_type: 'broker',
       phone: '0901 234 567',
     })
-    expect(queue.body.hosts.map((h: { user_id: string }) => h.user_id)).not.toContain(MODERATOR)
+    expect(queued.can_review).toBe(true)
+    expect(queue.body.hosts.find((h: { user_id: string }) => h.user_id === MODERATOR)).toMatchObject({user_id:MODERATOR,can_review:false})
     // needs_info shows the reason to the poster; saving again sends it back for review.
     await call(MODERATOR, 'POST', `/v1/moderation/host/${broker}/review`, {
       decision: 'needs_info',
@@ -981,4 +982,20 @@ it('handoff: proposed times, distinct senders, payment review, visibility and pe
   expect((await call(tenant,'GET','/v1/housing/contact-requests/me')).body.items.some((r: {id:string})=>r.id===request)).toBe(true)
   expect((await call(tenant,'GET',messages)).body.messages).toHaveLength(2)
   expect((await admin.query('SELECT count(*)::int AS n FROM housing.rent_payment_reports WHERE request_id=$1',[request])).rows[0].n).toBe(2)
+})
+
+
+it('reuses one pending host profile for multiple homes without resubmission', async () => {
+  const owner = `test-profile-once-${run}`
+  const profile = await host(owner)
+  const first = await property(owner)
+  const second = await property(owner)
+  expect(first).not.toBe(second)
+  const saved = (await call(owner, 'GET', '/v1/host/profile')).body.profile
+  expect(saved).toMatchObject({user_id:owner,status:'pending',revision:profile.revision})
+  const count = await pool.query('SELECT count(*)::int AS total FROM housing.host_profiles WHERE user_id=$1', [owner])
+  expect(count.rows[0].total).toBe(1)
+  const queue = (await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')).body
+  expect(queue.hosts.filter((h: {user_id:string})=>h.user_id===owner)).toHaveLength(1)
+  expect(queue.hosts.find((h: {user_id:string})=>h.user_id===owner)).toMatchObject({pending_properties:2,can_review:true})
 })
