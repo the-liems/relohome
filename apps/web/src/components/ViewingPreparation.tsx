@@ -1,4 +1,12 @@
-import { BookOpen, Compass, Plane, Truck, UsersRound } from "lucide-react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  CalendarCheck,
+  Compass,
+  Plane,
+  Truck,
+  UsersRound,
+} from "lucide-react";
 import { t as uiText } from "../uiPreferences";
 import type { Data } from "../types";
 import { useEffect, useRef } from "react";
@@ -49,14 +57,22 @@ export function ViewingPreparation({
   const button = ({ service, label, Icon }: (typeof primary)[number]) => (
     <button
       type="button"
-      className="secondary"
+      className="secondary service-suggestion"
+      data-service={service}
       key={service}
       disabled={disabled}
       onClick={() => onOpen(service, item)}
       aria-haspopup={["map", "flight"].includes(service) ? "dialog" : undefined}
     >
-      <Icon size={15} aria-hidden="true" />
-      {uiText(label)}
+      <span className="service-suggestion-icon">
+        <Icon size={18} aria-hidden="true" />
+      </span>
+      <span className="service-suggestion-label">{uiText(label)}</span>
+      <ArrowUpRight
+        size={16}
+        className="service-suggestion-arrow"
+        aria-hidden="true"
+      />
     </button>
   );
   return (
@@ -66,7 +82,10 @@ export function ViewingPreparation({
       className="viewing-preparation"
       aria-label={uiText(title)}
     >
-      <strong>{uiText(title)}</strong>
+      <div className="viewing-preparation-heading">
+        <CalendarCheck size={18} aria-hidden="true" />
+        <strong>{uiText(title)}</strong>
+      </div>
       <p>
         {uiText(
           settled

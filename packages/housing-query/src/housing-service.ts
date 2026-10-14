@@ -244,7 +244,7 @@ export class HousingQueryService {
           if (constraint.max_distance_m !== undefined && item.commute.distance_meters > constraint.max_distance_m) continue
           if (constraint.min_distance_m !== undefined && item.commute.distance_meters < constraint.min_distance_m) continue
         }
-        results.push(publicCandidate(item))
+        results.push(item)
         if (results.length === request.pagination.limit) break
       }
     }
@@ -305,10 +305,10 @@ export class HousingQueryService {
       ? await hostReviewSummary(this.pool, managementRow.rating_host_user_id)
       : null
     return HousingDetailSchema.parse({
-      ...publicCandidate(result),
+      ...result,
       description: row.description,
       images: media.rows.map((image) => ({ url: image.url, alt: image.alt_text })),
-      extra_attributes: row.is_managed ? { self_service: true } : row.listing_attributes || {},
+      extra_attributes: row.listing_attributes || {},
       fees: fees.rows,
       // pg returns timestamptz as Date; the read contract carries ISO strings.
       management: management.rows[0]
@@ -346,11 +346,9 @@ export class HousingQueryService {
       const gridSize = Math.max(0.002, 60 * 360 / (256 * 2 ** request.zoom))
       const result = await this.pool.query(
         `WITH candidates AS (
-           SELECT display.geom, o.price_amount, o.currency, o.price_period,
-             ST_SnapToGrid(display.geom, ${sql.parameter(gridSize)}) AS grid_cell
+           SELECT ${cp}.geom, o.price_amount, o.currency, o.price_period,
+             ST_SnapToGrid(${cp}.geom, ${sql.parameter(gridSize)}) AS grid_cell
            ${candidateFrom(indexed)}
-           CROSS JOIN LATERAL (SELECT CASE WHEN EXISTS(SELECT 1 FROM housing.managed_listings ml WHERE ml.listing_id=l.id)
-             THEN housing.public_location(l.property_id) ELSE ${cp}.geom END AS geom) display
            WHERE ${conditions.join(' AND ') || 'true'}
          )
          SELECT md5(ST_AsText(grid_cell) || ':' || currency || ':' || price_period) AS cluster_id,
@@ -386,15 +384,11 @@ export class HousingQueryService {
          ORDER BY l.updated_at DESC,l.id LIMIT ${sql.parameter(limit)}
        )
        SELECT l.id AS listing_id, l.title, l.listing_type, l.source_url,
-         l.property_type, ST_X(display.geom) AS lng, ST_Y(display.geom) AS lat,
-         CASE WHEN display.managed THEN housing.public_address(l.address) ELSE l.address END AS address,
-         display.managed AS is_managed,
+         l.property_type, ST_X(l.geom) AS lng, ST_Y(l.geom) AS lat, l.address,
          o.price_amount, o.currency, o.price_period,
          l.bedrooms, l.bathrooms, l.area_m2, l.amenities,l.location_accuracy,
          thumbnail.url AS thumbnail_url
        FROM housing.map_points l
-       CROSS JOIN LATERAL (SELECT EXISTS(SELECT 1 FROM housing.managed_listings ml WHERE ml.listing_id=l.id) AS managed) visibility
-       CROSS JOIN LATERAL (SELECT visibility.managed,CASE WHEN visibility.managed THEN housing.public_location(l.property_id) ELSE l.geom END AS geom) display
        JOIN page o ON o.listing_id=l.id
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
@@ -419,8 +413,7 @@ export class HousingQueryService {
       amenities: row.amenities || [],
       source_url: row.source_url || null,
       thumbnail_url: row.thumbnail_url ? String(row.thumbnail_url) : null,
-      ...(row.is_managed ? { privacy_radius_m: 500 } : {}),
-      location_accuracy: row.is_managed ? 'approximate' : ['rooftop', 'approximate'].includes(row.location_accuracy)
+      location_accuracy: ['rooftop', 'approximate'].includes(row.location_accuracy)
         ? row.location_accuracy
         : 'unknown',
     }))
@@ -471,9 +464,7 @@ export class HousingQueryService {
          l.listing_type,
          ST_X(cp.geom) AS lng,
          ST_Y(cp.geom) AS lat,
-         CASE WHEN privacy.managed THEN housing.public_address(cp.address) ELSE cp.address END AS address,
-         privacy.managed AS is_managed,
-         ST_X(privacy.geom) AS public_lng,ST_Y(privacy.geom) AS public_lat,
+         cp.address,
          o.price_amount,
          o.deposit_amount,
          o.currency,
@@ -499,8 +490,6 @@ export class HousingQueryService {
        LEFT JOIN housing.units u ON u.id = l.unit_id AND u.deleted_at IS NULL
        JOIN housing.offers o ON o.id=page.offer_id
        JOIN catalog.places cp ON cp.id = p.place_id
-       CROSS JOIN LATERAL (SELECT EXISTS(SELECT 1 FROM housing.managed_listings ml WHERE ml.listing_id=l.id) AS managed) visibility
-       CROSS JOIN LATERAL (SELECT visibility.managed,CASE WHEN visibility.managed THEN housing.public_location(p.id) ELSE cp.geom END AS geom) privacy
        LEFT JOIN LATERAL (
          SELECT lm.url FROM housing.listing_media lm
          WHERE lm.listing_id = l.id AND lm.moderation_status='approved' AND lm.deleted_at IS NULL ORDER BY lm.is_primary DESC, lm.position, lm.id LIMIT 1
@@ -549,12 +538,11 @@ export class HousingQueryService {
       quality_flags: qualityFlags(row.listing_attributes),
       property_type: row.property_type as HousingSearchResult['property_type'],
       listing_type: row.listing_type as HousingSearchResult['listing_type'],
-      location: row.is_managed ? {lng:Number(row.public_lng),lat:Number(row.public_lat)} : location,
-      ...(row.is_managed ? {privacy_radius_m:500} : {}),
-      location_accuracy: row.is_managed ? 'approximate' : ['rooftop', 'approximate'].includes(String((row.listing_attributes as Record<string, unknown> | null)?.location_accuracy))
+      location,
+      location_accuracy: ['rooftop', 'approximate'].includes(String((row.listing_attributes as Record<string, unknown> | null)?.location_accuracy))
         ? (row.listing_attributes as Record<string, unknown>).location_accuracy as 'rooftop' | 'approximate'
         : 'unknown',
-      location_method: row.is_managed ? 'privacy_radius_500' : typeof (row.listing_attributes as Record<string, unknown> | null)?.location_method === 'string'
+      location_method: typeof (row.listing_attributes as Record<string, unknown> | null)?.location_method === 'string'
         ? String((row.listing_attributes as Record<string, unknown>).location_method) : null,
       deposit: row.deposit_amount == null ? null : {
         amount: Number(row.deposit_amount), currency: row.currency as HousingSearchResult['price']['currency'],
@@ -583,7 +571,7 @@ export class HousingQueryService {
       thumbnail_url: row.thumbnail_url ? String(row.thumbnail_url) : null,
       matched_constraints: matchedConstraints(request),
       unknown_fields: unknownFields,
-      nearby: row.is_managed ? nearby.map(item=>({...item,distance_meters:Math.round(item.distance_meters/500)*500})) : nearby,
+      nearby,
       commute,
       created_at: new Date(String(row.created_at)).toISOString(),
       verified_at: row.verified_at ? new Date(String(row.verified_at)).toISOString() : null,
@@ -655,13 +643,4 @@ export async function requireHousing(service: HousingQueryService, listingId: st
     if (error instanceof NotFoundError) throw error
     throw error
   }
-}
-
-// Filter/rank using the exact internal commute first; never expose a route that ends at a private door.
-function publicCandidate(item: HousingSearchResult): HousingSearchResult {
-  if (!item.privacy_radius_m || !item.commute) return item
-  const {snap_distances_meters: _privateSnap,...commute}=item.commute
-  return {...item,commute:{...commute,geometry:null,
-    distance_meters:Math.round(item.commute.distance_meters/500)*500,
-    duration_seconds:Math.round(item.commute.duration_seconds/60)*60}}
 }

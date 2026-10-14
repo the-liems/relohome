@@ -20,6 +20,7 @@ from relohome_agent.agents.guardrails.projection import (
     assessment_projection,
     plan_projection,
 )
+from relohome_observability.guardrails import pending_change, record_event, record_skip
 
 logger = logging.getLogger(__name__)
 TURN_RETENTION_S = 900
@@ -53,11 +54,14 @@ class ShadowGuardrail:
     def _count(self, point, event):
         self.counts[event] += 1
         self._point_counts[point][event] += 1
+        record_event(point, event)
 
     def _skip(self, point, reason):
         self.counts[reason] += 1
         self._point_counts[point]["skipped"] += 1
         self._skip_counts[point][reason] += 1
+        record_event(point, "skipped")
+        record_skip(point, reason)
 
     def _seen(self, point):
         self._count(point, "seen")
@@ -116,6 +120,7 @@ class ShadowGuardrail:
 
     def _task_done(self, task):
         point = self._task_points.pop(task)
+        pending_change(point, -1)
         if task.cancelled() and task not in self._settled:
             # Shutdown can cancel admission before the coroutine gets its first turn.
             self._count(point, "cancelled")
@@ -183,6 +188,7 @@ class ShadowGuardrail:
         task = asyncio.create_task(self._check(point, key, projected, questions), name="jev-shadow", context=Context())
         self._tasks.add(task)
         self._task_points[task] = point
+        pending_change(point, 1)
         task.add_done_callback(self._task_done)
 
     async def _check(self, point, key, state, questions):

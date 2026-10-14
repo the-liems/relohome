@@ -14,6 +14,14 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
+NODE_SERVICES = frozenset({"location", "platform", "moving", "moving-api"})
+
+
+def node_command(component, entrypoint):
+    # Load the SDK hook before HTTP/Fastify/pg imports. register is a no-op when
+    # OBSERVABILITY_ENABLED is false; read-only schema checks/migrations stay untouched.
+    preload = ["--import", "@relohome/telemetry/register"] if component in NODE_SERVICES else []
+    return ["node", *preload, entrypoint]
 
 
 def environment(component, sandbox_writes=False, payment_demo=False, env_file=None):
@@ -89,10 +97,10 @@ def main():
     if args.port is not None and (args.component not in {"api", "ui"} or not 1 <= args.port <= 65535):
         parser.error("--port is valid only for api/ui and must be between 1 and 65535")
     commands = {
-        "location": ["node", "apps/location-mcp/dist/http-server.js"],
-        "platform": ["node", "apps/platform-api/dist/server.js"],
-        "moving": ["node", "apps/moving-mcp/dist/http-server.js"],
-        "moving-api": ["node", "apps/moving-api/dist/server.js"],
+        "location": node_command("location", "apps/location-mcp/dist/http-server.js"),
+        "platform": node_command("platform", "apps/platform-api/dist/server.js"),
+        "moving": node_command("moving", "apps/moving-mcp/dist/http-server.js"),
+        "moving-api": node_command("moving-api", "apps/moving-api/dist/server.js"),
         "flight": [sys.executable, "-m", "relohome_flights_mcp", "--transport", "streamable-http"],
         "payment": [sys.executable, "-m", "relohome_payments_mcp", "--transport", "streamable-http"],
         "migrate": ["node", "apps/platform-api/dist/migrate.js"],
@@ -126,7 +134,7 @@ def main():
     if command[0] == "node":
         if shutil.which("node") is None:
             parser.error("Node.js is not on PATH. Install Node.js 24+ and reopen the terminal.")
-        if not (ROOT / command[1]).is_file():
+        if not (ROOT / command[-1]).is_file():
             parser.error("Missing ReloHome build. At repository root, run npm ci and npm run build.")
     sys.exit(
         subprocess.call(

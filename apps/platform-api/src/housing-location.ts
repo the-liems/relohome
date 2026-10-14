@@ -16,8 +16,6 @@ const Claim = z.object({
   location: Point,
   expires: z.number(),
   source: z.literal('vietmap'),
-  components: z.record(z.string(), z.string()).default({}),
-  precision: z.enum(['provider', 'host_pin']).default('provider'),
 })
 type LocationClaim = z.infer<typeof Claim>
 const cache = new Map<string, { expires: number; results: unknown[] }>()
@@ -37,8 +35,6 @@ export function signLocation(
     ref_id: string
     address: string
     location: { lat: number; lng: number }
-    components?: Record<string, string>
-    precision?: 'provider' | 'host_pin'
   },
 ) {
   const claim = Claim.parse({
@@ -87,8 +83,7 @@ function limit(user: string) {
   if (!row || row.window < now - 60_000) requests.set(user, { window: now, count: 1 })
   else if (++row.count > 30)
     throw new ManagementError(429, 'Bạn đang tìm vị trí quá nhanh. Hãy thử lại sau.', 'location_rate_limited')
-  if (requests.size > 1000)
-    for (const [key, value] of requests) if (value.window < now - 60_000) requests.delete(key)
+  if (requests.size > 1000) for (const [key, value] of requests) if (value.window < now - 60_000) requests.delete(key)
 }
 async function provider(endpoint: 'autocomplete/v4' | 'place/v4', parameters: Record<string, string>) {
   const key = process.env.VIETMAP_API_KEY?.trim()
@@ -107,13 +102,8 @@ async function provider(endpoint: 'autocomplete/v4' | 'place/v4', parameters: Re
     throw new ManagementError(502, 'Chưa nhận được vị trí từ Vietmap. Hãy thử lại.', 'location_unavailable')
   }
   if ([402, 429].includes(response.status))
-    throw new ManagementError(
-      503,
-      'Dịch vụ vị trí đang bận hoặc hết hạn mức. Hãy thử lại sau.',
-      'location_unavailable',
-    )
-  if (!response.ok)
-    throw new ManagementError(502, 'Không tìm được vị trí từ dịch vụ bản đồ.', 'location_unavailable')
+    throw new ManagementError(503, 'Dịch vụ vị trí đang bận hoặc hết hạn mức. Hãy thử lại sau.', 'location_unavailable')
+  if (!response.ok) throw new ManagementError(502, 'Không tìm được vị trí từ dịch vụ bản đồ.', 'location_unavailable')
   try {
     return (await response.json()) as unknown
   } catch {
@@ -132,7 +122,7 @@ export async function searchHousingAddress(user: string, text: string) {
   })
   if (!Array.isArray(raw))
     throw new ManagementError(502, 'Dịch vụ bản đồ trả dữ liệu không hợp lệ.', 'location_unavailable')
-  const results = raw.slice(0, 10).flatMap((value) => {
+  const results = raw.slice(0, 10).flatMap(value => {
     const parsed = z
       .object({
         ref_id: z.string().min(1).max(2048),
@@ -192,61 +182,6 @@ export async function resolveHousingAddress(user: string, ref: string) {
       city: data.city,
     },
     accuracy: 'approximate',
-    location_token: signLocation(user, {
-      ...result,
-      components: Object.fromEntries(
-        Object.entries({ ward: data.ward, district: data.district, city: data.city }).filter(
-          (entry): entry is [string, string] => typeof entry[1] === 'string',
-        ),
-      ),
-    }),
+    location_token: signLocation(user, result),
   }
-}
-
-export function confirmHousingLocation(user: string, input: unknown) {
-  const request = z
-    .object({
-      location_token: z.string().max(8000),
-      location: Point,
-      private_detail: z.string().trim().max(300).default(''),
-    })
-    .parse(input)
-  const [body] = request.location_token.split('.')
-  let original: LocationClaim
-  try {
-    original = Claim.parse(JSON.parse(Buffer.from(body || '', 'base64url').toString()))
-  } catch {
-    throw new ManagementError(409, 'Hãy chọn lại địa chỉ từ gợi ý.', 'location_confirmation_required')
-  }
-  // Decoding alone never authorizes anything; verify the original signed lookup first.
-  verifyLocation(request.location_token, user, original.address, original.location)
-  const radians = Math.PI / 180
-  const dLat = (request.location.lat - original.location.lat) * radians,
-    dLng = (request.location.lng - original.location.lng) * radians
-  const distance =
-    2 *
-    6371000 *
-    Math.asin(
-      Math.sqrt(
-        Math.sin(dLat / 2) ** 2 +
-          Math.cos(original.location.lat * radians) *
-            Math.cos(request.location.lat * radians) *
-            Math.sin(dLng / 2) ** 2,
-      ),
-    )
-  if (distance > 2000)
-    throw new ManagementError(
-      422,
-      'Ghim quá xa địa chỉ đã chọn. Hãy tìm lại địa chỉ phù hợp.',
-      'location_confirmation_required',
-    )
-  const address = [request.private_detail, original.address].filter(Boolean).join(', ')
-  const final = {
-    ref_id: original.ref_id,
-    address,
-    location: request.location,
-    components: original.components,
-    precision: 'host_pin' as const,
-  }
-  return { ...final, location_token: signLocation(user, final) }
 }

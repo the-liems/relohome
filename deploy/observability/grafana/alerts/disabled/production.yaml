@@ -1,0 +1,18 @@
+apiVersion: 1
+deleteRules:
+- orgId: 1
+  uid: rh-production-http-errors
+- orgId: 1
+  uid: rh-production-ai-errors
+- orgId: 1
+  uid: rh-production-provider-limits
+- orgId: 1
+  uid: rh-production-chat-latency
+- orgId: 1
+  uid: rh-production-heartbeat
+- orgId: 1
+  uid: rh-production-collector-down
+- orgId: 1
+  uid: rh-production-export-failures
+- orgId: 1
+  uid: rh-production-retention

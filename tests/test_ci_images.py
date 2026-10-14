@@ -56,6 +56,11 @@ class ImageSelectionTests(unittest.TestCase):
         self.assertEqual(self.selected("packages/mcp-core/src/index.ts"),
                          {"location", *MOVING})
 
+    def test_telemetry_changes_rebuild_every_instrumented_consumer(self):
+        self.assertEqual(self.selected("packages/telemetry/src/sdk.ts"), TYPESCRIPT)
+        self.assertEqual(self.selected("packages/python/observability/src/relohome_observability/runtime.py"),
+                         {"web", "backend", "flights-mcp", "payments-mcp"})
+
     def test_shared_contracts_and_lockfile_rebuild_all_typescript_images(self):
         for path in ("packages/contracts/src/moving.ts", "tsconfig.base.json"):
             with self.subTest(path=path):

@@ -9,12 +9,13 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import os
 import re
 import secrets
 import sqlite3
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
@@ -28,14 +29,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
 from relohome_flight.schemas import Contact, Passenger
+from relohome_gateway.guest_body_limit import GuestBodyLimit
+from relohome_gateway.guest_routes import allowed as guest_route_allowed
+from relohome_gateway.guest_sessions import GUEST_COOKIE, TTL, GuestSessions
+from relohome_gateway.guest_sessions import enabled as guest_enabled
+from relohome_gateway.roommate_gateway import attach_roommate_gateway
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.store import Store, TravelerProfiles, password_hash
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
-
-from relohome_gateway.roommate_gateway import attach_roommate_gateway
-from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
-from relohome_gateway.store import Store, TravelerProfiles, password_hash
 
 COOKIE = "siu_session"
 
@@ -47,9 +51,9 @@ def housing_media_dir() -> Path:
 
 HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/(overview|properties|contact-requests|reviews|listings|stats)$"),
-    re.compile(r"^landlord/locations/(search|resolve|confirm)$"),
+    re.compile(r"^landlord/locations/(search|resolve)$"),
     re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
-    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/(?:units|room-listing|documents))?$"),
+    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/(?:units|room-listing))?$"),
     re.compile(r"^landlord/units/[0-9a-f-]+(?:/(?:listing|room-listing))?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide|preview))?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+/media/[0-9a-f-]+$"),
@@ -58,7 +62,8 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
     re.compile(r"^housing/contact-requests/me$"),
     re.compile(r"^housing/contact-notifications$"),
-    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
+    re.compile(r"^housing/activity(?:/[0-9a-f-]+/read)?$"),
+    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages|activity)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
     re.compile(r"^moderation/housing/listings(?:/[0-9a-f-]+)?$"),
     re.compile(r"^moderation/housing/reviews(?:/[0-9a-f-]+/decision)?$"),
@@ -191,6 +196,11 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
+    from relohome_observability import initialize
+    from relohome_observability.asgi import TelemetryMiddleware
+
+    initialize("web")
+
     @asynccontextmanager
     async def lifespan(app):
         root = runtime_root()
@@ -200,6 +210,7 @@ def create_app(database=None, transport=None):
             raise ValueError("Existing gateway database requires its original traveler encryption key")
         app.state.store_path = str(path)
         app.state.store = Store(path)
+        app.state.guests = GuestSessions(app.state.store)
         app.state.travelers = TravelerProfiles(
             app.state.store,
             key_path,
@@ -207,11 +218,20 @@ def create_app(database=None, transport=None):
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(250, connect=10), transport=transport)
         app.state.locks = {}
         app.state.attempts = {}
+        app.state.cleanup_guests = cleanup_guests
+        maintenance = asyncio.create_task(guest_maintenance()) if guest_enabled() else None
         yield
+        if maintenance:
+            maintenance.cancel()
+            with suppress(asyncio.CancelledError):
+                await maintenance
         await app.state.http.aclose()
         app.state.store.db.close()
 
-    app = FastAPI(title="ReloHome", lifespan=lifespan)
+    app = FastAPI(title="ReloHome", lifespan=lifespan, telemetry={"tracing": False})
+    # Public clients cannot choose our sampling policy or join an internal trace.
+    app.add_middleware(TelemetryMiddleware, service_name="web", trust_incoming=False)
+    app.add_middleware(GuestBodyLimit, gateway=app)
     app.state.store_path = database
 
     @app.get("/health")
@@ -227,6 +247,25 @@ def create_app(database=None, transport=None):
     async def validation_error(request, exc):
         return JSONResponse({"detail": "Vui lòng kiểm tra các trường đã nhập."}, status_code=422)
 
+    @app.exception_handler(HTTPException)
+    async def http_error(request, exc):
+        if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
+            quota = exc.detail["code"] == "guest_quota"
+            headers = {"Cache-Control": "no-store"}
+            if quota:
+                headers["Retry-After"] = str(exc.detail["retry_after"])
+            return JSONResponse(
+                {
+                    **exc.detail,
+                    "detail": "Bạn đã dùng hết lượt của phiên khách. Hãy chờ hoặc đăng nhập."
+                    if quota
+                    else "Phiên khách đã hết hạn. Hãy bắt đầu lại hoặc đăng nhập.",
+                },
+                status_code=exc.status_code,
+                headers=headers,
+            )
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
     @app.middleware("http")
     async def browser_boundary(request, call_next):
         if request.url.path.startswith("/web/api") and request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -235,6 +274,25 @@ def create_app(database=None, transport=None):
                 origin and urlsplit(origin).netloc != request.headers.get("host")
             ):
                 return JSONResponse({"detail": "Phiên yêu cầu không hợp lệ. Hãy tải lại trang."}, status_code=403)
+        if guest_enabled() and request.url.path.startswith("/web/api"):
+            account = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+            if not account:
+                try:
+                    app.state.guests.request_budget(request.client.host if request.client else "unknown")
+                except HTTPException as exc:
+                    return JSONResponse(
+                        {"code": "guest_quota", "detail": "Bạn đã gửi nhiều yêu cầu. Hãy chờ một chút."},
+                        status_code=exc.status_code,
+                        headers={"Retry-After": str(exc.detail["retry_after"]), "Cache-Control": "no-store"},
+                    )
+            if not account and not guest_route_allowed(request.url.path, request.method):
+                return JSONResponse(
+                    {"code": "authentication_required", "detail": "Đăng nhập để sử dụng chức năng này."},
+                    status_code=401,
+                    headers={"Cache-Control": "no-store"},
+                )
+            if not account and request.url.path == "/web/api/roommate/availability":
+                return JSONResponse({"enabled": False, "requires_account": True}, headers={"Cache-Control": "no-store"})
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -248,6 +306,19 @@ def create_app(database=None, transport=None):
         if not row:
             raise HTTPException(401, "Vui lòng đăng nhập để tiếp tục.")
         return row
+
+    def actor(request):
+        if not guest_enabled():
+            return user(request)
+        row = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+        if row:
+            return row
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if not guest:
+            raise HTTPException(401, {"code": "guest_expired"})
+        if guest["claim_target"]:
+            raise HTTPException(409, "Phiên đang được chuyển sang tài khoản. Hãy thử đăng nhập lại.")
+        return guest
 
     async def object_body(request):
         try:
@@ -264,115 +335,17 @@ def create_app(database=None, transport=None):
             raise HTTPException(404, "Không tìm thấy hội thoại.")
         return row
 
-    async def mask_housing_history(value, owner):
-        ids = set()
-
-        def collect(item):
-            if isinstance(item, list):
-                for child in item:
-                    collect(child)
-            elif isinstance(item, dict):
-                identity = (
-                    item.get("listing_id")
-                    or (item.get("canonical_id") if item.get("type") == "housing" else None)
-                    or item.get("id")
-                )
-                if (
-                    isinstance(identity, str)
-                    and re.fullmatch(r"[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}", identity)
-                    and (
-                        "lat" in item
-                        or "latitude" in item
-                        or "location" in item
-                        or "snapshot" in item
-                        or "address" in item
-                    )
-                ):
-                    ids.add(identity)
-                for child in item.values():
-                    collect(child)
-
-        collect(value)
-        if not ids:
-            return value
-        projections = {}
-        ordered = sorted(ids)
-        for start in range(0, len(ordered), 100):
-            result = await upstream(
-                "POST",
-                "/housing/privacy-projections",
-                owner,
-                {"listing_ids": ordered[start : start + 100]},
-                platform=True,
-            )
-            if not isinstance(result, dict) or not isinstance(result.get("items"), list):
-                raise HTTPException(502, "Chưa kiểm tra được vị trí công khai của tin.")
-            projections.update({row["listing_id"]: row for row in result["items"]})
-
-        def project(item, inherited=None):
-            if isinstance(item, list):
-                return [project(child) for child in item]
-            if not isinstance(item, dict):
-                return item
-            identity = (
-                item.get("listing_id")
-                or (item.get("canonical_id") if item.get("type") == "housing" else None)
-                or item.get("id")
-            )
-            area = (projections.get(identity) if isinstance(identity, str) else None) or inherited
-            out = {key: project(child, area if key in {"snapshot", "house"} else None) for key, child in item.items()}
-            if area and (inherited or any(key in item for key in ("lat", "lng", "location", "address", "snapshot"))):
-                label = area["address"].get("full_address", "Vị trí không công khai")
-                if "address" in out:
-                    out["address"] = area["address"] if isinstance(out["address"], dict) else label
-                if "location" in out:
-                    out["location"] = {"lat": area["lat"], "lng": area["lng"]}
-                for key in ("lat", "latitude"):
-                    if key in out:
-                        out[key] = area["lat"]
-                for key in ("lng", "longitude"):
-                    if key in out:
-                        out[key] = area["lng"]
-                out.update(location_accuracy="approximate", location_method="privacy_radius_500", privacy_radius_m=500)
-                for key in (
-                    "private_detail",
-                    "geocoded_address",
-                    "location_token",
-                    "confirmation_token",
-                    "location_metadata",
-                ):
-                    out.pop(key, None)
-                if isinstance(out.get("commute"), dict):
-                    out["commute"]["geometry"] = None
-                    out["commute"].pop("snap_distances_meters", None)
-                    for key, step in (("distance_meters", 500), ("duration_seconds", 60)):
-                        if isinstance(out["commute"].get(key), (int, float)):
-                            out["commute"][key] = round(out["commute"][key] / step) * step
-                for nearby in out.get("nearby", []) if isinstance(out.get("nearby"), list) else []:
-                    if isinstance(nearby, dict):
-                        for key in ("distance_meters", "distance_m"):
-                            if isinstance(nearby.get(key), (int, float)):
-                                nearby[key] = round(nearby[key] / 500) * 500
-            if projections and "route" in out:
-                out["route"] = None
-            return out
-
-        return project(value)
-
-    async def snapshot(thread, owner):
+    def snapshot(thread, owner):
         row = owned(thread, owner)
-        return await mask_housing_history(
-            {
-                **row,
-                "state": history_projection(json.loads(row["state"])),
-                "messages": history_projection(app.state.store.history(thread)),
-                "runs": app.state.store.all(
-                    "SELECT id,status FROM runs WHERE thread=? AND owner=? AND status IN ('running','unknown')",
-                    (thread, owner),
-                ),
-            },
-            owner,
-        )
+        return {
+            **row,
+            "state": history_projection(json.loads(row["state"])),
+            "messages": history_projection(app.state.store.history(thread)),
+            "runs": app.state.store.all(
+                "SELECT id,status FROM runs WHERE thread=? AND owner=? AND status IN ('running','unknown')",
+                (thread, owner),
+            ),
+        }
 
     async def upstream(method, path, owner, body=None, platform=False, extra_headers=None):
         base = (
@@ -447,9 +420,66 @@ def create_app(database=None, transport=None):
         except HTTPException:
             pass  # Stored history remains usable when an individual service is offline.
 
+    async def claim_guest(request, account):
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if not guest:
+            return
+        await finish_guest_claim(guest, account)
+
+    async def finish_guest_claim(guest, account):
+        if guest["claim_target"] and guest["claim_target"] != account:
+            raise HTTPException(409, "Phiên đang được nhận bởi tài khoản khác.")
+        thread = guest["thread"]
+        lock = app.state.locks.setdefault(thread or guest["id"], asyncio.Lock())
+        if lock.locked():
+            raise HTTPException(409, "Chờ lượt chat đang chạy hoàn tất rồi đăng nhập.")
+        async with lock:
+            key = guest["claim_key"] or secrets.token_hex(24)
+            app.state.store.write(
+                "UPDATE guest_sessions SET claim_target=?,claim_key=? WHERE id=?",
+                (account, key, guest["id"]),
+            )
+            if thread:
+                result = await upstream(
+                    "POST",
+                    "/chat/guest-claim",
+                    guest["id"],
+                    {
+                        "thread_id": thread,
+                        "target_user": account,
+                        "operation_key": key,
+                    },
+                )
+                if not isinstance(result, dict) or result.get("claimed") is not True:
+                    raise HTTPException(503, "Chưa nhận được hội thoại. Hãy thử đăng nhập lại.")
+            with app.state.store.db:
+                if thread:
+                    app.state.store.db.execute(
+                        "UPDATE threads SET owner=? WHERE id=? AND owner=?", (account, thread, guest["id"])
+                    )
+                    app.state.store.db.execute(
+                        "UPDATE runs SET owner=? WHERE thread=? AND owner=?", (account, thread, guest["id"])
+                    )
+                app.state.store.db.execute("UPDATE guest_sessions SET claimed=1 WHERE id=?", (guest["id"],))
+
     @app.get("/web/api/session")
-    async def session(request: Request):
-        row = user(request)
+    async def session(request: Request, response: Response):
+        row = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+        if not row and guest_enabled():
+            guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+            if not guest:
+                token, guest = app.state.guests.create(request.client.host if request.client else "unknown")
+                response.set_cookie(
+                    GUEST_COOKIE,
+                    token,
+                    httponly=True,
+                    secure=os.getenv("SIU_SECURE_COOKIE", "false").lower() == "true",
+                    samesite="strict",
+                    max_age=TTL,
+                    path="/",
+                )
+            return app.state.guests.public(guest)
+        row = row or user(request)
         if row.get("workspace") == "admin":
             capability = await upstream("GET", "/admin/session", row["id"], platform=True)
             if isinstance(capability, JSONResponse):
@@ -493,6 +523,8 @@ def create_app(database=None, transport=None):
             if not isinstance(capability, dict) or capability.get("can_moderate_housing") is not True:
                 raise HTTPException(403, "Tài khoản này không có quyền Admin.")
         workspace = "admin" if action == "admin" else "customer"
+        if action != "admin":
+            await claim_guest(request, row["id"])
         token = store.create_session(row["id"], workspace)
         row["workspace"] = workspace
         response.set_cookie(
@@ -504,6 +536,7 @@ def create_app(database=None, transport=None):
             max_age=86400 * 14,
             path="/",
         )
+        response.delete_cookie(GUEST_COOKIE, path="/")
         return public_user(row)
 
     @app.post("/web/api/logout")
@@ -513,6 +546,10 @@ def create_app(database=None, transport=None):
             (hashlib.sha256(request.cookies.get(COOKIE, "").encode()).hexdigest(),),
         )
         response.delete_cookie(COOKIE, path="/")
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if guest and not guest["claim_target"]:
+            app.state.store.write("UPDATE guest_sessions SET expires=? WHERE id=?", (time.time() - 1, guest["id"]))
+        response.delete_cookie(GUEST_COOKIE, path="/")
         return {"ok": True}
 
     @app.patch("/web/api/profile")
@@ -529,7 +566,7 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/status")
     async def status(request: Request):
-        return await upstream("GET", "/status", user(request)["id"])
+        return await upstream("GET", "/status", actor(request)["id"])
 
     @app.get("/web/api/threads")
     async def threads(request: Request):
@@ -537,25 +574,41 @@ def create_app(database=None, transport=None):
             {**r, "state": json.loads(r["state"])}
             for r in app.state.store.all(
                 "SELECT id,title,updated,state,revision FROM threads WHERE owner=? ORDER BY updated DESC",
-                (user(request)["id"],),
+                (actor(request)["id"],),
             )
         ]
 
     @app.post("/web/api/threads")
     async def new_thread(request: Request):
-        owner, thread = user(request)["id"], "th_" + secrets.token_hex(16)
+        principal = actor(request)
+        owner, thread = principal["id"], "th_" + secrets.token_hex(16)
+        if owner.startswith("guest_"):
+            with app.state.store.db:
+                # Lock before reading, so simultaneous creations cannot orphan a thread.
+                app.state.store.db.execute("UPDATE guest_sessions SET expires=expires WHERE id=?", (owner,))
+                current = app.state.store.one("SELECT thread,claim_target FROM guest_sessions WHERE id=?", (owner,))
+                if current["claim_target"]:
+                    raise HTTPException(409, "Phiên đang được chuyển sang tài khoản.")
+                if current["thread"]:
+                    return snapshot(current["thread"], owner)
+                app.state.store.db.execute(
+                    "INSERT INTO threads(id,owner,title,updated) VALUES (?,?,?,?)",
+                    (thread, owner, "Cuộc trò chuyện mới", time.time()),
+                )
+                app.state.store.db.execute("UPDATE guest_sessions SET thread=? WHERE id=?", (thread, owner))
+            return snapshot(thread, owner)
         app.state.store.write(
             "INSERT INTO threads(id,owner,title,updated) VALUES (?,?,?,?)",
             (thread, owner, "Cuộc trò chuyện mới", time.time()),
         )
-        return await snapshot(thread, owner)
+        return snapshot(thread, owner)
 
     @app.get("/web/api/threads/{thread}")
     async def get_thread(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
         await refresh(thread, owner)
-        result = await snapshot(thread, owner)
+        result = snapshot(thread, owner)
         if isinstance(result["state"], dict) and result["state"].get("viewing"):
             # The plan's "Xem nhà" tab reads this copy; show the landlord's answer there too.
             await landlord_viewings(owner, result["state"]["viewing"], thread=thread)
@@ -574,9 +627,37 @@ def create_app(database=None, transport=None):
             app.state.store.delete_thread(owner, thread)
         app.state.locks.pop(thread, None)
 
+    async def cleanup_guests():
+        # Reconcile claims whose credentials were already verified, including after restart.
+        for row in app.state.store.all(
+            "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NOT NULL LIMIT 5"
+        ):
+            try:
+                await finish_guest_claim(row, row["claim_target"])
+            except Exception as exc:
+                logging.getLogger(__name__).warning("guest claim reconcile failed: %s", type(exc).__name__)
+        for row in app.state.store.all(
+            "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NULL AND expires<=? LIMIT 10",
+            (time.time(),),
+        ):
+            try:
+                if row["thread"]:
+                    await remove_thread(row["thread"], row["id"])
+                app.state.store.write("DELETE FROM guest_sessions WHERE id=?", (row["id"],))
+            except Exception as exc:
+                logging.getLogger(__name__).warning("guest expiry cleanup failed: %s", type(exc).__name__)
+        app.state.store.write("DELETE FROM guest_sessions WHERE claimed=1")
+
+    async def guest_maintenance():
+        while True:
+            await asyncio.sleep(60)
+            await cleanup_guests()
+
     @app.delete("/web/api/threads/{thread}")
     async def delete_thread(thread: str, request: Request):
-        await remove_thread(thread, user(request)["id"])
+        owner = actor(request)["id"]
+        await remove_thread(thread, owner)
+        app.state.store.write("UPDATE guest_sessions SET thread=NULL WHERE id=? AND thread=?", (owner, thread))
         return {"ok": True}
 
     @app.delete("/web/api/threads")
@@ -597,7 +678,7 @@ def create_app(database=None, transport=None):
             forgotten = False
         return {"deleted": deleted, "kept": kept, "memory_forgotten": forgotten}
 
-    async def run(thread, owner, request_id, path, body, label):
+    async def run(thread, owner, request_id, path, body, label, guest_peer=None):
         if not isinstance(request_id, str) or not 16 <= len(request_id) <= 80:
             raise HTTPException(422, "Thiếu mã yêu cầu.")
         owned(thread, owner)
@@ -607,12 +688,14 @@ def create_app(database=None, transport=None):
             if existing["owner"] != owner or existing["thread"] != thread or existing["fingerprint"] != fingerprint:
                 raise HTTPException(409, "Yêu cầu đã được dùng cho thao tác khác.")
             if existing["status"] == "done":
-                return await snapshot(thread, owner)
+                return snapshot(thread, owner)
             raise HTTPException(409, "Yêu cầu đang xử lý hoặc cần kiểm tra trạng thái. Không gửi lặp.")
         lock = app.state.locks.setdefault(thread, asyncio.Lock())
         if lock.locked():
             raise HTTPException(409, "Hội thoại đang xử lý. Hãy chờ kết quả.")
         async with lock:
+            if guest_peer is not None and owner.startswith("guest_"):
+                app.state.guests.budget({"id": owner}, guest_peer)
             app.state.store.write(
                 "INSERT INTO runs VALUES (?,?,?,?,?,NULL)", (request_id, owner, thread, fingerprint, "running")
             )
@@ -642,17 +725,19 @@ def create_app(database=None, transport=None):
                     },
                 )
                 raise
-            return await snapshot(thread, owner)
+            return snapshot(thread, owner)
 
     @app.post("/web/api/threads/{thread}/chat")
     async def chat(thread: str, body: Turn, request: Request):
+        principal = actor(request)
         return await run(
             thread,
-            user(request)["id"],
+            principal["id"],
             body.request_id,
             "/chat",
             {**body.model_dump(exclude={"request_id"}), "thread_id": thread},
             body.message,
+            guest_peer=request.client.host if request.client else "unknown",
         )
 
     @app.post("/web/api/threads/{thread}/action")
@@ -663,7 +748,7 @@ def create_app(database=None, transport=None):
             raise HTTPException(422, "Thiếu mã yêu cầu.")
         return await run(
             thread,
-            user(request)["id"],
+            actor(request)["id"],
             request_id,
             f"/ui/chat/{thread}/action",
             body,
@@ -758,7 +843,7 @@ def create_app(database=None, transport=None):
                 },
                 status_code=response.status_code,
             )
-        return await mask_housing_history(data, owner)
+        return data
 
     def traveler(owner):
         data = app.state.travelers.get(owner)
@@ -782,7 +867,7 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/threads/{thread}/checkout")
     async def thread_checkout(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
         return await checkout_call("GET", f"/ui/chat/{thread}/checkout", owner)
 
@@ -1013,8 +1098,10 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/threads/{thread}/viewings")
     async def thread_viewings(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
+        if owner.startswith("guest_"):
+            return await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
         return await landlord_viewings(
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
@@ -1072,6 +1159,7 @@ def create_app(database=None, transport=None):
             "schedule",
             "cancel",
             "visit",
+            "visit-review",
             "decide",
             "reopen",
             "paid",
@@ -1081,8 +1169,73 @@ def create_app(database=None, transport=None):
         ],
         request: Request,
     ):
-        owner, body = user(request)["id"], await object_body(request)
+        owner, body = (actor(request) if step == "unselect" else user(request))["id"], await object_body(request)
         owned(thread, owner)
+        if owner.startswith("guest_"):
+            return await checkout_call("POST", f"/ui/chat/{thread}/viewings/unselect", owner, body)
+        if step == "visit-review":
+            from pydantic import ValidationError
+
+            class ReviewedVisit(BaseModel):
+                model_config = ConfigDict(extra="forbid")
+                listing_id: str = Field(min_length=1, max_length=128)
+                outcome: Literal["met_agreed", "met_rejected"]
+                rating: int = Field(ge=1, le=5)
+                body: str = Field(default="", max_length=2000)
+
+            try:
+                intent = ReviewedVisit.model_validate(body)
+            except ValidationError:
+                raise HTTPException(422, "Chọn kết quả buổi xem và đánh giá từ 1 đến 5 sao.") from None
+            previous = await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
+            if not isinstance(previous, dict):
+                return previous
+            prior = next(
+                (
+                    item
+                    for item in [*previous.get("items", []), *previous.get("history", [])]
+                    if item.get("listing_id") == intent.listing_id
+                ),
+                None,
+            )
+            review = {"rating": intent.rating, "body": intent.body.strip()}
+            if (
+                prior
+                and prior.get("visit_review") == review
+                and (prior.get("visit_outcome") or {}).get("outcome") == intent.outcome
+            ):
+                return await landlord_viewings(owner, previous, thread=thread, sync=True)
+            await require_landlord_confirmation(thread, owner, intent.listing_id)
+            slot = (prior.get("viewing") or {}).get("slot") if prior else None
+            if (
+                not prior
+                or prior.get("status") not in {"visit_due", "viewing_scheduled", "visited", "backup"}
+                or not slot
+            ):
+                raise HTTPException(409, "Cần có lịch hẹn hợp lệ trước khi đánh giá buổi xem.")
+            try:
+                due = datetime.fromisoformat(slot.replace("Z", "+00:00")).timestamp() <= time.time()
+            except (ValueError, AttributeError):
+                due = False
+            if not due and not previous.get("test_visit_anytime"):
+                raise HTTPException(409, "Chỉ ghi kết quả từ giờ hẹn xem trở đi.")
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            managed = (
+                any(row.get("listing_id") == intent.listing_id for row in page.get("items", []))
+                if isinstance(page, dict)
+                else False
+            )
+            if managed:
+                reviewed = await upstream("PUT", f"/housing/{intent.listing_id}/review", owner, review, platform=True)
+                if isinstance(reviewed, JSONResponse):
+                    return reviewed
+            result = await checkout_call(
+                "POST",
+                f"/ui/chat/{thread}/viewings/visit",
+                owner,
+                {"listing_id": intent.listing_id, "outcome": intent.outcome, "review": review},
+            )
+            return await landlord_viewings(owner, result, thread=thread, sync=True)
         if step == "visit":
             await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
         if step == "schedule":
@@ -1103,6 +1256,17 @@ def create_app(database=None, transport=None):
                 and not any(same_instant(option, body.get("slot")) for option in row["viewing_options"])
             ):
                 raise HTTPException(409, "Hãy chọn một trong các giờ chủ nhà đề xuất.")
+        if step == "decide":
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            if not isinstance(page, dict):
+                raise HTTPException(503, "Chưa kiểm tra được lịch hẹn.")
+            if any(row.get("listing_id") == body.get("listing_id") for row in page.get("items", [])):
+                review_page = await upstream("GET", f"/housing/{body.get('listing_id')}/reviews", owner, platform=True)
+                if not isinstance(review_page, dict):
+                    return review_page
+                mine = review_page.get("mine") or {}
+                if not mine or mine.get("status") == "withdrawn":
+                    raise HTTPException(409, "Hãy gửi đánh giá sau buổi xem trước khi chốt căn.")
         if step == "paid":
             previous = await landlord_viewings(
                 owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
@@ -1170,36 +1334,36 @@ def create_app(database=None, transport=None):
         request_id = body.pop("request_id", "")
         return await run(
             thread,
-            user(request)["id"],
+            actor(request)["id"],
             request_id,
             f"/ui/chat/{thread}/flight/outbound",
             body,
             "Chọn chuyến đi của vé khứ hồi",
+            guest_peer=request.client.host if request.client else "unknown",
         )
 
     @app.get("/web/api/map/search")
     async def map_search(request: Request, text: str):
-        return await upstream("GET", "/map/search?" + str(httpx.QueryParams({"text": text})), user(request)["id"])
+        return await upstream("GET", "/map/search?" + str(httpx.QueryParams({"text": text})), actor(request)["id"])
 
     @app.get("/web/api/housing/{listing_id}")
     async def detail(listing_id: str, request: Request):
-        owner = user(request)["id"]
-        return await mask_housing_history(await upstream("GET", f"/ui/housing/{listing_id}", owner), owner)
+        return await upstream("GET", f"/ui/housing/{listing_id}", actor(request)["id"])
 
     @app.get("/web/api/flight/{offer_id}")
     async def flight_detail(offer_id: str, request: Request):
-        return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
+        return await upstream("GET", f"/ui/flight/{offer_id}", actor(request)["id"])
 
     @app.get("/web/api/moving/services")
     async def moving_services(request: Request, lat: float, lng: float, refresh: bool = False):
         params = str(httpx.QueryParams({"lat": lat, "lng": lng, "refresh": refresh}))
-        return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
+        return await upstream("GET", "/ui/moving/services?" + params, actor(request)["id"])
 
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):
         if resource not in {"housing/map", "routes/entities", "routes/device", "housing/search", "places/map"}:
             raise HTTPException(404)
-        return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
+        return await upstream("POST", "/" + resource, actor(request)["id"], await object_body(request), platform=True)
 
     @app.post("/web/api/landlord/listings/{listing_id}/media-upload")
     async def housing_media_upload(listing_id: str, request: Request, alt: str | None = None):
@@ -1254,79 +1418,6 @@ def create_app(database=None, transport=None):
                 target.unlink(missing_ok=True)
             raise
 
-    @app.post("/web/api/landlord/properties/{property_id}/document-upload")
-    async def property_document_upload(property_id: str, request: Request, label: str = "Giấy tờ chứng minh"):
-        owner = user(request)["id"]
-        if not re.fullmatch(r"[0-9a-f-]{36}", property_id, re.IGNORECASE):
-            raise HTTPException(404)
-        # Authorize before reading or creating any file.
-        access = await upstream("GET", f"/landlord/properties/{property_id}/documents", owner, platform=True)
-        if isinstance(access, JSONResponse):
-            return access
-        content = bytearray()
-        async for chunk in request.stream():
-            content.extend(chunk)
-            if len(content) > MAX_IMAGE_BYTES:
-                raise HTTPException(413, "Ảnh giấy tờ tối đa 5 MB.")
-        try:
-            clean = await asyncio.to_thread(sanitized_image, bytes(content))
-        except RoommateError as error:
-            raise HTTPException(error.status, "Giấy tờ cần là ảnh JPEG/PNG hợp lệ.") from None
-        directory = housing_media_dir() / "private-documents"
-        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        filename = secrets.token_hex(20) + ".png"
-        target = directory / filename
-        await asyncio.to_thread(target.write_bytes, clean)
-        target.chmod(0o600)
-        digest = hashlib.sha256(clean).hexdigest()
-        signature = hmac.new(
-            os.getenv("AGENT_API_TOKEN", "").encode(), f"{property_id}\n{filename}\n{digest}".encode(), hashlib.sha256
-        ).hexdigest()
-        try:
-            result = await upstream(
-                "POST",
-                f"/landlord/properties/{property_id}/documents",
-                owner,
-                {"filename": filename, "content_sha256": digest, "label": label.strip()[:160] or "Giấy tờ chứng minh"},
-                platform=True,
-                extra_headers={"X-Housing-Document-Signature": signature},
-            )
-            if isinstance(result, JSONResponse):
-                if result.status_code < 500:
-                    target.unlink(missing_ok=True)
-                return result
-            if result.get("filename") != filename:
-                target.unlink(missing_ok=True)
-            return JSONResponse(result, status_code=201)
-        except HTTPException as error:
-            if error.status_code < 500:
-                target.unlink(missing_ok=True)
-            raise
-
-    @app.get("/web/media/housing-documents/{filename}")
-    async def private_property_document(filename: str, request: Request):
-        owner = user(request)["id"]
-        if not re.fullmatch(r"[a-f0-9]{40}\.png", filename):
-            raise HTTPException(404)
-        access = await upstream("GET", f"/housing-documents/{filename}/access", owner, platform=True)
-        if isinstance(access, JSONResponse):
-            return access
-        if not isinstance(access, dict) or access.get("authorized") is not True:
-            raise HTTPException(403)
-        target = housing_media_dir() / "private-documents" / filename
-        if not target.is_file():
-            raise HTTPException(404)
-        return FileResponse(
-            target,
-            media_type="image/png",
-            headers={
-                "Cache-Control": "private, no-store",
-                "X-Content-Type-Options": "nosniff",
-                "Content-Disposition": "inline",
-                "Referrer-Policy": "no-referrer",
-            },
-        )
-
     @app.get("/web/media/housing/{filename}")
     async def housing_media(filename: str, request: Request):
         if not re.fullmatch(r"[0-9a-f]{40}\.png", filename):
@@ -1357,7 +1448,9 @@ def create_app(database=None, transport=None):
         expected = request.headers.get("x-siu-user")
         if expected and expected != row["id"]:
             raise HTTPException(409, "Phiên đăng nhập đã đổi tài khoản. Hãy tải lại trang trước khi tiếp tục.")
-        if resource.startswith("moderation/") and row.get("workspace") != "admin":
+        if (
+            resource.startswith("moderation/") or (resource == "housing/activity" and request.query_params.get("admin"))
+        ) and row.get("workspace") != "admin":
             raise HTTPException(403, "Hãy đăng nhập khu Admin để kiểm duyệt.")
         if request.method == "POST" and (
             (resource.startswith("landlord/listings/") and resource.endswith("/media"))
@@ -1371,7 +1464,7 @@ def create_app(database=None, transport=None):
         # only that response with account names, without exposing a user directory.
         if request.method == "GET" and isinstance(result, dict):
             conversations = None
-            if resource == "housing/contact-notifications":
+            if resource in {"housing/contact-notifications", "housing/activity"}:
                 conversations = result.get("items", [])
             elif re.fullmatch(r"housing/contact-requests/[0-9a-fA-F-]+/messages", resource):
                 conversations = [result]
@@ -1392,21 +1485,42 @@ def create_app(database=None, transport=None):
                             f"SELECT id,name FROM users WHERE id IN ({placeholders})", tuple(ids)
                         )
                     }
+                destinations = {}
                 for conversation in conversations:
                     if isinstance(conversation, dict):
                         conversation["counterparty_name"] = names.get(conversation.get("counterparty_user_id"))
+                        if resource == "housing/activity" and conversation.get("audience") == "tenant":
+                            listing = conversation.get("listing_id", "")
+                            if listing not in destinations:
+                                try:
+                                    destinations[listing] = await upstream(
+                                        "GET",
+                                        "/ui/viewings/thread?" + str(httpx.QueryParams({"listing_id": listing})),
+                                        row["id"],
+                                    )
+                                except HTTPException:
+                                    destinations[listing] = {}
+                            destination = destinations[listing]
+                            if (
+                                isinstance(destination, dict)
+                                and destination.get("thread_id")
+                                and app.state.store.one(
+                                    "SELECT id FROM threads WHERE id=? AND owner=?",
+                                    (destination["thread_id"], row["id"]),
+                                )
+                            ):
+                                conversation["thread_id"] = destination["thread_id"]
         return result
 
     @app.get("/web/api/saved")
     async def saved(request: Request):
-        owner = user(request)["id"]
-        return await mask_housing_history(
-            [
-                {"id": r["id"], "thread_id": r["thread"], "house": json.loads(r["snapshot"])}
-                for r in app.state.store.all("SELECT * FROM saved WHERE owner=?", (owner,))
-            ],
-            owner,
-        )
+        principal = actor(request)
+        if principal["id"].startswith("guest_"):
+            return []
+        return [
+            {"id": r["id"], "thread_id": r["thread"], "house": json.loads(r["snapshot"])}
+            for r in app.state.store.all("SELECT * FROM saved WHERE owner=?", (user(request)["id"],))
+        ]
 
     @app.put("/web/api/saved/{listing_id}")
     async def save(listing_id: str, request: Request):

@@ -82,8 +82,6 @@ export interface ManagedListing {
 }
 
 export interface PropertyDetail extends PropertySummary {
-  location_token?: string;
-  confirmation_token?: string;
   management_status: ManagementStatus;
   location_metadata?: Record<string, unknown>;
   location_confirmed_at?: string | null;
@@ -120,12 +118,12 @@ export interface ContactRequest {
       move_in?: string | null;
     };
   } | null;
+  update_unread?: boolean;
   source: "contact" | "viewing";
   unread: number;
 }
 
 export interface ModerationProperty {
-  documents?: {id:string;label:string;url:string}[];
   revision: number;
   lat?: number;
   lng?: number;

@@ -23,7 +23,14 @@ export async function api<T = any>(
     isJson = false;
     return null;
   });
-  if (!response.ok || !isJson) throw apiFailure(response.status, data, isJson);
+  if (!response.ok || !isJson) {
+    const error = apiFailure(response.status, data, isJson);
+    if (error.code === "authentication_required" && method !== "GET")
+      window.dispatchEvent(new CustomEvent("relohome-login-required"));
+    if (error.code === "guest_expired")
+      window.dispatchEvent(new CustomEvent("relohome-guest-expired"));
+    throw error;
+  }
   return normalizeHousingMedia(data,window.location.origin);
 }
 export const requestId = () => crypto.randomUUID();

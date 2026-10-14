@@ -183,7 +183,6 @@ class ViewingService:
             k: row.get(k)
             for k in ("title", "address", "price_vnd", "deposit_vnd", "lat", "lng", "location_accuracy", "city")
         }
-        snapshot.update({key: row[key] for key in ("location_method", "privacy_radius_m") if row.get(key) is not None})
         details = {
             "selection": {"order": order + 1, "selected_at": now.isoformat()},
             "snapshot": {**snapshot, "read_at": now.isoformat()},
@@ -194,6 +193,7 @@ class ViewingService:
             existing.details = {**existing.details, **details}
             existing.details.pop("viewing", None)
             existing.details.pop("visit_outcome", None)
+            existing.details.pop("visit_review", None)
             self.store.put_tx(self._touch(existing))
             return existing
         tx = ServiceTransaction(
@@ -361,7 +361,9 @@ class ViewingService:
 
     # ------------------------------------------------------------------ sau buổi xem
 
-    def visit(self, user_id: str, thread_id: str, listing_id: str, outcome: VisitOutcome) -> dict:
+    def visit(
+        self, user_id: str, thread_id: str, listing_id: str, outcome: VisitOutcome, *, review: dict | None = None
+    ) -> dict:
         tx = self._item(user_id, thread_id, listing_id)
         if tx.status not in {"viewing_scheduled", "visited", "backup"}:
             raise CheckoutError(
@@ -371,6 +373,8 @@ class ViewingService:
         start = _parse(viewing.get("slot"))
         if start is None or (start > self.clock() and not self.settings.visit_anytime):
             raise CheckoutError(409, "Chỉ ghi kết quả từ giờ hẹn xem trở đi.", "visit_not_due")
+        if review is not None:
+            tx.details["visit_review"] = review
         tx.details.setdefault("viewing_history", []).append({**viewing, "outcome": outcome})
         if outcome == "missed":
             tx.details.pop("viewing", None)
@@ -592,6 +596,7 @@ class ViewingService:
             "snapshot": details.get("snapshot") or {},
             "viewing": details.get("viewing"),
             "visit_outcome": details.get("visit_outcome"),
+            **({"visit_review": details["visit_review"]} if details.get("visit_review") else {}),
             "agreement": details.get("agreement"),
             "reported_payment": details.get("reported_payment"),
             "backup_from": details.get("backup_from"),

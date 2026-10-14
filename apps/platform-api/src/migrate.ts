@@ -85,7 +85,7 @@ async function applyRoleGrants() {
     housing.listing_media, housing.management_members, housing.managed_listings, housing.listing_fees,
     housing.contact_requests, housing.listing_events, housing.host_profiles, housing.contact_messages,
     housing.reviews, housing.review_reports, housing.host_flags,
-    housing.contact_archives, housing.rent_payment_reports, housing.property_documents TO ${app}`)
+    housing.contact_archives, housing.rent_payment_reports, housing.property_documents, housing.activity_events, housing.activity_reads TO ${app}`)
   await pool.query(`GRANT INSERT ON housing.listing_reviews TO ${app}`)
   await pool.query(`GRANT INSERT ON catalog.places TO ${app}`)
   // Owners edit the name, address and pin of their property's place; other columns stay read-only.

@@ -55,7 +55,7 @@ for (const requestStatus of ["resolved", "declined", "viewing"]) {
     const panel = page.locator(".viewing-panel");
     await expect(panel.getByText(item.title, { exact: true })).toBeVisible();
     const record = panel.getByRole("button", {
-      name: "Đã gặp, chủ nhà đồng ý",
+      name: "Đã gặp, đồng ý",
       exact: true,
     });
     if (requestStatus === "viewing") {

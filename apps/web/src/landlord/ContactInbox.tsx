@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Building2, Home, CalendarClock } from "lucide-react";
+import { attentionCount } from "../housingActivity";
 import { t, formatUi } from "../uiPreferences";
 import { housingManagement } from "./client";
 import type { ContactRequest, PropertyDetail, PropertySummary } from "./types";
@@ -37,7 +38,7 @@ export function ContactInbox({
       setSelected(property);
       setRoom(row.listing_id);
     }
-  }, [initialThread, properties]);
+  }, [initialThread, properties, contacts]);
   useEffect(() => {
     setDetail(null);
     setError("");
@@ -71,7 +72,7 @@ export function ContactInbox({
           )}
         </p>
         {!properties.length && <p>{t("Chưa có nhà nào")}</p>}
-        <div className="ll-property-list">
+        <div className="ll-property-list ll-contact-properties">
           {properties.map((property) => {
             const items = contacts.filter((row) => belongs(row, property));
             return (
@@ -82,6 +83,16 @@ export function ContactInbox({
                   setRoom(null);
                 }}
               >
+                {attentionCount(items) > 0 && (
+                  <span
+                    className="ll-request-badge"
+                    aria-label={formatUi("{0} yêu cầu cần chú ý", [
+                      attentionCount(items),
+                    ])}
+                  >
+                    {attentionCount(items)}
+                  </span>
+                )}
                 <Building2 aria-hidden="true" />
                 <div className="ll-property-copy">
                   <strong>{property.name}</strong>
@@ -152,6 +163,16 @@ export function ContactInbox({
               key={unit.id}
               onClick={() => setRoom(unit.listing || unit.id)}
             >
+              {attentionCount(matches) > 0 && (
+                <span
+                  className="ll-request-badge"
+                  aria-label={formatUi("{0} yêu cầu cần chú ý", [
+                    attentionCount(matches),
+                  ])}
+                >
+                  {attentionCount(matches)}
+                </span>
+              )}
               <Home aria-hidden="true" />
               <strong>{unit.code}</strong>
               <span>{unit.title || t("Chưa có tin")}</span>

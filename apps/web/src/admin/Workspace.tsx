@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { LogOut, ShieldCheck, RefreshCw, Search } from "lucide-react";
 import { api, dateTime, money } from "../api";
@@ -19,6 +20,7 @@ export function AdminWorkspace({
   user: User;
   onLogout: () => void;
 }) {
+  const [routeParams] = useSearchParams();
   const [tab, setTab] = useState("listings"),
     [queue, setQueue] = useState<ModerationQueue | null>(null),
     [page, setPage] = useState<Data | null>(null),
@@ -67,6 +69,27 @@ export function AdminWorkspace({
       window.removeEventListener("focus", refresh);
     };
   }, [load]);
+  useEffect(() => {
+    const listing = routeParams.get("listing");
+    if (listing) {
+      setTab("listings");
+      void open(listing);
+    } else if (routeParams.has("identity")) {
+      setTab("identity");
+      void load();
+    }
+  }, [routeParams]);
+  useEffect(() => {
+    const identity = routeParams.get("identity");
+    if (identity && tab === "identity" && queue)
+      requestAnimationFrame(() => {
+        const element = document.getElementById(
+          "moderation-identity-" + identity,
+        );
+        element?.scrollIntoView({ block: "center" });
+        element?.focus({ preventScroll: true });
+      });
+  }, [routeParams, tab, queue]);
   async function open(id: string) {
     setBusy(true);
     setError("");
@@ -252,7 +275,6 @@ export function AdminWorkspace({
                     </div>
                   </>
                 )}
-                {!!detail.documents?.length && <section><h3>{t('Giấy tờ chứng minh')}</h3><ul>{detail.documents.map((document:Data)=><li key={document.id}><a href={document.url} target="_blank" rel="noreferrer">{document.label}</a></li>)}</ul></section>}
                 <h3>{t("Lịch sử kiểm duyệt")}</h3>
                 {!(detail.review_history || []).length ? (
                   <p>{t("Chưa có quyết định kiểm duyệt được ghi nhận.")}</p>

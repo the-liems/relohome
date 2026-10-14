@@ -92,7 +92,7 @@ test.beforeEach(async ({ page }) => {
         },
       });
     if (path.endsWith("/landlord/locations/confirm"))
-      return route.fulfill({json:{location_token:"confirmed-test-token"}});
+      return route.fulfill({json:{location_token:"signed-test-token"}});
     if (path.endsWith("/documents"))return route.fulfill({json:{items:[]}});
     if (path.endsWith("/landlord/locations/resolve"))
       return route.fulfill({
@@ -570,7 +570,7 @@ test("owner selects an address and confirms the map before saving", async ({
     .poll(() => propertyPayload)
     .toMatchObject({
       location: { lat: 10.759, lng: 106.676 },
-      location_token: "confirmed-test-token",
+      location_token: "signed-test-token",
       location_confirmed: true,
       address: {
         full_address: "197 Trần Phú, Phường Chợ Quán, TP.HCM",
@@ -939,47 +939,6 @@ test("a profile refresh preserves the revision of an open edit form", async ({
   );
 });
 
-test("address suggestions allow an entrance pin and private apartment details before confirmation", async ({
-  page,
-}) => {
-  let confirmation: any = null;
-  await page.route("**/web/api/housing-management/landlord/locations/confirm", (route) => {
-    confirmation = route.request().postDataJSON();
-    return route.fulfill({ json: { location_token: "confirmed-entrance" } });
-  });
-  await page.goto("/landlord");
-  await page.getByRole("button", { name: "Thêm nhà", exact: true }).click();
-  await page.getByLabel("Tên dễ nhận biết").fill("Nhà thử ghim");
-  await page.getByLabel("Địa chỉ đầy đủ").fill("197 Trần Phú");
-  // Typing alone loads suggestions; no separate search click is required.
-  await page.getByRole("button", { name: "197 Trần Phú, Phường Chợ Quán, TP.HCM", exact: true }).click();
-  await expect(
-    page.getByText("Hãy kéo chiếc ghim này đặt đúng vào vị trí cửa chính căn hộ của bạn."),
-  ).toBeVisible();
-  await page.getByLabel("Căn, tầng, tòa nhà (địa chỉ riêng)").fill("Căn 1208, Tòa S2.01");
-  await page.getByRole("button", { name: "Điều chỉnh ghim cửa chính bằng phím mũi tên" }).press("ArrowRight");
-  await page.getByText("Tinh chỉnh tọa độ cửa chính", { exact: true }).click();
-  expect(
-    Math.abs(Number(await page.getByLabel("Kinh độ", { exact: true }).inputValue()) - 106.676),
-  ).toBeGreaterThan(0.000001);
-  await page.getByLabel("Vĩ độ", { exact: true }).fill("10.759");
-  await page.getByLabel("Kinh độ", { exact: true }).fill("106.67602");
-  await page.getByRole("checkbox", { name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ" }).click();
-  await expect(
-    page.getByRole("checkbox", { name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ" }),
-  ).toBeChecked();
-  expect(confirmation.location.lng).toBeCloseTo(106.67602, 6);
-  expect(confirmation.private_detail).toBe("Căn 1208, Tòa S2.01");
-  await page.locator("form").getByRole("button", { name: "Thêm nhà", exact: true }).click();
-  await expect
-    .poll(() => propertyPayload)
-    .toMatchObject({
-      location: { lat: 10.759, lng: 106.67602 },
-      location_token: "confirmed-entrance",
-      address: { full_address: "Căn 1208, Tòa S2.01, 197 Trần Phú, Phường Chợ Quán, TP.HCM" },
-    });
-});
-
 test("one room form saves a complete draft, retries photos without duplicating the room and submits later", async ({
   page,
 }) => {
@@ -1110,19 +1069,31 @@ test("operating counters navigate to houses, all rooms, vacant rooms and the pro
   await expect(page.getByText("Tôi muốn xem phòng vào cuối tuần.")).toBeVisible();
 });
 
-test("reopening a private address preserves its full confirmation and address data on save",async({page})=>{
-  let saved:any=null;
-  const address={full_address:'Căn 1208, Tòa S2.01, Đa Tốn, Hà Nội',raw:'Căn 1208, Tòa S2.01, Đa Tốn, Hà Nội',geocoded_address:'Đa Tốn, Hà Nội',private_detail:'Căn 1208, Tòa S2.01',ward:'Đa Tốn',city:'Hà Nội',street:'Đường nội khu'};
-  await page.route(`**/web/api/housing-management/landlord/properties/${propertyId}`,route=>{
-    if(route.request().method()==='PATCH'){
-      saved=route.request().postDataJSON();return route.fulfill({json:{id:propertyId,revision:2}});
-    }
-    return route.fulfill({json:{id:propertyId,name:'Nhà Nguyễn Trãi',property_type:'apartment',address,lat:21,lng:105.81,revision:1,management_status:'active',location_confirmed_at:'2026-10-01T00:00:00Z',location_token:'base-lookup',confirmation_token:'full-private-confirmation',units:[]}});
-  });
-  await page.goto('/landlord');await page.locator('.ll-nav').getByRole('button',{name:/Nhà & phòng/}).click();
-  await page.getByRole('button',{name:/Nhà Nguyễn Trãi/}).click();await page.getByRole('button',{name:'Chỉnh sửa nhà',exact:true}).click();
-  await expect(page.getByLabel('Địa chỉ đầy đủ')).toHaveValue('Đa Tốn, Hà Nội');
-  await expect(page.getByLabel('Căn, tầng, tòa nhà (địa chỉ riêng)')).toHaveValue('Căn 1208, Tòa S2.01');
-  await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
-  await expect.poll(()=>saved).toMatchObject({address,location_token:'full-private-confirmation',location_confirmed:true});
+
+test('property and room badges count requests once and activity links open the right request',async({page})=>{
+  const requestId='99999999-9999-4999-8999-999999999999';
+  const event={id:'event-1',kind:'viewing_requested',audience:'landlord',contact_id:requestId,property_id:propertyId,listing_id:listingId,title:'Phòng sáng thoáng',property_name:'Nhà Nguyễn Trãi',unit_code:'P.301',counterparty_name:'Khánh',unread:true,payload:{slot:'2026-10-15T09:00:00+07:00'}};
+  await page.route('**/web/api/housing-management/housing/activity',route=>route.fulfill({json:{items:[event]}}));
+  await page.route('**/web/api/housing-management/housing/activity/event-1/read',route=>{event.unread=false;return route.fulfill({json:{read:true}})});
+  await page.goto('/landlord');await page.locator('.ll-nav').getByRole('button',{name:/Yêu cầu liên hệ/}).click();
+  const property=page.locator('.ll-contact-properties > button').first();
+  await expect(property.locator('.ll-request-badge')).toHaveText('1');
+  await property.click();const room=page.locator('.ll-contact-room').filter({hasText:'P.301'});
+  await expect(room.locator('.ll-request-badge')).toHaveText('1');
+  await page.getByRole('button',{name:/Tin nhắn và cập nhật/}).click();
+  const notice=page.locator('.contact-messenger-updates button').filter({hasText:'Người thuê đề nghị xem nhà'});
+  await expect(notice).toContainText('Nhà Nguyễn Trãi');await expect(notice).toContainText('P.301');
+  await notice.click();await expect(page).toHaveURL(new RegExp('request='+requestId));
+  await expect(page.locator('#contact-request-'+requestId)).toBeVisible();
+});
+
+test('admin activity opens the submitted listing from its own bell',async({page})=>{
+  moderator=true;
+  const id='88888888-8888-4888-8888-888888888888';
+  await page.route('**/web/api/housing-management/housing/activity?admin=true',route=>route.fulfill({json:{items:[{id:'admin-event',kind:'listing_submitted',audience:'admin',listing_id:id,title:'Căn hộ gần chợ',property_name:'Nhà Lê Lợi',counterparty_name:'Anh Tuấn',unread:true}]}}));
+  await page.route('**/web/api/housing-management/housing/activity/admin-event/read',route=>route.fulfill({json:{read:true}}));
+  await page.goto('/admin');await page.getByRole('button',{name:/Tin nhắn và cập nhật/}).click();
+  await page.locator('.contact-messenger-updates button').click();
+  await expect(page).toHaveURL(new RegExp('listing='+id));
+  await expect(page.getByRole('heading',{name:'Thông tin người đăng',exact:true})).toBeVisible();
 });

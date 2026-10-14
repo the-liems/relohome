@@ -5,9 +5,11 @@ import argparse
 from relohome_flight.settings import get_flight_settings
 from relohome_flights_mcp.server import create_server
 from relohome_flights_mcp.tools import build_services
+from relohome_observability import initialize
 
 
 def main() -> None:
+    initialize("flights-mcp")
     parser = argparse.ArgumentParser(description="MCP server đặt vé máy bay nội địa Việt Nam")
     parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="streamable-http")
     args = parser.parse_args()

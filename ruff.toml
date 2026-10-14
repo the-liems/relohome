@@ -12,4 +12,4 @@ indent-style = "space"
 # Keep installed distribution imports grouped consistently across each src-layout app.
 # Explicit classification avoids import-only churn as applications move (#114/#107).
 [lint.isort]
-known-third-party = ["relohome_agent", "relohome_demos", "relohome_flights_mcp", "relohome_intake", "relohome_orchestrator", "relohome_payments_mcp"]
+known-third-party = ["relohome_agent", "relohome_demos", "relohome_flights_mcp", "relohome_gateway", "relohome_intake", "relohome_orchestrator", "relohome_payments_mcp"]

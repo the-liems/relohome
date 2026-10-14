@@ -1,10 +1,12 @@
 """Provider routing and explicit user correction use only real configuration rules."""
 
-from relohome_agent.agents.llm_provider import client_options, provider_model
+from relohome_agent.agents.llm_provider import client_options, provider_model, provider_name
 from relohome_agent.agents.nodes.intake import explicitly_changed_fact
 
 
 def test_openrouter_key_uses_openrouter_endpoint_and_model():
+    assert provider_name("sk-or-v1-secret") == "openrouter"
+    assert provider_name("sk-openai-secret") == "openai"
     assert client_options("sk-or-v1-secret") == {"base_url": "https://openrouter.ai/api/v1"}
     assert provider_model("sk-or-v1-secret", "gpt-6-luna") == "openai/gpt-6-luna"
     assert provider_model("sk-or-v1-secret", "anthropic/claude-sonnet-4") == "anthropic/claude-sonnet-4"

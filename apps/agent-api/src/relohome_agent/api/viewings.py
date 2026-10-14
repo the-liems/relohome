@@ -28,8 +28,15 @@ class ScheduleBody(ListingBody):
     slot: str = Field(min_length=10, max_length=40)
 
 
+class VisitReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rating: int = Field(ge=1, le=5)
+    body: str = Field(default="", max_length=2000)
+
+
 class VisitBody(ListingBody):
     outcome: Literal["met_agreed", "met_undecided", "met_rejected", "missed"]
+    review: VisitReview | None = None
 
 
 class DecideBody(ListingBody):
@@ -109,6 +116,18 @@ async def viewings(thread_id: str, service: Service, user_id: UserId = "anonymou
     return viewing.thread_view(user_id, thread_id, values)
 
 
+@router.get("/viewings/thread")
+async def viewing_thread(listing_id: str, service: Service, user_id: UserId = "anonymous"):
+    viewing = viewing_of(service)
+    row = viewing.store.db.execute(
+        "SELECT thread_id FROM checkout_transactions WHERE user_id=? AND logical_key=? AND superseded=0 ORDER BY rowid DESC LIMIT 1",
+        (user_id, "housing:" + listing_id),
+    ).fetchone()
+    if row:
+        await _owned(service, row[0], user_id)
+    return {"thread_id": row[0] if row else None}
+
+
 @router.get("/viewings/slots")
 async def viewing_options(service: Service):
     viewing = viewing_of(service)
@@ -156,7 +175,9 @@ async def cancel(thread_id: str, body: ListingBody, service: Service, user_id: U
 @router.post("/chat/{thread_id}/viewings/visit")
 async def visit(thread_id: str, body: VisitBody, service: Service, user_id: UserId = "anonymous"):
     async def act(v):
-        v.visit(user_id, thread_id, body.listing_id, body.outcome)
+        v.visit(
+            user_id, thread_id, body.listing_id, body.outcome, review=body.review.model_dump() if body.review else None
+        )
 
     return await _store_action(service, thread_id, user_id, act, sync=body.outcome == "met_rejected")
 

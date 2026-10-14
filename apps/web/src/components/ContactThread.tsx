@@ -6,6 +6,8 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useNavigate } from "react-router-dom";
+import { activityText, activityDestination } from "../housingActivity";
 import { LoaderCircle, Send, ShieldAlert } from "lucide-react";
 import { api, dateTime } from "../api";
 import type { Data } from "../types";
@@ -20,13 +22,17 @@ export function ContactThread({
   viewerId,
   expectedRole,
   onDetails,
+  onNavigate,
 }: {
   requestId: string;
+  onNavigate?: () => void;
   onRead?: () => void;
   viewerId?: string;
   expectedRole?: "tenant" | "landlord";
   onDetails?: (details: { title: string; counterpartyName?: string }) => void;
 }) {
+  const navigate = useNavigate();
+  const [events, setEvents] = useState<Data[]>([]);
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [text, setText] = useState(""),
@@ -57,6 +63,15 @@ export function ContactThread({
           ),
         );
       setData(response);
+      const activity = await api<Data>(
+        path.replace(/messages$/, "activity"),
+        "GET",
+        undefined,
+        undefined,
+        viewerId ? { "X-SIU-User": viewerId } : undefined,
+      ).catch(() => ({ items: [] }));
+      if (active.current !== identity) return;
+      setEvents(activity.items || []);
       setError("");
       details.current?.({
         title: response.request.title,
@@ -100,6 +115,39 @@ export function ContactThread({
       setSending(false);
     }
   }
+  async function followEvent(event: Data) {
+    try {
+      const headers = viewerId ? { "X-SIU-User": viewerId } : undefined;
+      const linked = await api<Data>(
+        "/housing-management/housing/activity",
+        "GET",
+        undefined,
+        undefined,
+        headers,
+      );
+      const row =
+        linked.items?.find((item: Data) => item.id === event.id) || event;
+      const destination = activityDestination(row);
+      if (!destination)
+        throw new Error(
+          uiText(
+            "Chưa tìm thấy kế hoạch của yêu cầu này. Hãy mở lại hội thoại đã đặt lịch.",
+          ),
+        );
+      await api(
+        `/housing-management/housing/activity/${row.id}/read`,
+        "POST",
+        {},
+        undefined,
+        headers,
+      );
+      navigate(destination);
+      onNavigate?.();
+      window.dispatchEvent(new Event("housing-contact-update"));
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
   if (!data)
     return error ? (
       <p className="notice error" role="alert">
@@ -123,7 +171,12 @@ export function ContactThread({
       created_at: request.created_at,
     },
     ...(data.messages || []),
-  ];
+    ...events.map((event) => ({
+      ...event,
+      system: true,
+      body: activityText(event),
+    })),
+  ].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
   return (
     <div className="contact-thread">
       <ol
@@ -137,17 +190,40 @@ export function ContactThread({
               ? m.sender_user_id === data.viewer_id
               : m.sender_role === role;
           return (
-            <li key={m.id} className={mine ? "mine" : "theirs"}>
+            <li
+              key={m.id}
+              className={m.system ? "system" : mine ? "mine" : "theirs"}
+            >
               <span className="contact-thread-who">
-                {mine
-                  ? uiText("Bạn")
-                  : m.sender_role === "landlord"
-                    ? uiText("Chủ nhà")
-                    : uiText("Người thuê")}
+                {m.system
+                  ? uiText("Cập nhật ReloHome")
+                  : mine
+                    ? uiText("Bạn")
+                    : m.sender_role === "landlord"
+                      ? uiText("Chủ nhà")
+                      : uiText("Người thuê")}
                 {" · "}
                 {dateTime(m.created_at)}
               </span>
-              <p>{m.body}</p>
+              {m.system ? (
+                <button
+                  className="contact-system-action"
+                  onClick={() => void followEvent(m)}
+                  disabled={
+                    m.audience !== (role === "landlord" ? "landlord" : "tenant")
+                  }
+                >
+                  {m.body}
+                  <small>
+                    {m.audience ===
+                    (role === "landlord" ? "landlord" : "tenant")
+                      ? uiText("Mở chi tiết yêu cầu")
+                      : uiText("Cập nhật đã gửi đến bên kia")}
+                  </small>
+                </button>
+              ) : (
+                <p>{m.body}</p>
+              )}
             </li>
           );
         })}

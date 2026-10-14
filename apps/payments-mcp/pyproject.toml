@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "relohome-payments-mcp"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["relohome-payment==0.1.0", "relohome-mcp-http==0.1.0"]
+dependencies = ["relohome-observability==0.1.0", "relohome-payment==0.1.0", "relohome-mcp-http==0.1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,3 +1,14 @@
+# Export is disabled until the independent Collector and shared stack are ready.
+x-telemetry: &telemetry-env
+  # Privacy policy sees APP_ENV on every service, not only the Agent backend.
+  APP_ENV: ${APP_ENV:-staging}
+  OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-false}
+  OBSERVABILITY_CONTENT_MODE: ${OBSERVABILITY_CONTENT_MODE:-metadata}
+  OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_EXPORTER_OTLP_HEADERS: Authorization=Bearer%20${OTEL_COLLECTOR_TOKEN:-}
+  RELEASE_SHA: ${RELEASE_TAG}
+
 # Image-only Coolify definition. CD sets image tags and the public proxy rule.
 # All other variable references are resolved by Coolify. Only web gets a domain.
 x-app: &app
@@ -69,12 +80,22 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/web:${RELEASE_TAG}
     environment:
+      OTEL_SERVICE_NAME: web
+      <<: *telemetry-env
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
       LIFEFLOW_API_BASE_URL: http://backend:8000/api/v1
       SIU_PLATFORM_API_URL: http://platform:4100/v1
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+      # Guest chat is opt-in. Keep the existing single gateway worker/replica.
+      RELOHOME_GUEST_ENABLED: ${RELOHOME_GUEST_ENABLED:-false}
+      RELOHOME_GUEST_TURNS_30M: ${RELOHOME_GUEST_TURNS_30M:-10}
+      RELOHOME_GUEST_TURNS_DAY: ${RELOHOME_GUEST_TURNS_DAY:-30}
+      RELOHOME_GUEST_IP_TURNS_30M: ${RELOHOME_GUEST_IP_TURNS_30M:-30}
+      RELOHOME_GUEST_IP_TURNS_DAY: ${RELOHOME_GUEST_IP_TURNS_DAY:-100}
+      RELOHOME_GUEST_GLOBAL_TURNS_DAY: ${RELOHOME_GUEST_GLOBAL_TURNS_DAY:-300}
+      RELOHOME_GUEST_REQUESTS_MINUTE: ${RELOHOME_GUEST_REQUESTS_MINUTE:-120}
       # Encrypts flight booker profiles. Empty: a key file is created in web-data.
       SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
       # Owner-uploaded listing photos live on the persistent web-data volume.
@@ -99,6 +120,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/backend:${RELEASE_TAG}
     environment:
+      OTEL_SERVICE_NAME: backend
+      <<: *telemetry-env
       # Team test phase: "staging" allows the tester payment control below. Set
       # "production" (and remove the tester variables) before outside users try it.
       APP_ENV: ${APP_ENV:-staging}
@@ -171,6 +194,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/flights-mcp:${RELEASE_TAG}
     environment:
+      OTEL_SERVICE_NAME: flights-mcp
+      <<: *telemetry-env
       MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
       FLIGHT_SEARCH_PROVIDER: serpapi
       FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
@@ -183,6 +208,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/payments-mcp:${RELEASE_TAG}
     environment:
+      OTEL_SERVICE_NAME: payments-mcp
+      <<: *telemetry-env
       MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_PROVIDER: zalopay
       PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
@@ -226,7 +253,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/platform:${RELEASE_TAG}
     environment:
-      <<: *location-env
+      OTEL_SERVICE_NAME: platform
+      <<: [*location-env, *telemetry-env]
       # Browser directions only: local first, public OSRM for unsupported routes.
       # Explicit empty disables public routing; no external agent/commute fallback.
       OSRM_PUBLIC_DRIVING_URL: ${OSRM_PUBLIC_DRIVING_URL-https://routing.openstreetmap.de/routed-car/}
@@ -251,7 +279,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/location:${RELEASE_TAG}
     environment:
-      <<: *location-env
+      OTEL_SERVICE_NAME: location
+      <<: [*location-env, *telemetry-env]
       MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
       MCP_ALLOWED_HOSTS: localhost,127.0.0.1,location
       MCP_ALLOWED_ORIGIN_HOSTS: localhost,127.0.0.1
@@ -288,7 +317,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/moving-mcp:${RELEASE_TAG}
     environment:
-      <<: *moving-env
+      OTEL_SERVICE_NAME: moving-mcp
+      <<: [*moving-env, *telemetry-env]
       MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
       MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
     depends_on:
@@ -298,7 +328,8 @@ services:
     <<: *app
     image: ${IMAGE_PREFIX}/moving-api:${RELEASE_TAG}
     environment:
-      <<: *moving-env
+      OTEL_SERVICE_NAME: moving-api
+      <<: [*moving-env, *telemetry-env]
       AHAMOVE_WEBHOOK_AUTH_MODE: api-key
       AHAMOVE_WEBHOOK_SECRET: ${AHAMOVE_WEBHOOK_SECRET:?}
     depends_on:

@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   Home,
   MessageCircle,
   RotateCcw,
+  Star,
   X,
 } from "lucide-react";
 import { ApiError, api, money, requestId } from "../api";
@@ -297,7 +299,15 @@ export function ViewingPanel({
   scheduler: ViewingSchedulerState;
   footerHost: HTMLElement | null;
 }) {
+  const [routeParams] = useSearchParams();
   const messenger = useContactMessenger();
+  const [reviewing, setReviewing] = useState<{
+    item: Data;
+    outcome: "met_agreed" | "met_rejected";
+  } | null>(null);
+  const [rating, setRating] = useState(0),
+    [reviewBody, setReviewBody] = useState("");
+  const [reviewError, setReviewError] = useState("");
   const reportKey = useRef(requestId());
   const changed = useRef(onChanged);
   changed.current = onChanged;
@@ -319,6 +329,15 @@ export function ViewingPanel({
     [reporting, setReporting] = useState(false),
     [movingHint, setMovingHint] = useState("");
   const items: Data[] = viewing.items || [];
+  useEffect(() => {
+    const id = routeParams.get("listing");
+    if (id)
+      requestAnimationFrame(() => {
+        const card = document.getElementById("viewing-home-" + id);
+        card?.scrollIntoView({ block: "center" });
+        card?.focus({ preventScroll: true });
+      });
+  }, [routeParams, viewing]);
   const base = `/threads/${encodeURIComponent(threadId)}/viewings`;
   async function post(step: string, body: Data = {}) {
     setBusy(true);
@@ -454,6 +473,8 @@ export function ViewingPanel({
           )}
           {items.map((item) => (
             <section
+              id={"viewing-home-" + item.listing_id}
+              tabIndex={-1}
               className="checkout-card viewing-item"
               key={item.listing_id}
             >
@@ -600,22 +621,22 @@ export function ViewingPanel({
                     Date.parse(item.viewing.slot) <= Date.now())) && (
                   <div className="viewing-outcome" role="group">
                     <span className="small">{uiText("Kết quả buổi xem:")}</span>
-                    {[
-                      ["met_agreed", "Đã gặp, chủ nhà đồng ý"],
-                      ["met_undecided", "Đã gặp, còn phân vân"],
-                      ["met_rejected", "Không hợp"],
-                      ["missed", "Không đi được"],
-                    ].map(([outcome, label]) => (
+                    {(
+                      [
+                        ["met_agreed", "Đã gặp, đồng ý"],
+                        ["met_rejected", "Đã gặp, không đồng ý"],
+                      ] as const
+                    ).map(([outcome, label]) => (
                       <button
                         key={outcome}
                         className="secondary"
                         disabled={busy}
-                        onClick={() =>
-                          void post("visit", {
-                            listing_id: item.listing_id,
-                            outcome,
-                          })
-                        }
+                        onClick={() => {
+                          setReviewing({ item, outcome });
+                          setRating(item.visit_review?.rating || 0);
+                          setReviewBody(item.visit_review?.body || "");
+                          setReviewError("");
+                        }}
                       >
                         {uiText(label)}
                       </button>
@@ -673,7 +694,15 @@ export function ViewingPanel({
                   <button
                     className="primary"
                     disabled={busy}
-                    onClick={() => setDeciding(item)}
+                    onClick={() => {
+                      if (item.visit_review) setDeciding(item);
+                      else {
+                        setReviewing({ item, outcome: "met_agreed" });
+                        setRating(0);
+                        setReviewBody("");
+                        setReviewError("");
+                      }
+                    }}
                   >
                     <Check size={14} />
                     {uiText(" Chốt căn này")}
@@ -843,6 +872,110 @@ export function ViewingPanel({
         <p className="notice error" role="alert">
           {error}
         </p>
+      )}
+      {reviewing && (
+        <Dialog
+          title={uiText("Đánh giá sau buổi xem")}
+          onClose={() => {
+            if (!busy) setReviewing(null);
+          }}
+        >
+          <form
+            className="viewing-review-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setBusy(true);
+              setReviewError("");
+              try {
+                await api(
+                  `/threads/${encodeURIComponent(threadId)}/viewings/visit-review`,
+                  "POST",
+                  {
+                    listing_id: reviewing.item.listing_id,
+                    outcome: reviewing.outcome,
+                    rating,
+                    body: reviewBody,
+                  },
+                );
+                const selected = reviewing;
+                setReviewing(null);
+                await onChanged();
+                if (selected.outcome === "met_agreed")
+                  setDeciding(selected.item);
+              } catch (cause) {
+                setReviewError(errorOf(cause));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <p>
+              <strong>{reviewing.item.title}</strong>
+            </p>
+            <p>
+              {uiText(
+                reviewing.outcome === "met_agreed"
+                  ? "Đánh giá trải nghiệm trước khi chốt căn và báo chuyển tiền."
+                  : "Sau khi gửi đánh giá, căn này sẽ được bỏ chọn và lịch hẹn được đóng.",
+              )}
+            </p>
+            <fieldset disabled={busy}>
+              <legend>{uiText("Đánh giá trải nghiệm (bắt buộc)")}</legend>
+              <div className="viewing-review-stars">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name="visit-rating"
+                      required
+                      value={value}
+                      checked={rating === value}
+                      onChange={() => setRating(value)}
+                    />
+                    <Star
+                      size={24}
+                      aria-hidden="true"
+                      fill={value <= rating ? "currentColor" : "none"}
+                    />
+                    <span>{formatUi("{0} sao", [value])}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label>
+              {uiText("Nhận xét (không bắt buộc)")}
+              <textarea
+                maxLength={2000}
+                rows={3}
+                value={reviewBody}
+                disabled={busy}
+                onChange={(event) => setReviewBody(event.target.value)}
+              />
+            </label>
+            {reviewError && (
+              <p role="alert" className="notice error">
+                {reviewError}
+              </p>
+            )}
+            <div className="form-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setReviewing(null)}
+              >
+                {uiText("Quay lại")}
+              </button>
+              <button className="primary" disabled={busy || !rating}>
+                {uiText(
+                  reviewing.outcome === "met_agreed"
+                    ? "Gửi đánh giá và tiếp tục"
+                    : "Gửi đánh giá và bỏ chọn",
+                )}
+              </button>
+            </div>
+          </form>
+        </Dialog>
       )}
       {deciding && (
         <DecideDialog

@@ -230,12 +230,13 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
     const user = actor(request)
     const result = await pool.query(
       `WITH accessible AS (
-      SELECT cr.*,l.title,${contactCounterpartySql('$1')} AS counterparty_user_id,
+      SELECT cr.*,l.title,l.property_id,l.unit_id,p.name AS property_name,u.unit_code,${contactCounterpartySql('$1')} AS counterparty_user_id,
         CASE WHEN cr.tenant_user_id=$1 THEN 'tenant' ELSE 'landlord' END AS role
       FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
+      JOIN housing.properties p ON p.id=l.property_id LEFT JOIN housing.units u ON u.id=l.unit_id
       WHERE (cr.tenant_user_id=$1 OR EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=l.property_id AND mm.user_id=$1 AND mm.status='active'))
         AND NOT EXISTS(SELECT 1 FROM housing.contact_archives a WHERE a.request_id=cr.id AND a.user_id=$1)
-    ) SELECT cr.id,cr.title,cr.counterparty_user_id,cr.role,cr.status,cr.viewing_status,cr.updated_at,
+    ) SELECT cr.id,cr.title,cr.property_id,cr.unit_id,cr.property_name,cr.unit_code,cr.listing_id,cr.viewing_slot,cr.counterparty_user_id,cr.role,cr.status,cr.viewing_status,cr.updated_at,
       (SELECT count(*)::int FROM housing.contact_messages m WHERE m.request_id=cr.id AND m.sender_role<>cr.role
         AND m.created_at>coalesce(CASE WHEN cr.role='tenant' THEN cr.tenant_read_at ELSE cr.landlord_read_at END,'epoch')) AS unread,
       CASE WHEN cr.role='tenant' THEN cr.tenant_activity_at>coalesce(cr.tenant_activity_read_at,'epoch')

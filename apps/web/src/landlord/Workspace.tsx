@@ -32,6 +32,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { attentionCount } from "../housingActivity";
 import { ApiError, api, dateTime, money, requestId } from "../api";
 import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
@@ -64,7 +66,6 @@ import {
   PrivateLocationMap,
   type AddressSelection,
 } from "./LocationPicker";
-import { PropertyDocuments } from "./PropertyDocuments";
 import { ContactInbox } from "./ContactInbox";
 import { RoomsInventory } from "./RoomsInventory";
 import { ListingPreview } from "./ListingPreview";
@@ -177,6 +178,7 @@ function Status({ value }: { value: string }) {
 
 export function LandlordWorkspace() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [routeParams] = useSearchParams();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [properties, setProperties] = useState<PropertySummary[]>([]);
   const [contacts, setContacts] = useState<ContactRequest[]>([]);
@@ -244,9 +246,23 @@ export function LandlordWorkspace() {
     return () => window.removeEventListener("housing-contact-update", refresh);
   }, [load]);
 
-  const newContacts = contacts.filter(
-    (item) => item.status === "new" || item.unread > 0,
-  ).length;
+  useEffect(() => {
+    const request = routeParams.get("request"),
+      listing = routeParams.get("listing"),
+      property = routeParams.get("property");
+    if (request) {
+      setTab("inbox");
+      setInboxThread(request);
+      setSelected(null);
+      setEditingProfile(false);
+    } else if (property) {
+      setTab("properties");
+      setSelected(property);
+      setEditListing(listing);
+      setEditingProfile(false);
+    } else if (routeParams.has("profile")) setEditingProfile(true);
+  }, [routeParams]);
+  const newContacts = attentionCount(contacts);
   // Ask once when adding the first home; subsequent homes reuse the account profile.
   const showProfileForm = editingProfile;
   const showHostBanner = Boolean(host);
@@ -633,16 +649,7 @@ function PropertyForm({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [selection, setSelection] = useState<AddressSelection>({
-    address: existing
-      ? String(
-          existing.address.geocoded_address || addressText(existing.address),
-        )
-      : "",
-    private_detail: existing
-      ? String(existing.address.private_detail || "")
-      : "",
-    location_token: existing?.location_token,
-    confirmation_token: existing?.confirmation_token,
+    address: existing ? addressText(existing.address) : "",
     location: existing ? { lat: existing.lat, lng: existing.lng } : null,
     confirmed: Boolean(existing?.location_confirmed_at),
   });
@@ -652,34 +659,19 @@ function PropertyForm({
     setError("");
     const form = new FormData(event.currentTarget);
     try {
-      const addressUnchanged =
-        existing &&
-        selection.address ===
-          String(
-            existing.address.geocoded_address || addressText(existing.address),
-          ) &&
-        (selection.private_detail || "") ===
-          String(existing.address.private_detail || "");
       const payload = {
         name: form.get("name"),
         property_type: form.get("property_type"),
-        address: addressUnchanged
-          ? existing.address
-          : {
-              ...(selection.components || {}),
-              full_address: [selection.private_detail, selection.address]
-                .filter(Boolean)
-                .join(", "),
-              raw: [selection.private_detail, selection.address]
-                .filter(Boolean)
-                .join(", "),
-              geocoded_address: selection.address,
-              private_detail: selection.private_detail || "",
-            },
+        address: {
+          ...(selection.location_token ||
+          selection.address !== (existing ? addressText(existing.address) : "")
+            ? selection.components || {}
+            : existing?.address || {}),
+          full_address: selection.address,
+          raw: selection.address,
+        },
         location: selection.location,
-        location_token:
-          selection.confirmation_token ||
-          (selection.confirmed ? selection.location_token : undefined),
+        location_token: selection.location_token,
         location_confirmed: selection.confirmed,
         ...(existing ? { revision: existing.revision } : {}),
       };
@@ -882,7 +874,6 @@ function PropertyPanel({
         </button>
       </div>
       <PrivateLocationMap lat={property.lat} lng={property.lng} />
-      <PropertyDocuments propertyId={property.id} />
       {!property.location_confirmed_at && (
         <p className="ll-form-hint">
           {t("Địa điểm chưa được xác nhận. Mở Chỉnh sửa nhà để chọn vị trí.")}
@@ -1682,7 +1673,9 @@ function InboxPanel({
     const item = contacts.find((row) => row.id === initialThread);
     if (item && initialOpened.current !== item.id) {
       initialOpened.current = item.id;
-      messenger.open(item.id, item.title, "landlord");
+      document
+        .getElementById("contact-request-" + item.id)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   }, [initialThread, contacts, messenger]);
   async function action(item: ContactRequest, suffix: string, body: Data) {
@@ -1787,6 +1780,8 @@ function InboxPanel({
             return (
               <article
                 key={item.id}
+                id={"contact-request-" + item.id}
+                tabIndex={-1}
                 className={item.status === "new" ? "new" : ""}
               >
                 <div className="ll-contact-top">
@@ -2169,7 +2164,7 @@ export function ModerationPanel({
       ) : (
         <div className="ll-review-list">
           {queue.hosts.map((h) => (
-            <article key={h.user_id}>
+            <article key={h.user_id} id={"moderation-identity-"+h.user_id} tabIndex={-1}>
               <div>
                 <strong>
                   {h.display_name} · {t(posterLabels[h.poster_type])}
@@ -2290,7 +2285,7 @@ export function ModerationPanel({
       ) : (
         <div className="ll-review-list">
           {queue.properties.map((p) => (
-            <article key={p.id}>
+            <article key={p.id} id={"moderation-identity-"+p.id} tabIndex={-1}>
               <div>
                 <strong>{p.name}</strong>
                 <p>
@@ -2300,17 +2295,7 @@ export function ModerationPanel({
                   {t(propertyLabels[p.property_type] || p.property_type)} ·{" "}
                   {formatUi("gửi lúc {0}", [dateTime(p.requested_at)])}
                 </small>
-                {!!p.documents?.length && (
-                  <ul>
-                    {p.documents.map((document) => (
-                      <li key={document.id}>
-                        <a href={document.url} target="_blank" rel="noreferrer">
-                          {document.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+
                 {p.lat != null && p.lng != null && (
                   <PrivateLocationMap lat={p.lat} lng={p.lng} />
                 )}

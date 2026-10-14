@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "relohome-browser-gateway"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115.0", "uvicorn[standard]>=0.34.0", "httpx>=0.28.0", "cryptography>=44", "segno>=1.6", "relohome-contracts==0.1.0", "relohome-privacy==0.1.0", "relohome-roommate==0.1.0", "relohome-flight==0.1.0"]
+dependencies = ["relohome-observability==0.1.0", "fastapi>=0.115.0", "uvicorn[standard]>=0.34.0", "httpx>=0.28.0", "cryptography>=44", "segno>=1.6", "relohome-contracts==0.1.0", "relohome-privacy==0.1.0", "relohome-roommate==0.1.0", "relohome-flight==0.1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -17,6 +17,7 @@ def make_load_context(deps: GraphDeps):
         update: dict = {
             # Field chỉ có nghĩa trong một lượt: reset để respond không đọc nhầm kết quả lượt trước.
             "outcome": None,
+            "auth_required": [],
             "validation": None,
             "transaction": None,
             "user_decision": None,

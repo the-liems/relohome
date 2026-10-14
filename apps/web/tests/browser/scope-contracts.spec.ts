@@ -34,6 +34,7 @@ import {
   filtersFromSearch,
   mapRequest,
   individualListings,
+  coincidentListings,
 } from "../../src/mapWorkspace";
 import {
   closedResultSummary,
@@ -88,6 +89,27 @@ test("housing workspace opts out of aggregation without altering user filters or
   expect(body.amenities).toBeUndefined();
   expect(body.district).toBeUndefined();
   expect(body.administrative_area_ids).toBeUndefined();
+});
+
+test("counted pins combine only exact coordinates, preserve houses and never round nearby points", () => {
+  const homes = [
+    { id: "one", lat: 21, lng: 105, price_vnd: 3500000 },
+    { id: "two", lat: 21, lng: 105, price_vnd: 5000000 },
+    { id: "three", lat: 21, lng: 105, price_vnd: 7000000 },
+    { id: "nearby", lat: 21.0000001, lng: 105 },
+    { id: "other-longitude", lat: 21, lng: 105.0000001 },
+    { id: "invalid", lat: NaN, lng: 105 },
+  ] as House[];
+  const original = homes.map(h => ({ ...h }));
+  const pins = coincidentListings(homes);
+  expect(pins).toHaveLength(3);
+  expect(pins[0].houses.map(h => h.id)).toEqual(["one", "two", "three"]);
+  expect(pins[0].houses[1]).toBe(homes[1]);
+  expect(pins.map(pin => [pin.lat, pin.lng])).toEqual([[21, 105], [21.0000001, 105], [21, 105.0000001]]);
+  expect(homes).toEqual(original);
+  expect(coincidentListings([...homes, homes[0]])[0].houses).toHaveLength(3);
+  expect(coincidentListings(homes.slice(0, 2))[0].houses).toHaveLength(2);
+  expect(coincidentListings([])).toEqual([]);
 });
 
 test("comparison is not a service target; search/map identity survives even legacy reused IDs", () => {
