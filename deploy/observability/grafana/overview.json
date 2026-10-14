@@ -370,6 +370,63 @@
       }
     },
     {
+      "id": 21,
+      "title": "Jev coverage — completed / eligible attempts (active processes)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 8 },
+      "targets": [{
+        "refId": "A",
+        "expr": "(sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"completed\"}) or on (point) (0 * sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"eligible\"}))) / sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"eligible\"})",
+        "legendFormat": "{{point}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } },
+      "description": "Process-lifetime counters, reset on restart. Eligible attempts exclude duplicates of already submitted points; not all chats. No eligible attempts means undefined, not safe. Assessment narrative privacy skips remain visible."
+    },
+    {
+      "id": 22,
+      "title": "Jev skips / second — by point and reason",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "gridPos": { "x": 12, "y": 52, "w": 12, "h": 8 },
+      "targets": [{
+        "refId": "A",
+        "expr": "sum by (point, reason) (rate(relohome_guardrail_skips_total{environment=\"$environment\"}[5m]))",
+        "legendFormat": "{{point}} {{reason}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } }
+    },
+    {
+      "id": 23,
+      "title": "Jev completions and failures / second",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "gridPos": { "x": 0, "y": 60, "w": 12, "h": 8 },
+      "targets": [{
+        "refId": "A",
+        "expr": "sum by (point, event) (rate(relohome_guardrail_observations_total{environment=\"$environment\",event=~\"completed|timeout|provider_error|connection_error|invalid_response|response_limit|unavailable|internal_error|cancelled\"}[5m]))",
+        "legendFormat": "{{point}} {{event}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } }
+    },
+    {
+      "id": 24,
+      "title": "Jev in-flight observations",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "gridPos": { "x": 12, "y": 60, "w": 12, "h": 8 },
+      "targets": [{
+        "refId": "A",
+        "expr": "sum by (point) (relohome_guardrail_in_flight{environment=\"$environment\"})",
+        "legendFormat": "{{point}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } }
+    },
+    {
       "id": 20,
       "title": "Operational logs \u2014 click trace_id to open Langfuse",
       "type": "logs",

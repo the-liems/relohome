@@ -194,7 +194,7 @@ images:
 
 ```dotenv
 OBSERVABILITY_ENABLED=true
-OBSERVABILITY_CONTENT_MODE=redacted
+OBSERVABILITY_CONTENT_MODE=metadata
 OTEL_DEPLOYMENT_ENVIRONMENT=staging
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 OTEL_COLLECTOR_TOKEN=<staging-token>
@@ -234,9 +234,19 @@ measure overhead and growth before changing sampling or retention.
 
 | Mode | Langfuse input/output |
 | --- | --- |
-| `metadata` | Omitted |
-| `redacted` (default) | Sanitized copy with structured personal fields and detected email, Vietnamese phone and identity-number patterns removed |
-| `raw` | Copy with credentials still scrubbed; personal fields may remain |
+| `metadata` (default) | Omitted; timing, outcomes, token usage and metrics remain |
+| `redacted` | Non-production diagnostic opt-in; sanitized copy with structured personal fields and detected email, Vietnamese phone and identity-number patterns removed |
+| `raw` | Non-production diagnostic opt-in; credentials still scrubbed, personal fields may remain |
+
+If either `APP_ENV` or `OTEL_DEPLOYMENT_ENVIRONMENT` is `production`, Python and
+Node force `metadata` even when an existing resource still configures `redacted`
+or `raw`. This cannot retroactively erase previously captured content. Check both
+environment settings when redeploying. Compose propagates `APP_ENV` to all
+instrumented services. The production Collector also drops input/output attributes
+using its authoritative environment, protecting storage from legacy SDK exports.
+This Collector protection does not prevent legacy SDKs from first sending content
+to the Collector; deploy updated application images as well. Do not enable diagnostic content on real
+user traffic without a separately reviewed privacy and retention policy.
 
 Credential fields, authorization/cookies, API keys, recognizable signed tokens
 and URL credentials/query strings are scrubbed in all content modes. Free text
@@ -252,6 +262,37 @@ Original local container logging remains controlled by existing application
 logging. Do not add a second stdout-to-Loki shipper without deduplication/privacy
 review. Trace and span IDs are structured log metadata, never indexed labels or
 metric dimensions.
+
+### Jev shadow metrics
+
+The observer now records fixed-cardinality OTEL instruments directly, independent
+of INFO log filtering or message-body sanitation. No new export endpoint, LLM
+call, foreground await or external destination is introduced. These metrics use
+the existing application Collector only when `OBSERVABILITY_ENABLED=true`; the
+observer and telemetry remain separately opt-in. The existing stderr snapshots
+continue to work when observability is disabled.
+
+- `relohome.guardrail.observations`: counter with `point` (`plan`, `assessment`)
+  and fixed `event` (seen, eligible, submitted, completed, skipped, timeout,
+  provider/connection/response/internal errors, cancellation).
+- `relohome.guardrail.skips`: counter with `point` and fixed `reason`, including
+  overload, missing scope, duplicate turn limits and privacy-insufficient evidence.
+- `relohome.guardrail.in_flight`: non-monotonic sum with `point`; admissions add 1,
+  task completion/cancellation subtracts 1, including cancellation before HTTP starts.
+
+Collector metric allowlisting preserves only these three additional label keys.
+Cortex exposes `relohome_guardrail_observations_total`,
+`relohome_guardrail_skips_total`, and `relohome_guardrail_in_flight`. Grafana's
+provisioned overview includes coverage, skip reasons, outcomes and in-flight panels.
+Coverage is completed / eligible observation attempts for currently active processes,
+not all chats or a security score. Counters reset on restart. Duplicates of already
+submitted points are excluded from eligible; repeated unsuccessful admissions may
+be counted again. No eligible attempts means undefined, not success. Current
+Housing/Flight narrative assessments remain privacy skips, not clean verdicts.
+
+The local launcher preloads `@relohome/telemetry/register` for Location, Platform,
+Moving MCP and Moving API before service imports. Disabled registration is a no-op;
+read-only schema checks and explicit migrations are not instrumented by this change.
 
 SDK queues hold at most 2,048 spans/log records each and export asynchronously.
 Each Collector has a 256 MiB memory limiter, 512 MiB container limit and a disk

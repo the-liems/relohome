@@ -73,3 +73,62 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
         receiver.shutdown()
         receiver.server_close()
         worker.join(timeout=5)
+
+
+@pytest.mark.parametrize("environment,mode", [("staging", None), ("production", "redacted"), ("production", "raw")])
+def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environment, mode):
+    import json
+
+    received = []
+    formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
+               "/v1/metrics": ExportMetricsServiceRequest}
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_POST(self):
+            message = formats[self.path]()
+            message.ParseFromString(self.rfile.read(int(self.headers["Content-Length"])))
+            received.append((self.path, MessageToDict(message)))
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    worker = threading.Thread(target=receiver.serve_forever, daemon=True)
+    worker.start()
+    try:
+        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "APP_ENV": environment,
+               "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
+               "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
+               "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
+        env.pop("OBSERVABILITY_CONTENT_MODE", None)
+        if mode is not None:
+            env["OBSERVABILITY_CONTENT_MODE"] = mode
+        env.pop("PYTHONPATH", None)
+        result = subprocess.run([sys.executable, "-m", "tests.observability_guardrails_process"], cwd=ROOT,
+                                env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert "telemetry_initialization_failed" not in result.stderr
+        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
+        metrics = {metric["name"]: metric for path, payload in received if path == "/v1/metrics"
+                   for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
+                   for metric in scope["metrics"]}
+        points = metrics["relohome.guardrail.observations"]["sum"]["dataPoints"]
+        counts = {tuple(sorted((attr["key"], attr["value"]["stringValue"]) for attr in point["attributes"])):
+                  int(point["asInt"]) for point in points}
+        assert counts[(("event", "eligible"), ("point", "plan"))] == 2
+        assert counts[(("event", "completed"), ("point", "plan"))] == 1
+        assert counts[(("event", "skipped"), ("point", "plan"))] == 1
+        # Protobuf JSON omits the default false value.
+        assert metrics["relohome.guardrail.in_flight"]["sum"].get("isMonotonic", False) is False
+        assert int(metrics["relohome.guardrail.in_flight"]["sum"]["dataPoints"][0]["asInt"]) == 0
+        assert "relohome.guardrail.skips" in metrics
+        assert "relohome.llm.tokens" in metrics  # Usage survives metadata-only capture.
+        spans = [span for path, payload in received if path == "/v1/traces"
+                 for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
+        assert any(span["name"] == "llm.responses" for span in spans)
+    finally:
+        receiver.shutdown()
+        receiver.server_close()
+        worker.join(timeout=5)

@@ -8,7 +8,8 @@ registerFastifyTelemetry(app)
 app.get('/health', () => ({ status: 'ok' }))
 app.post('/mcp', request => toolOperation('echo', request.body.arguments, request.body._meta, async () => {
   console.warn('private-error-message person@example.com')
-  return { isError: true, content: [{ type: 'text', text: JSON.stringify({ email: 'person@example.com', api_key: 'fixture-secret' }) }] }
+  return { isError: true, content: [{ type: 'text', text: JSON.stringify({ email: 'person@example.com', api_key: 'fixture-secret',
+    description: 'SYNTHETIC_PRIVATE_NAME lives at 123 SYNTHETIC_PRIVATE_ADDRESS' }) }] }
 }))
 const url = await app.listen({ host: '127.0.0.1', port: 0 })
 const raw = createServer((request, response) => {
@@ -23,7 +24,8 @@ await trace.getTracer('fixture').startActiveSpan('gateway', async span => {
   const metadata = {}
   propagation.inject(context.active(), metadata)
   const response = await fetch(`${url}/mcp?token=fixture-secret`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ arguments: { email: 'person@example.com', token: 'fixture-secret' }, _meta: metadata }) })
+    body: JSON.stringify({ arguments: { email: 'person@example.com', token: 'fixture-secret',
+      input: 'SYNTHETIC_PRIVATE_NAME lives at 123 SYNTHETIC_PRIVATE_ADDRESS' }, _meta: metadata }) })
   if (!response.ok || !response.headers.get('x-trace-id')) throw new Error('request failed')
   await response.json()
   for (const target of [`${url}/health`, `${url}/private-error-message`,

@@ -18,6 +18,44 @@ def load_script(name):
     return module
 
 
+@pytest.mark.parametrize("component", ["location", "platform", "moving", "moving-api"])
+@pytest.mark.parametrize("enabled", ["false", "true"])
+def test_local_node_services_preload_before_entrypoint(component, enabled, tmp_path, monkeypatch):
+    import sys
+
+    runner = load_script("local-integration")
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    entrypoint = {
+        "location": "apps/location-mcp/dist/http-server.js",
+        "platform": "apps/platform-api/dist/server.js",
+        "moving": "apps/moving-mcp/dist/http-server.js",
+        "moving-api": "apps/moving-api/dist/server.js",
+    }[component]
+    path = tmp_path / entrypoint
+    path.parent.mkdir(parents=True)
+    path.write_text("// fixture")
+    monkeypatch.setattr(sys, "argv", ["local-integration.py", component])
+    env = {"OBSERVABILITY_ENABLED": enabled}
+    monkeypatch.setattr(runner, "environment", lambda *args: env)
+    monkeypatch.setattr(runner.shutil, "which", lambda _: "node")
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "call", lambda command, **kw: calls.append((command, kw)) or 0)
+    with pytest.raises(SystemExit) as exit_info:
+        runner.main()
+    assert exit_info.value.code == 0
+    assert calls == [(["node", "--import", "@relohome/telemetry/register", entrypoint], {"env": env, "cwd": tmp_path})]
+    assert env == {"OBSERVABILITY_ENABLED": enabled}  # No implicit activation/config mutation.
+
+
+@pytest.mark.parametrize("component,entrypoint", [
+    ("check", "scripts/relohome/check-local-schema.mjs"),
+    ("migrate", "apps/platform-api/dist/migrate.js"),
+])
+def test_schema_commands_do_not_preload_telemetry(component, entrypoint):
+    runner = load_script("local-integration")
+    assert runner.node_command(component, entrypoint) == ["node", entrypoint]
+
+
 def test_integration_default_is_anchored_and_preserves_shell(tmp_path, monkeypatch):
     runner = load_script("local-integration")
     monkeypatch.setattr(runner, "ROOT", tmp_path)
@@ -33,7 +71,8 @@ def test_integration_default_is_anchored_and_preserves_shell(tmp_path, monkeypat
     assert env["LOCATION_MCP_AUTH_TOKEN"] == "shell-token"
     assert env["SIU_GATEWAY_URL"] == "http://localhost:8600"
     assert env["DOCKER_HOST"] == "unix:///custom/docker.sock"
-    assert env["ProgramFiles"] == "C:/Program Files"
+    # Windows os.environ normalizes names to uppercase; preservation is case-insensitive.
+    assert {key.casefold(): value for key, value in env.items()}["programfiles"] == "C:/Program Files"
     assert "LIFEFLOW_ENV_FILE" not in env
 
 

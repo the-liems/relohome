@@ -44,8 +44,11 @@ The observer emits `jev_metrics {JSON}` to the existing logger/stderr every 60 s
 after the first observation and once on shutdown. There is no public metrics route, new
 dependency, LLM call, retry, or deployment/config activation. The timer runs in fresh
 contextvars and is canceled/joined with the observer. Skip-only traffic is exported too.
-Use the existing log collector to extract this JSON; this is **not** a preconfigured
-Prometheus scrape endpoint or a dashboard.
+Originally these were stderr-only snapshots. Issue #160 adds direct fixed-label
+OTEL instruments and provisioned Grafana panels through the existing Collector;
+see [observability runbook](../runbooks/observability.md#jev-shadow-metrics).
+Snapshots remain for local diagnostics; do not ship arbitrary log messages to Loki
+or weaken log sanitation to recover them. No public Prometheus scrape route is added.
 
 Each fixed point (`plan`, `assessment`) has cumulative process-local counters:
 
