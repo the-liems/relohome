@@ -45,7 +45,7 @@ The historical checks in this section used base `c82dcfb` (PRs #146, #154, #156,
 
 An existing managed contact keeps its confirmation requirement when a listing becomes hidden. Its transfer report can still reach the landlord through private contact history. Public visibility changes do not rewrite or erase that history.
 
-The user requested local testing before opening a PR. No PR, remote push, main merge or cloud deployment is part of this local handoff.
+The user initially requested local testing before opening a PR and subsequently authorized publishing the feature branch, PR and backend-connection issue. Main-branch merging and cloud deployment remain separate operator/reviewer actions.
 
 Latest bell/name update: 33 housing gateway tests, 56 housing/viewing desktop/mobile browser cases, and the disposable PostGIS suites passed. Platform and Web production builds passed.
 
@@ -67,6 +67,8 @@ The visible viewing outcomes are “Đã gặp, đồng ý” and “Đã gặp,
 
 Current validation: full Python 1,161 passed, 103 skipped and 136 subtests passed; 94 desktop/mobile browser cases passed covering landlord, viewing/review, activity navigation, guest login, gallery and coincident pins. Disposable PostGIS suites passed 65 Housing Query, 66 Platform and 7 Location MCP cases using the application role; 46 frontend contracts passed; new tests cover request deduplication, participant-only events/reads and Admin notifications with self-review forbidden. TypeScript and Web production builds passed. Earlier broad app-suite baseline limitations remain documented above; this report does not claim every unrelated browser suite is green.
 
-Main integration conflicts were resolved locally in gateway, App, map imports and translations. Current main's guest gates, galleries, marker behavior and observability configuration remain intact. No PR, push, main-branch merge or cloud deployment is authorized by this update. Fresh PostGIS/SQLite/key/media backup and before/after housing/canonical-place comparison are recorded outside Git in `data/local-pr-integration/activity-data-validation.json`; runtime evidence is in `activity-smoke-validation.json`.
+Earlier main integration conflicts were resolved locally in gateway, App, map imports and translations. Current main's guest gates, galleries, marker behavior and observability configuration remain intact. Fresh PostGIS/SQLite/key/media backup and before/after housing/canonical-place comparison are recorded outside Git in `data/local-pr-integration/activity-data-validation.json`; runtime evidence is in `activity-smoke-validation.json`.
+
+Before PR publication, main `1da2070` (PR #168) was fetched and merged into this feature branch without conflicts. Its Git-pinned Coolify Application deployment, provisioner, data pins and Compose remain unchanged. Backend/cloud connection instructions: [housing-handoff-coolify.md](../runbooks/housing-handoff-coolify.md). GitHub PR CI and authenticated cloud acceptance are distinct from the local results above.
 
 Manual local test scenario: [housing-local-test-scenario.md](housing-local-test-scenario.md). Use separate browser sessions and complete one room’s flow at a time.
