@@ -4,9 +4,7 @@ import asyncio
 from types import SimpleNamespace
 
 from relohome_agent.agents.guardrails.shadow import ShadowGuardrail
-from relohome_observability import generation, initialize
-
-initialize("guardrail-fixture")
+from relohome_observability import generation
 
 
 async def main():

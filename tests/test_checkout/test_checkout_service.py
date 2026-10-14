@@ -294,7 +294,7 @@ async def test_fulfilment_retry_reports_each_attempt_outcome(env, monkeypatch):
     monkeypatch.setattr(metrics, "get_meter_provider", lambda: meter)
     monkeypatch.setattr(metrics, "get_meter", meter.get_meter)
     monkeypatch.setattr(runtime, "_initialized", True)
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
     service, _, flight, _, _ = env
     monkeypatch.setattr(service, "kick", lambda: None)
     try:

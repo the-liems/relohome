@@ -25,12 +25,9 @@ from relohome_agent.api.viewings import router as viewings_router
 from relohome_agent.api.web_actions import router as web_actions_router
 from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-from relohome_observability import initialize
-from relohome_observability.asgi import instrument_fastapi
+from relohome_observability.asgi import install_http_boundary
 from relohome_observability.fastapi import DiagnosticHTTPException, diagnostic_exception_handler
 from relohome_roommate.background import RoommateMaintenance
-
-initialize("backend")
 
 
 @asynccontextmanager
@@ -70,7 +67,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-instrument_fastapi(app, service_name="backend")
+install_http_boundary(app)
 app.add_exception_handler(DiagnosticHTTPException, diagnostic_exception_handler)
 
 settings = get_settings()

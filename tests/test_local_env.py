@@ -19,8 +19,7 @@ def load_script(name):
 
 
 @pytest.mark.parametrize("component", ["location", "platform", "moving", "moving-api"])
-@pytest.mark.parametrize("enabled", ["false", "true"])
-def test_local_node_services_preload_before_entrypoint(component, enabled, tmp_path, monkeypatch):
+def test_local_node_services_preload_before_entrypoint(component, tmp_path, monkeypatch):
     import sys
 
     runner = load_script("local-integration")
@@ -35,7 +34,7 @@ def test_local_node_services_preload_before_entrypoint(component, enabled, tmp_p
     path.parent.mkdir(parents=True)
     path.write_text("// fixture")
     monkeypatch.setattr(sys, "argv", ["local-integration.py", component])
-    env = {"OBSERVABILITY_ENABLED": enabled}
+    env = {}
     monkeypatch.setattr(runner, "environment", lambda *args: env)
     monkeypatch.setattr(runner.shutil, "which", lambda _: "node")
     calls = []
@@ -44,7 +43,7 @@ def test_local_node_services_preload_before_entrypoint(component, enabled, tmp_p
         runner.main()
     assert exit_info.value.code == 0
     assert calls == [(["node", "--import", "@relohome/telemetry/register", entrypoint], {"env": env, "cwd": tmp_path})]
-    assert env == {"OBSERVABILITY_ENABLED": enabled}  # No implicit activation/config mutation.
+    assert env == {}  # Preload activates telemetry without an environment toggle.
 
 
 @pytest.mark.parametrize("component,entrypoint", [

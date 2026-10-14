@@ -14,6 +14,7 @@ from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportM
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 ROOT = Path(__file__).resolve().parents[1]
+CLI = str(Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument"))
 
 
 @pytest.mark.parametrize("conventions", ["", "http"])
@@ -40,13 +41,14 @@ def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventio
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "OBSERVABILITY_CONTENT_MODE": "metadata",
+        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+               "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": "production", "OTEL_DEPLOYMENT_ENVIRONMENT": "production",
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "framework-fixture",
                "OTEL_SEMCONV_STABILITY_OPT_IN": conventions,
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": ""}
-        result = subprocess.run([sys.executable, "-m", "tests.observability_framework_process"], cwd=ROOT,
+        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_framework_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert "telemetry_initialization_failed" not in result.stderr
@@ -54,6 +56,8 @@ def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventio
         assert cases["forward"]["status"] == 200
         assert cases["failure"]["status"] == 500
         assert cases["unknown"]["status"] == 404
+        assert cases["starlette_failure"]["status"] == 500
+        assert cases["intake"]["status"] == cases["orchestrator"]["status"] == 503
         assert all(case["trace_id"] != "1" * 32 for case in cases.values())
         spans = [span for path, payload in received if path == "/v1/traces"
                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
@@ -75,6 +79,14 @@ def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventio
                        if base64.b64decode(span["traceId"]).hex() == cases["failure"]["trace_id"])
         failure_attributes = {item["key"]: item["value"] for item in failure["attributes"]}
         assert failure_attributes["error.type"]["stringValue"].endswith("ValueError")
+        downstream_failure = next(span for span in spans if span["name"] == "GET /broken")
+        assert any(item["key"] == "error.type" and item["value"]["stringValue"].endswith("ValueError")
+                   for item in downstream_failure["attributes"])
+        for name in ("intake", "orchestrator"):
+            standalone = next(span for span in spans
+                              if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"])
+            assert any(item["key"] == "error.type" and item["value"]["stringValue"] == "missing_service_token"
+                       for item in standalone["attributes"])
         assert all(not span.get("events") and "message" not in span.get("status", {}) for span in spans)
         assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
@@ -113,7 +125,8 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "OBSERVABILITY_CONTENT_MODE": "metadata",
+        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+               "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": environment, "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "http-errors-fixture",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
@@ -122,7 +135,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
         # Exercise legacy auto-instrumentation: it records exception events rather
         # than error.type, which must still leave a safe cause after sanitation.
         env["OTEL_SEMCONV_STABILITY_OPT_IN"] = conventions
-        result = subprocess.run([sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
+        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert "telemetry_initialization_failed" not in result.stderr
@@ -206,14 +219,14 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OBSERVABILITY_ENABLED": "true",
+        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
                "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token",
                "PAYMENT_DB_PATH": str(tmp_path / "payments.db"),
                "FLIGHT_DB_PATH": str(tmp_path / "flights.db"), "OBSERVABILITY_FIXTURE_MCP": domain}
         env.pop("PYTHONPATH", None)
-        result = subprocess.run([sys.executable, "-m", "tests.observability_process"], cwd=ROOT,
+        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert "telemetry_initialization_failed" not in result.stderr
@@ -266,7 +279,8 @@ def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environmen
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "APP_ENV": environment,
+        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+               "APP_ENV": environment,
                "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
@@ -274,7 +288,7 @@ def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environmen
         if mode is not None:
             env["OBSERVABILITY_CONTENT_MODE"] = mode
         env.pop("PYTHONPATH", None)
-        result = subprocess.run([sys.executable, "-m", "tests.observability_guardrails_process"], cwd=ROOT,
+        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_guardrails_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert "telemetry_initialization_failed" not in result.stderr

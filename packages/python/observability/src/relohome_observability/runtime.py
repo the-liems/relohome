@@ -10,7 +10,6 @@ import sys
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
-from importlib.util import find_spec
 from types import SimpleNamespace
 
 from opentelemetry import context, metrics, trace
@@ -41,7 +40,7 @@ HTTP_ERROR_TYPES = frozenset({
 
 
 def enabled() -> bool:
-    return os.getenv("OBSERVABILITY_ENABLED", "false").lower() == "true"
+    return _initialized  # The CLI configurator activates telemetry before app imports.
 
 
 def instruments():
@@ -150,7 +149,7 @@ class MetadataLogHandler(logging.Handler):
 
 def initialize(service_name: str):
     global _initialized, _logger
-    if _initialized or not enabled():
+    if _initialized:
         return
     _initialized = True
     try:
@@ -158,7 +157,6 @@ def initialize(service_name: str):
         from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.propagate import set_global_textmap
         from opentelemetry.sdk._logs import LoggerProvider
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
@@ -212,10 +210,6 @@ def initialize(service_name: str):
         metrics.get_meter("relohome").create_observable_gauge(
             "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
         )
-        HTTPXClientInstrumentor().instrument()
-        if find_spec("psycopg") is not None:
-            from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
-            PsycopgInstrumentor().instrument(capture_parameters=False, enable_commenter=False)
         from .sqlite import instrument_shortcuts
         instrument_shortcuts()
         logging.getLogger().addHandler(MetadataLogHandler(level=logging.INFO))

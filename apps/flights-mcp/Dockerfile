@@ -48,4 +48,6 @@ EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['FLIGHT_MCP_PORT']}/health\", timeout=4)" || exit 1
 
-CMD ["python", "-m", "relohome_flights_mcp", "--transport", "streamable-http"]
+ENV OTEL_PYTHON_DISTRO=relohome OTEL_PYTHON_CONFIGURATOR=relohome
+ENV OTEL_SERVICE_NAME=flights-mcp
+CMD ["opentelemetry-instrument", "python", "-m", "relohome_flights_mcp", "--transport", "streamable-http"]

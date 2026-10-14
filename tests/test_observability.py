@@ -14,17 +14,17 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from relohome_observability import current_context, generation, operation, runtime, session
-from relohome_observability.asgi import instrument_fastapi, uninstrument_http
 from relohome_observability.privacy import content
 
 from tests.mcp_http import running_mcp
+from tests.observability_helpers import instrument_fastapi, uninstrument_http
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
 def spans(monkeypatch):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    monkeypatch.setattr("relohome_observability.asgi.install_http_boundary", instrument_fastapi)
     monkeypatch.setenv("OBSERVABILITY_CONTENT_MODE", "redacted")
     monkeypatch.setattr(runtime, "_initialized", True)
     exporter = InMemorySpanExporter()
@@ -65,7 +65,7 @@ def test_metadata_invalid_modes_and_serialization_failure_omit_content(monkeypat
 
 
 def test_disabled_telemetry_does_not_serialize_or_reject_business_payloads(monkeypatch):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
 
     class Private:
         def model_dump(self, **kwargs):
@@ -394,7 +394,7 @@ def test_sqlite_respects_disabled_and_unsampled_context(spans, sqlite_instrument
             "traceparent": "00-11111111111111111111111111111111-2222222222222222-00",
         }):
             connection.cursor().execute("SELECT 1")
-        monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+        monkeypatch.setattr("relohome_observability.runtime._initialized", False)
         with trace.get_tracer("external").start_as_current_span("external"):
             connection.execute("SELECT 1")
         assert [item.name for item in spans.get_finished_spans()] == ["request", "external"]
@@ -439,7 +439,7 @@ async def test_metric_instruments_are_created_once_for_repeated_requests(spans, 
 
 @pytest.mark.asyncio
 async def test_disabled_operations_and_generation_do_not_create_instruments(monkeypatch):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
 
     def unexpected():
         raise AssertionError("Disabled telemetry must not create metric instruments")

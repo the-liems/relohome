@@ -195,10 +195,9 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
-    from relohome_observability import initialize, record_http_error
-    from relohome_observability.asgi import instrument_fastapi
+    from relohome_observability import record_http_error
+    from relohome_observability.asgi import install_http_boundary
 
-    initialize("web")
 
     @asynccontextmanager
     async def lifespan(app):
@@ -229,7 +228,7 @@ def create_app(database=None, transport=None):
 
     app = FastAPI(title="ReloHome", lifespan=lifespan, telemetry={"tracing": False})
     # Public clients cannot choose our sampling policy or join an internal trace.
-    instrument_fastapi(app, service_name="web", trust_incoming=False)
+    install_http_boundary(app, trust_incoming=False)
     app.add_middleware(GuestBodyLimit, gateway=app)
     app.state.store_path = database
 

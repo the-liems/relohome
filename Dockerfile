@@ -10,10 +10,12 @@ RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
     ./packages/python/observability ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/agent-api
 
 FROM python:3.11-slim AS runtime
+ENV OTEL_PYTHON_DISTRO=relohome OTEL_PYTHON_CONFIGURATOR=relohome
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
+ENV OTEL_SERVICE_NAME=backend
 COPY --chmod=u=rwX,go=rX config/ ./config/
 # /app/private-roommate: Roommate DB and contact key, private to the service user (runbook: roommate).
 RUN useradd --uid 10001 --create-home appuser \
@@ -25,4 +27,4 @@ USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"
-CMD ["python", "-m", "uvicorn", "relohome_agent.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["opentelemetry-instrument", "python", "-m", "uvicorn", "relohome_agent.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

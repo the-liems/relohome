@@ -16,7 +16,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from relohome_observability import record_http_error
-from relohome_observability.asgi import instrument_fastapi
+from relohome_observability.asgi import install_http_boundary
 
 
 class Model(BaseModel):
@@ -79,7 +79,7 @@ def require_token(secret: SecretStr):
 
 
 def install_http(app: FastAPI, settings: ServiceSettings, name: str):
-    instrument_fastapi(app, service_name=name.removeprefix("lifeflow-"))
+    install_http_boundary(app)
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     logger.propagate = False

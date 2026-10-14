@@ -1,13 +1,12 @@
 import { metrics } from '@opentelemetry/api'
 import { InMemoryMetricExporter, MeterProvider, PeriodicExportingMetricReader, AggregationTemporality } from '@opentelemetry/sdk-metrics'
-import { afterEach, expect, it, vi } from 'vitest'
-import { observeHttp, toolOperation } from '../src/index.js'
+import { afterEach, expect, it } from 'vitest'
+import { markInitialized, observeHttp, toolOperation } from '../src/index.js'
 
 const providers: MeterProvider[] = []
 afterEach(async () => {
   metrics.disable()
   await Promise.all(providers.splice(0).map(provider => provider.shutdown()))
-  vi.unstubAllEnvs()
 })
 
 function installMeterProvider() {
@@ -21,7 +20,7 @@ function installMeterProvider() {
 }
 
 it('records after late SDK startup and uses a replacement provider without losing metrics', async () => {
-  vi.stubEnv('OBSERVABILITY_ENABLED', 'true')
+  markInitialized()
   metrics.disable()
   observeHttp('GET', '/before-sdk', 200, 20)
 

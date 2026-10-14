@@ -5,7 +5,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { content } from './privacy.js'
 
 const propagator = new W3CTraceContextPropagator()
-export const enabled = () => process.env.OBSERVABILITY_ENABLED === 'true'
+let initialized = false
+export const enabled = () => initialized
+export function markInitialized() { initialized = true }
 export const healthPaths = new Set(['/health', '/healthz', '/ready', '/readyz', '/metrics'])
 
 function createInstruments(provider: MeterProvider) {

@@ -24,7 +24,7 @@ it.each([
   let child: ReturnType<typeof spawn> | undefined
   try {
     child = spawn(process.execPath, ['--import', '@relohome/telemetry/register', fileURLToPath(new URL('./fixture.mjs', import.meta.url))], {
-      env: { ...process.env, OBSERVABILITY_ENABLED: 'true', OBSERVABILITY_CONTENT_MODE: mode,
+      env: { ...process.env, OBSERVABILITY_CONTENT_MODE: mode,
         APP_ENV: environment, OTEL_DEPLOYMENT_ENVIRONMENT: environment, OTEL_SERVICE_NAME: 'node-fixture',
         OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${port}`, OTEL_EXPORTER_OTLP_HEADERS: '' },
       stdio: ['ignore', 'pipe', 'pipe'],

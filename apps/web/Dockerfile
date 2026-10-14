@@ -24,10 +24,12 @@ RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
     ./packages/python/observability ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/browser-gateway
 
 FROM python:3.11-slim AS runtime
+ENV OTEL_PYTHON_DISTRO=relohome OTEL_PYTHON_CONFIGURATOR=relohome
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY --from=python-build /opt/venv /opt/venv
+ENV OTEL_SERVICE_NAME=web
 RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /app/data && chown appuser:appuser /app/data
 COPY --chmod=u=rwX,go=rX --from=frontend-build /web/apps/web/dist ./apps/web/dist
@@ -35,4 +37,4 @@ USER appuser
 EXPOSE 8503
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8503/health', timeout=4)"
-CMD ["python", "-m", "uvicorn", "relohome_gateway.server:app", "--host", "0.0.0.0", "--port", "8503", "--workers", "1"]
+CMD ["opentelemetry-instrument", "python", "-m", "uvicorn", "relohome_gateway.server:app", "--host", "0.0.0.0", "--port", "8503", "--workers", "1"]

@@ -17,17 +17,18 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic import SecretStr
 from relohome_gateway.server import create_app
 from relohome_observability import record_http_error, runtime
-from relohome_observability.asgi import instrument_fastapi, uninstrument_http
 from relohome_observability.fastapi import (
     DiagnosticHTTPException,
     DiagnosticJSONResponse,
     diagnostic_exception_handler,
 )
 
+from tests.observability_helpers import instrument_fastapi, uninstrument_http
+
 
 @pytest.fixture
 def observed(monkeypatch):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    monkeypatch.setattr("relohome_observability.asgi.install_http_boundary", instrument_fastapi)
     monkeypatch.setenv("OBSERVABILITY_CONTENT_MODE", "metadata")
     monkeypatch.setenv("RELOHOME_GUEST_ENABLED", "true")
     monkeypatch.setattr(runtime, "_initialized", True)
@@ -75,7 +76,7 @@ def assert_diagnostic(observed, response, error_type):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, False])
 async def test_gateway_missing_token_has_safe_reason_and_never_calls_upstream(tmp_path, monkeypatch, observed, enabled):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", str(enabled).lower())
+    monkeypatch.setattr("relohome_observability.runtime._initialized", enabled)
     monkeypatch.delenv("AGENT_API_TOKEN", raising=False)
 
     def upstream(request):

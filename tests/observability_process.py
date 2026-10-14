@@ -3,10 +3,9 @@
 import asyncio
 import os
 import sys
+from pathlib import Path
 
-from relohome_observability import current_context, initialize, operation
-
-initialize("python-fixture")
+from relohome_observability import current_context, operation
 
 
 async def main():
@@ -15,10 +14,11 @@ async def main():
 
     # Explicit allowlist: no application/provider secrets forwarded to the child.
     child_env = {key: os.environ[key] for key in (
-        "PATH", "LD_LIBRARY_PATH", "OBSERVABILITY_ENABLED", "OBSERVABILITY_CONTENT_MODE",
+        "PATH", "LD_LIBRARY_PATH", "OBSERVABILITY_CONTENT_MODE",
         "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_DEPLOYMENT_ENVIRONMENT",
         "PAYMENT_DB_PATH", "FLIGHT_DB_PATH",
     ) if key in os.environ}
+    child_env.update(OTEL_PYTHON_DISTRO="relohome", OTEL_PYTHON_CONFIGURATOR="relohome")
     child_env["PAYMENT_PROVIDER"] = "mock"
     child_env["FLIGHT_SEARCH_PROVIDER"] = "mock"
     child_env["FLIGHT_SIMULATION_ENABLED"] = "true"
@@ -27,8 +27,10 @@ async def main():
         raise ValueError("Unsupported fixture MCP")
     tool, argument = ("get_booking", "booking_ref") if domain == "flights" else ("get_payment", "payment_ref")
     with operation("gateway"):
-        params = StdioServerParameters(command=sys.executable,
-            args=["-m", f"relohome_{domain}_mcp", "--transport", "stdio"], env=child_env)
+        child_env["OTEL_SERVICE_NAME"] = domain + "-mcp"
+        params = StdioServerParameters(command=str(Path(sys.executable).with_name(
+            "opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument")),
+            args=[sys.executable, "-m", f"relohome_{domain}_mcp", "--transport", "stdio"], env=child_env)
         async with stdio_client(params) as (read, write), ClientSession(read, write) as client:
             await client.initialize()
             with operation("mcp.client", "tool"):

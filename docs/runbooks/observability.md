@@ -85,14 +85,17 @@ Deploy the platform first: it creates the shared `relohome-observability-ingest`
 network that the Collectors join. The Collector's environment is the only thing
 that separates staging from production data, so set it carefully.
 
-### 3. Turn on telemetry in the app
+### 3. Deploy the instrumented app images
 
-On each app's Coolify Application set `OBSERVABILITY_ENABLED=true`. On the
-production app also set `OTEL_DEPLOYMENT_ENVIRONMENT=production`; the default is
-`staging`. Redeploy with `deploy.yml`, because a plain restart does not apply new
-variables. The app Compose already sends to `http://otel-collector:4318`.
+Python image entrypoints use `opentelemetry-instrument`; Node image entrypoints
+preload `@relohome/telemetry/register`. Both activate telemetry automatically.
+On the production app set `OTEL_DEPLOYMENT_ENVIRONMENT=production`; the default
+is `staging`. Redeploy with `deploy.yml`, because a plain restart does not apply
+new variables. The app Compose already sends to `http://otel-collector:4318`.
 
-To undo, set `OBSERVABILITY_ENABLED=false` and redeploy. App data is untouched.
+To disable telemetry, rebuild and redeploy an image with the plain entrypoint:
+remove `opentelemetry-instrument` from the Python command, or remove Node's
+`--import @relohome/telemetry/register`. No activation environment variable is used.
 
 ### 4. Check
 
@@ -137,10 +140,26 @@ contain user, session, request or trace IDs.
 
 ### Framework and client instrumentation
 
-The services use the framework-maintained/OpenTelemetry integrations below.
-Initialize the Python SDK before constructing clients and instrument each app
-before its first request. Node services preload `@relohome/telemetry/register`
-with `--import` before HTTP, Fastify, Undici, PostgreSQL or Pino is imported.
+The Python services start through `opentelemetry-instrument`, which discovers
+installed compatible instrumentors and activates them before application imports.
+The package's `relohome` distro/configurator entry points initialize the privacy
+processors, exporters and metric settings once. Images and development launchers
+select `OTEL_PYTHON_DISTRO=relohome` and `OTEL_PYTHON_CONFIGURATOR=relohome` explicitly.
+No service calls `instrument_app()` or activates client libraries itself. Node
+services preload `@relohome/telemetry/register` with `--import` before library imports.
+
+For a direct Python launch in the installed environment:
+
+```sh
+OTEL_PYTHON_DISTRO=relohome OTEL_PYTHON_CONFIGURATOR=relohome \
+  OTEL_SERVICE_NAME=backend \
+  opentelemetry-instrument python -m uvicorn relohome_agent.main:app --port 8000
+```
+
+The existing `npm run dev:*` service commands and `scripts/local-integration.py`
+also launch through the CLI using the selected Python environment. Instrumentation
+packages remain pinned in the observability package; adding a supported integration
+requires installing its package, rather than adding application activation code.
 
 | Runtime | Integration |
 | --- | --- |
@@ -178,15 +197,16 @@ exported. Application spans for graph nodes, LLM generations, MCP tools and
 durable jobs remain separate from framework instrumentation.
 
 Deploy updated application images, including the standalone Intake/Orchestrator
-images if used. Telemetry remains opt-in; the standalone `compose.agents.yaml`
-also forwards the existing observability settings. Collector/Grafana configuration
-does not need to change. SDK HTTP route names now include router prefixes, such
+images if used. The standalone `compose.agents.yaml` forwards the export and privacy
+settings. Collector/Grafana configuration does not need to change. SDK HTTP route names now include router prefixes, such
 as `/api/v1/status`; use these full templates in route-specific queries.
 
 Official references: [FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
 [Starlette](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html),
 [Psycopg](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html),
-[Fastify](https://github.com/fastify/otel).
+[Fastify](https://github.com/fastify/otel),
+[Python CLI](https://opentelemetry.io/docs/zero-code/python/),
+[Distro/configurator extensions](https://opentelemetry.io/docs/languages/python/distro/).
 
 ### HTTP failure diagnostics
 

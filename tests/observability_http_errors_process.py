@@ -8,10 +8,6 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from relohome_observability import initialize
-
-initialize("http-errors-fixture")
-
 
 async def main():
     import httpx

@@ -13,7 +13,7 @@ import { UndiciInstrumentation } from '@opentelemetry/instrumentation-undici'
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg'
 import { FastifyOtelInstrumentation } from '@fastify/otel'
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino'
-import { healthPaths } from './index.js'
+import { healthPaths, markInitialized } from './index.js'
 
 const safeAttributes = new Set(['http.request.method', 'http.method', 'http.response.status_code', 'http.status_code',
   'http.route', 'db.system', 'db.system.name', 'db.operation', 'db.operation.name', 'server.address', 'server.port',
@@ -118,6 +118,7 @@ const sdk = new NodeSDK({
   ],
 })
 sdk.start()
+markInitialized()
 const { metrics } = await import('@opentelemetry/api')
 metrics.getMeter('relohome').createObservableGauge('relohome.heartbeat', { unit: 's' })
   .addCallback(result => result.observe(Date.now() / 1000))

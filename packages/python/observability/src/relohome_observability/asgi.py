@@ -5,7 +5,7 @@ import time
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from .runtime import enabled, initialize, instruments, log_event
+from .runtime import enabled, instruments, log_event
 
 HEALTH = frozenset({"/health", "/healthz", "/ready", "/readyz", "/metrics"})
 EXCLUDED_URLS = r"/(?:healthz?|readyz?|metrics)(?:\?.*)?$|/(?:assets|images)/"
@@ -88,12 +88,12 @@ class HTTPBoundaryMiddleware:
                     context.detach(token)
 
 
-def _install_boundary(app, original_build, trust_incoming, uninstrumented=None):
+def _install_boundary(app, original_build, trust_incoming):
     instrumented_build = app.build_middleware_stack
 
     def build():
         return HTTPBoundaryMiddleware(
-            instrumented_build(), uninstrumented if uninstrumented is not None else original_build(), trust_incoming,
+            instrumented_build(), original_build(), trust_incoming,
         )
 
     app.build_middleware_stack = build
@@ -102,34 +102,28 @@ def _install_boundary(app, original_build, trust_incoming, uninstrumented=None):
     app._relohome_instrumented = True
 
 
-def instrument_fastapi(app, service_name="backend", trust_incoming=True):
-    """Instrument once, before requests, using FastAPI's official integration."""
-    initialize(service_name)
-    if not enabled() or getattr(app, "_relohome_instrumented", False):
+def install_http_boundary(app, trust_incoming=True):
+    """Attach application policy to a framework app already instrumented by the CLI."""
+    if (not enabled() or getattr(app, "_relohome_instrumented", False)
+            or not getattr(app, "_is_instrumented_by_opentelemetry", False)):
         return
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-    original_build = app.build_middleware_stack
-    FastAPIInstrumentor.instrument_app(
-        app, server_request_hook=_request_hook, excluded_urls=EXCLUDED_URLS,
-        exclude_spans=["receive", "send"], http_capture_headers_server_request=[],
-        http_capture_headers_server_response=[],
-    )
-    _install_boundary(app, original_build, trust_incoming)
-
-
-def instrument_starlette(app, service_name="mcp"):
-    """Instrument MCP's Starlette app with the official route-aware integration."""
-    initialize(service_name)
-    if not enabled() or getattr(app, "_relohome_instrumented", False):
+    if hasattr(app, "_original_build_middleware_stack"):
+        _install_boundary(app, app._original_build_middleware_stack, trust_incoming)
         return
+
     from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
     from opentelemetry.util.http import parse_excluded_urls
 
-    original_build = app.build_middleware_stack
-    uninstrumented = original_build()
-    StarletteInstrumentor.instrument_app(app, server_request_hook=_request_hook)
+    instrumented_build = app.build_middleware_stack
+
+    def original_build():
+        middleware = app.user_middleware
+        app.user_middleware = [item for item in middleware if item.cls is not OpenTelemetryMiddleware]
+        try:
+            return instrumented_build()
+        finally:
+            app.user_middleware = middleware
+
     # StarletteInstrumentor doesn't expose these ASGI options. Configure the
     # official middleware it installed, rather than installing a second one.
     for middleware in app.user_middleware:
@@ -138,7 +132,6 @@ def instrument_starlette(app, service_name="mcp"):
                 excluded_urls=parse_excluded_urls(EXCLUDED_URLS), exclude_spans=["receive", "send"],
                 http_capture_headers_server_request=[], http_capture_headers_server_response=[],
             )
-    instrumented_build = app.build_middleware_stack
 
     def build():
         # The official Starlette middleware sits inside ServerErrorMiddleware,
@@ -157,20 +150,4 @@ def instrument_starlette(app, service_name="mcp"):
         return stack
 
     app.build_middleware_stack = build
-    _install_boundary(app, original_build, True, uninstrumented)
-
-
-def uninstrument_http(app):
-    """Remove our policy boundary together with the official instrumentation."""
-    if not getattr(app, "_relohome_instrumented", False):
-        return
-    original_build = app._relohome_original_build
-    if hasattr(app, "_original_build_middleware_stack"):
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-        FastAPIInstrumentor.uninstrument_app(app)
-    else:
-        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
-        StarletteInstrumentor.uninstrument_app(app)
-    app.build_middleware_stack = original_build
-    app.middleware_stack = None
-    app._relohome_instrumented = False
+    _install_boundary(app, original_build, trust_incoming)

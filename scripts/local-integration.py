@@ -18,8 +18,8 @@ NODE_SERVICES = frozenset({"location", "platform", "moving", "moving-api"})
 
 
 def node_command(component, entrypoint):
-    # Load the SDK hook before HTTP/Fastify/pg imports. register is a no-op when
-    # OBSERVABILITY_ENABLED is false; read-only schema checks/migrations stay untouched.
+    # Load the SDK hook before HTTP/Fastify/pg imports for service processes.
+    # Read-only schema checks/migrations keep their plain entrypoints.
     preload = ["--import", "@relohome/telemetry/register"] if component in NODE_SERVICES else []
     return ["node", *preload, entrypoint]
 
@@ -131,6 +131,13 @@ def main():
         ],
     }
     command = commands[args.component]
+    if command[0] == sys.executable:
+        launcher = Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument")
+        command = [str(launcher), *command]
+        child_env.update(OTEL_PYTHON_DISTRO="relohome", OTEL_PYTHON_CONFIGURATOR="relohome")
+        child_env.setdefault("OTEL_SERVICE_NAME", {
+            "api": "backend", "ui": "web", "flight": "flights-mcp", "payment": "payments-mcp",
+        }[args.component])
     if command[0] == "node":
         if shutil.which("node") is None:
             parser.error("Node.js is not on PATH. Install Node.js 24+ and reopen the terminal.")

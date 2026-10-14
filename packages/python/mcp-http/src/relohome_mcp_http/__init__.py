@@ -4,8 +4,8 @@ import re
 import secrets
 
 from mcp.server.fastmcp import FastMCP
-from relohome_observability import initialize, operation
-from relohome_observability.asgi import instrument_starlette
+from relohome_observability import operation
+from relohome_observability.asgi import install_http_boundary
 from starlette.responses import JSONResponse
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -68,7 +68,6 @@ class HttpServiceMCP(FastMCP):
     def streamable_http_app(self):
         require_service_token(self.service_token)
         app = super().streamable_http_app()
-        initialize(self.name)
         app.add_middleware(ServiceTokenMiddleware, token=self.service_token)
-        instrument_starlette(app, service_name=self.name)
+        install_http_boundary(app)
         return app

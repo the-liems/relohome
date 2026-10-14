@@ -16,7 +16,7 @@ from relohome_observability.privacy import content
 
 @pytest.fixture
 def readings(monkeypatch):
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
     monkeypatch.setattr(metrics, "get_meter_provider", lambda: provider)
@@ -149,11 +149,11 @@ def test_metrics_disabled_unknown_labels_and_sdk_failure_are_fail_open(monkeypat
         raise AssertionError("Unexpected SDK access")
 
     monkeypatch.setattr(guardrails, "_instruments", unavailable)
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
     guardrails.record_event("plan", "seen")
     guardrails.record_skip("plan", "overload")
     guardrails.pending_change("plan", 1)
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "true")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
     guardrails.record_event("private-thread", "seen")
     guardrails.record_skip("plan", "private-address")
     guardrails.pending_change("private-thread", 1)
@@ -169,7 +169,7 @@ def test_factory_already_enables_info_snapshots_after_uvicorn_setup(monkeypatch,
     from relohome_agent.agents.guardrails import shadow
     from relohome_agent.services.adapters.registry import ServiceSettings
 
-    monkeypatch.setenv("OBSERVABILITY_ENABLED", "false")
+    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
     monkeypatch.setattr(shadow.logger, "level", logging.WARNING)
     monkeypatch.setattr(shadow, "JevClient", lambda *args, **kwargs: SimpleNamespace())
     observer = shadow.build_guardrail(ServiceSettings(agent_guardrail_mode="shadow", openrouter_api_key="sk-or-v1-test"))
@@ -204,7 +204,7 @@ def test_collector_preserves_only_fixed_guardrail_label_keys_and_native_panels()
     assert 'environment="$environment"' in expressions and "relohome_guardrail_skips_total" in expressions
 
 
-def test_compose_shares_production_privacy_marker_without_activating_export():
+def test_compose_shares_production_privacy_marker():
     from pathlib import Path
 
     import yaml
@@ -213,7 +213,6 @@ def test_compose_shares_production_privacy_marker_without_activating_export():
     compose = yaml.safe_load((root / "compose.coolify.yaml").read_text())
     for service in compose["services"].values():
         environment = service.get("environment", {})
-        if "OBSERVABILITY_ENABLED" in environment:
+        if "OBSERVABILITY_CONTENT_MODE" in environment:
             assert environment["APP_ENV"] == "${APP_ENV:-staging}"
-            assert environment["OBSERVABILITY_ENABLED"] == "${OBSERVABILITY_ENABLED:-false}"
             assert environment["OBSERVABILITY_CONTENT_MODE"] == "${OBSERVABILITY_CONTENT_MODE:-metadata}"
