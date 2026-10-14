@@ -1,7 +1,8 @@
 # Moving service: contract bàn giao Coolify staging
 
-Đây là đặc tả resource cho teammate infra, không phải file Coolify tự thực thi.
-Chưa tạo resource, domain hay token Coolify từ workspace.
+Đây là contract Moving cho teammate infra. Stack tích hợp dùng
+[compose.coolify.yaml](../../compose.coolify.yaml) và [runbook deployment](../../deploy/README.md);
+không tạo resource, domain hay token Coolify từ workspace.
 
 ## Images và processes
 
@@ -9,37 +10,38 @@ Build từ `deploy/moving/Dockerfile.moving`, context gốc repository (`.`):
 
 | Target / image suffix | Start command | Port | Loại |
 |---|---|---|---|
-| `moving-mcp` | `node moving-mcp-server/dist/http-server.js` | 4400 | Private MCP application |
-| `moving-api` | `node moving-api/dist/server.js` | 4200 | Webhook application |
+| `moving-mcp` | `node --import @relohome/telemetry/register moving-mcp-server/dist/http-server.js` | 4400 | Private MCP application |
+| `moving-api` | `node --import @relohome/telemetry/register moving-api/dist/server.js` | 4200 | Webhook application |
 | `moving-migrate` | `node packages/moving-service/dist/migrate.js` | Không | One-off migration job |
 
 Workflow `CI` publish dưới
-`ghcr.io/<owner>/<repo>/moving-{mcp,api,migrate}:<commit-sha>-<ci-run-id>`
-(tên registry viết thường). `Moving containers` chỉ validate và kiểm tra staging
-thủ công; không còn publish tag chỉ có commit SHA. Infra lấy digest thực tế từ build, dùng
-`image@sha256:<digest>`; không dùng `latest`. Cùng `RELEASE_SHA` cho ba image.
+`ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-{mcp,api,migrate}:<commit-sha>`.
+`Moving containers` chỉ validate và kiểm tra staging thủ công. Coolify đọc Compose
+từ Git tại commit đã chọn; `SOURCE_COMMIT` chọn tag SHA cho ba image.
+Cùng `RELEASE_SHA` cho ba image; không dùng `latest`.
 
 ## Runtime configuration
 
 Hai app cùng cần `AHAMOVE_ENV=staging`, `AHAMOVE_API_KEY`, `AHAMOVE_MOBILE`
 hoặc `AHAMOVE_USER_TOKEN`, và `MOVING_DATABASE_URL` dùng role runtime riêng
-(`moving_app` trong instance riêng; tên theo environment nếu dùng chung cluster).
+(`p044_moving_app` mặc định trong stack Coolify; tên theo environment nếu dùng chung cluster).
 DB URL này ưu tiên hơn `DATABASE_URL` của backend Python. Password trong URL
 cần percent-encode nếu có ký tự đặc biệt. Dùng secret storage của infra.
 
-MCP cần `MOVING_MCP_AUTH_TOKEN` (ít nhất 32 ký tự) và
-`MOVING_MCP_ALLOWED_HOSTS=localhost,127.0.0.1,moving-mcp,<hostname-no-port>`.
-Thêm hostname mà proxy/AI thực sự gửi trong Host; không dùng wildcard.
+MCP cần `MOVING_MCP_AUTH_TOKEN` (ít nhất 32 ký tự). Compose đặt
+`MOVING_MCP_ALLOWED_HOSTS=localhost,127.0.0.1,moving-mcp`. Nếu dùng hostname khác,
+đổi danh sách trong Compose theo Host mà proxy/AI thực sự gửi; không dùng wildcard.
 `MOVING_MCP_ALLOWED_ORIGINS` để trống khi chỉ backend gọi. Container mặc định
 bind `0.0.0.0`, port 4400; giao diện stdio vẫn có thể chạy bằng command override.
 
-API cần `AHAMOVE_WEBHOOK_AUTH_MODE` và `AHAMOVE_WEBHOOK_SECRET` thống nhất với
-AhaMove. Gửi đúng header `apikey` / `Authorization` theo mode. Không dùng MCP
-token làm webhook secret. HTTP callback cần HTTPS ingress ổn định do infra cấp.
+Compose cố định `AHAMOVE_WEBHOOK_AUTH_MODE=api-key`; API cần
+`AHAMOVE_WEBHOOK_SECRET` thống nhất với AhaMove và header `apikey`. Không dùng
+MCP token làm webhook secret. HTTP callback cần HTTPS ingress ổn định do infra
+cấp riêng; stack Coolify hiện chỉ có domain cho web.
 
-Migration job chỉ nhận `MOVING_DATABASE_ADMIN_URL`, `MOVING_DB_APP_USER`
-và `MOVING_DB_APP_PASSWORD`. `MOVING_DB_APP_USER` mặc định là `moving_app` cho
-instance riêng; khi dùng chung cluster, chọn role riêng như `moving_app_staging`
+Credential DB của migration job là `MOVING_DATABASE_ADMIN_URL`, `MOVING_DB_APP_USER`
+và `MOVING_DB_APP_PASSWORD`. `MOVING_DB_APP_USER` mặc định là `p044_moving_app` trong
+stack Coolify; khi dùng chung cluster, chọn role riêng như `moving_app_staging`
 và dùng đúng role đó trong runtime URL. Runtime app không nhận credential admin.
 Job dùng lại migration canonical `008_moving_service.sql` và bổ sung audit table,
 không tạo dữ liệu mẫu, không cần PostGIS. Runtime được giới hạn các bảng Moving
@@ -73,22 +75,26 @@ operator có chủ đích sau UAT approval, không tự bật cùng release.
    thiết rồi kỳ vọng migration vẫn chạy, và không mở rộng quyền staging sang
    production để tránh lỗi quyền.
    Xác minh database đích trong cả hai URL trước khi chạy migration.
-2. Backup trước thay đổi schema có dữ liệu; chạy image migration đúng release.
-3. Chỉ khi job exit 0 mới deploy hai app bằng digest đã chọn.
+2. Backup trước thay đổi schema có dữ liệu; dispatch `deploy.yml` với environment
+   và SHA main đã chọn. Compose chạy `moving-migrate` sau khi `moving-db` healthy.
+3. Chỉ khi job exit 0 mới khởi động hai app bằng tag SHA đã chọn.
 4. Health check container: GET `/ready` trên port tương ứng, interval 15s,
    timeout 10s, start period 20s, retries 3. `/health` dùng cho liveness.
 5. Cho AI Service kết nối MCP qua mạng riêng và bearer token; cấu hình TLS nếu
    request đi qua mạng không tin cậy. Chỉ expose callback ra Internet.
 6. Verify release qua `/health`, schema/grants qua `/ready`, và chạy
-   `scripts/verify-moving-deployment.mjs` với `MOVING_MCP_URL`, `MOVING_API_URL`,
+   `scripts/relohome/verify-moving-deployment.mjs` với `MOVING_MCP_URL`, `MOVING_API_URL`,
    `MOVING_MCP_AUTH_TOKEN`, `RELEASE_SHA`. Script chỉ gọi đọc AhaMove staging.
-7. Lưu kết quả kiểm tra gắn với digest thực chạy; báo deploy fail nếu readiness
-   hoặc smoke test fail. Promote production là task riêng của infra.
+7. Lưu kết quả kiểm tra gắn với SHA thực chạy; báo deploy fail nếu readiness
+   hoặc smoke test fail. Job CD chờ deployment finished, commit khớp và Application
+   running:healthy. Production chọn cùng SHA bằng workflow thủ công.
 
 ## Runtime / recovery
 
-- User non-root; app root filesystem read-only, `/tmp` tmpfs, drop capabilities.
-- Khởi đầu 512 MiB RAM / 1 CPU mỗi app; điều chỉnh theo đo đạc, không phải SLA.
+- User non-root; Compose drop capabilities và bật no-new-privileges.
+  Root filesystem read-only và `/tmp` tmpfs là đề xuất hardening, chưa có trong stack Coolify.
+- Đề xuất khởi đầu 512 MiB RAM / 1 CPU mỗi app; Compose hiện chưa đặt limits.
+  Điều chỉnh theo đo đạc, không phải SLA.
 - Graceful stop ít nhất 35 giây; tránh kill giữa thao tác provider đang xử lý.
 - Không mount Docker socket vào app. DB không public, domain state ở PostgreSQL.
 - Log JSON không in Authorization, API key hoặc body nghiệp vụ MCP.
