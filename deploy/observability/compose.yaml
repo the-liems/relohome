@@ -39,6 +39,7 @@ services:
     mem_limit: 2g
     environment:
       <<: *langfuse-env
+      HOSTNAME: "0.0.0.0"
       NEXTAUTH_SECRET: ${LF_NEXTAUTH_SECRET:?}
       AUTH_DISABLE_SIGNUP: "true"
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-relohome}
