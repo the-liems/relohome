@@ -26,7 +26,7 @@ from relohome_agent.api.web_actions import router as web_actions_router
 from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_observability import initialize
-from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.asgi import instrument_fastapi
 from relohome_observability.fastapi import DiagnosticHTTPException, diagnostic_exception_handler
 from relohome_roommate.background import RoommateMaintenance
 
@@ -70,7 +70,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(TelemetryMiddleware, service_name="backend")
+instrument_fastapi(app, service_name="backend")
 app.add_exception_handler(DiagnosticHTTPException, diagnostic_exception_handler)
 
 settings = get_settings()

@@ -2,15 +2,26 @@
 
 import sqlite3
 from contextvars import copy_context
+from functools import lru_cache
 
 import wrapt
 from opentelemetry import trace
+from opentelemetry.instrumentation.dbapi import CursorTracer, DatabaseApiIntegration
 from opentelemetry.instrumentation.utils import is_instrumentation_enabled
-from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from .runtime import enabled
 
 _instrumented = False
+
+
+@lru_cache(maxsize=1)
+def _cursor_tracer(provider):
+    # SQLite's C backup API rejects generic connection proxies. Delegate tracing
+    # to the official DB-API integration while retaining native SQLite objects.
+    return CursorTracer(DatabaseApiIntegration(
+        "opentelemetry.instrumentation.sqlite3", "sqlite", {}, version="0.66b1",
+        tracer_provider=provider, capture_parameters=False, enable_commenter=False,
+    ))
 
 
 def _execute(wrapped, method, *args, **kwargs):
@@ -19,20 +30,9 @@ def _execute(wrapped, method, *args, **kwargs):
     if (not enabled() or not is_instrumentation_enabled()
             or not trace.get_current_span().get_span_context().is_valid):
         return getattr(wrapped, method)(*args, **kwargs)
-    statement = args[0] if args else kwargs.get("sql", "")
-    verb = str(statement).split(maxsplit=1)[0].upper() if statement else "QUERY"
-    verb = verb if verb in {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "PRAGMA", "BEGIN", "COMMIT", "ROLLBACK"} else "QUERY"
-    with trace.get_tracer("relohome.sqlite").start_as_current_span(
-        "db." + verb, kind=SpanKind.CLIENT,
-        attributes={"db.system": "sqlite", "db.operation.name": verb},
-        record_exception=False, set_status_on_exception=False,
-    ) as span:
-        try:
-            return getattr(wrapped, method)(*args, **kwargs)
-        except Exception as error:
-            span.set_status(Status(StatusCode.ERROR))
-            span.set_attribute("error.type", type(error).__name__)
-            raise
+    return _cursor_tracer(trace.get_tracer_provider()).traced_execution(
+        wrapped, getattr(wrapped, method), *args, **kwargs,
+    )
 
 
 class Cursor(sqlite3.Cursor):

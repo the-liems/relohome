@@ -10,6 +10,7 @@ import sys
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
+from importlib.util import find_spec
 from types import SimpleNamespace
 
 from opentelemetry import context, metrics, trace
@@ -34,6 +35,8 @@ SAFE_ATTRIBUTES = frozenset({
 })
 HTTP_ERROR_TYPES = frozenset({
     "missing_agent_api_token", "agent_runtime_not_started", "upstream_invalid_json",
+    "missing_service_token", "llm_not_configured", "llm_unavailable", "llm_provider_error",
+    "llm_invalid_output", "llm_no_result", "internal_service_error", "approval_not_configured",
 })
 
 
@@ -64,9 +67,21 @@ def _instruments(provider):
 def safe_span(span: ReadableSpan) -> ReadableSpan:
     """Drop raw HTTP URLs, SQL, stack traces and arbitrary instrumentor attributes before queueing."""
     attrs = {key: value for key, value in (span.attributes or {}).items() if key in SAFE_ATTRIBUTES}
-    if span.status.status_code == StatusCode.ERROR and "error.type" not in attrs:
-        # Legacy HTTP instrumentors record the exception as an event, without
-        # error.type. Keep only its class before discarding private event data.
+    if "http.method" in attrs:
+        attrs.setdefault("http.request.method", attrs["http.method"])
+    if "http.status_code" in attrs:
+        attrs.setdefault("http.response.status_code", attrs["http.status_code"])
+    reason = (span.attributes or {}).get("relohome.http.error_type")
+    if isinstance(reason, str) and reason in HTTP_ERROR_TYPES:
+        # Stable HTTP instrumentors can overwrite error.type with the response
+        # status. Preserve the application classification without exporting the
+        # internal marker as another attribute.
+        attrs["error.type"] = reason
+    status = attrs.get("http.response.status_code", attrs.get("http.status_code"))
+    generic_http_error = isinstance(status, int) and attrs.get("error.type") == str(status)
+    if span.status.status_code == StatusCode.ERROR and ("error.type" not in attrs or generic_http_error):
+        # An instrumentor may omit error.type or replace it with the HTTP status.
+        # Keep only the exception class before discarding private event data.
         for event in span.events or ():
             error_type = (event.attributes or {}).get("exception.type")
             if event.name == "exception" and isinstance(error_type, str) and re.fullmatch(
@@ -75,7 +90,6 @@ def safe_span(span: ReadableSpan) -> ReadableSpan:
                 attrs["error.type"] = error_type
                 break
         if "error.type" not in attrs:
-            status = attrs.get("http.response.status_code", attrs.get("http.status_code"))
             if isinstance(status, int) and 400 <= status < 600:
                 attrs["error.type"] = str(status)
     name = span.name
@@ -87,6 +101,9 @@ def safe_span(span: ReadableSpan) -> ReadableSpan:
         operation_name = operation_name if operation_name in {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "COMMIT", "ROLLBACK", "BEGIN", "PRAGMA"} else "QUERY"
         name = "db." + operation_name
         attrs["db.operation.name"] = operation_name
+    elif "http.request.method" in attrs:
+        route = attrs.get("http.route", "unmatched" if span.kind == SpanKind.SERVER else "request")
+        name = str(attrs["http.request.method"]) + " " + route
     return ReadableSpan(
         name=name, context=span.context, parent=span.parent, resource=span.resource,
         attributes=attrs, events=(), links=tuple(Link(link.context) for link in span.links),
@@ -107,6 +124,9 @@ class SanitizingProcessor(SpanProcessor):
 
     def on_end(self, span):
         try:
+            if (span.instrumentation_scope.name == "opentelemetry.instrumentation.psycopg"
+                    and span.parent is None):
+                return  # Pool setup/idle probes are outside user operations.
             self.delegate.on_end(safe_span(span))
         except Exception:
             # Broken telemetry must not escape into a business operation.
@@ -139,15 +159,18 @@ def initialize(service_name: str):
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        from opentelemetry.propagate import set_global_textmap
         from opentelemetry.sdk._logs import LoggerProvider
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-        from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+        from opentelemetry.sdk.metrics.view import DropAggregation, ExplicitBucketHistogramAggregation, View
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.sdk.trace.sampling import ALWAYS_ON, ParentBased
+
+        set_global_textmap(_propagator)  # Trace context only; never forward baggage.
 
         resource = Resource({
             "service.name": os.getenv("OTEL_SERVICE_NAME", service_name), "service.namespace": "relohome",
@@ -175,10 +198,14 @@ def initialize(service_name: str):
             OTLPMetricExporter(endpoint=endpoint + "/v1/metrics", timeout=3),
             export_interval_millis=15000, export_timeout_millis=5000,
         )
-        meter_provider = MeterProvider(resource=resource, metric_readers=[reader], views=[View(
-            instrument_name="relohome.*.duration", aggregation=ExplicitBucketHistogramAggregation(
-                boundaries=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300]),
-        )])
+        meter_provider = MeterProvider(resource=resource, metric_readers=[reader], views=[
+            # Framework metrics can include raw targets/queries. Keep the existing
+            # bounded relohome HTTP metrics instead of exporting a duplicate set.
+            View(instrument_name="http.*", aggregation=DropAggregation()),
+            View(instrument_name="db.*", aggregation=DropAggregation()),
+            View(instrument_name="relohome.*.duration", aggregation=ExplicitBucketHistogramAggregation(
+                boundaries=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300])),
+        ])
         metrics.set_meter_provider(meter_provider)
         providers.append(meter_provider)
         from opentelemetry.metrics import Observation
@@ -186,6 +213,9 @@ def initialize(service_name: str):
             "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
         )
         HTTPXClientInstrumentor().instrument()
+        if find_spec("psycopg") is not None:
+            from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+            PsycopgInstrumentor().instrument(capture_parameters=False, enable_commenter=False)
         from .sqlite import instrument_shortcuts
         instrument_shortcuts()
         logging.getLogger().addHandler(MetadataLogHandler(level=logging.INFO))
@@ -225,6 +255,7 @@ def record_http_error(error_type: str):
         return
     try:
         span = trace.get_current_span()
+        span.set_attribute("relohome.http.error_type", error_type)
         span.set_attribute("error.type", error_type)
         span.set_attribute("langfuse.observation.level", "ERROR")
         span.set_status(Status(StatusCode.ERROR))

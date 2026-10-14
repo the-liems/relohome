@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from relohome_observability import record_http_error
+from relohome_observability.asgi import instrument_fastapi
 
 
 class Model(BaseModel):
@@ -77,6 +79,7 @@ def require_token(secret: SecretStr):
 
 
 def install_http(app: FastAPI, settings: ServiceSettings, name: str):
+    instrument_fastapi(app, service_name=name.removeprefix("lifeflow-"))
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -86,6 +89,15 @@ def install_http(app: FastAPI, settings: ServiceSettings, name: str):
         logger.addHandler(handler)
     @app.exception_handler(ServiceError)
     async def service_error(request: Request, exc: ServiceError):
+        if exc.status >= 500:
+            reason = {
+                "NOT_CONFIGURED": "missing_service_token", "LLM_NOT_CONFIGURED": "llm_not_configured",
+                "LLM_UNAVAILABLE": "llm_unavailable", "LLM_PROVIDER_ERROR": "llm_provider_error",
+                "LLM_INVALID_OUTPUT": "llm_invalid_output", "LLM_NO_RESULT": "llm_no_result",
+                "INTERNAL_ERROR": "internal_service_error", "APPROVAL_NOT_CONFIGURED": "approval_not_configured",
+            }.get(exc.code)
+            if reason:
+                record_http_error(reason)
         return JSONResponse(
             status_code=exc.status,
             content={

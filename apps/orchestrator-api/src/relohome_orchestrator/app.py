@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header
 from relohome_agent_services.common import ServiceError, ServiceSettings, install_http, require_token, token_configured
 from relohome_agent_services.llm import StructuredLLM
+from relohome_observability import initialize
 from relohome_orchestrator.engine import Orchestrator
 from relohome_orchestrator.models import (
     ApprovalRequest,
@@ -24,6 +25,7 @@ Owner = Annotated[str, Header(alias="X-Owner-ID", min_length=1, max_length=128)]
 
 
 def create_app(settings: ServiceSettings | None = None) -> FastAPI:
+    initialize("orchestrator")
     settings = settings or ServiceSettings()
     runtime_root = os.getenv("RELOHOME_RUNTIME_ROOT")
     if not runtime_root or not Path(runtime_root).expanduser().is_absolute():
@@ -46,7 +48,7 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
         yield
         await llm.close()
 
-    app = FastAPI(title="ReloHome Routing Orchestrator", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="ReloHome Routing Orchestrator", version="1.0.0", lifespan=lifespan, telemetry={"tracing": False})
     app.state.engine = engine
     install_http(app, settings, "lifeflow-orchestrator")
     authenticated = [Depends(require_token(settings.orchestrator_api_token))]

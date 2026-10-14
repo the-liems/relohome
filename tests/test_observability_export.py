@@ -16,8 +16,80 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("environment", ["staging", "production"])
-def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
+@pytest.mark.parametrize("conventions", ["", "http"])
+def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventions):
+    import base64
+    import json
+
+    received = []
+    formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
+               "/v1/metrics": ExportMetricsServiceRequest}
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_POST(self):
+            message = formats[self.path]()
+            message.ParseFromString(self.rfile.read(int(self.headers["Content-Length"])))
+            received.append((self.path, MessageToDict(message)))
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    worker = threading.Thread(target=receiver.serve_forever, daemon=True)
+    worker.start()
+    try:
+        env = {**os.environ, "OBSERVABILITY_ENABLED": "true", "OBSERVABILITY_CONTENT_MODE": "metadata",
+               "APP_ENV": "production", "OTEL_DEPLOYMENT_ENVIRONMENT": "production",
+               "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "framework-fixture",
+               "OTEL_SEMCONV_STABILITY_OPT_IN": conventions,
+               "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
+               "OTEL_EXPORTER_OTLP_HEADERS": ""}
+        result = subprocess.run([sys.executable, "-m", "tests.observability_framework_process"], cwd=ROOT,
+                                env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert "telemetry_initialization_failed" not in result.stderr
+        cases = json.loads(result.stdout)
+        assert cases["forward"]["status"] == 200
+        assert cases["failure"]["status"] == 500
+        assert cases["unknown"]["status"] == 404
+        assert all(case["trace_id"] != "1" * 32 for case in cases.values())
+        spans = [span for path, payload in received if path == "/v1/traces"
+                 for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
+        chain = [span for span in spans if base64.b64decode(span["traceId"]).hex() == cases["forward"]["trace_id"]]
+        assert len(chain) == 3  # One FastAPI server, one HTTPX client, one Starlette server.
+        caller = next(span for span in chain if span["name"] == "GET /forward")
+        downstream = next(span for span in chain if span["name"] == "GET /records/{record_id}")
+        outbound = next(span for span in chain if span["kind"] == "SPAN_KIND_CLIENT")
+        assert outbound["parentSpanId"] == caller["spanId"]
+        assert downstream["parentSpanId"] == outbound["spanId"]
+        scopes = {scope["scope"]["name"] for path, payload in received if path == "/v1/traces"
+                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"]}
+        assert scopes >= {"opentelemetry.instrumentation.fastapi", "opentelemetry.instrumentation.starlette",
+                          "opentelemetry.instrumentation.httpx"}
+        unknown = next(span for span in spans
+                       if base64.b64decode(span["traceId"]).hex() == cases["unknown"]["trace_id"])
+        assert unknown["name"] == "GET unmatched"
+        failure = next(span for span in spans
+                       if base64.b64decode(span["traceId"]).hex() == cases["failure"]["trace_id"])
+        failure_attributes = {item["key"]: item["value"] for item in failure["attributes"]}
+        assert failure_attributes["error.type"]["stringValue"].endswith("ValueError")
+        assert all(not span.get("events") and "message" not in span.get("status", {}) for span in spans)
+        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
+        metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
+                        for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
+                        for metric in scope["metrics"]}
+        assert "relohome.http.requests" in metric_names
+        assert not any(name.startswith(("http.", "db.")) for name in metric_names)
+    finally:
+        receiver.shutdown()
+        receiver.server_close()
+        worker.join(timeout=5)
+
+
+@pytest.mark.parametrize("environment,conventions", [("staging", ""), ("production", ""), ("production", "http")])
+def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, conventions):
     import base64
     import json
 
@@ -49,7 +121,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
         env.pop("PYTHONPATH", None)
         # Exercise legacy auto-instrumentation: it records exception events rather
         # than error.type, which must still leave a safe cause after sanitation.
-        env.pop("OTEL_SEMCONV_STABILITY_OPT_IN", None)
+        env["OTEL_SEMCONV_STABILITY_OPT_IN"] = conventions
         result = subprocess.run([sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
@@ -160,7 +232,7 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
             "service.namespace"] == {"stringValue": "relohome"} for resource in resources)
         scopes = [scope for resource in resources for key, groups in resource.items()
                   if key.startswith("scope") for scope in groups]
-        assert {scope["scope"]["name"] for scope in scopes} >= {"relohome", "relohome.sqlite"}
+        assert {scope["scope"]["name"] for scope in scopes} >= {"relohome", "opentelemetry.instrumentation.sqlite3"}
         names = {metric["name"] for scope in scopes for metric in scope.get("metrics", [])}
         assert {"relohome.operations", "relohome.heartbeat"} <= names
         assert not any(name.startswith("lifeflow") for name in names)

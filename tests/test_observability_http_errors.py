@@ -17,7 +17,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic import SecretStr
 from relohome_gateway.server import create_app
 from relohome_observability import record_http_error, runtime
-from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.asgi import instrument_fastapi, uninstrument_http
 from relohome_observability.fastapi import (
     DiagnosticHTTPException,
     DiagnosticJSONResponse,
@@ -97,6 +97,8 @@ async def test_gateway_missing_token_has_safe_reason_and_never_calls_upstream(tm
 @pytest.mark.parametrize("reason", ["agent_runtime_not_started", "missing_agent_api_token"])
 async def test_backend_status_has_reason_on_existing_http_span(monkeypatch, observed, reason):
     from relohome_agent.main import app
+    uninstrument_http(app)
+    instrument_fastapi(app)
 
     if reason == "missing_agent_api_token":
         service = SimpleNamespace(mode="live", settings=SimpleNamespace(agent_api_token=SecretStr("")))
@@ -108,6 +110,7 @@ async def test_backend_status_has_reason_on_existing_http_span(monkeypatch, obse
     assert response.status_code == 503
     assert_diagnostic(observed, response, reason)
     assert len(observed.spans.get_finished_spans()) == 1
+    uninstrument_http(app)
 
 
 @pytest.mark.asyncio
@@ -151,7 +154,7 @@ async def test_invalid_upstream_json_has_reason_without_exporting_body(tmp_path,
 @pytest.mark.asyncio
 async def test_recovered_error_does_not_mark_successful_http_span(observed):
     app = FastAPI(telemetry={"tracing": False})
-    app.add_middleware(TelemetryMiddleware)
+    instrument_fastapi(app)
     app.add_exception_handler(DiagnosticHTTPException, diagnostic_exception_handler)
 
     @app.get("/recovered")
@@ -173,7 +176,7 @@ async def test_recovered_error_does_not_mark_successful_http_span(observed):
 @pytest.mark.asyncio
 async def test_diagnostic_response_preserves_body_and_headers(observed):
     app = FastAPI(telemetry={"tracing": False})
-    app.add_middleware(TelemetryMiddleware)
+    instrument_fastapi(app)
 
     @app.get("/uncertain")
     async def uncertain():

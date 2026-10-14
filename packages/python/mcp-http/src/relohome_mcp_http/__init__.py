@@ -5,7 +5,7 @@ import secrets
 
 from mcp.server.fastmcp import FastMCP
 from relohome_observability import initialize, operation
-from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.asgi import instrument_starlette
 from starlette.responses import JSONResponse
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -69,6 +69,6 @@ class HttpServiceMCP(FastMCP):
         require_service_token(self.service_token)
         app = super().streamable_http_app()
         initialize(self.name)
-        app.add_middleware(TelemetryMiddleware, service_name=self.name)
         app.add_middleware(ServiceTokenMiddleware, token=self.service_token)
+        instrument_starlette(app, service_name=self.name)
         return app

@@ -5,9 +5,11 @@ from relohome_agent_services.common import ServiceError, ServiceSettings, instal
 from relohome_agent_services.intake_models import IntakeRequest, IntakeResult
 from relohome_agent_services.llm import StructuredLLM
 from relohome_intake.service import IntakeService
+from relohome_observability import initialize
 
 
 def create_app(settings: ServiceSettings | None = None) -> FastAPI:
+    initialize("intake")
     settings = settings or ServiceSettings()
     llm = StructuredLLM(settings, settings.intake_model)
     service = IntakeService(llm)
@@ -17,7 +19,7 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
         yield
         await llm.close()
 
-    app = FastAPI(title="ReloHome Intake", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="ReloHome Intake", version="1.0.0", lifespan=lifespan, telemetry={"tracing": False})
     install_http(app, settings, "lifeflow-intake")
 
     @app.get("/ready")

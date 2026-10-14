@@ -1,4 +1,4 @@
-import { SpanKind, type Context } from '@opentelemetry/api'
+import { SpanKind, SpanStatusCode, type Context } from '@opentelemetry/api'
 import { NodeSDK } from '@opentelemetry/sdk-node'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
@@ -11,7 +11,7 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
 import { UndiciInstrumentation } from '@opentelemetry/instrumentation-undici'
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg'
-import { FastifyInstrumentation } from '@opentelemetry/instrumentation-fastify'
+import { FastifyOtelInstrumentation } from '@fastify/otel'
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino'
 import { healthPaths } from './index.js'
 
@@ -29,6 +29,29 @@ export class SanitizingSpanProcessor implements SpanProcessor {
   onEnd(span: ReadableSpan) {
     try {
       const attributes = Object.fromEntries(Object.entries(span.attributes).filter(([key]) => safeAttributes.has(key)))
+      if (span.status.code === SpanStatusCode.ERROR && attributes['error.type'] === undefined) {
+        const exception = span.events.find(event => event.name === 'exception' &&
+          typeof event.attributes?.['exception.type'] === 'string' &&
+          /^(?:[A-Za-z_][A-Za-z0-9_.]{0,255}|[0-9][0-9A-Z]{4})$/.test(event.attributes['exception.type']))
+        if (exception) attributes['error.type'] = exception.attributes!['exception.type']
+        else if (span.instrumentationScope.name === '@opentelemetry/instrumentation-pg') {
+          // This instrumentor's promise path records a sanitized string event,
+          // without exception.type. Retain only a validated SQLSTATE from its
+          // fixed template; never export the event message or raw SQL.
+          for (const event of span.events) {
+            const message = event.attributes?.['exception.message']
+            const match = event.name === 'exception' && typeof message === 'string'
+              ? /^PostgreSQL error of type '[A-Za-z_][A-Za-z0-9_.]{0,255}' occurred \(code: ([0-9A-Z]{5})\)$/.exec(message)
+              : null
+            if (match) { attributes['error.type'] = match[1]!; break }
+          }
+          attributes['error.type'] ??= 'PostgreSQLError'
+        }
+        if (attributes['error.type'] === undefined) {
+          const status = attributes['http.response.status_code'] ?? attributes['http.status_code']
+          if (typeof status === 'number' && status >= 400 && status < 600) attributes['error.type'] = String(status)
+        }
+      }
       let name = span.name
       if (span.attributes['db.system'] || span.attributes['db.system.name']) {
         const raw = String(span.attributes['db.operation.name'] || span.attributes['db.operation'] || span.attributes['db.query.text'] || span.attributes['db.statement'] || 'QUERY')
@@ -79,13 +102,19 @@ const sdk = new NodeSDK({
   spanProcessors: [new SanitizingSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: `${endpoint}/v1/traces`, timeoutMillis: 3000 }), batch))],
   logRecordProcessors: [new MetadataLogProcessor(new BatchLogRecordProcessor({ exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs`, timeoutMillis: 3000 }), ...batch }))],
   metricReaders: [new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics`, timeoutMillis: 3000 }), exportIntervalMillis: 15000, exportTimeoutMillis: 5000 })],
-  views: [{ instrumentName: 'relohome.*.duration', aggregation: { type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
-    options: { boundaries: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300] } } }],
+  views: [
+    { instrumentName: 'http.*', aggregation: { type: AggregationType.DROP } },
+    { instrumentName: 'db.*', aggregation: { type: AggregationType.DROP } },
+    { instrumentName: 'relohome.*.duration', aggregation: { type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+      options: { boundaries: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300] } } },
+  ],
   instrumentations: [
     new HttpInstrumentation({ ignoreIncomingRequestHook: req => healthPaths.has((req.url || '').split('?')[0] || ''),
       startIncomingSpanHook: req => (req.url || '').split('?')[0] === '/mcp' ? { 'http.route': '/mcp' } : {} }),
     new UndiciInstrumentation(), new PgInstrumentation({ enhancedDatabaseReporting: false, requireParentSpan: true }),
-    new FastifyInstrumentation(), new PinoInstrumentation(),
+    new FastifyOtelInstrumentation({ registerOnInitialization: true, instrumentHooks: false,
+      ignorePaths: options => healthPaths.has(options.url.split('?')[0] || '') }),
+    new PinoInstrumentation(),
   ],
 })
 sdk.start()

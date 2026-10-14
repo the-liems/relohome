@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from relohome_observability import current_context, generation, operation, runtime, session
-from relohome_observability.asgi import TelemetryMiddleware
+from relohome_observability.asgi import instrument_fastapi, uninstrument_http
 from relohome_observability.privacy import content
 
 from tests.mcp_http import running_mcp
@@ -143,7 +143,7 @@ def test_automatic_database_and_exception_data_removed_before_export(spans):
 @pytest.mark.asyncio
 async def test_asgi_route_template_trace_header_and_untrusted_parent(spans):
     app = FastAPI(telemetry={"tracing": False})
-    app.add_middleware(TelemetryMiddleware, trust_incoming=False)
+    instrument_fastapi(app, trust_incoming=False)
 
     @app.get("/item/{item_id}")
     async def item(item_id: str):
@@ -168,12 +168,14 @@ async def test_asgi_route_template_trace_header_and_untrusted_parent(spans):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("module_name,trust_incoming,path,route,status", [
     ("relohome_gateway.server", False, "/web/api/auth/login", "/web/api/auth/{action}", 422),
-    ("relohome_agent.main", True, "/api/v1/chat", "/chat", 503),
+    ("relohome_agent.main", True, "/api/v1/chat", "/api/v1/chat", 503),
 ])
 async def test_installed_http_entrypoints_keep_trace_boundaries(spans, module_name, trust_incoming, path, route, status):
     # Exercise the actual relocated applications: preserving only the legacy
     # launcher instrumentation would silently lose traces in deployed wheels.
     module = importlib.import_module(module_name)
+    uninstrument_http(module.app)
+    instrument_fastapi(module.app, trust_incoming=trust_incoming)
     incoming_trace = "11111111111111111111111111111111"
     incoming_span = "2222222222222222"
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=module.app), base_url="http://test") as client:
@@ -192,6 +194,7 @@ async def test_installed_http_entrypoints_keep_trace_boundaries(spans, module_na
     else:
         assert response.headers["x-trace-id"] != incoming_trace
         assert span.parent is None
+    uninstrument_http(module.app)
 
 
 @pytest.mark.asyncio

@@ -56,6 +56,16 @@ it.each([
     expect(traceResources.flatMap(item => item.scopeSpans).some(item => item.scope.name === 'relohome')).toBe(true)
     expect(spans.some(item => item.kind === 2)).toBe(true)
     expect(spans.some(item => item.kind === 3)).toBe(true)
+    const failures = spans.filter(item => item.attributes.some((attribute: any) =>
+      attribute.key === 'http.route' && attribute.value.stringValue === '/failure'))
+    expect(failures.filter(item => item.kind === 2)).toHaveLength(1)
+    expect(failures.filter(item => item.kind === 2)[0].status.code).toBe(2)
+    expect(failures.filter(item => item.kind === 2)[0].attributes).toEqual(expect.arrayContaining([
+      { key: 'error.type', value: { stringValue: '500' } },
+    ]))
+    expect(spans.some(item => item.attributes.some((attribute: any) =>
+      attribute.key === 'error.type' && attribute.value.stringValue === 'TypeError'))).toBe(true)
+    expect(spans.every(item => !item.events?.length && !item.status.message)).toBe(true)
     const exported = JSON.stringify(requests)
     expect(exported).not.toContain('person@example.com')
     expect(exported).not.toContain('fixture-secret')
@@ -76,8 +86,9 @@ it.each([
       { method: 'POST', route: '/mcp', status: '200' },
       { method: 'GET', route: '/mcp', status: '401' },
       { method: 'GET', route: 'unmatched', status: '404' },
+      { method: 'GET', route: '/failure', status: '500' },
     ]))
-    expect(httpLabels.every(labels => ['/mcp', 'unmatched'].includes(labels.route))).toBe(true)
+    expect(httpLabels.every(labels => ['/mcp', '/failure', 'unmatched'].includes(labels.route))).toBe(true)
   } finally {
     if (child && child.exitCode === null) child.kill('SIGKILL')
     await new Promise<void>(resolve => receiver.close(() => resolve()))

@@ -127,6 +127,20 @@ jobs:
     runs-on: [self-hosted, linux, team-44]
     timeout-minutes: 30
 
+    services:
+      telemetry-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: telemetry_test
+          POSTGRES_PASSWORD: telemetry-ci-test-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
     steps:
       - uses: actions/checkout@v4
 
@@ -164,6 +178,7 @@ jobs:
       - name: Run portable workspace tests
         env:
           NODE_OPTIONS: --max-old-space-size=512
+          ROOMMATE_TEST_DATABASE_URL: postgresql://postgres:telemetry-ci-test-only@127.0.0.1:${{ job.services['telemetry-postgres'].ports[5432] }}/telemetry_test
         run: npm run test:ci
 
   application-images:

@@ -135,6 +135,59 @@ scrubbed in every mode. Loki receives only fixed operational events and bounded
 attributes, never message bodies, SQL or exception text. Metric labels never
 contain user, session, request or trace IDs.
 
+### Framework and client instrumentation
+
+The services use the framework-maintained/OpenTelemetry integrations below.
+Initialize the Python SDK before constructing clients and instrument each app
+before its first request. Node services preload `@relohome/telemetry/register`
+with `--import` before HTTP, Fastify, Undici, PostgreSQL or Pino is imported.
+
+| Runtime | Integration |
+| --- | --- |
+| Agent API, browser gateway, Intake, Orchestrator | `FastAPIInstrumentor` |
+| Python Flight/Payment MCP HTTP applications | `StarletteInstrumentor` |
+| Python outgoing HTTP | `HTTPXClientInstrumentor` |
+| Python PostgreSQL/Roommate pools | `PsycopgInstrumentor`, without SQL parameters or SQLCommenter |
+| SQLite and aiosqlite | Official DB-API `CursorTracer` through the native connection adapter |
+| Node HTTP/MCP servers | `HttpInstrumentation` |
+| Platform and Moving Fastify APIs | Maintained `@fastify/otel`, registered automatically by NodeSDK |
+| Node fetch, PostgreSQL and logging | `UndiciInstrumentation`, `PgInstrumentation`, `PinoInstrumentation` |
+
+FastAPI's built-in tracing is disabled to avoid duplicating the official
+instrumentor. The HTTP policy boundary creates no spans: it adds `x-trace-id`,
+preserves existing `relohome.http.*` metrics and completion logs, excludes health
+and static requests, and prevents public browser trace headers from choosing
+the gateway's trace or sampling policy. Internal HTTP services retain trusted
+W3C parent context. Python and Node propagate trace context without baggage.
+Internal ASGI send/receive spans and Fastify lifecycle hook spans are disabled;
+Fastify retains a framework request/handler span beneath the HTTP server span.
+The Starlette adapter places the installed SDK middleware outside its server
+error handler and records the exception before that handler converts it to a
+500 response. This keeps the response status and original error class on the
+same SDK span; the adapter does not create an additional span.
+
+The SDK drops automatic `http.*`/`db.*` metrics before export because their labels
+can include raw request targets or queries. Existing bounded `relohome` metrics
+remain the dashboard source. Span sanitation keeps route templates, error classes
+and PostgreSQL SQLSTATE codes, while removing raw URLs, SQL, exception messages,
+stack traces and events. Native SQLite connections remain necessary because its
+C backup API rejects generic connection proxies; its adapter delegates span
+creation to the official DB-API tracer and preserves aiosqlite worker context.
+PostgreSQL pool setup/idle queries without a request/operation parent are not
+exported. Application spans for graph nodes, LLM generations, MCP tools and
+durable jobs remain separate from framework instrumentation.
+
+Deploy updated application images, including the standalone Intake/Orchestrator
+images if used. Telemetry remains opt-in; the standalone `compose.agents.yaml`
+also forwards the existing observability settings. Collector/Grafana configuration
+does not need to change. SDK HTTP route names now include router prefixes, such
+as `/api/v1/status`; use these full templates in route-specific queries.
+
+Official references: [FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
+[Starlette](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html),
+[Psycopg](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html),
+[Fastify](https://github.com/fastify/otel).
+
 ### HTTP failure diagnostics
 
 HTTPX auto-instrumentation creates outbound request spans. Failed automatic spans
@@ -151,6 +204,9 @@ Application decisions that become handled HTTP errors use a fixed diagnostic cod
 | `missing_agent_api_token` | Gateway or backend has no server authentication token |
 | `agent_runtime_not_started` | Backend has no initialized Agent service |
 | `upstream_invalid_json` | Gateway could not decode the upstream response as JSON |
+| `missing_service_token` | Standalone Intake/Orchestrator service token is absent |
+| `llm_not_configured`, `llm_unavailable`, `llm_provider_error`, `llm_invalid_output`, `llm_no_result` | Standalone LLM service's handled outcome |
+| `internal_service_error`, `approval_not_configured` | Standalone service failure or approval configuration failure |
 
 The optional `relohome_observability.fastapi` bridge carries these codes on
 `DiagnosticHTTPException` and `DiagnosticJSONResponse`. The exception handler or
@@ -158,8 +214,10 @@ response boundary annotates the existing HTTP span and emits one ERROR
 `application.log` with `error_type`, correlated by trace/span ID. An exception
 caught for a successful fallback does not annotate the HTTP span. The bridge
 preserves existing response status, body and headers; codes are internal telemetry,
-not new browser API fields. Unknown codes are ignored and diagnostic failures are
-fail-open. No reason code is added as a metric label.
+not new browser API fields. The existing standalone `ServiceError` handler uses
+the same fixed-code annotations for its 5xx outcomes. Specific application causes
+survive both legacy and stable HTTP conventions. Unknown codes are ignored and
+diagnostic failures are fail-open. No reason code is added as a metric label.
 
 To investigate `/web/api/status`, find the gateway request by its `x-trace-id`,
 inspect `error.type`, then follow any outbound HTTP span to the backend span and
@@ -169,7 +227,7 @@ HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
 Use the existing Langfuse trace link from Loki for the corresponding ERROR log.
 
 These attributes already pass the Collector's privacy allowlists. Deploy updated
-gateway/backend images with the updated telemetry package; no Collector or Grafana
+application images with the updated telemetry package; no Collector or Grafana
 configuration update is required for these diagnostics. Existing stored traces do
 not gain new attributes.
 

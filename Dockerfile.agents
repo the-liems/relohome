@@ -4,6 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
 COPY requirements-agents.txt ./
+COPY packages/python/observability/ ./packages/python/observability/
 COPY packages/python/agent-services/ ./packages/python/agent-services/
 COPY apps/intake-api/ ./apps/intake-api/
 COPY apps/orchestrator-api/ ./apps/orchestrator-api/
