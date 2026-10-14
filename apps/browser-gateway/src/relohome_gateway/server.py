@@ -9,12 +9,13 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import os
 import re
 import secrets
 import sqlite3
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
@@ -28,13 +29,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
 from relohome_flight.schemas import Contact, Passenger
-from relohome_gateway.roommate_gateway import attach_roommate_gateway
-from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
-from relohome_gateway.store import Store, TravelerProfiles, password_hash
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
+
+from relohome_gateway.guest_body_limit import GuestBodyLimit
+from relohome_gateway.guest_routes import allowed as guest_route_allowed
+from relohome_gateway.guest_sessions import GUEST_COOKIE, TTL, GuestSessions
+from relohome_gateway.guest_sessions import enabled as guest_enabled
+from relohome_gateway.roommate_gateway import attach_roommate_gateway
+from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.store import Store, TravelerProfiles, password_hash
 
 COOKIE = "siu_session"
 
@@ -203,6 +209,7 @@ def create_app(database=None, transport=None):
             raise ValueError("Existing gateway database requires its original traveler encryption key")
         app.state.store_path = str(path)
         app.state.store = Store(path)
+        app.state.guests = GuestSessions(app.state.store)
         app.state.travelers = TravelerProfiles(
             app.state.store,
             key_path,
@@ -210,13 +217,20 @@ def create_app(database=None, transport=None):
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(250, connect=10), transport=transport)
         app.state.locks = {}
         app.state.attempts = {}
+        app.state.cleanup_guests = cleanup_guests
+        maintenance = asyncio.create_task(guest_maintenance()) if guest_enabled() else None
         yield
+        if maintenance:
+            maintenance.cancel()
+            with suppress(asyncio.CancelledError):
+                await maintenance
         await app.state.http.aclose()
         app.state.store.db.close()
 
     app = FastAPI(title="ReloHome", lifespan=lifespan, telemetry={"tracing": False})
     # Public clients cannot choose our sampling policy or join an internal trace.
     app.add_middleware(TelemetryMiddleware, service_name="web", trust_incoming=False)
+    app.add_middleware(GuestBodyLimit, gateway=app)
     app.state.store_path = database
 
     @app.get("/health")
@@ -232,6 +246,25 @@ def create_app(database=None, transport=None):
     async def validation_error(request, exc):
         return JSONResponse({"detail": "Vui lòng kiểm tra các trường đã nhập."}, status_code=422)
 
+    @app.exception_handler(HTTPException)
+    async def http_error(request, exc):
+        if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
+            quota = exc.detail["code"] == "guest_quota"
+            headers = {"Cache-Control": "no-store"}
+            if quota:
+                headers["Retry-After"] = str(exc.detail["retry_after"])
+            return JSONResponse(
+                {
+                    **exc.detail,
+                    "detail": "Bạn đã dùng hết lượt của phiên khách. Hãy chờ hoặc đăng nhập."
+                    if quota
+                    else "Phiên khách đã hết hạn. Hãy bắt đầu lại hoặc đăng nhập.",
+                },
+                status_code=exc.status_code,
+                headers=headers,
+            )
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
     @app.middleware("http")
     async def browser_boundary(request, call_next):
         if request.url.path.startswith("/web/api") and request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -240,6 +273,25 @@ def create_app(database=None, transport=None):
                 origin and urlsplit(origin).netloc != request.headers.get("host")
             ):
                 return JSONResponse({"detail": "Phiên yêu cầu không hợp lệ. Hãy tải lại trang."}, status_code=403)
+        if guest_enabled() and request.url.path.startswith("/web/api"):
+            account = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+            if not account:
+                try:
+                    app.state.guests.request_budget(request.client.host if request.client else "unknown")
+                except HTTPException as exc:
+                    return JSONResponse(
+                        {"code": "guest_quota", "detail": "Bạn đã gửi nhiều yêu cầu. Hãy chờ một chút."},
+                        status_code=exc.status_code,
+                        headers={"Retry-After": str(exc.detail["retry_after"]), "Cache-Control": "no-store"},
+                    )
+            if not account and not guest_route_allowed(request.url.path, request.method):
+                return JSONResponse(
+                    {"code": "authentication_required", "detail": "Đăng nhập để sử dụng chức năng này."},
+                    status_code=401,
+                    headers={"Cache-Control": "no-store"},
+                )
+            if not account and request.url.path == "/web/api/roommate/availability":
+                return JSONResponse({"enabled": False, "requires_account": True}, headers={"Cache-Control": "no-store"})
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -253,6 +305,19 @@ def create_app(database=None, transport=None):
         if not row:
             raise HTTPException(401, "Vui lòng đăng nhập để tiếp tục.")
         return row
+
+    def actor(request):
+        if not guest_enabled():
+            return user(request)
+        row = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+        if row:
+            return row
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if not guest:
+            raise HTTPException(401, {"code": "guest_expired"})
+        if guest["claim_target"]:
+            raise HTTPException(409, "Phiên đang được chuyển sang tài khoản. Hãy thử đăng nhập lại.")
+        return guest
 
     async def object_body(request):
         try:
@@ -354,9 +419,66 @@ def create_app(database=None, transport=None):
         except HTTPException:
             pass  # Stored history remains usable when an individual service is offline.
 
+    async def claim_guest(request, account):
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if not guest:
+            return
+        await finish_guest_claim(guest, account)
+
+    async def finish_guest_claim(guest, account):
+        if guest["claim_target"] and guest["claim_target"] != account:
+            raise HTTPException(409, "Phiên đang được nhận bởi tài khoản khác.")
+        thread = guest["thread"]
+        lock = app.state.locks.setdefault(thread or guest["id"], asyncio.Lock())
+        if lock.locked():
+            raise HTTPException(409, "Chờ lượt chat đang chạy hoàn tất rồi đăng nhập.")
+        async with lock:
+            key = guest["claim_key"] or secrets.token_hex(24)
+            app.state.store.write(
+                "UPDATE guest_sessions SET claim_target=?,claim_key=? WHERE id=?",
+                (account, key, guest["id"]),
+            )
+            if thread:
+                result = await upstream(
+                    "POST",
+                    "/chat/guest-claim",
+                    guest["id"],
+                    {
+                        "thread_id": thread,
+                        "target_user": account,
+                        "operation_key": key,
+                    },
+                )
+                if not isinstance(result, dict) or result.get("claimed") is not True:
+                    raise HTTPException(503, "Chưa nhận được hội thoại. Hãy thử đăng nhập lại.")
+            with app.state.store.db:
+                if thread:
+                    app.state.store.db.execute(
+                        "UPDATE threads SET owner=? WHERE id=? AND owner=?", (account, thread, guest["id"])
+                    )
+                    app.state.store.db.execute(
+                        "UPDATE runs SET owner=? WHERE thread=? AND owner=?", (account, thread, guest["id"])
+                    )
+                app.state.store.db.execute("UPDATE guest_sessions SET claimed=1 WHERE id=?", (guest["id"],))
+
     @app.get("/web/api/session")
-    async def session(request: Request):
-        row = user(request)
+    async def session(request: Request, response: Response):
+        row = app.state.store.session_user(request.cookies.get(COOKIE, ""))
+        if not row and guest_enabled():
+            guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+            if not guest:
+                token, guest = app.state.guests.create(request.client.host if request.client else "unknown")
+                response.set_cookie(
+                    GUEST_COOKIE,
+                    token,
+                    httponly=True,
+                    secure=os.getenv("SIU_SECURE_COOKIE", "false").lower() == "true",
+                    samesite="strict",
+                    max_age=TTL,
+                    path="/",
+                )
+            return app.state.guests.public(guest)
+        row = row or user(request)
         if row.get("workspace") == "admin":
             capability = await upstream("GET", "/admin/session", row["id"], platform=True)
             if isinstance(capability, JSONResponse):
@@ -400,6 +522,8 @@ def create_app(database=None, transport=None):
             if not isinstance(capability, dict) or capability.get("can_moderate_housing") is not True:
                 raise HTTPException(403, "Tài khoản này không có quyền Admin.")
         workspace = "admin" if action == "admin" else "customer"
+        if action != "admin":
+            await claim_guest(request, row["id"])
         token = store.create_session(row["id"], workspace)
         row["workspace"] = workspace
         response.set_cookie(
@@ -411,6 +535,7 @@ def create_app(database=None, transport=None):
             max_age=86400 * 14,
             path="/",
         )
+        response.delete_cookie(GUEST_COOKIE, path="/")
         return public_user(row)
 
     @app.post("/web/api/logout")
@@ -420,6 +545,10 @@ def create_app(database=None, transport=None):
             (hashlib.sha256(request.cookies.get(COOKIE, "").encode()).hexdigest(),),
         )
         response.delete_cookie(COOKIE, path="/")
+        guest = app.state.guests.lookup(request.cookies.get(GUEST_COOKIE, ""))
+        if guest and not guest["claim_target"]:
+            app.state.store.write("UPDATE guest_sessions SET expires=? WHERE id=?", (time.time() - 1, guest["id"]))
+        response.delete_cookie(GUEST_COOKIE, path="/")
         return {"ok": True}
 
     @app.patch("/web/api/profile")
@@ -436,7 +565,7 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/status")
     async def status(request: Request):
-        return await upstream("GET", "/status", user(request)["id"])
+        return await upstream("GET", "/status", actor(request)["id"])
 
     @app.get("/web/api/threads")
     async def threads(request: Request):
@@ -444,13 +573,29 @@ def create_app(database=None, transport=None):
             {**r, "state": json.loads(r["state"])}
             for r in app.state.store.all(
                 "SELECT id,title,updated,state,revision FROM threads WHERE owner=? ORDER BY updated DESC",
-                (user(request)["id"],),
+                (actor(request)["id"],),
             )
         ]
 
     @app.post("/web/api/threads")
     async def new_thread(request: Request):
-        owner, thread = user(request)["id"], "th_" + secrets.token_hex(16)
+        principal = actor(request)
+        owner, thread = principal["id"], "th_" + secrets.token_hex(16)
+        if owner.startswith("guest_"):
+            with app.state.store.db:
+                # Lock before reading, so simultaneous creations cannot orphan a thread.
+                app.state.store.db.execute("UPDATE guest_sessions SET expires=expires WHERE id=?", (owner,))
+                current = app.state.store.one("SELECT thread,claim_target FROM guest_sessions WHERE id=?", (owner,))
+                if current["claim_target"]:
+                    raise HTTPException(409, "Phiên đang được chuyển sang tài khoản.")
+                if current["thread"]:
+                    return snapshot(current["thread"], owner)
+                app.state.store.db.execute(
+                    "INSERT INTO threads(id,owner,title,updated) VALUES (?,?,?,?)",
+                    (thread, owner, "Cuộc trò chuyện mới", time.time()),
+                )
+                app.state.store.db.execute("UPDATE guest_sessions SET thread=? WHERE id=?", (thread, owner))
+            return snapshot(thread, owner)
         app.state.store.write(
             "INSERT INTO threads(id,owner,title,updated) VALUES (?,?,?,?)",
             (thread, owner, "Cuộc trò chuyện mới", time.time()),
@@ -459,7 +604,7 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/threads/{thread}")
     async def get_thread(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
         await refresh(thread, owner)
         result = snapshot(thread, owner)
@@ -481,9 +626,37 @@ def create_app(database=None, transport=None):
             app.state.store.delete_thread(owner, thread)
         app.state.locks.pop(thread, None)
 
+    async def cleanup_guests():
+        # Reconcile claims whose credentials were already verified, including after restart.
+        for row in app.state.store.all(
+            "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NOT NULL LIMIT 5"
+        ):
+            try:
+                await finish_guest_claim(row, row["claim_target"])
+            except Exception as exc:
+                logging.getLogger(__name__).warning("guest claim reconcile failed: %s", type(exc).__name__)
+        for row in app.state.store.all(
+            "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NULL AND expires<=? LIMIT 10",
+            (time.time(),),
+        ):
+            try:
+                if row["thread"]:
+                    await remove_thread(row["thread"], row["id"])
+                app.state.store.write("DELETE FROM guest_sessions WHERE id=?", (row["id"],))
+            except Exception as exc:
+                logging.getLogger(__name__).warning("guest expiry cleanup failed: %s", type(exc).__name__)
+        app.state.store.write("DELETE FROM guest_sessions WHERE claimed=1")
+
+    async def guest_maintenance():
+        while True:
+            await asyncio.sleep(60)
+            await cleanup_guests()
+
     @app.delete("/web/api/threads/{thread}")
     async def delete_thread(thread: str, request: Request):
-        await remove_thread(thread, user(request)["id"])
+        owner = actor(request)["id"]
+        await remove_thread(thread, owner)
+        app.state.store.write("UPDATE guest_sessions SET thread=NULL WHERE id=? AND thread=?", (owner, thread))
         return {"ok": True}
 
     @app.delete("/web/api/threads")
@@ -504,7 +677,7 @@ def create_app(database=None, transport=None):
             forgotten = False
         return {"deleted": deleted, "kept": kept, "memory_forgotten": forgotten}
 
-    async def run(thread, owner, request_id, path, body, label):
+    async def run(thread, owner, request_id, path, body, label, guest_peer=None):
         if not isinstance(request_id, str) or not 16 <= len(request_id) <= 80:
             raise HTTPException(422, "Thiếu mã yêu cầu.")
         owned(thread, owner)
@@ -520,6 +693,8 @@ def create_app(database=None, transport=None):
         if lock.locked():
             raise HTTPException(409, "Hội thoại đang xử lý. Hãy chờ kết quả.")
         async with lock:
+            if guest_peer is not None and owner.startswith("guest_"):
+                app.state.guests.budget({"id": owner}, guest_peer)
             app.state.store.write(
                 "INSERT INTO runs VALUES (?,?,?,?,?,NULL)", (request_id, owner, thread, fingerprint, "running")
             )
@@ -553,13 +728,15 @@ def create_app(database=None, transport=None):
 
     @app.post("/web/api/threads/{thread}/chat")
     async def chat(thread: str, body: Turn, request: Request):
+        principal = actor(request)
         return await run(
             thread,
-            user(request)["id"],
+            principal["id"],
             body.request_id,
             "/chat",
             {**body.model_dump(exclude={"request_id"}), "thread_id": thread},
             body.message,
+            guest_peer=request.client.host if request.client else "unknown",
         )
 
     @app.post("/web/api/threads/{thread}/action")
@@ -570,7 +747,7 @@ def create_app(database=None, transport=None):
             raise HTTPException(422, "Thiếu mã yêu cầu.")
         return await run(
             thread,
-            user(request)["id"],
+            actor(request)["id"],
             request_id,
             f"/ui/chat/{thread}/action",
             body,
@@ -689,7 +866,7 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/threads/{thread}/checkout")
     async def thread_checkout(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
         return await checkout_call("GET", f"/ui/chat/{thread}/checkout", owner)
 
@@ -900,8 +1077,10 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/threads/{thread}/viewings")
     async def thread_viewings(thread: str, request: Request):
-        owner = user(request)["id"]
+        owner = actor(request)["id"]
         owned(thread, owner)
+        if owner.startswith("guest_"):
+            return await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
         return await landlord_viewings(
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
@@ -914,8 +1093,10 @@ def create_app(database=None, transport=None):
         ],
         request: Request,
     ):
-        owner, body = user(request)["id"], await object_body(request)
+        owner, body = (actor(request) if step == "unselect" else user(request))["id"], await object_body(request)
         owned(thread, owner)
+        if owner.startswith("guest_"):
+            return await checkout_call("POST", f"/ui/chat/{thread}/viewings/unselect", owner, body)
         if step == "visit":
             await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
         if step == "landlord-retry":
@@ -955,35 +1136,36 @@ def create_app(database=None, transport=None):
         request_id = body.pop("request_id", "")
         return await run(
             thread,
-            user(request)["id"],
+            actor(request)["id"],
             request_id,
             f"/ui/chat/{thread}/flight/outbound",
             body,
             "Chọn chuyến đi của vé khứ hồi",
+            guest_peer=request.client.host if request.client else "unknown",
         )
 
     @app.get("/web/api/map/search")
     async def map_search(request: Request, text: str):
-        return await upstream("GET", "/map/search?" + str(httpx.QueryParams({"text": text})), user(request)["id"])
+        return await upstream("GET", "/map/search?" + str(httpx.QueryParams({"text": text})), actor(request)["id"])
 
     @app.get("/web/api/housing/{listing_id}")
     async def detail(listing_id: str, request: Request):
-        return await upstream("GET", f"/ui/housing/{listing_id}", user(request)["id"])
+        return await upstream("GET", f"/ui/housing/{listing_id}", actor(request)["id"])
 
     @app.get("/web/api/flight/{offer_id}")
     async def flight_detail(offer_id: str, request: Request):
-        return await upstream("GET", f"/ui/flight/{offer_id}", user(request)["id"])
+        return await upstream("GET", f"/ui/flight/{offer_id}", actor(request)["id"])
 
     @app.get("/web/api/moving/services")
     async def moving_services(request: Request, lat: float, lng: float, refresh: bool = False):
         params = str(httpx.QueryParams({"lat": lat, "lng": lng, "refresh": refresh}))
-        return await upstream("GET", "/ui/moving/services?" + params, user(request)["id"])
+        return await upstream("GET", "/ui/moving/services?" + params, actor(request)["id"])
 
     @app.post("/web/api/platform/{resource:path}")
     async def platform(resource: str, request: Request):
         if resource not in {"housing/map", "routes/entities", "routes/device", "housing/search", "places/map"}:
             raise HTTPException(404)
-        return await upstream("POST", "/" + resource, user(request)["id"], await object_body(request), platform=True)
+        return await upstream("POST", "/" + resource, actor(request)["id"], await object_body(request), platform=True)
 
     @app.post("/web/api/landlord/listings/{listing_id}/media-upload")
     async def housing_media_upload(listing_id: str, request: Request, alt: str | None = None):
@@ -1075,6 +1257,9 @@ def create_app(database=None, transport=None):
 
     @app.get("/web/api/saved")
     async def saved(request: Request):
+        principal = actor(request)
+        if principal["id"].startswith("guest_"):
+            return []
         return [
             {"id": r["id"], "thread_id": r["thread"], "house": json.loads(r["snapshot"])}
             for r in app.state.store.all("SELECT * FROM saved WHERE owner=?", (user(request)["id"],))

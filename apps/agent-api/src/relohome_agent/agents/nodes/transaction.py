@@ -20,6 +20,7 @@ from relohome_agent.agents.models import (
     error_record,
 )
 from relohome_agent.agents.state import WorkflowState
+from relohome_agent.guest_access import require_account
 from relohome_agent.services.adapters.ports import CommitError, CommitRequest
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ def make_transaction(deps: GraphDeps):
     async def transaction(state: WorkflowState) -> dict:
         """Commit tuần tự, idempotent. Một thao tác lỗi thì dừng, **không tự huỷ** thao tác đã đặt:
         báo người dùng phần nào đã đặt, phần nào lỗi, rồi hỏi có muốn huỷ phần đã đặt không."""
+        require_account(state.get("user_id"))
         now = deps.clock()
         plan = state["plan"]
         summary = state["cost_summary"]
