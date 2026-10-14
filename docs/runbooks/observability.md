@@ -350,16 +350,10 @@ values in provisioning YAML instead. For secret values containing `$`, use
    queries, tenant routing and related data-source UIDs consistent. When adding,
    removing or renaming alert rules, update the matching UIDs in the disabled
    cleanup files as well.
-2. Run the focused configuration checks:
-
-   ```bash
-   python -m pytest tests/test_observability_config.py -q
-   ```
-
-3. Merge to `main`, then redeploy the platform resource in Coolify (or let it
+2. Merge to `main`, then redeploy the platform resource in Coolify (or let it
    deploy on push, if enabled). Coolify pulls the merged files. Preserve the
    existing resource identity, volumes and deployment secrets.
-4. Grafana provisions the mounted files. Check that the dashboard shows
+3. Grafana provisions the mounted files. Check that the dashboard shows
    application data for the selected environment and that a log's trace link
    opens the correct Langfuse project.
 
@@ -529,13 +523,13 @@ Image checks import canonical entrypoints in isolated Python from
 the shared observability deployment or enable telemetry automatically.
 
 ```bash
-python -m pytest tests/test_observability.py tests/test_observability_export.py tests/test_observability_config.py -q
+python -m pytest tests/test_observability.py tests/test_observability_export.py -q
 npm run build
 npm run test:ci
 ```
 
-These tests check the SDKs and the committed configuration files; none of them
-start the observability services. Staging is where the stack first runs
+These tests check the SDKs; none of them start the observability services or
+read the deployment configuration. Staging is where the stack first runs
 together, so deploy configuration and image changes to staging and check the
 dashboard, alerts and a connected trace before production.
 
