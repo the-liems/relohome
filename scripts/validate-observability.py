@@ -4,10 +4,10 @@ import argparse
 import base64
 import concurrent.futures
 import copy
-import importlib.util
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,9 +21,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "deploy/observability"
-spec = importlib.util.spec_from_file_location("render_observability", ROOT / "scripts/render-observability.py")
-renderer = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(renderer)
+
+
+def dump(value):
+    return yaml.safe_dump(value, sort_keys=False, width=140)
 
 
 def docker(*args, timeout=600, env=None):
@@ -100,19 +101,6 @@ def application_trace(path, collector, token, database_url):
                 child.wait()
 
 
-def materialize_coolify_content(path):
-    """Use the exact files Coolify writes, without Docker Compose interpolation."""
-    for kind in ("stack", "collector"):
-        rendered = renderer.render(path / ("coolify-" + kind), kind=kind, coolify=True)
-        definition = yaml.safe_load(rendered.read_text())
-        for service in definition["services"].values():
-            for mount in service.get("volumes", []):
-                if isinstance(mount, dict) and "content" in mount:
-                    destination = path / mount["source"].removeprefix("./")
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    destination.write_text(mount["content"])
-
-
 def local_storage_environment():
     """Always replace caller bucket settings with disposable, local-only values."""
     values = {
@@ -164,7 +152,7 @@ def verify_s3_readback(path, definition, stack, endpoint, *, metric_time, log_qu
     cortex_config["querier"].update(query_ingesters_within="1s", query_store_after="0s")
     # Scan new blocks directly; a fresh bucket has not had its first hourly compactor index pass.
     cortex_config["blocks_storage"]["bucket_store"].update(sync_interval="1s", bucket_index={"enabled": False})
-    (path / "cortex-reader.yaml").write_text(renderer.dump(cortex_config))
+    (path / "cortex-reader.yaml").write_text(dump(cortex_config))
     services["cortex-s3-reader"] = copy.deepcopy(services["cortex"])
     services["cortex-s3-reader"]["volumes"] = [
         "./cortex-reader.yaml:/etc/cortex/config.yaml:ro", "cortex-reader:/cortex"]
@@ -178,13 +166,13 @@ def verify_s3_readback(path, definition, stack, endpoint, *, metric_time, log_qu
     loki_config["common"]["compactor_grpc_address"] = "loki:9095"
     loki_config["querier"] = {"query_store_only": True}
     loki_config["storage_config"]["tsdb_shipper"]["resync_interval"] = "1s"
-    (path / "loki-reader.yaml").write_text(renderer.dump(loki_config))
+    (path / "loki-reader.yaml").write_text(dump(loki_config))
     services["loki-s3-reader"] = copy.deepcopy(services["loki"])
     services["loki-s3-reader"]["command"].append("-target=querier")
     services["loki-s3-reader"]["volumes"] = ["./loki-reader.yaml:/etc/loki/config.yaml:ro",
         "./loki-limits.yaml:/etc/loki/limits.yaml:ro", "loki-reader:/loki"]
     definition["volumes"]["loki-reader"] = None
-    (path / "compose.yaml").write_text(renderer.dump(definition))
+    (path / "compose.yaml").write_text(dump(definition))
     stack("up", "--detach", "--no-deps", "cortex-s3-reader", "loki-s3-reader")
     cortex = endpoint("cortex-s3-reader", 9009)
     metric_query = urlencode({"query": 'relohome_heartbeat_seconds{service_name="smoke",environment="staging"}',
@@ -209,9 +197,10 @@ def main(smoke=False, verify_images=False):
     if verify_images:
         images(include_smoke=smoke)
     with tempfile.TemporaryDirectory(prefix="p044-observability-") as tmp:
-        path = Path(tmp)
-        compose = renderer.render(path)
-        materialize_coolify_content(path)
+        # Coolify deploys these Git files as they are; test a disposable copy of them.
+        path = Path(tmp) / "observability"
+        shutil.copytree(SOURCE, path)
+        compose = path / "compose.yaml"
         definition = yaml.safe_load(compose.read_text())
         services = definition["services"]
         project = "p044-observability-test-" + secrets.token_hex(4)
@@ -259,14 +248,14 @@ def main(smoke=False, verify_images=False):
                "-config.file=/etc/loki/config.yaml", "-config.expand-env=true", "-verify-config=true")
         docker("run", "--rm", *container_env, "-v", f"{path / 'cortex.yaml'}:/etc/cortex.yaml:ro",
                services["cortex"]["image"], "-config.file=/etc/cortex.yaml", "-config.expand-env=true", "-modules")
-        print("Coolify-rendered Collector, gateway, Loki and Cortex configs parsed", flush=True)
+        print("Collector, gateway, Loki and Cortex configs parsed", flush=True)
         if not smoke:
             return
         add_smoke_object_storage(definition)
         # Test-only: flush the active Loki index at shutdown for the S3 readback proof.
         loki_config = yaml.safe_load((path / "loki.yaml").read_text())
         loki_config["ingester"]["wal"]["flush_on_shutdown"] = True
-        (path / "loki.yaml").write_text(renderer.dump(loki_config))
+        (path / "loki.yaml").write_text(dump(loki_config))
         for name, port in {"langfuse": 3000, "grafana": 3000, "cortex": 9009, "loki": 3100, "telemetry-gateway": 8080,
                            "postgres": 5432}.items():
             services[name]["ports"] = [f"127.0.0.1:0:{port}"]
@@ -278,7 +267,7 @@ def main(smoke=False, verify_images=False):
                 "volumes": ["./collector.yaml:/etc/config.yaml:ro", f"queue-{name}:/var/lib/otelcol"],
                 "networks": ["ingestion"]}
             definition["volumes"]["queue-" + name] = None
-        compose.write_text(renderer.dump(definition))
+        compose.write_text(dump(definition))
 
         def endpoint(name, port):
             return "http://" + stack("port", name, port).strip()
