@@ -35,4 +35,3 @@ segno>=1.6  # vẽ QR thanh toán ngay trên máy (examples/streamlit/src/reloho
 
 # JSON Schema validation (agent contract, moving tool registry)
 jsonschema==4.26.0
-

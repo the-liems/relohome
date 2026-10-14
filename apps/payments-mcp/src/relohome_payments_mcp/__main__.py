@@ -2,12 +2,14 @@
 
 import argparse
 
+from relohome_observability import initialize
 from relohome_payment.settings import get_payment_settings
 from relohome_payments_mcp.server import create_server
 from relohome_payments_mcp.tools import build_services
 
 
 def main() -> None:
+    initialize("payments-mcp")
     parser = argparse.ArgumentParser(description="MCP server thanh toán (mock / ZaloPay sandbox)")
     parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="streamable-http")
     args = parser.parse_args()

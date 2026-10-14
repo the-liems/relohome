@@ -1,6 +1,7 @@
 import type { MovingDatabasePool, MovingRuntimeConfig } from '@relohome/moving-service'
 import { checkMovingReadiness, MovingService, MovingServiceError } from '@relohome/moving-service'
 import Fastify from 'fastify'
+import { registerFastifyTelemetry } from '@relohome/telemetry'
 import { timingSafeEqual } from 'node:crypto'
 import { RegisterMovingApprovalRequestSchema } from '@relohome/contracts'
 
@@ -21,6 +22,8 @@ export function buildMovingApp(
     requestTimeout: 30_000,
     return503OnClosing: true,
   })
+
+  registerFastifyTelemetry(app)
 
   app.get('/health', async () => {
     return { status: 'ok', service: 'lifeflow-moving-api', environment: config.environment,

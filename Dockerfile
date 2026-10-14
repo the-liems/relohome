@@ -7,7 +7,7 @@ COPY requirements-runtime.txt ./
 COPY packages/python/ ./packages/python/
 COPY apps/agent-api/ ./apps/agent-api/
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
-    ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/agent-api
+    ./packages/python/observability ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/agent-api
 
 FROM python:3.11-slim AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

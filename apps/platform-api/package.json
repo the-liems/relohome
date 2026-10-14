@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx --env-file=../../.env.local src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "node --import @relohome/telemetry/register --import tsx --env-file=../../.env.local src/server.ts",
+    "start": "node --import @relohome/telemetry/register dist/server.js",
     "db:migrate": "tsx --env-file=../../.env.local src/migrate.ts",
     "db:import:places": "tsx --env-file=../../.env.local src/import-places.ts",
     "db:import:pois:v2": "tsx --env-file=../../.env.local src/import-pois-v2.ts",
@@ -22,7 +22,8 @@
     "@relohome/housing-query": "0.1.0",
     "fastify": "^5.12.5",
     "pg": "^8.23.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@relohome/telemetry": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

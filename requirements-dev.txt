@@ -5,6 +5,7 @@
 -e ./packages/python/agent-services
 -e ./packages/python/contracts
 -e ./packages/python/flight
+-e ./packages/python/observability
 -e ./packages/python/mcp-http
 -e ./packages/python/payment
 -e ./packages/python/privacy

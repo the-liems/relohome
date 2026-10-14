@@ -7,6 +7,8 @@
 !scripts/
 !scripts/docker-npm.mjs
 !tsconfig.base.json
+!packages/telemetry/
+!packages/telemetry/**
 !packages/contracts/
 !packages/contracts/**
 !packages/housing-query/

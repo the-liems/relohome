@@ -40,7 +40,8 @@
       "apps/platform-api/",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   },
   {
@@ -56,7 +57,8 @@
       "packages/mcp-core/",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   },
   {
@@ -72,7 +74,8 @@
       "deploy/database/migrations/",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   },
   {
@@ -83,7 +86,8 @@
     "paths": [
       "apps/flights-mcp/",
       "packages/python/flight/",
-      "packages/python/mcp-http/"
+      "packages/python/mcp-http/",
+      "packages/python/observability/"
     ]
   },
   {
@@ -94,7 +98,8 @@
     "paths": [
       "apps/payments-mcp/",
       "packages/python/payment/",
-      "packages/python/mcp-http/"
+      "packages/python/mcp-http/",
+      "packages/python/observability/"
     ]
   },
   {
@@ -111,7 +116,8 @@
       "apps/moving-mcp/",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   },
   {
@@ -128,7 +134,8 @@
       "apps/moving-mcp/",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   },
   {
@@ -147,7 +154,8 @@
       "deploy/database/migrations/008_moving_service.sql",
       "package.json",
       "package-lock.json",
-      "scripts/docker-npm.mjs"
+      "scripts/docker-npm.mjs",
+      "packages/telemetry/"
     ]
   }
 ]

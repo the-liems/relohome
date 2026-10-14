@@ -1,0 +1,79 @@
+{
+    admin off
+    auto_https off
+}
+:8080 {
+    request_body {
+        max_size 8MB
+    }
+    handle /health {
+        respond "ok" 200
+    }
+    handle_path /staging/* {
+        basic_auth {
+            staging {$STAGING_INGEST_PASSWORD_HASH}
+        }
+        handle /v1/traces {
+            rewrite * /api/public/otel/v1/traces
+            reverse_proxy langfuse:3000 {
+                header_up Authorization "Basic {$LANGFUSE_STAGING_AUTH}"
+                header_up x-langfuse-ingestion-version 4
+            }
+        }
+        handle /v1/logs {
+            rewrite * /otlp/v1/logs
+            reverse_proxy loki:3100 {
+                header_up -Authorization
+                header_up X-Scope-OrgID staging
+            }
+        }
+        handle /v1/metrics {
+            rewrite * /api/v1/otlp/v1/metrics
+            reverse_proxy cortex:9009 {
+                header_up -Authorization
+                header_up X-Scope-OrgID staging
+            }
+        }
+        handle /retention/metrics {
+            rewrite * /metrics/staging
+            reverse_proxy retention:9101 {
+                header_up -Authorization
+            }
+        }
+        respond 404
+    }
+    handle_path /production/* {
+        basic_auth {
+            production {$PRODUCTION_INGEST_PASSWORD_HASH}
+        }
+        handle /v1/traces {
+            rewrite * /api/public/otel/v1/traces
+            reverse_proxy langfuse:3000 {
+                header_up Authorization "Basic {$LANGFUSE_PRODUCTION_AUTH}"
+                header_up x-langfuse-ingestion-version 4
+            }
+        }
+        handle /v1/logs {
+            rewrite * /otlp/v1/logs
+            reverse_proxy loki:3100 {
+                header_up -Authorization
+                header_up X-Scope-OrgID production
+            }
+        }
+        handle /v1/metrics {
+            rewrite * /api/v1/otlp/v1/metrics
+            reverse_proxy cortex:9009 {
+                header_up -Authorization
+                header_up X-Scope-OrgID production
+            }
+        }
+        handle /retention/metrics {
+            rewrite * /metrics/production
+            reverse_proxy retention:9101 {
+                header_up -Authorization
+            }
+        }
+        respond 404
+    }
+    respond 404
+}

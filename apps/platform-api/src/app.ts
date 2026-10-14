@@ -28,6 +28,7 @@ import {
   type ApplicationRuntimeConfig,
 } from '@relohome/housing-query'
 import Fastify from 'fastify'
+import { registerFastifyTelemetry } from '@relohome/telemetry'
 import { z, ZodError } from 'zod'
 import { ManagementError, registerHousingManagement } from './housing-management.js'
 import { registerHousingWorkspace } from './housing-workspace.js'
@@ -42,6 +43,7 @@ const NearbyRequestSchema = z.object({
 
 export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   const app = Fastify({ logger: true })
+  registerFastifyTelemetry(app)
   const routeService = new RouteService(config.osrmUrls, config.publicDrivingOsrmUrl)
   const queries = boundedQueries(pool)
   const entityRouteService = new RouteEndpointService(queries, routeService)

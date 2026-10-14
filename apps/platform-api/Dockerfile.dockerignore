@@ -9,6 +9,8 @@
 !deploy/
 !tsconfig.base.json
 !packages/
+!packages/telemetry/
+!packages/telemetry/**
 !packages/contracts/
 !packages/contracts/**
 !packages/housing-query/

@@ -189,6 +189,11 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
+    from relohome_observability import initialize
+    from relohome_observability.asgi import TelemetryMiddleware
+
+    initialize("web")
+
     @asynccontextmanager
     async def lifespan(app):
         root = runtime_root()
@@ -209,7 +214,9 @@ def create_app(database=None, transport=None):
         await app.state.http.aclose()
         app.state.store.db.close()
 
-    app = FastAPI(title="ReloHome", lifespan=lifespan)
+    app = FastAPI(title="ReloHome", lifespan=lifespan, telemetry={"tracing": False})
+    # Public clients cannot choose our sampling policy or join an internal trace.
+    app.add_middleware(TelemetryMiddleware, service_name="web", trust_incoming=False)
     app.state.store_path = database
 
     @app.get("/health")

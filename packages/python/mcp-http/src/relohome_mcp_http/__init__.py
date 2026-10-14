@@ -4,6 +4,8 @@ import re
 import secrets
 
 from mcp.server.fastmcp import FastMCP
+from relohome_observability import initialize, operation
+from relohome_observability.asgi import TelemetryMiddleware
 from starlette.responses import JSONResponse
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -50,8 +52,23 @@ class HttpServiceMCP(FastMCP):
         super().__init__(*args, **kwargs)
         self.service_token = service_token
 
+    async def call_tool(self, name, arguments):
+        # Request metadata works over HTTP and stdio; it never enters business arguments.
+        try:
+            metadata = self.get_context().request_context.meta
+            carrier = metadata.model_dump() if metadata else None
+        except (ValueError, LookupError):
+            carrier = None
+        with operation(name, "tool", inputs=arguments, remote=carrier,
+                       attributes={"rpc.system": "mcp", "rpc.method": name}) as op:
+            result = await super().call_tool(name, arguments)
+            op.output(result)
+            return result
+
     def streamable_http_app(self):
         require_service_token(self.service_token)
         app = super().streamable_http_app()
+        initialize(self.name)
+        app.add_middleware(TelemetryMiddleware, service_name=self.name)
         app.add_middleware(ServiceTokenMiddleware, token=self.service_token)
         return app

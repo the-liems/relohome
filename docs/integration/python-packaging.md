@@ -20,6 +20,7 @@ All distributions are private local projects, version `0.1.0`, requiring Python
 | `relohome-flight` / `relohome_flight` | `packages/python/flight` | Flight: schemas, booking rules, search providers and catalog JSON |
 | `relohome-payment` / `relohome_payment` | `packages/python/payment` | Payment: schemas, engine, provider implementations and storage |
 | `relohome-agent-services` / `relohome_agent_services` | `packages/python/agent-services` | Standalone services: common HTTP/settings, LLM adapter and intake contracts |
+| `relohome-observability` / `relohome_observability` | `packages/python/observability` | Observability #106: SDK initialization, trace propagation, sanitization and HTTP/SQLite instrumentation |
 | `relohome-mcp-http` / `relohome_mcp_http` | `packages/python/mcp-http` | MCP transport: shared bearer authentication and HTTP service behavior |
 | `relohome-agent` / `relohome_agent` | `apps/agent-api/pyproject.toml` | Integrated agent API, graph, checkout and runtime composition |
 | `relohome-browser-gateway` / `relohome_gateway` | `apps/browser-gateway/pyproject.toml` | Browser gateway; calls backend business operations over HTTP |
@@ -27,13 +28,19 @@ All distributions are private local projects, version `0.1.0`, requiring Python
 | `relohome-payments-mcp` / `relohome_payments_mcp` | `apps/payments-mcp/pyproject.toml` | Payment MCP transport and tools |
 | `relohome-intake-api` / `relohome_intake` | `apps/intake-api/pyproject.toml` | Standalone intake compatibility harness |
 | `relohome-demos` / `relohome_demos` | `examples/streamlit/pyproject.toml` | Supported Flight, Payment and local agent-chat examples |
+| `relohome-location-demo` / `relohome_location_demo` | `examples/location-streamlit/pyproject.toml` | Location Streamlit example |
 | `relohome-orchestrator-api` / `relohome_orchestrator` | `apps/orchestrator-api/pyproject.toml` | Standalone orchestrator compatibility harness |
 
 All shared and application projects now use their final `src/relohome_*` layouts.
 After updating an existing checkout, run `npm run setup:python` again to replace
 old editable mappings. See [app relocation](agent-app-relocation.md) for #114's
-entrypoints, compatibility inventory, validation and rollback. The supported demos are installed from `examples/streamlit`; see
-[example/shim migration](python-examples-and-shims.md). No observability package is introduced at this base.
+entrypoints, compatibility inventory, validation and rollback. The supported demos
+are installed from `examples/streamlit`; see
+[example/shim migration](python-examples-and-shims.md). PR #107 adds the conditional
+telemetry implementation as `relohome-observability`, shared by the gateway,
+agent API and both Python MCP applications. These applications and the shared
+MCP HTTP package declare it explicitly; images install it as a wheel.
+Initialization and middleware live in the canonical application packages.
 
 Applications may depend on shared libraries, never another application's
 implementation. Roommate's Settings/runtime composer belongs to `relohome_agent.roommate_runtime`.
@@ -64,10 +71,12 @@ in their owning project metadata and `requirements-agents.txt`.
 
 Each Docker build installs its own application and shared dependencies as wheels,
 alongside `requirements-runtime.txt` (or the existing standalone pins in
-`requirements-agents.txt`). Images launch canonical installed modules; source launchers and forwarding shims have been retired by #115. Image/service names, ports, worker counts, health routes, volume
-identities and same-origin web serving remain unchanged.
+`requirements-agents.txt`). Images launch canonical installed modules; source
+launchers and forwarding shims have been retired by #115. Image/service names,
+ports, worker counts, health routes, volume identities and same-origin web
+serving remain unchanged.
 
-`tests/test_python_package_boundaries.py` discovers all 14 projects from their
+`tests/test_python_package_boundaries.py` discovers all 16 projects from their
 `pyproject.toml` metadata. It checks every declared package's current Python
 sources, including function-local imports, for declared internal dependencies
 and forbidden application-to-application edges. It also checks the single retained persisted-checkpoint alias and the absence

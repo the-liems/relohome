@@ -11,6 +11,8 @@
 !deploy/moving/
 !deploy/moving/Dockerfile.moving
 !packages/
+!packages/telemetry/
+!packages/telemetry/**
 !packages/contracts/
 !packages/contracts/**
 !packages/mcp-core/

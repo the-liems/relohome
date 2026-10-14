@@ -1,0 +1,2 @@
+# Compatibility installer; canonical dependencies live in the installable package.
+./packages/python/observability

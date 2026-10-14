@@ -25,7 +25,11 @@ from relohome_agent.api.viewings import router as viewings_router
 from relohome_agent.api.web_actions import router as web_actions_router
 from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
+from relohome_observability import initialize
+from relohome_observability.asgi import TelemetryMiddleware
 from relohome_roommate.background import RoommateMaintenance
+
+initialize("backend")
 
 
 @asynccontextmanager
@@ -58,11 +62,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    telemetry={"tracing": False},
     title="ReloHome Agent",
     description="AI Agent built with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(TelemetryMiddleware, service_name="backend")
 
 settings = get_settings()
 app.add_middleware(
