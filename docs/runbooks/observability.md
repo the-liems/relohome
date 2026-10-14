@@ -27,19 +27,16 @@ flowchart LR
 ## Deployment boundaries
 
 Deploy three independent Coolify resources: the shared platform, the staging
-Collector and, after staging validation, the production Collector. Application
-releases use the existing GHCR/image-only workflow. The renderer embeds config
-files into Coolify bind-mount `content` fields, so the host needs no repository
-checkout. Generated files are deployment artifacts; edit the sources in
-`deploy/observability/`. Grafana reads the committed JSON/YAML through its native
-file provisioning. `scripts/render-observability.py` only selects the enabled
-environment files and packages their existing contents; it does not construct
-dashboards, data sources or alert rules, or expand environment variables.
-Coolify writes inline `content` verbatim before invoking Docker Compose. Preserve
-the file's original dollar signs: Collector and Caddy expand their own environment
-references, and Grafana provisioning retains its own `$$` escape for trace links.
-The validation command materializes these exact embedded files for configuration
-checks and the local smoke stack.
+Collector and, after staging validation, the production Collector. Like the
+application ([deployment](../../deploy/README.md)), they are Git-based Coolify
+Applications: Coolify clones this repository and runs
+`deploy/observability/compose.yaml` or `compose.collector.yaml`, whose relative
+bind mounts read the committed config files directly. Unlike the application,
+they use public pinned images, are not deployed by CD and follow `main` when an
+operator redeploys them. There is no packaging step; edit the files in
+`deploy/observability/` and redeploy.
+Collector and Caddy expand their own environment references, and Grafana
+provisioning keeps its own `$$` escape for trace links.
 
 The supplied network layout assumes the resources run on the **same Docker
 host**. Each Collector joins its existing application network and the private
@@ -82,14 +79,9 @@ per backend; observability availability and HA are outside this PR's scope.
    Budget space for images, all named volumes, ClickHouse merges and Collector
    queues. Queue length bounds batches, not total storage bytes; monitor its
    volume and reserve disk headroom.
-3. Verify pinned image architecture and all backend configuration:
-
-   ```bash
-   python scripts/validate-observability.py --images
-   ```
-
-   This uses Docker, PyYAML and temporary test credentials. Full validation below
-   requires enough capacity to start a disposable copy of the platform.
+3. Confirm each image pinned in `compose.yaml` and `compose.collector.yaml` has
+   an ARM64 build, for example
+   `docker buildx imagetools inspect grafana/grafana:13.2.3`.
 4. Identify the actual existing application network for each environment with
    `docker network ls`. Plan authenticated HTTPS domains for Grafana and Langfuse.
    Confirm application → Collector and Collector → gateway
@@ -98,18 +90,35 @@ per backend; observability availability and HA are outside this PR's scope.
 
 ## Bootstrap the shared platform
 
-Render the staging-first platform:
+In Coolify, create each resource as a Git-based Application the same way as the
+main application: a **Public Repository** whose URL carries a read-only personal
+access token (see [deployment setup](../../deploy/README.md#one-time-coolify-setup-per-environment)),
+the **Docker Compose** build pack, branch `main` and base directory
+`/deploy/observability`:
 
-```bash
-python scripts/render-observability.py --coolify --output /tmp/relohome-observability
-python scripts/render-observability.py --kind collector --coolify --output /tmp/relohome-collector
-```
+| Resource | Docker Compose location |
+| --- | --- |
+| Shared platform | `/compose.yaml` |
+| Staging or production Collector | `/compose.collector.yaml` |
 
-Create independent Coolify Docker Compose resources from the generated
-`compose.coolify.yaml` files. For a local deployment, omit `--coolify` and use the
-generated `compose.yaml`; Grafana and Langfuse bind only to localhost on ports
-3001 and 3000. Store each resource's real environment configuration outside Git.
-The example at `deploy/observability/.env.example` lists every required input.
+The base directory must be `/deploy/observability`, not `/`. Coolify resolves
+the `./` mount sources from the base directory (it runs Compose with
+`--project-directory` set to it), so a base directory of `/` would look for
+`./grafana/...` at the repository root.
+
+Enable **Preserve repository during deployment** under **General > Build
+pipeline** on each resource. Coolify then copies the base directory to the
+server for the mounts. Without it, the config files are not present at deploy
+time; Docker then creates empty directories in their place and the containers
+fail to start. Turn off automatic deployment on push if config changes
+should only roll out when an operator redeploys.
+
+Langfuse and Grafana also bind to `127.0.0.1:3000` and `127.0.0.1:3001` on the
+host, for local use; these are not public. Change them if those host ports are
+already taken. For a local deployment, run
+`docker compose -f deploy/observability/compose.yaml --env-file <file> up -d`.
+Store each resource's real environment configuration outside Git. The example
+at `deploy/observability/.env.example` lists every required input.
 
 Generate independent random secrets; hexadecimal database passwords avoid URL
 escaping errors in `DATABASE_URL`. `LF_ENCRYPTION_KEY` must be 64 hexadecimal
@@ -130,12 +139,12 @@ Redeploy the platform after entering the keys. Cleanup reports failures until
 project credentials are configured.
 
 Set `LANGFUSE_URL` and `GRAFANA_URL` to their external HTTPS URLs and configure the
-Coolify reverse proxy domains to each web service's port 3000. The Coolify output
-removes localhost port mappings. Verify authentication and signup restrictions.
+Coolify reverse proxy domains to each web service's port 3000. Verify
+authentication and signup restrictions.
 
 Configure the existing private object-storage bucket using these platform
 resource variables. Both Langfuse Web and Worker receive the same values; the
-renderer keeps variable references and never reads or embeds credentials.
+Compose file keeps only variable references and never contains credentials.
 
 | Variable | Value |
 | --- | --- |
@@ -220,11 +229,14 @@ open. External provider internals remain outside our traces. Langfuse pricing
 depends on available model definitions; an unpriced model must not be interpreted
 as a zero-cost call.
 
-Before enabling production, package the shared stack again with
-`--environments staging production` and set
-`OBSERVABILITY_ENVIRONMENTS=staging,production`. This adds production alert rules,
-expected heartbeat inventory in its Cortex tenant and trace retention. Deploy the production
-Collector and enable its applications with their own token. Keep the same stack
+Before enabling production, switch the two production mounts in
+`deploy/observability/compose.yaml` to the active files named in their comments
+(`grafana/alerts/production.yaml` and
+`cortex-rules/production/expected-services.yaml`), merge that change, set
+`OBSERVABILITY_ENVIRONMENTS=staging,production` on the platform and redeploy it.
+This adds production alert rules, expected heartbeat inventory in its Cortex tenant
+and trace retention. Deploy the production Collector and enable its applications
+with their own token. Keep the same stack
 and dashboard definitions. Initial collection samples all non-health requests;
 measure overhead and growth before changing sampling or retention.
 
@@ -317,10 +329,9 @@ Edit the following files directly; their contents are the provisioning source:
 | `cortex-rules/{staging,production}/expected-services.yaml` | Expected-service recording rules for each tenant |
 | `cortex-rules/disabled.yaml` | Empty recording-rule inventory for a disabled environment |
 
-The packager defaults to staging. It selects the active staging files and
-disabled production files; `--environments staging production` selects both
-active sets. It copies selected files unchanged into the output or Coolify bind
-mounts. Data-source tenant headers, dashboard defaults and environment-specific
+`compose.yaml` mounts the active staging files and the disabled production files.
+Enabling production means pointing its two mounts at the active files (see
+above). Data-source tenant headers, dashboard defaults and environment-specific
 alert UIDs stay explicit in the reviewed source files. No Terraform or additional
 provisioning framework is needed.
 
@@ -339,21 +350,12 @@ values in provisioning YAML instead. For secret values containing `$`, use
    queries, tenant routing and related data-source UIDs consistent. When adding,
    removing or renaming alert rules, update the matching UIDs in the disabled
    cleanup files as well.
-2. Run the focused configuration checks:
-
-   ```bash
-   python -m pytest tests/test_observability_render.py -q
-   ```
-
-3. Re-run `scripts/render-observability.py` with the deployment's current
-   `--environments` selection. For Coolify, replace that resource's Compose
-   definition with the newly packaged `compose.coolify.yaml`; its inline files
-   are a snapshot, so editing Git alone does not update them. For local Compose,
-   deploy the updated output files and Compose definition together. Preserve the
+2. Merge to `main`, then redeploy the platform resource in Coolify (or let it
+   deploy on push, if enabled). Coolify pulls the merged files. Preserve the
    existing resource identity, volumes and deployment secrets.
-4. Deploy the updated resource. Grafana provisions the mounted files. Check that
-   the dashboard shows application data for the selected environment and that a
-   log's trace link opens the correct Langfuse project.
+3. Grafana provisions the mounted files. Check that the dashboard shows
+   application data for the selected environment and that a log's trace link
+   opens the correct Langfuse project.
 
 Choose the apply method according to the changed file:
 
@@ -366,8 +368,8 @@ Choose the apply method according to the changed file:
 | Enabled/disabled environment selection | Recreate/redeploy the container: the selection changes bind-mount source paths, which a provisioning reload cannot update. |
 | Container environment values, including credentials, URLs or project IDs | Recreate/redeploy the container with the new environment; a provisioning reload does not change the process environment. |
 
-Coolify redeployment is the normal path because it updates the inline files and
-container configuration together. Admin reload endpoints require Basic
+Coolify redeployment is the normal path because it pulls the merged files and
+updates the container configuration together. Admin reload endpoints require Basic
 Authentication with a Grafana server administrator; a service-account token is
 not sufficient. Reloading dashboard provisioning also refreshes its file-provider
 configuration. See the
@@ -451,15 +453,15 @@ The script prints only environment and counts. Never run cleanup with keys for
 an unrelated project.
 
 Back up persistent volumes and encryption secrets according to the deployment's
-backup policy. Pin upgraded images, read their migration notes, rerun validation
-and stage the upgrade first. Downgrading Langfuse after a schema migration is not
+backup policy. Pin upgraded images, read their migration notes, check their
+ARM64 builds and deploy the upgrade to staging first. Downgrading Langfuse after a schema migration is not
 a substitute for restoring a compatible backup.
 
 Rollback application telemetry by setting `OBSERVABILITY_ENABLED=false` and
 redeploying. Keep volumes for investigation and stop the independent observability
 resources if needed. Do not use `down --volumes` on a real deployment. To remove an
-environment, rerender the enabled inventory/alert configuration and remove its
-retention target.
+environment, point its two mounts in `compose.yaml` back at the disabled files and
+remove it from `OBSERVABILITY_ENVIRONMENTS`.
 
 ### Moving an existing preview from local storage
 
@@ -522,24 +524,14 @@ the shared observability deployment or enable telemetry automatically.
 
 ```bash
 python -m pytest tests/test_observability.py tests/test_observability_export.py -q
-python scripts/validate-observability.py --images --smoke
 npm run build
 npm run test:ci
 ```
 
-The smoke command creates a unique disposable Docker project with random test
-credentials, test-only object storage and loopback-only ports. It overrides
-inherited bucket settings with local test values and never contacts the real
-bucket. It checks provisioning/ingestion/isolation and queue recovery, exercises
-Python/LangGraph → Node MCP → PostgreSQL and verifies trace deletion. It flushes Loki/Cortex, then starts
-query-only readers with empty volumes and verifies that both read the exported
-data from their disposable S3 buckets. This uses test-only flush/scan settings;
-the deployed compactor and storage configuration stays unchanged.
-Install the Python requirements and run `npm ci && npm run build` in
-the repository root before this command. It removes only that project's containers
-and volumes. If the
-process is forcibly interrupted, inspect `p044-observability-test-*` resources
-and clean up that exact test project before retrying.
+These tests check the SDKs; none of them start the observability services or
+read the deployment configuration. Staging is where the stack first runs
+together, so deploy configuration and image changes to staging and check the
+dashboard, alerts and a connected trace before production.
 
 References: [Langfuse OTLP](https://langfuse.com/integrations/native/opentelemetry),
 [retention licensing](https://langfuse.com/docs/administration/data-retention),
