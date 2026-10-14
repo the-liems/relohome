@@ -7,14 +7,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Bell, MessageCircle, Minus, X } from "lucide-react";
+import { Bell, Minus, X } from "lucide-react";
 import { api } from "../api";
 import type { Data } from "../types";
 import { t, formatUi } from "../uiPreferences";
 import { ContactThread } from "./ContactThread";
 import "./contactMessenger.css";
 
-type Conversation = { id: string; title: string; role: "tenant" | "landlord" };
+type Conversation = {
+  id: string;
+  title: string;
+  role: "tenant" | "landlord";
+  counterpartyName?: string;
+};
+const personName = (role: "tenant" | "landlord", name?: string) =>
+  name?.trim() || (role === "landlord" ? t("Người thuê") : t("Chủ nhà"));
 const Context = createContext({
   open: (_id: string, _title: string, _role: "tenant" | "landlord") => {},
   refresh: () => {},
@@ -109,6 +116,14 @@ export function ContactMessengerProvider({
       count + Number(row.unread || 0) + (row.update_unread ? 1 : 0),
     0,
   );
+  const currentName =
+    current &&
+    personName(
+      current.role,
+      current.counterpartyName ||
+        rows.find((row) => row.id === current.id)?.counterparty_name,
+    );
+  const heading = current ? `${current.title} – ${currentName}` : "";
   return (
     <Context.Provider value={{ open, refresh: () => void refresh() }}>
       {children}
@@ -140,7 +155,10 @@ export function ContactMessengerProvider({
                     key={row.id}
                     onClick={() => open(row.id, row.title, row.role)}
                   >
-                    <strong>{row.title}</strong>
+                    <strong>
+                      {personName(row.role, row.counterparty_name)}
+                    </strong>
+                    <span>{row.title}</span>
                     <span>{summary(row)}</span>
                     {row.unread > 0 && (
                       <small>
@@ -159,11 +177,11 @@ export function ContactMessengerProvider({
           <section
             className="contact-messenger-panel"
             role="dialog"
-            aria-label={formatUi("Tin nhắn · {0}", [current.title])}
+            aria-label={formatUi("Tin nhắn · {0}", [heading])}
           >
             <header>
               <div>
-                <strong>{current.title}</strong>
+                <strong>{heading}</strong>
                 <small>
                   {current.role === "landlord" ? t("Người thuê") : t("Chủ nhà")}
                 </small>
@@ -190,19 +208,19 @@ export function ContactMessengerProvider({
               viewerId={userId}
               expectedRole={current.role}
               onRead={() => void refresh()}
+              onDetails={(details) =>
+                setCurrent((value) =>
+                  value?.id === current.id &&
+                  (value.title !== details.title ||
+                    value.counterpartyName !== details.counterpartyName)
+                    ? { ...value, ...details }
+                    : value,
+                )
+              }
             />
           </section>
         )}
         <div className="contact-messenger-controls">
-          {current && !expanded && (
-            <button
-              className="contact-messenger-minimized"
-              onClick={() => setExpanded(true)}
-            >
-              <MessageCircle size={18} />
-              {current.title}
-            </button>
-          )}
           <button
             className="contact-messenger-toggle"
             onClick={() => {
@@ -216,8 +234,9 @@ export function ContactMessengerProvider({
             ])}
           >
             <Bell size={20} />
-            <span>{t("Tin nhắn")}</span>
-            {unread > 0 && <b>{unread}</b>}
+            {unread > 0 && (
+              <b aria-hidden="true">{unread > 99 ? "99+" : unread}</b>
+            )}
           </button>
         </div>
       </aside>

@@ -20,6 +20,8 @@ Older ledger reports use their existing transaction ID as the delivery key. Clos
 
 The floating messenger is shared across customer and landlord workspaces. Messages carry authenticated sender IDs, and the browser checks its expected session ID before reads/writes. The server derives the conversation role from the authenticated participant and blocks new self-contacts. Test tenant and landlord in separate browser profiles or one normal and one private window; tabs in the same profile share the login cookie.
 
+The messenger launcher is a bell-only tab flush with the right edge, below the Plan tab when present. Both controls use the existing accent/on-accent colors in light and dark themes. The conversation list leads with the other participant’s account name; the open header reads “Listing title – Participant name”. Platform derives the participant from an authorized contact, and the gateway enriches only those responses from existing account names. No email, phone, user-directory endpoint or database migration is added for this display.
+
 Notifications poll every ten seconds; an open conversation polls every fifteen seconds. New messages and viewing/payment updates have unread indicators. This MVP does not require WebSockets or another service.
 
 “Xóa khỏi hộp thư” creates a per-manager archive entry only for completed/cancelled requests, with no pending transfer report. Tenant history, messages and transfer evidence remain accessible. Existing data and migrations are not rewritten.
@@ -44,3 +46,5 @@ Base: `c82dcfb7d2441a1d0b7398ca0297fbf81f128b18` (includes merged PRs #146, #154
 An existing managed contact keeps its confirmation requirement when a listing becomes hidden. Its transfer report can still reach the landlord through private contact history. Public visibility changes do not rewrite or erase that history.
 
 The user requested local testing before opening a PR. No PR, remote push, main merge or cloud deployment is part of this local handoff.
+
+Latest bell/name update: 33 housing gateway tests, 56 housing/viewing desktop/mobile browser cases, and the disposable PostGIS suites passed. Platform and Web production builds passed.

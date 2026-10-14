@@ -955,3 +955,46 @@ async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overw
         row["payment_report"]["status"], row["status"] = "confirmed", "resolved"
         assert (await client.post(path + "/paid", json=body)).status_code == 200  # retry after lost response
         assert (await client.post(path + "/paid", json={**body, "amount_vnd": 11})).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_contact_names_only_enrich_authorized_participants(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    participants = {}
+    denied = False
+
+    def provider(request):
+        if denied:
+            return httpx.Response(404, json={"message": "Không tìm thấy cuộc trò chuyện."})
+        other = next(identity for identity in participants if identity != request.headers["X-User-Id"])
+        contact = {"id": LISTING, "title": "Phòng cửa sổ", "counterparty_user_id": other}
+        return httpx.Response(
+            200, json={"items": [contact]} if request.url.path.endswith("contact-notifications") else contact
+        )
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with app.router.lifespan_context(app):
+        async with (
+            httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as owner,
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS
+            ) as tenant,
+        ):
+            for client, name, email in [(owner, "Mai", "owner@example.test"), (tenant, "Khánh", "tenant@example.test")]:
+                await client.post(
+                    "/web/api/auth/register", json={"email": email, "password": "a-long-password", "name": name}
+                )
+                session = (await client.get("/web/api/session")).json()
+                participants[session["id"]] = name
+            for client, expected_name in [(owner, "Khánh"), (tenant, "Mai")]:
+                for path in ["housing/contact-notifications", f"housing/contact-requests/{LISTING}/messages"]:
+                    # Client input cannot replace the server-authorized counterparty.
+                    result = await client.get(f"/web/api/housing-management/{path}?counterparty_user_id=spoof")
+                    assert result.status_code == 200
+                    contact = result.json().get("items", [result.json()])[0]
+                    assert contact["counterparty_name"] == expected_name
+                    assert not {"email", "password", "phone"}.intersection(contact)
+            denied = True
+            response = await owner.get(f"/web/api/housing-management/housing/contact-requests/{LISTING}/messages")
+            assert response.status_code == 404
+            assert "counterparty_name" not in response.json()

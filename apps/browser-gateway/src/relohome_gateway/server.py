@@ -1191,7 +1191,36 @@ def create_app(database=None, transport=None):
             raise HTTPException(403, "Hãy dùng chức năng tải ảnh đã kiểm tra.")
         body = None if request.method == "GET" else await object_body(request)
         query = "?" + str(request.query_params) if request.method == "GET" and request.query_params else ""
-        return await upstream(request.method, "/" + resource + query, user(request)["id"], body, platform=True)
+        result = await upstream(request.method, "/" + resource + query, row["id"], body, platform=True)
+        # Platform authorizes the conversation and derives its participants. Enrich
+        # only that response with account names, without exposing a user directory.
+        if request.method == "GET" and isinstance(result, dict):
+            conversations = None
+            if resource == "housing/contact-notifications":
+                conversations = result.get("items", [])
+            elif re.fullmatch(r"housing/contact-requests/[0-9a-fA-F-]+/messages", resource):
+                conversations = [result]
+            if isinstance(conversations, list):
+                ids = list(
+                    {
+                        c.get("counterparty_user_id")
+                        for c in conversations
+                        if isinstance(c, dict) and isinstance(c.get("counterparty_user_id"), str)
+                    }
+                )
+                names = {}
+                if ids:
+                    placeholders = ",".join("?" for _ in ids)
+                    names = {
+                        u["id"]: u["name"]
+                        for u in app.state.store.all(
+                            f"SELECT id,name FROM users WHERE id IN ({placeholders})", tuple(ids)
+                        )
+                    }
+                for conversation in conversations:
+                    if isinstance(conversation, dict):
+                        conversation["counterparty_name"] = names.get(conversation.get("counterparty_user_id"))
+        return result
 
     @app.get("/web/api/saved")
     async def saved(request: Request):

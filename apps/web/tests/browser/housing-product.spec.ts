@@ -59,6 +59,8 @@ test.beforeEach(async ({ page }) => {
     if (path === "/threads" || path === "/saved")
       return route.fulfill({ json: [] });
     if (path === "/status") return route.fulfill({ json: { status: "ok" } });
+    if (path.endsWith("/housing/contact-notifications"))
+      return route.fulfill({json:{items:[{id:"99999999-9999-4999-8999-999999999999",title:"Phòng sáng thoáng",role:"landlord",counterparty_name:"Khánh",unread:1}]}});
     if (path.endsWith("/moderation/housing/reviews"))
       return route.fulfill({
         json: { items: [], flags: [], next_offset: null },
@@ -307,6 +309,7 @@ test.beforeEach(async ({ page }) => {
         json: {
           role: "landlord",
           viewer_id: "owner",
+          counterparty_name: "Khánh",
           request: {
             id: "99999999-9999-4999-8999-999999999999",
             title: "Phòng sáng thoáng",
@@ -784,6 +787,34 @@ test("owner reviews reported transfers and archives completed requests without d
   await page.getByRole("button",{name:"Thu gọn tin nhắn"}).click();
   await page.getByRole("button",{name:"Xóa khỏi hộp thư",exact:true}).click();
   await expect(page.getByText("Chưa có yêu cầu",{exact:true})).toBeVisible();
-  await page.getByRole("button",{name:/Phòng sáng thoáng/}).last().click();
+  await page.getByRole("button",{name:/Tin nhắn và cập nhật ·/}).click();
+  await page.locator(".contact-messenger-conversations").getByRole("button",{name:/Khánh/}).click();
   await expect(page.getByText("Chiều mai em qua được không ạ?",{exact:true})).toBeVisible();
+});
+
+
+test("owner bell is a bright edge tab and conversations use tenant names", async ({
+  page,
+}) => {
+  await page.goto("/landlord");
+  const bell = page.locator(".contact-messenger-toggle");
+  await expect(bell).toBeVisible();
+  await expect(bell).not.toContainText("Tin nhắn");
+  const box = await bell.boundingBox();
+  expect(box!.x + box!.width).toBe(page.viewportSize()!.width);
+  await bell.click();
+  const row = page.locator(".contact-messenger-conversations > button");
+  await expect(row.locator("strong")).toHaveText("Khánh");
+  await row.click();
+  await expect(
+    page.locator(".contact-messenger-panel header strong"),
+  ).toHaveText("Phòng sáng thoáng – Khánh");
+  await page.getByRole("button", { name: "Thu gọn tin nhắn" }).click();
+  await expect(page.locator(".contact-messenger-panel")).toHaveCount(0);
+  await expect(page.locator(".contact-messenger-minimized")).toHaveCount(0);
+  await bell.click();
+  await row.click();
+  await expect(
+    page.getByRole("dialog", { name: "Tin nhắn · Phòng sáng thoáng – Khánh" }),
+  ).toBeVisible();
 });

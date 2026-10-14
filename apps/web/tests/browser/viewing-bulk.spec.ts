@@ -507,3 +507,131 @@ test("replacement calendar contains only owner suggestions even when visit time 
   await expect.poll(()=>f.posts.filter(p=>p.path.endsWith("/schedule")).length).toBe(1);
   expect(f.posts.find(p=>p.path.endsWith("/schedule"))?.body).toEqual({listing_id:"home-0",slot:slots[1]});
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`tenant bell sits below the plan tab with account names in ${theme} theme`, async ({
+    page,
+  }) => {
+    await fixture(page);
+    await page.addInitScript(
+      (theme) =>
+        localStorage.setItem(
+          "siu-ui-preferences",
+          JSON.stringify({ theme, locale: "vi" }),
+        ),
+      theme,
+    );
+    await page.route(
+      "**/web/api/housing-management/housing/contact-notifications",
+      (route) =>
+        route.fulfill({
+          json: {
+            items: [
+              {
+                id: "request-person",
+                title: "Studio Duy Tân",
+                role: "tenant",
+                counterparty_name: "Mai",
+                unread: 1,
+              },
+            ],
+          },
+        }),
+    );
+    await page.route(
+      "**/web/api/housing-management/housing/contact-requests/request-person/messages",
+      (route) =>
+        route.fulfill({
+          json: {
+            role: "tenant",
+            viewer_id: "tenant",
+            counterparty_name: "Mai",
+            request: {
+              id: "request-person",
+              title: "Studio Duy Tân",
+              tenant_user_id: "tenant",
+              message: "Em muốn xem nhà",
+              created_at: "2026-10-14T10:00:00Z",
+              status: "new",
+              open: true,
+            },
+            messages: [
+              {
+                id: "reply",
+                sender_user_id: "owner",
+                sender_role: "landlord",
+                body: "Chào em",
+                created_at: "2026-10-14T10:01:00Z",
+              },
+            ],
+          },
+        }),
+    );
+    await page.goto("/ai/th_bulk");
+    const plan = page.locator(".plan-peek-tab"),
+      bell = page.locator(".contact-messenger-toggle");
+    await expect(plan).toBeVisible();
+    await expect(bell).toBeVisible();
+    await expect
+      .poll(async () => {
+        const p = await plan.boundingBox(),
+          b = await bell.boundingBox();
+        return b!.y - (p!.y + p!.height);
+      })
+      .toBeGreaterThanOrEqual(7);
+    for (const control of [plan, bell]) {
+      const colors = await control.evaluate((element) => {
+        const s = getComputedStyle(element),
+          root = getComputedStyle(document.documentElement);
+        return {
+          background: s.backgroundColor,
+          color: s.color,
+          accent: root.getPropertyValue("--ui-accent").trim(),
+          onAccent: root.getPropertyValue("--ui-on-accent").trim(),
+        };
+      });
+      // Browser resolves hex token values to RGB; compare through an element.
+      const expected = await page.evaluate(({ accent, onAccent }) => {
+        const e = document.createElement("span");
+        e.style.background = accent;
+        e.style.color = onAccent;
+        document.body.append(e);
+        const s = getComputedStyle(e),
+          result = { background: s.backgroundColor, color: s.color };
+        e.remove();
+        return result;
+      }, colors);
+      expect(colors.background).toBe(expected.background);
+      expect(colors.color).toBe(expected.color);
+    }
+    await bell.click();
+    const row = page.locator(".contact-messenger-conversations > button");
+    await expect(row.locator("strong")).toHaveText("Mai");
+    await row.click();
+    await expect(
+      page.locator(".contact-messenger-panel header strong"),
+    ).toHaveText("Studio Duy Tân – Mai");
+    await expect(page.locator(".contact-thread-list .theirs")).toContainText(
+      "Chào em",
+    );
+    if (theme === "light") {
+      await page.setViewportSize({ width: 320, height: 568 });
+      await expect
+        .poll(async () => {
+          const p = await plan.boundingBox(),
+            b = await bell.boundingBox();
+          return b!.y - (p!.y + p!.height);
+        })
+        .toBeGreaterThanOrEqual(7);
+      const panel = await page
+        .locator(".contact-messenger-panel")
+        .boundingBox();
+      expect(panel!.x).toBeGreaterThanOrEqual(0);
+      expect(panel!.y).toBeGreaterThanOrEqual(0);
+      const send = await page
+        .getByRole("button", { name: "Gửi", exact: true })
+        .boundingBox();
+      expect(send!.y + send!.height).toBeLessThanOrEqual(568);
+    }
+  });
+}

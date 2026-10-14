@@ -242,9 +242,19 @@ function messageRate() {
 
 // Who may read a conversation: the tenant who sent the request, or an active manager of the property.
 // Anyone else gets 404 so request IDs cannot be probed.
+// Resolve only the other participant of an authorized contact, never a client-supplied account.
+export const contactCounterpartySql = (userParameter: '$1' | '$2') => `
+  CASE WHEN cr.tenant_user_id<>${userParameter} THEN cr.tenant_user_id ELSE coalesce(
+    (SELECT m.sender_user_id FROM housing.contact_messages m
+      WHERE m.request_id=cr.id AND m.sender_role='landlord'
+      ORDER BY m.created_at DESC,m.id DESC LIMIT 1),
+    (SELECT mm.user_id FROM housing.management_members mm
+      WHERE mm.property_id=l.property_id AND mm.status='active'
+      ORDER BY (mm.role='owner') DESC,mm.requested_at,mm.user_id LIMIT 1)) END`
+
 export async function conversationRole(pool: Pick<DatabasePool, 'query'>, user: string, requestId: string) {
   const result = await pool.query(
-    `SELECT cr.*,l.title,
+    `SELECT cr.*,l.title,${contactCounterpartySql('$2')} AS counterparty_user_id,
        CASE WHEN cr.tenant_user_id=$2 THEN 'tenant'
             WHEN EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=l.property_id
                         AND mm.user_id=$2 AND mm.status='active') THEN 'landlord' END AS role
@@ -1310,6 +1320,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     return {
       role: conversation.role,
       viewer_id: user,
+      counterparty_user_id: conversation.counterparty_user_id,
       request: {
         id: conversation.id,
         listing_id: conversation.listing_id,

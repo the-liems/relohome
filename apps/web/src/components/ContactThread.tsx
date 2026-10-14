@@ -19,11 +19,13 @@ export function ContactThread({
   onRead,
   viewerId,
   expectedRole,
+  onDetails,
 }: {
   requestId: string;
   onRead?: () => void;
   viewerId?: string;
   expectedRole?: "tenant" | "landlord";
+  onDetails?: (details: { title: string; counterpartyName?: string }) => void;
 }) {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
@@ -35,6 +37,8 @@ export function ContactThread({
   active.current = identity;
   const read = useRef(onRead);
   read.current = onRead;
+  const details = useRef(onDetails);
+  details.current = onDetails;
   const path = `/housing-management/housing/contact-requests/${encodeURIComponent(requestId)}/messages`;
   const load = useCallback(async () => {
     try {
@@ -54,6 +58,10 @@ export function ContactThread({
         );
       setData(response);
       setError("");
+      details.current?.({
+        title: response.request.title,
+        counterpartyName: response.counterparty_name,
+      });
       read.current?.();
     } catch (e) {
       if (active.current !== identity) return;
@@ -118,7 +126,11 @@ export function ContactThread({
   ];
   return (
     <div className="contact-thread">
-      <ol className="contact-thread-list" tabIndex={0} aria-label={uiText("Tin nhắn")}>
+      <ol
+        className="contact-thread-list"
+        tabIndex={0}
+        aria-label={uiText("Tin nhắn")}
+      >
         {rows.map((m) => {
           const mine =
             m.sender_user_id && data.viewer_id

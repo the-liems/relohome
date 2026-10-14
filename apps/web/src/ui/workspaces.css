@@ -698,13 +698,22 @@
   border-radius: var(--radius-control);
 }
 .plan-peek-tab {
-  border: 1px solid var(--ui-control-line);
+  border: 1px solid var(--ui-accent);
   border-radius: var(--radius-control) 0 0 var(--radius-control);
-  background: var(--ui-surface);
-  color: var(--ui-text);
-  box-shadow: none;
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  box-shadow: 0 4px 16px #0003;
   font-size: 12px;
   min-height: 44px;
+}
+.plan-peek-tab:hover,
+.plan-peek-tab.active {
+  background: var(--ui-accent-hover);
+  color: var(--ui-on-accent);
+}
+.plan-peek-tab .plan-peek-count {
+  background: var(--ui-on-accent);
+  color: var(--ui-accent-strong);
 }
 .plan-peek-panel {
   width: min(560px, calc(100vw - 62px));

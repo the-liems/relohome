@@ -940,10 +940,14 @@ it('handoff: proposed times, distinct senders, payment review, visibility and pe
   expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:(await current()).revision})).status).toBe(200)
   expect((await call(owner,'PATCH',path,{status:'resolved',revision:(await current()).revision})).status).toBe(409)
   const messages = `/v1/housing/contact-requests/${request}/messages`
+  // Before any reply, identify the property's active owner.
+  expect((await call(tenant,'GET',messages)).body.counterparty_user_id).toBe(owner)
   await call(tenant,'POST',messages,{body:'Em sẽ chuyển tiền sau khi xem.'})
   await call(owner,'POST',messages,{body:'Chủ nhà xác nhận lịch.'})
   const thread = (await call(tenant,'GET',messages)).body
   expect(thread.viewer_id).toBe(tenant)
+  expect(thread.counterparty_user_id).toBe(owner)
+  expect((await call(owner,'GET',messages)).body.counterparty_user_id).toBe(tenant)
   expect(thread.messages.map((m: {sender_user_id:string}) => m.sender_user_id)).toEqual([tenant,owner])
   expect([403,404]).toContain((await call(OTHER,'GET',messages)).status)
   const paid = {report_key:randomUUID(),amount_vnd:8000000,paid_on:new Date().toISOString().slice(0,10),agreement:{deposit_vnd:4000000,first_month_vnd:4000000}}
@@ -956,7 +960,9 @@ it('handoff: proposed times, distinct senders, payment review, visibility and pe
   expect((await call(tenant,'POST',reportPath,{...paid,report_key:randomUUID()})).status).toBe(409)
   expect((await call(tenant,'DELETE',`/v1/housing/${id}/viewing`)).status).toBe(409)
   const notifications = (await call(owner,'GET','/v1/housing/contact-notifications')).body.items
-  expect(notifications.find((r: {id:string})=>r.id===request)).toMatchObject({payment_status:'pending',update_unread:true,role:'landlord'})
+  expect(notifications.find((r: {id:string})=>r.id===request)).toMatchObject({payment_status:'pending',update_unread:true,role:'landlord',counterparty_user_id:tenant})
+  const tenantNotices = (await call(tenant,'GET','/v1/housing/contact-notifications')).body.items
+  expect(tenantNotices.find((r: {id:string})=>r.id===request).counterparty_user_id).toBe(owner)
   const review = {report_id:report.body.id,revision:report.body.revision,decision:'reject',reason:'Chưa nhận được khoản tiền này'}
   expect((await call(tenant,'POST',path+'/payment-review',review)).status).toBe(403)
   expect([403,404]).toContain((await call(OTHER,'POST',path+'/payment-review',review)).status)

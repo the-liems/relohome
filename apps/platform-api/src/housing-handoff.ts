@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import type { FastifyInstance } from 'fastify'
 import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
-import { actor, conversationRole, ManagementError } from './housing-management.js'
+import { actor, contactCounterpartySql, conversationRole, ManagementError } from './housing-management.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -230,11 +230,12 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
     const user = actor(request)
     const result = await pool.query(
       `WITH accessible AS (
-      SELECT cr.*,l.title,CASE WHEN cr.tenant_user_id=$1 THEN 'tenant' ELSE 'landlord' END AS role
+      SELECT cr.*,l.title,${contactCounterpartySql('$1')} AS counterparty_user_id,
+        CASE WHEN cr.tenant_user_id=$1 THEN 'tenant' ELSE 'landlord' END AS role
       FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
       WHERE (cr.tenant_user_id=$1 OR EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=l.property_id AND mm.user_id=$1 AND mm.status='active'))
         AND NOT EXISTS(SELECT 1 FROM housing.contact_archives a WHERE a.request_id=cr.id AND a.user_id=$1)
-    ) SELECT cr.id,cr.title,cr.role,cr.status,cr.viewing_status,cr.updated_at,
+    ) SELECT cr.id,cr.title,cr.counterparty_user_id,cr.role,cr.status,cr.viewing_status,cr.updated_at,
       (SELECT count(*)::int FROM housing.contact_messages m WHERE m.request_id=cr.id AND m.sender_role<>cr.role
         AND m.created_at>coalesce(CASE WHEN cr.role='tenant' THEN cr.tenant_read_at ELSE cr.landlord_read_at END,'epoch')) AS unread,
       CASE WHEN cr.role='tenant' THEN cr.tenant_activity_at>coalesce(cr.tenant_activity_read_at,'epoch')
