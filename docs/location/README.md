@@ -376,7 +376,7 @@ npm run moving:verify
 
 AI Service kết nối `http://moving-mcp:4400/mcp` trên cùng Docker network,
 qua bearer token nội bộ. Xem [hướng dẫn container](../../docs/runbooks/moving-containers.md)
-và [bàn giao infra](../../deploy/coolify/staging/moving.md).
+và [bàn giao infra](../runbooks/moving-coolify.md).
 
 Moving API nhận webhook tại
 `POST /v1/integrations/ahamove/webhooks/order-status`. Staging, write tools,

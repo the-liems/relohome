@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.matrix) }}
     env:
-      RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}
+      RELEASE_TAG: ${{ github.sha }}
     steps:
       - name: Verify native ARM64 runner
         run: test "$(uname -m)" = aarch64
@@ -94,6 +94,11 @@ jobs:
         env:
           MIGRATION_KIND: ${{ matrix.service }}
         run: python3 scripts/test-migration-image.py "$MIGRATION_KIND" "$IMAGE"
+      - name: Smoke provisioner image
+        if: matrix.service == 'provisioner'
+        run: |
+          docker run --rm --network none --entrypoint aws "$IMAGE" --version
+          docker run --rm --network none --entrypoint sh "$IMAGE" -ec 'test -x /usr/local/bin/provision.sh'
       - name: Push image
         if: inputs.publish && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: docker push "$IMAGE"

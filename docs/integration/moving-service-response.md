@@ -36,7 +36,7 @@
 
 Chi tiết: [API approval](../api/moving-internal-approvals.md),
 [runbook](../runbooks/moving-containers.md),
-[Coolify handoff](../../deploy/coolify/staging/moving.md).
+[Coolify handoff](../runbooks/moving-coolify.md).
 
 | Biến ở graph/backend | Giá trị / quyền |
 |---|---|

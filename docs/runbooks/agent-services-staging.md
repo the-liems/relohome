@@ -8,8 +8,9 @@ Two independent images from `Dockerfile.agents`:
 | Routing Orchestrator | `orchestrator` | 8000 | `/app/data` local durable volume, UID 10001 |
 
 Use `compose.agents.yaml` as the local reference. No deploy is performed by the
-agent-services CI workflow; it validates/builds/smokes only. Infra owners control
-image publication, staging rollout and production promotion.
+agent-services CI workflow; it validates/builds/smokes only. These standalone
+services are not in `compose.coolify.yaml` or its application image catalog. Infra owners control any separate image publication and rollout;
+the integrated Application uses the [deployment runbook](../../deploy/README.md).
 
 Supply only OPENAI_API_KEY, component model setting and its own API token. Routing
 also receives its independent approval-backend token if that endpoint is enabled.

@@ -60,7 +60,7 @@ Python import namespaces use underscores in place of distribution hyphens, excep
 | `deploy/database/` | None | SQL for Location/Moving migration images; no listener | SQL migration/ingestion owners | `npm run db:migrate`; `npm run db:migrate:moving` (build first; writes DB) |
 | `deploy/location/` | None | Existing `lifeflow` project, PostGIS and Location MCP | Location infrastructure | `npm run db:up`; `npm run mcp:up` (Docker) |
 | `deploy/moving/` | None | Existing `lifeflow-moving` project and images | Moving infrastructure | `npm run moving:up`, `npm run moving:status`, `npm run moving:verify`, `npm run moving:down` |
-| `deploy/coolify/` | None | Staging/production image definitions; no local listener | Deployment maintainers | `make deployment-check`; delivery runbooks below |
+| `deploy/provisioner/` | None | S3 blob provisioning for Git-pinned Coolify Applications; no listener | Deployment maintainers | `make deployment-check`; delivery runbooks below |
 
 `packages/python/` groups the seven libraries and the compatibility register; it
 has no separate distribution. Intake/Orchestrator are supported compatibility
@@ -83,7 +83,7 @@ Build compiled TS exports first with `make build` or `npm run build:ts`.
 | `make test-integration` | Full TS workspace tests; isolated PostGIS/roles and each suite's fixture flags |
 | `make test-live` | Explicit provider opt-in and credentials; `SUITE=python`, `moving` or `browser`, with `RELOHOME_LIVE_CHECKS=1` and suite-specific flags |
 | `make image-check` | Docker build/import/startup checks; no deploy; see [image checker](scripts/check-workspace-images.py) for default scope and explicit Python service selectors |
-| `make deployment-check` | Offline deployment rendering, settings, image selector and web layout checks |
+| `make deployment-check` | Offline deployment, provisioner, settings, image selector and web layout checks |
 
 Use `npm run test:python`, `npm run lint`, and `make format-check` for focused
 checks. Existing format drift and staging gates are recorded in the
@@ -114,16 +114,17 @@ catalogs and routing prerequisites. Source moves do not relocate persistent stat
 The [image catalog](config/ci/application-images.json) and
 [CI workflow](.github/workflows/ci.yml) define affected image selection/builds.
 Use the [Coolify delivery contract](docs/architecture/infrastructure.md),
-[Coolify staging guide](deploy/coolify/staging/README.md),
-[staging Moving configuration](deploy/coolify/staging/moving.md), and
+[Coolify deployment runbook](deploy/README.md),
+[staging Moving configuration](docs/runbooks/moving-coolify.md), and
 [runner runbook](docs/runbooks/self-hosted-ci.md) for release prerequisites.
-Successful main releases deliver to staging through the existing gated process;
-production promotion uses the tested image digests without rebuilding.
+Successful main push CI runs trigger staging deployment through `deploy.yml`;
+manual dispatch selects staging or production and an optional main commit SHA.
+Compose, application image tags and blob pins come from that commit.
 
-Rollback selects the prior published digest using that release process, with
+Rollback dispatches the workflow with an older main SHA, with
 matching source/configuration when reverting a move. Keep databases, paired keys,
 volume names and migration history in place; do not rerun imports or reset state
 to undo a source relocation. #116 owns staging evidence that existing data is
-read and the previous digest can be restored. See the
+read and the previous release can be restored. See the
 [slice rollback evidence](docs/integration/location-relocation.md#remaining-references-and-rollback)
 and [shim/checkpoint contract](docs/integration/python-examples-and-shims.md#single-retained-alias-and-ownership).

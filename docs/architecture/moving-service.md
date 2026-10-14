@@ -53,7 +53,7 @@ flowchart LR
 images. They are not extra containers. The AI backend obtains the MCP bearer token
 from secret storage, never from tool arguments. Only the webhook route needs a
 public HTTPS ingress. See [container runbook](../runbooks/moving-containers.md) and
-[infra handoff](../../deploy/coolify/staging/moving.md).
+[infra handoff](../runbooks/moving-coolify.md).
 
 ## Interaction with Map and Housing
 
