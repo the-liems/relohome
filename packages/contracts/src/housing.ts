@@ -176,6 +176,7 @@ export const HousingSearchResultSchema = z.object({
   listing_type: ListingTypeSchema,
   location: CoordinateSchema,
   location_accuracy: LocationAccuracySchema,
+  privacy_radius_m: z.number().int().positive().optional(),
   location_method: z.string().nullable(),
   deposit: DepositSchema.nullable(),
   address: z.record(z.string(), z.unknown()),
@@ -196,7 +197,7 @@ export const HousingSearchResultSchema = z.object({
   unknown_fields: z.array(z.string()),
   quality_flags: z.array(z.string()).default([]),
   nearby: z.array(NearbyPlaceMatchSchema),
-  commute: RouteResultSchema.nullable(),
+  commute: RouteResultSchema.extend({geometry:RouteResultSchema.shape.geometry.nullable()}).nullable(),
   created_at: z.iso.datetime(),
   verified_at: z.iso.datetime().nullable(),
 })
@@ -297,6 +298,7 @@ export const HousingMapMarkerSchema = z.object({
   source_url: z.url().nullable(),
   thumbnail_url: z.url().nullable(),
   location_accuracy: z.enum(['rooftop', 'approximate', 'unknown']),
+  privacy_radius_m: z.number().int().positive().optional(),
 })
 
 export const HousingMapClusterSchema = z.object({

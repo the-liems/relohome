@@ -252,6 +252,7 @@ export function AdminWorkspace({
                     </div>
                   </>
                 )}
+                {!!detail.documents?.length && <section><h3>{t('Giấy tờ chứng minh')}</h3><ul>{detail.documents.map((document:Data)=><li key={document.id}><a href={document.url} target="_blank" rel="noreferrer">{document.label}</a></li>)}</ul></section>}
                 <h3>{t("Lịch sử kiểm duyệt")}</h3>
                 {!(detail.review_history || []).length ? (
                   <p>{t("Chưa có quyết định kiểm duyệt được ghi nhận.")}</p>

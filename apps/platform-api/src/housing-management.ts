@@ -1,10 +1,10 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { isDeepStrictEqual } from 'node:util'
 
-import { verifyLocation } from './housing-location.js'
+import { signLocation, verifyLocation } from './housing-location.js'
 import { lockedListing, requireCompleteListing, revisionOf } from './housing-policy.js'
 
 const Id = z.string().uuid()
@@ -316,7 +316,11 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const input = HostProfileInput.parse(request.body)
     const terms = termsVersion()
     if (terms && input.accept_terms_version !== undefined && input.accept_terms_version !== terms) {
-      throw new ManagementError(409, 'Điều khoản đã có phiên bản mới; hãy tải lại trang.', 'host_terms_required')
+      throw new ManagementError(
+        409,
+        'Điều khoản đã có phiên bản mới; hãy tải lại trang.',
+        'host_terms_required',
+      )
     }
     const accepted = terms && input.accept_terms_version === terms ? terms : null
     const current = await hostProfile(pool, user)
@@ -462,11 +466,13 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
+      const address =
+        mapping?.precision === 'host_pin' ? { ...input.address, ...mapping.components } : input.address
       const place = await client.query(
         `INSERT INTO catalog.places(category_id,name,geom,address,attributes)
          VALUES((SELECT id FROM catalog.place_categories WHERE slug='housing-self-service'),$1,
          ST_SetSRID(ST_MakePoint($2,$3),4326),$4,'{"source":"self_service","entity_role":"housing_anchor"}'::jsonb) RETURNING id`,
-        [input.name, input.location.lng, input.location.lat, input.address],
+        [input.name, input.location.lng, input.location.lat, address],
       )
       const property = await client.query(
         `INSERT INTO housing.properties(place_id,property_type,name,attributes,location_metadata,location_confirmed_at)
@@ -481,7 +487,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
                 ref_id: mapping.ref_id,
                 address: mapping.address,
                 location: mapping.location,
-                accuracy: 'approximate',
+                accuracy: mapping.precision === 'host_pin' ? 'host_confirmed' : 'approximate',
               }
             : {},
           Boolean(mapping) && input.location_confirmed,
@@ -520,7 +526,35 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
        WHERE u.property_id=$1 AND u.deleted_at IS NULL ORDER BY u.unit_code`,
       [propertyId],
     )
-    return { ...property.rows[0], units: units.rows }
+    const record = property.rows[0]
+    const location_token = record.location_confirmed_at
+      ? signLocation(user, {
+          ref_id: String(record.location_metadata?.ref_id || 'existing:' + propertyId),
+          address: String(
+            record.address.geocoded_address || record.address.full_address || record.address.raw,
+          ),
+          location: { lat: record.lat, lng: record.lng },
+          components: Object.fromEntries(
+            ['ward', 'district', 'city'].flatMap((key) =>
+              typeof record.address[key] === 'string' ? [[key, record.address[key]]] : [],
+            ),
+          ),
+        })
+      : undefined
+    const confirmation_token = record.location_confirmed_at
+      ? signLocation(user, {
+          ref_id: String(record.location_metadata?.ref_id || 'existing:' + propertyId),
+          address: String(record.address.full_address || record.address.raw),
+          location: { lat: record.lat, lng: record.lng },
+          components: Object.fromEntries(
+            ['ward', 'district', 'city'].flatMap(key =>
+              typeof record.address[key] === 'string' ? [[key, record.address[key]]] : [],
+            ),
+          ),
+          precision: 'host_pin',
+        })
+      : undefined
+    return { ...record, location_token, confirmation_token, units: units.rows }
   })
 
   app.patch('/v1/landlord/properties/:propertyId', async request => {
@@ -540,14 +574,24 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       ).rows[0]
       if (!current || current.revision !== input.revision)
         throw new ManagementError(409, 'Thông tin nhà đã được cập nhật ở nơi khác.', 'revision_conflict')
-      const address = input.address ?? current.address
+      const suppliedAddress = input.address ?? current.address
       const location = input.location ?? { lat: current.lat, lng: current.lng }
+      const mapping = input.location_token
+        ? verifyLocation(
+            input.location_token,
+            user,
+            String(suppliedAddress.full_address || suppliedAddress.raw || ''),
+            location,
+          )
+        : null
+      const address =
+        mapping?.precision === 'host_pin' ? { ...suppliedAddress, ...mapping.components } : suppliedAddress
       const addressChanged = !isDeepStrictEqual(address, current.address)
       const pointChanged = location.lat !== current.lat || location.lng !== current.lng
-      const mapping = input.location_token
-        ? verifyLocation(input.location_token, user, String(address.full_address || address.raw || ''), location)
-        : null
       const reset = addressChanged || pointChanged
+      const updateConfirmation = reset ||
+        (!current.location_confirmed_at && Boolean(mapping)) ||
+        (input.location_confirmed === false && Boolean(current.location_confirmed_at))
       await client.query(
         `UPDATE housing.properties SET name=COALESCE($2,name),property_type=COALESCE($3,property_type),
         location_metadata=CASE WHEN $4 THEN $5 ELSE location_metadata END,
@@ -557,14 +601,14 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           propertyId,
           input.name ?? null,
           input.property_type ?? null,
-          reset || Boolean(mapping),
+          updateConfirmation,
           mapping
             ? {
                 source: mapping.source,
                 ref_id: mapping.ref_id,
                 address: mapping.address,
                 location: mapping.location,
-                accuracy: 'approximate',
+                accuracy: mapping.precision === 'host_pin' ? 'host_confirmed' : 'approximate',
               }
             : {},
           Boolean(mapping) && input.location_confirmed,
@@ -586,6 +630,200 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       client.release()
     }
   })
+
+  // One transaction for room details, listing content and costs. Photos use the
+  // existing validated uploader; publication still uses the existing review gate.
+  const RoomListingInput = z.object({
+    request_id: Id,
+    unit: UnitInput.extend({
+      area_m2: z.number().positive().max(100000),
+      bedrooms: z.number().min(0).max(100),
+      bathrooms: z.number().min(0).max(100),
+    }),
+    listing: ListingInput.extend({
+      title: z.string().trim().min(5).max(240),
+      description: z.string().trim().min(1).max(5000),
+      rent_vnd: z.number().int().positive().max(10000000000),
+    }),
+    unit_revision: Revision.optional(),
+    listing_revision: Revision.optional(),
+  })
+  const saveRoomListing = async (request: FastifyRequest, reply: import('fastify').FastifyReply) => {
+    const user = actor(request),
+      input = RoomListingInput.parse(request.body)
+    const params = request.params as { propertyId?: string; unitId?: string }
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      let room: Record<string, any> | undefined
+      let propertyId = params.propertyId ? Id.parse(params.propertyId) : undefined
+      if (params.unitId) {
+        room = (
+          await client.query('SELECT * FROM housing.units WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [
+            Id.parse(params.unitId),
+          ])
+        ).rows[0]
+        if (!room) throw new ManagementError(404, 'Không tìm thấy phòng.')
+        propertyId = room.property_id
+      }
+      if (!propertyId) throw new ManagementError(404, 'Không tìm thấy nhà.')
+      await member(client, user, propertyId)
+      await requireHostProfile(client, user)
+      if (!room) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          user + ':room:' + propertyId + ':' + input.request_id,
+        ])
+        const fingerprint = createHash('sha256')
+          .update(JSON.stringify({ unit: input.unit, listing: input.listing }))
+          .digest('hex')
+        const previous = (
+          await client.query(
+            `SELECT u.id,u.revision AS unit_revision,u.attributes,l.id AS listing_id,ml.revision
+          FROM housing.units u JOIN housing.listings l ON l.unit_id=u.id JOIN housing.managed_listings ml ON ml.listing_id=l.id
+          WHERE u.property_id=$1 AND u.attributes->>'create_request_id'=$2 AND u.attributes->>'create_actor_id'=$3`,
+            [propertyId, input.request_id, user],
+          )
+        ).rows[0]
+        if (previous) {
+          if (previous.attributes.create_payload_sha256 !== fingerprint)
+            throw new ManagementError(409, 'Yêu cầu tạo phòng đã được dùng với nội dung khác.')
+          await client.query('COMMIT')
+          return reply
+            .status(200)
+            .send({
+              id: previous.listing_id,
+              unit_id: previous.id,
+              unit_revision: previous.unit_revision,
+              revision: previous.revision,
+              reused: true,
+            })
+        }
+        room = (
+          await client.query(
+            `INSERT INTO housing.units(property_id,unit_code,bedrooms,bathrooms,area_m2,amenities,attributes)
+          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [
+              propertyId,
+              input.unit.unit_code,
+              input.unit.bedrooms,
+              input.unit.bathrooms,
+              input.unit.area_m2,
+              input.unit.amenities,
+              {
+                source: 'self_service',
+                create_request_id: input.request_id,
+                create_actor_id: user,
+                create_payload_sha256: fingerprint,
+              },
+            ],
+          )
+        ).rows[0]
+      }
+      const existing = (
+        await client.query(
+          `SELECT l.id,ml.revision,ml.publication_status FROM housing.listings l JOIN housing.managed_listings ml ON ml.listing_id=l.id WHERE l.unit_id=$1 AND l.deleted_at IS NULL FOR UPDATE OF l,ml`,
+          [room!.id],
+        )
+      ).rows[0]
+      if (params.unitId) {
+        if (
+          input.unit_revision !== room!.revision ||
+          (existing && input.listing_revision !== existing.revision)
+        )
+          throw new ManagementError(409, 'Phòng hoặc tin đã thay đổi. Hãy tải lại.', 'revision_conflict')
+        if (existing?.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
+        room = (
+          await client.query(
+            `UPDATE housing.units SET unit_code=$2,bedrooms=$3,bathrooms=$4,area_m2=$5,amenities=$6,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`,
+            [
+              room!.id,
+              input.unit.unit_code,
+              input.unit.bedrooms,
+              input.unit.bathrooms,
+              input.unit.area_m2,
+              input.unit.amenities,
+            ],
+          )
+        ).rows[0]
+      }
+      const listingId = existing?.id || randomUUID(),
+        content = input.listing
+      if (existing)
+        await client.query(
+          'UPDATE housing.listings SET title=$2,description=$3,updated_at=now() WHERE id=$1',
+          [listingId, content.title, content.description],
+        )
+      else {
+        await client.query(
+          `INSERT INTO housing.listings(id,property_id,unit_id,listing_type,title,description,source_type,source_listing_id,status,attributes)
+          VALUES($1,$2,$3,'rent',$4,$5,'user',$6,'inactive',$7)`,
+          [
+            listingId,
+            propertyId,
+            room!.id,
+            content.title,
+            content.description,
+            'self:' + listingId,
+            { self_service: true, create_request_id: input.request_id },
+          ],
+        )
+        await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [
+          listingId,
+          user,
+        ])
+      }
+      const offer = (
+        await client.query(
+          'SELECT * FROM housing.offers WHERE listing_id=$1 AND is_active ORDER BY valid_from DESC LIMIT 1',
+          [listingId],
+        )
+      ).rows[0]
+      const date = offer?.availability_from
+        ? new Date(offer.availability_from).toISOString().slice(0, 10)
+        : null
+      if (
+        !offer ||
+        Number(offer.price_amount) !== content.rent_vnd ||
+        (offer.deposit_amount === null ? null : Number(offer.deposit_amount)) !== content.deposit_vnd ||
+        date !== content.availability_from
+      ) {
+        await client.query(
+          'UPDATE housing.offers SET is_active=false,valid_to=now() WHERE listing_id=$1 AND is_active',
+          [listingId],
+        )
+        await client.query(
+          `INSERT INTO housing.offers(listing_id,price_amount,currency,price_period,deposit_amount,availability_from,is_active) VALUES($1,$2,'VND','month',$3,$4,true)`,
+          [listingId, content.rent_vnd, content.deposit_vnd, content.availability_from],
+        )
+      }
+      const oldFees = (
+        await client.query(
+          'SELECT code,label,amount::float,billing_unit,required,refundable FROM housing.listing_fees WHERE listing_id=$1 AND valid_to IS NULL ORDER BY code',
+          [listingId],
+        )
+      ).rows
+      const fees = [...content.fees].sort((a, b) => a.code.localeCompare(b.code))
+      if (!isDeepStrictEqual(oldFees, fees)) await replaceFees(client, listingId, content.fees)
+      await client.query(
+        'UPDATE housing.managed_listings SET revision=revision+1,updated_at=now() WHERE listing_id=$1',
+        [listingId],
+      )
+      const result = await revisionOf(client, listingId)
+      await client.query('COMMIT')
+      return reply
+        .status(existing ? 200 : 201)
+        .send({ id: listingId, unit_id: room!.id, unit_revision: room!.revision, ...result })
+    } catch (error) {
+      await client.query('ROLLBACK')
+      if ((error as { code?: string }).code === '23505')
+        throw new ManagementError(409, 'Mã phòng đã tồn tại trong nhà này.')
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+  app.post('/v1/landlord/properties/:propertyId/room-listing', saveRoomListing)
+  app.put('/v1/landlord/units/:unitId/room-listing', saveRoomListing)
 
   app.post('/v1/landlord/properties/:propertyId/units', async (request, reply) => {
     const user = actor(request)
@@ -647,7 +885,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.post('/v1/landlord/units/:unitId/listing', async (request, reply) => {
     const user = actor(request)
     const unitId = Id.parse((request.params as { unitId: string }).unitId)
-    const owner = await pool.query('SELECT property_id FROM housing.units WHERE id=$1 AND deleted_at IS NULL', [unitId])
+    const owner = await pool.query(
+      'SELECT property_id FROM housing.units WHERE id=$1 AND deleted_at IS NULL',
+      [unitId],
+    )
     if (!owner.rows[0]) throw new ManagementError(404, 'Không tìm thấy phòng.')
     await member(pool, user, String(owner.rows[0].property_id))
     const input = ListingInput.parse(request.body)
@@ -693,7 +934,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
          VALUES($1,$2,'VND','month',$3,$4,true)`,
         [listingId, input.rent_vnd, input.deposit_vnd, input.availability_from],
       )
-      await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [listingId, user])
+      await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [
+        listingId,
+        user,
+      ])
       await replaceFees(client, listingId, input.fees)
       const result = await revisionOf(client, listingId)
       await client.query('COMMIT')
@@ -900,7 +1144,14 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         VALUES($1,$2,$3,'self_service',COALESCE((SELECT max(position)+1 FROM housing.listing_media WHERE listing_id=$1),0),
         'pending',$4,$5,$6,NOT EXISTS(SELECT 1 FROM housing.listing_media WHERE listing_id=$1 AND deleted_at IS NULL))
         RETURNING id,url,alt_text,moderation_status`,
-        [listingId, input.url, input.alt, user, input.content_sha256, new URL(input.url).pathname.split('/').pop()],
+        [
+          listingId,
+          input.url,
+          input.alt,
+          user,
+          input.content_sha256,
+          new URL(input.url).pathname.split('/').pop(),
+        ],
       )
       await client.query('COMMIT')
       return reply.status(201).send(result.rows[0])
@@ -987,9 +1238,17 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         )
       ).rows[0]
       if (!property || property.revision !== input.revision)
-        throw new ManagementError(409, 'Địa điểm đã thay đổi. Hãy tải lại trước khi duyệt.', 'revision_conflict')
+        throw new ManagementError(
+          409,
+          'Địa điểm đã thay đổi. Hãy tải lại trước khi duyệt.',
+          'revision_conflict',
+        )
       if (!property.location_confirmed_at)
-        throw new ManagementError(409, 'Địa điểm chưa được xác nhận trên bản đồ.', 'location_confirmation_required')
+        throw new ManagementError(
+          409,
+          'Địa điểm chưa được xác nhận trên bản đồ.',
+          'location_confirmation_required',
+        )
       const pending = await client.query(
         `SELECT user_id FROM housing.management_members WHERE property_id=$1 AND status='pending' FOR UPDATE`,
         [propertyId],
@@ -1019,7 +1278,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const properties = await pool.query(
       `SELECT p.id,p.name,p.property_type,cp.address,mm.user_id,mm.requested_at,
-         hp.status AS host_status,hp.display_name AS host_name,hp.poster_type,p.revision,p.location_metadata,p.location_confirmed_at,ST_X(cp.geom)::float AS lng,ST_Y(cp.geom)::float AS lat
+         hp.status AS host_status,hp.display_name AS host_name,hp.poster_type,p.revision,(SELECT coalesce(json_agg(json_build_object('id',d.id,'label',d.label,'url','/web/media/housing-documents/' || d.filename)),'[]'::json) FROM housing.property_documents d WHERE d.property_id=p.id) AS documents,p.location_metadata,p.location_confirmed_at,ST_X(cp.geom)::float AS lng,ST_Y(cp.geom)::float AS lat
        FROM housing.management_members mm JOIN housing.properties p ON p.id=mm.property_id
        JOIN catalog.places cp ON cp.id=p.place_id LEFT JOIN housing.host_profiles hp ON hp.user_id=mm.user_id
        WHERE mm.status='pending' ORDER BY mm.requested_at`,
@@ -1155,7 +1414,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.get('/v1/landlord/contact-requests', async request => {
     const user = actor(request)
     const result = await pool.query(
-      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name,
+      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.id AS unit_id,u.unit_code,p.id AS property_id,p.name AS property_name,
          cr.viewing_slot,cr.viewing_status,cr.viewing_options,cr.source,
          (SELECT to_jsonb(r) FROM housing.rent_payment_reports r WHERE r.request_id=cr.id ORDER BY created_at DESC,id DESC LIMIT 1) AS payment_report,${unreadFor('landlord')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id

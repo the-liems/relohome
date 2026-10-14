@@ -91,6 +91,9 @@ test.beforeEach(async ({ page }) => {
           ],
         },
       });
+    if (path.endsWith("/landlord/locations/confirm"))
+      return route.fulfill({json:{location_token:"confirmed-test-token"}});
+    if (path.endsWith("/documents"))return route.fulfill({json:{items:[]}});
     if (path.endsWith("/landlord/locations/resolve"))
       return route.fulfill({
         json: {
@@ -441,6 +444,12 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+async function openInbox(page:import('@playwright/test').Page) {
+  await page.locator('.ll-nav').getByRole('button',{name:/Yêu cầu liên hệ/}).click();
+  await page.locator('.ll-contact-hierarchy .ll-property-list').getByRole('button',{name:/Nhà Nguyễn Trãi/}).click();
+  await page.locator('.ll-contact-room').filter({hasText:'P.301'}).click();
+}
+
 test("landlord workspace presents real operations clearly on desktop and mobile", async ({
   page,
 }) => {
@@ -473,7 +482,7 @@ test("landlord workspace presents real operations clearly on desktop and mobile"
   // An unknown amount stays blank (shown to tenants as "Chưa rõ"), never 0.
   await expect(page.getByLabel("Số tiền").nth(1)).toHaveValue("");
   await page.getByRole("button", { name: "Đóng" }).click();
-  await page.getByRole("button", { name: /Yêu cầu liên hệ/ }).click();
+  await openInbox(page);
   await expect(
     page.getByText("Tôi muốn xem phòng vào cuối tuần."),
   ).toBeVisible();
@@ -551,7 +560,8 @@ test("owner selects an address and confirms the map before saving", async ({
     .getByRole("checkbox", {
       name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ",
     })
-    .check();
+    .click();
+  await expect(page.getByRole("checkbox", {name:"Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ"})).toBeChecked();
   await page
     .locator("form")
     .getByRole("button", { name: "Thêm nhà", exact: true })
@@ -560,7 +570,7 @@ test("owner selects an address and confirms the map before saving", async ({
     .poll(() => propertyPayload)
     .toMatchObject({
       location: { lat: 10.759, lng: 106.676 },
-      location_token: "signed-test-token",
+      location_token: "confirmed-test-token",
       location_confirmed: true,
       address: {
         full_address: "197 Trần Phú, Phường Chợ Quán, TP.HCM",
@@ -587,7 +597,7 @@ test("changing the address clears its previous map confirmation", async ({
     .getByRole("checkbox", {
       name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ",
     })
-    .check();
+    .click();
   await address.fill("198 Trần Phú");
   await expect(
     page.getByRole("checkbox", {
@@ -658,10 +668,7 @@ test("a viewing time booked by a tenant can be confirmed from the landlord inbox
   page,
 }) => {
   await page.goto("/landlord");
-  await page
-    .locator(".ll-nav")
-    .getByRole("button", { name: /Yêu cầu liên hệ/ })
-    .click();
+  await openInbox(page);
   await expect(page.getByText(/Giờ xem người thuê chọn:/)).toBeVisible();
   await expect(page.getByText("Chờ bạn xác nhận")).toBeVisible();
   await page.getByRole("button", { name: "Xác nhận giờ xem" }).click();
@@ -679,10 +686,7 @@ test("a viewing time booked by a tenant can be confirmed from the landlord inbox
 test("landlord and tenant exchange messages on a request", async ({ page }) => {
   await page.setViewportSize({width:320,height:568});
   await page.goto("/landlord");
-  await page
-    .locator(".ll-nav")
-    .getByRole("button", { name: /Yêu cầu liên hệ/ })
-    .click();
+  await openInbox(page);
   await page
     .getByRole("button", { name: /Nhắn tin với người thuê/ })
     .first()
@@ -764,7 +768,7 @@ test("declining a time requires suitable proposals, with no generic completion s
     writes.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});
   });
   await page.goto("/landlord");
-  await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  await openInbox(page);
   await expect(page.getByRole("button",{name:"Đã liên hệ",exact:true})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Hoàn tất",exact:true})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Từ chối",exact:true})).toHaveCount(0);
@@ -787,7 +791,7 @@ test("owner reviews reported transfers and archives completed requests without d
     const body=route.request().postDataJSON();writes.push(body);report.status=body.decision==='confirm'?'confirmed':'rejected';report.revision++;report.reason=body.reason||null;if(body.decision==='confirm') row.status='resolved';row.revision++;return route.fulfill({json:report});
   });
   await page.route("**/web/api/housing-management/landlord/contact-requests/*/archive",route=>{archived=true;return route.fulfill({json:{archived:true}})});
-  await page.goto("/landlord");await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  await page.goto("/landlord");await openInbox(page);
   await expect(page.getByText("Người thuê báo đã chuyển tiền",{exact:true})).toBeVisible();
   await expect(page.getByRole("button",{name:"Xóa khỏi hộp thư",exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"Chưa nhận / không khớp"}).click();
@@ -796,7 +800,7 @@ test("owner reviews reported transfers and archives completed requests without d
   await expect(page.getByText("Chưa thấy tiền vào tài khoản",{exact:true})).toBeVisible();
   expect(writes[0]).toMatchObject({decision:"reject",reason:"Chưa thấy tiền vào tài khoản",revision:1});
   // A corrected report arrives from the tenant; reload the workspace to receive it.
-  report.status='pending';report.revision=1;await page.reload();await page.locator(".ll-nav").getByRole("button",{name:/Yêu cầu liên hệ/}).click();
+  report.status='pending';report.revision=1;await page.reload();await openInbox(page);
   page.once("dialog",dialog=>dialog.accept());
   await page.getByRole("button",{name:"Xác nhận đã nhận tiền",exact:true}).click();
   await expect(page.getByText("Đã xác nhận nhận tiền · hoàn tất",{exact:true})).toBeVisible();
@@ -933,4 +937,192 @@ test("a profile refresh preserves the revision of an open edit form", async ({
   await expect(page.getByLabel("Tên hiển thị với người thuê")).toHaveValue(
     "Tên đang sửa",
   );
+});
+
+test("address suggestions allow an entrance pin and private apartment details before confirmation", async ({
+  page,
+}) => {
+  let confirmation: any = null;
+  await page.route("**/web/api/housing-management/landlord/locations/confirm", (route) => {
+    confirmation = route.request().postDataJSON();
+    return route.fulfill({ json: { location_token: "confirmed-entrance" } });
+  });
+  await page.goto("/landlord");
+  await page.getByRole("button", { name: "Thêm nhà", exact: true }).click();
+  await page.getByLabel("Tên dễ nhận biết").fill("Nhà thử ghim");
+  await page.getByLabel("Địa chỉ đầy đủ").fill("197 Trần Phú");
+  // Typing alone loads suggestions; no separate search click is required.
+  await page.getByRole("button", { name: "197 Trần Phú, Phường Chợ Quán, TP.HCM", exact: true }).click();
+  await expect(
+    page.getByText("Hãy kéo chiếc ghim này đặt đúng vào vị trí cửa chính căn hộ của bạn."),
+  ).toBeVisible();
+  await page.getByLabel("Căn, tầng, tòa nhà (địa chỉ riêng)").fill("Căn 1208, Tòa S2.01");
+  await page.getByRole("button", { name: "Điều chỉnh ghim cửa chính bằng phím mũi tên" }).press("ArrowRight");
+  await page.getByText("Tinh chỉnh tọa độ cửa chính", { exact: true }).click();
+  expect(
+    Math.abs(Number(await page.getByLabel("Kinh độ", { exact: true }).inputValue()) - 106.676),
+  ).toBeGreaterThan(0.000001);
+  await page.getByLabel("Vĩ độ", { exact: true }).fill("10.759");
+  await page.getByLabel("Kinh độ", { exact: true }).fill("106.67602");
+  await page.getByRole("checkbox", { name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Tôi đã kiểm tra địa chỉ và vị trí trên bản đồ" }),
+  ).toBeChecked();
+  expect(confirmation.location.lng).toBeCloseTo(106.67602, 6);
+  expect(confirmation.private_detail).toBe("Căn 1208, Tòa S2.01");
+  await page.locator("form").getByRole("button", { name: "Thêm nhà", exact: true }).click();
+  await expect
+    .poll(() => propertyPayload)
+    .toMatchObject({
+      location: { lat: 10.759, lng: 106.67602 },
+      location_token: "confirmed-entrance",
+      address: { full_address: "Căn 1208, Tòa S2.01, 197 Trần Phú, Phường Chợ Quán, TP.HCM" },
+    });
+});
+
+test("one room form saves a complete draft, retries photos without duplicating the room and submits later", async ({
+  page,
+}) => {
+  const unitId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const creates: any[] = [],
+    updates: any[] = [],
+    submissions: any[] = [];
+  let failPhoto = true;
+  let revision = 2;
+  const listing: any = {
+    id: listingId,
+    title: "Phòng mới đầy đủ",
+    description: "Mô tả phòng đầy đủ.",
+    rent_vnd: 5000000,
+    deposit_vnd: 5000000,
+    availability_from: null,
+    publication_status: "draft",
+    availability_status: "vacant",
+    revision,
+    fees: [],
+    media: [],
+    issues: {},
+  };
+  await page.route("**/web/api/housing-management/landlord/properties/*/room-listing", (route) => {
+    creates.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 201,
+      json: { id: listingId, unit_id: unitId, unit_revision: 1, revision },
+    });
+  });
+  await page.route("**/web/api/housing-management/landlord/units/*/room-listing", (route) => {
+    updates.push(route.request().postDataJSON());
+    listing.revision = ++revision;
+    return route.fulfill({
+      json: { id: listingId, unit_id: unitId, unit_revision: updates.length + 1, revision },
+    });
+  });
+  await page.route(`**/web/api/housing-management/landlord/listings/${listingId}`, (route) =>
+    route.fulfill({ json: listing }),
+  );
+  await page.route("**/web/api/landlord/listings/*/media-upload*", (route) => {
+    if (failPhoto) {
+      failPhoto = false;
+      return route.fulfill({ status: 503, json: { detail: "Tải ảnh tạm thời chưa thành công" } });
+    }
+    listing.media = [
+      {
+        id: "image-new",
+        url: "http://example.test/room.png",
+        position: 0,
+        is_primary: true,
+        moderation_status: "pending",
+        alt_text: "Phòng mới",
+      },
+    ];
+    listing.revision = ++revision;
+    return route.fulfill({ status: 201, json: listing.media[0] });
+  });
+  await page.route("**/web/api/housing-management/landlord/listings/*/submit", (route) => {
+    submissions.push(route.request().postDataJSON());
+    return route.fulfill({ json: { publication_status: "pending_review" } });
+  });
+  await page.goto("/landlord");
+  await page
+    .locator(".ll-nav")
+    .getByRole("button", { name: /Nhà & phòng/ })
+    .click();
+  await page.getByRole("button", { name: /Nhà Nguyễn Trãi/ }).click();
+  await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Thêm phòng và tin cho thuê" })).toBeVisible();
+  await page.getByLabel("Mã phòng", { exact: true }).fill("P.999");
+  await page.getByLabel("Diện tích (m²)", { exact: true }).fill("25");
+  await page.getByLabel("Tiêu đề", { exact: true }).fill(listing.title);
+  await page.getByLabel("Mô tả", { exact: true }).fill(listing.description);
+  await page.getByLabel("Giá thuê / tháng", { exact: true }).fill("5000000");
+  await page.getByLabel("Tiền cọc", { exact: true }).fill("5000000");
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "room.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jW1sAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+  await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Tải ảnh tạm thời chưa thành công");
+  expect(creates).toHaveLength(1);
+  expect(creates[0]).toMatchObject({
+    unit: { unit_code: "P.999", area_m2: 25, bedrooms: 0, bathrooms: 0 },
+    listing: { title: listing.title, rent_vnd: 5000000 },
+  });
+  await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(creates).toHaveLength(1);
+  expect(updates).toHaveLength(1);
+  await expect(page.getByRole("button", { name: "Lưu và gửi duyệt", exact: true })).toBeEnabled();
+  expect(submissions).toHaveLength(0);
+  await page.getByRole("button", { name: "Lưu và gửi duyệt", exact: true }).click();
+  await expect.poll(() => submissions.length).toBe(1);
+  expect(submissions[0].revision).toBe(revision);
+});
+
+test("operating counters navigate to houses, all rooms, vacant rooms and the property-room inbox", async ({
+  page,
+}) => {
+  await page.goto("/landlord");
+  await page.getByRole("button", { name: /Phòng trong hệ thống/ }).click();
+  await expect(page.getByRole("heading", { name: "Phòng trong hệ thống", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Nhà Nguyễn Trãi · P.301/ })).toBeVisible();
+  await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
+  await page.getByRole("button", { name: /Phòng còn trống/ }).click();
+  await expect(page.getByRole("heading", { name: "Phòng còn trống", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
+  await page
+    .locator(".ll-metrics")
+    .getByRole("button", { name: /Yêu cầu mới/ })
+    .click();
+  await expect(page.getByRole("heading", { name: "Yêu cầu liên hệ theo nhà" })).toBeVisible();
+  await expect(page.getByText("Tôi muốn xem phòng vào cuối tuần.")).toHaveCount(0);
+  await page
+    .locator(".ll-contact-hierarchy .ll-property-list")
+    .getByRole("button", { name: /Nhà Nguyễn Trãi/ })
+    .click();
+  await expect(page.locator(".ll-contact-room").filter({ hasText: "P.301" })).toBeVisible();
+  await page.locator(".ll-contact-room").filter({ hasText: "P.301" }).click();
+  await expect(page.getByText("Tôi muốn xem phòng vào cuối tuần.")).toBeVisible();
+});
+
+test("reopening a private address preserves its full confirmation and address data on save",async({page})=>{
+  let saved:any=null;
+  const address={full_address:'Căn 1208, Tòa S2.01, Đa Tốn, Hà Nội',raw:'Căn 1208, Tòa S2.01, Đa Tốn, Hà Nội',geocoded_address:'Đa Tốn, Hà Nội',private_detail:'Căn 1208, Tòa S2.01',ward:'Đa Tốn',city:'Hà Nội',street:'Đường nội khu'};
+  await page.route(`**/web/api/housing-management/landlord/properties/${propertyId}`,route=>{
+    if(route.request().method()==='PATCH'){
+      saved=route.request().postDataJSON();return route.fulfill({json:{id:propertyId,revision:2}});
+    }
+    return route.fulfill({json:{id:propertyId,name:'Nhà Nguyễn Trãi',property_type:'apartment',address,lat:21,lng:105.81,revision:1,management_status:'active',location_confirmed_at:'2026-10-01T00:00:00Z',location_token:'base-lookup',confirmation_token:'full-private-confirmation',units:[]}});
+  });
+  await page.goto('/landlord');await page.locator('.ll-nav').getByRole('button',{name:/Nhà & phòng/}).click();
+  await page.getByRole('button',{name:/Nhà Nguyễn Trãi/}).click();await page.getByRole('button',{name:'Chỉnh sửa nhà',exact:true}).click();
+  await expect(page.getByLabel('Địa chỉ đầy đủ')).toHaveValue('Đa Tốn, Hà Nội');
+  await expect(page.getByLabel('Căn, tầng, tòa nhà (địa chỉ riêng)')).toHaveValue('Căn 1208, Tòa S2.01');
+  await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+  await expect.poll(()=>saved).toMatchObject({address,location_token:'full-private-confirmation',location_confirmed:true});
 });

@@ -99,6 +99,7 @@ PROPERTY = AgentCapability(
                         "wifi": {"type": ["boolean", "null"]},
                         "location_accuracy": {"enum": ["rooftop", "approximate", "unknown"]},
                         "location_method": _OPT_STR,
+                        "privacy_radius_m": _OPT_NUM,
                         "amenities": {"type": "array", "items": _STR},
                         "price": {"type": "object"},
                         "thumbnail_url": _OPT_STR,

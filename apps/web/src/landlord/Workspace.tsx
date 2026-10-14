@@ -64,6 +64,9 @@ import {
   PrivateLocationMap,
   type AddressSelection,
 } from "./LocationPicker";
+import { PropertyDocuments } from "./PropertyDocuments";
+import { ContactInbox } from "./ContactInbox";
+import { RoomsInventory } from "./RoomsInventory";
 import { ListingPreview } from "./ListingPreview";
 import {
   ListingGallery,
@@ -280,7 +283,11 @@ export function LandlordWorkspace() {
           </p>
         </div>
         <div className="ll-heading-actions">
-          <button className="primary" onClick={startProperty} disabled={loading}>
+          <button
+            className="primary"
+            onClick={startProperty}
+            disabled={loading}
+          >
             <Plus size={17} /> {t("Thêm nhà")}
           </button>
         </div>
@@ -297,6 +304,7 @@ export function LandlordWorkspace() {
               setSelected(null);
               setEditListing(null);
               setListingFilter("");
+              setInboxThread("");
               setEditingProfile(false);
             }}
           >
@@ -366,6 +374,12 @@ export function LandlordWorkspace() {
             back={() => setSelected(null)}
             changed={load}
           />
+        ) : ["rooms", "vacant"].includes(listingFilter) ? (
+          <RoomsInventory
+            properties={properties}
+            vacant={listingFilter === "vacant"}
+            open={setSelected}
+          />
         ) : (
           <PropertiesPanel
             properties={properties}
@@ -378,11 +392,19 @@ export function LandlordWorkspace() {
           />
         )
       ) : tab === "inbox" ? (
-        <InboxPanel
+        <ContactInbox
+          properties={properties}
           contacts={contacts}
           initialThread={inboxThread}
-          changed={load}
-        />
+        >
+          {(items) => (
+            <InboxPanel
+              contacts={items}
+              initialThread={inboxThread}
+              changed={() => load(true)}
+            />
+          )}
+        </ContactInbox>
       ) : tab === "reviews" ? (
         <LandlordReviews />
       ) : (
@@ -414,13 +436,26 @@ function OverviewPanel({
     <div className="ll-overview">
       <section className="ll-metrics" aria-label={t("Tình hình vận hành")}>
         {stats.map(([label, value, Icon, tone]) => (
-          <article key={label} className={`ll-metric ${tone}`}>
+          <button
+            type="button"
+            key={label}
+            className={`ll-metric ${tone}`}
+            onClick={() =>
+              label === "Nhà đang quản lý"
+                ? go("properties")
+                : label === "Phòng trong hệ thống"
+                  ? go("properties", "rooms")
+                  : label === "Phòng còn trống"
+                    ? go("properties", "vacant")
+                    : go("inbox")
+            }
+          >
             <span>
               <Icon size={20} />
             </span>
             <strong>{value}</strong>
             <p>{t(label)}</p>
-          </article>
+          </button>
         ))}
       </section>
       <StatisticsPanel
@@ -598,7 +633,16 @@ function PropertyForm({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [selection, setSelection] = useState<AddressSelection>({
-    address: existing ? addressText(existing.address) : "",
+    address: existing
+      ? String(
+          existing.address.geocoded_address || addressText(existing.address),
+        )
+      : "",
+    private_detail: existing
+      ? String(existing.address.private_detail || "")
+      : "",
+    location_token: existing?.location_token,
+    confirmation_token: existing?.confirmation_token,
     location: existing ? { lat: existing.lat, lng: existing.lng } : null,
     confirmed: Boolean(existing?.location_confirmed_at),
   });
@@ -608,19 +652,34 @@ function PropertyForm({
     setError("");
     const form = new FormData(event.currentTarget);
     try {
+      const addressUnchanged =
+        existing &&
+        selection.address ===
+          String(
+            existing.address.geocoded_address || addressText(existing.address),
+          ) &&
+        (selection.private_detail || "") ===
+          String(existing.address.private_detail || "");
       const payload = {
         name: form.get("name"),
         property_type: form.get("property_type"),
-        address: {
-          ...(selection.location_token ||
-          selection.address !== (existing ? addressText(existing.address) : "")
-            ? selection.components || {}
-            : existing?.address || {}),
-          full_address: selection.address,
-          raw: selection.address,
-        },
+        address: addressUnchanged
+          ? existing.address
+          : {
+              ...(selection.components || {}),
+              full_address: [selection.private_detail, selection.address]
+                .filter(Boolean)
+                .join(", "),
+              raw: [selection.private_detail, selection.address]
+                .filter(Boolean)
+                .join(", "),
+              geocoded_address: selection.address,
+              private_detail: selection.private_detail || "",
+            },
         location: selection.location,
-        location_token: selection.location_token,
+        location_token:
+          selection.confirmation_token ||
+          (selection.confirmed ? selection.location_token : undefined),
         location_confirmed: selection.confirmed,
         ...(existing ? { revision: existing.revision } : {}),
       };
@@ -729,7 +788,6 @@ function PropertyPanel({
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [error, setError] = useState("");
   const [addingUnit, setAddingUnit] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<ManagedUnit | null>(null);
   const [editingProperty, setEditingProperty] = useState(false);
   const [listingUnit, setListingUnit] = useState<ManagedUnit | null>(null);
   const load = useCallback(async () => {
@@ -774,32 +832,20 @@ function PropertyPanel({
         }}
       />
     );
-  if (addingUnit || editingUnit)
-    return (
-      <UnitForm
-        propertyId={id}
-        existing={editingUnit || undefined}
-        close={() => {
-          setAddingUnit(false);
-          setEditingUnit(null);
-        }}
-        done={async () => {
-          setAddingUnit(false);
-          setEditingUnit(null);
-          await refresh();
-        }}
-      />
-    );
-  if (listingUnit)
+  if (addingUnit || listingUnit)
     return (
       <ListingForm
-        unit={listingUnit}
+        key={listingUnit?.id || "new"}
+        unit={listingUnit || undefined}
+        propertyId={id}
         active={property.management_status === "active"}
         close={() => {
+          setAddingUnit(false);
           setListingUnit(null);
           void refresh();
         }}
         done={async () => {
+          setAddingUnit(false);
           setListingUnit(null);
           await refresh();
         }}
@@ -836,6 +882,7 @@ function PropertyPanel({
         </button>
       </div>
       <PrivateLocationMap lat={property.lat} lng={property.lng} />
+      <PropertyDocuments propertyId={property.id} />
       {!property.location_confirmed_at && (
         <p className="ll-form-hint">
           {t("Địa điểm chưa được xác nhận. Mở Chỉnh sửa nhà để chọn vị trí.")}
@@ -876,7 +923,6 @@ function PropertyPanel({
               unit={unit}
               active={property.management_status === "active"}
               edit={() => setListingUnit(unit)}
-              editUnit={() => setEditingUnit(unit)}
               changed={load}
             />
           ))}
@@ -886,135 +932,15 @@ function PropertyPanel({
   );
 }
 
-function UnitForm({
-  propertyId,
-  close,
-  done,
-  existing,
-}: {
-  propertyId: string;
-  existing?: ManagedUnit;
-  close: () => void;
-  done: () => void;
-}) {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const f = new FormData(event.currentTarget);
-    const optionalNumber = (key: string) =>
-      f.get(key) === "" ? null : Number(f.get(key));
-    try {
-      await housingManagement(
-        existing
-          ? `landlord/units/${existing.id}`
-          : `landlord/properties/${propertyId}/units`,
-        existing ? "PATCH" : "POST",
-        {
-          ...(existing ? { revision: existing.unit_revision } : {}),
-          unit_code: f.get("unit_code"),
-          bedrooms: optionalNumber("bedrooms"),
-          bathrooms: optionalNumber("bathrooms"),
-          area_m2: optionalNumber("area_m2"),
-          amenities: String(f.get("amenities") || "")
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean),
-        },
-      );
-      done();
-    } catch (cause) {
-      setError((cause as Error).message);
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="ll-panel ll-form-panel">
-      <div className="ll-section-heading">
-        <div>
-          <span className="ll-eyebrow">{t("BƯỚC 2")}</span>
-          <h2>{t(existing ? "Sửa phòng hoặc căn" : "Thêm phòng hoặc căn")}</h2>
-        </div>
-        <button className="icon-button" onClick={close} aria-label={t("Đóng")}>
-          <X />
-        </button>
-      </div>
-      <form className="ll-form" onSubmit={submit}>
-        <label>
-          {t("Mã phòng")}
-          <input
-            name="unit_code"
-            required
-            placeholder="P.301"
-            defaultValue={existing?.unit_code}
-          />
-        </label>
-        <label>
-          {t("Diện tích (m²)")}
-          <input
-            name="area_m2"
-            defaultValue={existing?.area_m2 ?? undefined}
-            type="number"
-            min="1"
-            step="0.1"
-          />
-        </label>
-        <label>
-          {t("Phòng ngủ")}
-          <input
-            name="bedrooms"
-            defaultValue={existing?.bedrooms ?? undefined}
-            type="number"
-            min="0"
-            step="0.5"
-          />
-        </label>
-        <label>
-          {t("Phòng tắm")}
-          <input
-            name="bathrooms"
-            defaultValue={existing?.bathrooms ?? undefined}
-            type="number"
-            min="0"
-            step="0.5"
-          />
-        </label>
-        <label className="wide">
-          {t("Tiện ích, cách nhau bằng dấu phẩy")}
-          <input
-            name="amenities"
-            defaultValue={existing?.amenities.join(", ")}
-            placeholder={t("wifi, điều hòa, chỗ để xe")}
-          />
-        </label>
-        {error && <p className="ll-form-error wide">{error}</p>}
-        <div className="ll-form-actions wide">
-          <button type="button" className="secondary" onClick={close}>
-            {t("Hủy")}
-          </button>
-          <button className="primary" disabled={busy}>
-            {busy ? <LoaderCircle className="spin" /> : <Plus />}{" "}
-            {t(existing ? "Lưu thay đổi" : "Thêm phòng")}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
-
 function UnitCard({
   unit,
   active,
   edit,
-  editUnit,
   changed,
 }: {
   unit: ManagedUnit;
   active: boolean;
   edit: () => void;
-  editUnit: () => void;
   changed: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false),
@@ -1060,9 +986,6 @@ function UnitCard({
         </div>
       </div>
       <div className="ll-unit-side">
-        <button className="secondary" onClick={editUnit}>
-          {t("Sửa phòng")}
-        </button>
         {unit.listing_id && (
           <button className="secondary" onClick={() => setPreview(true)}>
             {t("Xem trước")}
@@ -1217,23 +1140,27 @@ function feeCode(label: string, taken: Set<string>) {
 
 function ListingForm({
   unit,
+  propertyId,
   close,
   done,
   active = true,
 }: {
-  unit: ManagedUnit;
+  unit?: ManagedUnit;
+  propertyId: string;
   active?: boolean;
   close: () => void;
   done: () => void;
 }) {
   const [busy, setBusy] = useState(false),
-    [loading, setLoading] = useState(Boolean(unit.listing_id));
+    [loading, setLoading] = useState(Boolean(unit?.listing_id));
   const [error, setError] = useState(""),
-    [listingId, setListingId] = useState(unit.listing_id);
+    [listingId, setListingId] = useState(unit?.listing_id);
   const [existing, setExisting] = useState<ManagedListing | null>(null);
   const [fees, setFees] = useState<FeeRow[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [nonce] = useState(requestId);
+  const [roomId, setRoomId] = useState(unit?.id);
+  const [roomRevision, setRoomRevision] = useState(unit?.unit_revision || 1);
   const [preview, setPreview] = useState(false);
   const intent = useRef<"save" | "preview" | "submit">("save");
   async function reload(id = listingId) {
@@ -1244,11 +1171,11 @@ function ListingForm({
   }
 
   useEffect(() => {
-    if (!unit.listing_id) return;
+    if (!unit?.listing_id) return;
     const controller = new AbortController();
     setLoading(true);
     housingManagement<ManagedListing>(
-      `landlord/listings/${unit.listing_id}`,
+      `landlord/listings/${unit?.listing_id}`,
       "GET",
       undefined,
       controller.signal,
@@ -1273,7 +1200,7 @@ function ListingForm({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [unit.listing_id]);
+  }, [unit?.listing_id]);
 
   function addFee(label: string, billing_unit: string) {
     setFees((rows) => [
@@ -1320,21 +1247,56 @@ function ListingForm({
         })),
     };
     try {
-      let id = listingId;
-      if (id)
-        await housingManagement(`landlord/listings/${id}`, "PATCH", {
-          ...payload,
-          revision: existing?.revision ?? unit.revision,
-        });
-      else {
-        const result = await housingManagement<{ id: string }>(
-          `landlord/units/${unit.id}/listing`,
-          "POST",
-          payload,
-        );
-        id = result.id;
-        setListingId(id);
-      }
+      if (
+        !files.length &&
+        !(existing?.media || []).some(
+          (image) => image.moderation_status !== "rejected",
+        )
+      )
+        throw new Error(t("Hãy tải ít nhất một ảnh phòng hợp lệ."));
+      if (
+        files.some(
+          (file) =>
+            !["image/jpeg", "image/png"].includes(file.type) ||
+            file.size > 5 * 1024 * 1024,
+        )
+      )
+        throw new Error(t("Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB."));
+      const room = {
+        unit_code: String(f.get("unit_code") || "").trim(),
+        area_m2: Number(f.get("area_m2")),
+        bedrooms: Number(f.get("bedrooms")),
+        bathrooms: Number(f.get("bathrooms")),
+        amenities: String(f.get("amenities") || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      };
+      const result = await housingManagement<{
+        id: string;
+        unit_id: string;
+        unit_revision: number;
+      }>(
+        roomId
+          ? `landlord/units/${roomId}/room-listing`
+          : `landlord/properties/${propertyId}/room-listing`,
+        roomId ? "PUT" : "POST",
+        {
+          request_id: nonce,
+          unit: room,
+          listing: payload,
+          ...(roomId
+            ? {
+                unit_revision: roomRevision,
+                listing_revision: existing?.revision ?? unit?.revision,
+              }
+            : {}),
+        },
+      );
+      const id = result.id;
+      setRoomId(result.unit_id);
+      setRoomRevision(result.unit_revision);
+      setListingId(id);
       savedId = id;
       if (id) {
         await reload(id);
@@ -1381,11 +1343,9 @@ function ListingForm({
     <section className="ll-panel ll-form-panel">
       <div className="ll-section-heading">
         <div>
-          <span className="ll-eyebrow">{t("BƯỚC 3")}</span>
+          <span className="ll-eyebrow">{t("PHÒNG & TIN CHO THUÊ")}</span>
           <h2>
-            {listingId
-              ? t("Cập nhật tin")
-              : formatUi("Đăng tin cho {0}", [unit.unit_code])}
+            {listingId ? t("Cập nhật tin") : t("Thêm phòng và tin cho thuê")}
           </h2>
           <p>
             {t("Ghi rõ toàn bộ chi phí để người thuê ước tính đúng ngân sách.")}
@@ -1415,12 +1375,65 @@ function ListingForm({
         </p>
       )}
       <form className="ll-form ll-listing-form" onSubmit={submit}>
+        <label>
+          {t("Mã phòng")}
+          <input
+            name="unit_code"
+            required
+            maxLength={80}
+            defaultValue={unit?.unit_code || ""}
+            placeholder="P.301"
+          />
+        </label>
+        <label>
+          {t("Diện tích (m²)")}
+          <input
+            name="area_m2"
+            required
+            type="number"
+            min="1"
+            step="0.1"
+            defaultValue={unit?.area_m2 ?? undefined}
+          />
+        </label>
+        <label>
+          {t("Phòng ngủ")}
+          <input
+            name="bedrooms"
+            required
+            type="number"
+            min="0"
+            step="0.5"
+            defaultValue={unit?.bedrooms ?? 0}
+          />
+        </label>
+        <label>
+          {t("Phòng tắm")}
+          <input
+            name="bathrooms"
+            required
+            type="number"
+            min="0"
+            step="0.5"
+            defaultValue={unit?.bathrooms ?? 0}
+          />
+        </label>
+        <label className="wide">
+          {t("Tiện ích, cách nhau bằng dấu phẩy")}
+          <input
+            name="amenities"
+            defaultValue={unit?.amenities.join(", ") || ""}
+            placeholder={t("wifi, điều hòa, chỗ để xe")}
+          />
+        </label>
         <label className="wide">
           {t("Tiêu đề")}
           <input
             name="title"
+            required
+            minLength={5}
             maxLength={240}
-            defaultValue={existing?.title || unit.title || ""}
+            defaultValue={existing?.title || unit?.title || ""}
             placeholder={t("Phòng sáng thoáng, gần trường học")}
           />
         </label>
@@ -1428,6 +1441,7 @@ function ListingForm({
           {t("Mô tả")}
           <textarea
             name="description"
+            required
             rows={5}
             maxLength={5000}
             defaultValue={existing?.description || ""}
@@ -1441,7 +1455,8 @@ function ListingForm({
           <input
             name="rent_vnd"
             type="number"
-            min="0"
+            min="1"
+            required
             defaultValue={existing?.rent_vnd}
           />
         </label>
@@ -1694,7 +1709,12 @@ function InboxPanel({
     setError("");
     try {
       const page = await api<Data>("/landlord/viewing-options");
-      setSlots((page.slots || []).filter((slot: string) => Date.parse(slot) !== Date.parse(item.viewing_slot || "")));
+      setSlots(
+        (page.slots || []).filter(
+          (slot: string) =>
+            Date.parse(slot) !== Date.parse(item.viewing_slot || ""),
+        ),
+      );
       setChosen([]);
       setProposal(item);
     } catch (cause) {
@@ -2280,6 +2300,17 @@ export function ModerationPanel({
                   {t(propertyLabels[p.property_type] || p.property_type)} ·{" "}
                   {formatUi("gửi lúc {0}", [dateTime(p.requested_at)])}
                 </small>
+                {!!p.documents?.length && (
+                  <ul>
+                    {p.documents.map((document) => (
+                      <li key={document.id}>
+                        <a href={document.url} target="_blank" rel="noreferrer">
+                          {document.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {p.lat != null && p.lng != null && (
                   <PrivateLocationMap lat={p.lat} lng={p.lng} />
                 )}

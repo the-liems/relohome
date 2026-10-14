@@ -59,13 +59,16 @@ export class RouteEndpointService {
     const id = housing ? endpoint.listing_id : endpoint.place_id
     // The two fixed query variants share output columns and never interpolate user-supplied SQL.
     const result = await this.pool.query(housing ? `
-      SELECT l.id AS canonical_id, ST_X(cp.geom) AS lng, ST_Y(cp.geom) AS lat,
-        cp.address, l.attributes, l.source_type, l.source_listing_id AS source_id,
+      SELECT l.id AS canonical_id,ST_X(display.geom) AS lng,ST_Y(display.geom) AS lat,
+        CASE WHEN display.managed THEN housing.public_address(cp.address) ELSE cp.address END AS address,
+        CASE WHEN display.managed THEN '{"location_accuracy":"approximate","location_method":"privacy_radius_500"}'::jsonb ELSE l.attributes END AS attributes, l.source_type, l.source_listing_id AS source_id,
         l.source_url, l.attributes->>'observed_at' AS observed_at
       FROM housing.listings l
       JOIN housing.properties p ON p.id = l.property_id
       JOIN catalog.places cp ON cp.id = p.place_id
       JOIN housing.current_offers o ON o.listing_id = l.id
+      CROSS JOIN LATERAL (SELECT EXISTS(SELECT 1 FROM housing.managed_listings ml WHERE ml.listing_id=l.id) AS managed) privacy
+      CROSS JOIN LATERAL (SELECT privacy.managed,CASE WHEN privacy.managed THEN housing.public_location(p.id) ELSE cp.geom END AS geom) display
       WHERE l.id = $1 AND NOT EXISTS(SELECT 1 FROM housing.managed_listing_visibility v WHERE v.listing_id=l.id AND NOT v.is_public) AND l.status = 'active' AND l.deleted_at IS NULL
         AND p.deleted_at IS NULL AND cp.status = 'active' AND cp.deleted_at IS NULL
     ` : `

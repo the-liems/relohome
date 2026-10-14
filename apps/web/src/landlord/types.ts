@@ -82,6 +82,8 @@ export interface ManagedListing {
 }
 
 export interface PropertyDetail extends PropertySummary {
+  location_token?: string;
+  confirmation_token?: string;
   management_status: ManagementStatus;
   location_metadata?: Record<string, unknown>;
   location_confirmed_at?: string | null;
@@ -89,6 +91,8 @@ export interface PropertyDetail extends PropertySummary {
 }
 
 export interface ContactRequest {
+  property_id?: string;
+  unit_id?: string | null;
   id: string;
   listing_id: string;
   tenant_user_id: string;
@@ -121,6 +125,7 @@ export interface ContactRequest {
 }
 
 export interface ModerationProperty {
+  documents?: {id:string;label:string;url:string}[];
   revision: number;
   lat?: number;
   lng?: number;

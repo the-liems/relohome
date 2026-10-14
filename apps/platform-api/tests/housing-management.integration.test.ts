@@ -1,7 +1,7 @@
 // SPEC-021 business rules against the real PostGIS schema (needs a migrated local database).
 // Every row created here belongs to random test actors and is removed with the admin role afterwards.
 import { createHash, createHmac, randomUUID } from 'node:crypto'
-import { createDatabasePool, getRuntimeConfig } from '@relohome/housing-query'
+import { RouteEndpointService, type RouteService, createDatabasePool, getRuntimeConfig } from '@relohome/housing-query'
 import type { FastifyInstance } from 'fastify'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.js'
@@ -261,7 +261,8 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect(publicDetail.statusCode, publicDetail.body).toBe(200)
     expect(publicDetail.json().management.accepts_contact_requests).toBe(true)
     expect(publicDetail.json().fees[0].billing_unit).toBe('kwh')
-    expect(publicDetail.json().address.raw).toBe(`Địa chỉ kiểm thử ${run}`)
+    expect(publicDetail.json().address).not.toHaveProperty('raw')
+    expect(publicDetail.json().privacy_radius_m).toBe(500)
     // HM-05: tenants see the poster label, never identity fields.
     expect(publicDetail.json().management).toMatchObject({
       poster_type: 'owner',
@@ -998,4 +999,268 @@ it('reuses one pending host profile for multiple homes without resubmission', as
   const queue = (await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')).body
   expect(queue.hosts.filter((h: {user_id:string})=>h.user_id===owner)).toHaveLength(1)
   expect(queue.hosts.find((h: {user_id:string})=>h.user_id===owner)).toMatchObject({pending_properties:2,can_review:true})
+})
+
+it('keeps a confirmed private entrance while exposing stable public areas and atomic room drafts', async () => {
+  const owner = `test-private-home-${run}`,
+    tenant = `test-private-tenant-${run}`
+  await host(owner)
+  const base = {
+    ref_id: 'private-ref',
+    address: 'Vinhomes Ocean Park, Đa Tốn, Gia Lâm, Hà Nội',
+    location: { lat: 21.001, lng: 105.85 },
+    components: { ward: 'Đa Tốn', district: 'Gia Lâm', city: 'Hà Nội' },
+  }
+  const entrance = { lat: 21.0013, lng: 105.8502 }
+  const original = signLocation(owner, base)
+  const confirmation = await call(owner, 'POST', '/v1/landlord/locations/confirm', {
+    location_token: original,
+    location: entrance,
+    private_detail: 'Căn 1208, Tòa S2.01',
+  })
+  expect(confirmation.status).toBe(200)
+  expect(confirmation.body.address).toBe('Căn 1208, Tòa S2.01, ' + base.address)
+  expect(
+    (
+      await call(tenant, 'POST', '/v1/landlord/locations/confirm', {
+        location_token: original,
+        location: entrance,
+      })
+    ).status,
+  ).toBe(409)
+  expect(
+    (
+      await call(owner, 'POST', '/v1/landlord/locations/confirm', {
+        location_token: original,
+        location: { lat: 22, lng: 106 },
+      })
+    ).status,
+  ).toBe(422)
+  expect(
+    (
+      await call(owner, 'POST', '/v1/landlord/locations/confirm', {
+        location_token: original + 'x',
+        location: entrance,
+      })
+    ).status,
+  ).toBe(409)
+  const propertyResult = await call(owner, 'POST', '/v1/landlord/properties', {
+    name: 'Nhà riêng tư ' + run,
+    property_type: 'apartment',
+    address: {
+      full_address: confirmation.body.address,
+      ward: 'Spoof ward',
+      private_detail: 'Căn 1208, Tòa S2.01',
+      geocoded_address: base.address,
+    },
+    location: entrance,
+    location_token: confirmation.body.location_token,
+    location_confirmed: true,
+  })
+  expect(propertyResult.status, JSON.stringify(propertyResult.body)).toBe(201)
+  const propertyId = propertyResult.body.id
+  created.push(propertyId)
+  const roomBody = {
+    request_id: randomUUID(),
+    unit: { unit_code: '1208', area_m2: 40, bedrooms: 1, bathrooms: 1, amenities: ['wifi'] },
+    listing: {
+      title: 'Căn hộ hai phòng sáng thoáng',
+      description: 'Có nội thất cơ bản.',
+      rent_vnd: 6000000,
+      deposit_vnd: 6000000,
+      fees: [],
+    },
+  }
+  const createdRoom = await call(
+    owner,
+    'POST',
+    `/v1/landlord/properties/${propertyId}/room-listing`,
+    roomBody,
+  )
+  expect(createdRoom.status, JSON.stringify(createdRoom.body)).toBe(201)
+  const listingId = createdRoom.body.id,
+    unitId = createdRoom.body.unit_id
+  expect(
+    (await call(owner, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, roomBody)).body.id,
+  ).toBe(listingId)
+  expect(
+    (
+      await call(owner, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, {
+        ...roomBody,
+        unit: { ...roomBody.unit, area_m2: 41 },
+      })
+    ).status,
+  ).toBe(409)
+  expect(
+    (
+      await call(tenant, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, {
+        ...roomBody,
+        request_id: randomUUID(),
+      })
+    ).status,
+  ).toBe(403)
+  expect((await call(owner, 'GET', `/v1/landlord/properties/${propertyId}`)).body.units).toHaveLength(1)
+  const filename = 'a'.repeat(40) + '.png',
+    digest = 'b'.repeat(64)
+  expect(
+    (
+      await call(owner, 'POST', `/v1/landlord/properties/${propertyId}/documents`, {
+        filename,
+        content_sha256: digest,
+        label: 'Giấy sở hữu',
+      })
+    ).status,
+  ).toBe(403)
+  const doc = await app.inject({
+    method: 'POST',
+    url: `/v1/landlord/properties/${propertyId}/documents`,
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'x-user-id': owner,
+      'x-housing-document-signature': createHmac('sha256', TOKEN)
+        .update(`${propertyId}\n${filename}\n${digest}`)
+        .digest('hex'),
+    },
+    payload: { filename, content_sha256: digest, label: 'Giấy sở hữu' },
+  })
+  expect(doc.statusCode, doc.body).toBe(201)
+  expect((await call(owner, 'GET', `/v1/housing-documents/${filename}/access`)).status).toBe(200)
+  expect((await call(MODERATOR, 'GET', `/v1/housing-documents/${filename}/access`)).status).toBe(200)
+  expect((await call(tenant, 'GET', `/v1/housing-documents/${filename}/access`)).status).toBe(403)
+  const privateHome = (await call(owner, 'GET', `/v1/landlord/properties/${propertyId}`)).body
+  expect(privateHome).toMatchObject({
+    ...entrance,
+    address: { full_address: confirmation.body.address, ward: 'Đa Tốn' },
+  })
+  expect(privateHome.location_metadata.accuracy).toBe('host_confirmed')
+  const privateQueue = (await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')).body
+  expect(privateQueue.properties.find((p: { id: string }) => p.id === propertyId).documents).toHaveLength(1)
+  expect((await app.inject({ method: 'GET', url: `/v1/housing/${listingId}` })).statusCode).toBe(404)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {
+    decision: 'verify',
+    method: 'in_person',
+  })
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${listingId}/submit`, {})).status).toBe(422)
+  await call(owner, 'POST', `/v1/landlord/listings/${listingId}/media`, {
+    url: `http://localhost/web/media/housing/${'c'.repeat(40)}.png`,
+    content_sha256: 'd'.repeat(64),
+  })
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${listingId}/submit`, {})).status).toBe(200)
+  expect(
+    (
+      await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${listingId}/review`, {
+        decision: 'approve',
+      })
+    ).status,
+  ).toBe(200)
+  const publicDetail = (await app.inject({ method: 'GET', url: `/v1/housing/${listingId}` })).json()
+  expect(publicDetail.location).not.toEqual(entrance)
+  expect(publicDetail.address).toEqual({
+    ward: 'Đa Tốn',
+    district: 'Gia Lâm',
+    city: 'Hà Nội',
+    full_address: 'Đa Tốn, Gia Lâm, Hà Nội',
+  })
+  expect(publicDetail.privacy_radius_m).toBe(500)
+  expect(JSON.stringify(publicDetail)).not.toContain('Căn 1208')
+  expect(JSON.stringify(publicDetail)).not.toContain(filename)
+  expect(JSON.stringify(publicDetail)).not.toContain('location_privacy_seed')
+  const separation = await pool.query(
+    'SELECT ST_Distance(ST_SetSRID(ST_MakePoint($2,$3),4326)::geography,housing.public_location($1)::geography) AS meters',
+    [propertyId, entrance.lng, entrance.lat],
+  )
+  expect(Number(separation.rows[0].meters)).toBeGreaterThanOrEqual(299)
+  expect(Number(separation.rows[0].meters)).toBeLessThanOrEqual(451)
+  const spatial = (
+    await call(tenant, 'POST', '/v1/housing/search', {
+      center: entrance,
+      radius_m: 15,
+      pagination: { limit: 100 },
+    })
+  ).body
+  expect(spatial.results.find((r: { listing_id: string }) => r.listing_id === listingId).location).toEqual(
+    publicDetail.location,
+  )
+  const markers = (
+    await call(tenant, 'POST', '/v1/housing/map', {
+      bounding_box: { west: 105.84, east: 105.86, south: 20.99, north: 21.02 },
+      zoom: 16,
+      listing_ids: [listingId],
+    })
+  ).body
+  expect(markers.features[0]).toMatchObject({
+    location: publicDetail.location,
+    privacy_radius_m: 500,
+    address: publicDetail.address,
+  })
+  const cluster = (
+    await call(tenant, 'POST', '/v1/housing/map', {
+      bounding_box: { west: 105.84, east: 105.86, south: 20.99, north: 21.02 },
+      zoom: 11,
+      listing_ids: [listingId],
+    })
+  ).body
+  expect(cluster.features[0].location).toEqual(publicDetail.location)
+  let routedDestination: unknown
+  const fakeRoutes = {
+    calculate: async (input: {
+      origin: { lat: number; lng: number }
+      destination: { lat: number; lng: number }
+    }) => {
+      routedDestination = input.destination
+      return {
+        code: 'Ok',
+        distance_meters: 1000,
+        duration_seconds: 600,
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [input.origin.lng, input.origin.lat],
+            [input.destination.lng, input.destination.lat],
+          ],
+        },
+      }
+    },
+  }
+  const routes = new RouteEndpointService(pool, fakeRoutes as unknown as RouteService)
+  const publicRoute = await routes.calculate({
+    city: 'hanoi',
+    profile: 'walking',
+    origin: { type: 'coordinate', location: { lat: 21.02, lng: 105.86 } },
+    destination: { type: 'housing', listing_id: listingId },
+  })
+  expect(routedDestination).toEqual(publicDetail.location)
+  expect(publicRoute.destination.address).toEqual(publicDetail.address)
+  expect(JSON.stringify(publicRoute)).not.toContain('Căn 1208')
+  const adminDetail = (await call(MODERATOR, 'GET', `/v1/moderation/housing/listings/${listingId}`)).body
+  expect(adminDetail.address.full_address).toBe(confirmation.body.address)
+  expect(adminDetail.documents).toHaveLength(1)
+  const reopened = (await call(owner, 'GET', `/v1/landlord/properties/${propertyId}`)).body
+  const unchanged = {revision: reopened.revision,address: reopened.address,location: entrance,location_confirmed: true}
+  expect((await call(owner, 'PATCH', `/v1/landlord/properties/${propertyId}`, {...unchanged,location_token: reopened.location_token})).status).toBe(409)
+  expect((await call(owner, 'PATCH', `/v1/landlord/properties/${propertyId}`, {...unchanged,location_token: reopened.confirmation_token})).status).toBe(200)
+  expect((await app.inject({method: 'GET',url: `/v1/housing/${listingId}`})).statusCode).toBe(200)
+  const current = (await call(owner, 'GET', `/v1/landlord/listings/${listingId}`)).body
+  expect(
+    (
+      await call(tenant, 'PUT', `/v1/landlord/units/${unitId}/room-listing`, {
+        ...roomBody,
+        unit_revision: 1,
+        listing_revision: current.revision,
+      })
+    ).status,
+  ).toBe(403)
+  const edit = await call(owner, 'PUT', `/v1/landlord/units/${unitId}/room-listing`, {
+    ...roomBody,
+    unit: { ...roomBody.unit, area_m2: 41 },
+    unit_revision: 1,
+    listing_revision: current.revision,
+  })
+  expect(edit.status, JSON.stringify(edit.body)).toBe(200)
+  expect(edit.body.publication_status).toBe('draft')
+  expect((await app.inject({ method: 'GET', url: `/v1/housing/${listingId}` })).statusCode).toBe(404)
+  const denied = (await call(tenant, 'POST', '/v1/housing/privacy-projections', { listing_ids: [listingId] }))
+    .body
+  expect(denied.items[0]).toMatchObject({ lat: null, lng: null, address: {} })
 })

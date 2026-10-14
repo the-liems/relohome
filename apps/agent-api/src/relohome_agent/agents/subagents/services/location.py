@@ -304,6 +304,7 @@ def to_candidate(r: dict, must_have: list[str]) -> tuple[dict, list[str]]:
         "lng": location.get("lng"),
         "location_accuracy": r.get("location_accuracy") or "unknown",
         "location_method": r.get("location_method"),
+        **({"privacy_radius_m": r["privacy_radius_m"]} if r.get("privacy_radius_m") else {}),
         "amenities": amenities,
         # Places that satisfied a proximity filter, as Location measured them (straight-line metres).
         "nearby": [

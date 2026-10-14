@@ -1,3 +1,4 @@
+import {housingPrivacyAreas} from "../housingPrivacy";
 import { formatUi } from "../uiPreferences";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -335,6 +336,9 @@ export function MapWorkspace({
           if (disposed || m.getSource("ws-search-scope")) return;
           tuneBasemap(m);
           registerMapImages(m);
+            m.addSource('ws-private-areas',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+            m.addLayer({id:'ws-private-areas-fill',type:'fill',source:'ws-private-areas',paint:{'fill-color':'#087653','fill-opacity':0.12}});
+            m.addLayer({id:'ws-private-areas-outline',type:'line',source:'ws-private-areas',paint:{'line-color':'#087653','line-width':1.5,'line-dasharray':[3,2]}});
           m.addSource("ws-search-scope", {
             type: "geojson",
             data: { type: "FeatureCollection", features: [] },
@@ -661,6 +665,7 @@ export function MapWorkspace({
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
+    (m.getSource('ws-private-areas') as GeoJSONSource | undefined)?.setData(housingPrivacyAreas(stacks.flatMap(stack=>stack.houses)));
     (m.getSource("ws-clusters") as GeoJSONSource)?.setData({
       type: "FeatureCollection",
       features: clusters.map((c) => ({

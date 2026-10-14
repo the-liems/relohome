@@ -1,3 +1,4 @@
+import {housingPrivacyAreas} from "../housingPrivacy";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import { Expand, Layers, MapPin, RotateCw } from "lucide-react";
@@ -117,6 +118,9 @@ export function MapPanel({
           m.on("load", () => {
             if (disposed) return;
             tuneBasemap(m);
+            m.addSource('siu-private-areas',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+            m.addLayer({id:'siu-private-areas-fill',type:'fill',source:'siu-private-areas',paint:{'fill-color':'#087653','fill-opacity':0.12}});
+            m.addLayer({id:'siu-private-areas-outline',type:'line',source:'siu-private-areas',paint:{'line-color':'#087653','line-width':1.5,'line-dasharray':[3,2]}});
             m.addSource("siu-points", {
               type: "geojson",
               data: { type: "FeatureCollection", features: [] },
@@ -273,6 +277,7 @@ export function MapPanel({
         geometry: { type: "Point" as const, coordinates: [p.lng!, p.lat!] },
         properties: { id: p.id, selected: p.id === selected, poi: p.poi },
       }));
+    (m.getSource('siu-private-areas') as GeoJSONSource | undefined)?.setData(housingPrivacyAreas(rows));
     (m.getSource("siu-points") as GeoJSONSource)?.setData({
       type: "FeatureCollection",
       features,

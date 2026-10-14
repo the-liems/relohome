@@ -3,7 +3,7 @@ import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { actor, moderator, member, ManagementError } from './housing-management.js'
 import { listingIssues, lockedListing, revisionOf } from './housing-policy.js'
-import { searchHousingAddress, resolveHousingAddress } from './housing-location.js'
+import { searchHousingAddress, resolveHousingAddress, confirmHousingLocation } from './housing-location.js'
 
 const Id = z.string().uuid(),
   Revision = z.number().int().positive()
@@ -32,7 +32,7 @@ async function privateListing(pool: DatabasePool, id: string) {
     [id],
   )
   if (!result.rows[0]) throw new ManagementError(404, 'Không tìm thấy tin nhà.')
-  const [media, fees, reviews, issues] = await Promise.all([
+  const [media, fees, reviews, issues,documents] = await Promise.all([
     pool.query(
       `SELECT id,url,alt_text,position,is_primary,moderation_status FROM housing.listing_media WHERE listing_id=$1 AND deleted_at IS NULL ORDER BY position,id`,
       [id],
@@ -46,6 +46,7 @@ async function privateListing(pool: DatabasePool, id: string) {
       [id],
     ),
     listingIssues(pool, id),
+    pool.query("SELECT id,label,created_at,'/web/media/housing-documents/' || filename AS url FROM housing.property_documents WHERE property_id=$1 ORDER BY created_at",[result.rows[0].property_id]),
   ])
   return {
     ...result.rows[0],
@@ -53,6 +54,7 @@ async function privateListing(pool: DatabasePool, id: string) {
     fees: fees.rows,
     review_history: reviews.rows,
     issues,
+    documents:documents.rows,
   }
 }
 
@@ -97,7 +99,28 @@ async function listingPage(pool: DatabasePool, user: string, input: z.infer<type
 }
 
 export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePool) {
-  app.get('/v1/admin/session', async request => {
+  // Internal read-time projection for older saved cards and conversation snapshots.
+  // No stored history is rewritten and no exact coordinate crosses this boundary.
+  app.post('/v1/housing/privacy-projections', async (request) => {
+    const user = actor(request),
+      ids = z.object({ listing_ids: z.array(Id).max(100) }).parse(request.body).listing_ids
+    const result = await pool.query(
+      `SELECT l.id AS listing_id,
+      CASE WHEN access.allowed THEN ST_X(housing.public_location(p.id)) ELSE NULL END AS lng,
+      CASE WHEN access.allowed THEN ST_Y(housing.public_location(p.id)) ELSE NULL END AS lat,
+      CASE WHEN access.allowed THEN housing.public_address(cp.address) ELSE '{}'::jsonb END AS address,
+      500 AS privacy_radius_m
+      FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
+      JOIN housing.properties p ON p.id=l.property_id JOIN catalog.places cp ON cp.id=p.place_id
+      CROSS JOIN LATERAL (SELECT EXISTS(SELECT 1 FROM housing.managed_listing_visibility v WHERE v.listing_id=l.id AND v.is_public)
+        OR EXISTS(SELECT 1 FROM housing.contact_requests cr WHERE cr.listing_id=l.id AND cr.tenant_user_id=$2)
+        OR EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=p.id AND mm.user_id=$2 AND mm.status<>'revoked') AS allowed) access
+      WHERE l.id=ANY($1::uuid[])`,
+      [ids, user],
+    )
+    return { items: result.rows }
+  })
+  app.get('/v1/admin/session', async (request) => {
     const user = actor(request)
     if (!moderator(user)) throw new ManagementError(403, 'Tài khoản này không có quyền Admin.')
     return { can_moderate_housing: true }
@@ -112,7 +135,10 @@ export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePoo
       input = z.object({ ref_id: z.string() }).parse(request.body)
     return resolveHousingAddress(user, input.ref_id)
   })
-  app.get('/v1/landlord/listings', async request =>
+  app.post('/v1/landlord/locations/confirm', async (request) =>
+    confirmHousingLocation(actor(request), request.body),
+  )
+  app.get('/v1/landlord/listings', async (request) =>
     listingPage(pool, actor(request), Filter.parse(request.query), false),
   )
   app.get('/v1/moderation/housing/listings', async request => {

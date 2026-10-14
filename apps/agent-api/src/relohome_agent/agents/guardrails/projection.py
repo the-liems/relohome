@@ -111,6 +111,8 @@ FACT_FIELDS = INPUT_FIELDS | frozenset(
         "verification",
         "price_unverified",
         "location_accuracy",
+        "location_method",
+        "privacy_radius_m",
         "nearby",
         "category",
         "rent_per_m2_vnd",

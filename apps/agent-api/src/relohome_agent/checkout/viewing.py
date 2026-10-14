@@ -183,6 +183,7 @@ class ViewingService:
             k: row.get(k)
             for k in ("title", "address", "price_vnd", "deposit_vnd", "lat", "lng", "location_accuracy", "city")
         }
+        snapshot.update({key: row[key] for key in ("location_method", "privacy_radius_m") if row.get(key) is not None})
         details = {
             "selection": {"order": order + 1, "selected_at": now.isoformat()},
             "snapshot": {**snapshot, "read_at": now.isoformat()},

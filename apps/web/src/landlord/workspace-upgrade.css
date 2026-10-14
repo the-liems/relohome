@@ -323,3 +323,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.ll-metrics > button { text-align: left; color: inherit; cursor: pointer; }
+.ll-metrics > button:hover { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
+.ll-contact-room { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border: 1px solid var(--ui-control-line); border-radius: 14px; background: var(--ui-surface); color: var(--ui-text); text-align: left; }
+.ll-contact-room:hover { border-color: var(--ui-accent); }
+.ll-contact-room > span:last-child { display: flex; align-items: center; gap: 6px; }
