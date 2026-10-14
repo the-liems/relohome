@@ -113,13 +113,12 @@ thất bại với UTF-8 và Roommate tắt cho test API không liên quan vẫn
 
 Không tạo mock provider hay mock test mới để né các lỗi. PR tích hợp ở trạng thái
 Draft để review được ngay, nhưng **chưa đủ điều kiện merge**: cần giải quyết
-tương thích nền, CI thật và object LFS thiếu bên dưới. Log kiểm tra lại riêng nằm
+tương thích nền và CI thật. Log kiểm tra lại riêng nằm
 ở `logs/local/issue79-main-recheck.txt`, không đưa vào Git.
 
-ZIP LFS `data/project-data-quangdung-20261008.zip` trên nhánh nguồn còn trả 404 tại
-thời điểm lấy code. File JSON 30 hồ sơ có trong Git và file local người dùng cung
-cấp đều dùng được độc lập; không cần ZIP đó hoặc restore DB để thử Roommate. Chủ
-nhánh dữ liệu cần upload object LFS trước khi dùng ZIP cho bàn giao máy mới.
+ZIP `project-data-quangdung-20261008.zip` không còn lưu trong Git (#164); nhóm gửi
+trực tiếp khi bàn giao máy mới. File JSON 30 hồ sơ có trong Git và file local người
+dùng cung cấp đều dùng được độc lập; không cần ZIP đó hoặc restore DB để thử Roommate.
 
 `.env` và bản `roommate-demo-30.json` ở gốc do người dùng cung cấp giữ nguyên,
 không đưa vào commit. Chọn đường dẫn qua `ROOMMATE_DEMO_DATASET` rồi restart API

@@ -18,11 +18,10 @@
 git fetch origin
 git switch QuangDung
 git pull --ff-only origin QuangDung
-git lfs pull
 Get-FileHash -LiteralPath data/project-data-quangdung-20261008.zip -Algorithm SHA256
 ```
 
-Đối chiếu giá trị SHA256 với `data/project-data-quangdung-20261008.zip.sha256`. ZIP lớn được lưu bằng Git LFS; cần cài Git LFS trước khi pull. File JSON 30 hồ sơ nằm trực tiếp trong Git nên không cần giải nén ZIP để mở thử Roommate.
+ZIP lớn không lưu trong Git; đặt ZIP nhận từ nhóm vào `data/` rồi đối chiếu giá trị SHA256 với `data/project-data-quangdung-20261008.zip.sha256`. File JSON 30 hồ sơ nằm trực tiếp trong Git nên không cần giải nén ZIP để mở thử Roommate.
 
 SHA256 ZIP mở rộng: `c9acb8770173f9dbfc03827505f8864f503ec45e262a070ce3a2e2793d97a4e9` (723.501.401 byte, 188 mục). Bốn mục mới có checksum riêng trong `ROOMMATE-SHA256SUMS.txt`; 184 mục gốc vẫn giữ CRC, kích thước và nội dung của ZIP ngày 05/10.
 

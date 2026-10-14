@@ -37,9 +37,8 @@ Housing, không phải kiểm thử lại toàn bộ nghiệp vụ Flight/Moving
 
 ## File để gửi bạn bè
 
-**ZIP chung đã được thay dữ liệu ngay tại tên file hiện có:**
-`data/project-data-quangdung-20261008.zip`.
-Tên lịch sử giữ nguyên để tương thích Git LFS; nội dung là release **11/10/2026**,
+**ZIP chung:** `project-data-quangdung-20261008.zip`, không lưu trong Git; nhóm
+gửi trực tiếp cho người nhận. Tên file giữ ngày cũ; nội dung là release **11/10/2026**,
 thư mục gốc trong ZIP là `project-data-2026-10-11/`.
 
 - 806.587.570 byte, 198 mục.
@@ -67,10 +66,10 @@ vào DB test riêng thành công: số hàng của 16 bảng khớp manifest; c�
 được kiểm đều rỗng; `geo.normalize_search` hoạt động với search_path cố định.
 DB test bản hoàn tất: `relohandoff_verify_20261011_1791701707`, không thay DB ứng dụng.
 
-Người nhận lấy file bằng Git LFS, kiểm checksum rồi dùng script hiện có:
+Người nhận đặt ZIP nhận từ nhóm vào `data/`, đối chiếu SHA256 với
+`data/project-data-quangdung-20261008.zip.sha256` rồi dùng script hiện có:
 
 ```powershell
-git lfs pull
 Get-FileHash -LiteralPath data/project-data-quangdung-20261008.zip -Algorithm SHA256
 powershell -File scripts/import-teammate-snapshot.ps1 -ArchivePath data/project-data-quangdung-20261008.zip
 ```
