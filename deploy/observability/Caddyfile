@@ -16,7 +16,7 @@
         handle /v1/traces {
             rewrite * /api/public/otel/v1/traces
             reverse_proxy langfuse:3000 {
-                header_up Authorization "Basic {$LANGFUSE_STAGING_AUTH}"
+                header_up Authorization "Basic {$LANGFUSE_AUTH}"
                 header_up x-langfuse-ingestion-version 4
             }
         }
@@ -43,7 +43,7 @@
         handle /v1/traces {
             rewrite * /api/public/otel/v1/traces
             reverse_proxy langfuse:3000 {
-                header_up Authorization "Basic {$LANGFUSE_PRODUCTION_AUTH}"
+                header_up Authorization "Basic {$LANGFUSE_AUTH}"
                 header_up x-langfuse-ingestion-version 4
             }
         }

@@ -106,8 +106,7 @@ services:
     environment:
       STAGING_INGEST_PASSWORD_HASH: ${STAGING_INGEST_PASSWORD_HASH:?}
       PRODUCTION_INGEST_PASSWORD_HASH: ${PRODUCTION_INGEST_PASSWORD_HASH:?}
-      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
-      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
+      LANGFUSE_AUTH: ${LANGFUSE_AUTH:-}
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro]
     networks: [default, ingestion]
   loki:
@@ -156,8 +155,7 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3000}
-      LANGFUSE_STAGING_PROJECT_ID: ${LANGFUSE_STAGING_PROJECT_ID:-relohome-staging}
-      LANGFUSE_PRODUCTION_PROJECT_ID: ${LANGFUSE_PRODUCTION_PROJECT_ID:-relohome-production}
+      LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-relohome}
     ports: ["127.0.0.1:3001:3000"]
     volumes:
       - grafana:/var/lib/grafana

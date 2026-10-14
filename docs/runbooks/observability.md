@@ -13,7 +13,7 @@ flowchart LR
     P[Production applications] --> PC[Production Collector]
     SC --> G[Authenticated ingestion gateway]
     PC --> G
-    G --> LF[Langfuse: separate projects]
+    G --> LF[Langfuse: one project, traces labelled by environment]
     G --> L[Loki: separate tenants]
     G --> M[Cortex: separate tenants]
     M --> CS3[Cortex S3 bucket]
@@ -54,7 +54,9 @@ on localhost:8888. No inbound central scrape is needed.
 Never expose Collector OTLP, scrape endpoints, Loki or storage ports publicly.
 
 The gateway authenticates staging and production independently, assigns a fixed
-Loki/Cortex tenant and injects the corresponding Langfuse project key. An application
+Loki/Cortex tenant and injects the Langfuse project key. Both environments share
+one Langfuse project; the Collector sets each trace's Langfuse environment from
+its own configuration, and the Langfuse UI filters by environment. An application
 cannot choose its destination by changing an environment label or tenant header.
 Collector bearer tokens and gateway passwords must differ between environments.
 
@@ -128,13 +130,15 @@ Generate a separate password for each Collector's gateway identity and use
 resource. In local Compose `.env` files, single-quote hashes to preserve dollar
 signs. Enter literal hashes in Coolify secret fields.
 
-Initially `LANGFUSE_STAGING_AUTH` and `LANGFUSE_PRODUCTION_AUTH` may be empty.
-Start the platform and sign in with the initialized operator account. Create
-`relohome-staging` and `relohome-production` projects and independent project API
-keys. Set each `LANGFUSE_*_AUTH` to base64 of `public-key:secret-key`, and set each
-`LANGFUSE_*_PROJECT_ID` to its actual project ID, not its display name. Keep those
-keys only in the platform resource; the gateway uses them. Redeploy the
-platform after entering the keys.
+Initially `LANGFUSE_AUTH` may be empty. Start the platform and sign in with the
+initialized operator account. Create one `relohome` project and a project API key.
+Set `LANGFUSE_AUTH` to base64 of `public-key:secret-key` and `LANGFUSE_PROJECT_ID`
+to the project's actual ID, not its display name. Keep the key only in the
+platform resource; the gateway uses it. Redeploy the platform after entering it.
+Langfuse recommends one project with its environments feature when the same team
+can see every environment
+([managing environments](https://langfuse.com/faq/all/managing-different-environments));
+use separate projects only if production traces need narrower access.
 
 Set `LANGFUSE_URL` and `GRAFANA_URL` to their external HTTPS URLs and configure the
 Coolify reverse proxy domains to each web service's port 3000. Verify
@@ -334,7 +338,7 @@ provisioning framework is needed.
 
 Keep credentials and deployment-specific values in the resource's environment
 variables. Grafana resolves provisioning YAML references such as `LANGFUSE_URL`
-and the two Langfuse project IDs at runtime. Keep the trace-link
+and the Langfuse project ID at runtime. Keep the trace-link
 `$${__value.raw}` escape in YAML and the dashboard's `$environment` variable in
 JSON. Dashboard JSON does not expand process environment variables; put runtime
 values in provisioning YAML instead. For secret values containing `$`, use
@@ -352,7 +356,7 @@ values in provisioning YAML instead. For secret values containing `$`, use
    existing resource identity, volumes and deployment secrets.
 3. Grafana provisions the mounted files. Check that the dashboard shows
    application data for the selected environment and that a log's trace link
-   opens the correct Langfuse project.
+   opens its trace in Langfuse.
 
 Choose the apply method according to the changed file:
 
@@ -406,8 +410,8 @@ never emitted metrics. Grafana evaluates all alert conditions; delivery to an
 external destination requires a separately configured contact point and policy.
 
 Open **ReloHome operations** in Grafana and choose the environment. Expand a log
-record's `trace_id` to open its project-specific Langfuse trace. Verify the
-generated URL after entering real project IDs.
+record's `trace_id` to open its Langfuse trace. Verify the generated URL after
+entering the real project ID.
 
 | Rule | Evaluation |
 | --- | --- |
@@ -479,9 +483,9 @@ including the Collector queue. Keep the existing Coolify resources and verify
 their resolved mounts before redeploying. Set `OBSERVABILITY_INGEST_NETWORK` to
 the same existing network on the platform and both Collector resources.
 
-Set `LANGFUSE_INIT_ORG_ID` and the two `LANGFUSE_*_PROJECT_ID` variables to the
-existing stored IDs. Bootstrap defaults do not rename stored organizations or
-projects; change their display names through Langfuse. Preserve their API keys.
+Set `LANGFUSE_INIT_ORG_ID` and `LANGFUSE_PROJECT_ID` to the existing stored IDs.
+Bootstrap defaults do not rename stored organizations or projects; change their
+display names through Langfuse. Preserve the project's API key.
 Grafana's new dashboard UID is `relohome-overview`, its folder is `ReloHome`, and
 its alert UIDs use `rh-{environment}-`. Retire the old provisioned rules and
 dashboards after verifying the replacements, so both sets do not remain active.

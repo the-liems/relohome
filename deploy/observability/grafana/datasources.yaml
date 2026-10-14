@@ -27,7 +27,7 @@ datasources:
     - name: Langfuse trace
       matcherType: label
       matcherRegex: trace_id
-      url: ${LANGFUSE_URL}/project/${LANGFUSE_STAGING_PROJECT_ID}/traces/$${__value.raw}
+      url: ${LANGFUSE_URL}/project/${LANGFUSE_PROJECT_ID}/traces/$${__value.raw}
       urlDisplayLabel: Open trace in Langfuse
   secureJsonData:
     httpHeaderValue1: staging
@@ -55,7 +55,7 @@ datasources:
     - name: Langfuse trace
       matcherType: label
       matcherRegex: trace_id
-      url: ${LANGFUSE_URL}/project/${LANGFUSE_PRODUCTION_PROJECT_ID}/traces/$${__value.raw}
+      url: ${LANGFUSE_URL}/project/${LANGFUSE_PROJECT_ID}/traces/$${__value.raw}
       urlDisplayLabel: Open trace in Langfuse
   secureJsonData:
     httpHeaderValue1: production
