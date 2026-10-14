@@ -12,8 +12,6 @@ services:
     command: [--config=/etc/otelcol/config.yaml]
     environment:
       OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:?}
-      OTEL_COLLECTOR_TOKEN: ${OTEL_COLLECTOR_TOKEN:?}
-      OBSERVABILITY_INGEST_PASSWORD: ${OBSERVABILITY_INGEST_PASSWORD:?}
       OBSERVABILITY_GATEWAY_URL: ${OBSERVABILITY_GATEWAY_URL:-http://telemetry-gateway:8080}
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro

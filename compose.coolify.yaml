@@ -6,7 +6,6 @@ x-telemetry: &telemetry-env
   OBSERVABILITY_CONTENT_MODE: ${OBSERVABILITY_CONTENT_MODE:-metadata}
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-  OTEL_EXPORTER_OTLP_HEADERS: Authorization=Bearer%20${OTEL_COLLECTOR_TOKEN:-}
   RELEASE_SHA: ${SOURCE_COMMIT}
 
 # Coolify reads this Compose file from Git at the pinned commit.

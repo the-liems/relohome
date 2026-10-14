@@ -4,20 +4,12 @@ extensions:
   file_storage:
     directory: /var/lib/otelcol
     create_directory: true
-  bearertokenauth/app:
-    token: ${env:OTEL_COLLECTOR_TOKEN}
-  basicauth/gateway:
-    client_auth:
-      username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
-      password: ${env:OBSERVABILITY_INGEST_PASSWORD}
 receivers:
   otlp:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
         max_request_body_size: 8388608
-        auth:
-          authenticator: bearertokenauth/app
   prometheus/internal:
     config:
       scrape_configs:
@@ -80,8 +72,6 @@ processors:
 exporters:
   otlphttp/gateway:
     endpoint: ${env:OBSERVABILITY_GATEWAY_URL}/${env:OTEL_DEPLOYMENT_ENVIRONMENT}
-    auth:
-      authenticator: basicauth/gateway
     timeout: 10s
     sending_queue:
       enabled: true
@@ -94,7 +84,7 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 0s
 service:
-  extensions: [health_check, file_storage, bearertokenauth/app, basicauth/gateway]
+  extensions: [health_check, file_storage]
   telemetry:
     logs:
       level: warn

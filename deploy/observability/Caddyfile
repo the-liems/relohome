@@ -10,9 +10,6 @@
         respond "ok" 200
     }
     handle_path /staging/* {
-        basic_auth {
-            staging {$STAGING_INGEST_PASSWORD_HASH}
-        }
         handle /v1/traces {
             rewrite * /api/public/otel/v1/traces
             reverse_proxy langfuse:3000 {
@@ -37,9 +34,6 @@
         respond 404
     }
     handle_path /production/* {
-        basic_auth {
-            production {$PRODUCTION_INGEST_PASSWORD_HASH}
-        }
         handle /v1/traces {
             rewrite * /api/public/otel/v1/traces
             reverse_proxy langfuse:3000 {

@@ -11,7 +11,7 @@ later in Grafana; this deployment supplies no external notification destination.
 flowchart LR
     S[Staging applications] --> SC[Staging Collector]
     P[Production applications] --> PC[Production Collector]
-    SC --> G[Authenticated ingestion gateway]
+    SC --> G[Ingestion gateway]
     PC --> G
     G --> LF[Langfuse: one project, traces labelled by environment]
     G --> L[Loki: separate tenants]
@@ -53,12 +53,15 @@ without a path). The Collector sends all signals outbound and scrapes its own in
 on localhost:8888. No inbound central scrape is needed.
 Never expose Collector OTLP, scrape endpoints, Loki or storage ports publicly.
 
-The gateway authenticates staging and production independently, assigns a fixed
-Loki/Cortex tenant and injects the Langfuse project key. Both environments share
+The gateway routes by URL path: each Collector sends to `/staging/` or
+`/production/` from its own `OTEL_DEPLOYMENT_ENVIRONMENT`, and the gateway assigns
+the matching fixed Loki/Cortex tenant and injects the Langfuse project key. Both environments share
 one Langfuse project; the Collector sets each trace's Langfuse environment from
 its own configuration, and the Langfuse UI filters by environment. An application
 cannot choose its destination by changing an environment label or tenant header.
-Collector bearer tokens and gateway passwords must differ between environments.
+The Collector and gateway are reachable only on private Docker networks, so the
+internal hops are unauthenticated; environment separation depends on each
+Collector's `OTEL_DEPLOYMENT_ENVIRONMENT` being set correctly.
 
 The shared operations team is trusted to read both environments. Grafana has a
 separate fixed-tenant Cortex and Loki datasource for each environment; its
@@ -124,11 +127,6 @@ at `deploy/observability/.env.example` lists every required input.
 Generate independent random secrets; hexadecimal database passwords avoid URL
 escaping errors in `DATABASE_URL`. `LF_ENCRYPTION_KEY` must be 64 hexadecimal
 characters. Keep backups of this key and `LF_SALT` with the database backups.
-Generate a separate password for each Collector's gateway identity and use
-`caddy hash-password` (interactive input) to obtain its bcrypt hash. Set
-`STAGING_INGEST_PASSWORD_HASH` and `PRODUCTION_INGEST_PASSWORD_HASH` in the platform
-resource. In local Compose `.env` files, single-quote hashes to preserve dollar
-signs. Enter literal hashes in Coolify secret fields.
 
 Initially `LANGFUSE_AUTH` may be empty. Start the platform and sign in with the
 initialized operator account. Create one `relohome` project and a project API key.
@@ -192,8 +190,6 @@ For each Collector resource, set:
 | --- | --- |
 | `OTEL_DEPLOYMENT_ENVIRONMENT` | `staging` or `production` |
 | `APPLICATION_NETWORK` | That environment's existing Docker network |
-| `OTEL_COLLECTOR_TOKEN` | Unique random application ingestion bearer token |
-| `OBSERVABILITY_INGEST_PASSWORD` | Plaintext matching that environment's gateway bcrypt hash |
 | `OBSERVABILITY_GATEWAY_URL` | `http://telemetry-gateway:8080` on the private bridge |
 
 Keep application networks separate: the `otel-collector` alias must resolve to
@@ -208,12 +204,10 @@ OBSERVABILITY_ENABLED=true
 OBSERVABILITY_CONTENT_MODE=metadata
 OTEL_DEPLOYMENT_ENVIRONMENT=staging
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-OTEL_COLLECTOR_TOKEN=<staging-token>
 ```
 
-The application Compose supplies each service name, release SHA and encoded
-`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20...`. When starting a service
-directly, set these OTLP headers yourself and preload Node with
+The application Compose supplies each service name and release SHA. When starting
+a service directly, preload Node with
 `--import @relohome/telemetry/register`. Python entry points initialize telemetry
 before constructing clients. Keep legacy LangSmith tracing disabled.
 
@@ -236,8 +230,7 @@ Before enabling production, switch the two production mounts in
 (`grafana/alerts/production.yaml` and
 `cortex-rules/production/expected-services.yaml`), merge that change and redeploy the platform.
 This adds production alert rules and expected heartbeat inventory in its Cortex
-tenant. Deploy the production Collector and enable its applications
-with their own token. Keep the same stack
+tenant. Deploy the production Collector and enable its applications. Keep the same stack
 and dashboard definitions. Initial collection samples all non-health requests;
 measure overhead and growth before changing sampling or retention.
 
@@ -424,7 +417,7 @@ entering the real project ID.
 | Telemetry export failure/drop | Nonzero failure rate persisting for 5 minutes |
 
 When configuring notifications later, use the environment and service labels to
-route and group alerts. Check Collector auth, fixed environment, DNS, queue depth and backend
+route and group alerts. Check the Collector's fixed environment, DNS, queue depth and backend
 health before changing thresholds. These checks cover application and collection failures while the shared
 backend is running; availability of the observability system is outside scope.
 
