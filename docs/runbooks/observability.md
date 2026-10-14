@@ -145,8 +145,8 @@ processes, not a security score, and counters reset on restart.
 
 ## Alerts
 
-Each rule fires per environment and carries `environment` and `service_name`
-labels:
+Each rule fires per environment and carries an `environment` label; the
+application rules also carry `service_name`:
 
 | Rule | Fires when |
 | --- | --- |
