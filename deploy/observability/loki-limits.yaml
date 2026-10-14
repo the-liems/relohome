@@ -1,9 +1,0 @@
-overrides:
-  staging:
-    ingestion_rate_mb: 1
-    ingestion_burst_size_mb: 2
-    max_global_streams_per_user: 1000
-  production:
-    ingestion_rate_mb: 4
-    ingestion_burst_size_mb: 8
-    max_global_streams_per_user: 5000

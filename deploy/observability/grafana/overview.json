@@ -45,7 +45,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -78,7 +78,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -111,7 +111,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -144,7 +144,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -177,7 +177,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -210,7 +210,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -243,7 +243,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -276,7 +276,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -309,7 +309,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -340,7 +340,7 @@
       "id": 21,
       "title": "Jev coverage — completed / eligible attempts (active processes)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "datasource": { "type": "prometheus", "uid": "cortex" },
       "gridPos": { "x": 0, "y": 52, "w": 12, "h": 8 },
       "targets": [{
         "refId": "A",
@@ -355,7 +355,7 @@
       "id": 22,
       "title": "Jev skips / second — by point and reason",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "datasource": { "type": "prometheus", "uid": "cortex" },
       "gridPos": { "x": 12, "y": 52, "w": 12, "h": 8 },
       "targets": [{
         "refId": "A",
@@ -369,7 +369,7 @@
       "id": 23,
       "title": "Jev completions and failures / second",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "datasource": { "type": "prometheus", "uid": "cortex" },
       "gridPos": { "x": 0, "y": 60, "w": 12, "h": 8 },
       "targets": [{
         "refId": "A",
@@ -383,7 +383,7 @@
       "id": 24,
       "title": "Jev in-flight observations",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
+      "datasource": { "type": "prometheus", "uid": "cortex" },
       "gridPos": { "x": 12, "y": 60, "w": 12, "h": 8 },
       "targets": [{
         "refId": "A",
@@ -399,7 +399,7 @@
       "type": "logs",
       "datasource": {
         "type": "loki",
-        "uid": "loki-${environment}"
+        "uid": "loki"
       },
       "gridPos": {
         "x": 0,

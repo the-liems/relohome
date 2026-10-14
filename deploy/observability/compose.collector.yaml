@@ -12,15 +12,15 @@ services:
     command: [--config=/etc/otelcol/config.yaml]
     environment:
       OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:?}
-      OBSERVABILITY_GATEWAY_URL: ${OBSERVABILITY_GATEWAY_URL:-http://telemetry-gateway:8080}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?}
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
       - queue:/var/lib/otelcol
     networks:
       application:
-        aliases: ["otel-collector", "otel-${OTEL_DEPLOYMENT_ENVIRONMENT}"]
-      ingestion:
-        aliases: ["otel-${OTEL_DEPLOYMENT_ENVIRONMENT}"]
+        aliases: ["otel-collector"]
+      ingestion: {}
 networks:
   application:
     external: true

@@ -198,7 +198,7 @@ def test_collector_preserves_only_fixed_guardrail_label_keys_and_native_panels()
     selected = [panel for panel in panels if panel["id"] in {21, 22, 23, 24}]
     assert len(selected) == 4
     assert len({panel["id"] for panel in panels}) == len(panels)
-    assert all(panel["datasource"]["uid"] == "cortex-${environment}" for panel in selected)
+    assert all(panel["datasource"]["uid"] == "cortex" for panel in selected)
     expressions = " ".join(target["expr"] for panel in selected for target in panel["targets"])
     assert 'event="eligible"' in expressions and 'event="completed"' in expressions
     assert 'environment="$environment"' in expressions and "relohome_guardrail_skips_total" in expressions

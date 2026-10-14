@@ -1,12 +1,12 @@
 apiVersion: 1
 groups:
 - orgId: 1
-  name: relohome-staging
+  name: relohome
   folder: ReloHome
   interval: 30s
   rules:
-  - uid: rh-staging-http-errors
-    title: ReloHome HTTP error rate (staging)
+  - uid: relohome-http-errors
+    title: ReloHome HTTP error rate
     condition: B
     for: 0s
     noDataState: OK
@@ -14,13 +14,12 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome HTTP error rate
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
@@ -33,7 +32,7 @@ groups:
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -54,8 +53,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-ai-errors
-    title: ReloHome agent/tool/provider failures (staging)
+  - uid: relohome-ai-errors
+    title: ReloHome agent/tool/provider failures
     condition: B
     for: 0s
     noDataState: OK
@@ -63,13 +62,12 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome agent/tool/provider failures
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
@@ -82,7 +80,7 @@ groups:
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -103,8 +101,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-provider-limits
-    title: ReloHome provider rate limits (staging)
+  - uid: relohome-provider-limits
+    title: ReloHome provider rate limits
     condition: B
     for: 0s
     noDataState: OK
@@ -112,13 +110,12 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome provider rate limits
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
@@ -129,7 +126,7 @@ groups:
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -150,8 +147,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-chat-latency
-    title: ReloHome chat p95 above 120 seconds (staging)
+  - uid: relohome-chat-latency
+    title: ReloHome chat p95 above 120 seconds
     condition: B
     for: 0s
     noDataState: OK
@@ -159,13 +156,12 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome chat p95 above 120 seconds
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
@@ -177,7 +173,7 @@ groups:
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -198,8 +194,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-heartbeat
-    title: ReloHome service heartbeat missing (staging)
+  - uid: relohome-heartbeat
+    title: ReloHome service heartbeat missing
     condition: B
     for: 0s
     noDataState: OK
@@ -207,25 +203,24 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome service heartbeat missing
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
       model:
         refId: A
-        expr: relohome_expected_service_info unless on (environment, service_name) (max by (environment, service_name) (relohome_heartbeat_seconds)
-          > time() - 120)
+        expr: group by (environment, service_name) (max_over_time(relohome_heartbeat_seconds[24h])) unless on (environment, service_name)
+          (max by (environment, service_name) (relohome_heartbeat_seconds) > time() - 120)
         instant: true
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -246,8 +241,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-collector-down
-    title: ReloHome Collector unavailable (staging)
+  - uid: relohome-collector-down
+    title: ReloHome Collector unavailable
     condition: B
     for: 2m
     noDataState: OK
@@ -255,24 +250,23 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome Collector unavailable
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
       model:
         refId: A
-        expr: (up{service_name="collectors"} == bool 0) or absent(up{service_name="collectors"})
+        expr: group by (environment) (max_over_time(up{service_name="collectors"}[24h])) unless on (environment) (up{service_name="collectors"} == 1)
         instant: true
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
@@ -293,8 +287,8 @@ groups:
           reducer:
             type: last
             params: []
-  - uid: rh-staging-export-failures
-    title: ReloHome telemetry export failures (staging)
+  - uid: relohome-export-failures
+    title: ReloHome telemetry export failures
     condition: B
     for: 5m
     noDataState: OK
@@ -302,13 +296,12 @@ groups:
     labels:
       team: relohome
       severity: warning
-      environment: staging
     annotations:
       summary: ReloHome telemetry export failures
       description: Check the ReloHome dashboard and correlated traces.
     data:
     - refId: A
-      datasourceUid: cortex-staging
+      datasourceUid: cortex
       relativeTimeRange:
         from: 900
         to: 0
@@ -324,7 +317,7 @@ groups:
         range: false
         datasource:
           type: prometheus
-          uid: cortex-staging
+          uid: cortex
     - refId: B
       datasourceUid: __expr__
       relativeTimeRange:
