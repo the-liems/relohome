@@ -14,5 +14,3 @@ deleteRules:
   uid: rh-staging-collector-down
 - orgId: 1
   uid: rh-staging-export-failures
-- orgId: 1
-  uid: rh-staging-retention

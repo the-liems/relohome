@@ -49,9 +49,8 @@ to the storage network.
 Docker bridge networks do not span hosts. For a separate observability host,
 provide VPN/private routed connectivity or authenticated HTTPS to the gateway.
 Set `OBSERVABILITY_GATEWAY_URL` to its origin (scheme, host and optional port,
-without a path). The Collector sends all signals outbound, scrapes its own
-internal metrics on localhost:8888 and fetches its environment's retention
-metrics through the authenticated gateway. No inbound central scrape is needed.
+without a path). The Collector sends all signals outbound and scrapes its own internal metrics
+on localhost:8888. No inbound central scrape is needed.
 Never expose Collector OTLP, scrape endpoints, Loki or storage ports publicly.
 
 The gateway authenticates staging and production independently, assigns a fixed
@@ -134,9 +133,8 @@ Start the platform and sign in with the initialized operator account. Create
 `relohome-staging` and `relohome-production` projects and independent project API
 keys. Set each `LANGFUSE_*_AUTH` to base64 of `public-key:secret-key`, and set each
 `LANGFUSE_*_PROJECT_ID` to its actual project ID, not its display name. Keep those
-keys only in the platform resource; the gateway and retention worker use them.
-Redeploy the platform after entering the keys. Cleanup reports failures until
-project credentials are configured.
+keys only in the platform resource; the gateway uses them. Redeploy the
+platform after entering the keys.
 
 Set `LANGFUSE_URL` and `GRAFANA_URL` to their external HTTPS URLs and configure the
 Coolify reverse proxy domains to each web service's port 3000. Verify
@@ -232,10 +230,9 @@ as a zero-cost call.
 Before enabling production, switch the two production mounts in
 `deploy/observability/compose.yaml` to the active files named in their comments
 (`grafana/alerts/production.yaml` and
-`cortex-rules/production/expected-services.yaml`), merge that change, set
-`OBSERVABILITY_ENVIRONMENTS=staging,production` on the platform and redeploy it.
-This adds production alert rules, expected heartbeat inventory in its Cortex tenant
-and trace retention. Deploy the production Collector and enable its applications
+`cortex-rules/production/expected-services.yaml`), merge that change and redeploy the platform.
+This adds production alert rules and expected heartbeat inventory in its Cortex
+tenant. Deploy the production Collector and enable its applications
 with their own token. Keep the same stack
 and dashboard definitions. Initial collection samples all non-health requests;
 measure overhead and growth before changing sampling or retention.
@@ -421,7 +418,6 @@ generated URL after entering real project IDs.
 | Missing service heartbeat | Expected service has no heartbeat newer than 120 seconds |
 | Collector unavailable | Failed or missing self-scrape series for 2 minutes |
 | Telemetry export failure/drop | Nonzero failure rate persisting for 5 minutes |
-| Trace cleanup failure | Failed cleanup for 15 minutes |
 
 When configuring notifications later, use the environment and service labels to
 route and group alerts. Check Collector auth, fixed environment, DNS, queue depth and backend
@@ -431,12 +427,9 @@ backend is running; availability of the observability system is outside scope.
 ## Retention, upgrades and rollback
 
 Cortex's compactor retains metric blocks for 30 days in S3.
-Loki's compactor applies seven-day retention in its S3 bucket. Langfuse OSS lacks built-in scheduled
-retention, so the project-scoped worker enumerates observations older than seven
-days, deletes their trace IDs using supported APIs, and verifies asynchronous
-deletion. It runs every 24 hours, retries failures after 15 minutes and exposes
-cleanup status on port 9101. Thus deletion is not instantaneous at the seven-day
-boundary. It does not clean datasets or independently uploaded media.
+Loki's compactor applies seven-day retention in its S3 bucket. Langfuse traces
+are kept indefinitely: scheduled retention is an Enterprise feature in
+self-hosted Langfuse, and this deployment does not delete traces. See #173.
 
 Configure an expiration rule at the bucket provider for raw event objects after
 eight days, allowing one extra day for ingestion. Scope the rule to
@@ -446,11 +439,7 @@ by the deployment. For versioned buckets, expire noncurrent versions too;
 current-object expiry alone can leave their data stored (see
 [S3 lifecycle behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html)).
 Monitor worker backlog and queues; do not allow replay backlog to approach this
-window. Failed cleanup must be repaired, not masked by increasing
-object expiry. Run a scoped dry run inside the retention container with
-`python /app/retention.py --dry-run`; omit `--dry-run` for an immediate cleanup.
-The script prints only environment and counts. Never run cleanup with keys for
-an unrelated project.
+window.
 
 Back up persistent volumes and encryption secrets according to the deployment's
 backup policy. Pin upgraded images, read their migration notes, check their
@@ -460,8 +449,7 @@ a substitute for restoring a compatible backup.
 Rollback application telemetry by setting `OBSERVABILITY_ENABLED=false` and
 redeploying. Keep volumes for investigation and stop the independent observability
 resources if needed. Do not use `down --volumes` on a real deployment. To remove an
-environment, point its two mounts in `compose.yaml` back at the disabled files and
-remove it from `OBSERVABILITY_ENVIRONMENTS`.
+environment, point its two mounts in `compose.yaml` back at the disabled files.
 
 ### Moving an existing preview from local storage
 

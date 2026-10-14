@@ -168,20 +168,6 @@ services:
       - ./grafana/alerts/disabled/production.yaml:/etc/grafana/provisioning/alerting/relohome-production.yaml:ro
       - ./grafana/alerts/legacy.yaml:/etc/grafana/provisioning/alerting/relohome-legacy.yaml:ro
       - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
-  retention:
-    <<: *service
-    image: python:3.11.16-slim-bookworm
-    mem_limit: 128m
-    user: "65534:65534"
-    read_only: true
-    cap_drop: [ALL]
-    command: [python, /app/retention.py, --loop]
-    environment:
-      LANGFUSE_BASE_URL: http://langfuse:3000
-      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
-      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
-      OBSERVABILITY_ENVIRONMENTS: ${OBSERVABILITY_ENVIRONMENTS:-staging}
-    volumes: [./retention.py:/app/retention.py:ro]
 networks:
   default:
   ingestion:

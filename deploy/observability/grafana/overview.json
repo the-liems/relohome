@@ -314,7 +314,7 @@
       "gridPos": {
         "x": 0,
         "y": 32,
-        "w": 12,
+        "w": 24,
         "h": 8
       },
       "targets": [
@@ -327,39 +327,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 10,
-      "title": "Trace cleanup",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 32,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "relohome_retention_last_run_success{environment=\"$environment\"}",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
         },
         "overrides": []
       },

@@ -30,23 +30,6 @@ receivers:
             - source_labels: [__name__]
               regex: target_info
               action: drop
-        - job_name: retention
-          scrape_interval: 15s
-          metrics_path: /${env:OTEL_DEPLOYMENT_ENVIRONMENT}/retention/metrics
-          basic_auth:
-            username: ${env:OTEL_DEPLOYMENT_ENVIRONMENT}
-            password: ${env:OBSERVABILITY_INGEST_PASSWORD}
-          static_configs:
-            - targets: ["${env:OBSERVABILITY_GATEWAY_URL}"]
-          relabel_configs:
-            - source_labels: [__address__]
-              regex: '(https?)://([^/]+)/?'
-              target_label: __scheme__
-              replacement: '$$1'
-            - source_labels: [__address__]
-              regex: 'https?://([^/]+)/?'
-              target_label: __address__
-              replacement: '$$1'
 processors:
   memory_limiter:
     check_interval: 1s
