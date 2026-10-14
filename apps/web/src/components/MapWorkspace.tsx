@@ -56,6 +56,7 @@ import {
   tuneBasemap,
 } from "../mapStyle";
 import { HouseImage, Comparison, amenities as AMENITY_LABELS } from "./Housing";
+import { HouseGallery } from "./HouseGallery";
 import { HousingDirections } from "./HousingDirections";
 import {
   MAX_COMPARISON_HOMES,
@@ -1435,14 +1436,7 @@ export function MapWorkspace({
       {detail && (
         <aside className="ws-detail" aria-label={uiText("Chi tiết nhà")}>
           <div className="ws-detail-photo">
-            {safeUrl(detail.images?.[0]?.url || detail.images?.[0]) ? (
-              <img
-                src={detail.images[0].url || detail.images[0]}
-                alt={detail.title}
-              />
-            ) : (
-              <HouseImage house={detail} />
-            )}
+            <HouseGallery key={detail.id} house={detail} />
             <button
               className={
                 "icon-button ws-photo-heart " +
@@ -1525,14 +1519,6 @@ export function MapWorkspace({
               </>
             )}
             <div className="ws-nearby">
-              <div>
-                <h4>{uiText("Tiện ích xung quanh")}</h4>
-                <small className="muted">
-                  {uiText(
-                    "Tiện ích luôn hiển thị trên bản đồ. Phóng to quanh căn này để xem y tế, trường học, mua sắm và giao thông.",
-                  )}
-                </small>
-              </div>
               <button
                 className="ws-pill-button"
                 onClick={() => {
@@ -1545,20 +1531,9 @@ export function MapWorkspace({
                 }}
               >
                 <Layers size={14} />
-                {uiText(" Xem quanh căn")}
+                {uiText("Xem các tiện ích xung quanh")}
               </button>
             </div>
-            {Number.isFinite(detail.lat) && (
-              <p className="muted small">
-                {uiText("Toạ độ: ")}
-                {detail.lat!.toFixed(6)}, {detail.lng!.toFixed(6)}
-                {detail.location_accuracy !== "rooftop"
-                  ? uiText(
-                      " · vị trí gần đúng theo nguồn, hãy xác nhận số nhà với người cho thuê",
-                    )
-                  : uiText(" · vị trí chính xác theo nguồn")}
-              </p>
-            )}
             {detail.description && (
               <p className="ws-description">{detail.description}</p>
             )}
