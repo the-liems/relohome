@@ -7,8 +7,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
-import { activityText, activityDestination } from "../housingActivity";
 import { Bell, Minus, X } from "lucide-react";
 import { api } from "../api";
 import type { Data } from "../types";
@@ -57,8 +55,6 @@ export function ContactMessengerProvider({
   enabled?: boolean;
   children: ReactNode;
 }) {
-  const navigate = useNavigate();
-  const [events, setEvents] = useState<Data[]>([]);
   const [rows, setRows] = useState<Data[]>([]),
     [current, setCurrent] = useState<Conversation | null>(null),
     [expanded, setExpanded] = useState(false),
@@ -70,29 +66,19 @@ export function ContactMessengerProvider({
   const refresh = useCallback(async () => {
     try {
       if (!enabled) return;
-      const [data, activity] = await Promise.all([
-        admin
-          ? Promise.resolve({ items: [] })
-          : api<Data>(
-              "/housing-management/housing/contact-notifications",
-              "GET",
-              undefined,
-              undefined,
-              { "X-SIU-User": userId },
-            ),
-        api<Data>(
-          "/housing-management/housing/activity" + (admin ? "?admin=true" : ""),
-          "GET",
-          undefined,
-          undefined,
-          { "X-SIU-User": userId },
-        ).catch(() => ({ items: [] })),
-      ]);
+      const data = admin
+        ? { items: [] }
+        : await api<Data>(
+            "/housing-management/housing/contact-notifications",
+            "GET",
+            undefined,
+            undefined,
+            { "X-SIU-User": userId },
+          );
       if (viewer.current !== userId) return;
-      setEvents(activity.items || []);
       const items = data.items || [];
       const stamp = JSON.stringify(
-        [...items, ...(activity.items || [])].map((row: Data) => [
+        items.map((row: Data) => [
           row.id,
           row.unread,
           row.update_unread,
@@ -101,15 +87,9 @@ export function ContactMessengerProvider({
       );
       if (previous.current && previous.current !== stamp) {
         window.dispatchEvent(new Event("housing-contact-update"));
-        if (
-          [...items, ...(activity.items || [])].some(
-            (row: Data) => row.unread > 0 || row.update_unread,
-          )
-        )
+        if (items.some((row: Data) => row.unread > 0 || row.update_unread))
           setNotice(
-            activity.items?.find((event: Data) => event.unread)
-              ? `${activity.items.find((event: Data) => event.unread).property_name || activity.items.find((event: Data) => event.unread).title || t("Hồ sơ người đăng")} · ${activityText(activity.items.find((event: Data) => event.unread))}`
-              : `${items.find((row: Data) => row.unread)?.property_name || items.find((row: Data) => row.unread)?.title || t("Tin nhắn")} · ${t("Có tin nhắn mới")}`,
+            `${items.find((row: Data) => row.unread || row.update_unread)?.property_name || items.find((row: Data) => row.unread || row.update_unread)?.title || t("Tin nhắn")} · ${t("Có tin nhắn hoặc cập nhật mới về nhà thuê.")}`,
           );
       }
       previous.current = stamp;
@@ -121,7 +101,6 @@ export function ContactMessengerProvider({
   useEffect(() => {
     setCurrent(null);
     setRows([]);
-    setEvents([]);
     previous.current = "";
     void refresh();
     const timer = window.setInterval(() => void refresh(), 10000);
@@ -141,45 +120,12 @@ export function ContactMessengerProvider({
     },
     [],
   );
-  const unread =
-    events.filter((event) => event.unread).length +
-    rows.reduce(
-      (count, row) =>
-        count +
-        Number(row.unread || 0) +
-        (row.update_unread &&
-        !events.some((event) => event.contact_id === row.id)
-          ? 1
-          : 0),
-      0,
-    );
-  async function follow(event: Data) {
-    const destination = activityDestination(event);
-    if (!destination) {
-      setNotice(
-        t(
-          "Chưa tìm thấy kế hoạch của yêu cầu này. Hãy mở lại hội thoại đã đặt lịch.",
-        ),
-      );
-      return;
-    }
-    try {
-      await api(
-        `/housing-management/housing/activity/${event.id}/read`,
-        "POST",
-        {},
-        undefined,
-        { "X-SIU-User": userId },
-      );
-      setList(false);
-      setExpanded(false);
-      navigate(destination);
-      void refresh();
-      window.dispatchEvent(new Event("housing-contact-update"));
-    } catch (cause) {
-      setNotice((cause as Error).message);
-    }
-  }
+  // Count only conversations visible in this bell; system updates stay inside their chat.
+  const unread = rows.reduce(
+    (count, row) =>
+      count + Number(row.unread || 0) + (row.update_unread ? 1 : 0),
+    0,
+  );
   const currentName =
     current &&
     personName(
@@ -205,7 +151,7 @@ export function ContactMessengerProvider({
         {list && (
           <section className="contact-messenger-panel">
             <header>
-              <strong>{t("Tin nhắn & cập nhật")}</strong>
+              <strong>{t("Tin nhắn")}</strong>
               <button
                 onClick={() => setList(false)}
                 aria-label={t("Đóng danh sách tin nhắn")}
@@ -214,35 +160,6 @@ export function ContactMessengerProvider({
               </button>
             </header>
             <div className="contact-messenger-conversations">
-              {events.length > 0 && (
-                <section
-                  className="contact-messenger-updates"
-                  aria-label={t("Thông báo hoạt động")}
-                >
-                  <h3>{t("Thông báo hoạt động")}</h3>
-                  {events.map((event) => (
-                    <button
-                      className={event.unread ? "unread" : ""}
-                      key={event.id}
-                      onClick={() => void follow(event)}
-                    >
-                      <strong>
-                        {event.counterparty_name ||
-                          (event.audience === "admin"
-                            ? t("Người đăng")
-                            : t("ReloHome"))}
-                      </strong>
-                      <span>
-                        {[event.property_name, event.unit_code, event.title]
-                          .filter(Boolean)
-                          .join(" · ") || t("Hồ sơ người đăng")}
-                      </span>
-                      <span>{activityText(event)}</span>
-                      <small>{t("Mở chi tiết yêu cầu")}</small>
-                    </button>
-                  ))}
-                </section>
-              )}
               {rows.length ? (
                 rows.map((row) => (
                   <button

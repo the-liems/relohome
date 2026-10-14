@@ -1070,10 +1070,11 @@ test("operating counters navigate to houses, all rooms, vacant rooms and the pro
 });
 
 
-test('property and room badges count requests once and activity links open the right request',async({page})=>{
+test('property and room badges count requests once and the chat timeline opens the right request',async({page})=>{
   const requestId='99999999-9999-4999-8999-999999999999';
   const event={id:'event-1',kind:'viewing_requested',audience:'landlord',contact_id:requestId,property_id:propertyId,listing_id:listingId,title:'Phòng sáng thoáng',property_name:'Nhà Nguyễn Trãi',unit_code:'P.301',counterparty_name:'Khánh',unread:true,payload:{slot:'2026-10-15T09:00:00+07:00'}};
   await page.route('**/web/api/housing-management/housing/activity',route=>route.fulfill({json:{items:[event]}}));
+  await page.route('**/web/api/housing-management/housing/contact-requests/*/activity',route=>route.fulfill({json:{items:[{...event,created_at:'2026-10-09T09:06:00Z'}]}}));
   await page.route('**/web/api/housing-management/housing/activity/event-1/read',route=>{event.unread=false;return route.fulfill({json:{read:true}})});
   await page.goto('/landlord');await page.locator('.ll-nav').getByRole('button',{name:/Yêu cầu liên hệ/}).click();
   const property=page.locator('.ll-contact-properties > button').first();
@@ -1081,19 +1082,20 @@ test('property and room badges count requests once and activity links open the r
   await property.click();const room=page.locator('.ll-contact-room').filter({hasText:'P.301'});
   await expect(room.locator('.ll-request-badge')).toHaveText('1');
   await page.getByRole('button',{name:/Tin nhắn và cập nhật/}).click();
-  const notice=page.locator('.contact-messenger-updates button').filter({hasText:'Người thuê đề nghị xem nhà'});
-  await expect(notice).toContainText('Nhà Nguyễn Trãi');await expect(notice).toContainText('P.301');
+  await expect(page.getByRole('heading',{name:'Thông báo hoạt động',exact:true})).toHaveCount(0);
+  await page.locator('.contact-messenger-conversations > button').filter({hasText:'Khánh'}).click();
+  const notice=page.locator('.contact-system-action').filter({hasText:'Người thuê đề nghị xem nhà'});
+  await expect(notice).toContainText('15');
   await notice.click();await expect(page).toHaveURL(new RegExp('request='+requestId));
   await expect(page.locator('#contact-request-'+requestId)).toBeVisible();
 });
 
-test('admin activity opens the submitted listing from its own bell',async({page})=>{
+test('the admin chat bell hides activity items and has no badge for hidden notifications',async({page})=>{
   moderator=true;
-  const id='88888888-8888-4888-8888-888888888888';
-  await page.route('**/web/api/housing-management/housing/activity?admin=true',route=>route.fulfill({json:{items:[{id:'admin-event',kind:'listing_submitted',audience:'admin',listing_id:id,title:'Căn hộ gần chợ',property_name:'Nhà Lê Lợi',counterparty_name:'Anh Tuấn',unread:true}]}}));
-  await page.route('**/web/api/housing-management/housing/activity/admin-event/read',route=>route.fulfill({json:{read:true}}));
-  await page.goto('/admin');await page.getByRole('button',{name:/Tin nhắn và cập nhật/}).click();
-  await page.locator('.contact-messenger-updates button').click();
-  await expect(page).toHaveURL(new RegExp('listing='+id));
-  await expect(page.getByRole('heading',{name:'Thông tin người đăng',exact:true})).toBeVisible();
+  await page.route('**/web/api/housing-management/housing/activity?admin=true',route=>route.fulfill({json:{items:[{id:'admin-event',kind:'listing_submitted',audience:'admin',unread:true}]}}));
+  await page.goto('/admin');const bell=page.getByRole('button',{name:/Tin nhắn và cập nhật/});await bell.click();
+  await expect(page.locator('.contact-messenger-updates')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Thông báo hoạt động',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Chưa có cuộc trò chuyện.',{exact:true})).toBeVisible();
+  await expect(bell.locator('b')).toHaveCount(0);
 });

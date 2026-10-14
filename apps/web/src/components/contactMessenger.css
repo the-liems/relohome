@@ -251,7 +251,6 @@
   }
 }
 
-.contact-messenger-updates h3 { font-size:15px; margin:12px 14px 6px; }
 .contact-thread-list > .system { width:100%; max-width:100%; margin:10px 0; background:var(--ui-accent-soft); border:1px solid var(--ui-line); border-radius:12px; padding:12px; }
 .contact-system-action { display:flex; flex-direction:column; gap:8px; width:100%; padding:0; border:0; background:transparent; color:var(--ui-text); text-align:left; line-height:1.6; cursor:pointer; }
 .contact-system-action small { color:var(--ui-accent); font-weight:700; }
