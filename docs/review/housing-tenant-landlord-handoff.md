@@ -29,3 +29,18 @@ Notifications poll every ten seconds; an open conversation polls every fifteen s
 Run the standard migration image/command with the admin database role before starting the updated Platform API, Agent API and Web/gateway release. New additive migration: `024_housing_contact_handoff.sql`. The existing migration runner grants the application role SELECT and the required INSERT/UPDATE access to the new tables. Platform health reports `migration_required` until the payment-report table exists.
 
 No new secrets, services, environment variables or hardcoded test-mode values are introduced. Preserve the existing PostGIS and Web/Agent volumes. Back up the existing database and SQLite state before release using the repository's existing backup process. Admin provisioning and Vietmap/Coolify configuration remain documented in issues #140 and #159.
+
+## Validation against main
+
+Base: `c82dcfb7d2441a1d0b7398ca0297fbf81f128b18` (includes merged PRs #146, #154, #156, #157 and #158). The shared App imports were reconciled with PR #146; its design and active-chat changes are retained.
+
+- Full Python: 1,053 passed, 103 skipped, 136 subtests passed.
+- Disposable PostGIS: 65 Housing Query tests, 64 Platform tests and 7 Location MCP tests passed. Housing management API writes use the application role, with a separate admin connection only for fixtures/cleanup.
+- Frontend contracts: 45 passed.
+- Housing/viewing browser suites: 50 desktop/mobile cases passed; final changed workflows were rerun successfully, including sending messages at 320×568.
+- The broader `app.spec.ts` suite has 34 failing cases. All 34 reproduce on the unmodified base main with the same test names; both branches pass its other 86 cases. Those failures cover existing welcome layouts and housing/flight/moving workspace expectations. This change does not claim that the entire app browser suite is green.
+- Local PostGIS and SQLite/key backups were taken before migration 024. The migration ran twice successfully, and existing housing rows were compared before/after with no changes. Runtime checks returned HTTP 200 for all eight local services. Admin login/queue returned 200; moderation from the ordinary workspace returned 403.
+
+An existing managed contact keeps its confirmation requirement when a listing becomes hidden. Its transfer report can still reach the landlord through private contact history. Public visibility changes do not rewrite or erase that history.
+
+The user requested local testing before opening a PR. No PR, remote push, main merge or cloud deployment is part of this local handoff.

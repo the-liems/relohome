@@ -936,13 +936,16 @@ def create_app(database=None, transport=None):
                 payment.get("report_key") or item.get("transaction_id")
             ):
                 continue
-            try:
-                detail = await upstream("GET", f"/housing/{item['listing_id']}", owner, platform=True)
-            except HTTPException:
-                item["payment_sync"] = "failed"
-                continue
-            if not isinstance(detail, dict) or not detail.get("management"):
-                continue
+            # An existing confirmed contact remains valid if its listing is hidden or rented.
+            # Public detail is only needed to identify homes without a known managed contact.
+            if not (item.get("landlord") or {}).get("request_id"):
+                try:
+                    detail = await upstream("GET", f"/housing/{item['listing_id']}", owner, platform=True)
+                except HTTPException:
+                    item["payment_sync"] = "failed"
+                    continue
+                if not isinstance(detail, dict) or not detail.get("management"):
+                    continue
             payload = {
                 "report_key": payment.get("report_key") or item.get("transaction_id"),
                 "amount_vnd": payment["amount_vnd"],
@@ -1011,7 +1014,7 @@ def create_app(database=None, transport=None):
             )
             if chosen:
                 report = chosen.get("payment_report") or {}
-                key = (chosen.get("reported_payment") or {}).get("report_key")
+                key = (chosen.get("reported_payment") or {}).get("report_key") or chosen.get("transaction_id")
                 if report.get("status") in {"pending", "confirmed"}:
                     payment = chosen.get("reported_payment") or {}
                     if (
@@ -1042,11 +1045,9 @@ def create_app(database=None, transport=None):
         try:
             detail = await upstream("GET", f"/housing/{listing_id}", owner, platform=True)
         except HTTPException as exc:
-            if exc.status_code == 404:
-                return  # Not a published listing; the Agent API answers for it.
-            raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
-        if not (isinstance(detail, dict) and detail.get("management")):
-            return
+            if exc.status_code != 404:
+                raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
+            detail = None  # Hidden managed homes still have private contact history.
         view = await landlord_viewings(
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
@@ -1056,6 +1057,12 @@ def create_app(database=None, transport=None):
             else None
         )
         landlord = (item.get("landlord") or {}) if item else {}
+        if not landlord and detail is None:
+            raise HTTPException(409, "Chưa có lịch được chủ nhà xác nhận cho tin này.")
+        if not landlord and not (isinstance(detail, dict) and detail.get("management")):
+            if isinstance(view, dict) and view.get("landlord_unavailable"):
+                raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.")
+            return
         if landlord.get("viewing_status") != "confirmed" or landlord.get("request_status") not in OPEN_CONTACT:
             raise HTTPException(409, "Chủ nhà chưa xác nhận giờ xem này; ghi kết quả sau khi chủ nhà xác nhận.")
 

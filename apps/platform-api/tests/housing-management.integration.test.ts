@@ -130,7 +130,11 @@ beforeAll(async () => {
   process.env.AGENT_API_TOKEN = TOKEN
   process.env.HOUSING_MODERATOR_IDS = MODERATOR
   const config = getRuntimeConfig()
-  pool = createDatabasePool(config.databaseUrl, 2)
+  // Exercise API writes with the deployed application role, not the admin role.
+  const applicationUrl = new URL(config.databaseUrl)
+  applicationUrl.username = config.postgresAppUser
+  applicationUrl.password = config.postgresAppPassword
+  pool = createDatabasePool(applicationUrl.toString(), 2)
   admin = createDatabasePool(config.adminDatabaseUrl, 1)
   app = buildApp(pool, config)
   await app.ready()
@@ -929,6 +933,7 @@ it('handoff: proposed times, distinct senders, payment review, visibility and pe
   expect((await call(tenant,'POST',path+'/viewing-options',proposal)).status).toBe(403)
   expect([403,404]).toContain((await call(OTHER,'POST',path+'/viewing-options',proposal)).status)
   expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[new Date(Date.now()+8*86400000).toISOString()]})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[slot]})).status).toBe(422)
   expect((await call(owner,'POST',path+'/viewing-options',proposal)).status).toBe(200)
   expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
   expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot:later})).status).toBe(200)

@@ -50,6 +50,8 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       await client.query('SELECT id FROM housing.contact_requests WHERE id=$1 FOR UPDATE', [id])
       const contact = await conversationRole(client, user, id)
       if (contact.role !== 'landlord') throw new ManagementError(403, 'Chỉ chủ nhà quản lý được đề xuất giờ.')
+      if (contact.viewing_slot && dates.some(value => new Date(value).getTime() === new Date(contact.viewing_slot as string).getTime()))
+        throw new ManagementError(422, 'Chọn giờ thay thế khác với giờ bạn vừa từ chối.')
       const pending = await client.query(
         "SELECT 1 FROM housing.rent_payment_reports WHERE request_id=$1 AND status IN ('pending','confirmed')",
         [id],

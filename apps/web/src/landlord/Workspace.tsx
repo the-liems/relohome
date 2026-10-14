@@ -1677,7 +1677,7 @@ function InboxPanel({
     setError("");
     try {
       const page = await api<Data>("/landlord/viewing-options");
-      setSlots(page.slots || []);
+      setSlots((page.slots || []).filter((slot: string) => Date.parse(slot) !== Date.parse(item.viewing_slot || "")));
       setChosen([]);
       setProposal(item);
     } catch (cause) {

@@ -226,3 +226,16 @@
 .ll-proposal-days input {
   width: auto;
 }
+
+/* Keep the composer reachable on short mobile screens. */
+.contact-messenger-panel {
+  display: flex;
+  flex-direction: column;
+}
+.contact-messenger-panel > header {
+  flex-shrink: 0;
+}
+.contact-messenger .contact-thread {
+  min-height: 0;
+  overflow: auto;
+}

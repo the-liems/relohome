@@ -36,6 +36,7 @@ test.beforeEach(async ({ page }) => {
     {
       id: "m0",
       sender_role: "tenant",
+      sender_user_id: "tenant-2",
       body: "Chiều mai em qua được không ạ?",
       created_at: "2026-10-09T09:00:00Z",
     },
@@ -296,6 +297,7 @@ test.beforeEach(async ({ page }) => {
         messages.push({
           id: `m${messages.length}`,
           sender_role: "landlord",
+          sender_user_id: "owner",
           body: body.body,
           created_at: "2026-10-09T09:05:00Z",
         });
@@ -304,9 +306,11 @@ test.beforeEach(async ({ page }) => {
       return route.fulfill({
         json: {
           role: "landlord",
+          viewer_id: "owner",
           request: {
             id: "99999999-9999-4999-8999-999999999999",
             title: "Phòng sáng thoáng",
+            tenant_user_id: "tenant-2",
             status: "new",
             message: "Người thuê đặt lịch xem nhà qua ReloHome.",
             created_at: "2026-10-09T08:00:00Z",
@@ -651,6 +655,7 @@ test("a viewing time booked by a tenant can be confirmed from the landlord inbox
 });
 
 test("landlord and tenant exchange messages on a request", async ({ page }) => {
+  await page.setViewportSize({width:320,height:568});
   await page.goto("/landlord");
   await page
     .locator(".ll-nav")

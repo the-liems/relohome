@@ -282,7 +282,8 @@ async def test_rebooking_same_time_resends_cancelled_or_closed_requests(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("test_anytime", [False, True])
-async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, monkeypatch, test_anytime):
+@pytest.mark.parametrize("hidden", [False, True])
+async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, monkeypatch, test_anytime, hidden):
     monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
     monkeypatch.setenv("HOUSING_VIEWING_TEST_VISIT_ANYTIME", "true" if test_anytime else "false")
     managed, crawled = "aaaaaaaa-1111-4111-8111-111111111111", "bbbbbbbb-1111-4111-8111-111111111111"
@@ -314,6 +315,8 @@ async def test_visit_needs_landlord_confirmation_for_managed_homes(tmp_path, mon
         if path.endswith("/housing/contact-requests/me"):
             return httpx.Response(200, json={"items": [row]})
         if path == f"/v1/housing/{managed}":
+            if hidden:
+                return httpx.Response(404, json={"message": "Not public"})
             return httpx.Response(200, json={"listing_id": managed, "management": {"accepts_contact_requests": True}})
         if path == f"/v1/housing/{crawled}":
             return httpx.Response(200, json={"listing_id": crawled, "management": None})
@@ -880,7 +883,8 @@ async def test_owner_proposals_limit_calendar_and_block_non_proposed_slot_before
 
 
 @pytest.mark.asyncio
-async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overwritten(tmp_path, monkeypatch):
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overwritten(tmp_path, monkeypatch, legacy):
     monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
     slot = "2026-10-14T09:00:00+07:00"
     item = {
@@ -897,13 +901,15 @@ async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overw
         "viewing_status": "confirmed",
         "viewing_slot": slot,
     }
-    state, writes = {"fail": True}, []
+    state, writes = {"fail": True, "hidden": False}, []
 
     def provider(request):
         path = request.url.path
         if path.endswith("/housing/contact-requests/me"):
             return httpx.Response(200, json={"items": [row]})
         if path == f"/v1/housing/{LISTING}":
+            if state["hidden"]:
+                return httpx.Response(404, json={"message": "Not public"})
             return httpx.Response(200, json={"management": {"accepts_contact_requests": True}})
         if path.endswith("/payment-reports"):
             writes.append(json.loads(request.content))
@@ -938,7 +944,10 @@ async def test_reported_money_sync_retries_and_confirmed_reports_cannot_be_overw
         body = {"request_id": "report-key-one", "amount_vnd": 10, "paid_on": "2026-10-13"}
         first = await client.post(path + "/paid", json=body)
         assert first.status_code == 200 and first.json()["items"][0]["payment_sync"] == "failed"
-        state["fail"] = False
+        state["fail"], state["hidden"] = False, True
+        if legacy:
+            item["reported_payment"].pop("report_key")
+            item["transaction_id"] = body["request_id"]
         retried = await client.post(path + "/payment-retry", json={})
         assert retried.json()["items"][0]["payment_report"]["status"] == "pending"
         assert writes[0] == writes[1] and writes[1]["agreement"]["first_month_vnd"] == 5
