@@ -124,6 +124,38 @@ remove `opentelemetry-instrument` from the Python command, or remove Node's
 
 ### 4. Check
 
+Application Compose explicitly sets `OTEL_LOGS_EXPORTER=otlp` and enables the
+official Python logging instrumentor. Set `OTEL_LOGS_EXPORTER=none` to disable
+only log export, then redeploy the app. Python logger levels still determine
+which records are emitted; Node exports Pino records, not arbitrary console output.
+This pipeline does not scrape Docker stdout from other containers.
+
+From a host with access to the Collector and Loki (or SSH tunnels), run:
+
+```sh
+python3 scripts/check-loki-export.py \
+  --collector http://otel-collector:4318 --loki http://loki:3100 \
+  --environment staging
+```
+
+The check sends one synthetic log with a unique trace ID through the Collector and queries Loki
+until it can read that exact log under the expected environment label. Collector
+acceptance alone is not success. The Collector must stamp the environment;
+the probe deliberately does not supply it. It verifies the trace ID even if the
+Collector sanitizes the log body. For older deployments, pass
+`--environment-label environment` explicitly. Use `production` for that Collector.
+Keep these endpoints internal; use existing Docker-network access or SSH tunnels.
+In Grafana Explore, select Loki and query
+`{service_name="logging-smoke",deployment_environment_name="staging"}`.
+Then check real service logs with `{service_name="backend"}` or
+`{service_name="web"}` and the same environment filter.
+
+If logs queue without reaching Loki, check `loki_ingester_wal_disk_usage_percent`
+and the host filesystem. Loki throttles WAL writes at 90% filesystem usage by
+default. Free approved unused storage or expand the disk, then verify the
+Collector log queue drains and rerun this check. Readiness alone does not prove
+that Loki accepts writes. See [Loki WAL documentation](https://grafana.com/docs/loki/latest/operations/storage/wal/).
+
 - HTTP requests appear in Langfuse with connected outbound HTTP and supported
   database spans, with the right environment.
 - The Grafana dashboard fills in for the chosen environment, and a log line's

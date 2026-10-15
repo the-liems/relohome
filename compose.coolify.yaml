@@ -1,4 +1,4 @@
-# Export is disabled until the independent Collector and shared stack are ready.
+# Instrumented entrypoints export to the separately deployed Collector.
 x-telemetry: &telemetry-env
   # Privacy policy sees APP_ENV on every service, not only the Agent backend.
   APP_ENV: ${APP_ENV:-staging}
@@ -6,6 +6,8 @@ x-telemetry: &telemetry-env
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
+  OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION: "true"
   OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
 
