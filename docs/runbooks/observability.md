@@ -4,8 +4,10 @@ ReloHome exports OpenTelemetry from its services to one Collector per environmen
 ([#106](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/106)). A shared
 platform stores traces in Langfuse, logs in Loki and metrics in Cortex, and
 Grafana shows dashboards and alerts. Staging and production share every store:
-each Collector stamps `environment=staging|production` on all data, and Langfuse,
-Grafana and the alerts filter or group by that label.
+each Collector stamps `deployment.environment.name=staging|production` on all data.
+Cortex and Loki expose it as `deployment_environment_name`; Grafana dashboards
+and alerts filter or group by that label. Langfuse accepts the standard resource
+attribute directly.
 
 ```mermaid
 flowchart LR
@@ -183,18 +185,19 @@ have the former custom cross-process trace links.
 ### Handled HTTP failures
 
 Automatic instrumentation records HTTP status and uncaught dependency exceptions.
-For handled configuration failures, application handlers add `app.error.code`
-to the active span and write a normal Python error log. There are no custom
-exception or response classes. The SDK records the final HTTP error status and
-correlates the log.
+For handled configuration failures, application handlers write the application
+error code in a normal Python error log. The official HTTP instrumentation sets
+`http.response.status_code`, `error.type` (the status code string for these 5xx
+responses), and the span error status. The SDK correlates logs with the span.
+There is no custom error span attribute. Successful requests omit `error.type`.
 
 Gateway/backend codes include `missing_agent_api_token`,
 `agent_runtime_not_started` and `upstream_invalid_json`. Standalone services use
 their existing `ServiceError.code`, such as `NOT_CONFIGURED`.
 
 For `/web/api/status`, find the gateway request by service, route and timestamp,
-or open its trace from a correlated log. Inspect `app.error.code` and follow any
-outbound HTTP span. A missing token stops before an outbound request; a connection
+or open its trace from a correlated log. Inspect `error.type`, read the correlated
+error log for the application-specific cause, and follow any outbound HTTP span. A missing token stops before an outbound request; a connection
 failure has an automatic HTTPX exception span beneath the gateway's 502.
 
 ### Dashboards and deployment
@@ -212,3 +215,26 @@ References: [Python zero-code instrumentation](https://opentelemetry.io/docs/zer
 [FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
 [SQLite](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html),
 [Fastify](https://github.com/fastify/otel).
+
+### Attribute conventions and rollout
+
+Service identity belongs on the resource: `service.name`, `service.namespace`,
+`service.version`, and `deployment.environment.name`. Request attributes come
+from the official instrumentors, including standard `error.type` for failures.
+Application-specific handled error codes stay in correlated log messages.
+Do not add custom error span attributes, an `environment` alias, or
+a `langfuse.environment` attribute in application code or Collector configuration.
+Langfuse may expose vendor-specific metadata after ingestion.
+
+Deploy Cortex/Loki resource promotion settings, Collector configuration, and
+Grafana provisioning together when moving from `environment` to
+`deployment_environment_name`. Redeploy application images to remove custom error span attributes. Historical data retains the old keys; the updated queries select new
+data only. Use the old label explicitly when investigating pre-rollout data.
+The Collector availability alert uses a 24-hour lookback, so old series are
+excluded from its grouping after this migration.
+
+Known upstream behavior: Python ASGI instrumentation 0.66b1 constructs
+`server.address` with the port appended while also emitting `server.port`.
+This comes from the instrumentor's `get_host_port_url_tuple`, not application
+attributes. Keep this as an upstream instrumentation issue rather than patching
+request scopes or vendoring the SDK for an attribute naming cleanup.

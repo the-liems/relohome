@@ -56,7 +56,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{environment=\"$environment\"}[5m]))",
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\"}[5m]))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -89,7 +89,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{environment=\"$environment\",http_response_status_code=~\"5..\"}[5m]))",
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\",http_response_status_code=~\"5..\"}[5m]))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -122,7 +122,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95,sum by (le,service_name) (rate(http_server_request_duration_seconds_bucket{environment=\"$environment\"}[5m])))",
+          "expr": "histogram_quantile(0.95,sum by (le,service_name) (rate(http_server_request_duration_seconds_bucket{deployment_environment_name=\"$environment\"}[5m])))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -155,7 +155,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "otelcol_exporter_queue_size{environment=\"$environment\"}",
+          "expr": "otelcol_exporter_queue_size{deployment_environment_name=\"$environment\"}",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -188,7 +188,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "otelcol_process_memory_rss{environment=\"$environment\"}",
+          "expr": "otelcol_process_memory_rss{deployment_environment_name=\"$environment\"}",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -221,7 +221,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{environment=\"$environment\"}",
+          "expr": "{deployment_environment_name=\"$environment\"}",
           "queryType": "range"
         }
       ],

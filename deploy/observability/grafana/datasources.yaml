@@ -1,5 +1,5 @@
 apiVersion: 1
-# One store each; dashboards and alerts filter by the environment label.
+# One store each; dashboards and alerts filter by the deployment_environment_name label.
 datasources:
 - name: Cortex
   uid: cortex

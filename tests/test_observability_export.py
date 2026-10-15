@@ -89,7 +89,7 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
             standalone = next(span for span in spans
                               if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"]
                               and span["kind"] == "SPAN_KIND_SERVER")
-            assert any(item["key"] == "app.error.code" and item["value"]["stringValue"] == "NOT_CONFIGURED"
+            assert any(item["key"] == "error.type" and item["value"]["stringValue"] == "503"
                        for item in standalone["attributes"])
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
                         for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
@@ -167,12 +167,15 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
                            for span in matching if span["kind"] == "SPAN_KIND_CLIENT")
             span = servers[0]
             assert span["status"]["code"] == "STATUS_CODE_ERROR"
-            assert attributes(span)["app.error.code"] == reason
+            assert attributes(span)["error.type"] == str(cases[name]["status"])
+            assert "app.error.code" not in attributes(span)
+            assert "relohome.error.code" not in attributes(span)
             assert attributes(span)["http.response.status_code"] == cases[name]["status"]
             correlated = [record for record in logs if trace_id(record) == case_trace
                           and record.get("severityNumber") == "SEVERITY_NUMBER_ERROR"]
             assert len(correlated) == 1
             assert correlated[0]["spanId"] == span["spanId"]
+            assert reason in correlated[0]["body"]["stringValue"]
 
         matching = [span for span in spans if trace_id(span) == cases["connection_error"]["trace_id"]]
         server = next(span for span in matching if span["kind"] == "SPAN_KIND_SERVER")

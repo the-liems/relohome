@@ -7,7 +7,6 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from opentelemetry import trace
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api.checkout import router as checkout_router
 from relohome_agent.api.moving_quotes import router as moving_quote_router
@@ -70,7 +69,6 @@ app = FastAPI(
 @app.exception_handler(HTTPException)
 async def http_error(request, exc):
     if code := getattr(exc, "error_code", None):
-        trace.get_current_span().set_attribute("app.error.code", code)
         logging.getLogger(__name__).error("Request failed: %s", code)
     return await http_exception_handler(request, exc)
 

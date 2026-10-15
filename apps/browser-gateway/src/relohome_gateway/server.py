@@ -25,7 +25,6 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
-from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
@@ -242,7 +241,6 @@ def create_app(database=None, transport=None):
     @app.exception_handler(HTTPException)
     async def http_error(request, exc):
         if code := getattr(exc, "error_code", None):
-            trace.get_current_span().set_attribute("app.error.code", code)
             logging.getLogger(__name__).error("Request failed: %s", code)
         if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
             quota = exc.detail["code"] == "guest_quota"
@@ -834,7 +832,6 @@ def create_app(database=None, transport=None):
             # The payment may exist upstream; the UI checks status instead of paying again.
             content = {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"}
             if isinstance(exc, ValueError):
-                trace.get_current_span().set_attribute("app.error.code", "upstream_invalid_json")
                 logging.getLogger(__name__).error("Upstream response is not valid JSON")
                 return JSONResponse(content, status_code=502)
             return JSONResponse(content, status_code=502)
