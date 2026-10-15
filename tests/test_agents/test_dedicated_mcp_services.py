@@ -18,13 +18,13 @@ from tests.mcp_http import running_mcp
 async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, monkeypatch):
     server = create_server(build_services(PaymentSettings(
         _env_file=None, provider="mock", db_path=str(tmp_path / "payment.db")
-    )), token="service-token-01234567890123456789")
+    )))
 
     async def forbidden_spawn(*args, **kwargs):
         raise AssertionError("Application attempted to launch a provider process")
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", forbidden_spawn)
-    async with running_mcp(server) as url:
+    async with running_mcp(server, token="service-token-01234567890123456789") as url:
         async with httpx.AsyncClient() as http:
             assert (await http.post(url)).status_code == 401
             assert (await http.post(url, headers={"Authorization": "Bearer wrong"})).status_code == 401

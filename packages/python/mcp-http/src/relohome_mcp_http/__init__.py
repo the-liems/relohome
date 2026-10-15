@@ -1,11 +1,15 @@
-"""Internal MCP bearer authentication; matches @relohome/mcp-core's contract."""
+"""SDK authentication for internal MCP services with pre-shared bearer tokens."""
 
 import re
 import secrets
 from functools import wraps
 
 from mcp.server import MCPServer
+from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
+from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.mcpserver.exceptions import ToolError
+from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.responses import JSONResponse
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -17,54 +21,45 @@ def require_service_token(token: str, name: str = "MCP_AUTH_TOKEN") -> str:
     return token
 
 
-def valid_bearer_token(header: str | None, expected: str) -> bool:
-    if not header or not re.fullmatch(r"(?i:Bearer) [A-Za-z0-9._~+/-]+=*", header):
-        return False
-    return secrets.compare_digest(header[7:].encode("ascii"), expected.encode("ascii"))
+class ServiceTokenVerifier(TokenVerifier):
+    def __init__(self, token: str):
+        self._token = require_service_token(token).encode("ascii")
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not secrets.compare_digest(token.encode("utf-8"), self._token):
+            return None
+        return AccessToken(token=token, client_id="internal-service", scopes=[])
 
 
-def auth_error(code: str, status: int) -> JSONResponse:
-    headers = {"Cache-Control": "no-store"}
-    if status == 401:
-        headers["WWW-Authenticate"] = "Bearer"
-    return JSONResponse({"status": "error", "code": code}, status_code=status, headers=headers)
+class InternalRequestGuard:
+    """Keep browser and ambiguous-header restrictions outside authentication."""
 
-
-class ServiceTokenMiddleware:
-    def __init__(self, app, token: str):
-        self.app, self.token = app, require_service_token(token)
+    def __init__(self, app):
+        self.app = app
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope["path"].startswith("/mcp"):
             headers = scope.get("headers", [])
             if any(key == b"origin" for key, _ in headers):
-                await auth_error("ORIGIN_NOT_ALLOWED", 403)(scope, receive, send)
+                await JSONResponse({"error": "origin_not_allowed"}, status_code=403)(scope, receive, send)
                 return
-            credentials = [value.decode("latin-1") for key, value in headers if key == b"authorization"]
-            if len(credentials) != 1 or not valid_bearer_token(credentials[0], self.token):
-                await auth_error("UNAUTHORIZED", 401)(scope, receive, send)
+            if sum(key == b"authorization" for key, _ in headers) > 1:
+                await JSONResponse({"error": "invalid_request"}, status_code=400)(scope, receive, send)
                 return
         await self.app(scope, receive, send)
 
 
-class HttpServiceMCP(MCPServer):
-    def __init__(self, *args, service_token: str = "", host: str = "127.0.0.1", port: int = 8000, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.service_token = service_token
-        self.host, self.port = host, port
-
-    def run(self, transport="stdio", **kwargs):
-        if transport != "stdio":
-            kwargs.setdefault("host", self.host)
-            kwargs.setdefault("port", self.port)
-        super().run(transport=transport, **kwargs)
-
-    def streamable_http_app(self, **kwargs):
-        require_service_token(self.service_token)
-        kwargs.setdefault("host", self.host)
-        app = super().streamable_http_app(**kwargs)
-        app.add_middleware(ServiceTokenMiddleware, token=self.service_token)
-        return app
+def create_http_app(server: MCPServer, token: str, *, host: str = "127.0.0.1"):
+    """Use SDK bearer auth without advertising an OAuth issuer for static tokens."""
+    verifier = ServiceTokenVerifier(token)
+    app = server.streamable_http_app(host=host)
+    for route in app.routes:
+        if route.path.startswith("/mcp"):
+            route.app = RequireAuthMiddleware(route.app, required_scopes=[])
+    app.add_middleware(AuthContextMiddleware)
+    app.add_middleware(AuthenticationMiddleware, backend=BearerAuthBackend(verifier))
+    app.add_middleware(InternalRequestGuard)
+    return app
 
 
 def tool_errors(fn, error_type):

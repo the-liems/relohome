@@ -1,6 +1,6 @@
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
-from relohome_mcp_http import HttpServiceMCP, tool_errors
+from relohome_mcp_http import tool_errors
 from relohome_payment.errors import PaymentError
 from relohome_payments_mcp.tools import PaymentServices, PaymentTools, build_services
 from starlette.requests import Request
@@ -24,11 +24,11 @@ CREATE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempoten
 COMMIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=True)
 
 
-def create_server(services: PaymentServices | None = None, host: str = "127.0.0.1", port: int = 8766, *, token: str = "") -> MCPServer:
-    """Tạo MCP server; truyền `services` để test với cổng/DB riêng. `host` truyền lúc khởi tạo (xem ADR-014)."""
+def create_server(services: PaymentServices | None = None) -> MCPServer:
+    """Tạo MCP server; truyền `services` để test với cổng/DB riêng."""
     services = services or build_services()
     tools = PaymentTools(services)
-    mcp = HttpServiceMCP(SERVER_NAME, instructions=INSTRUCTIONS, host=host, port=port, service_token=token)
+    mcp = MCPServer(SERVER_NAME, instructions=INSTRUCTIONS)
 
     mcp.add_tool(tool_errors(tools.create_payment, PaymentError), title="Tạo thanh toán", annotations=CREATE)
     mcp.add_tool(tool_errors(tools.get_payment, PaymentError), title="Trạng thái thanh toán", annotations=READ_ONLY)

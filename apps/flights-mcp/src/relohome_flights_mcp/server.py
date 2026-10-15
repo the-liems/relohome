@@ -3,7 +3,7 @@ from mcp.types import ToolAnnotations
 from relohome_flight.errors import FlightError
 from relohome_flight.settings import FlightSettings, get_flight_settings
 from relohome_flights_mcp.tools import FlightServices, FlightTools, build_services
-from relohome_mcp_http import HttpServiceMCP, tool_errors
+from relohome_mcp_http import tool_errors
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -29,8 +29,6 @@ COMMIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent
 
 def create_server(
     services: FlightServices | None = None,
-    host: str = "127.0.0.1",
-    port: int = 8765,
     *,
     settings: FlightSettings | None = None,
 ) -> MCPServer:
@@ -39,9 +37,6 @@ def create_server(
     Truyền `settings` để chọn chế độ rõ ràng; nếu không thì đọc FLIGHT_* từ môi trường.
     Chỉ bật tool/resource/prompt booking khi simulation_enabled=True.
 
-    `host` phải truyền ngay lúc khởi tạo: MCPServer chỉ bật chống DNS rebinding (chỉ nhận
-    Host localhost) khi host là loopback. Trong container dùng `0.0.0.0` để service khác
-    trong mạng Docker gọi được qua tên service.
     """
     settings = settings or get_flight_settings()
     services = services or build_services(settings)
@@ -52,7 +47,7 @@ def create_server(
         if simulation
         else "Search real flights and inspect offers only. Booking, ticketing, cancellation and payment are unavailable."
     )
-    mcp = HttpServiceMCP(SERVER_NAME, instructions=instructions, host=host, port=port, service_token=settings.mcp_auth_token)
+    mcp = MCPServer(SERVER_NAME, instructions=instructions)
 
     mcp.add_tool(tool_errors(tools.search_airports, FlightError), title="Tra mã sân bay", annotations=READ_ONLY)
     mcp.add_tool(tool_errors(tools.search_flights, FlightError), title="Tìm chuyến bay", annotations=SEARCH)

@@ -97,3 +97,8 @@ This supersedes the adapter and `mcp<2` constraints above. Flight and payment
 bridges pass a single-server HTTP transport to the adapter to preserve unprefixed tool names and
 bearer headers. Server prompts and resources remain available through the MCP SDK.
 LangChain 1.4.5 preserves compatibility with the existing LangGraph 1.2.11 pin.
+
+Python HTTP authentication uses the SDK's bearer backend and auth middleware
+with a pre-shared-token verifier. Servers use `MCPServer` directly; there is no
+`HttpServiceMCP` subclass. The entrypoints pass host/port to the HTTP app and
+Uvicorn, and stdio remains independent of HTTP authentication.
