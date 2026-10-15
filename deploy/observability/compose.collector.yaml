@@ -12,8 +12,6 @@ services:
     command: [--config=/etc/otelcol/config.yaml]
     environment:
       OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:?}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?}
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
       - queue:/var/lib/otelcol

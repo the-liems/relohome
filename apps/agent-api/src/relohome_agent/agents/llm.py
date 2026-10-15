@@ -11,7 +11,8 @@ import logging
 from contextvars import ContextVar
 from typing import Literal, TypeVar
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
+from langfuse.openai import AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
 from relohome_agent.agents.common import canonical
 from relohome_agent.agents.llm_provider import client_options, provider_model

@@ -15,7 +15,8 @@ from time import perf_counter
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-from openai import APIError, AsyncOpenAI
+from langfuse.openai import AsyncOpenAI
+from openai import APIError
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.contracts import (
     AgentManifest,

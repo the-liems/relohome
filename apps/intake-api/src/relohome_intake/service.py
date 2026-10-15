@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TypedDict
 from unicodedata import normalize as unicode_normalize
 
+from langfuse import propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from relohome_agent_services.common import ServiceError
 from relohome_agent_services.intake_models import IntakeRequest, IntakeResult, Understanding
@@ -126,5 +127,6 @@ class IntakeService:
         return {"result": normalize(state["request"], state["understanding"], self.llm.model)}
 
     async def understand(self, request: IntakeRequest) -> IntakeResult:
-        result = await self.graph.ainvoke({"request": request}, config={"recursion_limit": 6})
+        with propagate_attributes(session_id=request.session_id):
+            result = await self.graph.ainvoke({"request": request}, config={"recursion_limit": 6})
         return result["result"]

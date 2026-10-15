@@ -8,7 +8,8 @@ from datetime import timedelta
 from time import perf_counter
 
 from jsonschema import Draft202012Validator
-from openai import APIError, AsyncOpenAI
+from langfuse.openai import AsyncOpenAI
+from openai import APIError
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.contracts import AgentTaskRequest, AgentTaskResult, failed_result, reject_unsupported
 from relohome_agent.agents.llm import LLMError

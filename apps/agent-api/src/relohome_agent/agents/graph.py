@@ -43,6 +43,7 @@ from relohome_agent.agents.routing import (
 from relohome_agent.agents.state import AgentInput, WorkflowState
 from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
+from relohome_agent.agents.telemetry import graph_callbacks
 from relohome_agent.guest_access import READ_AGENTS, is_guest
 
 LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
@@ -172,4 +173,10 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
 
 
 def run_config(thread_id: str, deps: GraphDeps) -> dict:
-    return {"configurable": {"thread_id": thread_id}, "recursion_limit": deps.settings.recursion_limit}
+    return {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": deps.settings.recursion_limit,
+        "callbacks": graph_callbacks(),
+        "run_name": "relohome-agent",
+        "metadata": {"langfuse_session_id": thread_id},
+    }

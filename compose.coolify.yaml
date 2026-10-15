@@ -146,6 +146,12 @@ services:
     image: ghcr.io/ai20k-build-phase-cohort-4/p-044/backend:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: backend
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:?Set the self-hosted Langfuse HTTPS URL}
+      LANGFUSE_TRACING_ENABLED: ${LANGFUSE_TRACING_ENABLED:-false}
+      LANGFUSE_TRACING_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      LANGFUSE_MEDIA_UPLOAD_ENABLED: "false"
       <<: *telemetry-env
       # Team test phase: "staging" allows the tester payment control below. Set
       # "production" (and remove the tester variables) before outside users try it.

@@ -206,7 +206,7 @@
     },
     {
       "id": 20,
-      "title": "Operational logs \u2014 click trace_id to open Langfuse",
+      "title": "Operational logs \u2014 trace_id links to Tempo and Langfuse",
       "type": "logs",
       "datasource": {
         "type": "loki",

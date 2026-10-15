@@ -2,23 +2,26 @@
 
 ReloHome exports OpenTelemetry from its services to one Collector per environment
 ([#106](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/106)). A shared
-platform stores traces in Langfuse, logs in Loki and metrics in Cortex, and
+platform stores agent/LLM traces in Langfuse, complete traces in Tempo,
+logs in Loki and metrics in Cortex, and
 Grafana shows dashboards and alerts. Staging and production share every store:
-each Collector stamps `deployment.environment.name=staging|production` on all data.
+each Collector stamps `deployment.environment.name=staging|production` on its data.
 Cortex and Loki expose it as `deployment_environment_name`; Grafana dashboards
-and alerts filter or group by that label. Langfuse accepts the standard resource
-attribute directly.
+and alerts filter or group by that label. The agent SDK sets the Langfuse
+tracing environment directly from `OTEL_DEPLOYMENT_ENVIRONMENT`.
 
 ```mermaid
 flowchart LR
     S[Staging apps] --> SC[Staging Collector]
     P[Production apps] --> PC[Production Collector]
-    SC & PC --> LF[Langfuse: traces]
+    S & P --> LF[Langfuse: agent and LLM spans]
+    SC & PC --> T[Tempo: all spans]
     SC & PC --> L[Loki: logs]
     SC & PC --> M[Cortex: metrics]
-    L & M --> S3[(S3 buckets)]
+    L & M & T --> S3[(S3 buckets)]
     G[Grafana] --> L
     G --> M
+    G --> T
     G -->|read-only SQL| CH[ClickHouse: Langfuse tables]
     G -->|trace links| LF
 ```
@@ -27,19 +30,19 @@ Configuration lives in `deploy/observability/`:
 
 | File | Purpose |
 | --- | --- |
-| `compose.yaml` | Shared platform: Langfuse (web, worker, Postgres, ClickHouse, Redis), Loki, Cortex, Grafana |
+| `compose.yaml` | Shared platform: Langfuse (web, worker, Postgres, ClickHouse, Redis), Tempo, Loki, Cortex, Grafana |
 | `compose.collector.yaml`, `collector.yaml` | One Collector per environment |
-| `loki.yaml`, `cortex.yaml` | Log and metric storage on S3 |
+| `loki.yaml`, `cortex.yaml`, `tempo.yaml` | Log, metric and trace storage on S3 |
 | `grafana/datasources.yaml`, `dashboards.yaml`, `overview.json`, `alerts.yaml` | Grafana data sources, the **ReloHome operations** dashboard and alert rules |
 | `.env.example` | Every variable both resources need |
 
 ## Before you start
 
-- **One server** with about 12.4 GiB of free memory for the platform plus 512 MiB
-  per Collector, and disk for the Langfuse databases and the Loki/Cortex caches.
+- **One server** with about 14.4 GiB of free memory for the platform plus 512 MiB
+  per Collector, and disk for the Langfuse databases and the Loki/Cortex caches and Tempo WAL.
   The apps, Collectors and platform must run on the same Docker host: the
   Collectors reach the platform over a Docker network.
-- **Three private S3 buckets** for Langfuse events, Loki and Cortex, each with a
+- **Four private S3 buckets** for Langfuse events, Loki, Cortex and Tempo, each with a
   key that can list, get, put and delete.
 - **Two HTTPS domains**, one for Grafana and one for Langfuse.
 
@@ -66,8 +69,8 @@ Set the variables listed in `.env.example`:
   Langfuse creates the `relohome` project with this key pair at first start.
 - `LANGFUSE_URL` and `GRAFANA_URL`: the two HTTPS domains. Point them at the
   `langfuse` and `grafana` services on port 3000.
-- Buckets: `LANGFUSE_S3_EVENT_UPLOAD_*` (endpoint with `https://`), `LOKI_S3_*` and
-  `CORTEX_S3_*` (endpoints as `host[:port]`, without a scheme).
+- Buckets: `LANGFUSE_S3_EVENT_UPLOAD_*` (endpoint with `https://`), `LOKI_S3_*`,
+  `CORTEX_S3_*` and `TEMPO_S3_*` (endpoints as `host[:port]`, without a scheme).
 
 Deploy. Grafana should show the **ReloHome operations** dashboard and the
 **ReloHome** alert rules, and Langfuse the `relohome` project. Sign-up is disabled
@@ -104,11 +107,10 @@ compose file **`/compose.collector.yaml`**:
 | --- | --- |
 | `OTEL_DEPLOYMENT_ENVIRONMENT` | `staging` or `production` |
 | `APPLICATION_NETWORK` | That environment's app network (`docker network ls`; Coolify names it after the app's UUID) |
-| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | The same pair as the platform |
 
 Deploy the platform first: it creates the shared `relohome-observability-ingest`
-network that the Collectors join. The Collector's environment is the only thing
-that separates staging from production data, so set it carefully.
+network that the Collectors join. Set the Collector and application environments consistently to separate
+staging from production data.
 
 ### 3. Deploy the instrumented app images
 
@@ -120,7 +122,8 @@ new variables. The app Compose already sends to `http://otel-collector:4318`.
 
 To disable telemetry, rebuild and redeploy an image with the plain entrypoint:
 remove `opentelemetry-instrument` from the Python command, or remove Node's
-`--import @relohome/telemetry/register`. No activation environment variable is used.
+`--import @relohome/telemetry/register`. This controls infrastructure instrumentation. The Langfuse SDK has a separate
+`LANGFUSE_TRACING_ENABLED=false` switch for graph/model observations.
 
 ### 4. Check
 
@@ -156,10 +159,12 @@ default. Free approved unused storage or expand the disk, then verify the
 Collector log queue drains and rerun this check. Readiness alone does not prove
 that Loki accepts writes. See [Loki WAL documentation](https://grafana.com/docs/loki/latest/operations/storage/wal/).
 
-- HTTP requests appear in Langfuse with connected outbound HTTP and supported
-  database spans, with the right environment.
-- The Grafana dashboard fills in for the chosen environment, and a log line's
-  `trace_id` opens that trace in Langfuse.
+- HTTP requests, outbound HTTP and supported database spans appear in Grafana's
+  Tempo datasource with the right environment.
+- Agent runs, graph nodes and model generations appear in Langfuse after enabling
+  its SDK. Open the same trace ID in both tools to correlate the two portions.
+- A Loki log line's `trace_id` links to Tempo and Langfuse. Infrastructure-only
+  requests have no Langfuse counterpart. Tempo's span correlation opens Langfuse.
 - The alerts in Grafana stay Normal.
 
 ## Making changes
@@ -178,8 +183,8 @@ Python services use the official `opentelemetry-distro` and
 `opentelemetry-instrument` launcher. Dependencies are pinned in
 `requirements-observability.txt`. Node services preload
 `@relohome/telemetry/register`, which configures the official NodeSDK and its
-instrumentors. There is no Python observability package, custom distro,
-application tracing wrapper, content mode or custom telemetry processor.
+instrumentors. There is no custom distro or telemetry processor. LangGraph and direct OpenAI
+calls additionally use the official Langfuse integrations described below.
 
 ```sh
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
@@ -209,9 +214,10 @@ no custom SQLite adapter or aiosqlite worker patch.
 
 Instrumentors provide request spans, exception events, stack traces, supported
 SQL statements, metrics and log correlation. The Collector forwards these using
-standard resource and batch processors. Application-specific graph, LLM, MCP,
-session and durable-job tracing wrappers, custom metrics, content filtering and
-payload serialization have been removed. Stdio MCP and background jobs do not
+standard resource and batch processors. The official Langfuse callback captures
+graph runs and nodes; its OpenAI integration captures LLM generations. Former
+custom MCP and durable-job tracing wrappers and custom metrics remain removed.
+Stdio MCP and background jobs do not
 have the former custom cross-process trace links.
 
 ### Handled HTTP failures
@@ -248,6 +254,121 @@ References: [Python zero-code instrumentation](https://opentelemetry.io/docs/zer
 [SQLite](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html),
 [Fastify](https://github.com/fastify/otel).
 
+### LangGraph and model observations
+
+Installations include Langfuse Python SDK 5.0.1. Configure the real Langfuse
+server URL (required by Compose even while tracing is disabled); Compose defaults
+tracing to disabled:
+
+```dotenv
+LANGFUSE_BASE_URL=https://langfuse.example.com
+LANGFUSE_TRACING_ENABLED=false
+LANGFUSE_MEDIA_UPLOAD_ENABLED=false
+```
+
+Set `LANGFUSE_BASE_URL` to your reachable Langfuse HTTPS URL and
+`LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to its project keys, then set `LANGFUSE_TRACING_ENABLED=true` on the backend (and standalone
+intake/orchestrator services when used). Compose starts disabled until those
+keys are configured. The SDK itself defaults to enabled when the flag is absent;
+it disables tracing for an explicit false flag or absent credentials. There is
+no custom SDK initialization. Graph callbacks are omitted when tracing is disabled
+or keys are missing; model calls still work when the SDK disables tracing.
+The OpenAI integration can still log SDK authentication warnings when keys are
+absent. Restart after changing settings; the SDK reuses its client.
+
+The shared `run_config` adds the official `langfuse.langchain.CallbackHandler`,
+a `relohome-agent` run name and the conversation thread ID as Langfuse session ID.
+The handler runs inline so async graph nodes retain the active OTEL context.
+A fresh handler per invocation keeps concurrent requests independent; resumed
+invocations remain grouped by session. Direct moving-form calls and standalone
+intake/planner runs propagate their existing session IDs around execution. Graph inputs/outputs and node state are
+captured, so the Langfuse project now contains conversation content.
+
+Both structured LLM clients and the read/moving tool loops use the official
+`langfuse.openai.AsyncOpenAI` integration. It records Responses
+`parse`/`create` prompts, outputs, model, usage and provider failures. Existing HTTP
+instrumentation continues to record provider request timing and status.
+
+Langfuse uses the existing global TracerProvider (the official Option A setup).
+The official graph and OpenAI integrations obtain the SDK client automatically;
+the SDK attaches its processor to that provider. The global OTLP exporter sends
+every span to the Collector and Tempo. The SDK exporter sends agent/LLM observations directly to Langfuse, using
+its default LLM-focused filter. Because the exporters target different backends,
+each backend receives one copy, with the same trace, span and parent IDs.
+
+The SDK owns credentials, disablement, batching, retries and endpoint selection.
+Compose sets `LANGFUSE_TRACING_ENVIRONMENT` from `OTEL_DEPLOYMENT_ENVIRONMENT`
+because this export bypasses the Collector's environment stamping. Direct
+Langfuse delivery uses the SDK's in-memory batching, not the Collector's
+persistent queue. Normal process exit flushes queued observations.
+`LANGFUSE_BASE_URL` is also the real API URL for prompt management and scores;
+media upload remains disabled. Remove any previous
+`LANGFUSE_OTEL_TRACES_EXPORT_PATH=v1/traces` override: the SDK uses its default
+`api/public/otel/v1/traces` path.
+
+Langfuse calculates estimated USD cost from model/usage and configured model
+prices; provider-reported cost (for example OpenRouter) is captured by the SDK.
+Unknown/custom model IDs need matching prices in Langfuse. Missing usage or prices
+must not be interpreted as a zero-cost call. This is not provider billing reconciliation.
+
+After deployment, run a chat and verify the named graph, node spans, prompts,
+responses, usage and cost in Langfuse. Check two concurrent chats have separate
+traces and session IDs. The automated OTLP fixture covers success/failure,
+structured parse, Responses create, context propagation and duplicate exports;
+it uses a mock provider and does not verify the deployed Langfuse price catalog.
+
+References: [LangGraph cookbook](https://langfuse.com/integrations/frameworks/langgraph),
+[OpenAI integration](https://langfuse.com/integrations/model-providers/openai-py),
+[OTEL interoperability](https://langfuse.com/faq/all/existing-otel-setup).
+
+
+### Split trace routing and Tempo
+
+The Collector forwards every span to Tempo. Langfuse receives observations
+directly from the SDK's processor on the shared global provider. Its default
+export filter includes Langfuse SDK spans, GenAI spans and recognized LLM
+instrumentation scopes. The Collector has no Langfuse exporter or credentials.
+Logs still go to Loki and metrics to Cortex.
+
+Trace IDs, span IDs and parent IDs are not rewritten. Tempo shows the complete
+exported trace, including HTTP/database spans, graph nodes and model generations.
+Langfuse shows only agent/LLM observations, whose infrastructure parents may be
+visible only in Tempo. Each observation is sent once to each backend. Prompts,
+model outputs and other observation attributes are also stored in Tempo; this
+pipeline does not redact its copy. Tempo's default distributor limit truncates
+individual attribute keys/values at 2,048 bytes; its default trace size limit is
+5,000,000 bytes. Use Langfuse for full captured prompts and outputs rather than
+Tempo's truncated attributes. See [Tempo ingestion limits](https://grafana.com/docs/tempo/latest/operations/manage-trace-ingestion/)
+and [attribute limits](https://grafana.com/docs/tempo/latest/configuration/).
+
+Grafana provisions the Tempo datasource, log-to-Tempo links, trace-to-Loki links,
+and an external Tempo-to-Langfuse correlation using the same trace ID. From
+Langfuse, copy its trace ID into Grafana Explore's Tempo trace-ID lookup. Both
+stores must retain and sample the relevant spans for correlation to succeed.
+
+Tempo 3.1.0 runs in monolithic mode on the existing Docker host, using a dedicated
+S3-compatible bucket and a persistent `/var/tempo` volume for local state. It has
+a 2 GiB memory limit and the default 14-day retention. Keep the bucket private;
+Tempo manages retention, so do not apply the Langfuse event lifecycle to it.
+Ports 3200 (queries) and 4318 (OTLP) remain private to Docker networks. Grafana
+provides authenticated user access; do not expose Tempo's unauthenticated APIs.
+Monitor resource usage and reassess sizing as trace volume grows.
+
+Before replacing an existing `otlphttp/langfuse` Collector exporter, pause app
+traffic and drain its persistent queue: restore Langfuse connectivity, wait for
+`otelcol_exporter_queue_size{exporter="otlphttp/langfuse"}` to reach zero, then
+stop the Collector cleanly. Its queued spans are keyed by exporter ID and will
+not replay through `otlphttp/tempo`. If draining is impossible, back up the queue
+volume and explicitly accept the pending-span loss before changing exporters.
+After a successful drain, old exporter storage may be removed while the Collector
+is stopped; preserve Loki/Cortex queue files and never delete the whole volume.
+
+Roll out the shared platform first with the new `TEMPO_S3_*` settings, then
+redeploy each Collector with the Tempo trace pipeline. This order avoids sending
+spans to an unavailable Tempo. Redeploy Grafana provisioning with
+the platform. Historical infrastructure traces remain in Langfuse; they are not
+migrated. New traces follow this routing after the Collector rollout.
+
 ### Attribute conventions and rollout
 
 Service identity belongs on the resource: `service.name`, `service.namespace`,
@@ -256,7 +377,8 @@ from the official instrumentors, including standard `error.type` for failures.
 Application-specific handled error codes stay in correlated log messages.
 Do not add custom error span attributes, an `environment` alias, or
 a `langfuse.environment` attribute in application code or Collector configuration.
-Langfuse may expose vendor-specific metadata after ingestion.
+The official Langfuse SDK manages its own vendor-specific metadata through
+`LANGFUSE_TRACING_ENVIRONMENT`; do not manually add equivalent span attributes.
 
 Deploy Cortex/Loki resource promotion settings, Collector configuration, and
 Grafana provisioning together when moving from `environment` to

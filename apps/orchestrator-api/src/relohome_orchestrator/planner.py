@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+from langfuse import propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from relohome_agent_services.intake_models import IntakeResult
 from relohome_agent_services.llm import StructuredLLM
@@ -82,5 +83,6 @@ class Planner:
         return {"plan": validate_plan(state["plan"], self.registry, state["intake"].understanding.intents)}
 
     async def plan(self, intake: IntakeResult, previous: PlanDraft | None = None) -> PlanDraft:
-        result = await self.graph.ainvoke({"intake": intake, "previous_plan": previous}, config={"recursion_limit": 4})
+        with propagate_attributes(session_id=intake.session_id):
+            result = await self.graph.ainvoke({"intake": intake, "previous_plan": previous}, config={"recursion_limit": 4})
         return result["plan"]

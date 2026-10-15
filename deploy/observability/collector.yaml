@@ -4,10 +4,6 @@ extensions:
   file_storage:
     directory: /var/lib/otelcol
     create_directory: true
-  basicauth/langfuse:
-    client_auth:
-      username: ${env:LANGFUSE_PUBLIC_KEY}
-      password: ${env:LANGFUSE_SECRET_KEY}
 receivers:
   otlp:
     protocols:
@@ -41,12 +37,8 @@ processors:
     send_batch_max_size: 256
 exporters:
   # Each signal goes straight to its backend on the shared ingestion network.
-  otlphttp/langfuse:
-    traces_endpoint: http://langfuse:3000/api/public/otel/v1/traces
-    auth:
-      authenticator: basicauth/langfuse
-    headers:
-      x-langfuse-ingestion-version: "4"
+  otlphttp/tempo:
+    traces_endpoint: http://tempo:4318/v1/traces
     timeout: 10s
     sending_queue: &queue
       enabled: true
@@ -69,7 +61,7 @@ exporters:
     sending_queue: *queue
     retry_on_failure: *retry
 service:
-  extensions: [health_check, file_storage, basicauth/langfuse]
+  extensions: [health_check, file_storage]
   telemetry:
     logs:
       level: warn
@@ -84,10 +76,10 @@ service:
                 without_type_suffix: true
                 without_units: true
   pipelines:
-    traces:
+    traces/tempo:
       receivers: [otlp]
       processors: [memory_limiter, resource/environment, batch]
-      exporters: [otlphttp/langfuse]
+      exporters: [otlphttp/tempo]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resource/environment, batch]
