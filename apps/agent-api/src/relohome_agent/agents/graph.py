@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import sys
 import time
+from dataclasses import replace
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
@@ -16,7 +17,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from relohome_agent.agents import models
 from relohome_agent.agents.cost import subagent_llm_calls_left
-from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.deps import AgentRegistry, GraphDeps
 from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.nodes.await_payment import make_await_payment
 from relohome_agent.agents.nodes.change_impact import make_change_impact
@@ -25,6 +26,13 @@ from relohome_agent.agents.nodes.cost_summary import make_cost_summary
 from relohome_agent.agents.nodes.executor import make_executor
 from relohome_agent.agents.nodes.intake import make_intake
 from relohome_agent.agents.nodes.load_context import make_load_context
+from relohome_agent.agents.nodes.moving_quote import (
+    FormQuoteAgent,
+    make_moving_quote_agent,
+    make_moving_quote_respond,
+    make_moving_quote_summary,
+    make_moving_quote_validate,
+)
 from relohome_agent.agents.nodes.orchestrator import make_orchestrator
 from relohome_agent.agents.nodes.respond import make_respond
 from relohome_agent.agents.nodes.transaction import make_transaction
@@ -37,6 +45,7 @@ from relohome_agent.agents.routing import (
     route_from_executor,
     route_from_intake,
     route_from_orchestrator,
+    route_from_start,
     route_from_transaction,
     route_from_validator,
 )
@@ -155,7 +164,30 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
         graph.add_edge(node, "executor")
         agent_nodes.append(node)
 
-    graph.add_edge(START, "load_context")
+    entry_nodes = ["load_context"]
+    moving = deps.agents.get(AgentName.RELOCATION)
+    if moving is not None and hasattr(moving, "run_form_quote"):
+        form_deps = replace(
+            deps,
+            agents=AgentRegistry(
+                {
+                    name: FormQuoteAgent(moving) if name == AgentName.RELOCATION else deps.agents.get(name)
+                    for name in deps.agents.names()
+                }
+            ),
+        )
+        graph.add_node(
+            "moving_quote_agent", make_moving_quote_agent(deps, make_agent_node(form_deps, AgentName.RELOCATION))
+        )
+        graph.add_node("moving_quote_validate", make_moving_quote_validate(deps))
+        graph.add_node("moving_quote_summary", make_moving_quote_summary(deps))
+        graph.add_node("moving_quote_respond", make_moving_quote_respond(deps))
+        graph.add_edge("moving_quote_agent", "moving_quote_validate")
+        graph.add_edge("moving_quote_validate", "moving_quote_summary")
+        graph.add_edge("moving_quote_summary", "moving_quote_respond")
+        graph.add_edge("moving_quote_respond", END)
+        entry_nodes.append("moving_quote_agent")
+    graph.add_conditional_edges(START, route_from_start, entry_nodes)
     graph.add_edge("load_context", "intake")
     graph.add_conditional_edges("intake", route_from_intake, ["respond", "change_impact", "orchestrator"])
     graph.add_conditional_edges("orchestrator", route_from_orchestrator, ["respond", "executor"])

@@ -1,34 +1,24 @@
 """Typed Moving quote actions integrated with the existing graph; never commits."""
 
-from dataclasses import replace
-from datetime import datetime
-from time import perf_counter
+from time import time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
 from langfuse import propagate_attributes
-from relohome_agent.agents.cost import paid_slots_left, subagent_llm_calls_left
-from relohome_agent.agents.deps import AgentRegistry
-from relohome_agent.agents.graph import make_agent_node, run_config
+from relohome_agent.agents.cost import paid_slots_left
+from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.models import (
     AgentName,
     ConfirmedFact,
     IntakeResult,
     Intent,
-    Outcome,
-    OutcomeCode,
     RequestKind,
     SessionContext,
     TaskStatus,
-    ValidationIssue,
-    ValidationReport,
     active_commits,
 )
 from relohome_agent.agents.nodes.change_impact import downstream_closure
-from relohome_agent.agents.nodes.cost_summary import make_cost_summary
-from relohome_agent.agents.nodes.respond import make_respond
-from relohome_agent.agents.nodes.validator import DEFAULT_RULES, check_task
 from relohome_agent.agents.planning import plan_confirmed_moving_quote, validate_plan
 from relohome_agent.agents.subagents.services.moving import order_time
 from relohome_agent.api.routes import Service, UserId, _lock, _pending, _to_response, authenticate
@@ -38,19 +28,9 @@ from relohome_privacy import redact_pii
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 
 
-class FormQuoteAgent:
-    """Invocation-local adapter; never mutates the shared domain agent/registry."""
-
-    def __init__(self, agent):
-        self.agent, self.capability = agent, agent.capability
-
-    async def run(self, request):
-        return await self.agent.run_form_quote(request)
-
-
 @router.post("/chat/{thread_id}/moving/quote")
 async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, user_id: UserId = "anonymous"):
-    started = perf_counter()
+    started = time()
     async with _lock(service, thread_id):
         state, pending = await _pending(service, thread_id)
         if state and state.get("user_id") != user_id:
@@ -135,103 +115,43 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
             intake.user_confirmed_facts.pop("selected:" + domain.value, None)
         if validate_plan(plan, service.deps.agents, intake, committed, previous):
             raise HTTPException(422, "Form không đáp ứng contract báo giá hiện tại.")
-        deps = replace(
-            service.deps,
-            agents=AgentRegistry(
-                {
-                    name: FormQuoteAgent(agent) if name == AgentName.RELOCATION else service.deps.agents.get(name)
-                    for name in service.deps.agents.names()
-                }
-            ),
-        )
+        # Preflight above preserves HTTP errors without starting a graph run. The
+        # prepared, trusted intent enters only the quote branch, never chat planning.
         with propagate_attributes(session_id=thread_id):
-            update = await make_agent_node(deps, AgentName.RELOCATION)(
+            result = await service.graph.ainvoke(
                 {
-                    "task": task,
-                    "allocated_llm_calls": subagent_llm_calls_left(turn, deps.settings),
-                    "user_id": user_id,
-                    "plan_version": plan.version,
-                    "attempt": 1,
+                    "messages": [HumanMessage(text)],
                     "request_id": request_id,
                     "thread_id": thread_id,
-                    "constraints": intake.constraints,
-                    "goal": "Báo giá Moving từ form đã xác nhận",
-                    "user_request": text,
-                    "hints": {},
-                    "upstream": {},
-                }
+                    "user_id": user_id,
+                    "moving_quote_context": {"task_id": task.id, "started_at": started},
+                    "plan": plan,
+                    "intake": intake,
+                    "session": state.get("session") or SessionContext(),
+                    "validation": None,
+                    "outcome": None,
+                    "response": None,
+                    "cost_summary": None,
+                    "auth_required": [],
+                    "housing_selection_changed": False,
+                    "transaction": None,
+                    "user_decision": None,
+                    "change_context": None,
+                    "planner_questions": [],
+                    "dispatch": [],
+                    "dispatch_llm_budgets": {},
+                    "replan_count": 0,
+                    "moving_locations": {
+                        "pickup": body.pickup.model_dump(),
+                        "destination": body.destination.model_dump(),
+                    },
+                    "moving_options": options,
+                    "task_attempts": {task.id: 1},
+                    "task_status": {
+                        **{tid: TaskStatus.STALE for tid in affected},
+                        task.id: TaskStatus.RUNNING,
+                    },
+                },
+                run_config(thread_id, service.deps),
             )
-        result = update["task_results"][task.id]
-        if result.status == "done":
-            findings = check_task(task.id, result, agent.capability, agent.capability.stale_ttl_s, [], deps.clock())
-            try:
-                expiry = datetime.fromisoformat(result.data.get("expires_at", ""))
-                fresh = expiry.tzinfo is not None and expiry > deps.clock()
-            except (ValueError, TypeError):
-                fresh = False
-            if findings or not fresh:
-                result.status, result.error_code = "failed", "internal"
-                result.error = "Báo giá thiếu dữ kiện hợp lệ hoặc đã hết hạn; chưa đặt đơn."
-                update["task_status"][task.id] = TaskStatus.FAILED
-        code = {"done": OutcomeCode.ANSWER, "needs_input": OutcomeCode.ASK_USER, "failed": OutcomeCode.ERROR}[
-            result.status
-        ]
-        update.update(
-            {
-                "request_id": request_id,
-                "thread_id": thread_id,
-                "user_id": user_id,
-                "plan": plan,
-                "intake": intake,
-                "session": state.get("session") or SessionContext(),
-                "validation": (
-                    ValidationReport(verdict="NEED_MORE", action="ASK_USER", questions=result.questions)
-                    if result.status == "needs_input"
-                    else None
-                ),
-                "transaction": None,
-                "user_decision": None,
-                "change_context": None,
-                "planner_questions": [],
-                "dispatch": [],
-                "replan_count": 0,
-                "moving_locations": {"pickup": body.pickup.model_dump(), "destination": body.destination.model_dump()},
-                "moving_options": options,
-                "task_attempts": {task.id: 1},
-                "outcome": Outcome(
-                    node="moving_form",
-                    code=code,
-                    detail=(result.error or "") if result.status == "failed" else "",
-                ),
-            }
-        )
-        update["task_status"] = {**{tid: TaskStatus.STALE for tid in affected}, **update["task_status"]}
-        merged = {
-            **state,
-            **update,
-            "task_results": {**state.get("task_results", {}), **update["task_results"]},
-            "task_status": {**state.get("task_status", {}), **update["task_status"]},
-        }
-        if result.status == "done":
-            current_results = {
-                tid: item
-                for tid, item in merged["task_results"].items()
-                if merged["task_status"].get(tid) == TaskStatus.DONE
-            }
-            conflicts = [
-                ValidationIssue(code="V5", message=message)
-                for rule in DEFAULT_RULES
-                for message in rule(plan, current_results, intake)
-            ]
-            if conflicts:
-                update["validation"] = ValidationReport(verdict="NEED_MORE", action="ASK_USER", issues=conflicts)
-                update["outcome"] = Outcome(node="moving_form", code=OutcomeCode.ASK_USER)
-                merged.update(validation=update["validation"], outcome=update["outcome"])
-        update["cost_summary"] = (await make_cost_summary(deps)(merged))["cost_summary"]
-        merged["cost_summary"] = update["cost_summary"]
-        response_update = await make_respond(deps)(merged)
-        update.update(response_update)
-        update["messages"] = [HumanMessage(text), *response_update["messages"]]
-        result.data["form_elapsed_ms"] = round((perf_counter() - started) * 1000)
-        await service.graph.aupdate_state(run_config(thread_id, deps), update, as_node="respond")
-        return _to_response(thread_id, {"response": update["response"]}, service)
+        return _to_response(thread_id, result, service)

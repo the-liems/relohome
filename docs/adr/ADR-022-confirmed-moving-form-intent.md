@@ -62,3 +62,23 @@ Giá, khoảng cách, dịch vụ và addon vẫn từ provider thật, không b
 Liên quan: [Issue #52](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/52),
 [PR #42](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/42),
 [API](../api/moving-quote-form.md), SPEC-004/AC-33..35.
+
+## Cập nhật triển khai 2026-10-15 — nhánh graph cho typed form
+
+Giữ quyết định bỏ Intake/Planner LLM cho form đã xác nhận. API vẫn kiểm
+owner/version/trạng thái/ngày giờ và dùng Planner helper tất định trước khi chạy.
+Thay việc gọi hàm node trực tiếp rồi `aupdate_state` bằng `graph.ainvoke` với nhánh:
+
+`START → moving_quote_agent → moving_quote_validate → moving_quote_summary → moving_quote_respond → END`.
+
+Mục đích: có node observations và checkpoint trung gian cho kết quả/lỗi; giữ chung
+policy, validation, usage, state và contract response. Nhánh này không dispatch
+các task khác, không replan và không vào confirm/transaction. Summary phải giữ
+outcome từ validate thay vì biến failure thành ANSWER khi plan không có commit.
+
+Context form được xóa ở cuối lượt và khi bắt đầu chat mới. Plan/version được
+checkpoint trước khi agent chạy, nên một lượt bị gián đoạn có thể đã tăng version;
+client cần đọc state trước khi thử lại. Provider call trong một node vẫn cần xem
+xét replay khi phục hồi, không có bảo đảm exactly-once từ thay đổi này.
+
+Cập nhật này không tự thay trạng thái Proposed của ADR thành Accepted.

@@ -21,8 +21,21 @@ Không nhận contact, approval, amount hay mode ghi. Trường lạ bị từ c
 ## Thực thi
 
 Hai pin đã xác nhận → typed intent → kiểm version/owner/trạng thái/ngày giờ →
-Planner helper → Moving node qua policy chung → kiểm kết quả → cost/progress/respond →
-cùng checkpoint. Không gọi Intake hoặc Planner LLM.
+Planner helper → `graph.ainvoke` → nhánh riêng:
+
+`START → moving_quote_agent → moving_quote_validate → moving_quote_summary → moving_quote_respond → END`.
+
+Không gọi Intake hoặc Planner LLM, không đi qua executor/replan/confirm/transaction.
+Các bước là node của cùng compiled graph: dùng callback tracing và checkpoint theo
+bước trong cùng thread. Không còn chỉ ghi kết quả cuối bằng `aupdate_state`.
+API giữ preflight và HTTP errors trước khi bắt đầu graph. `moving_quote_context`
+chỉ do API tạo, được xóa khi trả lời và khi bắt đầu chat mới; không suy ra nhánh từ
+nội dung chat hoặc `intake.intent` đã lưu.
+
+Node validate giữ `result.error` trong `outcome.detail` khi thất bại. Node summary
+không ghi đè outcome đó bằng ANSWER; lỗi dạng result vẫn là dữ liệu, không tự biến
+thành exception hoặc span status ERROR. Callback export vẫn phụ thuộc cấu hình
+Langfuse/OTel hiện có.
 
 - Người dùng chọn gói xe: kiểm catalog hiện tại + estimate thật, 0 LLM.
 - Catalog đọc thật được giữ tối đa 45 giây trong RAM của cùng Moving client;
@@ -87,3 +100,14 @@ Hai ca trên tuyến thật Chợ Bến Thành → Bưu điện Trung tâm Sài 
 thread mới → pin từ Location thật → xe TRUCK từ AhaMove → báo giá; và backend
 từ chối lịch dưới 30 phút → giữ pin/ngày giờ/gói xe → sửa lịch → báo giá. Không
 gọi model, đặt xe hoặc thanh toán. Không chạy bộ browser fixture cũ để thay thế.
+
+## Checkpoint khi thực thi form
+
+Input checkpoint lưu plan version mới và đánh dấu task quote đang chạy trước khi
+agent gọi provider. Các node sau lưu kết quả agent, validation và response. Nếu
+process dừng giữa lượt, checkpoint có thể chứa plan mới dù HTTP response chưa về;
+đọc lại state trước khi gửi form với version mới. Resume từ checkpoint vẫn phải
+qua cơ chế phục hồi của runtime; endpoint form không tự replay request cũ.
+Checkpoint ở ranh giới node không bảo đảm exactly-once cho provider call bên trong
+node agent. `form_elapsed_ms` dùng wall time và gồm cả thời gian gián đoạn nếu lượt
+được phục hồi.

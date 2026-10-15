@@ -14,6 +14,10 @@ def agent_node_name(agent: str) -> str:
     return f"{agent}_agent"
 
 
+def route_from_start(state: WorkflowState) -> str:
+    return "moving_quote_agent" if state.get("moving_quote_context") else "load_context"
+
+
 def route_from_intake(state: WorkflowState) -> str:
     if state.get("outcome") is not None:  # UNSUPPORTED, hỏi lại, vượt trần chi phí
         return RESPOND

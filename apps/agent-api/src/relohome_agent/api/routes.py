@@ -163,6 +163,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
             result = await service.graph.ainvoke(
                 {
                     "messages": [HumanMessage(redact_pii(request.message))],
+                    "moving_quote_context": None,  # A new chat cannot replay an unfinished form branch.
                     "user_id": user_id,
                     "thread_id": thread_id,
                     "request_id": uuid.uuid4().hex,

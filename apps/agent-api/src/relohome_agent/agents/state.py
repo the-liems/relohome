@@ -37,6 +37,13 @@ def merge_dict(left: dict | None, right: dict | None) -> dict:
     return {**(left or {}), **(right or {})}
 
 
+class MovingQuoteContext(TypedDict):
+    """Trusted API input for one quote turn; cleared after its response."""
+
+    task_id: str
+    started_at: float
+
+
 class WorkflowState(TypedDict, total=False):
     # --- Input & hội thoại (API ghi) ---
     messages: Annotated[list[AnyMessage], add_messages]
@@ -46,6 +53,7 @@ class WorkflowState(TypedDict, total=False):
     thread_id: str
     request_id: str  # mỗi lượt API tạo mới
     moving_locations: dict | None  # validated explicit user pins; never authored by LLM
+    moving_quote_context: MovingQuoteContext | None
     moving_options: dict | None  # validated service form, without contacts
     housing_location: dict | None  # shared map selection validated by API
     map_view: dict | None  # client viewport {bounding_box, zoom}, validated by API
