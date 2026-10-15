@@ -17,6 +17,7 @@ flowchart LR
     L & M --> S3[(S3 buckets)]
     G[Grafana] --> L
     G --> M
+    G -->|SQL| CH[ClickHouse: Langfuse tables]
     G -->|trace links| LF
 ```
 
@@ -69,6 +70,21 @@ Set the variables listed in `.env.example`:
 Deploy. Grafana should show the **ReloHome operations** dashboard and the
 **ReloHome** alert rules, and Langfuse the `relohome` project. Sign-up is disabled
 on both.
+
+Grafana also provisions a **ClickHouse** datasource using the official plugin
+(pinned to 4.22.1), installed before provisioning at startup. Grafana and Langfuse
+share the `langfuse` ClickHouse account and existing `LF_CLICKHOUSE_PASSWORD`
+secret. Grafana queries have the same write permissions as Langfuse. Redeploy
+the platform to apply the datasource. When rotating the shared secret, redeploy
+ClickHouse, Langfuse, the Langfuse worker and Grafana together. ClickHouse stays
+on the internal Docker network.
+Grafana needs outbound access to download the plugin on first installation.
+
+In Grafana **Explore**, select **ClickHouse** and run `SELECT 1`, then
+`SHOW TABLES FROM default` to verify access. Use SQL against the Langfuse tables
+for additional dashboards; these are Langfuse's schema, not the OpenTelemetry
+ClickHouse exporter schema. Queries can read both environments, so include the
+appropriate environment and project filters. Cortex remains the default datasource.
 
 ### 2. One Collector per environment
 
