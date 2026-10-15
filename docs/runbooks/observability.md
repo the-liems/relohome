@@ -17,7 +17,7 @@ flowchart LR
     L & M --> S3[(S3 buckets)]
     G[Grafana] --> L
     G --> M
-    G -->|SQL| CH[ClickHouse: Langfuse tables]
+    G -->|read-only SQL| CH[ClickHouse: Langfuse tables]
     G -->|trace links| LF
 ```
 
@@ -72,15 +72,22 @@ Deploy. Grafana should show the **ReloHome operations** dashboard and the
 on both.
 
 Grafana also provisions a **ClickHouse** datasource using the official plugin
-(pinned to 4.22.1), installed before provisioning at startup. Grafana and Langfuse
-share the `langfuse` ClickHouse account and existing `LF_CLICKHOUSE_PASSWORD`
-secret. Grafana queries have the same write permissions as Langfuse. Redeploy
-the platform to apply the datasource. When rotating the shared secret, redeploy
-ClickHouse, Langfuse, the Langfuse worker and Grafana together. ClickHouse stays
-on the internal Docker network.
+(pinned to 4.22.1), installed before provisioning at startup. Grafana uses the
+`grafana_reader` account with read-only access to Langfuse's `default` database.
+Set `GRAFANA_CLICKHOUSE_PASSWORD` on the platform (`openssl rand -hex 32`) and
+redeploy ClickHouse and Grafana to apply the account and datasource changes.
+The XML files in `deploy/observability/clickhouse/` provision the user on both new
+and existing installations. The profile allows Grafana to set its query timeout
+while keeping writes and other setting changes blocked.
+
+Langfuse and its worker keep the existing `langfuse` account and
+`LF_CLICKHOUSE_PASSWORD`. Rotate the Grafana secret by redeploying ClickHouse
+and Grafana; rotate the Langfuse secret by redeploying ClickHouse, Langfuse and
+its worker. ClickHouse stays on the internal Docker network.
 Grafana needs outbound access to download the plugin on first installation.
 
-In Grafana **Explore**, select **ClickHouse** and run `SELECT 1`, then
+In Grafana **Explore**, select **ClickHouse** and run `SELECT currentUser()`
+(expect `grafana_reader`), then
 `SHOW TABLES FROM default` to verify access. Use SQL against the Langfuse tables
 for additional dashboards; these are Langfuse's schema, not the OpenTelemetry
 ClickHouse exporter schema. Queries can read both environments, so include the
