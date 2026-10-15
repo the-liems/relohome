@@ -23,3 +23,19 @@ datasources:
       matcherRegex: trace_id
       url: ${LANGFUSE_URL}/project/relohome/traces/$${__value.raw}
       urlDisplayLabel: Open trace in Langfuse
+- name: ClickHouse
+  uid: clickhouse
+  type: grafana-clickhouse-datasource
+  access: proxy
+  editable: false
+  jsonData:
+    host: clickhouse
+    port: 9000
+    protocol: native
+    username: langfuse
+    defaultDatabase: default
+    secure: false
+    dialTimeout: 10
+    queryTimeout: 60
+  secureJsonData:
+    password: $LF_CLICKHOUSE_PASSWORD

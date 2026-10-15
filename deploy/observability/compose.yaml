@@ -146,6 +146,8 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_SYNC: grafana-clickhouse-datasource@4.22.1
+      LF_CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD:?}
       LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3000}
     ports: ["127.0.0.1:3001:3000"]
     volumes:
