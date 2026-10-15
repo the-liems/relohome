@@ -135,6 +135,7 @@ def main():
         launcher = Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument")
         command = [str(launcher), *command]
         child_env.setdefault("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+        child_env.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
         child_env.setdefault("OTEL_RESOURCE_ATTRIBUTES", "service.namespace=relohome")
         child_env["OTEL_PYTHON_DISABLED_INSTRUMENTATIONS"] = "sqlite3"
         child_env["OTEL_PROPAGATORS"] = "tracecontext"

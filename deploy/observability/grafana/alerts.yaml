@@ -25,8 +25,8 @@ groups:
         to: 0
       model:
         refId: A
-        expr: (sum by (environment, service_name) (increase(relohome_http_requests_total{status=~"5.."}[10m])) / sum by (environment, service_name)
-          (increase(relohome_http_requests_total[10m])) > 0.05) and (sum by (environment, service_name) (increase(relohome_http_requests_total[10m]))
+        expr: (sum by (environment, service_name) (increase(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[10m])) / sum by (environment, service_name)
+          (increase(http_server_request_duration_seconds_count[10m])) > 0.05) and (sum by (environment, service_name) (increase(http_server_request_duration_seconds_count[10m]))
           >= 20)
         instant: true
         range: false
@@ -167,8 +167,8 @@ groups:
         to: 0
       model:
         refId: A
-        expr: (histogram_quantile(0.95, sum by (le, environment, service_name) (rate(relohome_http_duration_seconds_bucket{route=~".*/chat"}[15m])))
-          > 120) and (sum by (environment, service_name) (increase(relohome_http_duration_seconds_count{route=~".*/chat"}[15m])) >= 10)
+        expr: (histogram_quantile(0.95, sum by (le, environment, service_name) (rate(http_server_request_duration_seconds_bucket{http_route=~".*/chat"}[15m])))
+          > 120) and (sum by (environment, service_name) (increase(http_server_request_duration_seconds_count{http_route=~".*/chat"}[15m])) >= 10)
         instant: true
         range: false
         datasource:

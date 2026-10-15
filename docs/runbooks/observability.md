@@ -151,7 +151,7 @@ For a direct launch in the installed environment:
 
 ```sh
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
-  OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3 \
+  OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3 OTEL_SEMCONV_STABILITY_OPT_IN=http \
   opentelemetry-instrument python -m uvicorn relohome_agent.main:app --port 8000
 ```
 
@@ -173,22 +173,23 @@ tracer and preserves aiosqlite worker context.
 | Node fetch, PostgreSQL and logging | `UndiciInstrumentation`, `PgInstrumentation`, `PinoInstrumentation` |
 
 FastAPI's built-in tracing is disabled to avoid duplicating the official
-instrumentor. The HTTP policy boundary creates no spans: it adds `x-trace-id`,
-preserves existing `relohome.http.*` metrics and completion logs, excludes health
-and static requests, and prevents public browser trace headers from choosing
-the gateway's trace or sampling policy. Internal HTTP services retain trusted
-W3C parent context. Python and Node propagate trace context without baggage.
-Internal ASGI send/receive spans and Fastify lifecycle hook spans are disabled;
-Fastify retains a framework request/handler span beneath the HTTP server span.
-The SDK keeps the instrumentors' normal exception events and HTTP/database
-metrics. The application boundary adds trace response headers, dashboard metrics
-and completion logs without creating HTTP spans. Graph, generation, tool and job
-spans remain application-authored.
+instrumentor. Standard SDK instrumentation owns HTTP spans, exception events,
+context propagation and HTTP metrics. Incoming W3C trace context follows the
+SDK's default parent-based sampling. Python ASGI send/receive spans use the
+instrumentor defaults. Fastify lifecycle hook spans are disabled through its
+standard configuration. Graph, generation, tool and job spans remain
+application-authored.
 
-Deploy updated application images, including the standalone Intake/Orchestrator
-images if used. The standalone `compose.agents.yaml` forwards the export and privacy
-settings. Collector/Grafana configuration does not need to change. SDK HTTP route names now include router prefixes, such
-as `/api/v1/status`; use these full templates in route-specific queries.
+There is no custom HTTP middleware, response trace header, completion log or
+HTTP metric implementation. Python opts into stable HTTP semantic conventions
+with `OTEL_SEMCONV_STABILITY_OPT_IN=http`; the Node HTTP instrumentor already uses
+them. Grafana HTTP queries use the native `http.server.request.duration`
+histogram, whose count gives request volume. The Collector retains these metrics
+and their standard attributes.
+
+Deploy updated application images, Collector configuration and Grafana
+provisioning together, including standalone Intake/Orchestrator images if used.
+Use full SDK route templates such as `/api/v1/status` in route-specific queries.
 
 Official references: [FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
 [Starlette](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html),
@@ -220,8 +221,9 @@ The fixed code is stored as `app.error.code` so standard instrumentors can set
 `error.type` independently. The existing response body, status and headers are
 preserved. Recovered errors do not mark successful requests as failed.
 
-To investigate `/web/api/status`, find the gateway request by its `x-trace-id`,
-inspect `app.error.code`, then follow any outbound HTTP span to the backend span and
+To investigate `/web/api/status`, find the gateway request by service, route
+and timestamp, or open the trace linked from a correlated log. Inspect
+`app.error.code`, then follow any outbound HTTP span to the backend span and
 its cause. A missing gateway token stops before an outbound Agent API request;
 session-store SQLite spans can still appear. A transport failure has an automatic
 HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.

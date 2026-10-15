@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import tempfile
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,8 +25,9 @@ async def main():
             httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client,
         ):
             await client.get("/web/api/session")
-            response = await client.get("/web/api/status")
-            results[name] = {"status": response.status_code, "trace_id": response.headers["x-trace-id"]}
+            trace_id = uuid.uuid4().hex
+            response = await client.get("/web/api/status", headers={"traceparent": f"00-{trace_id}-2222222222222222-01"})
+            results[name] = {"status": response.status_code, "trace_id": trace_id}
 
     with tempfile.TemporaryDirectory() as temporary:
         folder = Path(temporary)
@@ -48,8 +50,9 @@ async def main():
             ("missing_backend_token", SimpleNamespace(mode="live", settings=SimpleNamespace(agent_api_token=SecretStr("")))),
         ):
             backend.state.agent_service = service
-            response = await client.get("/api/v1/status")
-            results[name] = {"status": response.status_code, "trace_id": response.headers["x-trace-id"]}
+            trace_id = uuid.uuid4().hex
+            response = await client.get("/api/v1/status", headers={"traceparent": f"00-{trace_id}-2222222222222222-01"})
+            results[name] = {"status": response.status_code, "trace_id": trace_id}
     print(json.dumps(results), flush=True)
 
 

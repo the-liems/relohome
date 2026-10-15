@@ -1,7 +1,6 @@
 import { context, metrics, trace, SpanKind, SpanStatusCode, type Attributes, type MeterProvider } from '@opentelemetry/api'
 import { logs, SeverityNumber } from '@opentelemetry/api-logs'
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import { content } from './privacy.js'
 
 const propagator = new W3CTraceContextPropagator()
@@ -15,8 +14,6 @@ function createInstruments(provider: MeterProvider) {
   return {
     operations: meter.createCounter('relohome.operations'),
     operationDuration: meter.createHistogram('relohome.operation.duration', { unit: 's' }),
-    httpRequests: meter.createCounter('relohome.http.requests'),
-    httpDuration: meter.createHistogram('relohome.http.duration', { unit: 's' }),
   }
 }
 
@@ -77,49 +74,5 @@ export async function toolOperation<T>(name: string, input: unknown, metadata: u
       logEvent('operation.completed', { ...labels, duration_ms: Math.round(duration * 1000) })
       span.end()
     }
-  })
-}
-
-export function observeHttp(method: string, route: string, status: number, durationMs: number) {
-  if (!enabled() || healthPaths.has(route)) return
-  const safeMethod = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(method) ? method : 'OTHER'
-  const labels = { method: safeMethod, route, status: String(status) }
-  const meter = instruments()
-  meter.httpRequests.add(1, labels)
-  meter.httpDuration.record(durationMs / 1000, labels)
-  logEvent('http.completed', { ...labels, duration_ms: Math.round(durationMs) })
-}
-
-export function traceId(route?: string): string | undefined {
-  if (enabled() && route) trace.getSpan(context.active())?.setAttribute('http.route', route)
-  return enabled() ? trace.getSpan(context.active())?.spanContext().traceId : undefined
-}
-
-/** Attach telemetry before routing, including authorization failures and unknown paths. */
-export function instrumentHttpRequest(request: IncomingMessage, response: ServerResponse, routes: readonly string[]) {
-  if (!enabled()) return
-  const started = performance.now()
-  const path = (request.url || '/').split('?')[0] || '/'
-  const route = routes.includes(path) ? path : 'unmatched'
-  const id = traceId(route)
-  if (id) response.setHeader('X-Trace-Id', id)
-  response.once('finish', () => observeHttp(request.method || 'OTHER', route, response.statusCode, performance.now() - started))
-}
-
-// Depend on the hook surface only: raw HTTP services need not install Fastify.
-interface TelemetryFastifyApp {
-  addHook(name: 'onRequest' | 'onResponse', hook: (
-    request: { method: string, routeOptions: { url?: string } },
-    reply: { header(name: string, value: string): unknown, statusCode: number, elapsedTime: number },
-  ) => Promise<void>): unknown
-}
-
-export function registerFastifyTelemetry(app: TelemetryFastifyApp) {
-  app.addHook('onRequest', async (request, reply) => {
-    const id = traceId(request.routeOptions.url || 'unmatched')
-    if (id) reply.header('X-Trace-Id', id)
-  })
-  app.addHook('onResponse', async (request, reply) => {
-    observeHttp(request.method, request.routeOptions.url || 'unmatched', reply.statusCode, reply.elapsedTime)
   })
 }

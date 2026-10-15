@@ -7,6 +7,7 @@ x-telemetry: &telemetry-env
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
 
 # Coolify reads this Compose file from Git at the pinned commit.

@@ -28,7 +28,6 @@ from tests.observability_helpers import instrument_fastapi, uninstrument_http
 
 @pytest.fixture
 def observed(monkeypatch):
-    monkeypatch.setattr("relohome_observability.asgi.install_http_boundary", instrument_fastapi)
     monkeypatch.setenv("OBSERVABILITY_CONTENT_MODE", "metadata")
     monkeypatch.setenv("RELOHOME_GUEST_ENABLED", "true")
     spans = InMemorySpanExporter()
@@ -46,6 +45,7 @@ def observed(monkeypatch):
 
 async def gateway_status(tmp_path, observed, transport=None):
     app = create_app(tmp_path / "web.db", transport)
+    instrument_fastapi(app)
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client,
@@ -61,7 +61,6 @@ def assert_diagnostic(observed, response, error_type):
     assert span.attributes["app.error.code"] == error_type
     assert span.attributes.get("http.response.status_code", span.attributes.get("http.status_code")) == response.status_code
     assert span.status.status_code == trace.StatusCode.ERROR
-    assert response.headers["x-trace-id"] == format(span.context.trace_id, "032x")
     logs = [item.log_record for item in observed.logs.get_finished_logs()
             if (item.log_record.attributes or {}).get("error_type") == error_type]
     assert len(logs) == 1
@@ -84,7 +83,7 @@ async def test_gateway_missing_token_has_safe_reason_and_never_calls_upstream(tm
     assert response.json() == {"detail": "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ."}
     if enabled:
         assert_diagnostic(observed, response, "missing_agent_api_token")
-        assert len(observed.spans.get_finished_spans()) == 1
+        assert sum(span.kind == trace.SpanKind.SERVER for span in observed.spans.get_finished_spans()) == 1
     else:
         assert not observed.spans.get_finished_spans()
         assert not observed.logs.get_finished_logs()
@@ -107,7 +106,7 @@ async def test_backend_status_has_reason_on_existing_http_span(monkeypatch, obse
         response = await client.get("/api/v1/status")
     assert response.status_code == 503
     assert_diagnostic(observed, response, reason)
-    assert len(observed.spans.get_finished_spans()) == 1
+    assert sum(span.kind == trace.SpanKind.SERVER for span in observed.spans.get_finished_spans()) == 1
     uninstrument_http(app)
 
 
@@ -162,7 +161,7 @@ async def test_recovered_error_does_not_mark_successful_http_span(observed):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/recovered")
     assert response.status_code == 200
-    span = observed.spans.get_finished_spans()[0]
+    span = next(span for span in observed.spans.get_finished_spans() if span.kind == trace.SpanKind.SERVER)
     assert span.status.status_code == trace.StatusCode.UNSET
     assert "error.type" not in span.attributes
     assert all("error_type" not in item.log_record.attributes for item in observed.logs.get_finished_logs())

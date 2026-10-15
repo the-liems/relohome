@@ -14,14 +14,12 @@ from relohome_observability import current_context, generation, operation, runti
 from relohome_observability.privacy import content
 
 from tests.mcp_http import running_mcp
-from tests.observability_helpers import instrument_fastapi
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
 def spans(monkeypatch):
-    monkeypatch.setattr("relohome_observability.asgi.install_http_boundary", instrument_fastapi)
     monkeypatch.setenv("OBSERVABILITY_CONTENT_MODE", "redacted")
     exporter = InMemorySpanExporter()
     provider = TracerProvider(resource=Resource({"service.name": "test"}))
@@ -335,7 +333,7 @@ async def test_metric_instruments_are_created_once_for_repeated_requests(spans, 
         for _ in range(3):
             with operation("request"):
                 pass
-        assert len(created) == 6
+        assert len(created) == 4
         assert set(created.values()) == {1}
         assert records.count(("relohome.operations", 1)) == 3
         provider = Provider()

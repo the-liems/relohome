@@ -43,8 +43,6 @@ def _instruments(provider):
     return SimpleNamespace(
         operations=meter.create_counter("relohome.operations"),
         operation_duration=meter.create_histogram("relohome.operation.duration", unit="s"),
-        http_requests=meter.create_counter("relohome.http.requests"),
-        http_duration=meter.create_histogram("relohome.http.duration", unit="s"),
         rate_limits=meter.create_counter("relohome.provider.rate_limits"),
         llm_tokens=meter.create_counter("relohome.llm.tokens"),
     )

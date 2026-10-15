@@ -193,7 +193,7 @@ def test_collector_preserves_only_fixed_guardrail_label_keys_and_native_panels()
     for field in ("input", "output"):
         assert (f'delete_key(attributes, "langfuse.observation.{field}") '
                 'where resource.attributes["environment"] == "production"') in trace_statements
-    assert collector["processors"]["filter/metrics"]["metrics"]["metric"] == ['not IsMatch(name, "^relohome\\\\.")']
+    assert collector["processors"]["filter/metrics"]["metrics"]["metric"] == ['not IsMatch(name, "^(relohome\\\\.|http\\\\.server\\\\.request\\\\.duration$)")']
     panels = json.loads((root / "deploy/observability/grafana/overview.json").read_text())["panels"]
     selected = [panel for panel in panels if panel["id"] in {21, 22, 23, 24}]
     assert len(selected) == 4

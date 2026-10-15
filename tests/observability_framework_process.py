@@ -3,13 +3,13 @@
 import asyncio
 import json
 import socket
+import uuid
 
 
 async def main():
     import httpx
     import uvicorn
     from fastapi import FastAPI
-    from relohome_observability.asgi import install_http_boundary
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
     from starlette.routing import Route
@@ -22,7 +22,6 @@ async def main():
         raise ValueError("SYNTHETIC_PRIVATE_EXCEPTION")
 
     backend = Starlette(routes=[Route("/records/{record_id}", record), Route("/broken", broken)])
-    install_http_boundary(backend)
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen(128)
@@ -33,7 +32,6 @@ async def main():
                 while not server.started:
                     await asyncio.sleep(0.01)
             app = FastAPI(telemetry={"tracing": False})
-            install_http_boundary(app, trust_incoming=False)
 
             @app.get("/forward")
             async def forward():
@@ -67,12 +65,13 @@ async def main():
                     ("unknown", "/SYNTHETIC_PRIVATE_UNKNOWN"),
                     ("starlette_failure", "/starlette-failure"),
                 ):
+                    trace_id = uuid.uuid4().hex
                     result = await client.get(path, headers={
-                        "traceparent": "00-11111111111111111111111111111111-2222222222222222-00",
+                        "traceparent": f"00-{trace_id}-2222222222222222-01",
                         "baggage": "user=SYNTHETIC_PRIVATE_USER", "cookie": "session=SYNTHETIC_PRIVATE_COOKIE",
                         "authorization": "Bearer SYNTHETIC_PRIVATE_SECRET",
                     })
-                    responses[name] = {"status": result.status_code, "trace_id": result.headers["x-trace-id"]}
+                    responses[name] = {"status": result.status_code, "trace_id": trace_id}
                 assert "x-trace-id" not in (await client.get("/health")).headers
                 for path in ("/assets/SYNTHETIC_PRIVATE_ASSET", "/images/SYNTHETIC_PRIVATE_IMAGE"):
                     assert "x-trace-id" not in (await client.get(path)).headers
@@ -88,8 +87,11 @@ async def main():
                 ):
                     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=factory(settings)),
                                                  base_url="http://fixture") as standalone:
-                        result = await standalone.request(method, path)
-                        responses[name] = {"status": result.status_code, "trace_id": result.headers["x-trace-id"]}
+                        trace_id = uuid.uuid4().hex
+                        result = await standalone.request(method, path, headers={
+                            "traceparent": f"00-{trace_id}-2222222222222222-01",
+                        })
+                        responses[name] = {"status": result.status_code, "trace_id": trace_id}
 
                 print(json.dumps(responses), flush=True)
         finally:

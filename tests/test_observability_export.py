@@ -64,7 +64,8 @@ def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
         assert all(case["trace_id"] != "1" * 32 for case in cases.values())
         spans = [span for path, payload in received if path == "/v1/traces"
                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
-        chain = [span for span in spans if base64.b64decode(span["traceId"]).hex() == cases["forward"]["trace_id"]]
+        chain = [span for span in spans if base64.b64decode(span["traceId"]).hex() == cases["forward"]["trace_id"]
+                 and span["kind"] in ("SPAN_KIND_SERVER", "SPAN_KIND_CLIENT")]
         assert len(chain) == 3  # One FastAPI server, one HTTPX client, one Starlette server.
         caller = next(span for span in chain if span["name"] == "GET /forward")
         downstream = next(span for span in chain if span["name"] == "GET /records/{record_id}")
@@ -76,22 +77,25 @@ def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
         assert scopes >= {"opentelemetry.instrumentation.fastapi", "opentelemetry.instrumentation.starlette",
                           "opentelemetry.instrumentation.httpx"}
         unknown = next(span for span in spans
-                       if base64.b64decode(span["traceId"]).hex() == cases["unknown"]["trace_id"])
+                       if base64.b64decode(span["traceId"]).hex() == cases["unknown"]["trace_id"]
+                       and span["kind"] == "SPAN_KIND_SERVER")
         assert unknown["name"] == "GET"
         failure = next(span for span in spans
-                       if base64.b64decode(span["traceId"]).hex() == cases["failure"]["trace_id"])
+                       if base64.b64decode(span["traceId"]).hex() == cases["failure"]["trace_id"]
+                       and span["kind"] == "SPAN_KIND_SERVER")
         assert any(event["name"] == "exception" for event in failure.get("events", []))
         downstream_failure = next(span for span in spans if span["name"] == "GET /broken")
         assert any(event["name"] == "exception" for event in downstream_failure.get("events", []))
         for name in ("intake", "orchestrator"):
             standalone = next(span for span in spans
-                              if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"])
+                              if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"]
+                              and span["kind"] == "SPAN_KIND_SERVER")
             assert any(item["key"] == "app.error.code" and item["value"]["stringValue"] == "missing_service_token"
                        for item in standalone["attributes"])
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
                         for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
                         for metric in scope["metrics"]}
-        assert "relohome.http.requests" in metric_names
+        assert any(name.startswith("http.server.") for name in metric_names)
     finally:
         receiver.shutdown()
         receiver.server_close()
@@ -181,15 +185,6 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
         assert any(item["key"] == "exception.type" and item["value"]["stringValue"].endswith("ConnectError")
                    for event in client["events"] for item in event.get("attributes", []))
         assert client["parentSpanId"] == server["spanId"]
-        for path, payload in received:
-            if path != "/v1/metrics":
-                continue
-            for resource in payload["resourceMetrics"]:
-                for scope in resource["scopeMetrics"]:
-                    for metric in scope["metrics"]:
-                        if metric["name"] == "relohome.http.requests":
-                            assert all(set(attributes(point)) == {"method", "route", "status"}
-                                       for point in metric["sum"]["dataPoints"])
     finally:
         receiver.shutdown()
         receiver.server_close()

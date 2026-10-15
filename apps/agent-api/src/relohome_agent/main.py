@@ -25,7 +25,6 @@ from relohome_agent.api.viewings import router as viewings_router
 from relohome_agent.api.web_actions import router as web_actions_router
 from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-from relohome_observability.asgi import install_http_boundary
 from relohome_observability.fastapi import DiagnosticHTTPException, diagnostic_exception_handler
 from relohome_roommate.background import RoommateMaintenance
 
@@ -67,7 +66,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-install_http_boundary(app)
 app.add_exception_handler(DiagnosticHTTPException, diagnostic_exception_handler)
 
 settings = get_settings()

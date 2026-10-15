@@ -63,12 +63,12 @@ processors:
         statements: *resource-statements
       - context: datapoint
         statements:
-          - keep_keys(attributes, ["operation", "kind", "outcome", "method", "route", "status", "provider", "model", "direction", "point", "event", "reason"])
+          - keep_keys(attributes, ["operation", "kind", "outcome", "method", "route", "status", "provider", "model", "direction", "point", "event", "reason", "http.request.method", "http.response.status_code", "http.route", "url.scheme", "network.protocol.version", "server.address", "server.port", "error.type"])
   filter/metrics:
     error_mode: propagate
     metrics:
       metric:
-        - not IsMatch(name, "^relohome\\.")
+        - not IsMatch(name, "^(relohome\\.|http\\.server\\.request\\.duration$)")
   batch:
     timeout: 2s
     send_batch_size: 128

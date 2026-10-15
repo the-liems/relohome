@@ -50,7 +50,7 @@ EXPOSE 8766
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['PAYMENT_MCP_PORT']}/health\", timeout=4)" || exit 1
 
-ENV OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_PROPAGATORS=tracecontext OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3
+ENV OTEL_SEMCONV_STABILITY_OPT_IN=http OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_PROPAGATORS=tracecontext OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3
 ENV OTEL_PYTHON_EXCLUDED_URLS="/(healthz?|readyz?|metrics)(\\?.*)?$|/(assets|images)/"
 ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=relohome
 ENV OTEL_SERVICE_NAME=payments-mcp

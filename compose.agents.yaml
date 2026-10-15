@@ -8,6 +8,7 @@ x-telemetry: &telemetry
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT:-development}
 services:
   intake:

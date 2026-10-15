@@ -29,8 +29,7 @@ const sdk = new NodeSDK({
       options: { boundaries: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300] } } },
   ],
   instrumentations: [
-    new HttpInstrumentation({ ignoreIncomingRequestHook: req => healthPaths.has((req.url || '').split('?')[0] || ''),
-      startIncomingSpanHook: req => (req.url || '').split('?')[0] === '/mcp' ? { 'http.route': '/mcp' } : {} }),
+    new HttpInstrumentation({ ignoreIncomingRequestHook: req => healthPaths.has((req.url || '').split('?')[0] || '') }),
     new UndiciInstrumentation(), new PgInstrumentation({ enhancedDatabaseReporting: false, requireParentSpan: true }),
     new FastifyOtelInstrumentation({ registerOnInitialization: true, instrumentHooks: false,
       ignorePaths: options => healthPaths.has(options.url.split('?')[0] || '') }),
