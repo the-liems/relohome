@@ -1,0 +1,24 @@
+<clickhouse>
+    <profiles>
+        <grafana_reader>
+            <readonly>1</readonly>
+            <max_execution_time>60</max_execution_time>
+            <constraints>
+                <!-- The Grafana client sets its query timeout on each request. -->
+                <max_execution_time>
+                    <changeable_in_readonly/>
+                </max_execution_time>
+            </constraints>
+        </grafana_reader>
+    </profiles>
+    <users>
+        <grafana_reader>
+            <password from_env="GRAFANA_CLICKHOUSE_PASSWORD"/>
+            <networks><ip>::/0</ip></networks>
+            <profile>grafana_reader</profile>
+            <quota>default</quota>
+            <access_management>0</access_management>
+            <allow_databases><database>default</database></allow_databases>
+        </grafana_reader>
+    </users>
+</clickhouse>

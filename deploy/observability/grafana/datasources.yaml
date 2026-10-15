@@ -32,10 +32,10 @@ datasources:
     host: clickhouse
     port: 9000
     protocol: native
-    username: langfuse
+    username: grafana_reader
     defaultDatabase: default
     secure: false
     dialTimeout: 10
     queryTimeout: 60
   secureJsonData:
-    password: $LF_CLICKHOUSE_PASSWORD
+    password: $GRAFANA_CLICKHOUSE_PASSWORD
