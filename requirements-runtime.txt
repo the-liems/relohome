@@ -6,7 +6,7 @@ pydantic-settings>=2.7.0
 python-dotenv>=1.0.0
 
 # AI / LangChain
-langchain>=0.3.0
+langchain[mcp]==1.4.5
 langchain-openai>=0.3.0
 langgraph>=1.0  # interrupt, Command, input_schema (agent-graph.md §11)
 langgraph-checkpoint-sqlite>=3,<4
@@ -24,10 +24,10 @@ psycopg[binary,pool]>=3.2,<4  # private Roommate PostgreSQL persistence on the e
 
 # HTTP client
 httpx>=0.28.0
+httpx2>=2.13,<3
 
-# MCP servers (apps/flights-mcp, apps/payments-mcp) — langchain-mcp-adapters chưa hỗ trợ mcp 2.x
-mcp[cli]>=1.26,<2
-langchain-mcp-adapters>=0.3.2
+# MCP servers (apps/flights-mcp, apps/payments-mcp)
+mcp[cli]>=2.3,<3
 
 # Giao diện demo (examples/streamlit/src/relohome_demos/flight_demo.py, examples/streamlit/src/relohome_demos/payment_demo.py)
 streamlit>=1.46

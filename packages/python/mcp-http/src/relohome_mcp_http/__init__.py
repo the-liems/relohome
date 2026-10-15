@@ -2,8 +2,10 @@
 
 import re
 import secrets
+from functools import wraps
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from starlette.responses import JSONResponse
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -45,13 +47,32 @@ class ServiceTokenMiddleware:
         await self.app(scope, receive, send)
 
 
-class HttpServiceMCP(FastMCP):
-    def __init__(self, *args, service_token: str = "", **kwargs):
+class HttpServiceMCP(MCPServer):
+    def __init__(self, *args, service_token: str = "", host: str = "127.0.0.1", port: int = 8000, **kwargs):
         super().__init__(*args, **kwargs)
         self.service_token = service_token
+        self.host, self.port = host, port
 
-    def streamable_http_app(self):
+    def run(self, transport="stdio", **kwargs):
+        if transport != "stdio":
+            kwargs.setdefault("host", self.host)
+            kwargs.setdefault("port", self.port)
+        super().run(transport=transport, **kwargs)
+
+    def streamable_http_app(self, **kwargs):
         require_service_token(self.service_token)
-        app = super().streamable_http_app()
+        kwargs.setdefault("host", self.host)
+        app = super().streamable_http_app(**kwargs)
         app.add_middleware(ServiceTokenMiddleware, token=self.service_token)
         return app
+
+
+def tool_errors(fn, error_type):
+    """Expose only the service's safe business errors to MCP callers."""
+    @wraps(fn)
+    async def wrapped(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except error_type as exc:
+            raise ToolError(str(exc)) from exc
+    return wrapped

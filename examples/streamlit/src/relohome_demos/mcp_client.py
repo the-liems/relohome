@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
+import httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
@@ -51,8 +51,8 @@ class HttpServerParameters:
 @asynccontextmanager
 async def http_session(params: HttpServerParameters):
     headers = {"Authorization": f"Bearer {params.token}"} if params.token else {}
-    async with httpx.AsyncClient(headers=headers, timeout=CALL_TIMEOUT_SECONDS) as http:
-        async with streamable_http_client(params.url, http_client=http) as (read, write, _):
+    async with httpx2.AsyncClient(headers=headers, timeout=CALL_TIMEOUT_SECONDS) as http:
+        async with streamable_http_client(params.url, http_client=http) as (read, write):
             async with ClientSession(read, write) as session:
                 yield session
 
@@ -60,9 +60,9 @@ async def http_session(params: HttpServerParameters):
 def _unwrap(result: CallToolResult) -> tuple[bool, Any]:
     """Lấy dữ liệu có cấu trúc (hoặc message lỗi) từ kết quả tool."""
     texts = [c.text for c in result.content if isinstance(c, TextContent)]
-    if result.isError:
+    if result.is_error:
         return False, " ".join(texts)
-    data = result.structuredContent
+    data = result.structured_content
     if data is None and texts:
         try:
             data = json.loads(texts[0])
@@ -102,20 +102,20 @@ async def _inspect(params: HttpServerParameters) -> ServerInfo:
         resources = await session.list_resources()
         templates = await session.list_resource_templates()
     return ServerInfo(
-        name=init.serverInfo.name,
-        version=init.serverInfo.version,
-        protocol_version=str(init.protocolVersion),
+        name=init.server_info.name,
+        version=init.server_info.version,
+        protocol_version=str(init.protocol_version),
         instructions=init.instructions or "",
         tools=[
             {
                 "name": t.name,
                 "title": t.title or "",
                 "description": (t.description or "").strip().splitlines()[0],
-                "read_only": bool(t.annotations and t.annotations.readOnlyHint),
+                "read_only": bool(t.annotations and t.annotations.read_only_hint),
             }
             for t in tools.tools
         ],
-        resources=[str(r.uri) for r in resources.resources] + [t.uriTemplate for t in templates.resourceTemplates],
+        resources=[str(r.uri) for r in resources.resources] + [t.uri_template for t in templates.resource_templates],
         total_ms=int((time.perf_counter() - started) * 1000),
     )
 

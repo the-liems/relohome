@@ -87,3 +87,13 @@ tests/test_mcp_flights/              # test theo module, giống tests/test_agen
 - Server mới phải chạy từ thư mục gốc dự án (hoặc đặt `PYTHONPATH`) vì template không đóng gói `src/` thành package cài được.
 - MCP server khác sau này (ví dụ khách sạn, di chuyển) dùng lại mẫu `src/mcp_servers/<tên>/` này.
 - Chưa có xác thực. Transport HTTP chỉ bind `127.0.0.1` khi chạy local (trong container bind `0.0.0.0`, xem [ADR-014](ADR-014-containerized-mcp-servers.md)). Nếu deploy công khai thì phải bổ sung auth, có thể bằng một ADR riêng.
+
+
+## MCP SDK 2 / LangChain migration
+
+The current runtime uses `mcp>=2.3,<3` (`MCPServer`) and
+`langchain[mcp]==1.4.5` (`MCPAdapter`), replacing `langchain-mcp-adapters`.
+This supersedes the adapter and `mcp<2` constraints above. Flight and payment
+bridges pass a single-server HTTP transport to the adapter to preserve unprefixed tool names and
+bearer headers. Server prompts and resources remain available through the MCP SDK.
+LangChain 1.4.5 preserves compatibility with the existing LangGraph 1.2.11 pin.

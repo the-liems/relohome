@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "relohome-demos"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["relohome-flight==0.1.0", "relohome-payment==0.1.0", "httpx>=0.28.0", "mcp>=1.26,<2", "streamlit>=1.46", "segno>=1.6"]
+dependencies = ["relohome-flight==0.1.0", "relohome-payment==0.1.0", "httpx>=0.28.0", "httpx2>=2.13,<3", "mcp>=2.3,<3", "streamlit>=1.46", "segno>=1.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

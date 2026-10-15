@@ -1,8 +1,9 @@
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
+from relohome_flight.errors import FlightError
 from relohome_flight.settings import FlightSettings, get_flight_settings
 from relohome_flights_mcp.tools import FlightServices, FlightTools, build_services
-from relohome_mcp_http import HttpServiceMCP
+from relohome_mcp_http import HttpServiceMCP, tool_errors
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -20,10 +21,10 @@ Quy trình chuẩn:
 Hủy: cancel_booking(confirm=false) để báo phí trước, confirm=true khi người dùng đồng ý.
 """
 
-READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
-SEARCH = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
-HOLD = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
-COMMIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+SEARCH = ToolAnnotations(read_only_hint=True, open_world_hint=True)
+HOLD = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
+COMMIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
 
 
 def create_server(
@@ -32,13 +33,13 @@ def create_server(
     port: int = 8765,
     *,
     settings: FlightSettings | None = None,
-) -> FastMCP:
+) -> MCPServer:
     """Tạo MCP server; truyền `services` để test với provider/DB riêng.
 
     Truyền `settings` để chọn chế độ rõ ràng; nếu không thì đọc FLIGHT_* từ môi trường.
     Chỉ bật tool/resource/prompt booking khi simulation_enabled=True.
 
-    `host` phải truyền ngay lúc khởi tạo: FastMCP chỉ bật chống DNS rebinding (chỉ nhận
+    `host` phải truyền ngay lúc khởi tạo: MCPServer chỉ bật chống DNS rebinding (chỉ nhận
     Host localhost) khi host là loopback. Trong container dùng `0.0.0.0` để service khác
     trong mạng Docker gọi được qua tên service.
     """
@@ -53,15 +54,15 @@ def create_server(
     )
     mcp = HttpServiceMCP(SERVER_NAME, instructions=instructions, host=host, port=port, service_token=settings.mcp_auth_token)
 
-    mcp.add_tool(tools.search_airports, title="Tra mã sân bay", annotations=READ_ONLY)
-    mcp.add_tool(tools.search_flights, title="Tìm chuyến bay", annotations=SEARCH)
-    mcp.add_tool(tools.search_return_flights, title="Tìm chiều về (khứ hồi)", annotations=SEARCH)
-    mcp.add_tool(tools.get_offer, title="Chi tiết offer", annotations=READ_ONLY)
+    mcp.add_tool(tool_errors(tools.search_airports, FlightError), title="Tra mã sân bay", annotations=READ_ONLY)
+    mcp.add_tool(tool_errors(tools.search_flights, FlightError), title="Tìm chuyến bay", annotations=SEARCH)
+    mcp.add_tool(tool_errors(tools.search_return_flights, FlightError), title="Tìm chiều về (khứ hồi)", annotations=SEARCH)
+    mcp.add_tool(tool_errors(tools.get_offer, FlightError), title="Chi tiết offer", annotations=READ_ONLY)
     if simulation:
-        mcp.add_tool(tools.hold_booking, title="Giữ chỗ", annotations=HOLD)
-        mcp.add_tool(tools.confirm_booking, title="Xuất vé", annotations=COMMIT)
-        mcp.add_tool(tools.get_booking, title="Tra cứu booking", annotations=READ_ONLY)
-        mcp.add_tool(tools.cancel_booking, title="Hủy booking", annotations=COMMIT)
+        mcp.add_tool(tool_errors(tools.hold_booking, FlightError), title="Giữ chỗ", annotations=HOLD)
+        mcp.add_tool(tool_errors(tools.confirm_booking, FlightError), title="Xuất vé", annotations=COMMIT)
+        mcp.add_tool(tool_errors(tools.get_booking, FlightError), title="Tra cứu booking", annotations=READ_ONLY)
+        mcp.add_tool(tool_errors(tools.cancel_booking, FlightError), title="Hủy booking", annotations=COMMIT)
 
     mcp.resource("flights://airports", mime_type="application/json")(tools.airports_resource)
     mcp.resource("flights://airlines", mime_type="application/json")(tools.airlines_resource)
