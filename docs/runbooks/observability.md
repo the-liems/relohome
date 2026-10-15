@@ -98,6 +98,39 @@ for additional dashboards; these are Langfuse's schema, not the OpenTelemetry
 ClickHouse exporter schema. Queries can read both environments, so include the
 appropriate environment and project filters. Cortex remains the default datasource.
 
+### Cloudflare SSO (optional)
+
+Create separate Cloudflare Access SaaS OIDC applications for Grafana and Langfuse,
+and attach the same exact-email Allow policy to both. The callbacks are
+`https://<grafana-host>/login/generic_oauth` and
+`https://<langfuse-host>/api/auth/callback/custom`.
+
+In the shared platform environment, set Grafana's `GRAFANA_OIDC_CLIENT_ID`,
+`GRAFANA_OIDC_CLIENT_SECRET`, `GRAFANA_OIDC_AUTH_URL`, `GRAFANA_OIDC_TOKEN_URL`,
+`GRAFANA_OIDC_USERINFO_URL`, and `GRAFANA_OIDC_JWKS_URL` from its Cloudflare client.
+Set `GRAFANA_OIDC_ENABLED=true`. New SSO users receive Viewer access; existing
+Grafana organization roles are preserved by default. To manage roles through SSO,
+set `GRAFANA_OIDC_DEFAULT_ROLE=Editor` (or `Viewer`) and
+`GRAFANA_OIDC_SKIP_ORG_ROLE_SYNC=false`; mapping is applied on sign-in. Set Langfuse's `LF_AUTH_CUSTOM_CLIENT_ID`,
+`LF_AUTH_CUSTOM_CLIENT_SECRET`, and `LF_AUTH_CUSTOM_ISSUER` from its separate client.
+Keep credentials in Coolify's secret fields. Apply the updated Compose and redeploy.
+
+First test SSO with an existing account while password login remains available.
+Langfuse email/password accounts may need `LF_AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING=true`
+to migrate; enable this only when the IdP verifies email ownership. Organization
+and project access require invitations or membership assignments in Langfuse.
+For automatic Viewer access in an SSO-only deployment, set `LF_DEFAULT_ORG_ID`
+and `LF_DEFAULT_PROJECT_ID` to the existing organization/project IDs before users
+first sign in. Cloudflare must restrict signup to the intended email allowlist.
+
+After SSO works, enforce it by setting `GRAFANA_DISABLE_LOGIN_FORM=true`,
+`GRAFANA_BASIC_AUTH_ENABLED=false`, and `LF_AUTH_DISABLE_USERNAME_PASSWORD=true`.
+To admit new whitelisted Langfuse users, also set `LF_AUTH_DISABLE_SIGNUP=false`;
+disable password authentication in that same rollout so this does not open password
+signup. Test an allowed email and a non-allowed email, and keep a deployment-level
+rollback route for restoring password login. Browser SSO does not replace Langfuse
+SDK/API keys; keep ingestion on its existing machine-authenticated route.
+
 ### 2. One Collector per environment
 
 Create another Git-based Application per environment with the same settings and
