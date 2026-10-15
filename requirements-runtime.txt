@@ -7,6 +7,7 @@ python-dotenv>=1.0.0
 
 # AI / LangChain
 langchain[mcp]==1.4.5
+fastmcp==4.1.0  # imported directly by the MCP tool bridges
 langchain-openai>=0.3.0
 langgraph>=1.0  # interrupt, Command, input_schema (agent-graph.md §11)
 langgraph-checkpoint-sqlite>=3,<4

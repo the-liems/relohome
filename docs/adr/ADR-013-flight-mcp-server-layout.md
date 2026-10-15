@@ -23,7 +23,7 @@ bên ngoài (Claude Code/Desktop, MCP Inspector) để thử và demo. Cây thư
 Hai ràng buộc khác:
 
 - Nhiều thành viên sửa song song các file chung (`src/config.py`, `src/models/schemas.py`). Cần hạn chế merge conflict.
-- `langchain-mcp-adapters` mặc định mở **một process server mới cho mỗi lần gọi tool**, nên server không được giữ trạng thái trong RAM.
+- Các client có thể mở/đóng kết nối MCP giữa các lần gọi tool. Trạng thái nghiệp vụ phải tồn tại qua các kết nối và lần khởi động lại server, nên được lưu trong SQLite.
 
 ## Các lựa chọn (Alternatives)
 
@@ -44,12 +44,12 @@ Hai ràng buộc khác:
 Chọn **Lựa chọn 3**, với các ranh giới sau:
 
 ```text
-src/mcp_servers/flights/            # MCP server (FastMCP, mcp>=1.26,<2)
+src/mcp_servers/flights/            # MCP server (MCPServer, mcp>=2.3,<3)
   server.py    tools.py              # lớp MCP: đăng ký tool/resource/prompt, không chứa logic nghiệp vụ
   search/      booking_engine.py     # lớp nghiệp vụ / adapter: provider tìm chuyến, engine đặt vé
   storage.py                         # SQLite: offer, search cache, booking
   schemas.py   settings.py  catalog_data/  # hợp đồng dữ liệu (Pydantic) + cấu hình FLIGHT_*
-src/agents/tools/flight_mcp.py       # cầu nối LangGraph ↔ MCP (langchain-mcp-adapters)
+src/agents/tools/flight_mcp.py       # cầu nối LangGraph ↔ MCP (langchain.mcp.MCPAdapter)
 tests/test_mcp_flights/              # test theo module, giống tests/test_agents/, tests/test_api/
 ```
 
@@ -83,17 +83,18 @@ tests/test_mcp_flights/              # test theo module, giống tests/test_agen
 
 - `README.md` gốc (mục "Cấu trúc thư mục") và `ARCHITECTURE.md` nên thêm `src/mcp_servers/` khi nhóm chấp nhận ADR này.
 - Có hai nơi khai báo settings. Quy ước: biến dùng chung đặt trong `src/config.py`, biến riêng của một MCP server đặt trong `settings.py` của server đó, với tiền tố riêng.
-- Phải giữ `mcp<2` cho đến khi `langchain-mcp-adapters` hỗ trợ mcp 2.x (bản 2.x đổi `FastMCP` thành `MCPServer`). Khi nâng cấp thì cập nhật `server.py` và ADR này.
+- Dùng `mcp>=2.3,<3` và `langchain[mcp]==1.4.5`; khai báo trực tiếp `fastmcp==4.1.0` vì cầu nối import HTTP transport từ package này.
 - Server mới phải chạy từ thư mục gốc dự án (hoặc đặt `PYTHONPATH`) vì template không đóng gói `src/` thành package cài được.
 - MCP server khác sau này (ví dụ khách sạn, di chuyển) dùng lại mẫu `src/mcp_servers/<tên>/` này.
-- Chưa có xác thực. Transport HTTP chỉ bind `127.0.0.1` khi chạy local (trong container bind `0.0.0.0`, xem [ADR-014](ADR-014-containerized-mcp-servers.md)). Nếu deploy công khai thì phải bổ sung auth, có thể bằng một ADR riêng.
+- HTTP dùng bearer-token verifier và auth middleware của MCP SDK; xem [hợp đồng xác thực nội bộ](../specs/internal-mcp-auth.md). Transport bind `127.0.0.1` khi chạy local và `0.0.0.0` trong container (xem [ADR-014](ADR-014-containerized-mcp-servers.md)).
 
 
 ## MCP SDK 2 / LangChain migration
 
 The current runtime uses `mcp>=2.3,<3` (`MCPServer`) and
 `langchain[mcp]==1.4.5` (`MCPAdapter`), replacing `langchain-mcp-adapters`.
-This supersedes the adapter and `mcp<2` constraints above. Flight and payment
+FastMCP 4.1.0 is also declared directly because the bridges import its transport API.
+Flight and payment
 bridges pass a single-server HTTP transport to the adapter to preserve unprefixed tool names and
 bearer headers. Server prompts and resources remain available through the MCP SDK.
 LangChain 1.4.5 preserves compatibility with the existing LangGraph 1.2.11 pin.
