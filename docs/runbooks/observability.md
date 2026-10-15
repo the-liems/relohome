@@ -110,7 +110,7 @@ In the shared platform environment, set Grafana's `GRAFANA_OIDC_CLIENT_ID`,
 `GRAFANA_OIDC_USERINFO_URL`, and `GRAFANA_OIDC_JWKS_URL` from its Cloudflare client.
 Set `GRAFANA_OIDC_ENABLED=true`. New SSO users receive Viewer access; existing
 Grafana organization roles are preserved by default. To manage roles through SSO,
-set `GRAFANA_OIDC_ROLE_ATTRIBUTE_PATH` to a JMESPath expression and
+set `GRAFANA_OIDC_DEFAULT_ROLE=Editor` (or `Viewer`) and
 `GRAFANA_OIDC_SKIP_ORG_ROLE_SYNC=false`; mapping is applied on sign-in. Set Langfuse's `LF_AUTH_CUSTOM_CLIENT_ID`,
 `LF_AUTH_CUSTOM_CLIENT_SECRET`, and `LF_AUTH_CUSTOM_ISSUER` from its separate client.
 Keep credentials in Coolify's secret fields. Apply the updated Compose and redeploy.
