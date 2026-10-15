@@ -1,6 +1,7 @@
 """`DomainAgent` và wrapper `run_with_policy` (agent-graph.md §6.3.3, §6.3.6).
 
-Wrapper không bao giờ raise: lỗi của subagent là dữ liệu cho validator (D6).
+Mặc định lỗi của subagent là dữ liệu cho validator (D6). Typed form bật
+raise_unexpected để lỗi lập trình đi tới graph/HTTP instrumentation.
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ class AgentPolicy:
     transport_retries: int = 1
     grace_s: float = 2.0
     max_subagent_llm_calls_left: int | None = None
+    raise_unexpected: bool = False
 
 
 STATUS_MAP = {"done": TaskStatus.DONE, "failed": TaskStatus.FAILED, "needs_input": TaskStatus.NEEDS_INPUT}
@@ -144,7 +146,9 @@ async def run_with_policy(
         except TimeoutError:
             raw = failed_result(req, "timeout", "subagent exceeded its deadline", retryable=True)
             break
-        except Exception as exc:  # subagent lỗi không mong đợi: thành dữ liệu cho validator
+        except Exception as exc:
+            if policy.raise_unexpected:
+                raise
             logger.warning("subagent %s failed (%s) task_id=%s", req.agent, type(exc).__name__, req.task_id)
             raw = failed_result(req, "internal", f"subagent error: {type(exc).__name__}", retryable=False)
             break

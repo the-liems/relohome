@@ -2,7 +2,11 @@
 
 import os
 
+from langfuse import get_client
 from langfuse.langchain import CallbackHandler
+from opentelemetry import trace
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import Status, StatusCode
 
 
 def graph_callbacks() -> list[CallbackHandler]:
@@ -18,3 +22,18 @@ def graph_callbacks() -> list[CallbackHandler]:
     handler = CallbackHandler()
     handler.run_inline = True
     return [handler]
+
+
+def record_node_failure(node_name: str, error_type: str, detail: str) -> None:
+    """Enrich the existing node span for errors returned as application data.
+
+    The official callback owns span creation, timing, export and context. Never
+    annotate a parent HTTP span when callbacks are disabled or used outside a graph.
+    """
+    span = trace.get_current_span()
+    if not isinstance(span, ReadableSpan) or span.name != node_name or not span.is_recording():
+        return
+    detail = detail.removeprefix(f"{error_type}: ")[:500]
+    span.set_attribute("error.type", error_type)
+    span.set_status(Status(StatusCode.ERROR, detail))
+    get_client().update_current_span(level="ERROR", status_message=detail)

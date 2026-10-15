@@ -11,7 +11,9 @@ from relohome_agent.agents.subagents.services.payment import ACTOR_ID
 from relohome_agent.guest_access import READ_AGENTS, is_guest
 
 
-async def execute_agent(deps: GraphDeps, name: AgentName, agent: DomainAgent, inp: AgentInput) -> dict:
+async def execute_agent(
+    deps: GraphDeps, name: AgentName, agent: DomainAgent, inp: AgentInput, *, raise_unexpected: bool = False
+) -> dict:
     capability = agent.capability
     # Use the domain selected by trusted graph wiring, including before any
     # provider-specific capability access in the guest authorization branch.
@@ -39,6 +41,7 @@ async def execute_agent(deps: GraphDeps, name: AgentName, agent: DomainAgent, in
     policy = AgentPolicy(
         timeout_s=deps.settings.timeout_for(name),
         transport_retries=deps.settings.agent_transport_retries,
+        raise_unexpected=raise_unexpected,
         max_subagent_llm_calls_left=min(
             inp.get("allocated_llm_calls", capability.default_budget.max_llm_calls),
             subagent_llm_calls_left(counts, deps.settings),

@@ -11,6 +11,7 @@ from relohome_agent.agents.nodes.cost_summary import make_cost_summary
 from relohome_agent.agents.nodes.respond import make_respond
 from relohome_agent.agents.nodes.validator import DEFAULT_RULES, check_task
 from relohome_agent.agents.state import AgentInput, WorkflowState
+from relohome_agent.agents.telemetry import record_node_failure
 
 
 async def moving_quote_agent(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
@@ -20,7 +21,7 @@ async def moving_quote_agent(state: WorkflowState, runtime: Runtime[GraphContext
     agent = deps.moving_quote_agent
     if agent is None:
         raise ValueError("Moving quote agent is not configured")
-    return await execute_agent(
+    update = await execute_agent(
         deps,
         AgentName.RELOCATION,
         agent,
@@ -38,7 +39,13 @@ async def moving_quote_agent(state: WorkflowState, runtime: Runtime[GraphContext
             hints={},
             upstream={},
         ),
+        raise_unexpected=True,
     )
+
+    result = update["task_results"][task.id]
+    if result.status == "failed":
+        record_node_failure("moving_quote_agent", result.error_code or "internal", result.error or "Quote failed")
+    return update
 
 
 async def moving_quote_validate(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
@@ -47,6 +54,7 @@ async def moving_quote_validate(state: WorkflowState, runtime: Runtime[GraphCont
     # Preserve the agent-node checkpoint when validation changes a result.
     result = state["task_results"][task_id].model_copy(deep=True)
     capability = deps.moving_quote_agent.capability
+    validation = None
     if result.status == "done":
         findings = check_task(task_id, result, capability, capability.stale_ttl_s, [], deps.clock())
         try:
@@ -57,6 +65,13 @@ async def moving_quote_validate(state: WorkflowState, runtime: Runtime[GraphCont
         if findings or not fresh:
             result.status, result.error_code = "failed", "internal"
             result.error = "Báo giá thiếu dữ kiện hợp lệ hoặc đã hết hạn; chưa đặt đơn."
+            issues = [finding.issue for finding in findings]
+            if not fresh:
+                issues.append(
+                    ValidationIssue(code="V3", task_id=task_id, message="Quote expires_at is invalid or expired")
+                )
+            validation = ValidationReport(verdict="NEED_MORE", action="GIVE_UP", issues=issues)
+            record_node_failure("moving_quote_validate", "invalid_quote", result.error)
     code = {"done": OutcomeCode.ANSWER, "needs_input": OutcomeCode.ASK_USER, "failed": OutcomeCode.ERROR}[result.status]
     update = {
         "task_results": {task_id: result},
@@ -64,7 +79,7 @@ async def moving_quote_validate(state: WorkflowState, runtime: Runtime[GraphCont
         "validation": (
             ValidationReport(verdict="NEED_MORE", action="ASK_USER", questions=result.questions)
             if result.status == "needs_input"
-            else None
+            else validation
         ),
         "outcome": Outcome(
             node="moving_quote_validate",

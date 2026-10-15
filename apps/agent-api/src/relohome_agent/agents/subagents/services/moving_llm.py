@@ -319,7 +319,11 @@ class MovingLlmAgent:
                         raise ValueError("Tool arguments invalid")
                     async with asyncio.timeout(run.remaining()):
                         output = await execution.call(call.name, args)
-                except (ValueError, KeyError, TypeError):
+                except ValueError:
+                    output = {"error": "invalid_tool_arguments_or_unobserved_reference"}
+                except (KeyError, TypeError):
+                    if form_quote:
+                        raise
                     output = {"error": "invalid_tool_arguments_or_unobserved_reference"}
                 except ToolCallError as exc:
                     if exc.transport or exc.retryable or exc.code not in REQUEST_REJECTION_CODES:
@@ -355,6 +359,8 @@ class MovingLlmAgent:
         except APIError:
             return execution.failed("provider_unavailable", "LLM không phản hồi; chưa hoàn thành task.", True)
         except (KeyError, TypeError, ValueError):
+            if form_quote:
+                raise  # Unexpected form errors must reach the graph callback and HTTP instrumentation.
             return execution.failed("internal", "Dữ liệu trả về không đáp ứng contract; chưa hoàn thành task.")
 
 

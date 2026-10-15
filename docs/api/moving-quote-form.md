@@ -33,9 +33,17 @@ chỉ do API tạo, được xóa khi trả lời và khi bắt đầu chat mớ
 nội dung chat hoặc `intake.intent` đã lưu.
 
 Node validate giữ `result.error` trong `outcome.detail` khi thất bại. Node summary
-không ghi đè outcome đó bằng ANSWER; lỗi dạng result vẫn là dữ liệu, không tự biến
-thành exception hoặc span status ERROR. Callback export vẫn phụ thuộc cấu hình
-Langfuse/OTel hiện có.
+không ghi đè outcome đó bằng ANSWER. Agent trả `failed` thì span
+`moving_quote_agent` được gắn status ERROR, `error.type` từ mã lỗi và lý do an toàn.
+Validate phát hiện quote sai/hết hạn thì chỉ span `moving_quote_validate` được
+đánh dấu `error.type=invalid_quote`; `validation.issues` giữ các lỗi kiểm tra.
+`needs_input` là luồng bình thường, không đánh dấu ERROR. Exception không mong đợi
+trong form agent được raise tới graph/HTTP instrumentation để giữ nguyên nguyên
+nhân và traceback, thay vì đổi thành failed result chung chung. HTTP trả 500;
+checkpoint giữ tiến độ tới node thành công cuối cùng. Đọc lại state trước khi thử lại.
+Callback vẫn quản lý span/timing/export; không thêm span hoặc request timer.
+Export phụ thuộc cấu hình Langfuse/OTel hiện có. Xem
+[runbook debugging](../runbooks/observability.md#debugging-moving-quote-forms).
 
 - Người dùng chọn gói xe: kiểm catalog hiện tại + estimate thật, 0 LLM.
 - Catalog đọc thật được giữ tối đa 45 giây trong RAM của cùng Moving client;
@@ -68,6 +76,7 @@ Khóa một lượt/thread dùng chung với chat, không có kho hội thoại 
 | 409 | Version cũ, lựa chọn nhà đổi, nhiều task quote, thread busy hoặc luồng giao dịch chưa xong |
 | 422 | Schema/pin/ngày giờ không hợp lệ; phải cách hiện tại ít nhất 30 phút |
 | 429 | Hết ngân sách gọi dịch vụ của thread |
+| 500 | Exception không mong đợi; kiểm graph error và HTTP exception event |
 | 503 | Moving form agent chưa được nối |
 
 Provider từ chối nội dung → câu hỏi có lý do an toàn; lỗi hạ tầng → kết quả failed,
