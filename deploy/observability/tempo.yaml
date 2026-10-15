@@ -22,6 +22,11 @@ storage:
       secret_key: ${TEMPO_S3_SECRET_ACCESS_KEY}
       insecure: ${TEMPO_S3_INSECURE}
       forcepathstyle: ${TEMPO_S3_FORCE_PATH_STYLE}
+# Preserve the 32-character trace ID in search results used by Grafana links.
+overrides:
+  defaults:
+    read:
+      left_pad_trace_ids: true
 # Tempo 3's backend scheduler/worker use the default 14-day retention.
 usage_report:
   reporting_enabled: false

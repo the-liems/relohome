@@ -379,6 +379,24 @@ and an external Tempo-to-Langfuse correlation using the same trace ID. From
 Langfuse, copy its trace ID into Grafana Explore's Tempo trace-ID lookup. Both
 stores must retain and sample the relevant spans for correlation to succeed.
 
+`tempo.yaml` enables `overrides.defaults.read.left_pad_trace_ids` so Tempo search
+responses preserve leading zeros in the 32-character hexadecimal trace ID used
+by Langfuse. This changes search response formatting, not stored trace IDs.
+See [Tempo read overrides](https://grafana.com/docs/tempo/latest/configuration/#overrides).
+After redeploying Tempo, verify with an agent/LLM trace present in both stores
+whose Langfuse ID starts with `0`:
+
+1. Find the trace through a fresh Grafana Tempo search and confirm its returned
+   ID is 32 characters and exactly matches Langfuse, including all leading zeros.
+2. Open the trace from that search result, then follow its Langfuse correlation.
+   Confirm the URL contains the complete ID and opens the expected trace.
+3. Repeat with a trace whose ID does not start with `0`.
+
+If the search result is padded but the correlation URL is still shortened,
+inspect the correlation's span field separately; this setting only covers search
+responses. To roll back the formatting change, remove the override or set it to
+`false`, then redeploy Tempo.
+
 Tempo 3.1.0 runs in monolithic mode on the existing Docker host, using a dedicated
 S3-compatible bucket and a persistent `/var/tempo` volume for local state. It has
 a 2 GiB memory limit and the default 14-day retention. Keep the bucket private;
