@@ -16,7 +16,7 @@ from relohome_observability.privacy import content
 
 @pytest.fixture
 def readings(monkeypatch):
-    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
+    monkeypatch.setattr(guardrails, "enabled", lambda: True)
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
     monkeypatch.setattr(metrics, "get_meter_provider", lambda: provider)
@@ -149,11 +149,11 @@ def test_metrics_disabled_unknown_labels_and_sdk_failure_are_fail_open(monkeypat
         raise AssertionError("Unexpected SDK access")
 
     monkeypatch.setattr(guardrails, "_instruments", unavailable)
-    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
+    monkeypatch.setattr(guardrails, "enabled", lambda: False)
     guardrails.record_event("plan", "seen")
     guardrails.record_skip("plan", "overload")
     guardrails.pending_change("plan", 1)
-    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
+    monkeypatch.setattr(guardrails, "enabled", lambda: True)
     guardrails.record_event("private-thread", "seen")
     guardrails.record_skip("plan", "private-address")
     guardrails.pending_change("private-thread", 1)
@@ -169,7 +169,7 @@ def test_factory_already_enables_info_snapshots_after_uvicorn_setup(monkeypatch,
     from relohome_agent.agents.guardrails import shadow
     from relohome_agent.services.adapters.registry import ServiceSettings
 
-    monkeypatch.setattr("relohome_observability.runtime._initialized", False)
+    monkeypatch.setattr(guardrails, "enabled", lambda: False)
     monkeypatch.setattr(shadow.logger, "level", logging.WARNING)
     monkeypatch.setattr(shadow, "JevClient", lambda *args, **kwargs: SimpleNamespace())
     observer = shadow.build_guardrail(ServiceSettings(agent_guardrail_mode="shadow", openrouter_api_key="sk-or-v1-test"))

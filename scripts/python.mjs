@@ -14,7 +14,10 @@ const args = process.argv.slice(2);
 const env = { ...process.env, RELOHOME_RUNTIME_ROOT: process.env.RELOHOME_RUNTIME_ROOT || root };
 // Invoke the official CLI entry point using the selected Python environment.
 if (args[0] === '--instrument') {
-  Object.assign(env, { OTEL_PYTHON_DISTRO: 'relohome', OTEL_PYTHON_CONFIGURATOR: 'relohome' });
+  Object.assign(env, { OTEL_EXPORTER_OTLP_PROTOCOL: env.OTEL_EXPORTER_OTLP_PROTOCOL || 'http/protobuf',
+    OTEL_PYTHON_DISABLED_INSTRUMENTATIONS: 'sqlite3', OTEL_PROPAGATORS: 'tracecontext',
+    OTEL_PYTHON_EXCLUDED_URLS: '/(healthz?|readyz?|metrics)(\\?.*)?$|/(assets|images)/',
+    OTEL_RESOURCE_ATTRIBUTES: env.OTEL_RESOURCE_ATTRIBUTES || 'service.namespace=relohome' });
   const service = process.env.OTEL_SERVICE_NAME || args[1];
   args.splice(0, 2, '-c', 'from opentelemetry.instrumentation.auto_instrumentation import run; run()', '--service_name', service, python);
 }

@@ -134,7 +134,11 @@ def main():
     if command[0] == sys.executable:
         launcher = Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument")
         command = [str(launcher), *command]
-        child_env.update(OTEL_PYTHON_DISTRO="relohome", OTEL_PYTHON_CONFIGURATOR="relohome")
+        child_env.setdefault("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+        child_env.setdefault("OTEL_RESOURCE_ATTRIBUTES", "service.namespace=relohome")
+        child_env["OTEL_PYTHON_DISABLED_INSTRUMENTATIONS"] = "sqlite3"
+        child_env["OTEL_PROPAGATORS"] = "tracecontext"
+        child_env["OTEL_PYTHON_EXCLUDED_URLS"] = r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/"
         child_env.setdefault("OTEL_SERVICE_NAME", {
             "api": "backend", "ui": "web", "flight": "flights-mcp", "payment": "payments-mcp",
         }[args.component])

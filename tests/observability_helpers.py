@@ -34,7 +34,9 @@ def uninstrument_http(app):
         from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 
         StarletteInstrumentor.uninstrument_app(app)
-    if original_build is not None:
-        app.build_middleware_stack = original_build
+    if original_build is not None and not hasattr(app, "_original_build_middleware_stack"):
+        # FastAPI uninstrument_app has already restored its bare builder.
+        if not isinstance(app, FastAPI):
+            app.build_middleware_stack = original_build
     app.middleware_stack = None
     app._relohome_instrumented = False

@@ -3,7 +3,6 @@
 from .runtime import (
     current_context,
     generation,
-    initialize,
     operation,
     record_http_error,
     session,
@@ -11,4 +10,4 @@ from .runtime import (
     traced_node,
 )
 
-__all__ = ["current_context", "generation", "initialize", "operation", "record_http_error", "session", "trace_metadata", "traced_node"]
+__all__ = ["current_context", "generation", "operation", "record_http_error", "session", "trace_metadata", "traced_node"]

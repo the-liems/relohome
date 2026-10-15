@@ -18,7 +18,9 @@ async def main():
         "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_DEPLOYMENT_ENVIRONMENT",
         "PAYMENT_DB_PATH", "FLIGHT_DB_PATH",
     ) if key in os.environ}
-    child_env.update(OTEL_PYTHON_DISTRO="relohome", OTEL_PYTHON_CONFIGURATOR="relohome")
+    child_env.update(OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf",
+                     OTEL_PYTHON_DISABLED_INSTRUMENTATIONS="sqlite3",
+                     OTEL_RESOURCE_ATTRIBUTES="service.namespace=relohome")
     child_env["PAYMENT_PROVIDER"] = "mock"
     child_env["FLIGHT_SEARCH_PROVIDER"] = "mock"
     child_env["FLIGHT_SIMULATION_ENABLED"] = "true"

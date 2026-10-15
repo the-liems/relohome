@@ -6,6 +6,8 @@ x-telemetry: &telemetry
   APP_ENV: ${APP_ENV:-development}
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   RELEASE_SHA: ${SOURCE_COMMIT:-development}
 services:
   intake:

@@ -31,10 +31,9 @@ def observed(monkeypatch):
     monkeypatch.setattr("relohome_observability.asgi.install_http_boundary", instrument_fastapi)
     monkeypatch.setenv("OBSERVABILITY_CONTENT_MODE", "metadata")
     monkeypatch.setenv("RELOHOME_GUEST_ENABLED", "true")
-    monkeypatch.setattr(runtime, "_initialized", True)
     spans = InMemorySpanExporter()
     provider = TracerProvider()
-    provider.add_span_processor(runtime.SanitizingProcessor(SimpleSpanProcessor(spans)))
+    provider.add_span_processor(SimpleSpanProcessor(spans))
     monkeypatch.setattr(trace, "_TRACER_PROVIDER", provider)
     logs = InMemoryLogRecordExporter()
     logger_provider = LoggerProvider()
@@ -59,8 +58,8 @@ async def gateway_status(tmp_path, observed, transport=None):
 
 def assert_diagnostic(observed, response, error_type):
     span = next(item for item in observed.spans.get_finished_spans() if item.kind == trace.SpanKind.SERVER)
-    assert span.attributes["error.type"] == error_type
-    assert span.attributes["http.response.status_code"] == response.status_code
+    assert span.attributes["app.error.code"] == error_type
+    assert span.attributes.get("http.response.status_code", span.attributes.get("http.status_code")) == response.status_code
     assert span.status.status_code == trace.StatusCode.ERROR
     assert response.headers["x-trace-id"] == format(span.context.trace_id, "032x")
     logs = [item.log_record for item in observed.logs.get_finished_logs()
@@ -69,14 +68,12 @@ def assert_diagnostic(observed, response, error_type):
     assert logs[0].trace_id == span.context.trace_id
     assert logs[0].span_id == span.context.span_id
     assert logs[0].severity_text == "ERROR"
-    assert not span.events
-    assert span.status.description is None
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, False])
 async def test_gateway_missing_token_has_safe_reason_and_never_calls_upstream(tmp_path, monkeypatch, observed, enabled):
-    monkeypatch.setattr("relohome_observability.runtime._initialized", enabled)
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", trace.get_tracer_provider() if enabled else trace.NoOpTracerProvider())
     monkeypatch.delenv("AGENT_API_TOKEN", raising=False)
 
     def upstream(request):
@@ -115,7 +112,7 @@ async def test_backend_status_has_reason_on_existing_http_span(monkeypatch, obse
 
 
 @pytest.mark.asyncio
-async def test_automatic_httpx_exception_type_survives_sanitization(tmp_path, monkeypatch, observed):
+async def test_automatic_httpx_exception_is_recorded(tmp_path, monkeypatch, observed):
     monkeypatch.setenv("AGENT_API_TOKEN", "SYNTHETIC_PRIVATE_TOKEN")
     instrumentor = HTTPXClientInstrumentor()
     instrumentor.instrument()
@@ -129,13 +126,10 @@ async def test_automatic_httpx_exception_type_survives_sanitization(tmp_path, mo
         spans = observed.spans.get_finished_spans()
         server = next(span for span in spans if span.kind == trace.SpanKind.SERVER)
         client = next(span for span in spans if span.kind == trace.SpanKind.CLIENT)
-        assert client.attributes["error.type"].endswith("ConnectError")
+        assert any(event.attributes.get("exception.type", "").endswith("ConnectError") for event in client.events)
         assert client.status.status_code == trace.StatusCode.ERROR
         assert client.parent.span_id == server.context.span_id
         assert client.context.trace_id == server.context.trace_id
-        assert server.attributes["error.type"] == "502"
-        assert not client.events
-        assert client.status.description is None
         assert "SYNTHETIC_PRIVATE" not in json.dumps([dict(span.attributes) for span in spans])
     finally:
         instrumentor.uninstrument()

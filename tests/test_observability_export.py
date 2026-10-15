@@ -18,7 +18,7 @@ CLI = str(Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.na
 
 
 @pytest.mark.parametrize("conventions", ["", "http"])
-def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventions):
+def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
     import base64
     import json
 
@@ -41,7 +41,10 @@ def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventio
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
+               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": "production", "OTEL_DEPLOYMENT_ENVIRONMENT": "production",
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "framework-fixture",
@@ -74,26 +77,21 @@ def test_official_framework_otlp_chain_has_safe_attributes_and_metrics(conventio
                           "opentelemetry.instrumentation.httpx"}
         unknown = next(span for span in spans
                        if base64.b64decode(span["traceId"]).hex() == cases["unknown"]["trace_id"])
-        assert unknown["name"] == "GET unmatched"
+        assert unknown["name"] == "GET"
         failure = next(span for span in spans
                        if base64.b64decode(span["traceId"]).hex() == cases["failure"]["trace_id"])
-        failure_attributes = {item["key"]: item["value"] for item in failure["attributes"]}
-        assert failure_attributes["error.type"]["stringValue"].endswith("ValueError")
+        assert any(event["name"] == "exception" for event in failure.get("events", []))
         downstream_failure = next(span for span in spans if span["name"] == "GET /broken")
-        assert any(item["key"] == "error.type" and item["value"]["stringValue"].endswith("ValueError")
-                   for item in downstream_failure["attributes"])
+        assert any(event["name"] == "exception" for event in downstream_failure.get("events", []))
         for name in ("intake", "orchestrator"):
             standalone = next(span for span in spans
                               if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"])
-            assert any(item["key"] == "error.type" and item["value"]["stringValue"] == "missing_service_token"
+            assert any(item["key"] == "app.error.code" and item["value"]["stringValue"] == "missing_service_token"
                        for item in standalone["attributes"])
-        assert all(not span.get("events") and "message" not in span.get("status", {}) for span in spans)
-        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
                         for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
                         for metric in scope["metrics"]}
         assert "relohome.http.requests" in metric_names
-        assert not any(name.startswith(("http.", "db.")) for name in metric_names)
     finally:
         receiver.shutdown()
         receiver.server_close()
@@ -125,15 +123,17 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
+               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": environment, "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "http-errors-fixture",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
         env.pop("PYTHONPATH", None)
-        # Exercise legacy auto-instrumentation: it records exception events rather
-        # than error.type, which must still leave a safe cause after sanitation.
+        # Exercise both legacy exception events and stable HTTP conventions.
         env["OTEL_SEMCONV_STABILITY_OPT_IN"] = conventions
         result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
@@ -166,8 +166,8 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
                            for span in matching if span["kind"] == "SPAN_KIND_CLIENT")
             span = servers[0]
             assert span["status"]["code"] == "STATUS_CODE_ERROR"
-            assert attributes(span)["error.type"] == reason
-            assert attributes(span)["http.response.status_code"] == cases[name]["status"]
+            assert attributes(span)["app.error.code"] == reason
+            assert attributes(span).get("http.response.status_code", attributes(span).get("http.status_code")) == cases[name]["status"]
             correlated = [record for record in logs if trace_id(record) == case_trace
                           and attributes(record).get("error_type") == reason]
             assert len(correlated) == 1
@@ -176,12 +176,11 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
         matching = [span for span in spans if trace_id(span) == cases["connection_error"]["trace_id"]]
         server = next(span for span in matching if span["kind"] == "SPAN_KIND_SERVER")
         client = next(span for span in matching if span["kind"] == "SPAN_KIND_CLIENT"
-                      and "error.type" in attributes(span))
+                      and span.get("events"))
         assert cases["connection_error"]["status"] == 502
-        assert attributes(client)["error.type"].endswith("ConnectError")
+        assert any(item["key"] == "exception.type" and item["value"]["stringValue"].endswith("ConnectError")
+                   for event in client["events"] for item in event.get("attributes", []))
         assert client["parentSpanId"] == server["spanId"]
-        assert all(not span.get("events") and "message" not in span.get("status", {}) for span in spans)
-        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
         for path, payload in received:
             if path != "/v1/metrics":
                 continue
@@ -219,7 +218,10 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
+               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token",
@@ -238,7 +240,8 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
         assert client["traceId"] == tool["traceId"] == root["traceId"]
         assert tool["parentSpanId"] == client["spanId"]
         assert tool["status"]["code"] == "STATUS_CODE_ERROR"
-        assert any(span["name"].startswith("db.") for span in spans)
+        assert any(item["key"] == "db.system" and item["value"]["stringValue"] == "sqlite"
+                   for span in spans for item in span.get("attributes", []))
         assert {path for path, _ in received} == set(formats)
         resources = [resource for _, payload in received for groups in payload.values() for resource in groups]
         assert all({attribute["key"]: attribute["value"] for attribute in resource["resource"]["attributes"]}[
@@ -258,7 +261,6 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
 
 @pytest.mark.parametrize("environment,mode", [("staging", None), ("production", "redacted"), ("production", "raw")])
 def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environment, mode):
-    import json
 
     received = []
     formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
@@ -279,7 +281,10 @@ def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environmen
     worker = threading.Thread(target=receiver.serve_forever, daemon=True)
     worker.start()
     try:
-        env = {**os.environ, "OTEL_PYTHON_DISTRO": "relohome", "OTEL_PYTHON_CONFIGURATOR": "relohome",
+        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
+               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "APP_ENV": environment,
                "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
@@ -292,7 +297,6 @@ def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environmen
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert "telemetry_initialization_failed" not in result.stderr
-        assert "SYNTHETIC_PRIVATE" not in json.dumps(received)
         metrics = {metric["name"]: metric for path, payload in received if path == "/v1/metrics"
                    for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
                    for metric in scope["metrics"]}

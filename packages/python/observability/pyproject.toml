@@ -11,6 +11,8 @@ dependencies = [
     "opentelemetry-sdk==1.45.1",
     "opentelemetry-exporter-otlp-proto-http==1.45.1",
     "opentelemetry-instrumentation==0.66b1",
+    "opentelemetry-distro==0.66b1",
+    "opentelemetry-instrumentation-logging==0.66b1",
     "opentelemetry-instrumentation-httpx==0.66b1",
     "opentelemetry-instrumentation-fastapi==0.66b1",
     "opentelemetry-instrumentation-starlette==0.66b1",
@@ -18,12 +20,6 @@ dependencies = [
     "opentelemetry-instrumentation-dbapi==0.66b1",
     "wrapt>=1.17,<3",
 ]
-
-[project.entry-points.opentelemetry_distro]
-relohome = "relohome_observability.bootstrap:ReloHomeDistro"
-
-[project.entry-points.opentelemetry_configurator]
-relohome = "relohome_observability.bootstrap:ReloHomeConfigurator"
 
 [tool.setuptools.packages.find]
 where = ["src"]

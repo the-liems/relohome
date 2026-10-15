@@ -131,35 +131,35 @@ Langfuse:
 | `redacted` | Non-production opt-in; personal fields and detected emails, Vietnamese phone and ID numbers removed |
 | `raw` | Non-production opt-in; credentials still scrubbed, personal fields may remain |
 
-Production always uses `metadata`: the apps force it when `APP_ENV` or
-`OTEL_DEPLOYMENT_ENVIRONMENT` is `production`, and the production Collector drops
-input/output attributes. Credentials, cookies, API keys and signed tokens are
-scrubbed in every mode. Loki receives only fixed operational events and bounded
-attributes, never message bodies, SQL or exception text. Metric labels never
-contain user, session, request or trace IDs.
+The content modes apply to application-authored graph, tool and generation
+payloads. Production uses `metadata` for those payloads. Framework and library
+telemetry now uses the stock SDK processors: exception events, stack traces, URLs
+and database statements are retained by their instrumentors. There is no custom
+SDK privacy processor or attribute allowlist. The Collector's existing downstream
+rules remain separate from SDK configuration.
 
 ### Framework and client instrumentation
 
-The Python services start through `opentelemetry-instrument`, which discovers
-installed compatible instrumentors and activates them before application imports.
-The package's `relohome` distro/configurator entry points initialize the privacy
-processors, exporters and metric settings once. Images and development launchers
-select `OTEL_PYTHON_DISTRO=relohome` and `OTEL_PYTHON_CONFIGURATOR=relohome` explicitly.
-No service calls `instrument_app()` or activates client libraries itself. Node
-services preload `@relohome/telemetry/register` with `--import` before library imports.
+The Python services start through `opentelemetry-instrument` with the official
+`opentelemetry-distro` package. The launcher discovers installed compatible
+instrumentors before application imports and uses standard `OTEL_*` settings for
+sampling and export. There is no custom distro, configurator or provider bootstrap.
+Node services preload `@relohome/telemetry/register` and use the official NodeSDK
+and standard processors.
 
-For a direct Python launch in the installed environment:
+For a direct launch in the installed environment:
 
 ```sh
-OTEL_PYTHON_DISTRO=relohome OTEL_PYTHON_CONFIGURATOR=relohome \
-  OTEL_SERVICE_NAME=backend \
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
+  OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3 \
   opentelemetry-instrument python -m uvicorn relohome_agent.main:app --port 8000
 ```
 
 The existing `npm run dev:*` service commands and `scripts/local-integration.py`
-also launch through the CLI using the selected Python environment. Instrumentation
-packages remain pinned in the observability package; adding a supported integration
-requires installing its package, rather than adding application activation code.
+also use the CLI. Instrumentation packages remain pinned in the observability
+package. The generic SQLite proxy is disabled because the application's native
+backup API requires real connections; its small adapter uses the official DB-API
+tracer and preserves aiosqlite worker context.
 
 | Runtime | Integration |
 | --- | --- |
@@ -180,21 +180,10 @@ the gateway's trace or sampling policy. Internal HTTP services retain trusted
 W3C parent context. Python and Node propagate trace context without baggage.
 Internal ASGI send/receive spans and Fastify lifecycle hook spans are disabled;
 Fastify retains a framework request/handler span beneath the HTTP server span.
-The Starlette adapter places the installed SDK middleware outside its server
-error handler and records the exception before that handler converts it to a
-500 response. This keeps the response status and original error class on the
-same SDK span; the adapter does not create an additional span.
-
-The SDK drops automatic `http.*`/`db.*` metrics before export because their labels
-can include raw request targets or queries. Existing bounded `relohome` metrics
-remain the dashboard source. Span sanitation keeps route templates, error classes
-and PostgreSQL SQLSTATE codes, while removing raw URLs, SQL, exception messages,
-stack traces and events. Native SQLite connections remain necessary because its
-C backup API rejects generic connection proxies; its adapter delegates span
-creation to the official DB-API tracer and preserves aiosqlite worker context.
-PostgreSQL pool setup/idle queries without a request/operation parent are not
-exported. Application spans for graph nodes, LLM generations, MCP tools and
-durable jobs remain separate from framework instrumentation.
+The SDK keeps the instrumentors' normal exception events and HTTP/database
+metrics. The application boundary adds trace response headers, dashboard metrics
+and completion logs without creating HTTP spans. Graph, generation, tool and job
+spans remain application-authored.
 
 Deploy updated application images, including the standalone Intake/Orchestrator
 images if used. The standalone `compose.agents.yaml` forwards the export and privacy
@@ -210,16 +199,13 @@ Official references: [FastAPI](https://opentelemetry-python-contrib.readthedocs.
 
 ### HTTP failure diagnostics
 
-HTTPX auto-instrumentation creates outbound request spans. Failed automatic spans
-retain `error.type`; for legacy instrumentors that only record an exception event,
-the SDK copies the exception class into `error.type` before removing the event,
-message and stack trace. A failed HTTP span with no more specific cause falls back
-to its numeric HTTP status as `error.type`. These classifications explain the
-failure category, not the full exception message or infrastructure incident.
+HTTPX auto-instrumentation creates outbound request spans. For dependency or
+unhandled failures, inspect the SDK's exception events and status, including the
+original exception class, message and stack trace.
 
 Application decisions that become handled HTTP errors use a fixed diagnostic code:
 
-| `error.type` | Origin |
+| `app.error.code` | Origin |
 | --- | --- |
 | `missing_agent_api_token` | Gateway or backend has no server authentication token |
 | `agent_runtime_not_started` | Backend has no initialized Agent service |
@@ -228,28 +214,22 @@ Application decisions that become handled HTTP errors use a fixed diagnostic cod
 | `llm_not_configured`, `llm_unavailable`, `llm_provider_error`, `llm_invalid_output`, `llm_no_result` | Standalone LLM service's handled outcome |
 | `internal_service_error`, `approval_not_configured` | Standalone service failure or approval configuration failure |
 
-The optional `relohome_observability.fastapi` bridge carries these codes on
-`DiagnosticHTTPException` and `DiagnosticJSONResponse`. The exception handler or
-response boundary annotates the existing HTTP span and emits one ERROR
-`application.log` with `error_type`, correlated by trace/span ID. An exception
-caught for a successful fallback does not annotate the HTTP span. The bridge
-preserves existing response status, body and headers; codes are internal telemetry,
-not new browser API fields. The existing standalone `ServiceError` handler uses
-the same fixed-code annotations for its 5xx outcomes. Specific application causes
-survive both legacy and stable HTTP conventions. Unknown codes are ignored and
-diagnostic failures are fail-open. No reason code is added as a metric label.
+The `relohome_observability.fastapi` bridge annotates the active HTTP span and
+emits a correlated ERROR log when an application decision becomes an HTTP error.
+The fixed code is stored as `app.error.code` so standard instrumentors can set
+`error.type` independently. The existing response body, status and headers are
+preserved. Recovered errors do not mark successful requests as failed.
 
 To investigate `/web/api/status`, find the gateway request by its `x-trace-id`,
-inspect `error.type`, then follow any outbound HTTP span to the backend span and
+inspect `app.error.code`, then follow any outbound HTTP span to the backend span and
 its cause. A missing gateway token stops before an outbound Agent API request;
 session-store SQLite spans can still appear. A transport failure has an automatic
 HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
 Use the existing Langfuse trace link from Loki for the corresponding ERROR log.
 
-These attributes already pass the Collector's privacy allowlists. Deploy updated
-application images with the updated telemetry package; no Collector or Grafana
-configuration update is required for these diagnostics. Existing stored traces do
-not gain new attributes.
+Deploy the updated application images and Collector configuration, which adds
+`app.error.code` to the retained span attributes. Existing stored traces do not
+gain new attributes.
 
 ### Jev shadow metrics
 

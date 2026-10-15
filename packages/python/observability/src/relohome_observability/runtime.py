@@ -1,37 +1,24 @@
 from __future__ import annotations
 
-import atexit
 import functools
 import inspect
-import logging
 import os
-import re
-import sys
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from types import SimpleNamespace
 
 from opentelemetry import context, metrics, trace
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
+from opentelemetry._logs import get_logger
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import Link, SpanKind, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from .privacy import content
 
 _SESSION: ContextVar[str | None] = ContextVar("telemetry_session", default=None)
-_initialized = False
-_logger = None
+_logger = get_logger("relohome")
 _propagator = TraceContextTextMapPropagator()  # No baggage: never propagate identity/credentials.
-SAFE_ATTRIBUTES = frozenset({
-    "http.request.method", "http.method", "http.response.status_code", "http.status_code", "http.route",
-    "db.system", "db.system.name", "db.operation", "db.operation.name", "server.address", "server.port",
-    "network.protocol.version", "rpc.system", "rpc.method", "error.type", "relohome.operation", "relohome.kind",
-    "relohome.outcome", "relohome.origin_trace_id", "relohome.cache_hit", "langfuse.session.id",
-    "langfuse.environment", "langfuse.observation.type", "langfuse.observation.input", "langfuse.observation.output",
-    "gen_ai.system", "gen_ai.provider.name", "gen_ai.operation.name", "gen_ai.request.model",
-    "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens", "langfuse.observation.level",
-})
 HTTP_ERROR_TYPES = frozenset({
     "missing_agent_api_token", "agent_runtime_not_started", "upstream_invalid_json",
     "missing_service_token", "llm_not_configured", "llm_unavailable", "llm_provider_error",
@@ -40,7 +27,7 @@ HTTP_ERROR_TYPES = frozenset({
 
 
 def enabled() -> bool:
-    return _initialized  # The CLI configurator activates telemetry before app imports.
+    return isinstance(trace.get_tracer_provider(), TracerProvider)
 
 
 def instruments():
@@ -63,171 +50,8 @@ def _instruments(provider):
     )
 
 
-def safe_span(span: ReadableSpan) -> ReadableSpan:
-    """Drop raw HTTP URLs, SQL, stack traces and arbitrary instrumentor attributes before queueing."""
-    attrs = {key: value for key, value in (span.attributes or {}).items() if key in SAFE_ATTRIBUTES}
-    if "http.method" in attrs:
-        attrs.setdefault("http.request.method", attrs["http.method"])
-    if "http.status_code" in attrs:
-        attrs.setdefault("http.response.status_code", attrs["http.status_code"])
-    reason = (span.attributes or {}).get("relohome.http.error_type")
-    if isinstance(reason, str) and reason in HTTP_ERROR_TYPES:
-        # Stable HTTP instrumentors can overwrite error.type with the response
-        # status. Preserve the application classification without exporting the
-        # internal marker as another attribute.
-        attrs["error.type"] = reason
-    status = attrs.get("http.response.status_code", attrs.get("http.status_code"))
-    generic_http_error = isinstance(status, int) and attrs.get("error.type") == str(status)
-    if span.status.status_code == StatusCode.ERROR and ("error.type" not in attrs or generic_http_error):
-        # An instrumentor may omit error.type or replace it with the HTTP status.
-        # Keep only the exception class before discarding private event data.
-        for event in span.events or ():
-            error_type = (event.attributes or {}).get("exception.type")
-            if event.name == "exception" and isinstance(error_type, str) and re.fullmatch(
-                r"[A-Za-z_][A-Za-z0-9_.]{0,255}", error_type,
-            ):
-                attrs["error.type"] = error_type
-                break
-        if "error.type" not in attrs:
-            if isinstance(status, int) and 400 <= status < 600:
-                attrs["error.type"] = str(status)
-    name = span.name
-    if "db.system" in attrs or "db.system.name" in attrs:
-        statement = (span.attributes or {}).get("db.query.text", (span.attributes or {}).get("db.statement", ""))
-        operation_name = str(attrs.get("db.operation.name", attrs.get("db.operation", "")))
-        if not operation_name:
-            operation_name = str(statement).split(maxsplit=1)[0].upper() if statement else "QUERY"
-        operation_name = operation_name if operation_name in {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "COMMIT", "ROLLBACK", "BEGIN", "PRAGMA"} else "QUERY"
-        name = "db." + operation_name
-        attrs["db.operation.name"] = operation_name
-    elif "http.request.method" in attrs:
-        route = attrs.get("http.route", "unmatched" if span.kind == SpanKind.SERVER else "request")
-        name = str(attrs["http.request.method"]) + " " + route
-    return ReadableSpan(
-        name=name, context=span.context, parent=span.parent, resource=span.resource,
-        attributes=attrs, events=(), links=tuple(Link(link.context) for link in span.links),
-        kind=span.kind, status=Status(span.status.status_code), start_time=span.start_time, end_time=span.end_time,
-        instrumentation_scope=span.instrumentation_scope,
-    )
-
-
-class SanitizingProcessor(SpanProcessor):
-    def __init__(self, delegate):
-        self.delegate = delegate
-
-    def on_start(self, span, parent_context=None):
-        sid = _SESSION.get()
-        if sid:
-            span.set_attribute("langfuse.session.id", sid)
-        span.set_attribute("langfuse.environment", os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "development"))
-
-    def on_end(self, span):
-        try:
-            if (span.instrumentation_scope.name == "opentelemetry.instrumentation.psycopg"
-                    and span.parent is None):
-                return  # Pool setup/idle probes are outside user operations.
-            self.delegate.on_end(safe_span(span))
-        except Exception:
-            # Broken telemetry must not escape into a business operation.
-            pass
-
-    def shutdown(self):
-        self.delegate.shutdown()
-
-    def force_flush(self, timeout_millis=30000):
-        return self.delegate.force_flush(timeout_millis)
-
-
-class MetadataLogHandler(logging.Handler):
-    def emit(self, record):
-        if record.name.startswith("opentelemetry"):
-            return  # Exporter failures must never recursively export themselves.
-        # Arbitrary application messages/args may contain payloads. Export only source metadata.
-        log_event("application.log", severity=record.levelname, source=record.name,
-                  error_type=record.exc_info[0].__name__ if record.exc_info and record.exc_info[0] else None)
-
-
-def initialize(service_name: str):
-    global _initialized, _logger
-    if _initialized:
-        return
-    _initialized = True
-    try:
-        from opentelemetry._logs import set_logger_provider
-        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.propagate import set_global_textmap
-        from opentelemetry.sdk._logs import LoggerProvider
-        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-        from opentelemetry.sdk.metrics import MeterProvider
-        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-        from opentelemetry.sdk.metrics.view import DropAggregation, ExplicitBucketHistogramAggregation, View
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.sdk.trace.sampling import ALWAYS_ON, ParentBased
-
-        set_global_textmap(_propagator)  # Trace context only; never forward baggage.
-
-        resource = Resource({
-            "service.name": os.getenv("OTEL_SERVICE_NAME", service_name), "service.namespace": "relohome",
-            "service.version": os.getenv("RELEASE_SHA", "development"),
-            "deployment.environment.name": os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "development"),
-        })
-        endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318").rstrip("/")
-        providers = []
-        tracer_provider = TracerProvider(resource=resource, sampler=ParentBased(ALWAYS_ON))
-        tracer_provider.add_span_processor(SanitizingProcessor(BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=endpoint + "/v1/traces", timeout=3),
-            max_queue_size=2048, max_export_batch_size=256, schedule_delay_millis=5000,
-        )))
-        trace.set_tracer_provider(tracer_provider)
-        providers.append(tracer_provider)
-        logs = LoggerProvider(resource=resource)
-        logs.add_log_record_processor(BatchLogRecordProcessor(
-            OTLPLogExporter(endpoint=endpoint + "/v1/logs", timeout=3),
-            max_queue_size=2048, max_export_batch_size=256, schedule_delay_millis=5000,
-        ))
-        set_logger_provider(logs)
-        _logger = logs.get_logger("relohome")
-        providers.append(logs)
-        reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter(endpoint=endpoint + "/v1/metrics", timeout=3),
-            export_interval_millis=15000, export_timeout_millis=5000,
-        )
-        meter_provider = MeterProvider(resource=resource, metric_readers=[reader], views=[
-            # Framework metrics can include raw targets/queries. Keep the existing
-            # bounded relohome HTTP metrics instead of exporting a duplicate set.
-            View(instrument_name="http.*", aggregation=DropAggregation()),
-            View(instrument_name="db.*", aggregation=DropAggregation()),
-            View(instrument_name="relohome.*.duration", aggregation=ExplicitBucketHistogramAggregation(
-                boundaries=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 180, 240, 300])),
-        ])
-        metrics.set_meter_provider(meter_provider)
-        providers.append(meter_provider)
-        from opentelemetry.metrics import Observation
-        metrics.get_meter("relohome").create_observable_gauge(
-            "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
-        )
-        from .sqlite import instrument_shortcuts
-        instrument_shortcuts()
-        logging.getLogger().addHandler(MetadataLogHandler(level=logging.INFO))
-
-        def shutdown():
-            for provider in providers:
-                try:
-                    provider.shutdown()
-                except Exception:
-                    pass
-        atexit.register(shutdown)
-    except Exception:
-        # Deliberately omit exception values, URLs, and config: they can contain credentials.
-        print('{"event":"telemetry_initialization_failed"}', file=sys.stderr)
-
-
 def log_event(event: str, *, severity="INFO", **attributes):
-    if _logger is None:
+    if not enabled():
         return
     try:
         from opentelemetry._logs import SeverityNumber
@@ -249,7 +73,7 @@ def record_http_error(error_type: str):
         return
     try:
         span = trace.get_current_span()
-        span.set_attribute("relohome.http.error_type", error_type)
+        span.set_attribute("app.error.code", error_type)
         span.set_attribute("error.type", error_type)
         span.set_attribute("langfuse.observation.level", "ERROR")
         span.set_status(Status(StatusCode.ERROR))
@@ -328,6 +152,9 @@ def operation(name: str, kind="internal", *, inputs=None, remote=None, origin=No
     attrs = {"relohome.operation": name, "relohome.kind": kind,
              "langfuse.observation.type": {"llm": "generation", "tool": "tool", "agent": "agent",
                                             "workflow": "chain"}.get(kind, "span")}
+    if sid := _SESSION.get():
+        attrs["langfuse.session.id"] = sid
+    attrs["langfuse.environment"] = os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "development")
     attrs.update(attributes or {})
     parent, links = None, []
     if remote:
@@ -424,3 +251,13 @@ async def generation(call, *, provider: str, **kwargs):
             op.error("incomplete_response")
         op.output(getattr(result, "output", None))
         return result
+
+
+if enabled():
+    from .sqlite import instrument_shortcuts
+    instrument_shortcuts()
+
+    from opentelemetry.metrics import Observation
+    metrics.get_meter("relohome").create_observable_gauge(
+        "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",
+    )

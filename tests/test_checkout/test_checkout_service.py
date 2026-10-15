@@ -283,7 +283,6 @@ async def test_fulfilment_retry_reports_each_attempt_outcome(env, monkeypatch):
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-    from relohome_observability import runtime
 
     exporter = InMemorySpanExporter()
     tracer = TracerProvider()
@@ -293,8 +292,6 @@ async def test_fulfilment_retry_reports_each_attempt_outcome(env, monkeypatch):
     monkeypatch.setattr(trace, "_TRACER_PROVIDER", tracer)
     monkeypatch.setattr(metrics, "get_meter_provider", lambda: meter)
     monkeypatch.setattr(metrics, "get_meter", meter.get_meter)
-    monkeypatch.setattr(runtime, "_initialized", True)
-    monkeypatch.setattr("relohome_observability.runtime._initialized", True)
     service, _, flight, _, _ = env
     monkeypatch.setattr(service, "kick", lambda: None)
     try:
