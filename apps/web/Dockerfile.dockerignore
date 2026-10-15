@@ -1,4 +1,5 @@
 **
+!requirements-observability.txt
 !package.json
 !package-lock.json
 !requirements.txt

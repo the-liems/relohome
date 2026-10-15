@@ -1,4 +1,5 @@
 **
+!requirements-observability.txt
 !apps/
 !apps/flights-mcp/
 !apps/flights-mcp/**

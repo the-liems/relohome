@@ -27,7 +27,6 @@ from relohome_agent.agents.subagents.services.location import (
     union_bbox,
 )
 from relohome_agent.agents.subagents.services.moving_llm import function
-from relohome_observability import operation
 
 
 class MemoizedReadClient(CountingClient):
@@ -42,8 +41,7 @@ class MemoizedReadClient(CountingClient):
         key = tool + json.dumps(arguments, sort_keys=True, ensure_ascii=False, default=str)
         if key in self.cache:
             self.cached_calls += 1
-            with operation(tool, "cache", attributes={"relohome.cache_hit": True}):
-                return copy.deepcopy(self.cache[key])
+            return copy.deepcopy(self.cache[key])
         response = await super().call(tool, arguments)
         self.cache[key] = copy.deepcopy(response)
         return response

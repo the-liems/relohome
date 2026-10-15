@@ -1,6 +1,14 @@
 # Legacy ADR-006 standalone component harness, NOT the integrated MVP graph.
 # Current runtime: scripts/local-integration.py api (ADR-016/019/020).
 name: lifeflow-agents
+x-telemetry: &telemetry
+  APP_ENV: ${APP_ENV:-development}
+  OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_SEMCONV_STABILITY_OPT_IN: http
+  RELEASE_SHA: ${SOURCE_COMMIT:-development}
 services:
   intake:
     image: lifeflow-intake:${AGENT_IMAGE_TAG:-local}
@@ -11,6 +19,8 @@ services:
     ports:
       - "127.0.0.1:${INTAKE_PORT:-8011}:8000"
     environment:
+      <<: *telemetry
+      OTEL_SERVICE_NAME: intake
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       INTAKE_MODEL: ${INTAKE_MODEL:-gpt-4o-mini}
       INTAKE_API_TOKEN: ${INTAKE_API_TOKEN:?Set INTAKE_API_TOKEN in .env.local}
@@ -31,6 +41,8 @@ services:
     ports:
       - "127.0.0.1:${ORCHESTRATOR_PORT:-8012}:8000"
     environment:
+      <<: *telemetry
+      OTEL_SERVICE_NAME: orchestrator
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ORCHESTRATOR_MODEL: ${ORCHESTRATOR_MODEL:-gpt-4o-mini}
       ORCHESTRATOR_API_TOKEN: ${ORCHESTRATOR_API_TOKEN:?Set ORCHESTRATOR_API_TOKEN in .env.local}

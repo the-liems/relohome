@@ -19,8 +19,5 @@
     "typescript": "~6.0.2",
     "@types/node": "^24.10.0",
     "vitest": "^4.0.18"
-  },
-  "dependencies": {
-    "@relohome/telemetry": "0.1.0"
   }
 }

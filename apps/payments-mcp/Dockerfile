@@ -16,10 +16,10 @@ ENV PATH=/opt/venv/bin:$PATH
 
 COPY apps/payments-mcp/requirements.txt /tmp/requirements.txt
 COPY packages/python/payment/ /build/domain/
-COPY packages/python/observability/ /build/observability/
+COPY requirements-observability.txt /tmp/requirements-observability.txt
 COPY packages/python/mcp-http/ /build/mcp-http/
 COPY apps/payments-mcp/ /build/app/
-RUN pip install -r /tmp/requirements.txt /build/observability /build/domain /build/mcp-http /build/app
+RUN pip install -r /tmp/requirements.txt -r /tmp/requirements-observability.txt /build/domain /build/mcp-http /build/app
 
 # ---- Stage 2: runtime ----
 FROM python:3.11-slim
@@ -50,4 +50,8 @@ EXPOSE 8766
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['PAYMENT_MCP_PORT']}/health\", timeout=4)" || exit 1
 
-CMD ["python", "-m", "relohome_payments_mcp", "--transport", "streamable-http"]
+ENV OTEL_SEMCONV_STABILITY_OPT_IN=http OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_PROPAGATORS=tracecontext
+ENV OTEL_PYTHON_EXCLUDED_URLS="/(healthz?|readyz?|metrics)(\\?.*)?$|/(assets|images)/"
+ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=relohome
+ENV OTEL_SERVICE_NAME=payments-mcp
+CMD ["opentelemetry-instrument", "python", "-m", "relohome_payments_mcp", "--transport", "streamable-http"]

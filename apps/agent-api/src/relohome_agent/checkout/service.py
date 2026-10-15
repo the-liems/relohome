@@ -31,7 +31,6 @@ from relohome_agent.checkout.models import (
 )
 from relohome_agent.checkout.store import CheckoutStore
 from relohome_agent.services.adapters.mcp import ToolCallError
-from relohome_observability import current_context, operation, session
 
 logger = logging.getLogger(__name__)
 VN_OFFSET = timedelta(hours=7)
@@ -330,7 +329,6 @@ class CheckoutService:
             versions = [a.passenger_version or 0 for a in self.store.attempts_for(tx.transaction_id)]
             now = self.clock()
             attempt = PaymentAttempt(
-                origin_trace_context=current_context(),
                 attempt_id="pa_" + _letters(16),
                 transaction_id=tx.transaction_id,
                 user_id=user_id,
@@ -655,7 +653,6 @@ class CheckoutService:
             if start_job and tx is not None:
                 self.store.create_job(
                     FulfilmentJob(
-                        origin_trace_context=attempt.origin_trace_context,
                         job_id="job_" + _letters(16),
                         transaction_id=tx.transaction_id,
                         attempt_id=attempt.attempt_id,
@@ -713,8 +710,7 @@ class CheckoutService:
                 if fresh is None or fresh.outcome not in OPEN:
                     continue
                 try:
-                    with session(fresh.thread_id), operation("payment.reconcile", "job", origin=fresh.origin_trace_context):
-                        await self._sync(fresh)
+                    await self._sync(fresh)
                 except Exception:  # pragma: no cover - ghi log, lần sau thử lại
                     logger.exception("checkout reconcile failed")
             after = self.store.get_attempt(attempt.attempt_id) or attempt
@@ -742,10 +738,7 @@ class CheckoutService:
                 fresh = self.store.job_for(job.transaction_id)
                 if fresh is None or fresh.status != "pending":
                     continue
-                with operation("payment.fulfilment", "job", origin=fresh.origin_trace_context) as op:
-                    await self._run_job(fresh)
-                    if fresh.status != "done":
-                        op.error("fulfilment_failed")
+                await self._run_job(fresh)
 
     async def _run_job(self, job: FulfilmentJob) -> None:
         tx = self.store.get_tx(job.transaction_id)
@@ -934,7 +927,7 @@ class CheckoutService:
     def attempt_view(self, attempt: PaymentAttempt | None) -> dict:
         if attempt is None:
             return {}
-        data = attempt.model_dump(mode="json", exclude={"idempotency_key", "passenger_ref", "user_id", "origin_trace_context"})
+        data = attempt.model_dump(mode="json", exclude={"idempotency_key", "passenger_ref", "user_id"})
         data["has_qr"] = bool(attempt.qr_code)
         data.pop("qr_code", None)
         data["tester_marked"] = attempt.tester_mark is not None

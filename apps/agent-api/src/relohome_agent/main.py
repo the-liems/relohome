@@ -2,10 +2,12 @@ import logging
 from contextlib import asynccontextmanager
 from time import monotonic
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api.checkout import router as checkout_router
 from relohome_agent.api.moving_quotes import router as moving_quote_router
@@ -25,11 +27,7 @@ from relohome_agent.api.viewings import router as viewings_router
 from relohome_agent.api.web_actions import router as web_actions_router
 from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-from relohome_observability import initialize
-from relohome_observability.asgi import TelemetryMiddleware
 from relohome_roommate.background import RoommateMaintenance
-
-initialize("backend")
 
 
 @asynccontextmanager
@@ -69,7 +67,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(TelemetryMiddleware, service_name="backend")
+@app.exception_handler(HTTPException)
+async def http_error(request, exc):
+    if code := getattr(exc, "error_code", None):
+        trace.get_current_span().set_attribute("app.error.code", code)
+        logging.getLogger(__name__).error("Request failed: %s", code)
+    return await http_exception_handler(request, exc)
+
 
 settings = get_settings()
 app.add_middleware(

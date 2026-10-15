@@ -11,7 +11,7 @@ def test_combined_web_image_installs_gateway_and_serves_web_dist():
     dockerfile = (ROOT / "apps/web/Dockerfile").read_text()
     assert "COPY apps/browser-gateway/ ./apps/browser-gateway/" in dockerfile
     assert "./packages/python/flight ./apps/browser-gateway" in dockerfile
-    assert "./packages/python/observability" in dockerfile
+    assert "-r requirements-observability.txt" in dockerfile
     runtime = dockerfile.split("AS runtime", 1)[1]
     assert "COPY --from=python-build /opt/venv /opt/venv" in runtime
     assert "/web/apps/web/dist ./apps/web/dist" in runtime

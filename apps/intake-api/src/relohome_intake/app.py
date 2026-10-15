@@ -17,7 +17,7 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
         yield
         await llm.close()
 
-    app = FastAPI(title="ReloHome Intake", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="ReloHome Intake", version="1.0.0", lifespan=lifespan, telemetry={"tracing": False})
     install_http(app, settings, "lifeflow-intake")
 
     @app.get("/ready")

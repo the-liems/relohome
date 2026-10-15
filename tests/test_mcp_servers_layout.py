@@ -27,5 +27,5 @@ def test_mcp_server_is_containerized(server: Path) -> None:
     namespace = metadata["tool"]["setuptools"]["packages"]["find"]["include"][0].removesuffix("*")
     assert (server / "src" / namespace / "__main__.py").exists()
     command = next(json.loads(line[4:]) for line in content.splitlines() if line.startswith("CMD "))
-    assert command == ["python", "-m", namespace, "--transport", "streamable-http"]
+    assert command == ["opentelemetry-instrument", "python", "-m", namespace, "--transport", "streamable-http"]
     assert (server / "requirements.txt").exists(), f"{server.name}: cần requirements.txt riêng cho image"

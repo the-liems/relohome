@@ -18,7 +18,6 @@ import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
-from relohome_observability import operation, trace_metadata
 
 
 class ToolCallError(Exception):
@@ -127,10 +126,7 @@ class McpToolClient:
     async def call(self, tool: str, arguments: dict[str, Any]) -> Any:
         if tool not in self.endpoint.allowed_tools:
             raise ToolCallError("tool_not_allowed", f"{self.endpoint.service}.{tool} is not in the allowlist")
-        with operation(tool, "tool", inputs=arguments, attributes={"rpc.system": "mcp", "rpc.method": tool}) as op:
-            result = await self._call(tool, arguments)
-            op.output(result)
-            return result
+        return await self._call(tool, arguments)
 
     async def _call(self, tool: str, arguments: dict[str, Any]) -> Any:
         sent = False
@@ -138,8 +134,7 @@ class McpToolClient:
             async with asyncio.timeout(self.endpoint.timeout_s):
                 async with self._session() as session:
                     sent = True
-                    metadata = trace_metadata()
-                    result = await session.call_tool(tool, arguments, **({"meta": metadata} if metadata else {}))
+                    result = await session.call_tool(tool, arguments)
             return unwrap(result)
         except ToolCallError:
             raise

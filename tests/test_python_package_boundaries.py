@@ -43,7 +43,7 @@ PROJECTS = discover_projects()
 
 
 def test_every_project_is_discovered():
-    assert len(PROJECTS) == 16
+    assert len(PROJECTS) == 15
     assert all(project["files"] for project in PROJECTS)
 
 

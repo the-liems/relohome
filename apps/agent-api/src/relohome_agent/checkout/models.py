@@ -53,7 +53,6 @@ class ServiceTransaction(BaseModel):
 
 
 class PaymentAttempt(BaseModel):
-    origin_trace_context: dict[str, str] = Field(default_factory=dict)
     attempt_id: str
     transaction_id: str
     user_id: str
@@ -84,7 +83,6 @@ class PaymentAttempt(BaseModel):
 
 
 class FulfilmentJob(BaseModel):
-    origin_trace_context: dict[str, str] = Field(default_factory=dict)
     job_id: str
     transaction_id: str
     attempt_id: str

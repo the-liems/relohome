@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -79,13 +80,12 @@ def require_token(secret: SecretStr):
 def install_http(app: FastAPI, settings: ServiceSettings, name: str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    logger.propagate = False
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
-        logger.addHandler(handler)
+
     @app.exception_handler(ServiceError)
     async def service_error(request: Request, exc: ServiceError):
+        if exc.status >= 500:
+            trace.get_current_span().set_attribute("app.error.code", exc.code)
+            logger.error("Request failed: %s", exc.code)
         return JSONResponse(
             status_code=exc.status,
             content={
