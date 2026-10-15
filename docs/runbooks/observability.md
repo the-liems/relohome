@@ -75,8 +75,9 @@ Grafana also provisions a **ClickHouse** datasource using the official plugin
 (pinned to 4.22.1), installed before provisioning at startup. Grafana and Langfuse
 share the `langfuse` ClickHouse account and existing `LF_CLICKHOUSE_PASSWORD`
 secret. Grafana queries have the same write permissions as Langfuse. Redeploy
-the platform to apply the datasource, and redeploy both ClickHouse and Grafana
-when rotating the shared secret. ClickHouse stays on the internal Docker network.
+the platform to apply the datasource. When rotating the shared secret, redeploy
+ClickHouse, Langfuse, the Langfuse worker and Grafana together. ClickHouse stays
+on the internal Docker network.
 Grafana needs outbound access to download the plugin on first installation.
 
 In Grafana **Explore**, select **ClickHouse** and run `SELECT 1`, then
