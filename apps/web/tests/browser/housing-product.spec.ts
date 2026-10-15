@@ -677,10 +677,12 @@ test("a viewing time booked by a tenant can be confirmed from the landlord inbox
     path: "/housing-management/landlord/contact-requests/99999999-9999-4999-8999-999999999999/viewing",
     body: { decision: "confirm", revision: 1 },
   });
+  // The request spy fires before the response and inbox refresh finish.
+  await expect(page.getByRole("button", { name: "Xác nhận giờ xem" })).toBeEnabled();
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
-  expect(accessibility.violations.map((violation) => violation.id)).toEqual([]);
+  expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([]);
 });
 
 test("landlord and tenant exchange messages on a request", async ({ page }) => {

@@ -74,3 +74,20 @@ Before PR publication, main `1da2070` (PR #168) was fetched and merged into this
 After that main sync: full Python regression passed **1,162 tests, 103 skipped and 98 subtests**; the deployment/image/provisioner subset passed **63 tests and 46 subtests**. TypeScript workspace builds, Web production build, Python lint and diff whitespace checks passed. Previously validated browser and disposable PostGIS results above apply to the unchanged Housing implementation; these suites were not repeated for the deployment-only main update. No local secret values were found in outgoing commit history, and local environment/account files remain untracked.
 
 Manual local test scenario: [housing-local-test-scenario.md](housing-local-test-scenario.md). Use separate browser sessions and complete one room’s flow at a time.
+
+## Main compatibility update — 2026-10-15
+
+PR #170 now includes main `a65aca2670c4dd2286e28b38e77f60065bca45c6` (through PR #188). Main was merged into the feature branch only, without Git conflicts. Gateway/Platform retain the handoff routes and schema health checks while adopting main's upstream error reporting and removal of custom telemetry middleware. No merge into main or cloud deployment was performed.
+
+Main's MCP SDK 2 / `langchain[mcp]`, official Python/Node instrumentation, Langfuse configuration, image/deployment files and dependency manifests remain unchanged. The linked Housing deployment runbook now documents the required `LANGFUSE_BASE_URL`, Collector connectivity and current launchers; the removed `OBSERVABILITY_ENABLED` toggle and custom telemetry package must not be reintroduced.
+
+Fresh dependencies were installed into a separate Python test environment, leaving the running local stack's virtualenv unchanged. `pip check` passed. Validation against this integrated main:
+
+- Full Python regression: **1,093 passed, 103 skipped, 98 subtests passed**. Main removed legacy telemetry tests, so this count is not directly comparable with earlier snapshots.
+- Full workspace production build including asset verification, Python lint and TypeScript lint passed.
+- Portable TypeScript suites: **69 passed, 14 skipped**; frontend contracts: **46 passed**.
+- Disposable PostGIS: **65 Housing Query + 66 Platform + 7 Location MCP passed**. Housing management requests use the app role; fixture setup/cleanup uses a separate admin connection. No live database was reset or migrated.
+- Housing/viewing/review/gallery/coincident-pin browser suites: **80 desktop/mobile cases passed**. The first run exposed a race in the inbox accessibility test: its request spy observed the outgoing request before the response/refresh completed. The test now waits for the confirmation control to become enabled before scanning accessibility. That case also passed six consecutive desktop/mobile runs; the final full 80-case run passed.
+- Main deploy/MCP/telemetry configuration has no PR diff; migration 024–026 bytes are unchanged. Local environment and account credentials remain untracked; no known local secret values were found in outgoing history/diff.
+
+The earlier broad `app.spec.ts` baseline limitation remains historical evidence only; this update does not claim that suite was rerun. GitHub CI is checked separately after the updated feature branch is pushed. PR remains open for review with auto-merge disabled.

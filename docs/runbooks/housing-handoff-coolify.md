@@ -1,7 +1,7 @@
 # Kết nối backend cho luồng chủ nhà – người thuê trên Coolify
 
 Hướng dẫn cho bản nâng cấp lịch xem, chat, đánh giá và xác nhận chuyển tiền.
-Đối chiếu main `1da2070` (PR #168, ngày 14/10/2026). Dùng cấu hình triển khai
+Đối chiếu main `a65aca2` (đến PR #188, ngày 15/10/2026). Dùng cấu hình triển khai
 hiện có trong [deploy/README.md](../../deploy/README.md) và
 [compose.coolify.yaml](../../compose.coolify.yaml).
 PR chỉ đưa code để review; người vận hành thực hiện rollout sau khi PR được
@@ -43,6 +43,8 @@ trước backend/schema. Không thêm service hoặc Web replica cho thay đổi
 | `POSTGRES_INGEST_USER`, `POSTGRES_INGEST_PASSWORD` | Role được migration runner thiết lập |
 | `VIETMAP_API_KEY` | Chỉ truyền vào Platform; quyền Autocomplete v4 và Place v4 |
 | `HOUSING_MODERATOR_IDS` | Các **account ID của cloud đích**, phân cách bằng dấu phẩy; giữ ID Admin cũ |
+| `LANGFUSE_BASE_URL` | URL HTTPS của Langfuse tự host; Compose main hiện yêu cầu biến này dù tracing chưa bật |
+| `LANGFUSE_TRACING_ENABLED` | Mặc định `false`; bật theo runbook observability khi đã cấu hình project keys và kết nối |
 | `APP_ENV=staging`, `HOUSING_VIEWING_TEST_VISIT_ANYTIME=true` | Tùy chọn test lịch ngay; cờ chỉ truyền vào backend, không bỏ đặt lịch/xác nhận của chủ nhà |
 
 Cờ bỏ chờ giờ mặc định `false`; tắt khi hết test. `APP_ENV=production` không
@@ -56,6 +58,19 @@ phải chạy được để dependency chain sẵn sàng, kể cả khi chỉ t
 Giữ secret trên Environment Variables của Application, không ghi vào Git,
 Dockerfile, `VITE_*`, issue hoặc PR. Save rồi redeploy/recreate để nhận env mới;
 restart container cũ không áp dụng env mới.
+
+Main đã chuyển sang MCP SDK 2 và `langchain[mcp]`; dùng dependencies/image của
+cùng release, không cài lại `langchain-mcp-adapters` hoặc MCP SDK 1 để khắc phục
+lỗi kết nối. Cấu hình bearer token/URL MCP vẫn như bảng kết nối trên.
+
+Telemetry hiện dùng launcher chính thức `opentelemetry-instrument` cho Python
+và `--import @relohome/telemetry/register` cho Node. Giữ entrypoint/image của
+main; không thêm middleware hoặc package `relohome_observability` cũ.
+`OBSERVABILITY_ENABLED=false` không còn là công tắc tắt telemetry. Đối chiếu
+`OTEL_EXPORTER_OTLP_ENDPOINT` với Collector mà Application truy cập được;
+các biến OTEL/log exporter và Langfuse keys do người vận hành cấu hình theo
+[runbook observability](observability.md). Housing không cần tự thêm Collector
+hoặc dịch vụ observability vào Compose của Application.
 
 ## 3. Dữ liệu bền vững, backup và migration
 
