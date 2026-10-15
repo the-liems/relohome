@@ -198,7 +198,11 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
                 "moving_locations": {"pickup": body.pickup.model_dump(), "destination": body.destination.model_dump()},
                 "moving_options": options,
                 "task_attempts": {task.id: 1},
-                "outcome": Outcome(node="moving_form", code=code),
+                "outcome": Outcome(
+                    node="moving_form",
+                    code=code,
+                    detail=(result.error or "") if result.status == "failed" else "",
+                ),
             }
         )
         update["task_status"] = {**{tid: TaskStatus.STALE for tid in affected}, **update["task_status"]}
