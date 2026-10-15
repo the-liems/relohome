@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import inspect
 import sys
-import time
-from dataclasses import replace
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from relohome_agent.agents import models
-from relohome_agent.agents.cost import subagent_llm_calls_left
-from relohome_agent.agents.deps import AgentRegistry, GraphDeps
+from relohome_agent.agents.context import GraphContext
+from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.execution import execute_agent
 from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.nodes.await_payment import make_await_payment
 from relohome_agent.agents.nodes.change_impact import make_change_impact
@@ -27,11 +26,10 @@ from relohome_agent.agents.nodes.executor import make_executor
 from relohome_agent.agents.nodes.intake import make_intake
 from relohome_agent.agents.nodes.load_context import make_load_context
 from relohome_agent.agents.nodes.moving_quote import (
-    FormQuoteAgent,
-    make_moving_quote_agent,
-    make_moving_quote_respond,
-    make_moving_quote_summary,
-    make_moving_quote_validate,
+    moving_quote_agent,
+    moving_quote_respond,
+    moving_quote_summary,
+    moving_quote_validate,
 )
 from relohome_agent.agents.nodes.orchestrator import make_orchestrator
 from relohome_agent.agents.nodes.respond import make_respond
@@ -50,10 +48,7 @@ from relohome_agent.agents.routing import (
     route_from_validator,
 )
 from relohome_agent.agents.state import AgentInput, WorkflowState
-from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
-from relohome_agent.agents.subagents.services.payment import ACTOR_ID
 from relohome_agent.agents.telemetry import graph_callbacks
-from relohome_agent.guest_access import READ_AGENTS, is_guest
 
 LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
 
@@ -78,74 +73,17 @@ def default_checkpointer() -> BaseCheckpointSaver:
 
 def make_agent_node(deps: GraphDeps, name: AgentName):
     agent = deps.agents.get(name)
-    capability = agent.capability
-
-    async def invoke(inp: AgentInput) -> dict:
-        """Gọi subagent của lĩnh vực qua `run_with_policy`; lỗi là dữ liệu, không raise."""
-        if is_guest(inp.get("user_id")) and name.value not in READ_AGENTS:
-            from relohome_agent.agents.models import TaskResult
-
-            task = inp["task"]
-            return {
-                "task_results": {
-                    task.id: TaskResult(
-                        task_id=task.id,
-                        agent=name,
-                        plan_version=inp["plan_version"],
-                        status="failed",
-                        fetched_at=deps.clock(),
-                        source="authorization",
-                        error_code="unsupported_contract",
-                        error="Đăng nhập để sử dụng dịch vụ này.",
-                        data={"authentication_required": True, "service": name.value},
-                    )
-                }
-            }
-        thread_id, request_id = inp["thread_id"], inp["request_id"]
-        counts = await deps.usage.counts(thread_id, request_id)
-        policy = AgentPolicy(
-            timeout_s=deps.settings.timeout_for(name),
-            transport_retries=deps.settings.agent_transport_retries,
-            max_subagent_llm_calls_left=min(
-                inp.get("allocated_llm_calls", capability.default_budget.max_llm_calls),
-                subagent_llm_calls_left(counts, deps.settings),
-            ),
-        )
-
-        async def record(req, result, elapsed_ms: int) -> None:
-            await deps.usage.record_subagent(
-                thread_id, request_id, name, capability.cost_tier, result.usage, elapsed_ms
-            )
-
-        actor = ACTOR_ID.set(inp.get("user_id"))
-        started_at, started = deps.clock(), time.monotonic()
-        try:
-            update = await run_with_policy(agent, inp, policy=policy, clock=deps.clock, record=record)
-            for result in update.get("task_results", {}).values():
-                if deps.guardrail and capability.uses_llm:
-                    deps.guardrail.observe_assessment(inp, result)
-                result.data["execution"] = {
-                    "request_id": request_id,
-                    "started_at": started_at.isoformat(),
-                    "finished_at": deps.clock().isoformat(),
-                    "elapsed_ms": round((time.monotonic() - started) * 1000),
-                    "allocated_llm_calls": policy.max_subagent_llm_calls_left,
-                    "depends_on": list(inp["task"].depends_on),
-                }
-            return update
-        finally:
-            ACTOR_ID.reset(actor)
 
     async def agent_node(inp: AgentInput) -> dict:
         # Executor allocated disjoint budgets for this wave before LangGraph Send.
-        return await invoke(inp)
+        return await execute_agent(deps, agent, inp)
 
     agent_node.__name__ = agent_node_name(name.value)
     return agent_node
 
 
 def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None):
-    graph = StateGraph(WorkflowState)
+    graph = StateGraph(WorkflowState, context_schema=GraphContext)
     graph.add_node("load_context", make_load_context(deps))
     graph.add_node("intake", make_intake(deps))
     graph.add_node("orchestrator", make_orchestrator(deps))
@@ -164,30 +102,15 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
         graph.add_edge(node, "executor")
         agent_nodes.append(node)
 
-    entry_nodes = ["load_context"]
-    moving = deps.agents.get(AgentName.RELOCATION)
-    if moving is not None and hasattr(moving, "run_form_quote"):
-        form_deps = replace(
-            deps,
-            agents=AgentRegistry(
-                {
-                    name: FormQuoteAgent(moving) if name == AgentName.RELOCATION else deps.agents.get(name)
-                    for name in deps.agents.names()
-                }
-            ),
-        )
-        graph.add_node(
-            "moving_quote_agent", make_moving_quote_agent(deps, make_agent_node(form_deps, AgentName.RELOCATION))
-        )
-        graph.add_node("moving_quote_validate", make_moving_quote_validate(deps))
-        graph.add_node("moving_quote_summary", make_moving_quote_summary(deps))
-        graph.add_node("moving_quote_respond", make_moving_quote_respond(deps))
-        graph.add_edge("moving_quote_agent", "moving_quote_validate")
-        graph.add_edge("moving_quote_validate", "moving_quote_summary")
-        graph.add_edge("moving_quote_summary", "moving_quote_respond")
-        graph.add_edge("moving_quote_respond", END)
-        entry_nodes.append("moving_quote_agent")
-    graph.add_conditional_edges(START, route_from_start, entry_nodes)
+    graph.add_node("moving_quote_agent", moving_quote_agent)
+    graph.add_node("moving_quote_validate", moving_quote_validate)
+    graph.add_node("moving_quote_summary", moving_quote_summary)
+    graph.add_node("moving_quote_respond", moving_quote_respond)
+    graph.add_edge("moving_quote_agent", "moving_quote_validate")
+    graph.add_edge("moving_quote_validate", "moving_quote_summary")
+    graph.add_edge("moving_quote_summary", "moving_quote_respond")
+    graph.add_edge("moving_quote_respond", END)
+    graph.add_conditional_edges(START, route_from_start, ["load_context", "moving_quote_agent"])
     graph.add_edge("load_context", "intake")
     graph.add_conditional_edges("intake", route_from_intake, ["respond", "change_impact", "orchestrator"])
     graph.add_conditional_edges("orchestrator", route_from_orchestrator, ["respond", "executor"])

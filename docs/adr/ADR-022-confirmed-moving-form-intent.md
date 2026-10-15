@@ -82,3 +82,13 @@ client cần đọc state trước khi thử lại. Provider call trong một no
 xét replay khi phục hồi, không có bảo đảm exactly-once từ thay đổi này.
 
 Cập nhật này không tự thay trạng thái Proposed của ADR thành Accepted.
+
+### Wiring theo Graph API chính thức
+
+Các node quote là hàm async nhận `Runtime[GraphContext]`. Dependencies được cấp
+qua `context_schema` và `ainvoke(..., context=...)`, theo
+[LangGraph runtime configuration](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration).
+Startup nối form agent rõ ràng; không dò `hasattr` hoặc thay registry trong graph.
+State chỉ chứa dữ liệu workflow cần checkpoint. Runtime context phải được cấp
+lại khi resume; thời gian request/node lấy từ instrumentation, không thêm timer
+vào context/state. Policy thực thi vẫn là helper chung với chat.

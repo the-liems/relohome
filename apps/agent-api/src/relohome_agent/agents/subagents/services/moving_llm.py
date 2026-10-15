@@ -358,6 +358,16 @@ class MovingLlmAgent:
             return execution.failed("internal", "Dữ liệu trả về không đáp ứng contract; chưa hoàn thành task.")
 
 
+class FormQuoteAgent:
+    """Use the existing form mode without mutating the shared domain agent."""
+
+    def __init__(self, agent: MovingLlmAgent):
+        self.agent, self.capability = agent, agent.capability
+
+    async def run(self, request: AgentTaskRequest) -> AgentTaskResult:
+        return await self.agent.run_form_quote(request)
+
+
 class MovingExecution:
     """All mutable state belongs to one request; no thread cache or model-authored facts."""
 

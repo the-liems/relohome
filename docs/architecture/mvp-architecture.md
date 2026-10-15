@@ -372,7 +372,7 @@ flowchart TD
   FORM["Form: hai pin + lịch + tùy chọn"] --> GUARD["API: owner/version/pin/time<br/>pending payment/approval/order guards"]
   GUARD --> TASK["plan_confirmed_moving_quote<br/>tạo/sửa đúng task quote"]
   TASK --> ENTRY["graph.ainvoke → START<br/>nhánh typed quote"]
-  ENTRY --> POLICY["moving_quote_agent<br/>make_agent_node + run_with_policy"]
+  ENTRY --> POLICY["moving_quote_agent<br/>execute_agent + run_with_policy"]
   POLICY --> CHOICE{"User đã chọn service_id?"}
   CHOICE -->|"có"| EXACT["Kiểm catalog thật<br/>estimate đúng dịch vụ, 0 LLM"]
   CHOICE -->|"chưa"| AUTO["Moving LLM<br/>chọn dịch vụ/đọc detail/estimate"]
@@ -388,8 +388,11 @@ flowchart TD
 preflight và tạo task tất định, rồi `ainvoke` chọn nhánh bằng context form do API
 cấp. Các node quote dùng lại policy, validator checks và cost/respond, có callback
 tracing và checkpoint theo bước. Không chạy load_context/Intake/Planner/executor
-hoặc nhánh giao dịch. Context chọn nhánh được xóa ở cuối lượt và khi bắt đầu chat
-mới, nên tin nhắn sau form trở về đường chat thông thường.
+hoặc nhánh giao dịch. Dependencies cấp qua `context_schema=GraphContext` và tham số
+`context` của `ainvoke`; node quote nhận `Runtime[GraphContext]`. Runtime context không được
+checkpoint, nên caller phải cấp lại khi resume. Context chọn nhánh trong state
+được xóa ở cuối lượt và khi bắt đầu chat mới, nên tin nhắn sau form trở về đường
+chat thông thường.
 
 Input checkpoint lưu plan version mới trước khi gọi agent; nếu lượt bị gián đoạn,
 đọc state mới nhất trước khi submit lại. Checkpoint theo node không bảo đảm

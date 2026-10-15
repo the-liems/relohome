@@ -1,11 +1,11 @@
 """Typed Moving quote actions integrated with the existing graph; never commits."""
 
-from time import time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
 from langfuse import propagate_attributes
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.cost import paid_slots_left
 from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.models import (
@@ -30,7 +30,6 @@ router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 
 @router.post("/chat/{thread_id}/moving/quote")
 async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, user_id: UserId = "anonymous"):
-    started = time()
     async with _lock(service, thread_id):
         state, pending = await _pending(service, thread_id)
         if state and state.get("user_id") != user_id:
@@ -48,8 +47,8 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
         for receipt in committed.values():
             if receipt.kind.value == "moving_booking":
                 raise HTTPException(409, "Đã có đơn chuyển đồ. Hãy kiểm tra hoặc đổi đơn bằng luồng riêng.")
-        agent = service.deps.agents.get(AgentName.RELOCATION)
-        if agent is None or not hasattr(agent, "run_form_quote"):
+        agent = service.deps.moving_quote_agent
+        if agent is None:
             raise HTTPException(503, "Dịch vụ báo giá form chưa được kết nối.")
         now = service.deps.clock()
         if order_time(body.move_date.isoformat(), body.move_time, now) is None:
@@ -124,7 +123,7 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
                     "request_id": request_id,
                     "thread_id": thread_id,
                     "user_id": user_id,
-                    "moving_quote_context": {"task_id": task.id, "started_at": started},
+                    "moving_quote_context": {"task_id": task.id},
                     "plan": plan,
                     "intake": intake,
                     "session": state.get("session") or SessionContext(),
@@ -153,5 +152,6 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
                     },
                 },
                 run_config(thread_id, service.deps),
+                context=GraphContext(deps=service.deps),
             )
         return _to_response(thread_id, result, service)

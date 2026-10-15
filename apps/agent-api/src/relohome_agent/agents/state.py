@@ -41,7 +41,6 @@ class MovingQuoteContext(TypedDict):
     """Trusted API input for one quote turn; cleared after its response."""
 
     task_id: str
-    started_at: float
 
 
 class WorkflowState(TypedDict, total=False):

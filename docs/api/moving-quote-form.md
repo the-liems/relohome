@@ -109,5 +109,27 @@ process dừng giữa lượt, checkpoint có thể chứa plan mới dù HTTP r
 đọc lại state trước khi gửi form với version mới. Resume từ checkpoint vẫn phải
 qua cơ chế phục hồi của runtime; endpoint form không tự replay request cũ.
 Checkpoint ở ranh giới node không bảo đảm exactly-once cho provider call bên trong
-node agent. `form_elapsed_ms` dùng wall time và gồm cả thời gian gián đoạn nếu lượt
-được phục hồi.
+node agent. Thời gian request và từng bước lấy từ HTTP/graph spans của instrumentation;
+không lưu thêm timer hoặc `form_elapsed_ms` trong state.
+
+## Runtime context (LangGraph Graph API)
+
+Theo [hướng dẫn chính thức về runtime configuration](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration),
+graph khai báo `StateGraph(WorkflowState, context_schema=GraphContext)`. Các node
+quote là hàm async nhận `(state, runtime: Runtime[GraphContext])`, đọc dependencies
+qua `runtime.context.deps` và trả partial state update.
+
+API gọi `graph.ainvoke(..., context=GraphContext(deps=service.deps))`. Runtime
+context không nằm trong checkpoint. Khi phục hồi bằng `ainvoke(None, config, ... )`,
+caller phải cấp lại `context=GraphContext(deps=service.deps)`. Context form trong
+state chỉ giữ task ID để routing/phục hồi; nó không chứa client, registry hay timer.
+
+`AgentService.open` nối `moving_quote_agent` rõ ràng tại startup. API trả 503 khi
+dependency này không có. Graph không dùng `hasattr` để dò method và không tạo bản
+sao registry. Node quote và node chat dùng chung helper `execute_agent` để giữ
+policy/usage/actor/guardrail; helper nhận agent cụ thể. Adapter form chỉ chuyển
+contract `run(request)` sang `MovingLlmAgent.run_form_quote(request)`.
+
+Không thêm retry ở graph bên ngoài retry policy hiện có của agent để tránh nhân
+số lần gọi provider. Các node chat hiện tại vẫn dùng dependency factories; nhánh
+quote mới dùng runtime context, không yêu cầu đổi toàn bộ chat API trong PR này.
