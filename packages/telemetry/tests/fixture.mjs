@@ -1,16 +1,15 @@
 import Fastify from 'fastify'
 import { createServer } from 'node:http'
 import { context, propagation, trace } from '@opentelemetry/api'
-import { toolOperation } from '../dist/index.js'
 
 const app = Fastify({ logger: true })
 app.get('/health', () => ({ status: 'ok' }))
 app.get('/failure', () => { throw new TypeError('private-error-message person@example.com fixture-secret') })
-app.post('/mcp', request => toolOperation('echo', request.body.arguments, request.body._meta, async () => {
+app.post('/mcp', async () => {
   console.warn('private-error-message person@example.com')
   return { isError: true, content: [{ type: 'text', text: JSON.stringify({ email: 'person@example.com', api_key: 'fixture-secret',
     description: 'SYNTHETIC_PRIVATE_NAME lives at 123 SYNTHETIC_PRIVATE_ADDRESS' }) }] }
-}))
+})
 const url = await app.listen({ host: '127.0.0.1', port: 0 })
 const raw = createServer((request, response) => {
   const path = request.url.split('?')[0]

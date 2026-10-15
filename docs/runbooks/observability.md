@@ -99,8 +99,8 @@ remove `opentelemetry-instrument` from the Python command, or remove Node's
 
 ### 4. Check
 
-- A chat request shows up in Langfuse as one connected trace (gateway → agent →
-  MCP → database) with the right environment.
+- HTTP requests appear in Langfuse with connected outbound HTTP and supported
+  database spans, with the right environment.
 - The Grafana dashboard fills in for the chosen environment, and a log line's
   `trace_id` opens that trace in Langfuse.
 - The alerts in Grafana stay Normal.
@@ -115,39 +115,14 @@ dashboard cannot be saved; export a copy and move the change into `overview.json
 For upgrades, read the release notes, check the new image has an ARM64 build
 (`docker buildx imagetools inspect <image>`), and back up the volumes first.
 
-Grafana keeps rules and data sources it provisioned earlier. If an older
-deployment with per-environment data sources and alerts exists, remove its
-`grafana` volume before deploying this layout; everything in it is provisioned
-again from the files.
+## Application telemetry
 
-## What is collected
-
-`OBSERVABILITY_CONTENT_MODE` controls whether prompt and tool content reaches
-Langfuse:
-
-| Mode | Langfuse input/output |
-| --- | --- |
-| `metadata` (default) | Omitted; timing, outcomes, token usage and metrics remain |
-| `redacted` | Non-production opt-in; personal fields and detected emails, Vietnamese phone and ID numbers removed |
-| `raw` | Non-production opt-in; credentials still scrubbed, personal fields may remain |
-
-The content modes apply to application-authored graph, tool and generation
-payloads. Production uses `metadata` for those payloads. Framework and library
-telemetry now uses the stock SDK processors: exception events, stack traces, URLs
-and database statements are retained by their instrumentors. There is no custom
-SDK privacy processor or attribute allowlist. The Collector's existing downstream
-rules remain separate from SDK configuration.
-
-### Framework and client instrumentation
-
-The Python services start through `opentelemetry-instrument` with the official
-`opentelemetry-distro` package. The launcher discovers installed compatible
-instrumentors before application imports and uses standard `OTEL_*` settings for
-sampling and export. There is no custom distro, configurator or provider bootstrap.
-Node services preload `@relohome/telemetry/register` and use the official NodeSDK
-and standard processors.
-
-For a direct launch in the installed environment:
+Python services use the official `opentelemetry-distro` and
+`opentelemetry-instrument` launcher. Dependencies are pinned in
+`requirements-observability.txt`. Node services preload
+`@relohome/telemetry/register`, which configures the official NodeSDK and its
+instrumentors. There is no Python observability package, custom distro,
+application tracing wrapper, content mode or custom telemetry processor.
 
 ```sh
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
@@ -155,131 +130,62 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
   opentelemetry-instrument python -m uvicorn relohome_agent.main:app --port 8000
 ```
 
-The existing `npm run dev:*` service commands and `scripts/local-integration.py`
-also use the CLI. Instrumentation packages are pinned in the observability
-package. SQLite uses the official instrumentor. As documented upstream, its
-query tracing covers explicit cursor calls; connection shortcut methods are not
-wrapped. There is no custom database adapter or aiosqlite worker patch.
-Backup utilities run as separate operator commands with plain Python entrypoints.
+The development service commands use the same instrumented launchers. Standard
+`OTEL_*` settings control sampling, propagation and export. Python opts into
+stable HTTP conventions; the Node HTTP instrumentor already uses them.
 
-| Runtime | Integration |
+| Runtime | Official integration |
 | --- | --- |
 | Agent API, browser gateway, Intake, Orchestrator | `FastAPIInstrumentor` |
 | Python Flight/Payment MCP HTTP applications | `StarletteInstrumentor` |
 | Python outgoing HTTP | `HTTPXClientInstrumentor` |
-| Python PostgreSQL/Roommate pools | `PsycopgInstrumentor`, without SQL parameters or SQLCommenter |
-| SQLite | `SQLite3Instrumentor` (explicit cursor calls) |
-| Node HTTP/MCP servers | `HttpInstrumentation` |
-| Platform and Moving Fastify APIs | Maintained `@fastify/otel`, registered automatically by NodeSDK |
+| Python PostgreSQL | `PsycopgInstrumentor` |
+| Python SQLite | `SQLite3Instrumentor` (explicit cursor calls) |
+| Node HTTP servers | `HttpInstrumentation` |
+| Platform and Moving APIs | `@fastify/otel` |
 | Node fetch, PostgreSQL and logging | `UndiciInstrumentation`, `PgInstrumentation`, `PinoInstrumentation` |
 
-FastAPI's built-in tracing is disabled to avoid duplicating the official
-instrumentor. Standard SDK instrumentation owns HTTP spans, exception events,
-context propagation and HTTP metrics. Incoming W3C trace context follows the
-SDK's default parent-based sampling. Python ASGI send/receive spans use the
-instrumentor defaults. Fastify lifecycle hook spans are disabled through its
-standard configuration. Graph, generation, tool and job spans remain
-application-authored.
+FastAPI's built-in tracing is disabled to avoid duplicate HTTP spans. SQLite's
+standard instrumentor traces explicit cursor calls; it does not wrap connection
+shortcut methods. Backup utilities run separately with plain Python. There is
+no custom SQLite adapter or aiosqlite worker patch.
 
-There is no custom HTTP middleware, response trace header, completion log or
-HTTP metric implementation. Python opts into stable HTTP semantic conventions
-with `OTEL_SEMCONV_STABILITY_OPT_IN=http`; the Node HTTP instrumentor already uses
-them. Grafana HTTP queries use the native `http.server.request.duration`
-histogram, whose count gives request volume. The Collector retains these metrics
-and their standard attributes.
+Instrumentors provide request spans, exception events, stack traces, supported
+SQL statements, metrics and log correlation. The Collector forwards these using
+standard resource and batch processors. Application-specific graph, LLM, MCP,
+session and durable-job tracing wrappers, custom metrics, content filtering and
+payload serialization have been removed. Stdio MCP and background jobs do not
+have the former custom cross-process trace links.
 
-Deploy updated application images, Collector configuration and Grafana
-provisioning together, including standalone Intake/Orchestrator images if used.
-Use full SDK route templates such as `/api/v1/status` in route-specific queries.
+### Handled HTTP failures
 
-Official references: [FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
-[Starlette](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html),
-[Psycopg](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html),
-[Fastify](https://github.com/fastify/otel),
-[Python CLI](https://opentelemetry.io/docs/zero-code/python/),
-[Distro/configurator extensions](https://opentelemetry.io/docs/languages/python/distro/).
+Automatic instrumentation records HTTP status and uncaught dependency exceptions.
+For handled configuration failures, application handlers add `app.error.code`
+to the active span and write a normal Python error log. There are no custom
+exception or response classes. The SDK records the final HTTP error status and
+correlates the log.
 
-### HTTP failure diagnostics
+Gateway/backend codes include `missing_agent_api_token`,
+`agent_runtime_not_started` and `upstream_invalid_json`. Standalone services use
+their existing `ServiceError.code`, such as `NOT_CONFIGURED`.
 
-HTTPX auto-instrumentation creates outbound request spans. For dependency or
-unhandled failures, inspect the SDK's exception events and status, including the
-original exception class, message and stack trace.
+For `/web/api/status`, find the gateway request by service, route and timestamp,
+or open its trace from a correlated log. Inspect `app.error.code` and follow any
+outbound HTTP span. A missing token stops before an outbound request; a connection
+failure has an automatic HTTPX exception span beneath the gateway's 502.
 
-Application decisions that become handled HTTP errors use a fixed diagnostic code:
+### Dashboards and deployment
 
-| `app.error.code` | Origin |
-| --- | --- |
-| `missing_agent_api_token` | Gateway or backend has no server authentication token |
-| `agent_runtime_not_started` | Backend has no initialized Agent service |
-| `upstream_invalid_json` | Gateway could not decode the upstream response as JSON |
-| `missing_service_token` | Standalone Intake/Orchestrator service token is absent |
-| `llm_not_configured`, `llm_unavailable`, `llm_provider_error`, `llm_invalid_output`, `llm_no_result` | Standalone LLM service's handled outcome |
-| `internal_service_error`, `approval_not_configured` | Standalone service failure or approval configuration failure |
+Grafana uses the SDK's `http.server.request.duration` histogram for request count,
+5xx rate and latency. Collector queue, memory and operational-log panels remain.
+Alerts cover HTTP error rate, chat latency, Collector availability and export
+failures. Panels and alerts for removed custom application metrics are deleted.
 
-The `relohome_observability.fastapi` bridge annotates the active HTTP span and
-emits a correlated ERROR log when an application decision becomes an HTTP error.
-The fixed code is stored as `app.error.code` so standard instrumentors can set
-`error.type` independently. The existing response body, status and headers are
-preserved. Recovered errors do not mark successful requests as failed.
+Deploy application images, Collector configuration and Grafana provisioning
+together. Previous telemetry data is not migrated. Updated code and queries use
+the current SDK schema directly.
 
-To investigate `/web/api/status`, find the gateway request by service, route
-and timestamp, or open the trace linked from a correlated log. Inspect
-`app.error.code`, then follow any outbound HTTP span to the backend span and
-its cause. A missing gateway token stops before an outbound Agent API request.
-A transport failure has an automatic HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
-Use the existing Langfuse trace link from Loki for the corresponding ERROR log.
-
-Deploy the updated application images and Collector configuration, which adds
-`app.error.code` to the retained span attributes. Existing stored traces do not
-gain new attributes.
-
-### Jev shadow metrics
-
-The guardrail observer exports `relohome.guardrail.observations`,
-`relohome.guardrail.skips` and `relohome.guardrail.in_flight`, with labels
-`point`, `event` and `reason`. The dashboard shows coverage, skip reasons,
-outcomes and in-flight work. Coverage is completed / eligible attempts for running
-processes, not a security score, and counters reset on restart.
-
-## Alerts
-
-Each rule fires per environment and carries an `environment` label; the
-application rules also carry `service_name`:
-
-| Rule | Fires when |
-| --- | --- |
-| HTTP error rate | 5xx above 5% over 10 minutes, with at least 20 requests |
-| Agent/tool/provider failures | Above 5% over 10 minutes, with at least 20 operations |
-| Provider rate limits | At least 3 in 10 minutes |
-| Chat latency | p95 above 120 seconds over 15 minutes, with at least 10 requests |
-| Service heartbeat missing | A service that reported in the last 24 hours has been silent for 2 minutes |
-| Collector unavailable | An environment's Collector that reported in the last 24 hours has been gone for 2 minutes |
-| Telemetry export failures | Export failures for 5 minutes |
-
-No contact point is configured, so alerts show in Grafana but notify no one. Add
-a contact point and notification policy in Grafana when needed.
-
-## Retention
-
-Loki keeps logs for 7 days and Cortex keeps metrics for 30 days; their compactors
-delete older data from S3. Langfuse keeps traces indefinitely, because trace
-retention is an Enterprise feature in self-hosted Langfuse
-([#173](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/173)). You may
-expire the Langfuse bucket's `events/` prefix after 8 days at the bucket provider;
-do not expire the Loki or Cortex buckets.
-
-## Local run
-
-```bash
-docker compose -f deploy/observability/compose.yaml --env-file <file> up -d
-```
-
-Grafana and Langfuse listen on `127.0.0.1:3001` and `127.0.0.1:3000`. On a server,
-change these ports in `compose.yaml` if they are already taken.
-
-Tests for the telemetry SDKs:
-
-```bash
-python -m pytest tests/test_observability.py tests/test_observability_export.py -q
-npm run build && npm run test:ci
-```
+References: [Python zero-code instrumentation](https://opentelemetry.io/docs/zero-code/python/),
+[FastAPI](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html),
+[SQLite](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html),
+[Fastify](https://github.com/fastify/otel).

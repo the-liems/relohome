@@ -12,7 +12,8 @@
       "package-lock.json",
       "packages/python/",
       "requirements-runtime.txt",
-      "apps/browser-gateway/"
+      "apps/browser-gateway/",
+      "requirements-observability.txt"
     ]
   },
   {
@@ -25,7 +26,8 @@
       "config/",
       "requirements.txt",
       "packages/python/",
-      "requirements-runtime.txt"
+      "requirements-runtime.txt",
+      "requirements-observability.txt"
     ]
   },
   {
@@ -87,7 +89,7 @@
       "apps/flights-mcp/",
       "packages/python/flight/",
       "packages/python/mcp-http/",
-      "packages/python/observability/"
+      "requirements-observability.txt"
     ]
   },
   {
@@ -99,7 +101,7 @@
       "apps/payments-mcp/",
       "packages/python/payment/",
       "packages/python/mcp-http/",
-      "packages/python/observability/"
+      "requirements-observability.txt"
     ]
   },
   {

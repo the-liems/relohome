@@ -2,7 +2,6 @@
 # Current runtime: scripts/local-integration.py api (ADR-016/019/020).
 name: lifeflow-agents
 x-telemetry: &telemetry
-  OBSERVABILITY_CONTENT_MODE: ${OBSERVABILITY_CONTENT_MODE:-metadata}
   APP_ENV: ${APP_ENV:-development}
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-development}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

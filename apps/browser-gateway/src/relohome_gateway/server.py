@@ -25,6 +25,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
+from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
@@ -36,7 +37,6 @@ from relohome_gateway.guest_sessions import enabled as guest_enabled
 from relohome_gateway.roommate_gateway import attach_roommate_gateway
 from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
 from relohome_gateway.store import Store, TravelerProfiles, password_hash
-from relohome_observability.fastapi import DiagnosticHTTPException, DiagnosticJSONResponse
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
@@ -195,8 +195,6 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
-    from relohome_observability import record_http_error
-
     @asynccontextmanager
     async def lifespan(app):
         root = runtime_root()
@@ -243,8 +241,9 @@ def create_app(database=None, transport=None):
 
     @app.exception_handler(HTTPException)
     async def http_error(request, exc):
-        if isinstance(exc, DiagnosticHTTPException):
-            record_http_error(exc.error_type)
+        if code := getattr(exc, "error_code", None):
+            trace.get_current_span().set_attribute("app.error.code", code)
+            logging.getLogger(__name__).error("Request failed: %s", code)
         if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
             quota = exc.detail["code"] == "guest_quota"
             headers = {"Cache-Control": "no-store"}
@@ -351,10 +350,9 @@ def create_app(database=None, transport=None):
         )
         token = os.getenv("AGENT_API_TOKEN", "")
         if not token and not platform:
-            raise DiagnosticHTTPException(
-                503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.",
-                error_type="missing_agent_api_token",
-            )
+            error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error.error_code = "missing_agent_api_token"
+            raise error
         try:
             response = await app.state.http.request(
                 method,
@@ -366,7 +364,9 @@ def create_app(database=None, transport=None):
         except (httpx.RequestError, ValueError) as exc:
             detail = "Chưa nhận được kết quả từ dịch vụ. Kiểm tra trạng thái trước khi gửi lại."
             if isinstance(exc, ValueError):
-                raise DiagnosticHTTPException(502, detail, error_type="upstream_invalid_json") from None
+                error = HTTPException(502, detail)
+                error.error_code = "upstream_invalid_json"
+                raise error from None
             raise HTTPException(502, detail) from None
         if not response.is_success:
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
@@ -818,10 +818,9 @@ def create_app(database=None, transport=None):
     async def checkout_call(method, path, owner, body=None):
         token = os.getenv("AGENT_API_TOKEN", "")
         if not token:
-            raise DiagnosticHTTPException(
-                503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.",
-                error_type="missing_agent_api_token",
-            )
+            error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error.error_code = "missing_agent_api_token"
+            raise error
         base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
         try:
             response = await app.state.http.request(
@@ -835,7 +834,9 @@ def create_app(database=None, transport=None):
             # The payment may exist upstream; the UI checks status instead of paying again.
             content = {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"}
             if isinstance(exc, ValueError):
-                return DiagnosticJSONResponse(content, status_code=502, error_type="upstream_invalid_json")
+                trace.get_current_span().set_attribute("app.error.code", "upstream_invalid_json")
+                logging.getLogger(__name__).error("Upstream response is not valid JSON")
+                return JSONResponse(content, status_code=502)
             return JSONResponse(content, status_code=502)
         if not response.is_success:
             detail = data.get("detail") if isinstance(data, dict) else None

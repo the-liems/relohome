@@ -13,9 +13,9 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from relohome_observability import record_http_error
 
 
 class Model(BaseModel):
@@ -80,22 +80,12 @@ def require_token(secret: SecretStr):
 def install_http(app: FastAPI, settings: ServiceSettings, name: str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    logger.propagate = False
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
-        logger.addHandler(handler)
+
     @app.exception_handler(ServiceError)
     async def service_error(request: Request, exc: ServiceError):
         if exc.status >= 500:
-            reason = {
-                "NOT_CONFIGURED": "missing_service_token", "LLM_NOT_CONFIGURED": "llm_not_configured",
-                "LLM_UNAVAILABLE": "llm_unavailable", "LLM_PROVIDER_ERROR": "llm_provider_error",
-                "LLM_INVALID_OUTPUT": "llm_invalid_output", "LLM_NO_RESULT": "llm_no_result",
-                "INTERNAL_ERROR": "internal_service_error", "APPROVAL_NOT_CONFIGURED": "approval_not_configured",
-            }.get(exc.code)
-            if reason:
-                record_http_error(reason)
+            trace.get_current_span().set_attribute("app.error.code", exc.code)
+            logger.error("Request failed: %s", exc.code)
         return JSONResponse(
             status_code=exc.status,
             content={

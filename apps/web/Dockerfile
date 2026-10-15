@@ -17,11 +17,11 @@ FROM python:3.11-slim AS python-build
 ENV PIP_DEFAULT_TIMEOUT=120
 WORKDIR /app
 RUN python -m venv /opt/venv
-COPY requirements-runtime.txt ./
+COPY requirements-runtime.txt requirements-observability.txt ./
 COPY packages/python/ ./packages/python/
 COPY apps/browser-gateway/ ./apps/browser-gateway/
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
-    ./packages/python/observability ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/browser-gateway
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt -r requirements-observability.txt \
+    ./packages/python/privacy ./packages/python/contracts ./packages/python/roommate ./packages/python/flight ./apps/browser-gateway
 
 FROM python:3.11-slim AS runtime
 ENV OTEL_SEMCONV_STABILITY_OPT_IN=http OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_PROPAGATORS=tracecontext

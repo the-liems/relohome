@@ -14,10 +14,10 @@ ENV PATH=/opt/venv/bin:$PATH
 
 COPY apps/flights-mcp/requirements.txt /tmp/requirements.txt
 COPY packages/python/flight/ /build/domain/
-COPY packages/python/observability/ /build/observability/
+COPY requirements-observability.txt /tmp/requirements-observability.txt
 COPY packages/python/mcp-http/ /build/mcp-http/
 COPY apps/flights-mcp/ /build/app/
-RUN pip install -r /tmp/requirements.txt /build/observability /build/domain /build/mcp-http /build/app
+RUN pip install -r /tmp/requirements.txt -r /tmp/requirements-observability.txt /build/domain /build/mcp-http /build/app
 
 # ---- Stage 2: runtime ----
 FROM python:3.11-slim

@@ -58,7 +58,7 @@ class ImageSelectionTests(unittest.TestCase):
 
     def test_telemetry_changes_rebuild_every_instrumented_consumer(self):
         self.assertEqual(self.selected("packages/telemetry/src/sdk.ts"), TYPESCRIPT)
-        self.assertEqual(self.selected("packages/python/observability/src/relohome_observability/runtime.py"),
+        self.assertEqual(self.selected("requirements-observability.txt"),
                          {"web", "backend", "flights-mcp", "payments-mcp"})
 
     def test_shared_contracts_and_lockfile_rebuild_all_typescript_images(self):

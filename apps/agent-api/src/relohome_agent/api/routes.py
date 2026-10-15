@@ -25,8 +25,6 @@ from relohome_agent.api.guest_claim import claim as claim_guest_thread
 from relohome_agent.guest_access import allowed as guest_route_allowed
 from relohome_agent.guest_access import is_guest, require_account
 from relohome_contracts.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
-from relohome_observability.fastapi import DiagnosticHTTPException
-from relohome_observability.runtime import invoke_graph
 from relohome_privacy import redact_pii
 
 
@@ -39,10 +37,9 @@ async def authenticate(
     if service and (service.mode == "live" or is_guest(x_user_id)):
         expected = service.settings.agent_api_token.get_secret_value() if service.settings else ""
         if not expected:
-            raise DiagnosticHTTPException(
-                503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.",
-                error_type="missing_agent_api_token",
-            )
+            error = HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
+            error.error_code = "missing_agent_api_token"
+            raise error
         if not authorization or not secrets.compare_digest(authorization, "Bearer " + expected):
             raise HTTPException(401, "Authentication required")
         if not x_user_id or x_user_id == "anonymous":
@@ -57,7 +54,9 @@ router = APIRouter(dependencies=[Depends(authenticate)])
 def get_service(request: Request) -> AgentService:
     service = getattr(request.app.state, "agent_service", None)
     if service is None:
-        raise DiagnosticHTTPException(503, "Agent runtime has not started", error_type="agent_runtime_not_started")
+        error = HTTPException(503, "Agent runtime has not started")
+        error.error_code = "agent_runtime_not_started"
+        raise error
     return service
 
 
@@ -149,7 +148,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
         if pending:
             if request.moving_locations or request.moving_options or request.housing_location or request.place_choice:
                 raise HTTPException(409, "Change the pending proposal first, then submit confirmed locations.")
-            result = await invoke_graph(service.graph,
+            result = await service.graph.ainvoke(
                 Command(
                     update={"request_id": uuid.uuid4().hex},
                     resume={
@@ -161,7 +160,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                 config,
             )
         else:
-            result = await invoke_graph(service.graph,
+            result = await service.graph.ainvoke(
                 {
                     "messages": [HumanMessage(redact_pii(request.message))],
                     "user_id": user_id,
@@ -264,8 +263,7 @@ async def decision(
                 pii_refs=pii_refs,
             )
             resume.update(approval_id=approval.approval_id, pii_refs=pii_refs)
-        result = await invoke_graph(service.graph,
-            Command(update={"request_id": uuid.uuid4().hex}, resume=resume), run_config(thread_id, service.deps)
+        result = await service.graph.ainvoke(Command(update={"request_id": uuid.uuid4().hex}, resume=resume), run_config(thread_id, service.deps)
         )
         return _to_response(thread_id, result, service)
 
@@ -275,7 +273,7 @@ async def _payment(thread_id: str, action: str, service: AgentService, user_id: 
         _, pending = await _owned(service, thread_id, user_id)
         if not pending or pending.get("type") != "payment_required":
             raise HTTPException(status_code=409, detail="Không có thanh toán nào đang chờ.")
-        result = await invoke_graph(service.graph, Command(resume={"action": action}), run_config(thread_id, service.deps))
+        result = await service.graph.ainvoke(Command(resume={"action": action}), run_config(thread_id, service.deps))
         return _to_response(thread_id, result, service)
 
 
@@ -308,7 +306,7 @@ async def payment_simulate(
             await service.deps.transaction.simulate_payment(payment.payment_ref, body.outcome)
         except Exception as exc:  # cổng không phải mock, giao dịch đã hết PENDING…
             raise HTTPException(status_code=409, detail="Không giả lập được thanh toán này.") from exc
-        result = await invoke_graph(service.graph, Command(resume={"action": "check"}), run_config(thread_id, service.deps))
+        result = await service.graph.ainvoke(Command(resume={"action": "check"}), run_config(thread_id, service.deps))
         return _to_response(thread_id, result, service)
 
 

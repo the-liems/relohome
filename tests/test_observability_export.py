@@ -44,7 +44,6 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
                "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
-               "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": "production", "OTEL_DEPLOYMENT_ENVIRONMENT": "production",
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "framework-fixture",
                "OTEL_SEMCONV_STABILITY_OPT_IN": "http",
@@ -90,7 +89,7 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
             standalone = next(span for span in spans
                               if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"]
                               and span["kind"] == "SPAN_KIND_SERVER")
-            assert any(item["key"] == "app.error.code" and item["value"]["stringValue"] == "missing_service_token"
+            assert any(item["key"] == "app.error.code" and item["value"]["stringValue"] == "NOT_CONFIGURED"
                        for item in standalone["attributes"])
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
                         for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
@@ -131,7 +130,6 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
                "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
-               "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": environment, "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "http-errors-fixture",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
@@ -172,7 +170,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
             assert attributes(span)["app.error.code"] == reason
             assert attributes(span)["http.response.status_code"] == cases[name]["status"]
             correlated = [record for record in logs if trace_id(record) == case_trace
-                          and attributes(record).get("error_type") == reason]
+                          and record.get("severityNumber") == "SEVERITY_NUMBER_ERROR"]
             assert len(correlated) == 1
             assert correlated[0]["spanId"] == span["spanId"]
 
@@ -184,128 +182,6 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
         assert any(item["key"] == "exception.type" and item["value"]["stringValue"].endswith("ConnectError")
                    for event in client["events"] for item in event.get("attributes", []))
         assert client["parentSpanId"] == server["spanId"]
-    finally:
-        receiver.shutdown()
-        receiver.server_close()
-        worker.join(timeout=5)
-
-
-@pytest.mark.parametrize("domain,tool_name", [("payments", "get_payment"), ("flights", "get_booking")])
-def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
-    received = []
-    formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
-               "/v1/metrics": ExportMetricsServiceRequest}
-
-    class Receiver(BaseHTTPRequestHandler):
-        def do_POST(self):
-            assert self.headers["Authorization"] == "Bearer fixture-token"
-            message = formats[self.path]()
-            message.ParseFromString(self.rfile.read(int(self.headers["Content-Length"])))
-            received.append((self.path, MessageToDict(message)))
-            self.send_response(200)
-            self.end_headers()
-
-        def log_message(self, *args):
-            pass
-
-    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
-    worker = threading.Thread(target=receiver.serve_forever, daemon=True)
-    worker.start()
-    try:
-        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PROPAGATORS": "tracecontext",
-               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
-               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
-               "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
-               "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
-               "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token",
-               "PAYMENT_DB_PATH": str(tmp_path / "payments.db"),
-               "FLIGHT_DB_PATH": str(tmp_path / "flights.db"), "OBSERVABILITY_FIXTURE_MCP": domain}
-        env.pop("PYTHONPATH", None)
-        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_process"], cwd=ROOT,
-                                env=env, capture_output=True, text=True, timeout=30)
-        assert result.returncode == 0, result.stderr
-        assert "telemetry_initialization_failed" not in result.stderr
-        spans = [span for path, payload in received if path == "/v1/traces"
-                 for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
-        root = next(span for span in spans if span["name"] == "gateway")
-        client = next(span for span in spans if span["name"] == "mcp.client")
-        tool = next(span for span in spans if span["name"] == tool_name)
-        assert client["traceId"] == tool["traceId"] == root["traceId"]
-        assert tool["parentSpanId"] == client["spanId"]
-        assert tool["status"]["code"] == "STATUS_CODE_ERROR"
-        assert {path for path, _ in received} == set(formats)
-        resources = [resource for _, payload in received for groups in payload.values() for resource in groups]
-        assert all({attribute["key"]: attribute["value"] for attribute in resource["resource"]["attributes"]}[
-            "service.namespace"] == {"stringValue": "relohome"} for resource in resources)
-        scopes = [scope for resource in resources for key, groups in resource.items()
-                  if key.startswith("scope") for scope in groups]
-        assert "relohome" in {scope["scope"]["name"] for scope in scopes}
-        names = {metric["name"] for scope in scopes for metric in scope.get("metrics", [])}
-        assert {"relohome.operations", "relohome.heartbeat"} <= names
-        assert not any(name.startswith("lifeflow") for name in names)
-        assert any(attribute["key"] == "relohome.outcome" for span in spans for attribute in span["attributes"])
-    finally:
-        receiver.shutdown()
-        receiver.server_close()
-        worker.join(timeout=5)
-
-
-@pytest.mark.parametrize("environment,mode", [("staging", None), ("production", "redacted"), ("production", "raw")])
-def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environment, mode):
-
-    received = []
-    formats = {"/v1/traces": ExportTraceServiceRequest, "/v1/logs": ExportLogsServiceRequest,
-               "/v1/metrics": ExportMetricsServiceRequest}
-
-    class Receiver(BaseHTTPRequestHandler):
-        def do_POST(self):
-            message = formats[self.path]()
-            message.ParseFromString(self.rfile.read(int(self.headers["Content-Length"])))
-            received.append((self.path, MessageToDict(message)))
-            self.send_response(200)
-            self.end_headers()
-
-        def log_message(self, *args):
-            pass
-
-    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
-    worker = threading.Thread(target=receiver.serve_forever, daemon=True)
-    worker.start()
-    try:
-        env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PROPAGATORS": "tracecontext",
-               "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
-               "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
-               "APP_ENV": environment,
-               "OTEL_DEPLOYMENT_ENVIRONMENT": environment,
-               "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
-               "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
-        env.pop("OBSERVABILITY_CONTENT_MODE", None)
-        if mode is not None:
-            env["OBSERVABILITY_CONTENT_MODE"] = mode
-        env.pop("PYTHONPATH", None)
-        result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_guardrails_process"], cwd=ROOT,
-                                env=env, capture_output=True, text=True, timeout=30)
-        assert result.returncode == 0, result.stderr
-        assert "telemetry_initialization_failed" not in result.stderr
-        metrics = {metric["name"]: metric for path, payload in received if path == "/v1/metrics"
-                   for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
-                   for metric in scope["metrics"]}
-        points = metrics["relohome.guardrail.observations"]["sum"]["dataPoints"]
-        counts = {tuple(sorted((attr["key"], attr["value"]["stringValue"]) for attr in point["attributes"])):
-                  int(point["asInt"]) for point in points}
-        assert counts[(("event", "eligible"), ("point", "plan"))] == 2
-        assert counts[(("event", "completed"), ("point", "plan"))] == 1
-        assert counts[(("event", "skipped"), ("point", "plan"))] == 1
-        # Protobuf JSON omits the default false value.
-        assert metrics["relohome.guardrail.in_flight"]["sum"].get("isMonotonic", False) is False
-        assert int(metrics["relohome.guardrail.in_flight"]["sum"]["dataPoints"][0]["asInt"]) == 0
-        assert "relohome.guardrail.skips" in metrics
-        assert "relohome.llm.tokens" in metrics  # Usage survives metadata-only capture.
-        spans = [span for path, payload in received if path == "/v1/traces"
-                 for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
-        assert any(span["name"] == "llm.responses" for span in spans)
     finally:
         receiver.shutdown()
         receiver.server_close()
