@@ -156,10 +156,10 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
 ```
 
 The existing `npm run dev:*` service commands and `scripts/local-integration.py`
-also use the CLI. Instrumentation packages remain pinned in the observability
-package. The generic SQLite proxy is disabled because the application's native
-backup API requires real connections; its small adapter uses the official DB-API
-tracer and preserves aiosqlite worker context.
+also use the CLI. Instrumentation packages are pinned in the observability
+package. SQLite instrumentation is disabled because its connection proxy
+conflicts with the native backup API. SQLite and aiosqlite use their normal connections; there
+is no custom database adapter.
 
 | Runtime | Integration |
 | --- | --- |
@@ -167,7 +167,7 @@ tracer and preserves aiosqlite worker context.
 | Python Flight/Payment MCP HTTP applications | `StarletteInstrumentor` |
 | Python outgoing HTTP | `HTTPXClientInstrumentor` |
 | Python PostgreSQL/Roommate pools | `PsycopgInstrumentor`, without SQL parameters or SQLCommenter |
-| SQLite and aiosqlite | Official DB-API `CursorTracer` through the native connection adapter |
+| SQLite and aiosqlite | Not instrumented |
 | Node HTTP/MCP servers | `HttpInstrumentation` |
 | Platform and Moving Fastify APIs | Maintained `@fastify/otel`, registered automatically by NodeSDK |
 | Node fetch, PostgreSQL and logging | `UndiciInstrumentation`, `PgInstrumentation`, `PinoInstrumentation` |
@@ -224,9 +224,8 @@ preserved. Recovered errors do not mark successful requests as failed.
 To investigate `/web/api/status`, find the gateway request by service, route
 and timestamp, or open the trace linked from a correlated log. Inspect
 `app.error.code`, then follow any outbound HTTP span to the backend span and
-its cause. A missing gateway token stops before an outbound Agent API request;
-session-store SQLite spans can still appear. A transport failure has an automatic
-HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
+its cause. A missing gateway token stops before an outbound Agent API request.
+A transport failure has an automatic HTTPX child span (for example, `httpx.ConnectError`) beneath the gateway's 502.
 Use the existing Langfuse trace link from Loki for the corresponding ERROR log.
 
 Deploy the updated application images and Collector configuration, which adds

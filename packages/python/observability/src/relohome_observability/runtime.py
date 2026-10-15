@@ -252,9 +252,6 @@ async def generation(call, *, provider: str, **kwargs):
 
 
 if enabled():
-    from .sqlite import instrument_shortcuts
-    instrument_shortcuts()
-
     from opentelemetry.metrics import Observation
     metrics.get_meter("relohome").create_observable_gauge(
         "relohome.heartbeat", callbacks=[lambda _: [Observation(time.time())]], unit="s",

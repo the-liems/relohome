@@ -178,24 +178,6 @@ def test_payment_context_is_persisted_but_not_exposed(tmp_path, spans):
     assert format(result.links[0].context.trace_id, "032x") == "1" * 32
 
 
-def test_sqlite_shortcuts_preserve_transactions_and_rows(spans):
-    import sqlite3
-
-    from relohome_observability.sqlite import Connection
-    connection = Connection(":memory:")
-    connection.row_factory = sqlite3.Row
-    connection.execute("CREATE TABLE sample (value TEXT)")
-    with operation("database.request"):
-        with connection as transaction:
-            transaction.executemany("INSERT INTO sample VALUES (?)", [("first",), ("second",)])
-        with pytest.raises(ValueError), connection as transaction:
-            transaction.execute("DELETE FROM sample")
-            raise ValueError("rollback")
-        assert [row["value"] for row in connection.execute("SELECT value FROM sample")] == ["first", "second"]
-    connection.close()
-    assert {span.name.split()[0] for span in spans.get_finished_spans()} >= {"SELECT", "INSERT", "DELETE"}
-
-
 @pytest.mark.parametrize("remote", [None, {}, {"progressToken": "progress-1"},
                                   {"traceparent": "invalid"}, {"tracestate": "vendor=value"}])
 def test_mcp_metadata_without_valid_traceparent_preserves_active_parent(spans, remote):
@@ -216,97 +198,6 @@ def test_mcp_valid_remote_context_overrides_active_parent(spans):
     assert tool.parent.span_id == int("2" * 16, 16)
     assert tool.context.trace_id == int("1" * 32, 16)
     assert tool.context.trace_id != parent.context.trace_id
-
-
-@pytest.fixture
-def sqlite_instrumentation(monkeypatch):
-    import sqlite3
-
-    import aiosqlite
-    from relohome_observability import sqlite
-
-    # Restore process-wide wrappers after each test, including the async queue.
-    for module in (sqlite3, sqlite3.dbapi2):
-        monkeypatch.setattr(module, "connect", module.connect)
-    monkeypatch.setattr(aiosqlite.Connection, "_execute", aiosqlite.Connection._execute)
-    monkeypatch.setattr(sqlite, "_instrumented", False)
-    sqlite.instrument_shortcuts()
-
-
-def test_sqlite_idle_polls_do_not_export_but_request_queries_do(spans, sqlite_instrumentation):
-    import sqlite3
-
-    from relohome_agent.checkout.store import CheckoutStore
-
-    connection = sqlite3.connect(":memory:")
-    try:
-        store = CheckoutStore(connection)
-        assert store.open_attempts() == store.pending_jobs() == []
-        assert not spans.get_finished_spans()
-        with operation("request"):
-            store.open_attempts()
-            cursor = connection.cursor()
-            assert cursor.execute("SELECT 1") is cursor
-            assert cursor.fetchone() == (1,)
-            with pytest.raises(sqlite3.OperationalError):
-                cursor.execute("SELECT * FROM missing_private_table")
-        exported = spans.get_finished_spans()
-        parent = exported[-1]
-        database = exported[:-1]
-        assert len(database) == 3
-        assert all(item.name.startswith("SELECT") and item.parent.span_id == parent.context.span_id for item in database)
-        assert database[-1].status.status_code.name == "ERROR"
-    finally:
-        connection.close()
-
-
-@pytest.mark.asyncio
-async def test_aiosqlite_queue_preserves_each_concurrent_request_context(spans, sqlite_instrumentation):
-    import aiosqlite
-
-    async with aiosqlite.connect(":memory:") as connection:
-        await connection.execute("CREATE TABLE sample (value INTEGER)")
-
-        async def request(name):
-            with session(name), operation(name):
-                await connection.execute("INSERT INTO sample VALUES (1)")
-                async with connection.cursor() as cursor:
-                    await cursor.execute("SELECT value FROM sample")
-                    assert await cursor.fetchone() == (1,)
-
-        await asyncio.gather(request("first"), request("second"))
-        count = len(spans.get_finished_spans())
-        await connection.execute("SELECT 1")  # Worker context must not leak after either request.
-        assert len(spans.get_finished_spans()) == count
-    exported = spans.get_finished_spans()
-    parents = {item.name: item for item in exported if item.name in {"first", "second"}}
-    database = [item for item in exported if item.attributes.get("db.system") == "sqlite"]
-    assert len(database) == 4
-    for item in database:
-        parent = next(parent for parent in parents.values() if parent.context.span_id == item.parent.span_id)
-        assert item.parent.span_id == parent.context.span_id
-        assert item.context.trace_id == parent.context.trace_id
-
-
-def test_sqlite_respects_disabled_and_unsampled_context(spans, sqlite_instrumentation, monkeypatch):
-    import sqlite3
-
-    from opentelemetry.instrumentation.utils import suppress_instrumentation
-
-    connection = sqlite3.connect(":memory:")
-    try:
-        with operation("request"), suppress_instrumentation():
-            connection.execute("SELECT 1")
-        with operation("unsampled", remote={
-            "traceparent": "00-11111111111111111111111111111111-2222222222222222-00",
-        }):
-            connection.cursor().execute("SELECT 1")
-        monkeypatch.setattr(trace, "_TRACER_PROVIDER", trace.NoOpTracerProvider())
-        with trace.get_tracer("external").start_as_current_span("external"):
-            connection.execute("SELECT 1")
-        assert [item.name for item in spans.get_finished_spans()] == ["request"]
-    finally:
-        connection.close()
 
 
 @pytest.mark.asyncio
@@ -359,46 +250,3 @@ async def test_disabled_operations_and_generation_do_not_create_instruments(monk
 
     with operation("disabled"):
         assert await generation(call, provider="test", model="test") is reply
-
-
-@pytest.mark.parametrize("raw_source,raw_target", [(True, False), (False, True), (False, False)])
-def test_sqlite_backups_accept_native_and_instrumented_connections(spans, sqlite_instrumentation,
-                                                                  raw_source, raw_target):
-    import sqlite3
-
-    source = (sqlite3.Connection if raw_source else sqlite3.connect)(":memory:")
-    target = (sqlite3.Connection if raw_target else sqlite3.connect)(":memory:")
-    try:
-        source.execute("CREATE TABLE sample (value TEXT)")
-        source.execute("INSERT INTO sample VALUES ('preserved')")
-        source.commit()
-        source.backup(target)
-        assert target.execute("SELECT value FROM sample").fetchall() == [("preserved",)]
-        assert source.cursor().connection is source
-        assert target.cursor().connection is target
-    finally:
-        source.close()
-        target.close()
-
-
-def test_sqlite_preserves_application_factories_and_instruments_explicit_default(spans, sqlite_instrumentation):
-    import sqlite3
-
-    class CustomConnection(sqlite3.Connection):
-        pass
-
-    class CustomCursor(sqlite3.Cursor):
-        pass
-
-    with sqlite3.connect(":memory:", factory=CustomConnection) as custom:
-        assert type(custom) is CustomConnection
-        assert type(custom.cursor(factory=CustomCursor)) is CustomCursor
-    custom.close()
-    # The legacy positional factory argument remains supported, too.
-    connection = sqlite3.dbapi2.connect(":memory:", 5.0, 0, "", True, sqlite3.Connection)
-    try:
-        with operation("request"):
-            assert connection.execute("SELECT 1").fetchone() == (1,)
-        assert [item.name for item in spans.get_finished_spans()] == ["SELECT", "request"]
-    finally:
-        connection.close()

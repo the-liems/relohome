@@ -17,8 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI = str(Path(sys.executable).with_name("opentelemetry-instrument.exe" if os.name == "nt" else "opentelemetry-instrument"))
 
 
-@pytest.mark.parametrize("conventions", ["", "http"])
-def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
+def test_official_framework_otlp_chain_has_errors_and_metrics():
     import base64
     import json
 
@@ -48,7 +47,7 @@ def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
                "OBSERVABILITY_CONTENT_MODE": "metadata",
                "APP_ENV": "production", "OTEL_DEPLOYMENT_ENVIRONMENT": "production",
                "RELOHOME_RUNTIME_ROOT": str(ROOT), "OTEL_SERVICE_NAME": "framework-fixture",
-               "OTEL_SEMCONV_STABILITY_OPT_IN": conventions,
+               "OTEL_SEMCONV_STABILITY_OPT_IN": "http",
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": ""}
         result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_framework_process"], cwd=ROOT,
@@ -102,8 +101,8 @@ def test_official_framework_otlp_chain_has_errors_and_metrics(conventions):
         worker.join(timeout=5)
 
 
-@pytest.mark.parametrize("environment,conventions", [("staging", ""), ("production", ""), ("production", "http")])
-def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, conventions):
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
     import base64
     import json
 
@@ -137,8 +136,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
                "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{receiver.server_port}",
                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20fixture-token"}
         env.pop("PYTHONPATH", None)
-        # Exercise both legacy exception events and stable HTTP conventions.
-        env["OTEL_SEMCONV_STABILITY_OPT_IN"] = conventions
+        env["OTEL_SEMCONV_STABILITY_OPT_IN"] = "http"
         result = subprocess.run([CLI, sys.executable, "-m", "tests.observability_http_errors_process"], cwd=ROOT,
                                 env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
@@ -171,7 +169,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment, co
             span = servers[0]
             assert span["status"]["code"] == "STATUS_CODE_ERROR"
             assert attributes(span)["app.error.code"] == reason
-            assert attributes(span).get("http.response.status_code", attributes(span).get("http.status_code")) == cases[name]["status"]
+            assert attributes(span)["http.response.status_code"] == cases[name]["status"]
             correlated = [record for record in logs if trace_id(record) == case_trace
                           and attributes(record).get("error_type") == reason]
             assert len(correlated) == 1
@@ -235,15 +233,13 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
         assert client["traceId"] == tool["traceId"] == root["traceId"]
         assert tool["parentSpanId"] == client["spanId"]
         assert tool["status"]["code"] == "STATUS_CODE_ERROR"
-        assert any(item["key"] == "db.system" and item["value"]["stringValue"] == "sqlite"
-                   for span in spans for item in span.get("attributes", []))
         assert {path for path, _ in received} == set(formats)
         resources = [resource for _, payload in received for groups in payload.values() for resource in groups]
         assert all({attribute["key"]: attribute["value"] for attribute in resource["resource"]["attributes"]}[
             "service.namespace"] == {"stringValue": "relohome"} for resource in resources)
         scopes = [scope for resource in resources for key, groups in resource.items()
                   if key.startswith("scope") for scope in groups]
-        assert {scope["scope"]["name"] for scope in scopes} >= {"relohome", "opentelemetry.instrumentation.sqlite3"}
+        assert "relohome" in {scope["scope"]["name"] for scope in scopes}
         names = {metric["name"] for scope in scopes for metric in scope.get("metrics", [])}
         assert {"relohome.operations", "relohome.heartbeat"} <= names
         assert not any(name.startswith("lifeflow") for name in names)
