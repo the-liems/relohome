@@ -137,7 +137,6 @@ def main():
         child_env.setdefault("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
         child_env.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
         child_env.setdefault("OTEL_RESOURCE_ATTRIBUTES", "service.namespace=relohome")
-        child_env["OTEL_PYTHON_DISABLED_INSTRUMENTATIONS"] = "sqlite3"
         child_env["OTEL_PROPAGATORS"] = "tracecontext"
         child_env["OTEL_PYTHON_EXCLUDED_URLS"] = r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/"
         child_env.setdefault("OTEL_SERVICE_NAME", {

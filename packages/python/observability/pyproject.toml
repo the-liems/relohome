@@ -17,6 +17,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi==0.66b1",
     "opentelemetry-instrumentation-starlette==0.66b1",
     "opentelemetry-instrumentation-psycopg==0.66b1",
+    "opentelemetry-instrumentation-sqlite3==0.66b1",
 ]
 
 [tool.setuptools.packages.find]

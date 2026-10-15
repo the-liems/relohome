@@ -3,6 +3,7 @@
 import asyncio
 import json
 import socket
+import sqlite3
 import uuid
 
 
@@ -35,6 +36,9 @@ async def main():
 
             @app.get("/forward")
             async def forward():
+                with sqlite3.connect(":memory:") as connection:
+                    assert connection.cursor().execute("SELECT 1").fetchone() == (1,)
+                connection.close()
                 async with httpx.AsyncClient() as client:
                     result = await client.get(
                         f"http://127.0.0.1:{listener.getsockname()[1]}/records/SYNTHETIC_PRIVATE_ID"

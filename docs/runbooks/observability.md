@@ -151,15 +151,16 @@ For a direct launch in the installed environment:
 
 ```sh
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_SERVICE_NAME=backend \
-  OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=sqlite3 OTEL_SEMCONV_STABILITY_OPT_IN=http \
+  OTEL_SEMCONV_STABILITY_OPT_IN=http \
   opentelemetry-instrument python -m uvicorn relohome_agent.main:app --port 8000
 ```
 
 The existing `npm run dev:*` service commands and `scripts/local-integration.py`
 also use the CLI. Instrumentation packages are pinned in the observability
-package. SQLite instrumentation is disabled because its connection proxy
-conflicts with the native backup API. SQLite and aiosqlite use their normal connections; there
-is no custom database adapter.
+package. SQLite uses the official instrumentor. As documented upstream, its
+query tracing covers explicit cursor calls; connection shortcut methods are not
+wrapped. There is no custom database adapter or aiosqlite worker patch.
+Backup utilities run as separate operator commands with plain Python entrypoints.
 
 | Runtime | Integration |
 | --- | --- |
@@ -167,7 +168,7 @@ is no custom database adapter.
 | Python Flight/Payment MCP HTTP applications | `StarletteInstrumentor` |
 | Python outgoing HTTP | `HTTPXClientInstrumentor` |
 | Python PostgreSQL/Roommate pools | `PsycopgInstrumentor`, without SQL parameters or SQLCommenter |
-| SQLite and aiosqlite | Not instrumented |
+| SQLite | `SQLite3Instrumentor` (explicit cursor calls) |
 | Node HTTP/MCP servers | `HttpInstrumentation` |
 | Platform and Moving Fastify APIs | Maintained `@fastify/otel`, registered automatically by NodeSDK |
 | Node fetch, PostgreSQL and logging | `UndiciInstrumentation`, `PgInstrumentation`, `PinoInstrumentation` |

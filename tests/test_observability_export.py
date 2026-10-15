@@ -41,7 +41,7 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
     worker.start()
     try:
         env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "metadata",
@@ -64,7 +64,8 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
         spans = [span for path, payload in received if path == "/v1/traces"
                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
         chain = [span for span in spans if base64.b64decode(span["traceId"]).hex() == cases["forward"]["trace_id"]
-                 and span["kind"] in ("SPAN_KIND_SERVER", "SPAN_KIND_CLIENT")]
+                 and span["kind"] in ("SPAN_KIND_SERVER", "SPAN_KIND_CLIENT")
+                 and any(item["key"] == "http.request.method" for item in span.get("attributes", []))]
         assert len(chain) == 3  # One FastAPI server, one HTTPX client, one Starlette server.
         caller = next(span for span in chain if span["name"] == "GET /forward")
         downstream = next(span for span in chain if span["name"] == "GET /records/{record_id}")
@@ -74,7 +75,7 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
         scopes = {scope["scope"]["name"] for path, payload in received if path == "/v1/traces"
                   for resource in payload["resourceSpans"] for scope in resource["scopeSpans"]}
         assert scopes >= {"opentelemetry.instrumentation.fastapi", "opentelemetry.instrumentation.starlette",
-                          "opentelemetry.instrumentation.httpx"}
+                          "opentelemetry.instrumentation.httpx", "opentelemetry.instrumentation.sqlite3"}
         unknown = next(span for span in spans
                        if base64.b64decode(span["traceId"]).hex() == cases["unknown"]["trace_id"]
                        and span["kind"] == "SPAN_KIND_SERVER")
@@ -127,7 +128,7 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
     worker.start()
     try:
         env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "metadata",
@@ -212,7 +213,7 @@ def test_python_sdk_auth_and_mcp_stdio_propagation(tmp_path, domain, tool_name):
     worker.start()
     try:
         env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "OBSERVABILITY_CONTENT_MODE": "redacted", "OTEL_DEPLOYMENT_ENVIRONMENT": "staging",
@@ -273,7 +274,7 @@ def test_jev_real_otlp_metrics_and_metadata_payload_privacy(tmp_path, environmen
     worker.start()
     try:
         env = {**os.environ, "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-               "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "sqlite3", "OTEL_PROPAGATORS": "tracecontext",
+               "OTEL_PROPAGATORS": "tracecontext",
                "OTEL_PYTHON_EXCLUDED_URLS": r"/(healthz?|readyz?|metrics)(\?.*)?$|/(assets|images)/",
                "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=relohome",
                "APP_ENV": environment,
