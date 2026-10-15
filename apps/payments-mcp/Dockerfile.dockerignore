@@ -1,4 +1,5 @@
 **
+!requirements-observability.txt
 !apps/
 !apps/payments-mcp/
 !apps/payments-mcp/**

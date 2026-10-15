@@ -45,7 +45,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -56,7 +56,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(relohome_http_requests_total{environment=\"$environment\"}[5m]))",
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\"}[5m]))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -78,7 +78,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -89,7 +89,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(relohome_http_requests_total{environment=\"$environment\",status=~\"5..\"}[5m]))",
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\",http_response_status_code=~\"5..\"}[5m]))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -111,7 +111,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
@@ -122,139 +122,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95,sum by (le,service_name) (rate(relohome_http_duration_seconds_bucket{environment=\"$environment\"}[5m])))",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 4,
-      "title": "Agent and tool outcomes",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (kind,outcome) (rate(relohome_operations_total{environment=\"$environment\"}[5m]))",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 5,
-      "title": "LLM tokens",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (model,direction) (increase(relohome_llm_tokens_total{environment=\"$environment\"}[1h]))",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 6,
-      "title": "Provider rate limits",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 16,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (provider) (increase(relohome_provider_rate_limits_total{environment=\"$environment\"}[10m]))",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 7,
-      "title": "Service heartbeat age",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "time() - max by (service_name) (relohome_heartbeat_seconds{environment=\"$environment\"})",
+          "expr": "histogram_quantile(0.95,sum by (le,service_name) (rate(http_server_request_duration_seconds_bucket{deployment_environment_name=\"$environment\"}[5m])))",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -276,7 +144,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 12,
@@ -287,7 +155,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "otelcol_exporter_queue_size{environment=\"$environment\"}",
+          "expr": "otelcol_exporter_queue_size{deployment_environment_name=\"$environment\"}",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -309,18 +177,18 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "cortex-${environment}"
+        "uid": "cortex"
       },
       "gridPos": {
         "x": 0,
         "y": 32,
-        "w": 12,
+        "w": 24,
         "h": 8
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "otelcol_process_memory_rss{environment=\"$environment\"}",
+          "expr": "otelcol_process_memory_rss{deployment_environment_name=\"$environment\"}",
           "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
         }
       ],
@@ -337,102 +205,12 @@
       }
     },
     {
-      "id": 10,
-      "title": "Trace cleanup",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cortex-${environment}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 32,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "relohome_retention_last_run_success{environment=\"$environment\"}",
-          "legendFormat": "{{service_name}} {{kind}} {{outcome}} {{model}} {{direction}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list"
-        }
-      }
-    },
-    {
-      "id": 21,
-      "title": "Jev coverage — completed / eligible attempts (active processes)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
-      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 8 },
-      "targets": [{
-        "refId": "A",
-        "expr": "(sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"completed\"}) or on (point) (0 * sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"eligible\"}))) / sum by (point) (relohome_guardrail_observations_total{environment=\"$environment\",event=\"eligible\"})",
-        "legendFormat": "{{point}}"
-      }],
-      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list" } },
-      "description": "Process-lifetime counters, reset on restart. Eligible attempts exclude duplicates of already submitted points; not all chats. No eligible attempts means undefined, not safe. Assessment narrative privacy skips remain visible."
-    },
-    {
-      "id": 22,
-      "title": "Jev skips / second — by point and reason",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
-      "gridPos": { "x": 12, "y": 52, "w": 12, "h": 8 },
-      "targets": [{
-        "refId": "A",
-        "expr": "sum by (point, reason) (rate(relohome_guardrail_skips_total{environment=\"$environment\"}[5m]))",
-        "legendFormat": "{{point}} {{reason}}"
-      }],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list" } }
-    },
-    {
-      "id": 23,
-      "title": "Jev completions and failures / second",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
-      "gridPos": { "x": 0, "y": 60, "w": 12, "h": 8 },
-      "targets": [{
-        "refId": "A",
-        "expr": "sum by (point, event) (rate(relohome_guardrail_observations_total{environment=\"$environment\",event=~\"completed|timeout|provider_error|connection_error|invalid_response|response_limit|unavailable|internal_error|cancelled\"}[5m]))",
-        "legendFormat": "{{point}} {{event}}"
-      }],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list" } }
-    },
-    {
-      "id": 24,
-      "title": "Jev in-flight observations",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "cortex-${environment}" },
-      "gridPos": { "x": 12, "y": 60, "w": 12, "h": 8 },
-      "targets": [{
-        "refId": "A",
-        "expr": "sum by (point) (relohome_guardrail_in_flight{environment=\"$environment\"})",
-        "legendFormat": "{{point}}"
-      }],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list" } }
-    },
-    {
       "id": 20,
-      "title": "Operational logs \u2014 click trace_id to open Langfuse",
+      "title": "Operational logs \u2014 trace_id links to Tempo and Langfuse",
       "type": "logs",
       "datasource": {
         "type": "loki",
-        "uid": "loki-${environment}"
+        "uid": "loki"
       },
       "gridPos": {
         "x": 0,
@@ -443,7 +221,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{environment=\"$environment\"}",
+          "expr": "{deployment_environment_name=\"$environment\"}",
           "queryType": "range"
         }
       ],

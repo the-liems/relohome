@@ -196,11 +196,6 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
-    from relohome_observability import initialize
-    from relohome_observability.asgi import TelemetryMiddleware
-
-    initialize("web")
-
     @asynccontextmanager
     async def lifespan(app):
         root = runtime_root()
@@ -229,8 +224,6 @@ def create_app(database=None, transport=None):
         app.state.store.db.close()
 
     app = FastAPI(title="ReloHome", lifespan=lifespan, telemetry={"tracing": False})
-    # Public clients cannot choose our sampling policy or join an internal trace.
-    app.add_middleware(TelemetryMiddleware, service_name="web", trust_incoming=False)
     app.add_middleware(GuestBodyLimit, gateway=app)
     app.state.store_path = database
 
@@ -249,6 +242,8 @@ def create_app(database=None, transport=None):
 
     @app.exception_handler(HTTPException)
     async def http_error(request, exc):
+        if code := getattr(exc, "error_code", None):
+            logging.getLogger(__name__).error("Request failed: %s", code)
         if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
             quota = exc.detail["code"] == "guest_quota"
             headers = {"Cache-Control": "no-store"}
@@ -355,7 +350,9 @@ def create_app(database=None, transport=None):
         )
         token = os.getenv("AGENT_API_TOKEN", "")
         if not token and not platform:
-            raise HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error.error_code = "missing_agent_api_token"
+            raise error
         try:
             response = await app.state.http.request(
                 method,
@@ -364,10 +361,13 @@ def create_app(database=None, transport=None):
                 json=body,
             )
             data = response.json()
-        except (httpx.RequestError, ValueError):
-            raise HTTPException(
-                502, "Chưa nhận được kết quả từ dịch vụ. Kiểm tra trạng thái trước khi gửi lại."
-            ) from None
+        except (httpx.RequestError, ValueError) as exc:
+            detail = "Chưa nhận được kết quả từ dịch vụ. Kiểm tra trạng thái trước khi gửi lại."
+            if isinstance(exc, ValueError):
+                error = HTTPException(502, detail)
+                error.error_code = "upstream_invalid_json"
+                raise error from None
+            raise HTTPException(502, detail) from None
         if not response.is_success:
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
             # Preserve only documented route outcomes so the browser can distinguish
@@ -818,7 +818,9 @@ def create_app(database=None, transport=None):
     async def checkout_call(method, path, owner, body=None):
         token = os.getenv("AGENT_API_TOKEN", "")
         if not token:
-            raise HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
+            error.error_code = "missing_agent_api_token"
+            raise error
         base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
         try:
             response = await app.state.http.request(
@@ -828,12 +830,13 @@ def create_app(database=None, transport=None):
                 json=body,
             )
             data = response.json()
-        except (httpx.RequestError, ValueError):
+        except (httpx.RequestError, ValueError) as exc:
             # The payment may exist upstream; the UI checks status instead of paying again.
-            return JSONResponse(
-                {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"},
-                status_code=502,
-            )
+            content = {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"}
+            if isinstance(exc, ValueError):
+                logging.getLogger(__name__).error("Upstream response is not valid JSON")
+                return JSONResponse(content, status_code=502)
+            return JSONResponse(content, status_code=502)
         if not response.is_success:
             detail = data.get("detail") if isinstance(data, dict) else None
             return JSONResponse(

@@ -1,9 +1,12 @@
 # syntax=docker/dockerfile:1.14
 FROM python:3.11-slim AS runtime
+ENV OTEL_SEMCONV_STABILITY_OPT_IN=http OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf OTEL_PROPAGATORS=tracecontext
+ENV OTEL_PYTHON_EXCLUDED_URLS="/(healthz?|readyz?|metrics)(\\?.*)?$|/(assets|images)/"
+ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=relohome
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 ENV RELOHOME_RUNTIME_ROOT=/app
 WORKDIR /app
-COPY requirements-agents.txt ./
+COPY requirements-agents.txt requirements-observability.txt ./
 COPY packages/python/agent-services/ ./packages/python/agent-services/
 COPY apps/intake-api/ ./apps/intake-api/
 COPY apps/orchestrator-api/ ./apps/orchestrator-api/
@@ -17,7 +20,9 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
 
 FROM runtime AS intake
-CMD ["uvicorn", "relohome_intake.app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+ENV OTEL_SERVICE_NAME=intake
+CMD ["opentelemetry-instrument", "uvicorn", "relohome_intake.app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 
 FROM runtime AS orchestrator
-CMD ["uvicorn", "relohome_orchestrator.app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+ENV OTEL_SERVICE_NAME=orchestrator
+CMD ["opentelemetry-instrument", "uvicorn", "relohome_orchestrator.app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

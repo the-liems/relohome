@@ -1,6 +1,7 @@
 # One process and one replica. Local volumes hold WAL/cache; S3 holds metric blocks.
-target: distributor,ingester,querier,ruler,compactor,store-gateway
-auth_enabled: true
+target: distributor,ingester,querier,compactor,store-gateway
+# One tenant; staging and production are separated by the deployment_environment_name label.
+auth_enabled: false
 server:
   http_listen_port: 9009
   grpc_listen_port: 9095
@@ -58,12 +59,4 @@ compactor:
       store: inmemory
 limits:
   compactor_blocks_retention_period: 30d
-  promote_resource_attributes: [service.name, service.namespace, environment]
-ruler:
-  rule_path: /cortex/rules
-  evaluation_interval: 30s
-  enable_sharding: false
-ruler_storage:
-  backend: local
-  local:
-    directory: /etc/cortex/rules
+  promote_resource_attributes: [service.name, service.namespace, deployment.environment.name]

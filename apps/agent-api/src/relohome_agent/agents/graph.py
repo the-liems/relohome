@@ -43,8 +43,8 @@ from relohome_agent.agents.routing import (
 from relohome_agent.agents.state import AgentInput, WorkflowState
 from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
+from relohome_agent.agents.telemetry import graph_callbacks
 from relohome_agent.guest_access import READ_AGENTS, is_guest
-from relohome_observability import traced_node
 
 LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
 
@@ -137,21 +137,21 @@ def make_agent_node(deps: GraphDeps, name: AgentName):
 
 def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None):
     graph = StateGraph(WorkflowState)
-    graph.add_node("load_context", traced_node("load_context", make_load_context(deps)))
-    graph.add_node("intake", traced_node("intake", make_intake(deps)))
-    graph.add_node("orchestrator", traced_node("orchestrator", make_orchestrator(deps)))
-    graph.add_node("executor", traced_node("executor", make_executor(deps)))
-    graph.add_node("validator", traced_node("validator", make_validator(deps)))
-    graph.add_node("cost_summary", traced_node("cost_summary", make_cost_summary(deps)))
-    graph.add_node("confirm", traced_node("confirm", make_confirm(deps)))
-    graph.add_node("change_impact", traced_node("change_impact", make_change_impact(deps)))
-    graph.add_node("transaction", traced_node("transaction", make_transaction(deps)))
-    graph.add_node("await_payment", traced_node("await_payment", make_await_payment(deps)))
-    graph.add_node("respond", traced_node("respond", make_respond(deps)))
+    graph.add_node("load_context", make_load_context(deps))
+    graph.add_node("intake", make_intake(deps))
+    graph.add_node("orchestrator", make_orchestrator(deps))
+    graph.add_node("executor", make_executor(deps))
+    graph.add_node("validator", make_validator(deps))
+    graph.add_node("cost_summary", make_cost_summary(deps))
+    graph.add_node("confirm", make_confirm(deps))
+    graph.add_node("change_impact", make_change_impact(deps))
+    graph.add_node("transaction", make_transaction(deps))
+    graph.add_node("await_payment", make_await_payment(deps))
+    graph.add_node("respond", make_respond(deps))
     agent_nodes = []
     for name in deps.agents.names():
         node = agent_node_name(name.value)
-        graph.add_node(node, traced_node(node, make_agent_node(deps, name)), input_schema=AgentInput)
+        graph.add_node(node, make_agent_node(deps, name), input_schema=AgentInput)
         graph.add_edge(node, "executor")
         agent_nodes.append(node)
 
@@ -173,4 +173,10 @@ def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None
 
 
 def run_config(thread_id: str, deps: GraphDeps) -> dict:
-    return {"configurable": {"thread_id": thread_id}, "recursion_limit": deps.settings.recursion_limit}
+    return {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": deps.settings.recursion_limit,
+        "callbacks": graph_callbacks(),
+        "run_name": "relohome-agent",
+        "metadata": {"langfuse_session_id": thread_id},
+    }

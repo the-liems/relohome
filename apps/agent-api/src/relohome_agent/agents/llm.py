@@ -11,11 +11,11 @@ import logging
 from contextvars import ContextVar
 from typing import Literal, TypeVar
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
+from langfuse.openai import AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
 from relohome_agent.agents.common import canonical
-from relohome_agent.agents.llm_provider import client_options, provider_model, provider_name
-from relohome_observability import generation
+from relohome_agent.agents.llm_provider import client_options, provider_model
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -62,9 +62,7 @@ class StructuredLLM:
         try:
             for attempt in range(2):
                 try:
-                    result = await generation(
-                        self.client.responses.parse,
-                        provider=provider_name(self.api_key),
+                    result = await self.client.responses.parse(
                         model=provider_model(self.api_key, self.model),
                         instructions=instructions,
                         input=canonical(data),

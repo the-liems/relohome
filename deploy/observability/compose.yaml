@@ -39,15 +39,33 @@ services:
     mem_limit: 2g
     environment:
       <<: *langfuse-env
+      HOSTNAME: "0.0.0.0"
       NEXTAUTH_SECRET: ${LF_NEXTAUTH_SECRET:?}
-      AUTH_DISABLE_SIGNUP: "true"
+      AUTH_DISABLE_SIGNUP: ${LF_AUTH_DISABLE_SIGNUP:-true}
+      AUTH_DISABLE_USERNAME_PASSWORD: ${LF_AUTH_DISABLE_USERNAME_PASSWORD:-false}
+      AUTH_CUSTOM_CLIENT_ID: ${LF_AUTH_CUSTOM_CLIENT_ID:-}
+      AUTH_CUSTOM_CLIENT_SECRET: ${LF_AUTH_CUSTOM_CLIENT_SECRET:-}
+      AUTH_CUSTOM_ISSUER: ${LF_AUTH_CUSTOM_ISSUER:-}
+      AUTH_CUSTOM_NAME: Cloudflare
+      AUTH_CUSTOM_SCOPE: "openid email profile"
+      AUTH_CUSTOM_FETCH_USERINFO: "true"
+      AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING: ${LF_AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING:-false}
+      LANGFUSE_DEFAULT_ORG_ID: ${LF_DEFAULT_ORG_ID:-}
+      LANGFUSE_DEFAULT_ORG_ROLE: VIEWER
+      LANGFUSE_DEFAULT_PROJECT_ID: ${LF_DEFAULT_PROJECT_ID:-}
+      LANGFUSE_DEFAULT_PROJECT_ROLE: VIEWER
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-relohome}
       LANGFUSE_INIT_ORG_NAME: ReloHome
       LANGFUSE_INIT_USER_EMAIL: ${OBS_ADMIN_EMAIL:?}
       LANGFUSE_INIT_USER_NAME: ReloHome Operator
       LANGFUSE_INIT_USER_PASSWORD: ${OBS_ADMIN_PASSWORD:?}
+      LANGFUSE_INIT_PROJECT_ID: relohome
+      LANGFUSE_INIT_PROJECT_NAME: ReloHome
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?}
     depends_on: *langfuse-depends
     ports: ["127.0.0.1:3000:3000"]
+    networks: [default, ingestion]
   langfuse-worker:
     <<: *service
     image: docker.langfuse.com/langfuse/langfuse-worker:4.56.0
@@ -77,7 +95,12 @@ services:
       CLICKHOUSE_USER: langfuse
       CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD:?}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    volumes: [clickhouse:/var/lib/clickhouse, clickhouse-logs:/var/log/clickhouse-server]
+      GRAFANA_CLICKHOUSE_PASSWORD: ${GRAFANA_CLICKHOUSE_PASSWORD:?}
+    volumes:
+      - clickhouse:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./clickhouse/grafana-user.xml:/etc/clickhouse-server/users.d/grafana.xml:ro
+      - ./clickhouse/settings-constraints.xml:/etc/clickhouse-server/config.d/settings-constraints.xml:ro
     healthcheck:
       test: [CMD, wget, -q, --spider, http://localhost:8123/ping]
       interval: 5s
@@ -96,20 +119,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
-  telemetry-gateway:
-    <<: *service
-    image: caddy:2.11.2-alpine
-    mem_limit: 128m
-    cap_drop: [ALL]
-    # The official binary carries this file capability, even when listening on 8080.
-    cap_add: [NET_BIND_SERVICE]
-    environment:
-      STAGING_INGEST_PASSWORD_HASH: ${STAGING_INGEST_PASSWORD_HASH:?}
-      PRODUCTION_INGEST_PASSWORD_HASH: ${PRODUCTION_INGEST_PASSWORD_HASH:?}
-      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
-      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
-    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro]
-    networks: [default, ingestion]
   loki:
     <<: *service
     image: grafana/loki:3.7.8
@@ -123,7 +132,8 @@ services:
       LOKI_S3_SECRET_ACCESS_KEY: ${LOKI_S3_SECRET_ACCESS_KEY:?}
       LOKI_S3_INSECURE: ${LOKI_S3_INSECURE:-false}
       LOKI_S3_FORCE_PATH_STYLE: ${LOKI_S3_FORCE_PATH_STYLE:-false}
-    volumes: [./loki.yaml:/etc/loki/config.yaml:ro, ./loki-limits.yaml:/etc/loki/limits.yaml:ro, loki:/loki]
+    volumes: [./loki.yaml:/etc/loki/config.yaml:ro, loki:/loki]
+    networks: [default, ingestion]
   cortex:
     <<: *service
     image: quay.io/cortexproject/cortex:v1.21.1
@@ -139,9 +149,23 @@ services:
       CORTEX_S3_BUCKET_LOOKUP_TYPE: ${CORTEX_S3_BUCKET_LOOKUP_TYPE:-auto}
     volumes:
       - ./cortex.yaml:/etc/cortex/config.yaml:ro
-      - ./cortex-rules/staging/expected-services.yaml:/etc/cortex/rules/staging/expected-services.yaml:ro
-      - ./cortex-rules/disabled.yaml:/etc/cortex/rules/production/expected-services.yaml:ro
       - cortex:/cortex
+    networks: [default, ingestion]
+  tempo:
+    <<: *service
+    image: grafana/tempo:3.1.0
+    mem_limit: 2g
+    command: [-target=all, -config.file=/etc/tempo/config.yaml, -config.expand-env=true]
+    environment:
+      TEMPO_S3_BUCKET: ${TEMPO_S3_BUCKET:?}
+      TEMPO_S3_ENDPOINT: ${TEMPO_S3_ENDPOINT:?}
+      TEMPO_S3_REGION: ${TEMPO_S3_REGION:?}
+      TEMPO_S3_ACCESS_KEY_ID: ${TEMPO_S3_ACCESS_KEY_ID:?}
+      TEMPO_S3_SECRET_ACCESS_KEY: ${TEMPO_S3_SECRET_ACCESS_KEY:?}
+      TEMPO_S3_INSECURE: ${TEMPO_S3_INSECURE:-false}
+      TEMPO_S3_FORCE_PATH_STYLE: ${TEMPO_S3_FORCE_PATH_STYLE:-false}
+    volumes: [./tempo.yaml:/etc/tempo/config.yaml:ro, tempo:/var/tempo]
+    networks: [default, ingestion]
   grafana:
     <<: *service
     image: grafana/grafana:13.2.3
@@ -152,34 +176,34 @@ services:
       GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: ${GRAFANA_OIDC_ENABLED:-false}
+      GF_AUTH_GENERIC_OAUTH_NAME: Cloudflare
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: ${GRAFANA_OIDC_CLIENT_ID:-}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET:-}
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid email profile"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: ${GRAFANA_OIDC_AUTH_URL:-}
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: ${GRAFANA_OIDC_TOKEN_URL:-}
+      GF_AUTH_GENERIC_OAUTH_API_URL: ${GRAFANA_OIDC_USERINFO_URL:-}
+      GF_AUTH_GENERIC_OAUTH_VALIDATE_ID_TOKEN: "true"
+      GF_AUTH_GENERIC_OAUTH_JWK_SET_URL: ${GRAFANA_OIDC_JWKS_URL:-}
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "'${GRAFANA_OIDC_DEFAULT_ROLE:-Viewer}'"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "false"
+      GF_AUTH_GENERIC_OAUTH_SKIP_ORG_ROLE_SYNC: ${GRAFANA_OIDC_SKIP_ORG_ROLE_SYNC:-true}
+      GF_AUTH_DISABLE_LOGIN_FORM: ${GRAFANA_DISABLE_LOGIN_FORM:-false}
+      GF_AUTH_BASIC_ENABLED: ${GRAFANA_BASIC_AUTH_ENABLED:-true}
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_SYNC: grafana-clickhouse-datasource@4.22.1
+      GRAFANA_CLICKHOUSE_PASSWORD: ${GRAFANA_CLICKHOUSE_PASSWORD:?}
       LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3000}
-      LANGFUSE_STAGING_PROJECT_ID: ${LANGFUSE_STAGING_PROJECT_ID:-relohome-staging}
-      LANGFUSE_PRODUCTION_PROJECT_ID: ${LANGFUSE_PRODUCTION_PROJECT_ID:-relohome-production}
     ports: ["127.0.0.1:3001:3000"]
     volumes:
       - grafana:/var/lib/grafana
       - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/relohome.yaml:ro
       - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/relohome.yaml:ro
-      - ./grafana/alerts/staging.yaml:/etc/grafana/provisioning/alerting/relohome-staging.yaml:ro
-      - ./grafana/alerts/disabled/production.yaml:/etc/grafana/provisioning/alerting/relohome-production.yaml:ro
-      - ./grafana/alerts/legacy.yaml:/etc/grafana/provisioning/alerting/relohome-legacy.yaml:ro
+      - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/relohome.yaml:ro
       - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
-  retention:
-    <<: *service
-    image: python:3.11.16-slim-bookworm
-    mem_limit: 128m
-    user: "65534:65534"
-    read_only: true
-    cap_drop: [ALL]
-    command: [python, /app/retention.py, --loop]
-    environment:
-      LANGFUSE_BASE_URL: http://langfuse:3000
-      LANGFUSE_STAGING_AUTH: ${LANGFUSE_STAGING_AUTH:-}
-      LANGFUSE_PRODUCTION_AUTH: ${LANGFUSE_PRODUCTION_AUTH:-}
-      OBSERVABILITY_ENVIRONMENTS: ${OBSERVABILITY_ENVIRONMENTS:-staging}
-    volumes: [./retention.py:/app/retention.py:ro]
 networks:
   default:
   ingestion:
@@ -192,3 +216,4 @@ volumes:
   loki:
   cortex:
   grafana:
+  tempo:

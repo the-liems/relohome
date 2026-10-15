@@ -15,7 +15,8 @@ from time import perf_counter
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-from openai import APIError, AsyncOpenAI
+from langfuse.openai import AsyncOpenAI
+from openai import APIError
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.contracts import (
     AgentManifest,
@@ -26,7 +27,7 @@ from relohome_agent.agents.contracts import (
 )
 from relohome_agent.agents.llm import LLMError
 from relohome_agent.agents.llm_context import model_json
-from relohome_agent.agents.llm_provider import client_options, provider_model, provider_name
+from relohome_agent.agents.llm_provider import client_options, provider_model
 from relohome_agent.agents.llm_runtime import Invocation, json_object, public_data
 from relohome_agent.agents.models import AgentBudget, AgentName, LocationChoice, Question, Quote, SourceKind
 from relohome_agent.agents.subagents.capabilities import RELOCATION
@@ -36,7 +37,6 @@ from relohome_agent.agents.subagents.services.moving_catalog import MovingCatalo
 from relohome_agent.agents.subagents.services.moving_context import service_details_for_model
 from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
 from relohome_contracts.moving_options import apply_draft_options, service_selection, validated_options
-from relohome_observability import generation, operation
 
 
 def function(name: str, description: str, properties: dict | None = None) -> dict:
@@ -290,9 +290,7 @@ class MovingLlmAgent:
                 run.reserve()
                 llm_started = perf_counter()
                 async with asyncio.timeout(run.remaining()):
-                    response = await generation(
-                        self.client.responses.create,
-                        provider=provider_name(self.api_key),
+                    response = await self.client.responses.create(
                         model=provider_model(self.api_key, self.model),
                         instructions=PROMPT,
                         input=history,
@@ -435,8 +433,7 @@ class MovingExecution:
         key = json.dumps([client.endpoint.service, name, args], sort_keys=True)
         if key in self.cache:
             self.run.usage.cached_calls += 1
-            with operation(name, "cache", attributes={"relohome.cache_hit": True}):
-                return self.cache[key]
+            return self.cache[key]
         catalog_read = client is self.agent.moving and name == "list_moving_services"
         if catalog_read:
             self.run.remaining()
@@ -445,8 +442,7 @@ class MovingExecution:
                 self.run.usage.cached_calls += 1
                 self.tool_timings.append({"tool": name, "elapsed_ms": 0, "cache_hit": True})
                 self.cache[key] = observed
-                with operation(name, "cache", attributes={"relohome.cache_hit": True}):
-                    return observed
+                return observed
         if self.run.usage.provider_calls >= min(self.req.budget.max_provider_calls, 8):
             raise LLMError("LLM_BUDGET", "Hết ngân sách gọi provider.")
         self.run.remaining()

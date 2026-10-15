@@ -10,8 +10,7 @@ from relohome_flight.errors import OfferNotFoundError
 from relohome_flight.schemas import FlightOffer
 from relohome_flight.settings import now_vn
 
-# Mọi trạng thái nằm trong SQLite (không giữ trong RAM) vì client như
-# langchain-mcp-adapters có thể mở một process server mới cho mỗi lần gọi tool.
+# Mọi trạng thái nằm trong SQLite để tồn tại qua các kết nối MCP và lần khởi động lại server.
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS offers (
     offer_id TEXT PRIMARY KEY,

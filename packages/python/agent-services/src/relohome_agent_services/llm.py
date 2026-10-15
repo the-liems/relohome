@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
+from langfuse.openai import AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
 
 from relohome_agent_services.common import ServiceError, ServiceSettings, canonical

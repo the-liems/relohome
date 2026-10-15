@@ -14,11 +14,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
+import httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
-from relohome_observability import operation, trace_metadata
 
 
 class ToolCallError(Exception):
@@ -47,13 +46,13 @@ class McpEndpoint:
 def unwrap(result: CallToolResult) -> Any:
     """Lấy dữ liệu có cấu trúc từ kết quả tool; lỗi tool thành `ToolCallError`."""
     texts = [c.text for c in result.content if isinstance(c, TextContent)]
-    if result.isError:
+    if result.is_error:
         message = " ".join(texts).strip() or "tool returned an error"
         shape = _error_shape(message)
         if shape is not None:  # @relohome/mcp-core: {code, message, retryable}
             raise ToolCallError(shape["code"], str(shape.get("message", ""))[:500], retryable=shape["retryable"])
         raise ToolCallError(_error_code(message), message[:500], retryable=_retryable(message))
-    data = result.structuredContent
+    data = result.structured_content
     if data is None and texts:
         try:
             data = json.loads(texts[0])
@@ -98,13 +97,19 @@ def _retryable(message: str) -> bool:
 
 
 def _auth_failure(exc: BaseException) -> int | None:
-    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403):
+    if isinstance(exc, httpx2.HTTPStatusError) and exc.response.status_code in (401, 403):
         return exc.response.status_code
     if isinstance(exc, BaseExceptionGroup):
         for child in exc.exceptions:
             if status := _auth_failure(child):
                 return status
     return None
+
+
+async def _check_auth_response(response: httpx2.Response) -> None:
+    # SDK 2 otherwise converts HTTP auth failures into generic JSON-RPC errors.
+    if response.status_code in (401, 403):
+        response.raise_for_status()
 
 
 class McpToolClient:
@@ -116,8 +121,10 @@ class McpToolClient:
         ep = self.endpoint
         if ep.url:
             headers = {"Authorization": f"Bearer {ep.token}"} if ep.token else {}
-            async with httpx.AsyncClient(headers=headers, timeout=ep.timeout_s) as http:
-                async with streamable_http_client(ep.url, http_client=http) as (read, write, _):
+            async with httpx2.AsyncClient(
+                headers=headers, timeout=ep.timeout_s, event_hooks={"response": [_check_auth_response]}
+            ) as http:
+                async with streamable_http_client(ep.url, http_client=http) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         yield session
@@ -127,10 +134,7 @@ class McpToolClient:
     async def call(self, tool: str, arguments: dict[str, Any]) -> Any:
         if tool not in self.endpoint.allowed_tools:
             raise ToolCallError("tool_not_allowed", f"{self.endpoint.service}.{tool} is not in the allowlist")
-        with operation(tool, "tool", inputs=arguments, attributes={"rpc.system": "mcp", "rpc.method": tool}) as op:
-            result = await self._call(tool, arguments)
-            op.output(result)
-            return result
+        return await self._call(tool, arguments)
 
     async def _call(self, tool: str, arguments: dict[str, Any]) -> Any:
         sent = False
@@ -138,8 +142,7 @@ class McpToolClient:
             async with asyncio.timeout(self.endpoint.timeout_s):
                 async with self._session() as session:
                     sent = True
-                    metadata = trace_metadata()
-                    result = await session.call_tool(tool, arguments, **({"meta": metadata} if metadata else {}))
+                    result = await session.call_tool(tool, arguments)
             return unwrap(result)
         except ToolCallError:
             raise

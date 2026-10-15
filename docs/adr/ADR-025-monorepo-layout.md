@@ -57,10 +57,10 @@ suffixes are unchanged. Root `lifeflow-platform` becomes `relohome` through
 
 Python application distributions/imports and shared-library targets below are
 final names, not provisional LifeFlow packages to introduce first. Shared MCP
-HTTP is `relohome-mcp-http` / `relohome_mcp_http`; conditional PR #107 telemetry
-is `relohome-observability` / `relohome_observability`, without changing telemetry
-service/resource identities. Conditional TS telemetry is `@relohome/telemetry`
-with unchanged `.` and `./register` exports (#111). Scripts now live in `scripts/relohome/`;
+HTTP is `relohome-mcp-http` / `relohome_mcp_http`. Python telemetry uses official
+packages pinned in `requirements-observability.txt`; there is no application
+observability distribution. Node telemetry is configured through the
+`@relohome/telemetry/register` preload. Scripts now live in `scripts/relohome/`;
 `Start-LifeFlow.ps1` / `Stop-LifeFlow.ps1` have become `Start-ReloHome.ps1` /
 `Stop-ReloHome.ps1`; `dev:lifeflow` / `predev:lifeflow` have become `dev:relohome` /
 `predev:relohome`; the map browser test is now `tests/relohome.spec.ts`.

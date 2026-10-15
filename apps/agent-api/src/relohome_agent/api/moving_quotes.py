@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
+from langfuse import propagate_attributes
 from relohome_agent.agents.cost import paid_slots_left, subagent_llm_calls_left
 from relohome_agent.agents.deps import AgentRegistry
 from relohome_agent.agents.graph import make_agent_node, run_config
@@ -143,22 +144,23 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
                 }
             ),
         )
-        update = await make_agent_node(deps, AgentName.RELOCATION)(
-            {
-                "task": task,
-                "allocated_llm_calls": subagent_llm_calls_left(turn, deps.settings),
-                "user_id": user_id,
-                "plan_version": plan.version,
-                "attempt": 1,
-                "request_id": request_id,
-                "thread_id": thread_id,
-                "constraints": intake.constraints,
-                "goal": "Báo giá Moving từ form đã xác nhận",
-                "user_request": text,
-                "hints": {},
-                "upstream": {},
-            }
-        )
+        with propagate_attributes(session_id=thread_id):
+            update = await make_agent_node(deps, AgentName.RELOCATION)(
+                {
+                    "task": task,
+                    "allocated_llm_calls": subagent_llm_calls_left(turn, deps.settings),
+                    "user_id": user_id,
+                    "plan_version": plan.version,
+                    "attempt": 1,
+                    "request_id": request_id,
+                    "thread_id": thread_id,
+                    "constraints": intake.constraints,
+                    "goal": "Báo giá Moving từ form đã xác nhận",
+                    "user_request": text,
+                    "hints": {},
+                    "upstream": {},
+                }
+            )
         result = update["task_results"][task.id]
         if result.status == "done":
             findings = check_task(task.id, result, agent.capability, agent.capability.stale_ttl_s, [], deps.clock())

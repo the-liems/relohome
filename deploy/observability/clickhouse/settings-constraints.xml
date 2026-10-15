@@ -1,0 +1,6 @@
+<clickhouse>
+    <access_control_improvements>
+        <!-- Required for the Grafana profile's changeable_in_readonly constraint. -->
+        <settings_constraints_replace_previous>true</settings_constraints_replace_previous>
+    </access_control_improvements>
+</clickhouse>

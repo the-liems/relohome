@@ -8,14 +8,13 @@ import {
 } from '@relohome/housing-query'
 import { z } from 'zod'
 import type { ServerContext } from '@modelcontextprotocol/server'
-import { toolOperation } from '@relohome/telemetry'
 
 export function audited<Input, Output extends Record<string, unknown>>(
   pool: QueryExecutor,
   toolName: string,
   handler: (input: Input) => Promise<Output>,
 ) {
-  return async (input: Input, context?: ServerContext) => toolOperation(toolName, input, context?.mcpReq._meta, async () => {
+  return async (input: Input, context?: ServerContext) => {
     const started = performance.now()
     try {
       const output = await withinOperation(() => handler(input), context?.mcpReq.signal)
@@ -41,7 +40,7 @@ export function audited<Input, Output extends Record<string, unknown>>(
         ],
       }
     }
-  })
+  }
 }
 
 async function writeAudit(

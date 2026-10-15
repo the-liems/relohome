@@ -8,7 +8,6 @@ import {
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { createReloHomeMcpServer } from './create-server.js'
 import { createReloHomeMcpRuntime } from './runtime.js'
-import { instrumentHttpRequest } from '@relohome/telemetry'
 
 const host = process.env.MCP_HOST || '127.0.0.1'
 const port = parsePort(process.env.MCP_PORT || '3000')
@@ -35,7 +34,6 @@ const handleMcpRequest = toNodeHandler(mcpHandler, {
 })
 
 const httpServer = createServer((request, response) => {
-  instrumentHttpRequest(request, response, ['/mcp', '/healthz', '/readyz'])
   void routeRequest(request, response).catch((error) => {
     console.error('LifeFlow MCP HTTP request error:', error)
     if (!response.headersSent) {

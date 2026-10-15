@@ -46,7 +46,7 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
         yield
         await llm.close()
 
-    app = FastAPI(title="ReloHome Routing Orchestrator", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="ReloHome Routing Orchestrator", version="1.0.0", lifespan=lifespan, telemetry={"tracing": False})
     app.state.engine = engine
     install_http(app, settings, "lifeflow-orchestrator")
     authenticated = [Depends(require_token(settings.orchestrator_api_token))]

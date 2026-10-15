@@ -1,12 +1,14 @@
-# Export is disabled until the independent Collector and shared stack are ready.
+# Instrumented entrypoints export to the separately deployed Collector.
 x-telemetry: &telemetry-env
   # Privacy policy sees APP_ENV on every service, not only the Agent backend.
   APP_ENV: ${APP_ENV:-staging}
-  OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-false}
-  OBSERVABILITY_CONTENT_MODE: ${OBSERVABILITY_CONTENT_MODE:-metadata}
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-  OTEL_EXPORTER_OTLP_HEADERS: Authorization=Bearer%20${OTEL_COLLECTOR_TOKEN:-}
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
+  OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION: "true"
+  OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
 
 # Coolify reads this Compose file from Git at the pinned commit.
@@ -144,6 +146,12 @@ services:
     image: ghcr.io/ai20k-build-phase-cohort-4/p-044/backend:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: backend
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:?Set the self-hosted Langfuse HTTPS URL}
+      LANGFUSE_TRACING_ENABLED: ${LANGFUSE_TRACING_ENABLED:-false}
+      LANGFUSE_TRACING_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      LANGFUSE_MEDIA_UPLOAD_ENABLED: "false"
       <<: *telemetry-env
       # Team test phase: "staging" allows the tester payment control below. Set
       # "production" (and remove the tester variables) before outside users try it.
