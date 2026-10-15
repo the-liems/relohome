@@ -1,46 +1,32 @@
-"""Nạp tool của flight MCP server để dùng trong LangGraph agent.
-
-Ví dụ:
-    tools = await get_flight_tools()
-    agent = create_agent(get_llm(), tools)  # from langchain.agents import create_agent
-
-Set `FLIGHT_MCP_URL` to the dedicated Streamable HTTP service.
-"""
+"""Load tools from the dedicated flight MCP service."""
 
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from fastmcp.client.transports import StreamableHttpTransport
+from langchain.mcp import MCPAdapter
 from langchain_core.tools import BaseTool
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.sessions import StreamableHttpConnection
-from langchain_mcp_adapters.tools import load_mcp_tools
-
-FLIGHT_SERVER_NAME = "flights"
 
 
-def flight_server_connection() -> StreamableHttpConnection:
-    """Connect to the configured dedicated HTTP service; never start a child."""
+def flight_server_connection() -> StreamableHttpTransport:
     url = os.environ.get("FLIGHT_MCP_URL")
     if not url:
         raise ValueError("Set FLIGHT_MCP_URL to the running flight service")
-    connection: StreamableHttpConnection = {"transport": "streamable_http", "url": url}
+    headers = {}
     if token := os.environ.get("FLIGHT_MCP_AUTH_TOKEN"):
-        connection["headers"] = {"Authorization": f"Bearer {token}"}
-    return connection
-
-
-def create_flight_client() -> MultiServerMCPClient:
-    return MultiServerMCPClient({FLIGHT_SERVER_NAME: flight_server_connection()})
+        headers["Authorization"] = f"Bearer {token}"
+    return StreamableHttpTransport(url, headers=headers)
 
 
 async def get_flight_tools() -> list[BaseTool]:
-    """Load tools from the running HTTP service."""
-    return await create_flight_client().get_tools(server_name=FLIGHT_SERVER_NAME)
+    """Discover tools; returned tools remain callable after discovery closes."""
+    async with flight_tools_session() as tools:
+        return tools
 
 
 @asynccontextmanager
 async def flight_tools_session() -> AsyncIterator[list[BaseTool]]:
-    """Keep one HTTP MCP session for the conversation."""
-    async with create_flight_client().session(FLIGHT_SERVER_NAME) as session:
-        yield await load_mcp_tools(session)
+    """Keep the connection open while the caller uses the tools."""
+    async with MCPAdapter(flight_server_connection()) as adapter:
+        yield await adapter.list_tools()

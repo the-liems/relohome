@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
-import httpx
+import httpx2
 import pytest
 from mcp.types import CallToolResult
 from relohome_agent.agents.common import utcnow
@@ -190,7 +190,7 @@ async def test_moving_disconnect_retry_boundary_survives_restart(tmp_path, monke
             if tool == "create_move_order":
                 provider_creates.append(arguments)
                 if disconnect:
-                    raise httpx.ReadError("response connection lost after acceptance")
+                    raise httpx2.ReadError("response connection lost after acceptance")
             result = await backend.call(tool, arguments)
             return CallToolResult(content=[], structuredContent=result)
 
@@ -200,7 +200,7 @@ async def test_moving_disconnect_retry_boundary_survives_restart(tmp_path, monke
         sessions += 1
         # Lookup and estimate succeed; only opening the create session fails before dispatch.
         if disconnect and not after_dispatch and sessions == 3:
-            raise httpx.ConnectError("connection failed before dispatch")
+            raise httpx2.ConnectError("connection failed before dispatch")
         yield Session()
 
     client = McpToolClient(

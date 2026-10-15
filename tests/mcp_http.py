@@ -5,19 +5,18 @@ import socket
 from contextlib import asynccontextmanager
 
 import uvicorn
+from relohome_mcp_http import create_http_app
 
 TEST_MCP_TOKEN = "test-mcp-token-01234567890123456789"
 
 
 @asynccontextmanager
-async def running_mcp(server):
-    if not server.service_token:
-        server.service_token = TEST_MCP_TOKEN
+async def running_mcp(server, token=TEST_MCP_TOKEN):
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen(128)
         port = listener.getsockname()[1]
-        http = uvicorn.Server(uvicorn.Config(server.streamable_http_app(), log_level="error", lifespan="on"))
+        http = uvicorn.Server(uvicorn.Config(create_http_app(server, token), log_level="error", lifespan="on"))
         task = asyncio.create_task(http.serve(sockets=[listener]))
         try:
             async with asyncio.timeout(10):

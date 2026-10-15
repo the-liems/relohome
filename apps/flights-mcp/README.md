@@ -33,7 +33,7 @@ from relohome_flights_mcp import create_server
 async def main():
     async with create_connected_server_and_client_session(create_server()) as c:
         r = await c.call_tool("search_flights", {"request": {"origin": "HAN", "destination": "SGN", "departure_date": "2026-12-20"}})
-        print(r.structuredContent["message"] if not r.isError else r.content[0].text)
+        print(r.structured_content["message"] if not r.is_error else r.content[0].text)
 
 asyncio.run(main())
 EOF
@@ -98,11 +98,10 @@ Server có cấu hình riêng (`settings.py`, tiền tố `FLIGHT_`) và không 
 
 ```bash
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt    # đã có mcp[cli] và langchain-mcp-adapters
+pip install -r requirements.txt    # đã có mcp[cli] và langchain[mcp]
 ```
 
-`mcp` được giới hạn `<2` vì `langchain-mcp-adapters` chưa hỗ trợ mcp 2.x (ở bản 2.x,
-`FastMCP` được đổi tên thành `MCPServer`).
+Dùng MCP SDK 2.x (`MCPServer`) và `langchain[mcp]==1.4.5` cho cầu nối LangChain.
 
 ## Cấu hình (`.env`)
 
@@ -273,21 +272,24 @@ import asyncio
 
 from mcp import ClientSession
 import os
-from mcp.client.streamable_http import streamablehttp_client
+import httpx2
+from mcp.client.streamable_http import streamable_http_client
 
 
 async def main() -> None:
-    async with streamablehttp_client("http://127.0.0.1:8765/mcp", headers={"Authorization": f"Bearer {os.environ['FLIGHT_MCP_AUTH_TOKEN']}"}) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool("search_airports", {"query": "phu quoc"})
-            print(result.structuredContent)
+    headers = {"Authorization": f"Bearer {os.environ['FLIGHT_MCP_AUTH_TOKEN']}"}
+    async with httpx2.AsyncClient(headers=headers) as http:
+        async with streamable_http_client("http://127.0.0.1:8765/mcp", http_client=http) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("search_airports", {"query": "phu quoc"})
+                print(result.structured_content)
 
 
 asyncio.run(main())
 ```
 
-Với LangGraph, đặt URL và bearer header trong `MultiServerMCPClient`;
+Với LangGraph, dùng `MCPAdapter` với `StreamableHttpTransport` chứa URL/bearer header;
 `apps/agent-api/src/relohome_agent/agents/tools/flight_mcp.py` đọc `FLIGHT_MCP_URL` và `FLIGHT_MCP_AUTH_TOKEN`.
 Server kiểm tra bearer token bắt buộc; xem
 [internal authentication contract](../../docs/specs/internal-mcp-auth.md).
@@ -363,7 +365,7 @@ Test không gọi mạng. Phần SerpApi được test bằng `httpx.MockTranspo
 | Lỗi | Nguyên nhân | Cách xử lý |
 |---|---|---|
 | `ModuleNotFoundError: No module named 'src'` | Chạy không ở thư mục gốc dự án | `cd` về thư mục gốc (nơi có `requirements.txt`), hoặc đặt `PYTHONPATH` trỏ tới thư mục đó |
-| `No module named 'mcp.server.fastmcp'` | Máy đang cài mcp 2.x | `pip install "mcp[cli]>=1.26,<2"` (hoặc `pip install -r requirements.txt`) |
+| `No module named 'mcp.server.fastmcp'` | Code cũ dùng SDK 1.x | Cập nhật code dùng `from mcp.server import MCPServer` và cài lại `requirements.txt` |
 | `FLIGHT_SEARCH_PROVIDER=serpapi nhưng chưa đặt FLIGHT_SERPAPI_API_KEY` | Thiếu key trong `.env` | Thêm key, hoặc chuyển về `mock` |
 | `FLIGHT_SERPAPI_API_KEY không hợp lệ` / `Đã hết lượt gọi SerpApi` | Key sai, key đã tạo lại, hoặc hết 100 lượt/tháng | Kiểm tra key trên dashboard SerpApi, hoặc tạm chuyển về `mock` |
 | `Sân bay 'XXX' không nằm trong danh sách nội địa…` | Mã không có trong `catalog_data/airports.json` | Dùng `search_airports` để tra mã |
