@@ -435,7 +435,7 @@ async def test_graph_agent_observer_is_after_llm_execution_and_readonly(monkeypa
     async def run(*args, **kwargs):
         return {"task_results": {result.task_id: result}}
 
-    monkeypatch.setattr("relohome_agent.agents.graph.run_with_policy", run)
+    monkeypatch.setattr("relohome_agent.agents.execution.run_with_policy", run)
     output = await make_agent_node(deps, AgentName.PROPERTY)(inp)
     observer.observe_assessment.assert_called_once_with(inp, result)
     assert output["task_results"][result.task_id] is result

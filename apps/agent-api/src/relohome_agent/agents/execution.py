@@ -4,15 +4,17 @@ import time
 
 from relohome_agent.agents.cost import subagent_llm_calls_left
 from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.state import AgentInput
 from relohome_agent.agents.subagents.base import AgentPolicy, DomainAgent, run_with_policy
 from relohome_agent.agents.subagents.services.payment import ACTOR_ID
 from relohome_agent.guest_access import READ_AGENTS, is_guest
 
 
-async def execute_agent(deps: GraphDeps, agent: DomainAgent, inp: AgentInput) -> dict:
+async def execute_agent(deps: GraphDeps, name: AgentName, agent: DomainAgent, inp: AgentInput) -> dict:
     capability = agent.capability
-    name = capability.agent
+    # Use the domain selected by trusted graph wiring, including before any
+    # provider-specific capability access in the guest authorization branch.
     if is_guest(inp.get("user_id")) and name.value not in READ_AGENTS:
         from relohome_agent.agents.models import TaskResult
 

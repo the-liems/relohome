@@ -6,7 +6,7 @@ from langgraph.runtime import Runtime
 from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.cost import subagent_llm_calls_left
 from relohome_agent.agents.execution import execute_agent
-from relohome_agent.agents.models import Outcome, OutcomeCode, TaskStatus, ValidationIssue, ValidationReport
+from relohome_agent.agents.models import AgentName, Outcome, OutcomeCode, TaskStatus, ValidationIssue, ValidationReport
 from relohome_agent.agents.nodes.cost_summary import make_cost_summary
 from relohome_agent.agents.nodes.respond import make_respond
 from relohome_agent.agents.nodes.validator import DEFAULT_RULES, check_task
@@ -22,6 +22,7 @@ async def moving_quote_agent(state: WorkflowState, runtime: Runtime[GraphContext
         raise ValueError("Moving quote agent is not configured")
     return await execute_agent(
         deps,
+        AgentName.RELOCATION,
         agent,
         AgentInput(
             task=task,

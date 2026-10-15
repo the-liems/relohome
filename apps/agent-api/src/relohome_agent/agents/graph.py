@@ -76,7 +76,7 @@ def make_agent_node(deps: GraphDeps, name: AgentName):
 
     async def agent_node(inp: AgentInput) -> dict:
         # Executor allocated disjoint budgets for this wave before LangGraph Send.
-        return await execute_agent(deps, agent, inp)
+        return await execute_agent(deps, name, agent, inp)
 
     agent_node.__name__ = agent_node_name(name.value)
     return agent_node
