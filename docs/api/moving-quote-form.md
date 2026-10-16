@@ -142,3 +142,18 @@ contract `run(request)` sang `MovingLlmAgent.run_form_quote(request)`.
 Không thêm retry ở graph bên ngoài retry policy hiện có của agent để tránh nhân
 số lần gọi provider. Các node chat hiện tại vẫn dùng dependency factories; nhánh
 quote mới dùng runtime context, không yêu cầu đổi toàn bộ chat API trong PR này.
+
+## Usage khi form bị exception
+
+Mỗi lần gọi agent có vùng thu thập counter riêng, được truyền vào task con bằng
+runtime context nội bộ (`ContextVar`), không lưu trên agent dùng chung. Nếu form
+đã tiêu thụ provider/model calls rồi bị lỗi ngoài dự kiến, policy ghi snapshot
+usage đúng một lần trước khi truyền tiếp exception và traceback gốc. Lượt này
+vẫn tính vào quota của hội thoại; thử lại với plan version mới không vượt quota.
+Đường trả kết quả bình thường vẫn dùng usage của result như trước, không cộng
+thêm snapshot và không thêm lượt LLM. Nếu ledger cũng lỗi, ghi log lỗi accounting
+nhưng không che exception gốc; operator cần xử lý ledger trước khi tin cậy quota.
+
+Regression offline: `tests/test_agents/test_moving_quote_crash_usage.py`, gồm
+response thiếu `quote_id`, lỗi runtime, chặn retry, memory/SQLite, request đồng
+thời, và các kết quả thành công/failed/clarification/quote hết hạn.

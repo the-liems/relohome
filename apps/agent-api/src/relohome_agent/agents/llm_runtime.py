@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -30,6 +32,36 @@ PRIVATE_KEYS = PII_FACT_KEYS | {
     "path",
 }
 CALL_LIMIT: ContextVar[int | None] = ContextVar("graph_llm_call_limit", default=None)
+
+
+@dataclass
+class InvocationUsageCapture:
+    """References shared with child tasks; snapshots survive an agent exception.
+
+    A ContextVar assignment inside asyncio.wait_for's task would not reach its
+    caller. The caller owns this container instead; invocations register their
+    live counters without publishing mutable state on the shared agent.
+    """
+
+    counters: list[AgentUsage] = field(default_factory=list)
+
+    def snapshot(self) -> AgentUsage:
+        return AgentUsage(
+            **{name: sum(getattr(usage, name) for usage in self.counters) for name in AgentUsage.model_fields}
+        )
+
+
+_INVOCATION_USAGE: ContextVar[InvocationUsageCapture | None] = ContextVar("agent_invocation_usage", default=None)
+
+
+@contextmanager
+def capture_invocation_usage() -> Iterator[InvocationUsageCapture]:
+    capture = InvocationUsageCapture()
+    token = _INVOCATION_USAGE.set(capture)
+    try:
+        yield capture
+    finally:
+        _INVOCATION_USAGE.reset(token)
 
 
 # Upper bound for repair calls of one Intake/Planner invocation (AGENT_MAX_ATTEMPTS may lower it).
@@ -85,6 +117,9 @@ class Invocation:
     usage: AgentUsage = field(default_factory=AgentUsage)
 
     def __post_init__(self):
+        capture = _INVOCATION_USAGE.get()
+        if capture is not None:
+            capture.counters.append(self.usage)
         limit = CALL_LIMIT.get()
         if limit is not None:
             self.max_calls = min(self.max_calls, max(0, limit))
