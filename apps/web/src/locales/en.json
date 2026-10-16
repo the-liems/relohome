@@ -1735,6 +1735,7 @@
   "Nhắc lịch xem nhà": "Viewing reminder",
   "Nhắc lịch: hôm nay bạn có {0} lịch xem nhà": "Reminder: you have {0} viewing(s) today",
   "Nhắc lịch: ngày mai bạn có {0} lịch xem nhà": "Reminder: you have {0} viewing(s) tomorrow",
+  "Nhắc lịch: hôm nay bạn có {0} lịch, ngày mai có {1} lịch xem nhà": "Reminder: you have {0} viewing(s) today and {1} tomorrow",
   "Nếu có": "If any",
   "Nếu có · gồm cả phí giữ xe": "If any · includes parking",
   "Nội dung tin đăng": "Listing content",

@@ -1183,3 +1183,97 @@ test("the calendar reminds the owner of tomorrow's viewing and its tab counts it
     .analyze();
   expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([]);
 });
+
+test("the reminder counts today's and tomorrow's viewings separately", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-09T03:00:00Z"));
+  const base = {
+    listing_id: listingId,
+    tenant_user_id: "tenant-2",
+    message: "Người thuê đặt lịch xem nhà qua ReloHome.",
+    status: "new",
+    revision: 1,
+    created_at: "2026-10-08T08:00:00Z",
+    updated_at: "2026-10-08T08:00:00Z",
+    title: "Phòng sáng thoáng",
+    unit_code: "P.301",
+    property_name: "Nhà Nguyễn Trãi",
+    viewing_status: "requested",
+    source: "viewing",
+  };
+  await page.route("**/web/api/housing-management/landlord/contact-requests", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          { ...base, id: "aaaaaaaa-0000-4000-8000-000000000001", viewing_slot: "2026-10-09T08:00:00Z" },
+          { ...base, id: "aaaaaaaa-0000-4000-8000-000000000002", viewing_slot: "2026-10-10T06:00:00Z" },
+        ],
+      },
+    }),
+  );
+  await page.goto("/landlord");
+  const tab = page.locator(".ll-nav").getByRole("button", { name: /Lịch xem nhà/ });
+  await expect(tab.locator(".ll-count")).toHaveText("2");
+  await tab.click();
+  await expect(page.getByRole("status", { name: "Nhắc lịch xem nhà" })).toContainText(
+    "Nhắc lịch: hôm nay bạn có 1 lịch, ngày mai có 1 lịch xem nhà",
+  );
+});
+
+test("saving an older listing keeps a service fee whose amount is still unknown", async ({ page }) => {
+  const saved: any[] = [];
+  // The beforeEach listing (older "electricity"/"service" codes), now with a photo.
+  await page.route(`**/web/api/housing-management/landlord/listings/${listingId}`, (route) =>
+    route.fulfill({
+      json: {
+        id: listingId,
+        property_id: propertyId,
+        unit_id: "22222222-2222-4222-8222-222222222222",
+        title: "Phòng sáng thoáng",
+        description: "Phòng có cửa sổ lớn và nội thất cơ bản.",
+        rent_vnd: 4500000,
+        deposit_vnd: 4500000,
+        availability_from: "2026-10-20",
+        publication_status: "hidden",
+        availability_status: "vacant",
+        rejection_reason: null,
+        revision: 2,
+        fees: [
+          { id: "fee-1", code: "electricity", label: "Tiền điện", amount: 4000, billing_unit: "kwh", required: true, refundable: false },
+          { id: "fee-2", code: "service", label: "Phí dịch vụ", amount: null, billing_unit: "month", required: true, refundable: false },
+        ],
+        media: [
+          { id: "image-1", url: "http://example.test/room.png", position: 0, is_primary: true, moderation_status: "approved", alt_text: "Phòng sáng thoáng" },
+        ],
+      },
+    }),
+  );
+  await page.route("**/web/api/housing-management/landlord/units/*/room-listing", (route) => {
+    saved.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: { id: listingId, unit_id: "22222222-2222-4222-8222-222222222222", unit_revision: 2, revision: 3 },
+    });
+  });
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button", { name: /Nhà & phòng/ }).click();
+  await page.getByRole("button", { name: /Nhà Nguyễn Trãi/ }).click();
+  await page.getByRole("button", { name: "Sửa tin" }).first().click();
+  // The saved service fee has no amount; it reads "Chưa rõ", not "Nếu có".
+  await expect(page.getByLabel("Số tiền Phí dịch vụ")).toHaveAttribute("placeholder", "Chưa rõ");
+  await page.getByLabel("Phòng vệ sinh khép kín").check();
+  await page.getByLabel("Số tiền Tiền nước").fill("20000");
+  await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0].listing.fees).toContainEqual({
+    code: "service",
+    label: "Phí dịch vụ",
+    amount: null,
+    billing_unit: "month",
+    required: true,
+    refundable: false,
+  });
+  expect(saved[0].listing.fees.map((fee: { code: string }) => fee.code)).toEqual([
+    "electricity",
+    "tien_nuoc",
+    "service",
+  ]);
+});
