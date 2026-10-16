@@ -1,8 +1,8 @@
 import httpx
 import pytest
 from relohome_agent.api.roommate_connections import router
-from relohome_agent.api.roommate_profiles import router as profile_router
 from relohome_agent.api.roommate_privacy import router as privacy_router
+from relohome_agent.api.roommate_profiles import router as profile_router
 
 from tests.test_roommate.test_discovery_api import headers, make_app
 from tests.test_roommate.test_profile_lifecycle import complete
@@ -67,7 +67,9 @@ async def test_chat_api_without_contact_and_server_derived_membership(tmp_path):
         assert response.headers["cache-control"] == "private, no-store"
         own_export = await client.get(root + "/me/privacy/chat-messages?limit=1", headers=headers("a"))
         assert own_export.status_code == 200 and own_export.json()["chat_messages"][0]["body"] == body["body"]
-        assert (await client.get(root + "/me/privacy/chat-messages", headers=headers("b"))).json()["chat_messages"] == []
+        assert (await client.get(root + "/me/privacy/chat-messages", headers=headers("b"))).json()[
+            "chat_messages"
+        ] == []
         assert (await client.get(root + "/me/privacy/chat-messages?limit=501", headers=headers("a"))).status_code == 422
         with runtime.context() as ctx:
             assert ctx.storage.connection.execute("SELECT COUNT(*) FROM contacts").fetchone()[0] == 0

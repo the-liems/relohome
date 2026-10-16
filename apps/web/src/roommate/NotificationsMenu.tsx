@@ -12,6 +12,7 @@ import type { Notifications } from "./types";
 
 export function notificationName(kind: string) {
   const names: Record<string, string> = {
+    chat_message: rt("Có tin nhắn ở ghép mới", "New roommate message"),
     request_received: rt("Có yêu cầu kết nối mới", "New connection request"),
     request_accepted: rt("Yêu cầu đã được đồng ý", "Your request was accepted"),
     request_rejected: rt(

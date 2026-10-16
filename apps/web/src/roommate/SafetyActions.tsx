@@ -44,8 +44,8 @@ export function SafetyActions({
             <p>
               {mode === "block"
                 ? rt(
-                    "Hai bên không còn thấy hồ sơ của nhau. Yêu cầu đang chờ và quyền xem liên hệ sẽ đóng. Bỏ chặn không tự khôi phục consent.",
-                    "Both profiles become hidden from each other. Pending requests and contact access close. Unblocking does not restore consent.",
+                    "Hai bên không còn thấy hồ sơ của nhau. Yêu cầu đang chờ, chat và quyền xem liên hệ sẽ đóng. Bỏ chặn không tự khôi phục kết nối.",
+                    "Both profiles become hidden from each other. Pending requests, chat and contact access close. Unblocking does not restore the connection.",
                   )
                 : rt(
                     "Báo cáo được gửi riêng để kiểm tra; không tự chặn người này.",

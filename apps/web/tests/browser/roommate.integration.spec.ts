@@ -129,7 +129,7 @@ test("private introduction does not publish; profile publication, pause and resu
     page.getByLabel("Giới thiệu ngắn", { exact: false }),
   ).toHaveValue("");
 });
-test("real browser -> session gateway -> Roommate API -> SQLite: send, accept, read and revoke", async ({
+test("real browser -> session gateway -> Roommate API -> SQLite: contactless connection, chat and close", async ({
   browser,
 }) => {
   const senderContext = await browser.newContext(),
@@ -164,12 +164,8 @@ test("real browser -> session gateway -> Roommate API -> SQLite: send, accept, r
       .getByRole("button", { name: "Gửi yêu cầu kết nối", exact: true })
       .click();
     await sender
-      .getByRole("button", { name: "Xem lại trước khi gửi", exact: true })
-      .click();
-    await sender.getByLabel(/Điện thoại: 0901234567/).check();
-    await sender.getByLabel(/Tôi đã xem lại bản giới thiệu/).check();
-    await sender
-      .getByRole("button", { name: "Gửi yêu cầu", exact: true })
+      .getByRole("dialog")
+      .getByRole("button", { name: "Gửi yêu cầu kết nối", exact: true })
       .click();
     await expect(sender).toHaveURL(/\/requests\//);
     const requestId = sender.url().split("/requests/")[1];
@@ -181,37 +177,68 @@ test("real browser -> session gateway -> Roommate API -> SQLite: send, accept, r
     await recipient
       .getByRole("button", { name: "Đồng ý kết nối", exact: true })
       .click();
-    await recipient.getByLabel(/Điện thoại: 0901234567/).check();
-    await recipient.getByLabel(/Tôi đồng ý chia sẻ kênh đã chọn/).check();
-    await recipient
-      .getByRole("dialog")
-      .getByRole("button", { name: "Đồng ý kết nối", exact: true })
-      .click();
     await expect(
       recipient.getByText("Đã đồng ý", { exact: true }),
     ).toBeVisible();
-    await recipient.bringToFront();
+    const recipientInput = recipient.getByRole("textbox", {
+      name: "Nội dung tin nhắn",
+      exact: true,
+    });
+    await expect(recipientInput).toBeVisible();
+    const staleActor = await recipient.request.post(
+      `/web/api/roommate/chat/conversations/${requestId}/messages`,
+      {
+        headers: {
+          "X-SIU-Request": "1",
+          Origin: new URL(recipient.url()).origin,
+          "X-Roommate-Actor": "fixture-anna",
+        },
+        data: {
+          body: "This stale-account message must not be sent",
+          client_message_id: "stale-account-key-001",
+        },
+      },
+    );
+    expect(staleActor.status()).toBe(409);
+    await recipientInput.fill("Chào bạn, mình có thể trao đổi về chỗ ở nhé.");
+    await recipient.getByRole("button", { name: "Gửi", exact: true }).click();
+    await sender.reload();
+    await sender.getByRole("button", { name: "Nhắn tin", exact: true }).click();
+    await expect(sender.locator(".contact-thread-list")).toContainText(
+      "Chào bạn, mình có thể trao đổi về chỗ ở nhé.",
+    );
+    await sender
+      .getByRole("textbox", { name: "Nội dung tin nhắn", exact: true })
+      .fill("Được bạn, chúng mình cùng xem nhu cầu nhé.");
+    await sender.getByRole("button", { name: "Gửi", exact: true }).click();
+    await recipient.reload();
     await recipient
-      .getByRole("button", { name: "Xem liên hệ", exact: true })
+      .getByRole("button", { name: "Nhắn tin", exact: true })
       .click();
-    await expect(
-      recipient.getByText("0901234567", { exact: true }),
-    ).toBeVisible();
+    await expect(recipient.locator(".contact-thread-list")).toContainText(
+      "Được bạn, chúng mình cùng xem nhu cầu nhé.",
+    );
     await recipient
-      .getByRole("button", { name: "Thu hồi quyền liên hệ", exact: true })
+      .getByRole("button", { name: "Ngừng kết nối", exact: true })
       .click();
     await recipient
       .getByRole("dialog")
-      .getByRole("button", { name: "Thu hồi quyền liên hệ", exact: true })
+      .getByRole("button", { name: "Ngừng kết nối", exact: true })
       .click();
     await expect(
       recipient.getByText("0901234567", { exact: true }),
     ).toHaveCount(0);
     await sender.bringToFront();
-    await sender
-      .getByRole("button", { name: "Tải lại trạng thái", exact: true })
-      .click();
-    await expect(sender.getByText(/Đã thu hồi/)).toBeVisible();
+    await sender.reload();
+    await sender.getByRole("button", { name: "Nhắn tin", exact: true }).click();
+    await expect(
+      sender.getByText(
+        "Kết nối đã dừng. Bạn vẫn có thể xem lịch sử còn được phép.",
+      ),
+    ).toBeVisible();
+    await expect(
+      sender.getByRole("textbox", { name: "Nội dung tin nhắn", exact: true }),
+    ).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     await senderContext.close();

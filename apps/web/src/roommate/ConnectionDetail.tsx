@@ -13,6 +13,7 @@ import type { Contact, RequestDetail } from "./types";
 import { dateLabel, deadlineLabel, rt, stateName } from "./text";
 import { ServiceSuggestions } from "../components/ServiceSuggestions";
 import { roommate } from "./client";
+import { ChatConnectionDetails } from "./ChatConnectionDetails";
 export function ConnectionDetail({
   notificationsEnabled = false,
 }: {
@@ -31,7 +32,6 @@ export function ConnectionDetail({
     const refresh = () => {
       setShowContact(false);
       if (!operation.disabled) {
-        setAction(null);
         detail.reload();
       }
     };
@@ -65,8 +65,14 @@ export function ConnectionDetail({
         {rt("Về yêu cầu kết nối", "Back to requests")}
       </Link>
       <ErrorNotice error={detail.error} retry={detail.reload} />
-      {detail.loading ? (
+      {detail.loading && !record ? (
         <ContentSkeleton label={rt("Đang tải yêu cầu…", "Loading request…")} />
+      ) : record?.available && record.mode === "chat" ? (
+        <ChatConnectionDetails
+          key={record.request_id}
+          record={record}
+          reload={detail.reload}
+        />
       ) : record?.available ? (
         <div className="rm-detail-columns">
           <div className="rm-panel">

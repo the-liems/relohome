@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { RoommateFeatures } from "./Features";
 import { Link } from "react-router-dom";
 import { Search, UsersRound, Heart } from "lucide-react";
 import { ContentSkeleton, EmptyState } from "../components/UiStates";
-import { roommate } from "./client";
+import { useRoommateClient } from "./useRoommateClient";
 import { FactsForm } from "./FactsForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { SelectField } from "./Fields";
@@ -10,7 +11,13 @@ import { ProfileSummary, CompatibilityReasons } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
 import { cityName, rt } from "./text";
 import { useResource } from "./useResource";
-import { emptyCriteria, type City, type Criteria, type Page } from "./types";
+import {
+  emptyCriteria,
+  type City,
+  type Criteria,
+  type Page,
+  type Profile,
+} from "./types";
 export function Discovery({
   initial,
   initialOffset = 0,
@@ -20,7 +27,12 @@ export function Discovery({
   initialOffset?: number;
   demoAvailable?: boolean;
 }) {
+  const roommate = useRoommateClient();
   const stored = useResource<Criteria>(initial ? null : "/me/criteria");
+  const features = useContext(RoommateFeatures);
+  const intro = useResource<Profile>(
+    !initial && features.includes("chat") ? "/me/intro" : null,
+  );
   const [criteria, setCriteria] = useState(initial || emptyCriteria()),
     [searched, setSearched] = useState<Criteria | null>(null),
     [result, setResult] = useState<Page | null>(null),
@@ -37,12 +49,31 @@ export function Discovery({
     [],
   );
   useEffect(() => {
-    if (initialized.current || (!initial && stored.loading)) return;
+    if (initialized.current) return;
+    if (!initial && (stored.loading || stored.error)) return;
+    if (!initial && !stored.value && (intro.loading || intro.error)) return;
     initialized.current = true;
-    const next = initial || (!edited.current && stored.value) || criteria;
+    const fallback = intro.value?.facts.city
+      ? {
+          city: intro.value.facts.city,
+          self_facts: intro.value.facts,
+          preferences: intro.value.preferences,
+        }
+      : null;
+    const next =
+      initial || (!edited.current && (stored.value || fallback)) || criteria;
     setCriteria(next);
     void search(next, initialOffset);
-  }, [initial, initialOffset, stored.loading, stored.value]);
+  }, [
+    initial,
+    initialOffset,
+    stored.loading,
+    stored.value,
+    stored.error,
+    intro.loading,
+    intro.value,
+    intro.error,
+  ]);
   function change(next: Criteria) {
     edited.current = true;
     setCriteria(next);
@@ -193,8 +224,14 @@ export function Discovery({
           </div>
         </div>
         <ErrorNotice
-          error={error || stored.error}
-          retry={() => (error ? void search(criteria) : stored.reload())}
+          error={error || stored.error || (!stored.value && intro.error)}
+          retry={() =>
+            error
+              ? void search(criteria)
+              : stored.error
+                ? stored.reload()
+                : intro.reload()
+          }
         />
         {busy ? (
           <ContentSkeleton label={rt("Đang tìm hồ sơ…", "Finding profiles…")} />
@@ -296,6 +333,7 @@ export function Discovery({
   );
 }
 function SaveCriteria({ criteria }: { criteria: Criteria }) {
+  const roommate = useRoommateClient();
   const [saved, setSaved] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null);
