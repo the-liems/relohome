@@ -1680,6 +1680,109 @@ async function movingFormFixture(page: Page) {
   return data;
 }
 
+test("moving map selection matches the result address, and finding A again preserves B", async ({ page }, info) => {
+  const { turns } = await movingFormFixture(page);
+  await page.route("https://tiles.openfreemap.org/**", route => route.fulfill({ json: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf3ef" } }] } }));
+  await page.route("**/web/api/map/search?**", route => route.fulfill({ json: { results: [{ canonical_id: "new-gate", display_name: "Cổng mới Duy Tân", location: { lat: 21.03, lng: 105.81 } }] } }));
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByLabel("Địa chỉ lấy đồ", { exact: true }).fill("Duy Tân");
+  const toggle = form.getByRole("button", { name: "Thông tin chuyển đồ", exact: true });
+  if (info.project.name === "mobile") await toggle.click();
+  await expect(page.locator(".mv-candidate")).toHaveCount(1);
+  await page.locator(".mv-candidate").click();
+  if (info.project.name === "mobile") await toggle.click();
+  await expect(form.getByLabel("Địa chỉ lấy đồ", { exact: true })).toHaveValue("Cổng mới Duy Tân");
+  await form.getByRole("button", { name: "Chọn điểm B · Điểm giao đồ", exact: true }).click();
+  await form.getByRole("button", { name: "Tìm lại vị trí A", exact: true }).click();
+  await expect(form.getByRole("button", { name: "Chọn điểm A · Điểm lấy đồ", exact: true })).toHaveAttribute("aria-pressed", "true");
+  if (info.project.name === "mobile") await toggle.click();
+  const canvas = page.locator(".moving-booking .maplibregl-canvas");
+  await canvas.click({ position: { x: 125, y: 140 } });
+  await expect(page.locator(".mv-marker.mv-a")).toHaveCount(1);
+  if (info.project.name === "mobile") await toggle.click();
+  await expect(form.getByLabel("Địa chỉ giao đồ", { exact: true })).toHaveValue("Cổng B · Hà Nội");
+  await form.getByRole("button", { name: "Chọn điểm B · Điểm giao đồ", exact: true }).click();
+  if (info.project.name === "mobile") await toggle.click();
+  await canvas.click({ position: { x: 160, y: 180 } });
+  await expect(page.locator(".mv-marker")).toHaveCount(2);
+  await page.screenshot({ path: info.outputPath("moving-A-B-pins.png") });
+  if (info.project.name === "mobile") await toggle.click();
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].pickup).toMatchObject({ address: "Cổng mới Duy Tân", confirmed: true });
+  expect(turns[0].destination).toMatchObject({ address: "Cổng B · Hà Nội", confirmed: true });
+  expect(turns[0].pickup.lat).not.toBe(turns[0].destination.lat);
+});
+
+test("moving guest login keeps form values and only sends a quote after explicit reconfirmation", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const { turns } = await movingFormFixture(page);
+  let account = false;
+  const user = { id: "tenant", name: "An", preferences: {} };
+  await page.route("**/web/api/session", route => route.fulfill({ json: account ? user : { id: "guest_" + "a".repeat(32), kind: "guest", name: "Khách", email: "", preferences: {}, capabilities: ["chat", "housing_read", "flight_read", "map_read", "guides"], is_guest: true, expires_at: Date.now() / 1000 + 86400, active_thread_id: "th_ui" } }));
+  await page.route("**/web/api/auth/login", route => { account = true; return route.fulfill({ json: user }); });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await expect(form).toBeVisible();
+  await form.getByLabel("Giờ xe đến", { exact: true }).fill("10:30");
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true });
+  await expect(dialog).toBeVisible();
+  expect(turns).toHaveLength(0);
+  await dialog.getByLabel("Email", { exact: true }).fill("an@example.test");
+  await dialog.getByLabel("Mật khẩu", { exact: true }).fill("correct-password");
+  await dialog.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(form.getByLabel("Địa chỉ lấy đồ", { exact: true })).toHaveValue("Cổng A · Hà Nội");
+  await expect(form.getByLabel("Địa chỉ giao đồ", { exact: true })).toHaveValue("Cổng B · Hà Nội");
+  await expect(form.getByLabel("Giờ xe đến", { exact: true })).toHaveValue("10:30");
+  expect(turns).toHaveLength(0);
+  await form.getByRole("button", { name: "Xác nhận và lấy báo giá", exact: true }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test("moving ignores a late lookup for A after the user selects and edits B", async ({ page }) => {
+  const { turns } = await movingFormFixture(page);
+  let release: (() => void) | undefined;
+  let requested = false;
+  await page.route("**/web/api/map/search?**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("text");
+    if (query === "Old pickup") {
+      requested = true;
+      await new Promise<void>(resolve => { release = resolve; });
+      return route.fulfill({ json: { results: [{ canonical_id: "old", display_name: "Old result", location: { lat: 21.1, lng: 105.8 } }] } });
+    }
+    return route.fulfill({ json: { results: [{ canonical_id: "new", display_name: "New destination", location: { lat: 21.02, lng: 105.82 } }] } });
+  });
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByLabel("Địa chỉ lấy đồ", { exact: true }).fill("Old pickup");
+  await expect.poll(() => requested).toBe(true);
+  await form.getByLabel("Địa chỉ giao đồ", { exact: true }).fill("New drop-off");
+  release?.();
+  await form.getByRole("button", { name: "New destination", exact: true }).click();
+  await expect(form.getByLabel("Địa chỉ giao đồ", { exact: true })).toHaveValue("New destination");
+  await expect(form.getByLabel("Địa chỉ lấy đồ", { exact: true })).toHaveValue("Old pickup");
+  await expect(form.getByRole("button", { name: "Old result", exact: true })).toHaveCount(0);
+  expect(turns).toEqual([]);
+});
+
+test("moving empty search explains how to pin A without changing B", async ({ page }, info) => {
+  await movingFormFixture(page);
+  await page.route("**/web/api/map/search?**", route => route.fulfill({ json: { results: [] } }));
+  await page.goto("/ai/th_ui");
+  const form = page.getByRole("complementary", { name: "Thông tin chuyển đồ" });
+  await form.getByLabel("Địa chỉ lấy đồ", { exact: true }).fill("Địa chỉ chưa có dữ liệu");
+  await expect(form).toContainText("Không tìm thấy địa chỉ này.");
+  await form.getByRole("button", { name: "Ghim điểm A trên bản đồ", exact: true }).click();
+  await expect(form.getByRole("button", { name: "Chọn điểm A · Điểm lấy đồ", exact: true })).toHaveAttribute("aria-pressed", "true");
+  if (info.project.name === "mobile")
+    await expect(form.getByRole("button", { name: "Thông tin chuyển đồ", exact: true })).toHaveAttribute("aria-expanded", "false");
+});
+
 test("moving form submits provider add-ons, packages and cash options with confirmed map points", async ({
   page,
 }, testInfo) => {

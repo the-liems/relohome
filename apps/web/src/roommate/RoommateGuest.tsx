@@ -5,6 +5,8 @@ import { rt } from "./text";
 export function RoommateGuest() {
   useUiPreferences();
   const location = useLocation();
+  const signInParams = new URLSearchParams(location.search);
+  signInParams.set("signin", "1");
   return (
     <main className="rm-guest">
       <header className="rm-guest-header">
@@ -47,7 +49,7 @@ export function RoommateGuest() {
             "For adults aged 18+ in Ho Chi Minh City, Hanoi and Da Nang. Sign in and accept the service terms to view real profiles.",
           )}
         </p>
-        <Link className="primary" to={location.pathname + "?signin=1"}>
+        <Link className="primary" to={location.pathname + "?" + signInParams + location.hash}>
           {rt("Đăng nhập để tìm người", "Sign in to discover people")}
         </Link>
         <Link className="text-button" to="/">

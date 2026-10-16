@@ -37,6 +37,7 @@ class McpEndpoint:
     url: str | None = None
     token: str | None = field(default=None, repr=False)
     timeout_s: float = 30.0
+    max_sse_event_size: int = 1024 * 1024
 
     @property
     def configured(self) -> bool:
@@ -124,7 +125,9 @@ class McpToolClient:
             async with httpx2.AsyncClient(
                 headers=headers, timeout=ep.timeout_s, event_hooks={"response": [_check_auth_response]}
             ) as http:
-                async with streamable_http_client(ep.url, http_client=http) as (read, write):
+                async with streamable_http_client(
+                    ep.url, http_client=http, max_sse_event_size=ep.max_sse_event_size
+                ) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         yield session

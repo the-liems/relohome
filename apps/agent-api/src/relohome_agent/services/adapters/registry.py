@@ -130,11 +130,12 @@ class ServiceSettings(BaseSettings):
     housing_max_selected: int = Field(default=3, ge=1, le=10)
     housing_viewing_slot_minutes: int = Field(default=30, ge=5, le=240)
     housing_viewing_day_start: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
-    housing_viewing_day_end: str = Field(default="20:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    # Inclusive final start time, rather than the end of the last appointment.
+    housing_viewing_day_end: str = Field(default="22:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     housing_viewing_window_days: int = Field(default=14, ge=1, le=60)
     # Ngày tối đa chủ nhà đề xuất giờ thay thế; platform-api đọc cùng biến HOUSING_VIEWING_PROPOSAL_DAYS.
     housing_viewing_proposal_days: int = Field(default=7, ge=1, le=60)
-    housing_viewing_lead_minutes: int = Field(default=120, ge=0, le=7 * 24 * 60)
+    housing_viewing_lead_minutes: int = Field(default=60, ge=0, le=7 * 24 * 60)
     housing_viewing_travel_buffer_minutes: int = Field(default=15, ge=0, le=240)
     housing_viewing_min_gap_minutes: int = Field(default=60, ge=0, le=24 * 60)
     housing_viewing_daily_soft_limit: int = Field(default=4, ge=1, le=48)
@@ -179,7 +180,13 @@ class ServiceRegistry:
     def from_settings(cls, s: ServiceSettings | None = None) -> ServiceRegistry:
         s = s or ServiceSettings()
         location_read = McpEndpoint(
-            "location", LOCATION_READ_TOOLS, url=s.location_mcp_url or None, token=_secret(s.location_mcp_auth_token)
+            "location",
+            LOCATION_READ_TOOLS,
+            url=s.location_mcp_url or None,
+            token=_secret(s.location_mcp_auth_token),
+            # Administrative geometry exceeds the SDK's default 1 MiB SSE limit.
+            # Keep a finite bound, scoped to our trusted Location service.
+            max_sse_event_size=16 * 1024 * 1024,
         )
         moving_token = _secret(s.moving_mcp_auth_token)
         moving_read = McpEndpoint("moving", MOVING_READ_TOOLS, url=s.moving_mcp_url or None, token=moving_token)

@@ -110,6 +110,8 @@ import { LandlordWorkspace } from "./landlord/Workspace";
 import { forgetActiveChat, readActiveChat, rememberActiveChat } from "./activeChatSession";
 import { ResumeChat } from "./components/ResumeChat";
 import { ContactMessengerProvider } from "./components/ContactMessenger";
+import { AccountAccess } from "./accountAccess";
+import { AUTH_RESTORED } from "./authEvents";
 
 interface AppContext {
   user: User;
@@ -166,6 +168,9 @@ export default function App() {
     [saved, setSaved] = useState<Saved[]>([]),
     [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+  const [accountGeneration, setAccountGeneration] = useState(0);
+  const activeAccount = useRef(user?.id);
+  activeAccount.current = user?.id;
   const loginDestination = useRef<string | null>(null);
   const navigate = useNavigate(),
     location = useLocation();
@@ -176,7 +181,7 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
-    const login = () => { if (user?.is_guest) { loginDestination.current = null; setLoginOpen(true); } };
+    const login = () => { loginDestination.current = null; setLoginOpen(true); };
     window.addEventListener("relohome-login-required", login);
     return () => window.removeEventListener("relohome-login-required", login);
   }, [user?.is_guest]);
@@ -194,11 +199,14 @@ export default function App() {
     return () => { window.clearTimeout(timer); window.removeEventListener("relohome-guest-expired", expired); };
   }, [user?.id, user?.is_guest]);
   async function refresh() {
+    const owner = activeAccount.current;
     const results = await Promise.allSettled([
       api<Thread[]>("/threads"),
       api<Saved[]>("/saved"),
       api<Data>("/status"),
     ]);
+    // Requests started before an account change cannot populate the new account's cache.
+    if (owner !== activeAccount.current) return;
     if (results[0].status === "fulfilled") setThreads(results[0].value);
     if (results[1].status === "fulfilled") setSaved(results[1].value);
     if (results[2].status === "fulfilled") setStatus(results[2].value);
@@ -214,6 +222,7 @@ export default function App() {
   }, [toast]);
   async function save(house: HouseData, thread: string) {
     if (user?.is_guest) { setLoginOpen(true); return; }
+    const owner = activeAccount.current;
     try {
       const existing = saved.some((s) => s.id === house.id);
       await api(
@@ -227,7 +236,9 @@ export default function App() {
           "POST",
           { event_type: "save", dedup_key: `save:${user?.id || "session"}:${house.id}` },
         ).catch(() => {});
-      setSaved(await api<Saved[]>("/saved"));
+      const updated = await api<Saved[]>("/saved");
+      if (owner !== activeAccount.current) return;
+      setSaved(updated);
       setToast(
         existing ? "Đã bỏ lưu căn nhà." : "Đã lưu vào Tài khoản → Đã lưu.",
       );
@@ -279,6 +290,29 @@ export default function App() {
           : "Đã xóa toàn bộ trò chuyện. Chưa làm mới được bộ nhớ của ReloHome, hãy thử lại sau.",
     );
   }
+  const requireAccount = () => {
+    if (!user?.is_guest) return true;
+    loginDestination.current = null;
+    setLoginOpen(true);
+    return false;
+  };
+  const loginDialog = user && loginOpen && (
+    <Dialog title={uiText("Đăng nhập để tiếp tục")} onClose={() => { loginDestination.current = null; setLoginOpen(false); }}>
+      <p className="auth-context-note">{uiText("Hội thoại và lựa chọn của bạn được giữ lại. Các thao tác vẫn cần bạn xác nhận.")}</p>
+      <Login embedded admin={Boolean(user.is_admin)} onLogin={(account) => {
+        if (!user.is_guest && user.id !== account.id) {
+          // A different account must never inherit another account's private form or checkout state.
+          setSaved([]); setThreads([]); setStatus(null);
+          setAccountGeneration(value => value + 1);
+        }
+        setUser(account); setLoginOpen(false);
+        if (user.id === account.id) window.dispatchEvent(new Event(AUTH_RESTORED));
+        void refresh();
+        if (loginDestination.current) navigate(loginDestination.current);
+        loginDestination.current = null;
+      }} />
+    </Dialog>
+  );
   if (location.pathname === "/")
     return <LandingPage signedIn={Boolean(user && !user.is_guest)} />;
   if (location.pathname === "/guides" && (!user || user.is_guest))
@@ -311,7 +345,8 @@ export default function App() {
         />
       );
     return (
-      <ContactMessengerProvider userId={user.id} admin><AdminWorkspace
+      <><ContactMessengerProvider userId={user.id} admin><AdminWorkspace
+        key={user.id}
         user={user}
         onLogout={() => {
           setUser(null);
@@ -319,7 +354,7 @@ export default function App() {
           setSaved([]);
           navigate("/admin/login", { replace: true });
         }}
-      /></ContactMessengerProvider>
+      /></ContactMessengerProvider>{loginDialog}</>
     );
   }
   if (!user)
@@ -357,12 +392,13 @@ export default function App() {
         requestLogin: (to) => { loginDestination.current = to || null; setLoginOpen(true); },
       }}
     >
+      <AccountAccess.Provider value={{isGuest:Boolean(user.is_guest),requireAccount}}>
       <ContactMessengerProvider userId={user.id} enabled={!user.is_guest}><Shell>
         <Routes>
-          <WebRoute path="/ai/:threadId?" element={<Chat />} />
-          <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
+          <WebRoute path="/ai/:threadId?" element={<Chat key={accountGeneration} />} />
+          <WebRoute path="/roommate/*" element={<RoommateWorkspace key={user.id} />} />
           <WebRoute path="/guides" element={<GuidesPage />} />
-          <WebRoute path="/landlord" element={<LandlordWorkspace />} />
+          <WebRoute path="/landlord" element={<LandlordWorkspace key={user.id} />} />
           <WebRoute
             path="/plans"
             element={<Navigate to="/account" replace />}
@@ -372,6 +408,7 @@ export default function App() {
             path="/account"
             element={
               <Account
+                key={user.id}
                 onLogout={() => {
                   forgetOwnerDrafts();
                   setUser(null);
@@ -411,16 +448,7 @@ export default function App() {
           />
         </Routes>
       </Shell></ContactMessengerProvider>
-      {loginOpen && user.is_guest && (
-        <Dialog title={uiText("Đăng nhập để tiếp tục")} onClose={() => { loginDestination.current = null; setLoginOpen(false); }}>
-          <p className="auth-context-note">{uiText("Hội thoại và lựa chọn của bạn được giữ lại. Các thao tác vẫn cần bạn xác nhận.")}</p>
-          <Login embedded onLogin={(account) => {
-            setUser(account); setLoginOpen(false);
-            if (loginDestination.current) navigate(loginDestination.current);
-            loginDestination.current = null;
-          }} />
-        </Dialog>
-      )}
+      {loginDialog}
       {toast && (
         <div className="toast" role="status">
           {toast}
@@ -433,6 +461,7 @@ export default function App() {
           </button>
         </div>
       )}
+      </AccountAccess.Provider>
     </Context.Provider>
   );
 }
@@ -836,6 +865,7 @@ function Chat() {
     formKey: string;
   } | null>(null);
   const [workspaceTaskId, setWorkspaceTaskId] = useState<string | null>(null);
+  const [viewingRequest, setViewingRequest] = useState({ thread: "", revision: 0 });
   const [formTaskId, setFormTaskId] = useState<string | null>(null);
   const [formPrefill, setFormPrefill] = useState<{ kind: FormService; data: Data } | null>(null);
   const reviewedServices = useRef(new Set<string>());
@@ -941,6 +971,10 @@ function Chat() {
   }
   async function send(text: string, extra: Data = {}, onReply?: (reply: Thread) => void) {
     const quoteForm = extra.moving_quote_form;
+    if (quoteForm && user.is_guest) {
+      requestLogin();
+      throw new Error(uiText("Đăng nhập để lấy báo giá. Thông tin chuyển đồ đã nhập vẫn được giữ lại."));
+    }
     if (inFlight.current || viewingBatchBusy.current) {
       if (quoteForm) throw new Error(uiText("Hội thoại đang xử lý. Hãy chờ kết quả."));
       return;
@@ -1078,6 +1112,10 @@ function Chat() {
     .filter((i) => !["agreed", "reported_paid"].includes(i.status))
     .map((i) => ({ listing_id: i.listing_id, ...i.snapshot }));
   function openViewings() {
+    setViewingRequest((old) => ({
+      thread: threadId || thread?.id || "",
+      revision: old.revision + 1,
+    }));
     setParams((p) => {
       const next = new URLSearchParams(p);
       next.set("panel", "plan");
@@ -1453,7 +1491,13 @@ function Chat() {
         progress={navigation}
         threadId={threadId || thread?.id}
         thread={thread}
+        viewingRequest={viewingRequest.thread === thread?.id ? viewingRequest.revision : 0}
         writesEnabled={!!status?.writes_enabled}
+        requireAccount={() => {
+          if (!user.is_guest) return true;
+          requestLogin();
+          return false;
+        }}
         onDecision={(body) => mutate("decision", body).then(() => {})}
         onPaymentCheck={() => mutate("payment/check", {}).then(() => {})}
         onCheckoutChanged={reload}

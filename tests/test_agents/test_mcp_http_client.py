@@ -7,9 +7,11 @@ import sys
 
 import httpx
 import pytest
+from mcp.server import MCPServer
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
+from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
-from tests.mcp_http import TEST_MCP_TOKEN
+from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 
 
 def free_port() -> int:
@@ -64,3 +66,27 @@ async def test_http_client_calls_tool_and_enforces_allowlist(tmp_path):
     with pytest.raises(ToolCallError) as down:
         await client.call("search_airports", {"query": "Huế"})
     assert down.value.transport and down.value.retryable
+
+
+@pytest.mark.asyncio
+async def test_location_accepts_large_boundary_events_without_relaxing_other_services():
+    server = MCPServer("large-location-fixture")
+    boundary = "x" * (1024 * 1024 + 1024)
+
+    @server.tool()
+    def search_areas() -> dict:
+        return {"results": [{"area_id": "fixture-city", "geometry": boundary}]}
+
+    async with running_mcp(server) as url:
+        registry = ServiceRegistry.from_settings(
+            ServiceSettings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
+        )
+        result = await registry.location.read_client().call("search_areas", {})
+        assert result["results"][0]["geometry"] == boundary
+
+        # Other endpoints retain the SDK's bounded 1 MiB default.
+        ordinary = McpToolClient(McpEndpoint("flight", frozenset({"search_areas"}), url=url, token=TEST_MCP_TOKEN))
+        with pytest.raises(ToolCallError) as limited:
+            await ordinary.call("search_areas", {})
+        assert limited.value.code == "unavailable"
+        assert "1048576 byte limit" in repr(limited.value.__cause__)

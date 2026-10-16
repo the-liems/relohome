@@ -49,6 +49,8 @@ export function PlanPeek({
   availableServices = [],
   onPrepare,
   onBatchBusyChange,
+  requireAccount,
+  viewingRequest = 0,
 }: {
   progress?: Data;
   threadId?: string;
@@ -64,6 +66,8 @@ export function PlanPeek({
   availableServices?: string[];
   onPrepare?: (service: string, item: Data) => void;
   onBatchBusyChange?: (busy: boolean) => void;
+  requireAccount?: () => boolean;
+  viewingRequest?: number;
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
@@ -79,7 +83,14 @@ export function PlanPeek({
     async () => { await onCheckoutChanged?.(); },
     onBatchBusyChange,
     busy,
+    requireAccount,
   );
+  useEffect(() => {
+    if (!viewingRequest) return;
+    scheduler.openSelection();
+    setOpen(true);
+    setTab("viewing");
+  }, [viewingRequest]);
   // Older conversations may only expose the task list; display its existing status without inventing results.
   const items: Data[] =
     progress?.items ||
@@ -119,6 +130,9 @@ export function PlanPeek({
   useEffect(() => {
     if (!open) return;
     function outside(event: PointerEvent) {
+      // Login/checkout use a separate portal; interacting with them must not close the plan.
+      if (document.querySelector("dialog[open]")) return;
+      if ((event.target as Element).closest?.(".guest-signin")) return;
       if (
         !panel.current?.contains(event.target as Node) &&
         !button.current?.contains(event.target as Node)
@@ -373,6 +387,7 @@ export function PlanPeek({
               {tab === "checkout" && threadId && (
                 <div className="plan-panel-section">
                   <CheckoutPanel
+                    requireAccount={requireAccount}
                     hideHousing={!!state.viewing}
                     threadId={threadId}
                     checkout={state.checkout}

@@ -87,6 +87,7 @@ export function useViewingScheduler(
   onChanged: () => Promise<void> | void,
   onBusyChange?: (busy: boolean) => void,
   externalBusy = false,
+  requireAccount?: () => boolean,
 ) {
   const initial = useRef(journal(threadId));
   const [step, setStep] = useState<"selection" | "review" | "result">(
@@ -229,6 +230,10 @@ export function useViewingScheduler(
   }
   async function confirm() {
     if (lock.current || externalBusy) return;
+    if (requireAccount && !requireAccount()) {
+      setNotice("Đăng nhập xong, hãy xác nhận lại các lịch chưa gửi. Lịch đã chọn vẫn được giữ.");
+      return;
+    }
     lock.current = true;
     setBusy(true);
     onBusyChange?.(true);
@@ -301,7 +306,13 @@ export function useViewingScheduler(
       if (alive.current) {
         setRows(result);
         setActive(undefined);
-        setStep("result");
+        const awaitingLogin = result.some(r => r.code === "authentication_required");
+        // No successful write: stay at review. A partially saved batch still shows
+        // individual outcomes so signing in cannot replay successful entries.
+        const noneSaved = result.every(r => ["not_sent", "unchanged"].includes(r.status));
+        setStep(awaitingLogin && noneSaved ? "review" : "result");
+        if (awaitingLogin)
+          setNotice("Đăng nhập xong, hãy xác nhận lại các lịch chưa gửi. Lịch đã chọn vẫn được giữ.");
         try {
           await onChanged();
         } catch {
@@ -383,6 +394,21 @@ export function useViewingScheduler(
     setNotice("");
     setErrors({});
   }
+  function openSelection() {
+    if (lock.current || externalBusy) return;
+    // An uncertain write must be reconciled before any new round can be sent.
+    if (unresolved.length) {
+      setStep("result");
+      return;
+    }
+    setChecked(
+      eligible.filter((item) => !item.viewing?.slot)
+        .slice(0, limit).map((item) => item.listing_id),
+    );
+    setStep("selection");
+    setNotice("");
+    setErrors({});
+  }
   return {
     step,
     setStep,
@@ -407,6 +433,7 @@ export function useViewingScheduler(
     confirm,
     check,
     finish,
+    openSelection,
     setChecked,
   };
 }

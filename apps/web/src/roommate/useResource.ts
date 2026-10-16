@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { roommate } from "./client";
+import { roommate, RoommateError } from "./client";
+import { AUTH_RESTORED } from "../authEvents";
 export function useResource<T>(path: string | null) {
   const [value, setValue] = useState<T | null>(null),
     [error, setError] = useState<unknown>(null),
     [loading, setLoading] = useState(Boolean(path)),
     [revision, setRevision] = useState(0);
   const [loadedPath, setLoadedPath] = useState(path);
+  useEffect(() => {
+    if (!(error instanceof RoommateError) || error.status !== 401) return;
+    const resume = () => setRevision((n) => n + 1);
+    window.addEventListener(AUTH_RESTORED, resume);
+    return () => window.removeEventListener(AUTH_RESTORED, resume);
+  }, [error]);
   useEffect(() => {
     const controller = new AbortController();
     setLoadedPath(path);

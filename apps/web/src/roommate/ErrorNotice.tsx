@@ -1,6 +1,7 @@
 import { AlertCircle } from "lucide-react";
 import { RoommateError } from "./client";
 import { deadlineLabel, reasonName, rt } from "./text";
+import { requestSignIn } from "../authEvents";
 
 export function errorText(error: unknown) {
   const code =
@@ -154,7 +155,9 @@ export function ErrorNotice({
           <p>{error.reasons.map(reasonName).join(" · ")}</p>
         )}
         {error instanceof RoommateError && error.status === 401 ? (
-          <a href="/login">{rt("Đăng nhập lại", "Sign in again")}</a>
+          <button type="button" className="text-button" onClick={requestSignIn}>
+            {rt("Đăng nhập lại", "Sign in again")}
+          </button>
         ) : (
           retry && (
             <button type="button" className="text-button" onClick={retry}>

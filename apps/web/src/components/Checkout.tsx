@@ -285,6 +285,7 @@ export function CheckoutDialog({
   const key = useRef(requestId());
   const attempt: Data = tx?.attempt || {};
   async function load() {
+    setBusy(true);
     setError("");
     setCode("");
     try {
@@ -293,20 +294,23 @@ export function CheckoutDialog({
         "POST",
         { domain },
       );
+      if (domain === "flight") {
+        const profile = await api<Data>("/profile/traveler");
+        setTraveler(profile.traveler || null);
+      }
       setTx(summary);
       setPeople((old) =>
         old.length ? old : companionSlots(summary.passenger_counts),
       );
     } catch (e) {
       setError(errorOf(e));
+      setCode((e as Data).code || "");
+    } finally {
+      setBusy(false);
     }
   }
   useEffect(() => {
     void load();
-    if (domain === "flight")
-      api<Data>("/profile/traveler")
-        .then((r) => setTraveler(r.traveler))
-        .catch(() => setTraveler(null));
   }, []);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 5000);
@@ -702,6 +706,11 @@ export function CheckoutDialog({
         {error && (
           <div className="notice error" role="alert">
             <p>{error}</p>
+            {(!tx || code === "authentication_required") && (
+              <button className="secondary" disabled={busy} onClick={() => void load()}>
+                {uiText("Thử lại")}
+              </button>
+            )}
             {code === "price_changed" && (
               <button className="secondary" onClick={() => void load()}>
                 {uiText("Xem giá mới")}
@@ -992,6 +1001,7 @@ export function CheckoutPanel({
   house,
   hideHousing = false,
   onChanged,
+  requireAccount,
 }: {
   threadId: string;
   checkout?: Data;
@@ -1000,6 +1010,7 @@ export function CheckoutPanel({
   // Housing steps live in the "Xem nhà" tab when several homes can be viewed.
   hideHousing?: boolean;
   onChanged: () => Promise<void> | void;
+  requireAccount?: () => boolean;
 }) {
   const [open, setOpen] = useState<"flight" | "relocation" | null>(null);
   if (!checkout)
@@ -1101,7 +1112,9 @@ export function CheckoutPanel({
                   ))}
                   <button
                     className={DONE.has(tx?.status) ? "secondary" : "primary"}
-                    onClick={() => setOpen(domain)}
+                    onClick={() => {
+                      if (!requireAccount || requireAccount()) setOpen(domain);
+                    }}
                   >
                     <CreditCard size={14} />
                     {DONE.has(tx?.status)
