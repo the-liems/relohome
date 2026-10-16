@@ -36,7 +36,8 @@ def test_raw_backup_keeps_v1_and_upgrade_preserves_private_rows(tmp_path):
         row = db.connection.execute("SELECT version,ciphertext FROM contacts").fetchone()
         assert row[0] == 7
         assert vault.open(bytes(row[1])) == "0901234567"
-        assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert db.connection.execute("SELECT COUNT(*) FROM chat_messages").fetchone()[0] == 0
 
 
 def test_relative_backup_paths_use_runtime_root_from_unrelated_cwd(tmp_path, monkeypatch):

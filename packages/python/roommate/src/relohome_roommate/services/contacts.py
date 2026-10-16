@@ -68,6 +68,7 @@ class ContactService:
                 if (
                     request.state is RequestState.PENDING
                     and request.sender_id == actor.id
+                    and request.consent is not None
                     and request.consent.contact.channel_id == identifier
                 ):
                     self.ctx.connections.close(request, RequestState.CANCELLED, self.ctx.clock.now())

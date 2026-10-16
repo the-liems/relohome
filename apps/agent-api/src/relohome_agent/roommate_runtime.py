@@ -23,12 +23,14 @@ class RoommateRuntime:
         clock: Clock | None = None,
         demo: DemoDataset | None = None,
         postgres=None,
+        chat_retention_days: int = 180,
     ):
         self.path, self.vault, self.catalog, self.moderators, self.token = path, vault, catalog, moderators, token
         self.clock = clock or SystemClock()
         self.closed = False
         self.demo = demo
         self.postgres = postgres
+        self.chat_retention_days = chat_retention_days
 
     @classmethod
     def open(cls, settings: Settings):
@@ -66,7 +68,10 @@ class RoommateRuntime:
             if settings.app_env == "production" or settings.roommate_demo_dataset is None:
                 raise ValueError("Roommate demo requires an explicit dataset and a non-production environment")
             demo_path = runtime_path(settings.roommate_demo_dataset)
-            if any(demo_path.is_relative_to(root / public) for public in ("Frontend/public", "apps/web/public", "apps/web/dist")):
+            if any(
+                demo_path.is_relative_to(root / public)
+                for public in ("Frontend/public", "apps/web/public", "apps/web/dist")
+            ):
                 raise ValueError("Demo dataset must not be a public frontend asset")
             demo = DemoDataset.load(demo_path)
         postgres = None
@@ -119,7 +124,16 @@ class RoommateRuntime:
                     "INSERT INTO private_metadata VALUES ('contact_key',?) ON CONFLICT(name) DO NOTHING",
                     (vault.fingerprint,),
                 )
-        return cls(path, vault, catalog, moderators, token, demo=demo, postgres=postgres)
+        return cls(
+            path,
+            vault,
+            catalog,
+            moderators,
+            token,
+            demo=demo,
+            postgres=postgres,
+            chat_retention_days=settings.roommate_chat_retention_days,
+        )
 
     @contextmanager
     def context(self):
@@ -128,7 +142,12 @@ class RoommateRuntime:
         storage_context = self.postgres.storage() if self.postgres else Storage(self.path, initialize=False)
         with storage_context as storage:
             yield RoommateContext(
-                storage, clock=self.clock, catalog=self.catalog, vault=self.vault, moderators=self.moderators
+                storage,
+                clock=self.clock,
+                catalog=self.catalog,
+                vault=self.vault,
+                moderators=self.moderators,
+                chat_retention_days=self.chat_retention_days,
             )
 
     def close(self) -> None:

@@ -22,9 +22,11 @@ ROUTES = {
         rf"media/{IDENTIFIER}",
         r"moderation/(?:reports|media|summary|profiles)",
         r"notifications",
-        r"me/privacy(?:/export)?",
+        r"me/privacy(?:/export|/chat-messages)?",
         r"me/operation-drafts",
         rf"operation-drafts/{IDENTIFIER}",
+        r"chat/conversations",
+        rf"chat/conversations/{IDENTIFIER}/messages",
     ],
     "POST": [
         r"access",
@@ -41,6 +43,9 @@ ROUTES = {
         rf"moderation/profiles/{IDENTIFIER}",
         rf"moderation/reports/{IDENTIFIER}/resolve",
         rf"moderation/media/{IDENTIFIER}",
+        r"chat/requests",
+        rf"chat/requests/{IDENTIFIER}/accept",
+        rf"chat/conversations/{IDENTIFIER}/(?:messages|read|close)",
     ],
     "PUT": [
         r"operation-drafts",
@@ -60,11 +65,15 @@ def attach_roommate_gateway(app, user) -> None:
             raise HTTPException(404, {"code": "unknown_roommate_route"})
         query_routes = {
             "me/requests": {"offset", "limit", "direction"},
+            "chat/conversations": {"offset", "limit"},
+            "me/privacy/chat-messages": {"before", "limit"},
             "notifications": {"offset", "limit"},
             "moderation/reports": {"offset", "limit", "status"},
             "moderation/media": {"offset", "limit", "status"},
             "moderation/profiles": {"offset", "limit", "status"},
         }
+        if re.fullmatch(rf"chat/conversations/{IDENTIFIER}/messages", resource):
+            query_routes[resource] = {"before", "limit"}
         if request.query_params and (
             request.method != "GET"
             or resource not in query_routes
@@ -74,6 +83,9 @@ def attach_roommate_gateway(app, user) -> None:
             raise HTTPException(422, {"code": "unsupported_query"})
         public = request.method == "GET" and resource == "availability"
         owner = None if public else user(request)["id"]
+        expected_actor = request.headers.get("X-Roommate-Actor")
+        if not public and expected_actor and expected_actor != owner:
+            raise HTTPException(409, {"code": "actor_changed"})
         token = os.getenv("AGENT_API_TOKEN", "")
         if not public and not token:
             raise HTTPException(503, {"code": "service_unavailable"})

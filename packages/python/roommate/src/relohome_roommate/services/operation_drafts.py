@@ -8,6 +8,7 @@ from relohome_roommate.access import RoommateError
 from relohome_roommate.api_models import (
     AcceptInput,
     BlockInput,
+    ChatInviteInput,
     ContactUpdate,
     ModerationInput,
     OperationInput,
@@ -20,6 +21,9 @@ from relohome_roommate.services.limits import fingerprint
 
 def validated_draft(path, method, body):
     routes = [
+        (r"/chat/requests", "POST", ChatInviteInput),
+        (r"/chat/requests/[A-Za-z0-9_.:-]{1,128}/accept", "POST", OperationInput),
+        (r"/chat/conversations/[A-Za-z0-9_.:-]{1,128}/close", "POST", OperationInput),
         (r"/requests", "POST", SendInput),
         (r"/me/contacts", "PUT", ContactUpdate),
         (r"/reports", "POST", ReportInput),

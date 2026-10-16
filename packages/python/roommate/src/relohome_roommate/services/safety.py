@@ -23,6 +23,9 @@ class SafetyService:
                 raise RoommateError("invalid_target", status=422)
             self.ctx.safety.block(actor.id, target, selected)
             if selected:
+                from relohome_roommate.chat_repository import close_chats
+
+                close_chats(self.ctx, actor.id, target)
                 for request in self.ctx.connections.for_actor(actor.id):
                     if target not in (request.sender_id, request.recipient_id):
                         continue

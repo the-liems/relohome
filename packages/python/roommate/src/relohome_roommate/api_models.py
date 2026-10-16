@@ -68,6 +68,20 @@ class AcceptInput(OperationInput):
     consent: StrictBool
 
 
+class ChatInviteInput(OperationInput):
+    recipient_id: Identifier
+    intro: RoommateProfile
+
+
+class ChatMessageInput(RoommateModel):
+    body: Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=2000)]
+    client_message_id: OperationKey
+
+
+class ChatReadInput(RoommateModel):
+    message_id: Identifier
+
+
 class ContactUpdate(OperationInput):
     kind: ContactKind
     value: Annotated[str, StringConstraints(strict=True, max_length=128)] | None

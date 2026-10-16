@@ -30,6 +30,8 @@ class ConsentService:
             request = self.ctx.connections.get(identifier)
             if request is None or request.recipient_id != actor.id:
                 raise RoommateError("request_unavailable", status=404)
+            if request.mode != "contact" or request.consent is None:
+                raise RoommateError("request_unavailable", status=404)
             if request.state is not RequestState.PENDING:
                 raise RoommateError("request_not_pending")
             self.access.require(Actor(id=request.sender_id))

@@ -1,7 +1,7 @@
 """Private connection records. These are never public profile DTOs."""
 
 from datetime import datetime
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, Field, StrictBool, StrictInt, StringConstraints, model_validator
 
@@ -47,13 +47,20 @@ class RequestRecord(RoommateModel):
     created_at: UtcTimestamp
     expires_at: UtcTimestamp
     intro: IntroSnapshot
-    consent: ContactConsent
+    mode: Literal["contact", "chat"] = "contact"
+    consent: ContactConsent | None = None
     closed_at: UtcTimestamp | None = None
 
     @model_validator(mode="after")
     def consistent_request(self) -> Self:
         if self.sender_id == self.recipient_id or self.expires_at <= self.created_at:
             raise ValueError("Invalid request pair or deadline")
+        if self.mode == "chat":
+            if self.consent is not None:
+                raise ValueError("Chat requests cannot grant contact access")
+            return self
+        if self.consent is None:
+            raise ValueError("Contact requests require explicit consent")
         if self.consent.actor_id != self.sender_id or self.consent.recipient_id != self.recipient_id:
             raise ValueError("Consent must belong to the request pair")
         return self

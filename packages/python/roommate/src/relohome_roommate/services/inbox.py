@@ -14,6 +14,12 @@ class InboxService:
         self.access = AccessService(context)
 
     def _readable(self, request) -> bool:
+        if request.mode == "chat":
+            chat = self.ctx.storage.connection.execute(
+                "SELECT revoked FROM chat_conversations WHERE request=?", (request.id,)
+            ).fetchone()
+            if chat and chat[0]:
+                return False
         if self.ctx.safety.blocked(request.sender_id, request.recipient_id):
             return False
         for participant in (request.sender_id, request.recipient_id):
@@ -26,7 +32,26 @@ class InboxService:
 
     def _summary(self, actor: Actor, record) -> dict:
         grant = self.ctx.connections.grant(record.id)
+        chat = (
+            self.ctx.storage.connection.execute(
+                "SELECT id,state FROM chat_conversations WHERE request=?", (record.id,)
+            ).fetchone()
+            if record.mode == "chat"
+            else None
+        )
         return {
+            **(
+                {
+                    "mode": "chat",
+                    "conversation_id": chat[0] if chat else None,
+                    "conversation_state": chat[1] if chat else None,
+                    "counterparty_id": (record.recipient_id if actor.id == record.sender_id else record.sender_id)
+                    if self._readable(record)
+                    else None,
+                }
+                if record.mode == "chat"
+                else {}
+            ),
             "request_id": record.id,
             "direction": "sent" if actor.id == record.sender_id else "received",
             "state": record.effective_state(self.ctx.clock.now()).value,
@@ -91,6 +116,17 @@ class InboxService:
                 )
             )
         }
+        chats = (
+            {
+                row["request"]: row
+                for row in db.execute(
+                    f"SELECT request,id,state,revoked FROM chat_conversations WHERE request IN ({','.join('?' for _ in ids)})",
+                    ids,
+                )
+            }
+            if any(r.mode == "chat" for r in records)
+            else {}
+        )
         excluded = self.ctx.safety.discovery_exclusions(actor.id)
         unread = {
             row[0]
@@ -104,6 +140,8 @@ class InboxService:
                 for who in (record.sender_id, record.recipient_id)
             )
             grant = grants.get(record.id)
+            if record.id in chats and chats[record.id]["revoked"]:
+                available = False
             name = (
                 record.intro.display_name
                 if record.recipient_id == actor.id
@@ -111,6 +149,16 @@ class InboxService:
             )
             items.append(
                 {
+                    **(
+                        {
+                            "mode": "chat",
+                            "conversation_id": chats[record.id]["id"] if record.id in chats else None,
+                            "conversation_state": chats[record.id]["state"] if record.id in chats else None,
+                            "counterparty_id": other if available else None,
+                        }
+                        if record.mode == "chat"
+                        else {}
+                    ),
                     "request_id": record.id,
                     "direction": "sent" if record.sender_id == actor.id else "received",
                     "state": record.effective_state(self.ctx.clock.now()).value,

@@ -25,12 +25,16 @@ class RoommateContext:
         catalog: AreaCatalog | None = None,
         vault: ContactVault | None = None,
         moderators: frozenset[str] = frozenset(),
+        chat_retention_days: int = 180,
     ):
         self.storage = storage
         self.clock = clock or SystemClock()
         self.catalog = catalog or AreaCatalog()
         self.vault = vault
         self.moderators = moderators
+        if not 1 <= chat_retention_days <= 3650:
+            raise ValueError("Invalid chat retention")
+        self.chat_retention_days = chat_retention_days
         self.profiles = SqlProfiles(storage.connection)
         self.connections = SqlConnections(storage.connection, self.clock)
         self.safety = SqlSafety(storage.connection)

@@ -16,7 +16,8 @@ def test_bootstrap_restart_and_rollback(tmp_path):
             raise RuntimeError("abort")
         assert db.connection.execute("SELECT COUNT(*) FROM restrictions").fetchone()[0] == 0
     with Storage(path) as db:
-        assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert db.connection.execute("SELECT COUNT(*) FROM chat_conversations").fetchone()[0] == 0
 
 
 def test_migration_failure_is_atomic(tmp_path):
