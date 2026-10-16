@@ -371,20 +371,32 @@ tự truyền vào quyền giao dịch.
 flowchart TD
   FORM["Form: hai pin + lịch + tùy chọn"] --> GUARD["API: owner/version/pin/time<br/>pending payment/approval/order guards"]
   GUARD --> TASK["plan_confirmed_moving_quote<br/>tạo/sửa đúng task quote"]
-  TASK --> POLICY["make_agent_node + run_with_policy<br/>budget, usage, source/result validation"]
+  TASK --> ENTRY["graph.ainvoke → START<br/>nhánh typed quote"]
+  ENTRY --> POLICY["moving_quote_agent<br/>execute_agent + run_with_policy"]
   POLICY --> CHOICE{"User đã chọn service_id?"}
   CHOICE -->|"có"| EXACT["Kiểm catalog thật<br/>estimate đúng dịch vụ, 0 LLM"]
   CHOICE -->|"chưa"| AUTO["Moving LLM<br/>chọn dịch vụ/đọc detail/estimate"]
   EXACT --> RESULT["Quote thật hoặc câu hỏi/lỗi provider"]
   AUTO --> RESULT
-  RESULT --> STATE["Kiểm freshness/ràng buộc<br/>cost + respond + update checkpoint"]
+  RESULT --> VALIDATE["moving_quote_validate<br/>freshness/ràng buộc/outcome.detail"]
+  VALIDATE --> SUMMARY["moving_quote_summary<br/>giữ outcome lỗi/câu hỏi"]
+  SUMMARY --> STATE["moving_quote_respond → END<br/>response + progress"]
   STATE --> VIEW["UI giữ form khi chờ/lỗi<br/>thành công mở báo giá trực tiếp"]
 ```
 
-Đường này **không chạy full graph từ START**: nó tái sử dụng policy node agent,
-validator checks, cost/respond và cập nhật graph checkpoint bằng
-`aupdate_state(..., as_node='respond')`. Vì thế vẫn cùng hội thoại/state, nhưng
-không gọi lại Intake/Planner LLM cho một form rõ ý định.
+Đường này chạy **nhánh riêng từ START trong cùng compiled graph**. API kiểm
+preflight và tạo task tất định, rồi `ainvoke` chọn nhánh bằng context form do API
+cấp. Các node quote dùng lại policy, validator checks và cost/respond, có callback
+tracing và checkpoint theo bước. Không chạy load_context/Intake/Planner/executor
+hoặc nhánh giao dịch. Dependencies cấp qua `context_schema=GraphContext` và tham số
+`context` của `ainvoke`; node quote nhận `Runtime[GraphContext]`. Runtime context không được
+checkpoint, nên caller phải cấp lại khi resume. Context chọn nhánh trong state
+được xóa ở cuối lượt và khi bắt đầu chat mới, nên tin nhắn sau form trở về đường
+chat thông thường.
+
+Input checkpoint lưu plan version mới trước khi gọi agent; nếu lượt bị gián đoạn,
+đọc state mới nhất trước khi submit lại. Checkpoint theo node không bảo đảm
+exactly-once cho từng provider call bên trong agent.
 
 Plan version tăng, selection quote cũ bị bỏ, downstream bị stale; task/selection
 không liên quan được giữ. Không tự thêm quyền booking. Nếu có nhiều task quote

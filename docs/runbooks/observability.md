@@ -313,9 +313,11 @@ The shared `run_config` adds the official `langfuse.langchain.CallbackHandler`,
 a `relohome-agent` run name and the conversation thread ID as Langfuse session ID.
 The handler runs inline so async graph nodes retain the active OTEL context.
 A fresh handler per invocation keeps concurrent requests independent; resumed
-invocations remain grouped by session. Direct moving-form calls and standalone
-intake/planner runs propagate their existing session IDs around execution. Graph inputs/outputs and node state are
-captured, so the Langfuse project now contains conversation content.
+invocations remain grouped by session. Confirmed Moving forms invoke the same
+compiled graph on a dedicated branch with runtime context, skipping Intake/Planner
+LLM. Standalone intake/planner runs propagate their existing session IDs around
+execution. Graph inputs/outputs and node state are captured, so the Langfuse project
+now contains conversation content.
 
 Both structured LLM clients and the read/moving tool loops use the official
 `langfuse.openai.AsyncOpenAI` integration. It records Responses
@@ -443,3 +445,65 @@ Known upstream behavior: Python ASGI instrumentation 0.66b1 constructs
 This comes from the instrumentor's `get_host_port_url_tuple`, not application
 attributes. Keep this as an upstream instrumentation issue rather than patching
 request scopes or vendoring the SDK for an attribute naming cleanup.
+
+
+### Debugging Moving quote forms
+
+The form branch is `moving_quote_agent → moving_quote_validate →
+moving_quote_summary → moving_quote_respond`. The official graph callback owns
+node spans and durations; FastAPI/HTTPX and the OpenAI integration own their
+request/model spans. Application enrichment only describes failures that are
+returned as data and would otherwise look successful to the callback.
+
+| Situation | Trace evidence |
+| --- | --- |
+| Quote succeeds | Normal node spans; no application `error.type` |
+| Agent returns `failed` | `moving_quote_agent` has ERROR status, `error.type` (e.g. `invalid_input`, `timeout`, `provider_unavailable`), and the existing safe error message |
+| Quote fails validation | `moving_quote_validate` has ERROR status and `error.type=invalid_quote`; output `validation.issues` explains the checks |
+| Form needs clarification or a corrected vehicle choice | `needs_input` / `ASK_USER` outputs; no application ERROR status |
+| Unexpected form-agent exception | Original exception propagates through the graph callback (ERROR level/status message) to FastAPI instrumentation (HTTP 500 and exception event/stacktrace) |
+
+The Langfuse level/status message is updated through its public SDK, alongside
+standard OTel status and `error.type`. The helper only enriches the active named
+node span: tracing disabled, non-recording spans, direct agent calls and unrelated
+parent HTTP spans are left alone. Summary/respond do not inherit a red status
+just because they successfully render a failure response. HTTP 200 can therefore
+contain a failed quote: monitor the operation's node status as well as HTTP 5xx.
+
+1. In Langfuse, open the session for the conversation thread, select the failed
+   turn, and filter observations to **ERROR**. Open the failed quote node.
+2. Read its status message and output `task_results[task_id].error`, `error_code`,
+   and `retryable`. On validation failures, read `validation.issues`. The validate
+   output and final graph state retain the failure in `outcome.detail`.
+3. For an unexpected exception, inspect the failed graph node and the HTTP
+   server span's `exception` event in Tempo. The original exception propagates;
+   there is no fabricated failed-result traceback. The invocation returns HTTP
+   500 and the checkpointer retains the last completed step. Read current state
+   before retrying; do not assume the previous plan version is still current.
+4. Follow child model/HTTP/MCP spans for downstream failures. A local missing
+   configuration can fail before any provider request, so no downstream span
+   is expected. `agent_trace` lists attempted tool names, not proof of a request.
+5. Use the trace ID to move between Langfuse and Tempo or correlated Loki logs.
+   In Tempo, select the Agent API resource service name used by the deployment
+   (not `moving-api`) and search, for example:
+
+   ```traceql
+   { span:name = "moving_quote_agent" && span:status = error }
+   ```
+
+   Narrow by a bounded application code when needed:
+
+   ```traceql
+   { span:name = "moving_quote_agent" && span.error.type = "invalid_input" }
+   ```
+
+Trace export is not checkpoint storage. Node state is persisted by the configured
+LangGraph checkpointer (live runtime: `/app/data/agent-runtime/checkpoints.sqlite3`).
+Resuming a quote checkpoint requires the original thread configuration and fresh
+`GraphContext(deps=service.deps)`; runtime dependencies are not persisted.
+
+References: [OpenTelemetry recording errors](https://opentelemetry.io/docs/specs/semconv/general/recording-errors/),
+[Langfuse levels and the current span API](https://langfuse.com/docs/observability/features/log-levels),
+[LangGraph runtime context](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration),
+[LangGraph error handling](https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph),
+[TraceQL syntax](https://grafana.com/docs/tempo/latest/traceql/construct-traceql-queries/).

@@ -130,6 +130,7 @@ class GraphDeps:
     housing_selector: Callable[[str, str, str, dict], list[dict]] | None = None
     # (user_id, thread_id, listing_id) -> danh sách căn đang chọn sau khi bỏ; lỗi nghiệp vụ là ValueError.
     housing_unselector: Callable[[str, str, str], list[dict]] | None = None
+    moving_quote_agent: DomainAgent | None = None  # Explicit form implementation; absent means unavailable.
     guardrail: ShadowGuardrail | None = None  # shadow only; never grants workflow permissions
 
 

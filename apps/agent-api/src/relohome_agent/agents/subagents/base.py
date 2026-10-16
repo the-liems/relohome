@@ -1,6 +1,7 @@
 """`DomainAgent` và wrapper `run_with_policy` (agent-graph.md §6.3.3, §6.3.6).
 
-Wrapper không bao giờ raise: lỗi của subagent là dữ liệu cho validator (D6).
+Mặc định lỗi của subagent là dữ liệu cho validator (D6). Typed form bật
+raise_unexpected để lỗi lập trình đi tới graph/HTTP instrumentation.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from relohome_agent.agents.contracts import (
     contract_major,
     failed_result,
 )
-from relohome_agent.agents.llm_runtime import public_data
+from relohome_agent.agents.llm_runtime import capture_invocation_usage, public_data
 from relohome_agent.agents.models import AgentBudget, TaskResult, TaskStatus
 from relohome_agent.agents.state import AgentInput
 
@@ -49,6 +50,7 @@ class AgentPolicy:
     transport_retries: int = 1
     grace_s: float = 2.0
     max_subagent_llm_calls_left: int | None = None
+    raise_unexpected: bool = False
 
 
 STATUS_MAP = {"done": TaskStatus.DONE, "failed": TaskStatus.FAILED, "needs_input": TaskStatus.NEEDS_INPUT}
@@ -135,7 +137,8 @@ async def run_with_policy(
     raw: Any = None
     for attempt in range(policy.transport_retries + 1):
         try:
-            raw = await asyncio.wait_for(agent.run(req), timeout=policy.timeout_s + policy.grace_s)
+            with capture_invocation_usage() as consumed:
+                raw = await asyncio.wait_for(agent.run(req), timeout=policy.timeout_s + policy.grace_s)
             break
         except AgentTransportError as exc:
             if attempt < policy.transport_retries:
@@ -144,7 +147,25 @@ async def run_with_policy(
         except TimeoutError:
             raw = failed_result(req, "timeout", "subagent exceeded its deadline", retryable=True)
             break
-        except Exception as exc:  # subagent lỗi không mong đợi: thành dữ liệu cho validator
+        except Exception as exc:
+            if policy.raise_unexpected:
+                # This path never reaches the normal record below. Keep real
+                # counters (including work before a malformed provider response)
+                # without converting or wrapping the original exception.
+                if record is not None:
+                    failure = failed_result(
+                        req,
+                        "internal",
+                        f"subagent error: {type(exc).__name__}",
+                        retryable=False,
+                        usage=consumed.snapshot(),
+                    )
+                    try:
+                        await record(req, failure, int((time.monotonic() - started) * 1000))
+                    except Exception as recording_error:
+                        # A ledger outage must not mask the actual agent cause.
+                        logger.error("crashed subagent usage recording failed (%s)", type(recording_error).__name__)
+                raise
             logger.warning("subagent %s failed (%s) task_id=%s", req.agent, type(exc).__name__, req.task_id)
             raw = failed_result(req, "internal", f"subagent error: {type(exc).__name__}", retryable=False)
             break

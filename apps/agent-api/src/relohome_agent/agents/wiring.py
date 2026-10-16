@@ -124,6 +124,7 @@ class AgentService:
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
         from relohome_agent.agents.llm_components import build_llm_components
         from relohome_agent.agents.planner_llm import CapabilityRegistry
+        from relohome_agent.agents.subagents.services.moving_llm import FormQuoteAgent
         from relohome_agent.services.adapters.sqlite_runtime import (
             DurableModels,
             RuntimeDatabase,
@@ -209,6 +210,7 @@ class AgentService:
                 stack.push_async_callback(guardrail.close)
             deps = GraphDeps(
                 guardrail=guardrail,
+                moving_quote_agent=FormQuoteAgent(components.moving) if components.moving is not None else None,
                 housing_selector=viewing.selector if viewing else None,
                 housing_unselector=viewing.unselector if viewing else None,
                 intake=components.intake,
