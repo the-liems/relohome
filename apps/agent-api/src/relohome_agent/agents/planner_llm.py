@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.agents.contracts import AgentCapability
 from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS
+from relohome_agent.agents.housing_fast_path import is_filter_search
 from relohome_agent.agents.housing_operations import is_housing_comparison, same_housing_operation
 from relohome_agent.agents.intake import missing_for, selected_fact_key
 from relohome_agent.agents.llm import LLMError, StructuredLLM
@@ -178,6 +180,24 @@ class LlmPlanner(UsageOwner):
             return PlannerOutput(plan=Plan(version=0, tasks=[]))
         available = {n: cap for n, cap in self.registry.capabilities.items() if n in inp.available_agents}
         registry = CapabilityRegistry(available)
+        if (
+            is_filter_search(inp.intake)
+            and not inp.previous_plan
+            and not inp.previous_results
+            and not inp.committed
+            and inp.validation is None
+            and inp.change_context is None
+        ):
+            inputs, _ = TemplatePlanner._inputs(AgentName.PROPERTY, inp.intake.constraints.values, inp.intake)
+            candidate = Plan(
+                version=0,
+                tasks=[Task(id="housing-search-" + uuid4().hex, agent=AgentName.PROPERTY, inputs=inputs)],
+            )
+            # Exactly the same contract/grounding gates as a model-authored plan.
+            if not validate_plan(candidate, registry, inp.intake, inp.committed) and not self._grounding_errors(
+                candidate, inp
+            ):
+                return PlannerOutput(plan=candidate)
         data = inp.model_dump(mode="json", exclude={"session"})
         blocked = set(inp.intake.blocking_missing + inp.intake.constraints.missing)
         data["ready_requested_domains"] = [
@@ -189,10 +209,16 @@ class LlmPlanner(UsageOwner):
             )
             and not any(field.startswith(domain.value + ".") for field in blocked)
         ]
-        # Planner still sees every available domain and its complete INPUT schema.
-        # The output JSON schema is validator-owned and is not needed to draft tasks.
+        # Only requested and carried domains can appear in a valid plan. Keep the
+        # full registry for validation, not unrelated service schemas in the prompt.
+        relevant = set(inp.intake.domains)
+        if inp.previous_plan:
+            relevant.update(t.agent for t in inp.previous_plan.tasks)
+        data["available_agents"] = [name for name in data["available_agents"] if name in relevant]
         data["available_capabilities"] = {
-            n.value: cap.model_dump(mode="json", exclude={"output_schema"}) for n, cap in available.items()
+            n.value: cap.model_dump(mode="json", exclude={"output_schema"})
+            for n, cap in available.items()
+            if n in relevant
         }
         values = inp.intake.constraints.values
         data["confirmed_location_bindings"] = {
@@ -552,6 +578,10 @@ class LlmPlanner(UsageOwner):
                     )
                 elif expected is None and key in defaults:
                     expected = defaults[key]
+                elif expected is None and task.agent == AgentName.PROPERTY and key == "housing_mode":
+                    # Omitting the operation and explicitly saying "search" are
+                    # equivalent. Never default compare/search_compare or filters.
+                    expected = "search"
                 if value != expected and not carried_context:
                     errors.append(f"{task.id}.{key}: not grounded in user constraints")
             if task.agent in {AgentName.MAP, AgentName.FLIGHT, AgentName.RELOCATION}:

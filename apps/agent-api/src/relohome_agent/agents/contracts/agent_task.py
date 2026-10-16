@@ -70,6 +70,7 @@ class AgentTaskRequest(BaseModel):
     goal: str = ""  # semantic mission; not permission to change validated inputs
     user_request: str = ""  # latest user turn, bounded/redacted before delivery
     constraints: dict[str, Any] = {}
+    retrieval_only: bool = False  # trusted graph hint; only unchanged read filters, never a write
     hints: dict[str, Any] = {}
     upstream: dict[str, UpstreamResult] = {}
     budget: AgentBudget

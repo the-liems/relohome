@@ -158,6 +158,26 @@ class ReadLlmAgent:
             return result
 
         try:
+            if (
+                req.retrieval_only
+                and domain == AgentName.PROPERTY
+                and req.inputs.get("housing_mode", "search") == "search"
+                and "listing_ids" not in req.inputs
+                and not req.upstream
+                and not req.hints
+                and req.attempt == 1
+            ):
+                # Use the existing grounded tool, including provider resolution,
+                # ambiguity, hard filters, pagination and normal usage accounting.
+                # No synthetic ranking/assessment or provider facts are introduced.
+                trace.append("search_housing_and_return")
+                call_started = perf_counter()
+                async with asyncio.timeout(run.remaining()):
+                    await session.execute("search_housing_and_return", {"limit": req.inputs.get("limit")})
+                timing["tool_ms"] += round((perf_counter() - call_started) * 1000)
+                result = finish()
+                result.data["agent_trace"]["implementation"] = "validated-filter-retrieval"
+                return result
             if self.llm_client is None:
                 self.llm_client = AsyncOpenAI(
                     api_key=self.api_key, max_retries=0, timeout=45, **client_options(self.api_key)
