@@ -155,6 +155,8 @@ class IntakeResult(BaseModel):
     target_task_ids: list[str] = []
     declined_suggestions: list[str] = []  # key gợi ý người dùng từ chối trong lượt này (S9)
     unsupported_reason: str | None = None  # câu giải thích ngắn khi kind=unsupported, do Intake viết
+    # Semantic classification, NOT authorization. Code rechecks domain, mode and constraints.
+    retrieval_only: bool = False
 
     @property
     def needs_clarification(self) -> bool:

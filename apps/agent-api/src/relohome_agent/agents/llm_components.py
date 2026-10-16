@@ -61,5 +61,7 @@ def build_llm_components(settings: ServiceSettings | None = None) -> LlmComponen
         capabilities[moving.capability.agent] = moving.capability
     attempts = settings.agent_max_attempts
     return LlmComponents(
-        LlmIntake(intake_llm, max_calls=attempts), LlmPlanner(planner_llm, capabilities, max_calls=attempts), moving
+        LlmIntake(intake_llm, max_calls=attempts, enable_filter_fast_path=settings.agent_filter_fast_path_enabled),
+        LlmPlanner(planner_llm, capabilities, max_calls=attempts),
+        moving,
     )
