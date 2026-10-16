@@ -3,6 +3,7 @@ import { api } from "./api";
 import type { Data } from "./types";
 import {
   batchLimit,
+  slotsFor,
   contactClosed,
   scheduleEligible,
   scheduleFingerprint,
@@ -124,11 +125,18 @@ export function useViewingScheduler(
     slot: drafts[listing_id]?.slot || "",
   }));
   function draftFor(id: string): SlotDraft {
-    const slot =
-      items.find((item) => item.listing_id === id)?.viewing?.slot || "";
+    const item =
+      items.find((item) => item.listing_id === id);
+    const available = slotsFor(viewing, item);
+    const original = item?.viewing?.slot || "";
+    const slot = available.includes(original) ? original : "";
     return (
       drafts[id] || {
-        day: slot.slice(0, 10) || viewing.slots?.[0]?.slice(0, 10) || "",
+        day: slot.slice(0, 10) ||
+          slotsFor(
+            viewing,
+            items.find((item) => item.listing_id === id),
+          )[0]?.slice(0, 10) || "",
         slot,
       }
     );
@@ -183,7 +191,11 @@ export function useViewingScheduler(
           return [
             id,
             old[id] || {
-              day: slot.slice(0, 10) || viewing.slots?.[0]?.slice(0, 10) || "",
+              day: slot.slice(0, 10) ||
+                slotsFor(
+                  viewing,
+                  items.find((item) => item.listing_id === id),
+                )[0]?.slice(0, 10) || "",
               slot,
             },
           ];

@@ -63,7 +63,7 @@ export function HostStatusBanner({
         Icon: CircleAlert,
         title: "Hoàn tất hồ sơ người đăng",
         text: t(
-          "ReloHome cần biết ai đứng sau các tin cho thuê trước khi thêm nhà.",
+          "Khai hồ sơ một lần khi thêm căn đầu tiên. Các căn sau dùng lại hồ sơ này.",
         ),
         action: "Khai hồ sơ",
       }
@@ -88,7 +88,7 @@ export function HostStatusBanner({
             Icon: Clock3,
             title: "Hồ sơ đang chờ xác minh",
             text: t(
-              "ReloHome sẽ liên hệ qua số điện thoại bạn khai để xác minh. Trong lúc chờ, bạn vẫn tạo được nhà, phòng và bản nháp; tin chỉ hiển thị sau khi bạn và địa điểm được xác minh.",
+              "Hồ sơ đã gửi để Admin xác minh. Bạn vẫn tạo được nhà, phòng và bản nháp; các căn tiếp theo dùng lại hồ sơ này. Tin chỉ công khai sau khi người đăng, địa điểm và nội dung được duyệt.",
             ),
             action: "Sửa hồ sơ",
           };
@@ -129,7 +129,9 @@ export function HostProfileForm({
   close?: () => void;
   saved: (page: HostProfilePage) => void;
 }) {
-  const current = page.profile;
+  // Keep the revision the user started editing; background refreshes must not
+  // turn a stale form into a write against a newer profile revision.
+  const [current] = useState(page.profile);
   const [type, setType] = useState<PosterType>(current?.poster_type || "owner");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");

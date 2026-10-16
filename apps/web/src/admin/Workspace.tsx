@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { LogOut, ShieldCheck, RefreshCw, Search } from "lucide-react";
 import { api, dateTime, money } from "../api";
@@ -19,6 +20,7 @@ export function AdminWorkspace({
   user: User;
   onLogout: () => void;
 }) {
+  const [routeParams] = useSearchParams();
   const [tab, setTab] = useState("listings"),
     [queue, setQueue] = useState<ModerationQueue | null>(null),
     [page, setPage] = useState<Data | null>(null),
@@ -56,6 +58,38 @@ export function AdminWorkspace({
     const timer = setTimeout(() => void load(), 200);
     return () => clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [load]);
+  useEffect(() => {
+    const listing = routeParams.get("listing");
+    if (listing) {
+      setTab("listings");
+      void open(listing);
+    } else if (routeParams.has("identity")) {
+      setTab("identity");
+      void load();
+    }
+  }, [routeParams]);
+  useEffect(() => {
+    const identity = routeParams.get("identity");
+    if (identity && tab === "identity" && queue)
+      requestAnimationFrame(() => {
+        const element = document.getElementById(
+          "moderation-identity-" + identity,
+        );
+        element?.scrollIntoView({ block: "center" });
+        element?.focus({ preventScroll: true });
+      });
+  }, [routeParams, tab, queue]);
   async function open(id: string) {
     setBusy(true);
     setError("");
@@ -168,7 +202,7 @@ export function AdminWorkspace({
           </p>
         )}
         {tab === "identity" ? (
-          <ModerationPanel queue={queue} changed={load} />
+          <ModerationPanel queue={queue} changed={load} viewerId={user.id} />
         ) : tab === "reviews" ? (
           <ReviewModerationPanel />
         ) : detail ? (
@@ -265,14 +299,14 @@ export function AdminWorkspace({
         ) : (
           <section className="ll-panel">
             <div className="ll-status-metrics">
-              <div>
+              <button type="button" onClick={() => setTab("identity")}>
                 <strong>{queue?.hosts.length ?? "—"}</strong>
                 <span>{t("Người đăng chờ xác minh")}</span>
-              </div>
-              <div>
+              </button>
+              <button type="button" onClick={() => setTab("identity")}>
                 <strong>{queue?.properties.length ?? "—"}</strong>
                 <span>{t("Nhà chờ xác minh")}</span>
-              </div>
+              </button>
               <div>
                 <strong>{queue?.listings.length ?? "—"}</strong>
                 <span>{t("Tin chờ duyệt")}</span>

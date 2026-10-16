@@ -26,5 +26,7 @@ def test_migrations_and_audit_sql_keep_their_original_bytes_and_order():
         assert hashlib.sha256((ROOT / row["new_path"]).read_bytes()).hexdigest() == row["base_sha256"]
     original = [Path(row["old_path"]).name for row in rows if "/migrations/" in row["old_path"]]
     current = sorted(path.name for path in (ROOT / "deploy/database/migrations").glob("*.sql"))
-    assert original == current
+    # Existing relocated migrations stay byte-for-byte immutable and in order.
+    # New features may append migrations after the original set.
+    assert current[: len(original)] == original
     assert [name for name in current if name.startswith("008_")] == ["008_address_search.sql", "008_moving_service.sql"]

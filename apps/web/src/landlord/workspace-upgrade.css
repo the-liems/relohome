@@ -323,3 +323,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.ll-metrics > button { text-align: left; color: inherit; cursor: pointer; }
+.ll-metrics > button:hover { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
+.ll-contact-room { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border: 1px solid var(--ui-control-line); border-radius: 14px; background: var(--ui-surface); color: var(--ui-text); text-align: left; }
+.ll-contact-room:hover { border-color: var(--ui-accent); }
+.ll-contact-room > span:last-child { display: flex; align-items: center; gap: 6px; }
+
+.ll-contact-properties { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:18px; }
+.ll-contact-properties > button, .ll-contact-room { position:relative; min-height:160px; padding:24px; padding-right:54px; }
+.ll-contact-properties strong, .ll-contact-room > strong { font-size:20px; }
+.ll-contact-properties .ll-property-copy > p, .ll-contact-room > span { font-size:16px; }
+.ll-contact-properties .ll-property-copy > small, .ll-contact-room > small { font-size:14px; line-height:1.7; }
+.ll-request-badge { position:absolute; top:14px; right:14px; min-width:30px; height:30px; padding:0 7px; display:grid; place-items:center; border-radius:50%; background:#bf243b; color:#fff; font-weight:750; font-size:15px; box-shadow:0 0 0 3px var(--ui-surface); }
+[id^="contact-request-"]:focus { outline:3px solid var(--ui-accent); outline-offset:4px; }

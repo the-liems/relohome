@@ -97,7 +97,7 @@ async function listingPage(pool: DatabasePool, user: string, input: z.infer<type
 }
 
 export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePool) {
-  app.get('/v1/admin/session', async request => {
+  app.get('/v1/admin/session', async (request) => {
     const user = actor(request)
     if (!moderator(user)) throw new ManagementError(403, 'Tài khoản này không có quyền Admin.')
     return { can_moderate_housing: true }
@@ -112,7 +112,7 @@ export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePoo
       input = z.object({ ref_id: z.string() }).parse(request.body)
     return resolveHousingAddress(user, input.ref_id)
   })
-  app.get('/v1/landlord/listings', async request =>
+  app.get('/v1/landlord/listings', async (request) =>
     listingPage(pool, actor(request), Filter.parse(request.query), false),
   )
   app.get('/v1/moderation/housing/listings', async request => {

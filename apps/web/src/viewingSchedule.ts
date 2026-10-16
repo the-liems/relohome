@@ -13,10 +13,16 @@ export const contactClosed = (item: Data) =>
 export function scheduleEligible(item: Data): boolean {
   return (
     (["selected", "viewing_scheduled", "backup"].includes(item.status) ||
-      (item.status === "visit_due" && contactClosed(item))) &&
+      (item.status === "visit_due" &&
+        (contactClosed(item) ||
+          item.landlord?.viewing_status === "declined"))) &&
     !(item.status === "backup" && item.backup_from === "visited")
   );
 }
+export const slotsFor = (viewing: Data, item?: Data): string[] =>
+  Array.isArray(item?.available_slots)
+    ? item.available_slots
+    : viewing.slots || [];
 export const batchLimit = (viewing: Data) => {
   const value = Number(viewing.max_selected ?? 3);
   return Number.isFinite(value)
@@ -48,7 +54,7 @@ export function scheduleIssues(
         "Căn này không còn đủ điều kiện đặt lịch. Hãy xem lại danh sách.";
     else if (!e.slot) errors[e.listing_id] = "Chọn ngày và giờ cho căn này.";
     else if (
-      !(viewing.slots || []).includes(e.slot) ||
+      !slotsFor(viewing, item).includes(e.slot) ||
       !Number.isFinite(Date.parse(e.slot))
     )
       errors[e.listing_id] = "Khung giờ không còn khả dụng. Hãy chọn lại.";
@@ -148,4 +154,6 @@ export const scheduleFingerprint = (item: Data) =>
     item.landlord?.request_status,
     item.landlord?.viewing_status,
     item.landlord?.sync,
+    item.available_slots,
+    item.landlord?.viewing_options,
   ]);

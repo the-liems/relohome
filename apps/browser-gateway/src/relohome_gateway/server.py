@@ -53,15 +53,17 @@ HOUSING_MANAGEMENT_PATHS = (
     re.compile(r"^landlord/(overview|properties|contact-requests|reviews|listings|stats)$"),
     re.compile(r"^landlord/locations/(search|resolve)$"),
     re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
-    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/units)?$"),
-    re.compile(r"^landlord/units/[0-9a-f-]+(?:/listing)?$"),
+    re.compile(r"^landlord/properties/[0-9a-f-]+(?:/(?:units|room-listing))?$"),
+    re.compile(r"^landlord/units/[0-9a-f-]+(?:/(?:listing|room-listing))?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+(?:/(?:media|submit|availability|hide|preview))?$"),
     re.compile(r"^landlord/listings/[0-9a-f-]+/media/[0-9a-f-]+$"),
-    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/viewing)?$"),
+    re.compile(r"^landlord/contact-requests/[0-9a-f-]+(?:/(?:viewing|viewing-options|payment-review|archive))?$"),
     re.compile(r"^housing/[0-9a-f-]+/(?:contact-requests|events|reviews|review)$"),
     re.compile(r"^housing/reviews/[0-9a-f-]+/report$"),
     re.compile(r"^housing/contact-requests/me$"),
-    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages)$"),
+    re.compile(r"^housing/contact-notifications$"),
+    re.compile(r"^housing/activity(?:/[0-9a-f-]+/read)?$"),
+    re.compile(r"^housing/contact-requests/[0-9a-f-]+/(?:cancel|messages|activity)$"),
     re.compile(r"^moderation/housing/(?:queue|properties/[0-9a-f-]+/approve|listings/[0-9a-f-]+/review)$"),
     re.compile(r"^moderation/housing/listings(?:/[0-9a-f-]+)?$"),
     re.compile(r"^moderation/housing/reviews(?:/[0-9a-f-]+/decision)?$"),
@@ -1009,7 +1011,27 @@ def create_app(database=None, transport=None):
                         "request_status": row["status"],
                         "request_id": row.get("id"),
                         "unread": row.get("unread", 0),
+                        "viewing_options": row.get("viewing_options", []),
                     }
+                if (
+                    row
+                    and row.get("payment_report")
+                    and ((item.get("reported_payment") or {}).get("report_key") or item.get("transaction_id"))
+                    == row["payment_report"].get("report_key")
+                ):
+                    item["payment_report"] = row["payment_report"]
+                elif item.get("reported_payment") and row:
+                    item["payment_sync"] = "failed"
+                landlord = item.get("landlord") or {}
+                options = landlord.get("viewing_options") or []
+                if options and landlord.get("request_status") in OPEN_CONTACT:
+                    item["available_slots"] = [
+                        candidate
+                        for candidate in view.get("slots", [])
+                        if any(same_instant(candidate, option) for option in options)
+                    ]
+                elif landlord.get("viewing_status") == "declined" and landlord.get("request_status") in OPEN_CONTACT:
+                    item["available_slots"] = []
             return view
 
         # What this step wants the landlord inbox to hold: a time per booked home, or a withdrawal.
@@ -1087,11 +1109,66 @@ def create_app(database=None, transport=None):
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
 
+    @app.get("/web/api/landlord/viewing-options")
+    async def landlord_slots(request: Request):
+        return await checkout_call("GET", "/ui/viewings/slots", user(request)["id"])
+
+    async def sync_reported_payments(owner, view):
+        if not isinstance(view, dict):
+            return view
+        for item in view.get("items", []):
+            payment = item.get("reported_payment")
+            if not payment:
+                continue
+            if item.get("payment_report") and item["payment_report"].get("report_key") == (
+                payment.get("report_key") or item.get("transaction_id")
+            ):
+                continue
+            # An existing confirmed contact remains valid if its listing is hidden or rented.
+            # Public detail is only needed to identify homes without a known managed contact.
+            if not (item.get("landlord") or {}).get("request_id"):
+                try:
+                    detail = await upstream("GET", f"/housing/{item['listing_id']}", owner, platform=True)
+                except HTTPException:
+                    item["payment_sync"] = "failed"
+                    continue
+                if not isinstance(detail, dict) or not detail.get("management"):
+                    continue
+            payload = {
+                "report_key": payment.get("report_key") or item.get("transaction_id"),
+                "amount_vnd": payment["amount_vnd"],
+                "paid_on": payment["paid_on"],
+                "agreement": item.get("agreement") or {},
+            }
+            try:
+                report = await upstream(
+                    "POST", f"/housing/{item['listing_id']}/payment-reports", owner, payload, platform=True
+                )
+            except HTTPException:
+                item["payment_sync"] = "failed"
+                continue
+            if isinstance(report, dict) and report.get("id"):
+                item["payment_report"] = report
+                item.pop("payment_sync", None)
+            else:
+                item["payment_sync"] = "failed"
+        return view
+
     @app.post("/web/api/threads/{thread}/viewings/{step}")
     async def viewing_step(
         thread: str,
         step: Literal[
-            "unselect", "schedule", "cancel", "visit", "decide", "reopen", "paid", "moving-mode", "landlord-retry"
+            "unselect",
+            "schedule",
+            "cancel",
+            "visit",
+            "visit-review",
+            "decide",
+            "reopen",
+            "paid",
+            "moving-mode",
+            "landlord-retry",
+            "payment-retry",
         ],
         request: Request,
     ):
@@ -1099,15 +1176,133 @@ def create_app(database=None, transport=None):
         owned(thread, owner)
         if owner.startswith("guest_"):
             return await checkout_call("POST", f"/ui/chat/{thread}/viewings/unselect", owner, body)
+        if step == "visit-review":
+            from pydantic import ValidationError
+
+            class ReviewedVisit(BaseModel):
+                model_config = ConfigDict(extra="forbid")
+                listing_id: str = Field(min_length=1, max_length=128)
+                outcome: Literal["met_agreed", "met_rejected"]
+                rating: int = Field(ge=1, le=5)
+                body: str = Field(default="", max_length=2000)
+
+            try:
+                intent = ReviewedVisit.model_validate(body)
+            except ValidationError:
+                raise HTTPException(422, "Chọn kết quả buổi xem và đánh giá từ 1 đến 5 sao.") from None
+            previous = await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
+            if not isinstance(previous, dict):
+                return previous
+            prior = next(
+                (
+                    item
+                    for item in [*previous.get("items", []), *previous.get("history", [])]
+                    if item.get("listing_id") == intent.listing_id
+                ),
+                None,
+            )
+            review = {"rating": intent.rating, "body": intent.body.strip()}
+            if (
+                prior
+                and prior.get("visit_review") == review
+                and (prior.get("visit_outcome") or {}).get("outcome") == intent.outcome
+            ):
+                return await landlord_viewings(owner, previous, thread=thread, sync=True)
+            await require_landlord_confirmation(thread, owner, intent.listing_id)
+            slot = (prior.get("viewing") or {}).get("slot") if prior else None
+            if (
+                not prior
+                or prior.get("status") not in {"visit_due", "viewing_scheduled", "visited", "backup"}
+                or not slot
+            ):
+                raise HTTPException(409, "Cần có lịch hẹn hợp lệ trước khi đánh giá buổi xem.")
+            try:
+                due = datetime.fromisoformat(slot.replace("Z", "+00:00")).timestamp() <= time.time()
+            except (ValueError, AttributeError):
+                due = False
+            if not due and not previous.get("test_visit_anytime"):
+                raise HTTPException(409, "Chỉ ghi kết quả từ giờ hẹn xem trở đi.")
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            managed = (
+                any(row.get("listing_id") == intent.listing_id for row in page.get("items", []))
+                if isinstance(page, dict)
+                else False
+            )
+            if managed:
+                reviewed = await upstream("PUT", f"/housing/{intent.listing_id}/review", owner, review, platform=True)
+                if isinstance(reviewed, JSONResponse):
+                    return reviewed
+            result = await checkout_call(
+                "POST",
+                f"/ui/chat/{thread}/viewings/visit",
+                owner,
+                {"listing_id": intent.listing_id, "outcome": intent.outcome, "review": review},
+            )
+            return await landlord_viewings(owner, result, thread=thread, sync=True)
         if step == "visit":
             await require_landlord_confirmation(thread, owner, str(body.get("listing_id", "")))
+        if step == "schedule":
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            if not isinstance(page, dict):
+                raise HTTPException(503, "Chưa kiểm tra được giờ chủ nhà đề xuất.")
+            row = next(
+                (
+                    row
+                    for row in page.get("items", [])
+                    if row.get("listing_id") == body.get("listing_id") and row.get("status") in OPEN_CONTACT
+                ),
+                None,
+            )
+            if (
+                row
+                and row.get("viewing_options")
+                and not any(same_instant(option, body.get("slot")) for option in row["viewing_options"])
+            ):
+                raise HTTPException(409, "Hãy chọn một trong các giờ chủ nhà đề xuất.")
+        if step == "decide":
+            page = await upstream("GET", "/housing/contact-requests/me", owner, platform=True)
+            if not isinstance(page, dict):
+                raise HTTPException(503, "Chưa kiểm tra được lịch hẹn.")
+            if any(row.get("listing_id") == body.get("listing_id") for row in page.get("items", [])):
+                review_page = await upstream("GET", f"/housing/{body.get('listing_id')}/reviews", owner, platform=True)
+                if not isinstance(review_page, dict):
+                    return review_page
+                mine = review_page.get("mine") or {}
+                if not mine or mine.get("status") == "withdrawn":
+                    raise HTTPException(409, "Hãy gửi đánh giá sau buổi xem trước khi chốt căn.")
+        if step == "paid":
+            previous = await landlord_viewings(
+                owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+            )
+            chosen = next(
+                (item for item in previous.get("items", []) if item.get("status") in {"agreed", "reported_paid"}), None
+            )
+            if chosen:
+                report = chosen.get("payment_report") or {}
+                key = (chosen.get("reported_payment") or {}).get("report_key") or chosen.get("transaction_id")
+                if report.get("status") in {"pending", "confirmed"}:
+                    payment = chosen.get("reported_payment") or {}
+                    if (
+                        body.get("request_id") != key
+                        or body.get("amount_vnd") != payment.get("amount_vnd")
+                        or body.get("paid_on") != payment.get("paid_on")
+                    ):
+                        raise HTTPException(409, "Báo cáo chuyển tiền đang chờ hoặc đã được chủ nhà xác nhận.")
+                    return previous
+                await require_landlord_confirmation(thread, owner, chosen["listing_id"])
+        if step == "payment-retry":
+            view = await landlord_viewings(
+                owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+            )
+            return await sync_reported_payments(owner, view)
         if step == "landlord-retry":
             # Tenant asks to resend times the landlord inbox has not received; nothing changes locally.
             result = await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner)
             return await landlord_viewings(owner, result, thread=thread, sync=True)
         result = await checkout_call("POST", f"/ui/chat/{thread}/viewings/{step}", owner, body)
         scheduled = str(body.get("listing_id", "")) if step == "schedule" else None
-        return await landlord_viewings(owner, result, thread=thread, scheduled=scheduled, sync=True)
+        view = await landlord_viewings(owner, result, thread=thread, scheduled=scheduled, sync=True)
+        return await sync_reported_payments(owner, view) if step == "paid" else view
 
     async def require_landlord_confirmation(thread, owner, listing_id):
         """A home managed on ReloHome needs the landlord to confirm the booked time before the tenant
@@ -1115,11 +1310,9 @@ def create_app(database=None, transport=None):
         try:
             detail = await upstream("GET", f"/housing/{listing_id}", owner, platform=True)
         except HTTPException as exc:
-            if exc.status_code == 404:
-                return  # Not a published listing; the Agent API answers for it.
-            raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
-        if not (isinstance(detail, dict) and detail.get("management")):
-            return
+            if exc.status_code != 404:
+                raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.") from None
+            detail = None  # Hidden managed homes still have private contact history.
         view = await landlord_viewings(
             owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
         )
@@ -1129,6 +1322,12 @@ def create_app(database=None, transport=None):
             else None
         )
         landlord = (item.get("landlord") or {}) if item else {}
+        if not landlord and detail is None:
+            raise HTTPException(409, "Chưa có lịch được chủ nhà xác nhận cho tin này.")
+        if not landlord and not (isinstance(detail, dict) and detail.get("management")):
+            if isinstance(view, dict) and view.get("landlord_unavailable"):
+                raise HTTPException(503, "Chưa kiểm tra được xác nhận của chủ nhà. Hãy thử lại.")
+            return
         if landlord.get("viewing_status") != "confirmed" or landlord.get("request_status") not in OPEN_CONTACT:
             raise HTTPException(409, "Chủ nhà chưa xác nhận giờ xem này; ghi kết quả sau khi chủ nhà xác nhận.")
 
@@ -1249,13 +1448,72 @@ def create_app(database=None, transport=None):
         if not any(pattern.fullmatch(resource) for pattern in HOUSING_MANAGEMENT_PATHS):
             raise HTTPException(404)
         row = user(request)
-        if resource.startswith("moderation/") and row.get("workspace") != "admin":
+        expected = request.headers.get("x-siu-user")
+        if expected and expected != row["id"]:
+            raise HTTPException(409, "Phiên đăng nhập đã đổi tài khoản. Hãy tải lại trang trước khi tiếp tục.")
+        if (
+            resource.startswith("moderation/") or (resource == "housing/activity" and request.query_params.get("admin"))
+        ) and row.get("workspace") != "admin":
             raise HTTPException(403, "Hãy đăng nhập khu Admin để kiểm duyệt.")
-        if request.method == "POST" and resource.startswith("landlord/listings/") and resource.endswith("/media"):
+        if request.method == "POST" and (
+            (resource.startswith("landlord/listings/") and resource.endswith("/media"))
+            or resource.endswith("/documents")
+        ):
             raise HTTPException(403, "Hãy dùng chức năng tải ảnh đã kiểm tra.")
         body = None if request.method == "GET" else await object_body(request)
         query = "?" + str(request.query_params) if request.method == "GET" and request.query_params else ""
-        return await upstream(request.method, "/" + resource + query, user(request)["id"], body, platform=True)
+        result = await upstream(request.method, "/" + resource + query, row["id"], body, platform=True)
+        # Platform authorizes the conversation and derives its participants. Enrich
+        # only that response with account names, without exposing a user directory.
+        if request.method == "GET" and isinstance(result, dict):
+            conversations = None
+            if resource in {"housing/contact-notifications", "housing/activity"}:
+                conversations = result.get("items", [])
+            elif re.fullmatch(r"housing/contact-requests/[0-9a-fA-F-]+/messages", resource):
+                conversations = [result]
+            if isinstance(conversations, list):
+                ids = list(
+                    {
+                        c.get("counterparty_user_id")
+                        for c in conversations
+                        if isinstance(c, dict) and isinstance(c.get("counterparty_user_id"), str)
+                    }
+                )
+                names = {}
+                if ids:
+                    placeholders = ",".join("?" for _ in ids)
+                    names = {
+                        u["id"]: u["name"]
+                        for u in app.state.store.all(
+                            f"SELECT id,name FROM users WHERE id IN ({placeholders})", tuple(ids)
+                        )
+                    }
+                destinations = {}
+                for conversation in conversations:
+                    if isinstance(conversation, dict):
+                        conversation["counterparty_name"] = names.get(conversation.get("counterparty_user_id"))
+                        if resource == "housing/activity" and conversation.get("audience") == "tenant":
+                            listing = conversation.get("listing_id", "")
+                            if listing not in destinations:
+                                try:
+                                    destinations[listing] = await upstream(
+                                        "GET",
+                                        "/ui/viewings/thread?" + str(httpx.QueryParams({"listing_id": listing})),
+                                        row["id"],
+                                    )
+                                except HTTPException:
+                                    destinations[listing] = {}
+                            destination = destinations[listing]
+                            if (
+                                isinstance(destination, dict)
+                                and destination.get("thread_id")
+                                and app.state.store.one(
+                                    "SELECT id FROM threads WHERE id=? AND owner=?",
+                                    (destination["thread_id"], row["id"]),
+                                )
+                            ):
+                                conversation["thread_id"] = destination["thread_id"]
+        return result
 
     @app.get("/web/api/saved")
     async def saved(request: Request):

@@ -130,7 +130,11 @@ beforeAll(async () => {
   process.env.AGENT_API_TOKEN = TOKEN
   process.env.HOUSING_MODERATOR_IDS = MODERATOR
   const config = getRuntimeConfig()
-  pool = createDatabasePool(config.databaseUrl, 2)
+  // Exercise API writes with the deployed application role, not the admin role.
+  const applicationUrl = new URL(config.databaseUrl)
+  applicationUrl.username = config.postgresAppUser
+  applicationUrl.password = config.postgresAppPassword
+  pool = createDatabasePool(applicationUrl.toString(), 2)
   admin = createDatabasePool(config.adminDatabaseUrl, 1)
   app = buildApp(pool, config)
   await app.ready()
@@ -395,7 +399,8 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
       poster_type: 'broker',
       phone: '0901 234 567',
     })
-    expect(queue.body.hosts.map((h: { user_id: string }) => h.user_id)).not.toContain(MODERATOR)
+    expect(queued.can_review).toBe(true)
+    expect(queue.body.hosts.find((h: { user_id: string }) => h.user_id === MODERATOR)).toMatchObject({user_id:MODERATOR,can_review:false})
     // needs_info shows the reason to the poster; saving again sends it back for review.
     await call(MODERATOR, 'POST', `/v1/moderation/host/${broker}/review`, {
       decision: 'needs_info',
@@ -490,13 +495,13 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
         })
       ).status,
     ).toBe(409)
-    const declined = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing`, {
-      decision: 'decline',
+    const later = new Date(Date.now() + 2 * 86_400_000).toISOString()
+    const declined = await call(owner, 'POST', `/v1/landlord/contact-requests/${request.id}/viewing-options`, {
+      slots: [later],
       revision: request.revision,
     })
     expect(declined.body.viewing_status).toBe('declined')
     // The tenant picks another time; the landlord confirms it.
-    const later = new Date(Date.now() + 2 * 86_400_000).toISOString()
     expect(
       (
         await call(tenant, 'PUT', `/v1/housing/${listingId}/viewing`, {
@@ -907,4 +912,226 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect((await app.inject({method:'GET',url:`/v1/housing/${a}`})).statusCode).toBe(404)
   })
 
+})
+
+it('handoff: proposed times, distinct senders, payment review, visibility and per-owner archive', async () => {
+  const owner = `test-handoff-owner-${run}`, tenant = `test-handoff-tenant-${run}`
+  await host(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {decision:'verify',method:'phone_call'})
+  const p = await property(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})
+  const id = await listing(owner, await unit(owner,p,'H.1'), [])
+  await call(owner,'POST',`/v1/landlord/listings/${id}/submit`,{})
+  await call(MODERATOR,'POST',`/v1/moderation/housing/listings/${id}/review`,{decision:'approve'})
+  const slot = new Date(Date.now()+86400000).toISOString(), later = new Date(Date.now()+172800000).toISOString()
+  expect((await call(owner,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
+  expect((await call(owner,'POST',`/v1/housing/${id}/contact-requests`,{message:'Tự liên hệ'})).status).toBe(409)
+  const booked = await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})
+  const request = booked.body.id, path = `/v1/landlord/contact-requests/${request}`
+  const current = async () => (await admin.query('SELECT * FROM housing.contact_requests WHERE id=$1',[request])).rows[0]
+  expect((await call(owner,'POST',path+'/archive',{revision:(await current()).revision})).status).toBe(409)
+  const proposal = {revision:(await current()).revision,slots:[later]}
+  expect((await call(tenant,'POST',path+'/viewing-options',proposal)).status).toBe(403)
+  expect([403,404]).toContain((await call(OTHER,'POST',path+'/viewing-options',proposal)).status)
+  expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[new Date(Date.now()+8*86400000).toISOString()]})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[slot]})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/viewing-options',proposal)).status).toBe(200)
+  expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
+  expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot:later})).status).toBe(200)
+  expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:(await current()).revision})).status).toBe(200)
+  expect((await call(owner,'PATCH',path,{status:'resolved',revision:(await current()).revision})).status).toBe(409)
+  const messages = `/v1/housing/contact-requests/${request}/messages`
+  // Before any reply, identify the property's active owner.
+  expect((await call(tenant,'GET',messages)).body.counterparty_user_id).toBe(owner)
+  await call(tenant,'POST',messages,{body:'Em sẽ chuyển tiền sau khi xem.'})
+  await call(owner,'POST',messages,{body:'Chủ nhà xác nhận lịch.'})
+  const thread = (await call(tenant,'GET',messages)).body
+  expect(thread.viewer_id).toBe(tenant)
+  expect(thread.counterparty_user_id).toBe(owner)
+  expect((await call(owner,'GET',messages)).body.counterparty_user_id).toBe(tenant)
+  expect(thread.messages.map((m: {sender_user_id:string}) => m.sender_user_id)).toEqual([tenant,owner])
+  expect([403,404]).toContain((await call(OTHER,'GET',messages)).status)
+  const paid = {report_key:randomUUID(),amount_vnd:8000000,paid_on:new Date().toISOString().slice(0,10),agreement:{deposit_vnd:4000000,first_month_vnd:4000000}}
+  const reportPath = `/v1/housing/${id}/payment-reports`
+  const report = await call(tenant,'POST',reportPath,paid)
+  expect(report.status,JSON.stringify(report.body)).toBe(201)
+  expect(report.body.amount_vnd).toBe(8000000)
+  expect((await call(tenant,'POST',reportPath,paid)).body.id).toBe(report.body.id)
+  expect((await call(tenant,'POST',reportPath,{...paid,amount_vnd:1})).status).toBe(409)
+  expect((await call(tenant,'POST',reportPath,{...paid,report_key:randomUUID()})).status).toBe(409)
+  expect((await call(tenant,'DELETE',`/v1/housing/${id}/viewing`)).status).toBe(409)
+  const notifications = (await call(owner,'GET','/v1/housing/contact-notifications')).body.items
+  expect(notifications.find((r: {id:string})=>r.id===request)).toMatchObject({payment_status:'pending',update_unread:true,role:'landlord',counterparty_user_id:tenant})
+  const tenantNotices = (await call(tenant,'GET','/v1/housing/contact-notifications')).body.items
+  expect(tenantNotices.find((r: {id:string})=>r.id===request).counterparty_user_id).toBe(owner)
+  const review = {report_id:report.body.id,revision:report.body.revision,decision:'reject',reason:'Chưa nhận được khoản tiền này'}
+  expect((await call(tenant,'POST',path+'/payment-review',review)).status).toBe(403)
+  expect([403,404]).toContain((await call(OTHER,'POST',path+'/payment-review',review)).status)
+  expect((await call(owner,'POST',path+'/payment-review',{...review,reason:''})).status).toBe(422)
+  expect((await call(owner,'POST',path+'/payment-review',review)).body.status).toBe('rejected')
+  const second = await call(tenant,'POST',reportPath,{...paid,report_key:randomUUID()})
+  expect(second.status).toBe(201)
+  const decisions = await Promise.all([1,2].map(()=>call(owner,'POST',path+'/payment-review',{report_id:second.body.id,revision:second.body.revision,decision:'confirm'})))
+  expect(decisions.map(r=>r.status).sort()).toEqual([200,409])
+  expect((await current()).status).toBe('resolved')
+  const publicRow = await admin.query('SELECT is_public FROM housing.managed_listing_visibility WHERE listing_id=$1',[id])
+  expect(publicRow.rows[0].is_public).toBe(false)
+  expect((await app.inject({method:'GET',url:`/v1/housing/${id}`})).statusCode).toBe(404)
+  expect((await call(owner,'POST',path+'/archive',{revision:(await current()).revision})).body.archived).toBe(true)
+  expect((await call(owner,'GET','/v1/landlord/contact-requests')).body.items.some((r: {id:string})=>r.id===request)).toBe(false)
+  expect((await call(tenant,'GET','/v1/housing/contact-requests/me')).body.items.some((r: {id:string})=>r.id===request)).toBe(true)
+  expect((await call(tenant,'GET',messages)).body.messages).toHaveLength(2)
+  expect((await admin.query('SELECT count(*)::int AS n FROM housing.rent_payment_reports WHERE request_id=$1',[request])).rows[0].n).toBe(2)
+})
+
+
+it('reuses one pending host profile for multiple homes without resubmission', async () => {
+  const owner = `test-profile-once-${run}`
+  const profile = await host(owner)
+  const first = await property(owner)
+  const second = await property(owner)
+  expect(first).not.toBe(second)
+  const saved = (await call(owner, 'GET', '/v1/host/profile')).body.profile
+  expect(saved).toMatchObject({user_id:owner,status:'pending',revision:profile.revision})
+  const count = await pool.query('SELECT count(*)::int AS total FROM housing.host_profiles WHERE user_id=$1', [owner])
+  expect(count.rows[0].total).toBe(1)
+  const queue = (await call(MODERATOR, 'GET', '/v1/moderation/housing/queue')).body
+  expect(queue.hosts.filter((h: {user_id:string})=>h.user_id===owner)).toHaveLength(1)
+  expect(queue.hosts.find((h: {user_id:string})=>h.user_id===owner)).toMatchObject({pending_properties:2,can_review:true})
+})
+
+
+it('records scoped system updates and atomically saves room drafts without self-approval', async () => {
+  const propertyId = await property(OWNER)
+  const roomBody = {
+    request_id: randomUUID(),
+    unit: { unit_code: 'R-' + run, area_m2: 24, bedrooms: 1, bathrooms: 1, amenities: ['wifi'] },
+    listing: {
+      title: 'Phòng kiểm tra thông báo',
+      description: 'Nội dung đầy đủ cho bản nháp.',
+      rent_vnd: 5000000,
+      fees: [],
+    },
+  }
+  const result = await call(OWNER, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, roomBody)
+  expect(result.status, JSON.stringify(result.body)).toBe(201)
+  expect(
+    (await call(OWNER, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, roomBody)).body.id,
+  ).toBe(result.body.id)
+  expect(
+    (await call(OTHER, 'PUT', `/v1/landlord/units/${result.body.unit_id}/room-listing`, roomBody)).status,
+  ).toBe(403)
+  const home = (await call(OWNER, 'GET', `/v1/landlord/properties/${propertyId}`)).body
+  expect(home.units).toHaveLength(1)
+  // Fixtures set moderation/availability explicitly; no real property is changed.
+  await admin.query("UPDATE housing.management_members SET status='active' WHERE property_id=$1", [
+    propertyId,
+  ])
+  await admin.query(
+    "UPDATE housing.managed_listings SET publication_status='published',approved_revision=revision WHERE listing_id=$1",
+    [result.body.id],
+  )
+  const publicationNotice = (await call(OWNER, 'GET', '/v1/housing/activity')).body.items.find(
+    (event: { listing_id: string; kind: string }) =>
+      event.listing_id === result.body.id && event.kind === 'listing_published',
+  )
+  expect(publicationNotice.counterparty_user_id).toBeNull()
+  const slot = new Date(Date.now() + 86400000).toISOString()
+  const cr = (
+    await admin.query(
+      "INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,landlord_activity_at) VALUES($1,$2,'Đặt lịch xem',$3,'requested',now()) RETURNING id,revision",
+      [result.body.id, TENANT, slot],
+    )
+  ).rows[0]
+  const events = (await call(OWNER, 'GET', '/v1/housing/activity')).body.items
+  const requested = events.find(
+    (event: { contact_id: string; kind: string }) =>
+      event.contact_id === cr.id && event.kind === 'viewing_requested',
+  )
+  expect(requested).toMatchObject({
+    property_id: propertyId,
+    listing_id: result.body.id,
+    property_name: home.name,
+    unit_code: roomBody.unit.unit_code,
+    unread: true,
+  })
+  expect(
+    (await call(TENANT, 'GET', '/v1/housing/activity')).body.items.some(
+      (event: { id: string }) => event.id === requested.id,
+    ),
+  ).toBe(false)
+  expect(
+    (await call(OTHER, 'GET', '/v1/housing/activity')).body.items.some(
+      (event: { id: string }) => event.id === requested.id,
+    ),
+  ).toBe(false)
+  expect((await call(OTHER, 'POST', `/v1/housing/activity/${requested.id}/read`, {})).status).toBe(404)
+  expect(
+    (await call(OWNER, 'GET', '/v1/landlord/contact-requests')).body.items.find(
+      (row: { id: string }) => row.id === cr.id,
+    ).update_unread,
+  ).toBe(true)
+  expect((await call(OWNER, 'POST', `/v1/housing/activity/${requested.id}/read`, {})).status).toBe(200)
+  expect(
+    (await call(OWNER, 'GET', '/v1/landlord/contact-requests')).body.items.find(
+      (row: { id: string }) => row.id === cr.id,
+    ).update_unread,
+  ).toBe(false)
+  expect(
+    (
+      await call(TENANT, 'POST', `/v1/landlord/contact-requests/${cr.id}/viewing`, {
+        decision: 'confirm',
+        revision: cr.revision,
+      })
+    ).status,
+  ).toBe(409)
+  expect(
+    (
+      await call(OWNER, 'POST', `/v1/landlord/contact-requests/${cr.id}/viewing`, {
+        decision: 'confirm',
+        revision: cr.revision,
+      })
+    ).status,
+  ).toBe(200)
+  const confirmed = (await call(TENANT, 'GET', '/v1/housing/activity')).body.items.find(
+    (event: { contact_id: string; kind: string }) =>
+      event.contact_id === cr.id && event.kind === 'viewing_confirmed',
+  )
+  expect(confirmed).toMatchObject({ audience: 'tenant', property_id: propertyId })
+  expect(new Date(confirmed.payload.slot).toISOString()).toBe(slot)
+  const timeline = (await call(TENANT, 'GET', `/v1/housing/contact-requests/${cr.id}/activity`)).body.items
+  expect(timeline.map((event: { kind: string }) => event.kind)).toContain('viewing_requested')
+  expect((await call(OTHER, 'GET', `/v1/housing/contact-requests/${cr.id}/activity`)).status).toBe(404)
+  expect((await call(TENANT, 'POST', `/v1/housing/activity/${confirmed.id}/read`, {})).status).toBe(200)
+  expect(
+    (await call(TENANT, 'GET', '/v1/housing/activity')).body.items.find(
+      (event: { id: string }) => event.id === confirmed.id,
+    ).unread,
+  ).toBe(false)
+  expect((await call(TENANT, 'GET', '/v1/housing/activity?admin=true')).status).toBe(403)
+  await admin.query(
+    "UPDATE housing.managed_listings SET publication_status='pending_review' WHERE listing_id=$1",
+    [result.body.id],
+  )
+  const queue = (await call(MODERATOR, 'GET', '/v1/housing/activity?admin=true')).body.items
+  expect(
+    queue.find(
+      (event: { listing_id: string; kind: string }) =>
+        event.listing_id === result.body.id && event.kind === 'listing_submitted',
+    ),
+  ).toMatchObject({ audience: 'admin', property_id: propertyId })
+  await host(MODERATOR)
+  const ownNotice = (await call(MODERATOR, 'GET', '/v1/housing/activity?admin=true')).body.items.find(
+    (event: { subject_user_id: string; kind: string }) =>
+      event.subject_user_id === MODERATOR && event.kind === 'host_submitted',
+  )
+  expect(ownNotice).toBeDefined()
+  expect(
+    (
+      await call(MODERATOR, 'POST', `/v1/moderation/host/${MODERATOR}/review`, {
+        decision: 'verify',
+        method: 'in_person',
+      })
+    ).status,
+  ).toBe(403)
 })

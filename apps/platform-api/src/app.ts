@@ -32,6 +32,8 @@ import { z, ZodError } from 'zod'
 import { ManagementError, registerHousingManagement } from './housing-management.js'
 import { registerHousingWorkspace } from './housing-workspace.js'
 import { registerHousingReviews } from './housing-reviews.js'
+import { registerHousingActivity } from './housing-activity.js'
+import { registerHousingHandoff } from './housing-handoff.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -51,6 +53,8 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   registerHousingManagement(app, pool)
   registerHousingWorkspace(app, pool)
   registerHousingReviews(app, pool)
+  registerHousingHandoff(app, pool)
+  registerHousingActivity(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
@@ -60,7 +64,9 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   app.get('/health', async (_request, reply) => {
     const result = await pool.query(`SELECT postgis_version() AS postgis_version,
       to_regclass('housing.managed_listing_visibility') IS NOT NULL
-      AND to_regclass('housing.listing_reviews') IS NOT NULL AS schema_ready`)
+      AND to_regclass('housing.listing_reviews') IS NOT NULL
+      AND to_regclass('housing.rent_payment_reports') IS NOT NULL
+      AND to_regclass('housing.activity_events') IS NOT NULL AS schema_ready`)
     if (result.rows[0]?.schema_ready !== true) return reply.status(503).send({ status: 'migration_required' })
     return { status: 'ok', postgis: result.rows[0].postgis_version }
   })

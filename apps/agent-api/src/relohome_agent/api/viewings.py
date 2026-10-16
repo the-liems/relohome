@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,8 +28,15 @@ class ScheduleBody(ListingBody):
     slot: str = Field(min_length=10, max_length=40)
 
 
+class VisitReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rating: int = Field(ge=1, le=5)
+    body: str = Field(default="", max_length=2000)
+
+
 class VisitBody(ListingBody):
     outcome: Literal["met_agreed", "met_undecided", "met_rejected", "missed"]
+    review: VisitReview | None = None
 
 
 class DecideBody(ListingBody):
@@ -45,6 +52,7 @@ class PaidBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     amount_vnd: int = Field(ge=1, le=10_000_000_000)
     paid_on: date
+    request_id: str | None = Field(default=None, min_length=8, max_length=160)
 
 
 class MovingModeBody(BaseModel):
@@ -108,6 +116,25 @@ async def viewings(thread_id: str, service: Service, user_id: UserId = "anonymou
     return viewing.thread_view(user_id, thread_id, values)
 
 
+@router.get("/viewings/thread")
+async def viewing_thread(listing_id: str, service: Service, user_id: UserId = "anonymous"):
+    viewing = viewing_of(service)
+    row = viewing.store.db.execute(
+        "SELECT thread_id FROM checkout_transactions WHERE user_id=? AND logical_key=? AND superseded=0 ORDER BY rowid DESC LIMIT 1",
+        (user_id, "housing:" + listing_id),
+    ).fetchone()
+    if row:
+        await _owned(service, row[0], user_id)
+    return {"thread_id": row[0] if row else None}
+
+
+@router.get("/viewings/slots")
+async def viewing_options(service: Service):
+    viewing = viewing_of(service)
+    end = viewing.clock() + timedelta(days=7)
+    return {"slots": [slot for slot in viewing.slots() if datetime.fromisoformat(slot) <= end]}
+
+
 async def _store_action(service, thread_id: str, user_id: str, action, *, sync: bool = False):
     viewing = viewing_of(service)
     async with _lock(service, thread_id):
@@ -148,7 +175,9 @@ async def cancel(thread_id: str, body: ListingBody, service: Service, user_id: U
 @router.post("/chat/{thread_id}/viewings/visit")
 async def visit(thread_id: str, body: VisitBody, service: Service, user_id: UserId = "anonymous"):
     async def act(v):
-        v.visit(user_id, thread_id, body.listing_id, body.outcome)
+        v.visit(
+            user_id, thread_id, body.listing_id, body.outcome, review=body.review.model_dump() if body.review else None
+        )
 
     return await _store_action(service, thread_id, user_id, act, sync=body.outcome == "met_rejected")
 
@@ -156,7 +185,7 @@ async def visit(thread_id: str, body: VisitBody, service: Service, user_id: User
 @router.post("/chat/{thread_id}/viewings/paid")
 async def paid(thread_id: str, body: PaidBody, service: Service, user_id: UserId = "anonymous"):
     async def act(v):
-        v.report_paid(user_id, thread_id, body.amount_vnd, body.paid_on.isoformat())
+        v.report_paid(user_id, thread_id, body.amount_vnd, body.paid_on.isoformat(), body.request_id)
 
     return await _store_action(service, thread_id, user_id, act)
 
@@ -196,7 +225,11 @@ async def decide(thread_id: str, body: DecideBody, service: Service, user_id: Us
     from relohome_agent.api.web_actions import ResultAction, _choose_result_locked, explored_listing
 
     viewing = viewing_of(service)
-    form = {"rent_vnd": body.rent_vnd, "deposit_vnd": body.deposit_vnd, "move_in": body.move_in and body.move_in.isoformat()}
+    form = {
+        "rent_vnd": body.rent_vnd,
+        "deposit_vnd": body.deposit_vnd,
+        "move_in": body.move_in and body.move_in.isoformat(),
+    }
     # Hold the thread across intent, provider read, graph selection, store and projection.
     # Other chat/UI mutations receive ThreadBusy rather than interleave.
     async with _lock(service, thread_id):
@@ -249,7 +282,11 @@ async def decide(thread_id: str, body: DecideBody, service: Service, user_id: Us
                 viewing.finish_decision(decision)
             # Repair the projection even on retry after a durable store commit.
             await _sync(service, thread_id, user_id)
-            return {**viewing.thread_view(user_id, thread_id, values), "decided": body.listing_id, "moving_impact": impact}
+            return {
+                **viewing.thread_view(user_id, thread_id, values),
+                "decided": body.listing_id,
+                "moving_impact": impact,
+            }
         except CheckoutError as exc:
             return failure(exc)
 

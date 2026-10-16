@@ -109,6 +109,7 @@ import { AdminWorkspace } from "./admin/Workspace";
 import { LandlordWorkspace } from "./landlord/Workspace";
 import { forgetActiveChat, readActiveChat, rememberActiveChat } from "./activeChatSession";
 import { ResumeChat } from "./components/ResumeChat";
+import { ContactMessengerProvider } from "./components/ContactMessenger";
 
 interface AppContext {
   user: User;
@@ -310,7 +311,7 @@ export default function App() {
         />
       );
     return (
-      <AdminWorkspace
+      <ContactMessengerProvider userId={user.id} admin><AdminWorkspace
         user={user}
         onLogout={() => {
           setUser(null);
@@ -318,7 +319,7 @@ export default function App() {
           setSaved([]);
           navigate("/admin/login", { replace: true });
         }}
-      />
+      /></ContactMessengerProvider>
     );
   }
   if (!user)
@@ -356,7 +357,7 @@ export default function App() {
         requestLogin: (to) => { loginDestination.current = to || null; setLoginOpen(true); },
       }}
     >
-      <Shell>
+      <ContactMessengerProvider userId={user.id} enabled={!user.is_guest}><Shell>
         <Routes>
           <WebRoute path="/ai/:threadId?" element={<Chat />} />
           <WebRoute path="/roommate/*" element={<RoommateWorkspace />} />
@@ -409,7 +410,7 @@ export default function App() {
             }
           />
         </Routes>
-      </Shell>
+      </Shell></ContactMessengerProvider>
       {loginOpen && user.is_guest && (
         <Dialog title={uiText("Đăng nhập để tiếp tục")} onClose={() => { loginDestination.current = null; setLoginOpen(false); }}>
           <p className="auth-context-note">{uiText("Hội thoại và lựa chọn của bạn được giữ lại. Các thao tác vẫn cần bạn xác nhận.")}</p>

@@ -186,3 +186,13 @@ test("unchanged open appointments are skipped, but closed same-slot requests are
   ).toBe("saved");
   expect(calls).toBe(1);
 });
+
+test("owner proposals constrain each home and test mode still allows choosing a replacement", () => {
+  const v = view();
+  v.items[0] = {...v.items[0], status: "visit_due", landlord: {viewing_status:"declined",request_status:"new"}, available_slots: [slots[1]]} as any;
+  expect(scheduleEligible(v.items[0])).toBe(true);
+  expect(scheduleIssues(v,[{listing_id:"a",slot:slots[0]}])).toHaveProperty("a");
+  expect(scheduleIssues(v,[{listing_id:"a",slot:slots[1]}])).toEqual({});
+  (v.items[0] as any).available_slots = [];
+  expect(scheduleIssues(v,[{listing_id:"a",slot:slots[1]}])).toHaveProperty("a");
+});

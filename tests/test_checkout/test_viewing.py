@@ -316,3 +316,21 @@ def test_test_visit_anytime_is_ignored_in_production(monkeypatch):
     finally:
         monkeypatch.delenv("APP_ENV")
         get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_payment_report_key_retries_are_idempotent_and_revisions_preserve_history():
+    service, clock, _ = make()
+    service.select(USER, THREAD, "t1", row("a"))
+    await visited(service, clock, "a")
+    decision = service.begin_decision(
+        USER, THREAD, "a", [], {"rent_vnd": 1, "deposit_vnd": 1, "move_in": None}, "d" * 16
+    )
+    service.finish_decision(decision)
+    first = service.report_paid(USER, THREAD, 2, "2026-10-12", "report-one")
+    assert service.report_paid(USER, THREAD, 2, "2026-10-12", "report-one") == first
+    with pytest.raises(CheckoutError):
+        service.report_paid(USER, THREAD, 3, "2026-10-12", "report-one")
+    second = service.report_paid(USER, THREAD, 3, "2026-10-12", "report-two")
+    assert second["reported_payment"]["report_key"] == "report-two"
+    assert service._item(USER, THREAD, "a").details["reported_payment_history"] == [first["reported_payment"]]
