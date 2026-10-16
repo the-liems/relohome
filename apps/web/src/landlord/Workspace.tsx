@@ -1059,9 +1059,10 @@ type FeeRow = {
   billing_unit: string;
   required: boolean;
   refundable: boolean;
+  /** A fixed row the form added: left empty, an optional one means "no such fee". */
+  added?: boolean;
 };
 
-/** Fixed fees first, in a stable order, then the owner's other rows. */
 /** Visible required mark; the field's own `required` is what gets announced. */
 const Required = () => (
   <span className="ll-required" aria-hidden="true">
@@ -1086,6 +1087,7 @@ function withFixedFees(rows: FeeRow[]): FeeRow[] {
       billing_unit: fee.billing_unit,
       required: true,
       refundable: false,
+      added: true,
     };
   });
   return [...fixed, ...rest];
@@ -1208,11 +1210,16 @@ function ListingForm({
       deposit_vnd: f.get("deposit_vnd") ? Number(f.get("deposit_vnd")) : null,
       availability_from: f.get("availability_from") || null,
       fees: fees
-        // An empty optional service fee means "none", not "amount unknown".
+        // An empty optional fee the form added means "none"; a saved fee with
+        // no amount stays "amount unknown" until the owner fills it in.
         .filter(
           (row, index) =>
             row.label.trim() &&
-            !(fixedFees[index]?.mandatory === false && row.amount === ""),
+            !(
+              row.added &&
+              fixedFees[index]?.mandatory === false &&
+              row.amount === ""
+            ),
         )
         .map((row) => ({
           code: row.code,
@@ -1505,7 +1512,11 @@ function ListingForm({
                   required={fixedFees[index].mandatory}
                   value={row.amount}
                   placeholder={t(
-                    fixedFees[index].mandatory ? "Nhập số tiền" : "Nếu có",
+                    fixedFees[index].mandatory
+                      ? "Nhập số tiền"
+                      : row.added
+                        ? "Nếu có"
+                        : "Chưa rõ",
                   )}
                   onChange={(e) => setFee(index, { amount: e.target.value })}
                 />

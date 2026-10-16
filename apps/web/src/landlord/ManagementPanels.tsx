@@ -612,6 +612,9 @@ export function ViewingCalendar({
     );
   const reminders = viewingReminders(contacts as ContactRequest[]);
   const next = reminders[0];
+  // Count each day on its own so "today" never includes tomorrow's viewings.
+  const today = reminders.filter((row) => daysUntil(row.viewing_slot!) === 0).length;
+  const tomorrow = reminders.length - today;
   const statusLabel = (status: string) =>
     status === "confirmed"
       ? "Đã xác nhận"
@@ -655,12 +658,17 @@ export function ViewingCalendar({
           </span>
           <div>
             <strong>
-              {formatUi(
-                daysUntil(next.viewing_slot!) === 0
-                  ? "Nhắc lịch: hôm nay bạn có {0} lịch xem nhà"
-                  : "Nhắc lịch: ngày mai bạn có {0} lịch xem nhà",
-                [reminders.length],
-              )}
+              {today && tomorrow
+                ? formatUi(
+                    "Nhắc lịch: hôm nay bạn có {0} lịch, ngày mai có {1} lịch xem nhà",
+                    [today, tomorrow],
+                  )
+                : formatUi(
+                    today
+                      ? "Nhắc lịch: hôm nay bạn có {0} lịch xem nhà"
+                      : "Nhắc lịch: ngày mai bạn có {0} lịch xem nhà",
+                    [today || tomorrow],
+                  )}
             </strong>
             <p>
               {dateTime(next.viewing_slot!)} · {next.title} ·{" "}
