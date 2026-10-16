@@ -502,29 +502,6 @@ LangGraph checkpointer (live runtime: `/app/data/agent-runtime/checkpoints.sqlit
 Resuming a quote checkpoint requires the original thread configuration and fresh
 `GraphContext(deps=service.deps)`; runtime dependencies are not persisted.
 
-#### MCP failures returned as HTTP 200
-
-An MCP `isError` response can be HTTP 200 with an unset SDK client-span status.
-Inspect the failed node output `task_results[task_id].data.agent_trace.tool_errors`
-or the backend's correlated `Moving MCP failure` log. Diagnostics contain only
-tool names, a closed vocabulary of codes, retryability/transport flags and
-allowlisted validation field paths, never submitted values or raw error text.
-
-- `MCP_INPUT_VALIDATION_ERROR`: the MCP SDK rejected the request schema before
-  the tool handler. A path such as `draft.pickup.mobile` points to the configured
-  quote contact, not necessarily a missing user form field. Check the configured
-  value privately against the contract; do not paste it into logs or loosen the
-  schema to make it pass.
-- `MCP_OUTPUT_VALIDATION_ERROR`: the tool output violates its declared schema.
-  The handler may already have called the provider; do not blindly retry.
-- `TOOL_ERROR` / `UNCLASSIFIED_TOOL_ERROR`: the root cause remains unknown.
-  These are not classified as proof of a provider rejection. Unknown codes,
-  dynamic field names and unrecognized schema formats are not copied into logs.
-
-These diagnostics require an updated backend deployment. Historical traces that
-only contain `Moving tool failed (TOOL_ERROR)` cannot recover the discarded text.
-Do not infer a staging configuration error from an offline schema reproduction.
-
 References: [OpenTelemetry recording errors](https://opentelemetry.io/docs/specs/semconv/general/recording-errors/),
 [Langfuse levels and the current span API](https://langfuse.com/docs/observability/features/log-levels),
 [LangGraph runtime context](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration),

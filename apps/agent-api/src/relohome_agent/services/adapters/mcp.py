@@ -51,9 +51,7 @@ def unwrap(result: CallToolResult) -> Any:
         shape = _error_shape(message)
         if shape is not None:  # @relohome/mcp-core: {code, message, retryable}
             raise ToolCallError(shape["code"], str(shape.get("message", ""))[:500], retryable=shape["retryable"])
-        code = _error_code(message)
-        schema_failure = code in {"MCP_INPUT_VALIDATION_ERROR", "MCP_OUTPUT_VALIDATION_ERROR"}
-        raise ToolCallError(code, message[:500], retryable=False if schema_failure else _retryable(message))
+        raise ToolCallError(_error_code(message), message[:500], retryable=_retryable(message))
     data = result.structured_content
     if data is None and texts:
         try:
@@ -80,12 +78,6 @@ def _error_shape(message: str) -> dict | None:
 
 def _error_code(message: str) -> str:
     """Service trả mã lỗi dạng `CODE: message` hoặc JSON `{"code": ...}`; lấy mã nếu có."""
-    # SDK validation runs outside auditedTool and returns plain-text isError results.
-    # These are contract failures, not evidence that the provider rejected a request.
-    if message.startswith("Input validation error:"):
-        return "MCP_INPUT_VALIDATION_ERROR"
-    if message.startswith("Output validation error:"):
-        return "MCP_OUTPUT_VALIDATION_ERROR"
     try:
         payload = json.loads(message)
         if isinstance(payload, dict):
