@@ -353,7 +353,7 @@ class MovingLlmAgent:
                 return execution.ask("moving_request", "AhaMove từ chối báo giá: " + public_data(exc.message)[:400])
             return execution.failed(
                 "provider_unavailable" if exc.retryable else "provider_rejected",
-                f"Moving tool failed ({exc.code}).",
+                f"Moving tool failed ({exc.code}): {public_data(exc.message)[:400]}",
                 exc.retryable,
             )
         except APIError:
