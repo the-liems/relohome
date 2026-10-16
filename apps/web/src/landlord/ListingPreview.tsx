@@ -6,6 +6,16 @@ import { t } from "../uiPreferences";
 import { Dialog } from "../components/Dialog";
 import type { Data } from "../types";
 
+// Readable billing units, as tenants see them; never the raw API codes.
+const billingUnits: Record<string, string> = {
+  month: "/ tháng",
+  one_time: "(một lần)",
+  kwh: "/ kWh",
+  m3: "/ m³",
+  person_month: "/ người / tháng",
+  vehicle_month: "/ xe / tháng",
+};
+
 export function PreviewContent({ listing }: { listing: Data }) {
   return (
     <div className="ll-listing-preview">
@@ -39,7 +49,9 @@ export function PreviewContent({ listing }: { listing: Data }) {
         <ul>
           {listing.fees.map((fee: Data) => (
             <li key={fee.code}>
-              {fee.label}: {money(fee.amount)} · {fee.billing_unit}
+              {fee.label}:{" "}
+              {fee.amount == null ? t("Chưa rõ") : money(fee.amount)}{" "}
+              {t(billingUnits[fee.billing_unit] || fee.billing_unit)}
             </li>
           ))}
         </ul>

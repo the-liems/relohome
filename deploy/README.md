@@ -262,6 +262,7 @@ application/configuration work.
 | `HOUSING_MODERATOR_IDS` | Account IDs that verify posters and approve homes/listings; empty keeps owner listings private |
 | `HOST_TERMS_VERSION` | Empty skips poster terms; a value requires acceptance of that version |
 | `HOUSING_MESSAGE_RATE_PER_MINUTE` | Messages per sender per minute; default 10 |
+| `HOUSING_VIEWING_PROPOSAL_DAYS` | Days ahead a landlord may propose replacement viewing times; default 7, passed to backend and platform |
 | `ROOMMATE_MODERATORS` | Account IDs that moderate Roommate; required before enabling it |
 | `ROOMMATE_ENABLED` | Default `false`; enabling without moderators prevents startup |
 

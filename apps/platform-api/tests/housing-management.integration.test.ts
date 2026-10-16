@@ -721,6 +721,18 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     expect(rejected.status, JSON.stringify(rejected.body)).toBe(200)
     expect(rejected.body.publication_status).toBe('rejected')
     await assertPublic(a, false)
+    // A rejected listing goes back to review only after the owner changes it.
+    const resend = await call(owner, 'POST', `/v1/landlord/listings/${a}/submit`, {})
+    expect(resend.status).toBe(409)
+    expect(resend.body.code).toBe('listing_unchanged')
+    expect(
+      (
+        await call(owner, 'PATCH', `/v1/landlord/listings/${a}`, {
+          revision: await rev(a),
+          description: 'Nội dung đã bổ sung theo yêu cầu.',
+        })
+      ).status,
+    ).toBe(200)
     await approve(a)
     const history = (await call(MODERATOR, 'GET', `/v1/moderation/housing/listings/${a}`)).body.review_history
     expect(history.map((r: { decision: string }) => r.decision)).toEqual(['approve', 'reject', 'approve'])
@@ -934,6 +946,15 @@ it('handoff: proposed times, distinct senders, payment review, visibility and pe
   expect((await call(tenant,'POST',path+'/viewing-options',proposal)).status).toBe(403)
   expect([403,404]).toContain((await call(OTHER,'POST',path+'/viewing-options',proposal)).status)
   expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[new Date(Date.now()+8*86400000).toISOString()]})).status).toBe(422)
+  // The window follows HOUSING_VIEWING_PROPOSAL_DAYS, shared with the agent's slot list.
+  process.env.HOUSING_VIEWING_PROPOSAL_DAYS = '1'
+  try {
+    const outside = await call(owner,'POST',path+'/viewing-options',proposal)
+    expect(outside.status).toBe(422)
+    expect(outside.body.message).toBe('Chọn giờ phù hợp trong 1 ngày tới.')
+  } finally {
+    delete process.env.HOUSING_VIEWING_PROPOSAL_DAYS
+  }
   expect((await call(owner,'POST',path+'/viewing-options',{...proposal,slots:[slot]})).status).toBe(422)
   expect((await call(owner,'POST',path+'/viewing-options',proposal)).status).toBe(200)
   expect((await call(tenant,'PUT',`/v1/housing/${id}/viewing`,{slot})).status).toBe(409)
@@ -1005,12 +1026,24 @@ it('records scoped system updates and atomically saves room drafts without self-
   const propertyId = await property(OWNER)
   const roomBody = {
     request_id: randomUUID(),
-    unit: { unit_code: 'R-' + run, area_m2: 24, bedrooms: 1, bathrooms: 1, amenities: ['wifi'] },
+    unit: {
+      unit_code: 'R-' + run,
+      area_m2: 24,
+      bedrooms: 1,
+      bathrooms: 1,
+      bathroom_type: 'private',
+      amenities: ['wifi'],
+    },
     listing: {
       title: 'Phòng kiểm tra thông báo',
       description: 'Nội dung đầy đủ cho bản nháp.',
       rent_vnd: 5000000,
-      fees: [],
+      deposit_vnd: 5000000,
+      availability_from: '2027-02-01',
+      fees: [
+        { code: 'water', label: 'Nước', amount: 20000, billing_unit: 'm3', required: true, refundable: false },
+        { code: 'electricity', label: 'Điện', amount: 3500, billing_unit: 'kwh', required: true, refundable: false },
+      ],
     },
   }
   const result = await call(OWNER, 'POST', `/v1/landlord/properties/${propertyId}/room-listing`, roomBody)
@@ -1023,6 +1056,38 @@ it('records scoped system updates and atomically saves room drafts without self-
   ).toBe(403)
   const home = (await call(OWNER, 'GET', `/v1/landlord/properties/${propertyId}`)).body
   expect(home.units).toHaveLength(1)
+  expect(home.units[0].bathroom_type).toBe('private')
+  const shared = await call(OWNER, 'PUT', `/v1/landlord/units/${result.body.unit_id}/room-listing`, {
+    ...roomBody,
+    request_id: randomUUID(),
+    unit: { ...roomBody.unit, bathroom_type: 'shared' },
+    unit_revision: result.body.unit_revision,
+    listing_revision: result.body.revision,
+  })
+  expect(shared.status, JSON.stringify(shared.body)).toBe(200)
+  const cleared = await call(OWNER, 'PUT', `/v1/landlord/units/${result.body.unit_id}/room-listing`, {
+    ...roomBody,
+    request_id: randomUUID(),
+    unit: { ...roomBody.unit, bathroom_type: null },
+    unit_revision: shared.body.unit_revision,
+    listing_revision: shared.body.revision,
+  })
+  expect(cleared.status, JSON.stringify(cleared.body)).toBe(200)
+  // Saving the same form again is not an edit: revisions stay put.
+  const again = await call(OWNER, 'PUT', `/v1/landlord/units/${result.body.unit_id}/room-listing`, {
+    ...roomBody,
+    request_id: randomUUID(),
+    unit: { ...roomBody.unit, bathroom_type: null },
+    unit_revision: cleared.body.unit_revision,
+    listing_revision: cleared.body.revision,
+  })
+  expect(again.status, JSON.stringify(again.body)).toBe(200)
+  expect(again.body).toMatchObject({ unit_revision: cleared.body.unit_revision, revision: cleared.body.revision })
+  const units = (await call(OWNER, 'GET', `/v1/landlord/properties/${propertyId}`)).body.units
+  expect(units[0].bathroom_type).toBeNull()
+  expect(
+    (await admin.query('SELECT attributes FROM housing.units WHERE id=$1', [result.body.unit_id])).rows[0].attributes,
+  ).not.toHaveProperty('bathroom_type')
   // Fixtures set moderation/availability explicitly; no real property is changed.
   await admin.query("UPDATE housing.management_members SET status='active' WHERE property_id=$1", [
     propertyId,

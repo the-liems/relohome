@@ -66,7 +66,9 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
       to_regclass('housing.managed_listing_visibility') IS NOT NULL
       AND to_regclass('housing.listing_reviews') IS NOT NULL
       AND to_regclass('housing.rent_payment_reports') IS NOT NULL
-      AND to_regclass('housing.activity_events') IS NOT NULL AS schema_ready`)
+      AND to_regclass('housing.activity_events') IS NOT NULL
+      AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='housing'
+        AND table_name='reviews' AND column_name='is_anonymous') AS schema_ready`)
     if (result.rows[0]?.schema_ready !== true) return reply.status(503).send({ status: 'migration_required' })
     return { status: 'ok', postgis: result.rows[0].postgis_version }
   })

@@ -1,0 +1,358 @@
+/* Landlord workspace: green backdrop with frosted panels, stronger lines and
+   text so information never sinks into the background (design canvas, 15/10). */
+.app-shell.host-shell {
+  --ll-backdrop:
+    radial-gradient(circle at 10% 6%, #def896f2 0, #def89600 42%),
+    radial-gradient(circle at 88% 10%, #b0f4def2 0, #b0f4de00 48%),
+    radial-gradient(circle at 78% 82%, #60d6a4e6 0, #60d6a400 52%),
+    radial-gradient(circle at 8% 88%, #18a670f2 0, #18a67000 50%),
+    radial-gradient(circle at 48% 48%, #ffffff59 0, #ffffff00 30%),
+    linear-gradient(160deg, #8fe3b8, #2fb585);
+  --ll-glass: #fffffff0;
+  --ll-glass-border: #fffffff2;
+  --ll-glass-shadow: 0 8px 32px #0a1e2838, 0 0 0 1px #152b2824;
+  --ll-strong-line: #9db3aa;
+  --ll-control-line: #5d726b;
+  --ll-muted: #30443f;
+  background-color: #3fbf8f;
+  background-image: var(--ll-backdrop);
+  background-attachment: fixed;
+}
+:root[data-theme="dark"] .app-shell.host-shell {
+  --ll-backdrop:
+    radial-gradient(circle at 12% 8%, #1f6b4f99 0, #1f6b4f00 45%),
+    radial-gradient(circle at 85% 12%, #1a5a6b80 0, #1a5a6b00 48%),
+    radial-gradient(circle at 75% 85%, #13553d99 0, #13553d00 52%),
+    linear-gradient(160deg, #0d2a22, #081a15);
+  --ll-glass: #142520eb;
+  --ll-glass-border: #ffffff1f;
+  --ll-glass-shadow: 0 8px 32px #00000066, 0 0 0 1px #ffffff14;
+  --ll-strong-line: #4e6d64;
+  --ll-control-line: #8fb0a5;
+  --ll-muted: #c5d6cf;
+  background-color: #0b211b;
+  background-image: var(--ll-backdrop);
+  background-attachment: fixed;
+}
+.host-shell .main-shell { background: transparent; }
+:root[data-theme] .host-shell .chat-header {
+  background: var(--ll-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border-bottom: 1px solid var(--ll-glass-border);
+  box-shadow: 0 4px 24px #0a1e281f;
+}
+
+/* Contrast: lines, controls and secondary text inside the workspace. */
+.host-shell .ll-workspace {
+  --muted: var(--ll-muted);
+  --ll-line: var(--ll-strong-line);
+  --line-strong: var(--ll-control-line);
+  --ui-control-line: var(--ll-control-line);
+}
+.host-shell .ll-workspace .secondary,
+.host-shell .ll-workspace select,
+.host-shell .ll-workspace .icon-button { border-color: var(--ll-control-line); }
+
+/* Frosted panes. */
+.host-shell .ll-heading,
+.host-shell .ll-nav,
+.host-shell .ll-panel,
+.host-shell .ll-metric,
+.host-shell .ll-host-banner,
+.host-shell .ll-workspace > .ll-contact-hierarchy > .ll-panel,
+.host-shell .ll-workspace .hr-panel {
+  background: var(--ll-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--ll-glass-border);
+  border-radius: 18px;
+  box-shadow: var(--ll-glass-shadow);
+}
+.host-shell .ll-heading { padding: 24px 28px; margin-bottom: 16px; }
+.host-shell .ll-nav { padding: 0 8px; border-radius: 16px; margin-bottom: 20px; }
+.host-shell .ll-workspace .hr-panel { padding: 28px; margin-block: 0; }
+.host-shell .ll-contact-hierarchy > .ll-back {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--ll-glass);
+}
+
+/* Tabs: the open tab sits on a tinted tab shape; others tint on hover. */
+.host-shell .ll-nav button.active {
+  color: #065f43;
+  background: #dff3e8;
+  border-radius: 10px 10px 0 0;
+}
+.host-shell .ll-nav button:not(.active):hover {
+  color: var(--ink);
+  background: #eaf0ed;
+  border-radius: 10px 10px 0 0;
+}
+:root[data-theme="dark"] .host-shell .ll-nav button.active { color: var(--ui-accent); background: var(--ui-accent-soft); }
+:root[data-theme="dark"] .host-shell .ll-nav button:not(.active):hover { background: var(--ui-soft); }
+
+/* Overview: supply tiles plus colour-coded listing work. */
+.ll-metrics { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.ll-status-tiles { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.ll-status-metrics > .ll-status-tile {
+  --tone: var(--ui-pending);
+  --tone-soft: var(--ui-pending-soft);
+  gap: 14px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--tone);
+  border-top: 5px solid var(--tone);
+  background: var(--tone-soft);
+  box-shadow: 0 4px 16px #0a1e2824;
+}
+.ll-status-tile.published { --tone: var(--ui-success); --tone-soft: var(--ui-success-soft); }
+.ll-status-tile.pending_review { --tone: var(--ui-warning); --tone-soft: var(--ui-warning-soft); }
+.ll-status-tile.rejected { --tone: var(--ui-danger); --tone-soft: var(--ui-danger-soft); }
+.ll-status-tile > span { display: flex; align-items: center; gap: 10px; color: var(--tone); font-size: 15px; font-weight: 700; }
+.ll-status-tile i { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--ui-surface); }
+.ll-status-metrics > .ll-status-tile strong { font-size: 44px; line-height: 1; color: var(--tone); }
+.ll-status-tile:hover { filter: brightness(.98); outline: 2px solid var(--tone); }
+
+/* Room and listing form. */
+.ll-required { color: var(--ui-danger); font-weight: 700; }
+.ll-form-section {
+  margin: 8px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ll-line);
+  font-size: 18px;
+}
+.ll-form .ll-bathroom {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--ll-line);
+  min-width: 0;
+}
+.ll-bathroom legend { padding: 0 8px; font-weight: 700; }
+.ll-choice-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.ll-form .ll-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ll-form .ll-choice.active { border-color: var(--accent); background: var(--ll-soft); }
+.ll-form .ll-choice input { width: auto; margin: 0; accent-color: var(--accent); }
+.ll-form .ll-bathroom-count { max-width: 300px; }
+.ll-fee-row.ll-fee-fixed { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); }
+.ll-fee-name small { display: block; color: var(--muted); font-weight: 500; }
+
+/* Listings tab. */
+.ll-result-count { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
+.ll-filters select:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Contact requests: home and room cards with per-kind icons. */
+.ll-contact-properties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.ll-contact-house { min-width: 0; border: 1px solid var(--ll-line); background: var(--ui-surface); }
+.ll-contact-house:hover { border-color: var(--accent); }
+.ll-contact-house-head { position: relative; }
+.ll-contact-house-open {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  width: 100%;
+  min-height: 160px;
+  padding: 24px 84px 24px 24px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.ll-contact-house-open > svg { flex: 0 0 auto; color: var(--accent); }
+.ll-contact-house-open strong { display: block; font-size: 20px; }
+.ll-contact-house-open p { margin: 6px 0; font-size: 16px; color: var(--muted); }
+.ll-quick-toggle {
+  position: absolute;
+  top: 60px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--ui-surface);
+  color: inherit;
+}
+.ll-quick-toggle:hover { background: var(--ui-soft); }
+.ll-quick-toggle svg { transition: transform .15s; }
+.ll-quick-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.ll-quick-rooms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid var(--ll-line);
+}
+.ll-quick-rooms li { border-bottom: 1px solid var(--ll-line); }
+.ll-quick-rooms li[role] { padding: 14px 20px; }
+.ll-quick-rooms button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.ll-quick-rooms button:hover { background: var(--ll-soft); }
+.ll-quick-room-name { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.ll-quick-room-name svg { color: var(--accent); }
+.ll-quick-rooms button > span:nth-child(2) { color: var(--muted); font-size: 14px; }
+.ll-contact-rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px; }
+.ll-contact-room { position: relative; min-height: 160px; padding: 24px 54px 24px 24px; }
+.ll-contact-room > svg { color: var(--accent); }
+.ll-contact-room > strong { font-size: 20px; }
+.ll-contact-room > span:not(.ll-work-icons):not(.ll-request-badge) { font-size: 16px; color: var(--muted); }
+.ll-work-icons { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
+.ll-work-icons > span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--ll-line);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--line-strong);
+}
+.ll-work-icons > span.active { color: var(--accent); }
+.ll-work-icons b {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #bf243b;
+  color: #ffffff;
+  font-size: 11px;
+  box-shadow: 0 0 0 2px var(--ui-surface);
+}
+
+/* Viewing calendar: status chips, countdown and the day-before reminder. */
+.ll-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ll-viewing-chip,
+.ll-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.ll-viewing-chip.confirmed { border-color: var(--ui-success); background: var(--ui-success-soft); color: var(--ui-success); }
+.ll-viewing-chip.requested { border-color: var(--ui-danger); background: var(--ui-danger-soft); color: var(--ui-danger); }
+.ll-viewing-chip.declined,
+.ll-viewing-chip.cancelled { background: var(--ui-pending-soft); color: var(--ui-pending); }
+.ll-countdown.soon { border-color: var(--ui-warning); background: var(--ui-warning-soft); color: var(--ui-warning); }
+.ll-calendar-list article.soon { border-color: var(--ui-warning); }
+.ll-reminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--ui-warning);
+  border-radius: 14px;
+  background: var(--ui-warning-soft);
+}
+.ll-reminder > div { flex: 1; min-width: 220px; }
+.ll-reminder p { margin: 4px 0 0; }
+.ll-reminder-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--ui-warning);
+  border-radius: 50%;
+  background: var(--ui-surface);
+  color: var(--ui-warning);
+}
+.ll-reminder-icon b {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #bf243b;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+/* Statistics charts and the collapsible daily table. */
+.ll-charts { display: grid; gap: 16px; margin: 16px 0; }
+.ll-chart { margin: 0; padding: 18px 20px; border: 1px solid var(--ll-line); border-radius: 14px; background: var(--ui-surface); }
+.ll-chart figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 8px; }
+.ll-chart h3 { margin: 0; font-size: 16px; }
+.ll-chart figcaption > span { color: var(--muted); font-size: 13.5px; }
+.ll-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ll-chart-axis line.grid { stroke: var(--ll-line); stroke-opacity: .5; }
+.ll-chart-axis line.base { stroke: var(--line-strong); }
+.ll-chart-axis text { fill: var(--muted); font-size: 11px; }
+.ll-chart-value { fill: var(--ink); font-size: 12px; font-weight: 700; }
+.ll-chart-hit .hit { fill: transparent; }
+.ll-chart-hit:hover .hit,
+.ll-chart-hit:focus-visible .hit { fill: var(--ui-soft); fill-opacity: .6; }
+.ll-chart-hit:focus { outline: none; }
+.ll-series-views { fill: var(--ui-accent); }
+polyline.ll-series-saves { stroke: var(--service-route); stroke-width: 2; }
+polyline.ll-series-contacts { stroke: var(--service-moving); stroke-width: 2; }
+circle.ll-series-saves { fill: var(--service-route); stroke: var(--ui-surface); stroke-width: 2; }
+circle.ll-series-contacts { fill: var(--service-moving); stroke: var(--ui-surface); stroke-width: 2; }
+.ll-chart-legend { display: flex; gap: 14px; margin: 0 0 0 auto; padding: 0; list-style: none; font-size: 13px; }
+.ll-chart-legend li { display: flex; align-items: center; gap: 6px; }
+.ll-chart-legend i { width: 16px; height: 3px; border-radius: 2px; }
+.ll-chart-legend i.ll-series-saves { background: var(--service-route); }
+.ll-chart-legend i.ll-series-contacts { background: var(--service-moving); }
+.ll-daily-table { margin: 16px 0; border: 1px solid var(--ll-line); border-radius: 12px; }
+.ll-daily-table summary { padding: 12px 16px; font-weight: 650; cursor: pointer; }
+.ll-daily-table table { margin: 0; }
+
+/* Keep fee controls and action labels readable on narrow screens. */
+@media (max-width: 620px) {
+  .host-shell .ll-fee-row.ll-fee-fixed {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .host-shell .ll-fee-fixed .ll-fee-name { grid-column: 1 / -1; }
+  .host-shell .ll-listing-form .ll-form-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .host-shell .ll-listing-form .ll-form-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}

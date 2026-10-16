@@ -10,7 +10,11 @@ const Page = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
   offset: z.coerce.number().int().min(0).max(100000).default(0),
 })
-const Rating = z.object({ rating: z.number().int().min(1).max(5), body: z.string().trim().max(2000).default('') })
+// Anonymous unless the tenant chooses to show their account name.
+const Rating = z.object({
+  rating: z.number().int().min(1).max(5), body: z.string().trim().max(2000).default(''),
+  is_anonymous: z.boolean().default(true),
+})
 const Body = z.object({ body: z.string().trim().min(1).max(2000) })
 const Reason = z.object({ reason: z.string().trim().min(1).max(500) })
 
@@ -49,6 +53,9 @@ function visibleReview(row: Record<string, unknown>, mine = false) {
     id: row.id, property_id: row.property_id, property_name: row.property_name,
     rating: row.rating, body: row.body, stage: row.stage, created_at: row.created_at, updated_at: row.updated_at,
     reply_body: row.reply_body, reply_at: row.reply_at, author_label: 'Người thuê',
+    is_anonymous: row.is_anonymous !== false,
+    // Only a public review names its author; the gateway resolves this to an account name.
+    ...(row.is_anonymous === false ? { author_user_id: row.author_user_id } : {}),
     ...(mine ? { status: row.status, hidden_reason: row.hidden_reason } : {}),
   }
 }
@@ -128,11 +135,11 @@ export function registerHousingReviews(app: FastifyInstance, pool: DatabasePool)
     if (context.manages || context.host_user_id===user || !context.contacted) throw new ManagementError(403, 'Chỉ người thuê đã liên hệ nhà này mới được đánh giá.')
     return transaction(pool, context.host_user_id, async db => {
       const result = await db.query(
-        `INSERT INTO housing.reviews(property_id,host_user_id,author_user_id,rating,body,stage) VALUES($1,$2,$3,$4,$5,$6)
-         ON CONFLICT(property_id,author_user_id) DO UPDATE SET rating=$4,body=$5,
+        `INSERT INTO housing.reviews(property_id,host_user_id,author_user_id,rating,body,stage,is_anonymous) VALUES($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT(property_id,author_user_id) DO UPDATE SET rating=$4,body=$5,is_anonymous=$7,
            stage=CASE WHEN housing.reviews.stage='viewed' THEN 'viewed' ELSE $6 END,
            status=CASE WHEN housing.reviews.hidden_reason IS NOT NULL THEN 'hidden' ELSE 'published' END,updated_at=now()
-         RETURNING *`, [context.property_id, context.host_user_id, user, input.rating, input.body, context.viewed ? 'viewed' : 'contacted'],
+         RETURNING *`, [context.property_id, context.host_user_id, user, input.rating, input.body, context.viewed ? 'viewed' : 'contacted', input.is_anonymous],
       )
       // Ownership is snapshotted when first written, including subsequent edits.
       await refreshFlag(db, result.rows[0].host_user_id)

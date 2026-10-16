@@ -403,6 +403,86 @@ async def test_review_gateway_preserves_session_identity_and_pagination(tmp_path
         assert (await client.get("/web/api/housing-management/housing/reviews/export")).status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_review_gateway_names_public_authors_and_drops_ids(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+    authors = {}
+
+    def provider(request):
+        if request.method == "PUT":
+            return httpx.Response(200, json={
+                "id": "r1", "author_user_id": authors["public"],
+                "is_anonymous": json.loads(request.content)["is_anonymous"],
+            })
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {"id": "r1", "is_anonymous": False, "author_user_id": authors["public"]},
+                    {"id": "r2", "is_anonymous": True, "author_user_id": authors["public"]},
+                    {"id": "r3", "is_anonymous": True},
+                ],
+                "mine": {"id": "r1", "is_anonymous": False, "author_user_id": authors["public"]},
+            },
+        )
+
+    app = create_app(tmp_path / "review-names.db", httpx.MockTransport(provider))
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers=HEADERS,
+        ) as client,
+    ):
+        registered = (
+            await client.post(
+                "/web/api/auth/register",
+                json={"email": "named@example.test", "password": "a-long-password", "name": "Lan Anh"},
+            )
+        ).json()
+        authors["public"] = registered["id"]
+        for path in [f"housing/{listing}/reviews", "landlord/reviews"]:
+            body = (await client.get(f"/web/api/housing-management/{path}")).json()
+            assert registered["id"] not in json.dumps(body)
+            assert [r["author_name"] for r in body["items"]] == ["Lan Anh", None, None]
+            assert body["mine"]["author_name"] == "Lan Anh"
+        for anonymous in [False, True]:
+            saved = await client.put(
+                f"/web/api/housing-management/housing/{listing}/review",
+                json={"rating": 4, "body": "Phòng sáng.", "is_anonymous": anonymous},
+            )
+            assert saved.status_code == 200
+            assert "author_user_id" not in saved.json()
+            assert saved.json()["author_name"] == (None if anonymous else "Lan Anh")
+
+
+@pytest.mark.asyncio
+async def test_unchanged_rejected_listing_keeps_its_code_for_the_browser(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
+
+    def provider(request):
+        return httpx.Response(
+            409,
+            json={"code": "listing_unchanged", "message": "Bạn phải bổ sung thêm thông tin phù hợp.", "secret": "x"},
+        )
+
+    app = create_app(tmp_path / "unchanged.db", httpx.MockTransport(provider))
+    listing = "aaaaaaaa-1111-4111-8111-111111111111"
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"email": "owner@example.test", "password": "a-long-password", "name": "Owner"},
+        )
+        response = await client.post(f"/web/api/housing-management/landlord/listings/{listing}/submit", json={})
+        assert response.status_code == 409
+        assert response.json() == {"detail": "Bạn phải bổ sung thêm thông tin phù hợp.", "code": "listing_unchanged"}
+
+
 @pytest.mark.parametrize(
     "request_status,viewing_status", [("declined", "requested"), ("resolved", "confirmed"), ("new", "cancelled")]
 )

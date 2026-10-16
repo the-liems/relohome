@@ -173,6 +173,7 @@ describe('landlord stars (housing-feedback-design RV-01..07)', () => {
     await call(tenants[1], 'PUT', `/v1/housing/${listings[1]}/review`, {
       rating: 2,
       body: 'Phản hồi chậm.',
+      is_anonymous: false,
     })
     const page = (await call(stranger, 'GET', `/v1/housing/${listings[0]}/reviews`)).body
     expect(page.summary).toMatchObject({
@@ -181,8 +182,13 @@ describe('landlord stars (housing-feedback-design RV-01..07)', () => {
       property_count: 2,
       histogram: { '2': 1, '4': 1 },
     })
+    // Anonymous is the default; only a public review carries its author for the gateway to name.
     expect(JSON.stringify(page)).not.toContain(tenants[0])
-    expect(JSON.stringify(page)).not.toContain('author_user_id')
+    const anonymous = page.items.find((r: { rating: number }) => r.rating === 4)
+    const named = page.items.find((r: { rating: number }) => r.rating === 2)
+    expect(anonymous.is_anonymous).toBe(true)
+    expect(anonymous).not.toHaveProperty('author_user_id')
+    expect(named).toMatchObject({ is_anonymous: false, author_user_id: tenants[1] })
     expect(page.items[0].property_id).toBe(properties[0])
     const detail = await call(stranger, 'GET', `/v1/housing/${listings[0]}`)
     expect(detail.body.management).toMatchObject({

@@ -518,6 +518,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     const units = await pool.query(
       `SELECT u.id,u.unit_code,u.bedrooms,u.bathrooms,u.area_m2,u.amenities,u.revision AS unit_revision,
+        u.attributes->>'bathroom_type' AS bathroom_type,
         l.id AS listing_id,l.title,ml.publication_status,ml.availability_status,ml.revision
        FROM housing.units u LEFT JOIN housing.listings l ON l.unit_id=u.id AND l.deleted_at IS NULL
        LEFT JOIN housing.managed_listings ml ON ml.listing_id=l.id
@@ -599,6 +600,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       area_m2: z.number().positive().max(100000),
       bedrooms: z.number().min(0).max(100),
       bathrooms: z.number().min(0).max(100),
+      // Shared or en-suite toilet; kept in unit attributes, no column of its own.
+      bathroom_type: z.enum(['shared', 'private']).nullable().default(null),
     }),
     listing: ListingInput.extend({
       title: z.string().trim().min(5).max(240),
@@ -674,6 +677,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
                 create_request_id: input.request_id,
                 create_actor_id: user,
                 create_payload_sha256: fingerprint,
+                ...(input.unit.bathroom_type ? { bathroom_type: input.unit.bathroom_type } : {}),
               },
             ],
           )
@@ -681,10 +685,13 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       }
       const existing = (
         await client.query(
-          `SELECT l.id,ml.revision,ml.publication_status FROM housing.listings l JOIN housing.managed_listings ml ON ml.listing_id=l.id WHERE l.unit_id=$1 AND l.deleted_at IS NULL FOR UPDATE OF l,ml`,
+          `SELECT l.id,l.title,l.description,ml.revision,ml.publication_status FROM housing.listings l JOIN housing.managed_listings ml ON ml.listing_id=l.id WHERE l.unit_id=$1 AND l.deleted_at IS NULL FOR UPDATE OF l,ml`,
           [room!.id],
         )
       ).rows[0]
+      // Saving an unchanged form keeps the revisions, so a rejected listing still
+      // counts as unchanged when it is sent back for review.
+      let changed = !existing
       if (params.unitId) {
         if (
           input.unit_revision !== room!.revision ||
@@ -692,28 +699,46 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         )
           throw new ManagementError(409, 'Phòng hoặc tin đã thay đổi. Hãy tải lại.', 'revision_conflict')
         if (existing?.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
-        room = (
-          await client.query(
-            `UPDATE housing.units SET unit_code=$2,bedrooms=$3,bathrooms=$4,area_m2=$5,amenities=$6,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`,
-            [
-              room!.id,
-              input.unit.unit_code,
-              input.unit.bedrooms,
-              input.unit.bathrooms,
-              input.unit.area_m2,
-              input.unit.amenities,
-            ],
-          )
-        ).rows[0]
+        const value = (v: unknown) => (v == null ? null : Number(v))
+        const unitChanged =
+          room!.unit_code !== input.unit.unit_code ||
+          value(room!.bedrooms) !== input.unit.bedrooms ||
+          value(room!.bathrooms) !== input.unit.bathrooms ||
+          value(room!.area_m2) !== input.unit.area_m2 ||
+          !isDeepStrictEqual(room!.amenities || [], input.unit.amenities) ||
+          (room!.attributes?.bathroom_type ?? null) !== input.unit.bathroom_type
+        if (unitChanged) {
+          changed = true
+          room = (
+            await client.query(
+              `UPDATE housing.units SET unit_code=$2,bedrooms=$3,bathrooms=$4,area_m2=$5,amenities=$6,
+              attributes=CASE WHEN $7::text IS NULL THEN attributes - 'bathroom_type'
+                ELSE attributes || jsonb_build_object('bathroom_type',$7::text) END,
+              revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`,
+              [
+                room!.id,
+                input.unit.unit_code,
+                input.unit.bedrooms,
+                input.unit.bathrooms,
+                input.unit.area_m2,
+                input.unit.amenities,
+                input.unit.bathroom_type,
+              ],
+            )
+          ).rows[0]
+        }
       }
       const listingId = existing?.id || randomUUID(),
         content = input.listing
-      if (existing)
-        await client.query(
-          'UPDATE housing.listings SET title=$2,description=$3,updated_at=now() WHERE id=$1',
-          [listingId, content.title, content.description],
-        )
-      else {
+      if (existing) {
+        if (existing.title !== content.title || existing.description !== content.description) {
+          changed = true
+          await client.query(
+            'UPDATE housing.listings SET title=$2,description=$3,updated_at=now() WHERE id=$1',
+            [listingId, content.title, content.description],
+          )
+        }
+      } else {
         await client.query(
           `INSERT INTO housing.listings(id,property_id,unit_id,listing_type,title,description,source_type,source_listing_id,status,attributes)
           VALUES($1,$2,$3,'rent',$4,$5,'user',$6,'inactive',$7)`,
@@ -747,6 +772,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         (offer.deposit_amount === null ? null : Number(offer.deposit_amount)) !== content.deposit_vnd ||
         date !== content.availability_from
       ) {
+        changed = true
         await client.query(
           'UPDATE housing.offers SET is_active=false,valid_to=now() WHERE listing_id=$1 AND is_active',
           [listingId],
@@ -763,11 +789,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         )
       ).rows
       const fees = [...content.fees].sort((a, b) => a.code.localeCompare(b.code))
-      if (!isDeepStrictEqual(oldFees, fees)) await replaceFees(client, listingId, content.fees)
-      await client.query(
-        'UPDATE housing.managed_listings SET revision=revision+1,updated_at=now() WHERE listing_id=$1',
-        [listingId],
-      )
+      if (!isDeepStrictEqual(oldFees, fees)) {
+        changed = true
+        await replaceFees(client, listingId, content.fees)
+      }
+      if (changed)
+        await client.query(
+          'UPDATE housing.managed_listings SET revision=revision+1,updated_at=now() WHERE listing_id=$1',
+          [listingId],
+        )
       const result = await revisionOf(client, listingId)
       await client.query('COMMIT')
       return reply
@@ -1135,6 +1165,18 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       await requireHostProfile(client, user)
       if (!['draft', 'rejected', 'hidden'].includes(row.publication_status))
         throw new ManagementError(409, 'Tin không thể gửi duyệt ở trạng thái hiện tại.')
+      if (row.publication_status === 'rejected') {
+        // Every owner edit bumps the revision; the rejection itself left it at reviewed+1.
+        const rejection = (
+          await client.query(
+            `SELECT reviewed_revision FROM housing.listing_reviews
+             WHERE listing_id=$1 AND decision='reject' ORDER BY created_at DESC LIMIT 1`,
+            [listingId],
+          )
+        ).rows[0]
+        if (rejection && row.revision === rejection.reviewed_revision + 1)
+          throw new ManagementError(409, 'Bạn phải bổ sung thêm thông tin phù hợp.', 'listing_unchanged')
+      }
       await requireCompleteListing(client, listingId)
       await client.query(
         `UPDATE housing.managed_listings SET publication_status='pending_review',revision=revision+1,updated_at=now() WHERE listing_id=$1`,

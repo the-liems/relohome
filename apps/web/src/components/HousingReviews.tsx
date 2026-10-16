@@ -88,6 +88,26 @@ function Failure({ text, retry }: { text: string; retry?: () => void }) {
   );
 }
 
+function StarRow({ rating }: { rating: number }) {
+  return (
+    <span
+      className="hr-stars"
+      role="img"
+      aria-label={formatUi("{0} trên 5 sao", [rating])}
+    >
+      {[1, 2, 3, 4, 5].map((value) => (
+        <Star
+          key={value}
+          size={16}
+          className={value <= rating ? "on" : "off"}
+          fill={value <= rating ? "currentColor" : "none"}
+          aria-hidden="true"
+        />
+      ))}
+    </span>
+  );
+}
+
 function ReviewCard({
   review,
   children,
@@ -95,17 +115,21 @@ function ReviewCard({
   review: HousingReview;
   children?: ReactNode;
 }) {
+  const anonymous = review.is_anonymous !== false;
   return (
     <article className="hr-review">
       <div className="hr-review-heading">
-        <strong>{t("Người thuê")}</strong>
-        <span
-          className="hr-stars"
-          aria-label={formatUi("{0} trên 5 sao", [review.rating])}
-        >
-          {review.rating}{" "}
-          <Star size={15} fill="currentColor" aria-hidden="true" />
+        <span className="hr-author">
+          <strong>
+            {anonymous
+              ? t("Người thuê ẩn danh")
+              : review.author_name || t("Người thuê")}
+          </strong>
+          <span className={`hr-visibility ${anonymous ? "anonymous" : "public"}`}>
+            {t(anonymous ? "Ẩn danh" : "Công khai")}
+          </span>
         </span>
+        <StarRow rating={review.rating} />
       </div>
       <div className="hr-meta">
         <span>
@@ -203,7 +227,8 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
   const [busy, setBusy] = useState(false),
     [editing, setEditing] = useState(false),
     [rating, setRating] = useState(0),
-    [body, setBody] = useState("");
+    [body, setBody] = useState(""),
+    [anonymous, setAnonymous] = useState(true);
   const [notice, setNotice] = useState(""),
     [withdrawing, setWithdrawing] = useState(false);
   const id = useId();
@@ -238,7 +263,11 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
     setBusy(true);
     setError("");
     try {
-      await reviewsApi(`${path}/review`, "PUT", { rating, body });
+      await reviewsApi(`${path}/review`, "PUT", {
+        rating,
+        body,
+        is_anonymous: anonymous,
+      });
       setEditing(false);
       setNotice("Đã lưu đánh giá của bạn.");
       await load();
@@ -266,6 +295,7 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
   function edit() {
     setRating(page?.mine?.rating || 0);
     setBody(page?.mine?.body || "");
+    setAnonymous(page?.mine?.is_anonymous !== false);
     setEditing(true);
   }
   return (
@@ -288,7 +318,7 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
           {page.property_summary && <p className="hr-hint">{formatUi('Nhà đang xem: {0} · {1} đánh giá', [page.property_summary.rating == null ? t('Chưa đủ đánh giá để hiện điểm') : `${page.property_summary.rating.toLocaleString(document.documentElement.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/5`, page.property_summary.count])}</p>}
           <p className="hr-hint">
             {t(
-              "Đánh giá từ người đã liên hệ. Nhãn Đã hẹn xem cho biết chủ nhà đã xác nhận giờ hẹn, không chứng minh đã thuê. Danh tính người viết được giữ riêng tư.",
+              "Đánh giá từ người đã liên hệ. Nhãn Đã hẹn xem cho biết chủ nhà đã xác nhận giờ hẹn, không chứng minh đã thuê. Người viết tự chọn ẩn danh hoặc hiện tên tài khoản.",
             )}
           </p>
           {notice && (
@@ -360,6 +390,33 @@ export function TenantHostReviews({ listingId }: { listingId: string }) {
                     rows={4}
                   />
                 </label>
+                <fieldset className="hr-visibility-picker">
+                  <legend>{t("Hiển thị tên của bạn")}</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name={`${id}-visibility`}
+                      checked={anonymous}
+                      onChange={() => setAnonymous(true)}
+                    />
+                    <span>
+                      <strong>{t("Ẩn danh")}</strong>
+                      <small>{t("Hiện là “Người thuê ẩn danh”.")}</small>
+                    </span>
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name={`${id}-visibility`}
+                      checked={!anonymous}
+                      onChange={() => setAnonymous(false)}
+                    />
+                    <span>
+                      <strong>{t("Công khai")}</strong>
+                      <small>{t("Hiện tên tài khoản của bạn.")}</small>
+                    </span>
+                  </label>
+                </fieldset>
                 <p className="hr-hint">
                   {t(
                     "Chia sẻ trải nghiệm thực tế, không đưa số điện thoại, email hoặc lời xúc phạm.",
@@ -542,6 +599,9 @@ export function LandlordReviews() {
       <p className="hr-hint">
         {t(
           "Điểm được tổng hợp từ đánh giá đang hiển thị trên các nhà của bạn. Bạn có thể trả lời hoặc báo cáo để kiểm duyệt xem xét.",
+        )}{" "}
+        {t(
+          "Người thuê tự chọn hiện tên tài khoản (công khai) hoặc ẩn danh khi gửi đánh giá.",
         )}
       </p>
       {error && <Failure text={error} retry={() => void load()} />}

@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
-  Eye,
   Home,
   ImagePlus,
   Inbox,
@@ -26,14 +25,13 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   Star,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { attentionCount } from "../housingActivity";
+import { attentionItems } from "../housingActivity";
+import { viewingReminders } from "./viewingDue";
 import { ApiError, api, dateTime, money, requestId } from "../api";
 import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
@@ -129,13 +127,17 @@ const unitLabels: Record<string, string> = {
   person_month: "/ người / tháng",
   vehicle_month: "/ xe / tháng",
 };
-// Common fees offered as one-click rows; the owner edits or removes any of them.
+// Every listing states electricity and water; the service fee (parking included)
+// is optional. Earlier rows match by code, by the code their label produces, or
+// by an older English code, and keep their own code so saving changes nothing.
+const fixedFees = [
+  { code: "tien_dien", alias: "electricity", label: "Tiền điện", billing_unit: "kwh", mandatory: true },
+  { code: "tien_nuoc", alias: "water", label: "Tiền nước", billing_unit: "m3", mandatory: true },
+  { code: "phi_dich_vu", alias: "service", label: "Phí dịch vụ", billing_unit: "month", mandatory: false },
+] as const;
+// Further fees offered as one-click rows; the owner edits or removes them.
 const feeSuggestions: { label: string; billing_unit: string }[] = [
-  { label: "Tiền điện", billing_unit: "kwh" },
-  { label: "Tiền nước", billing_unit: "m3" },
   { label: "Internet", billing_unit: "month" },
-  { label: "Phí dịch vụ", billing_unit: "month" },
-  { label: "Gửi xe", billing_unit: "vehicle_month" },
 ];
 
 function addressText(address: Record<string, unknown>) {
@@ -262,7 +264,8 @@ export function LandlordWorkspace() {
       setEditingProfile(false);
     } else if (routeParams.has("profile")) setEditingProfile(true);
   }, [routeParams]);
-  const newContacts = attentionCount(contacts);
+  const newContacts = attentionItems(contacts).total;
+  const dueViewings = viewingReminders(contacts).length;
   // Ask once when adding the first home; subsequent homes reuse the account profile.
   const showProfileForm = editingProfile;
   const showHostBanner = Boolean(host);
@@ -276,9 +279,8 @@ export function LandlordWorkspace() {
     ["overview", "Tổng quan", BarChart3, 0],
     ["properties", "Nhà & phòng", Building2, 0],
     ["inbox", "Yêu cầu liên hệ", Inbox, newContacts],
-
     ["listings", "Tin đăng", Home, 0],
-    ["calendar", "Lịch xem nhà", CalendarClock, 0],
+    ["calendar", "Lịch xem nhà", CalendarClock, dueViewings],
     ["statistics", "Thống kê", BarChart3, 0],
     ["reviews", "Đánh giá", Star, 0],
   ];
@@ -356,8 +358,6 @@ export function LandlordWorkspace() {
       ) : tab === "overview" ? (
         <OverviewPanel
           overview={overview}
-          properties={properties}
-          contacts={contacts}
           go={(target, filter) => {
             setTab(target);
             setListingFilter(filter || "");
@@ -432,39 +432,27 @@ export function LandlordWorkspace() {
 
 function OverviewPanel({
   overview,
-  properties,
-  contacts,
   go,
 }: {
   overview: Overview | null;
-  properties: PropertySummary[];
-  contacts: ContactRequest[];
   go: (tab: Tab, filter?: string) => void;
 }) {
+  // Requests, viewings and interest signals have their own tabs; the overview
+  // keeps supply and listing work only.
   const stats = [
-    ["Nhà đang quản lý", overview?.properties || 0, Building2, "forest"],
-    ["Phòng trong hệ thống", overview?.units || 0, Home, "blue"],
-    ["Phòng còn trống", overview?.vacant || 0, CheckCircle2, "teal"],
-    ["Yêu cầu mới", overview?.new_contacts || 0, MessageSquareText, "amber"],
+    ["Nhà đang quản lý", overview?.properties || 0, Building2, "forest", ""],
+    ["Phòng trong hệ thống", overview?.units || 0, Home, "blue", "rooms"],
+    ["Phòng còn trống", overview?.vacant || 0, CheckCircle2, "teal", "vacant"],
   ] as const;
-  const hasMeasurement = Boolean(overview?.measured_since);
   return (
     <div className="ll-overview">
       <section className="ll-metrics" aria-label={t("Tình hình vận hành")}>
-        {stats.map(([label, value, Icon, tone]) => (
+        {stats.map(([label, value, Icon, tone, filter]) => (
           <button
             type="button"
             key={label}
             className={`ll-metric ${tone}`}
-            onClick={() =>
-              label === "Nhà đang quản lý"
-                ? go("properties")
-                : label === "Phòng trong hệ thống"
-                  ? go("properties", "rooms")
-                  : label === "Phòng còn trống"
-                    ? go("properties", "vacant")
-                    : go("inbox")
-            }
+            onClick={() => go("properties", filter)}
           >
             <span>
               <Icon size={20} />
@@ -478,80 +466,6 @@ function OverviewPanel({
         compact
         go={(value, filter) => go(value as Tab, filter)}
       />
-      <div className="ll-overview-grid">
-        <section className="ll-panel ll-performance">
-          <div className="ll-section-heading">
-            <div>
-              <span className="ll-eyebrow">{t("HIỆU QUẢ TIN ĐĂNG")}</span>
-              <h2>{t("Tín hiệu quan tâm thực tế")}</h2>
-            </div>
-            {hasMeasurement && (
-              <small>
-                {formatUi("Từ {0}", [dateTime(overview!.measured_since!)])}
-              </small>
-            )}
-          </div>
-          {hasMeasurement ? (
-            <div className="ll-signal-grid">
-              <div>
-                <Eye />
-                <strong>{overview?.detail_views || 0}</strong>
-                <span>{t("Lượt xem chi tiết")}</span>
-              </div>
-              <div>
-                <Sparkles />
-                <strong>{overview?.saves || 0}</strong>
-                <span>{t("Lượt lưu")}</span>
-              </div>
-              <div>
-                <Users />
-                <strong>{overview?.contact_requests || 0}</strong>
-                <span>{t("Yêu cầu liên hệ")}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="ll-empty-inline">
-              <BarChart3 />
-              <div>
-                <strong>{t("Chưa đủ dữ liệu đo lường")}</strong>
-                <p>
-                  {t(
-                    "Số liệu sẽ xuất hiện khi tin đã duyệt bắt đầu có lượt xem, lưu hoặc liên hệ thật.",
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-        <section className="ll-panel">
-          <div className="ll-section-heading">
-            <div>
-              <span className="ll-eyebrow">{t("CẦN XỬ LÝ")}</span>
-              <h2>{t("Việc tiếp theo")}</h2>
-            </div>
-          </div>
-          <div className="ll-next-list">
-            <button onClick={() => go("properties")}>
-              <span>
-                {properties.filter((p) => p.status === "pending").length}
-              </span>
-              <div>
-                <strong>{t("Nhà chờ xác minh")}</strong>
-                <small>{t("Hoàn thiện thông tin trước khi đăng tin")}</small>
-              </div>
-              <ChevronRight />
-            </button>
-            <button onClick={() => go("inbox")}>
-              <span>{contacts.filter((c) => c.status === "new").length}</span>
-              <div>
-                <strong>{t("Yêu cầu liên hệ mới")}</strong>
-                <small>{t("Phản hồi người thuê đang quan tâm")}</small>
-              </div>
-              <ChevronRight />
-            </button>
-          </div>
-        </section>
-      </div>
     </div>
   );
 }
@@ -937,6 +851,7 @@ function UnitCard({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [preview, setPreview] = useState(false);
+  const [unchanged, setUnchanged] = useState(false);
   async function action(path: string, body: unknown, method = "POST") {
     setBusy(true);
     setError("");
@@ -944,11 +859,14 @@ function UnitCard({
       await housingManagement(path, method, body);
       await changed();
     } catch (cause) {
-      setError(
-        (cause as Error).message +
-          " " +
-          Object.values((cause as ApiError).fields || {}).join(" "),
-      );
+      // A rejected listing goes back only after the owner changes something.
+      if ((cause as ApiError).code === "listing_unchanged") setUnchanged(true);
+      else
+        setError(
+          (cause as Error).message +
+            " " +
+            Object.values((cause as ApiError).fields || {}).join(" "),
+        );
     } finally {
       setBusy(false);
     }
@@ -965,6 +883,12 @@ function UnitCard({
           <span className="ll-property-row">
             <h3>{unit.unit_code}</h3>
             {status && <Status value={status} />}
+            {/* Vacancy only means something once tenants can see the listing. */}
+            {status === "published" && unit.availability_status && (
+              <span className={`ll-availability ${unit.availability_status}`}>
+                {t(availabilityLabels[unit.availability_status])}
+              </span>
+            )}
           </span>
           <p>
             {unit.area_m2 ? `${unit.area_m2} m²` : t("Chưa có diện tích")} ·{" "}
@@ -972,6 +896,8 @@ function UnitCard({
               unit.bedrooms ?? "?",
               unit.bathrooms ?? "?",
             ])}
+            {unit.bathroom_type &&
+              ` · ${t(unit.bathroom_type === "shared" ? "vệ sinh chung" : "vệ sinh khép kín")}`}
           </p>
           {unit.title && <strong>{unit.title}</strong>}
         </div>
@@ -981,11 +907,6 @@ function UnitCard({
           <button className="secondary" onClick={() => setPreview(true)}>
             {t("Xem trước")}
           </button>
-        )}
-        {unit.availability_status && (
-          <span className={`ll-availability ${unit.availability_status}`}>
-            {t(availabilityLabels[unit.availability_status])}
-          </span>
         )}
         <button
           className="secondary"
@@ -1100,6 +1021,33 @@ function UnitCard({
       {preview && unit.listing_id && (
         <ListingPreview id={unit.listing_id} close={() => setPreview(false)} />
       )}
+      {unchanged && (
+        <Dialog
+          title={t("Chưa thể gửi duyệt")}
+          onClose={() => setUnchanged(false)}
+        >
+          <p>{t("Bạn phải bổ sung thêm thông tin phù hợp.")}</p>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setUnchanged(false)}
+            >
+              {t("Đóng")}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setUnchanged(false);
+                edit();
+              }}
+            >
+              {t("Sửa tin")}
+            </button>
+          </div>
+        </Dialog>
+      )}
     </article>
   );
 }
@@ -1112,6 +1060,36 @@ type FeeRow = {
   required: boolean;
   refundable: boolean;
 };
+
+/** Fixed fees first, in a stable order, then the owner's other rows. */
+/** Visible required mark; the field's own `required` is what gets announced. */
+const Required = () => (
+  <span className="ll-required" aria-hidden="true">
+    {" *"}
+  </span>
+);
+
+/** The fixed fees always come first, in order; other rows follow. */
+function withFixedFees(rows: FeeRow[]): FeeRow[] {
+  const rest = [...rows];
+  const fixed = fixedFees.map((fee) => {
+    const index = rest.findIndex((row) =>
+      [row.code, feeCode(row.label, new Set())].some(
+        (code) => code === fee.code || code === fee.alias,
+      ),
+    );
+    if (index >= 0) return rest.splice(index, 1)[0];
+    return {
+      code: fee.code,
+      label: t(fee.label),
+      amount: "",
+      billing_unit: fee.billing_unit,
+      required: true,
+      refundable: false,
+    };
+  });
+  return [...fixed, ...rest];
+}
 
 function feeCode(label: string, taken: Set<string>) {
   const base =
@@ -1147,7 +1125,8 @@ function ListingForm({
   const [error, setError] = useState(""),
     [listingId, setListingId] = useState(unit?.listing_id);
   const [existing, setExisting] = useState<ManagedListing | null>(null);
-  const [fees, setFees] = useState<FeeRow[]>([]);
+  const [fees, setFees] = useState<FeeRow[]>(() => withFixedFees([]));
+  const [bathroomType, setBathroomType] = useState(unit?.bathroom_type || "");
   const [files, setFiles] = useState<File[]>([]);
   const [nonce] = useState(requestId);
   const [roomId, setRoomId] = useState(unit?.id);
@@ -1174,14 +1153,16 @@ function ListingForm({
       .then((listing) => {
         setExisting(listing);
         setFees(
-          listing.fees.map((fee) => ({
-            code: fee.code,
-            label: fee.label,
-            amount: fee.amount == null ? "" : String(fee.amount),
-            billing_unit: fee.billing_unit,
-            required: fee.required,
-            refundable: fee.refundable,
-          })),
+          withFixedFees(
+            listing.fees.map((fee) => ({
+              code: fee.code,
+              label: fee.label,
+              amount: fee.amount == null ? "" : String(fee.amount),
+              billing_unit: fee.billing_unit,
+              required: fee.required,
+              refundable: fee.refundable,
+            })),
+          ),
         );
       })
       .catch((cause) => {
@@ -1227,7 +1208,12 @@ function ListingForm({
       deposit_vnd: f.get("deposit_vnd") ? Number(f.get("deposit_vnd")) : null,
       availability_from: f.get("availability_from") || null,
       fees: fees
-        .filter((row) => row.label.trim())
+        // An empty optional service fee means "none", not "amount unknown".
+        .filter(
+          (row, index) =>
+            row.label.trim() &&
+            !(fixedFees[index]?.mandatory === false && row.amount === ""),
+        )
         .map((row) => ({
           code: row.code,
           label: row.label.trim(),
@@ -1258,10 +1244,9 @@ function ListingForm({
         area_m2: Number(f.get("area_m2")),
         bedrooms: Number(f.get("bedrooms")),
         bathrooms: Number(f.get("bathrooms")),
-        amenities: String(f.get("amenities") || "")
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean),
+        bathroom_type: bathroomType || null,
+        // Amenities are now written in the description; keep earlier tags as they were.
+        amenities: unit?.amenities || [],
       };
       const result = await housingManagement<{
         id: string;
@@ -1292,11 +1277,7 @@ function ListingForm({
       if (id) {
         await reload(id);
         for (const file of files) {
-          await uploadListingImage(
-            id,
-            file,
-            String(f.get("image_alt") || payload.title),
-          );
+          await uploadListingImage(id, file, String(payload.title));
           setFiles((previous) => previous.filter((value) => value !== file));
         }
         const latest = await housingManagement<ManagedListing>(
@@ -1334,12 +1315,14 @@ function ListingForm({
     <section className="ll-panel ll-form-panel">
       <div className="ll-section-heading">
         <div>
-          <span className="ll-eyebrow">{t("PHÒNG & TIN CHO THUÊ")}</span>
+          <span className="ll-eyebrow">{t("BƯỚC 2")}</span>
           <h2>
-            {listingId ? t("Cập nhật tin") : t("Thêm phòng và tin cho thuê")}
+            {listingId ? t("Cập nhật tin") : t("Thêm phòng và đăng tin")}
           </h2>
           <p>
-            {t("Ghi rõ toàn bộ chi phí để người thuê ước tính đúng ngân sách.")}
+            {t(
+              "Nhập thông tin phòng và nội dung tin trong một lần. Ghi rõ toàn bộ chi phí để người thuê ước tính đúng ngân sách.",
+            )}
           </p>
         </div>
         <button className="icon-button" onClick={close} aria-label={t("Đóng")}>
@@ -1366,8 +1349,9 @@ function ListingForm({
         </p>
       )}
       <form className="ll-form ll-listing-form" onSubmit={submit}>
+        <h3 className="wide ll-form-section">{t("Thông tin phòng")}</h3>
         <label>
-          {t("Mã phòng")}
+          <span>{t("Mã phòng")}<Required /></span>
           <input
             name="unit_code"
             required
@@ -1377,7 +1361,7 @@ function ListingForm({
           />
         </label>
         <label>
-          {t("Diện tích (m²)")}
+          <span>{t("Diện tích (m²)")}<Required /></span>
           <input
             name="area_m2"
             required
@@ -1388,7 +1372,7 @@ function ListingForm({
           />
         </label>
         <label>
-          {t("Phòng ngủ")}
+          <span>{t("Phòng ngủ")}<Required /></span>
           <input
             name="bedrooms"
             required
@@ -1398,27 +1382,52 @@ function ListingForm({
             defaultValue={unit?.bedrooms ?? 0}
           />
         </label>
-        <label>
-          {t("Phòng tắm")}
-          <input
-            name="bathrooms"
-            required
-            type="number"
-            min="0"
-            step="0.5"
-            defaultValue={unit?.bathrooms ?? 0}
-          />
-        </label>
+        <fieldset className="wide ll-bathroom">
+          <legend>{t("Phòng tắm")}<Required /></legend>
+          <div className="ll-choice-row">
+            {(
+              [
+                ["shared", "Phòng vệ sinh chung"],
+                ["private", "Phòng vệ sinh khép kín"],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className={"ll-choice" + (bathroomType === value ? " active" : "")}
+              >
+                <input
+                  type="radio"
+                  name="bathroom_type"
+                  value={value}
+                  required
+                  checked={bathroomType === value}
+                  onChange={() => setBathroomType(value)}
+                />
+                {t(label)}
+              </label>
+            ))}
+          </div>
+          {bathroomType && (
+            <label className="ll-bathroom-count">
+              {t(
+                bathroomType === "shared"
+                  ? "Số phòng vệ sinh chung"
+                  : "Số phòng vệ sinh khép kín",
+              )}
+              <input
+                name="bathrooms"
+                required
+                type="number"
+                min="1"
+                step="0.5"
+                defaultValue={unit?.bathrooms || 1}
+              />
+            </label>
+          )}
+        </fieldset>
+        <h3 className="wide ll-form-section">{t("Nội dung tin đăng")}</h3>
         <label className="wide">
-          {t("Tiện ích, cách nhau bằng dấu phẩy")}
-          <input
-            name="amenities"
-            defaultValue={unit?.amenities.join(", ") || ""}
-            placeholder={t("wifi, điều hòa, chỗ để xe")}
-          />
-        </label>
-        <label className="wide">
-          {t("Tiêu đề")}
+          <span>{t("Tiêu đề")}<Required /></span>
           <input
             name="title"
             required
@@ -1429,7 +1438,7 @@ function ListingForm({
           />
         </label>
         <label className="wide">
-          {t("Mô tả")}
+          <span>{t("Mô tả tiện ích")}<Required /></span>
           <textarea
             name="description"
             required
@@ -1437,12 +1446,12 @@ function ListingForm({
             maxLength={5000}
             defaultValue={existing?.description || ""}
             placeholder={t(
-              "Không gian, nội thất, quy định và những điều người thuê cần biết…",
+              "Không gian, nội thất, tiện ích (wifi, máy lạnh, chỗ để xe…), quy định và những điều người thuê cần biết…",
             )}
           />
         </label>
         <label>
-          {t("Giá thuê / tháng")}
+          <span>{t("Giá thuê / tháng")}<Required /></span>
           <input
             name="rent_vnd"
             type="number"
@@ -1452,30 +1461,69 @@ function ListingForm({
           />
         </label>
         <label>
-          {t("Tiền cọc")}
+          <span>{t("Tiền cọc")}<Required /></span>
           <input
             name="deposit_vnd"
             type="number"
             min="0"
+            required
             defaultValue={existing?.deposit_vnd ?? undefined}
           />
         </label>
         <label>
-          {t("Ngày có thể vào ở")}
+          <span>{t("Ngày có thể vào ở")}<Required /></span>
           <input
             name="availability_from"
             type="date"
+            required
             defaultValue={existing?.availability_from?.slice(0, 10) || ""}
           />
         </label>
         <fieldset className="wide ll-fees">
-          <legend>{t("Các khoản phí")}</legend>
+          <legend>{t("Các khoản phí")}<Required /></legend>
           <p className="ll-form-hint">
             {t(
-              "Để trống số tiền nếu chưa chốt; người thuê sẽ thấy “Chưa rõ” thay vì 0.",
+              "Tiền điện và tiền nước là bắt buộc. Các khoản dịch vụ chỉ nhập nếu có.",
             )}
           </p>
-          {fees.map((row, index) => (
+          {fees.map((row, index) =>
+            index < fixedFees.length ? (
+              <div className="ll-fee-row ll-fee-fixed" key={row.code}>
+                <span className="ll-fee-name">
+                  <strong>
+                    {row.label}
+                    {fixedFees[index].mandatory && <Required />}
+                  </strong>
+                  {!fixedFees[index].mandatory && (
+                    <small>{t("Nếu có · gồm cả phí giữ xe")}</small>
+                  )}
+                </span>
+                <input
+                  aria-label={formatUi("Số tiền {0}", [row.label])}
+                  type="number"
+                  min="0"
+                  required={fixedFees[index].mandatory}
+                  value={row.amount}
+                  placeholder={t(
+                    fixedFees[index].mandatory ? "Nhập số tiền" : "Nếu có",
+                  )}
+                  onChange={(e) => setFee(index, { amount: e.target.value })}
+                />
+                <select
+                  aria-label={formatUi("Đơn vị tính {0}", [row.label])}
+                  value={row.billing_unit}
+                  onChange={(e) =>
+                    setFee(index, { billing_unit: e.target.value })
+                  }
+                >
+                  {Object.entries(unitLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {t(label)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
             <div className="ll-fee-row" key={row.code}>
               <input
                 aria-label={t("Tên khoản phí")}
@@ -1537,7 +1585,8 @@ function ListingForm({
                 <X size={15} />
               </button>
             </div>
-          ))}
+            ),
+          )}
           <div className="ll-fee-suggestions">
             {feeSuggestions
               .filter((s) => !fees.some((row) => row.label === t(s.label)))
@@ -1590,13 +1639,6 @@ function ListingForm({
             {formatUi("{0} ảnh sẽ tải khi lưu nháp", [files.length])}
           </p>
         )}
-        <label className="wide">
-          {t("Mô tả ảnh")}
-          <input
-            name="image_alt"
-            placeholder={t("Ví dụ: Phòng ngủ nhìn từ cửa vào")}
-          />
-        </label>
         {error && (
           <p className="ll-form-error wide" role="alert">
             {error}
@@ -1611,6 +1653,16 @@ function ListingForm({
             className="secondary"
             disabled={busy}
             onClick={() => {
+              intent.current = "save";
+            }}
+          >
+            {busy && <LoaderCircle className="spin" />} {t("Lưu bản nháp")}
+          </button>
+          <button
+            type="submit"
+            className="secondary"
+            disabled={busy}
+            onClick={() => {
               intent.current = "preview";
             }}
           >
@@ -1618,7 +1670,7 @@ function ListingForm({
           </button>
           <button
             type="submit"
-            className="secondary"
+            className="primary"
             disabled={busy || !active}
             onClick={() => {
               intent.current = "submit";
@@ -1629,17 +1681,7 @@ function ListingForm({
                 : undefined
             }
           >
-            {t("Lưu và gửi duyệt")}
-          </button>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => {
-              intent.current = "save";
-            }}
-          >
-            {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />}{" "}
-            {t("Lưu bản nháp")}
+            <Send size={16} /> {t("Lưu và gửi duyệt")}
           </button>
         </div>
       </form>
@@ -1666,6 +1708,8 @@ function InboxPanel({
   const [proposal, setProposal] = useState<ContactRequest | null>(null);
   const [slots, setSlots] = useState<string[]>([]),
     [chosen, setChosen] = useState<string[]>([]);
+  // The proposal window comes from the server setting HOUSING_VIEWING_PROPOSAL_DAYS.
+  const [proposalDays, setProposalDays] = useState(7);
   const [rejecting, setRejecting] = useState<ContactRequest | null>(null),
     [reason, setReason] = useState("");
   const initialOpened = useRef("");
@@ -1702,6 +1746,7 @@ function InboxPanel({
     setError("");
     try {
       const page = await api<Data>("/landlord/viewing-options");
+      if (Number.isInteger(page.days) && page.days > 0) setProposalDays(page.days);
       setSlots(
         (page.slots || []).filter(
           (slot: string) =>
@@ -1955,7 +2000,7 @@ function InboxPanel({
       )}
       {proposal && (
         <Dialog
-          title={t("Đề xuất giờ xem trong 7 ngày tới")}
+          title={formatUi("Đề xuất giờ xem trong {0} ngày tới", [proposalDays])}
           onClose={() => {
             if (!busy) setProposal(null);
           }}

@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Bell,
   CalendarClock,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
   Eye,
   ImagePlus,
+  PenLine,
   RefreshCw,
   Search,
   Trash2,
@@ -12,9 +17,11 @@ import {
 import { dateTime, money } from "../api";
 import { t, formatUi } from "../uiPreferences";
 import type { Data } from "../types";
-import type { ManagedListing } from "./types";
+import type { ContactRequest, ManagedListing } from "./types";
 import { housingManagement } from "./client";
 import { ListingPreview } from "./ListingPreview";
+import { ActivityCharts } from "./ActivityCharts";
+import { daysUntil, viewingReminders } from "./viewingDue";
 
 export const publicationText: Record<string, string> = {
   draft: "Bản nháp",
@@ -157,12 +164,16 @@ export function ListingsPanel({
   initialStatus?: string;
   edit: (id: string, property: string) => void;
 }) {
+  // Opening the tab shows what tenants can rent now; a status chosen elsewhere
+  // (an overview tile) is kept as it is. "Tất cả" stays one choice away.
   const [property, setProperty] = useState(""),
     [properties, setProperties] = useState<Data[]>([]),
-    [status, setStatus] = useState(initialStatus),
+    [status, setStatus] = useState(initialStatus || "published"),
     [search, setSearch] = useState(""),
-    [availability, setAvailability] = useState(""),
+    [availability, setAvailability] = useState(initialStatus ? "" : "vacant"),
     [offset, setOffset] = useState(0);
+  // Vacancy applies to approved listings only.
+  const roomFilter = status === "published" ? availability : "";
   const [page, setPage] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
@@ -183,14 +194,14 @@ export function ListingsPanel({
       });
       if (property) query.set("property_id", property);
       if (status) query.set("status", status);
-      if (availability) query.set("availability", availability);
+      if (roomFilter) query.set("availability", roomFilter);
       setPage(await housingManagement<Data>("landlord/listings?" + query));
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [status, search, availability, offset, property]);
+  }, [status, search, roomFilter, offset, property]);
   useEffect(() => {
     const timer = setTimeout(() => void load(), 200);
     return () => clearTimeout(timer);
@@ -239,7 +250,13 @@ export function ListingsPanel({
         </select>
         <select
           aria-label={t("Tình trạng phòng")}
-          value={availability}
+          value={roomFilter}
+          disabled={status !== "published"}
+          title={
+            status !== "published"
+              ? t("Tình trạng phòng chỉ áp dụng cho tin đã duyệt.")
+              : undefined
+          }
           onChange={(e) => {
             setOffset(0);
             setAvailability(e.target.value);
@@ -278,10 +295,13 @@ export function ListingsPanel({
         <p role="status">{t("Đang tải tin…")}</p>
       ) : !page?.items.length ? (
         <p className="ll-empty-inline">
-          {t("Chưa có tin phù hợp với bộ lọc.")}
+          {t('Không có tin nào khớp bộ lọc. Chọn "Tất cả" để xem thêm.')}
         </p>
       ) : (
         <div className="ll-listing-table">
+          <p className="ll-result-count" role="status">
+            {formatUi("{0} tin", [page.total ?? page.items.length])}
+          </p>
           {page.items.map((row: Data) => (
             <article key={row.id}>
               {row.thumbnail_url && (
@@ -302,12 +322,16 @@ export function ListingsPanel({
                       row.publication_status,
                   )}
                 </span>{" "}
-                <span className="ll-availability">
-                  {t(
-                    availabilityText[row.availability_status] ||
-                      row.availability_status,
-                  )}
-                </span>
+                {row.publication_status === "published" && (
+                  <span
+                    className={`ll-availability ${row.availability_status}`}
+                  >
+                    {t(
+                      availabilityText[row.availability_status] ||
+                        row.availability_status,
+                    )}
+                  </span>
+                )}
                 {row.rejection_reason && <p>{row.rejection_reason}</p>}
               </div>
               <strong>{money(row.rent_vnd)}</strong>
@@ -413,11 +437,11 @@ export function StatisticsPanel({
     }),
     { detail_views: 0, saves: 0, contacts: 0 },
   );
-  const cards: [string, string][] = [
-    ["published", "Tin đã duyệt"],
-    ["pending_review", "Tin chờ duyệt"],
-    ["rejected", "Tin cần bổ sung"],
-    ["draft", "Tin nháp"],
+  const cards: [string, string, typeof Eye][] = [
+    ["published", "Tin đã duyệt", CircleCheck],
+    ["pending_review", "Tin chờ duyệt", Clock3],
+    ["rejected", "Tin cần bổ sung", CircleAlert],
+    ["draft", "Tin nháp", PenLine],
   ];
   return (
     <section className="ll-panel ll-statistics">
@@ -433,30 +457,24 @@ export function StatisticsPanel({
         </p>
       )}
       {compact ? (
-        <>
-          <div className="ll-status-metrics">
-            {cards.map(([key, label]) => (
-              <button key={key} onClick={() => go?.("listings", key)}>
-                <strong>{data?.inventory?.[key] ?? "—"}</strong>
-                <span>{t(label)}</span>
-              </button>
-            ))}
-          </div>
-          <div className="ll-next-list">
-            <button onClick={() => go?.("inbox")}>
-              <span>{data?.contacts?.new_contacts ?? "—"}</span>
-              <div>
-                <strong>{t("Yêu cầu liên hệ mới")}</strong>
-              </div>
+        // Listing work at a glance; contact requests and viewings have their own tabs.
+        <div className="ll-status-metrics ll-status-tiles">
+          {cards.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              className={`ll-status-tile ${key}`}
+              onClick={() => go?.("listings", key)}
+            >
+              <span>
+                <i aria-hidden="true">
+                  <Icon size={20} />
+                </i>
+                {t(label)}
+              </span>
+              <strong>{data?.inventory?.[key] ?? "—"}</strong>
             </button>
-            <button onClick={() => go?.("calendar")}>
-              <span>{data?.contacts?.pending_viewings ?? "—"}</span>
-              <div>
-                <strong>{t("Lịch xem cần xác nhận")}</strong>
-              </div>
-            </button>
-          </div>
-        </>
+          ))}
+        </div>
       ) : (
         <>
           <div className="ll-filters">
@@ -520,29 +538,38 @@ export function StatisticsPanel({
                   {t("Chưa có hoạt động trong khoảng thời gian này.")}
                 </p>
               ) : (
-                <div className="ll-table-scroll">
-                  <table>
-                    <caption>{t("Hoạt động theo ngày")}</caption>
-                    <thead>
-                      <tr>
-                        <th>{t("Ngày")}</th>
-                        <th>{t("Lượt xem")}</th>
-                        <th>{t("Lượt lưu")}</th>
-                        <th>{t("Liên hệ")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.daily.map((row: Data) => (
-                        <tr key={row.day}>
-                          <td>{row.day}</td>
-                          <td>{row.detail_views}</td>
-                          <td>{row.saves}</td>
-                          <td>{row.contacts}</td>
+                <>
+                  <ActivityCharts daily={data.daily} />
+                  {/* The table stays available for exact numbers and screen readers. */}
+                  <details className="ll-table-scroll ll-daily-table">
+                    <summary>
+                      {t("Hoạt động theo ngày · xem dạng bảng")}
+                    </summary>
+                    <table>
+                      <caption className="sr-only">
+                        {t("Hoạt động theo ngày")}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th>{t("Ngày")}</th>
+                          <th>{t("Lượt xem")}</th>
+                          <th>{t("Lượt lưu")}</th>
+                          <th>{t("Liên hệ")}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {data.daily.map((row: Data) => (
+                          <tr key={row.day}>
+                            <td>{row.day}</td>
+                            <td>{row.detail_views}</td>
+                            <td>{row.saves}</td>
+                            <td>{row.contacts}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                </>
               )}
               {data.measured_since && (
                 <small>
@@ -583,6 +610,16 @@ export function ViewingCalendar({
       (a, b) =>
         new Date(a.viewing_slot).getTime() - new Date(b.viewing_slot).getTime(),
     );
+  const reminders = viewingReminders(contacts as ContactRequest[]);
+  const next = reminders[0];
+  const statusLabel = (status: string) =>
+    status === "confirmed"
+      ? "Đã xác nhận"
+      : status === "requested"
+        ? "Chờ xác nhận"
+        : status === "cancelled"
+          ? "Đã hủy"
+          : "Đã từ chối";
   return (
     <section className="ll-panel">
       <div className="ll-section-heading">
@@ -606,35 +643,87 @@ export function ViewingCalendar({
           <option value="all">{t("Tất cả lịch xem")}</option>
         </select>
       </div>
+      {next && (
+        <section
+          className="ll-reminder"
+          role="status"
+          aria-label={t("Nhắc lịch xem nhà")}
+        >
+          <span className="ll-reminder-icon">
+            <Bell size={20} aria-hidden="true" />
+            <b aria-hidden="true">{reminders.length}</b>
+          </span>
+          <div>
+            <strong>
+              {formatUi(
+                daysUntil(next.viewing_slot!) === 0
+                  ? "Nhắc lịch: hôm nay bạn có {0} lịch xem nhà"
+                  : "Nhắc lịch: ngày mai bạn có {0} lịch xem nhà",
+                [reminders.length],
+              )}
+            </strong>
+            <p>
+              {dateTime(next.viewing_slot!)} · {next.title} ·{" "}
+              {next.property_name}
+              {next.unit_code ? ` · ${next.unit_code}` : ""}
+            </p>
+          </div>
+          <button
+            className="secondary"
+            onClick={() =>
+              document
+                .getElementById("viewing-" + next.id)
+                ?.scrollIntoView({ block: "center", behavior: "smooth" })
+            }
+          >
+            {t("Xem lịch hẹn")}
+          </button>
+        </section>
+      )}
       {!items.length ? (
         <p className="ll-empty-inline">{t("Chưa có lịch xem phù hợp.")}</p>
       ) : (
         <div className="ll-calendar-list">
-          {items.map((row) => (
-            <article key={row.id}>
-              <time dateTime={row.viewing_slot}>
-                {dateTime(row.viewing_slot)}
-              </time>
-              <div>
-                <strong>{row.title}</strong>
-                <p>
-                  {row.property_name} · {row.unit_code}
-                </p>
-                <span>
-                  {t(
-                    row.viewing_status === "confirmed"
-                      ? "Đã xác nhận"
-                      : row.viewing_status === "requested"
-                        ? "Chờ xác nhận"
-                        : "Đã từ chối",
-                  )}
-                </span>
-              </div>
-              <button className="secondary" onClick={() => openInbox(row.id)}>
-                {t("Mở hộp thư")}
-              </button>
-            </article>
-          ))}
+          {items.map((row) => {
+            const days = daysUntil(row.viewing_slot);
+            const upcoming =
+              ["requested", "confirmed"].includes(row.viewing_status) &&
+              new Date(row.viewing_slot).getTime() >= Date.now();
+            const soon = upcoming && days <= 1;
+            return (
+              <article
+                key={row.id}
+                id={"viewing-" + row.id}
+                className={soon ? "soon" : ""}
+              >
+                <time dateTime={row.viewing_slot}>
+                  {dateTime(row.viewing_slot)}
+                </time>
+                <div>
+                  <strong>{row.title}</strong>
+                  <p>
+                    {row.property_name} · {row.unit_code}
+                  </p>
+                  <span className="ll-chip-row">
+                    <span className={`ll-viewing-chip ${row.viewing_status}`}>
+                      {t(statusLabel(row.viewing_status))}
+                    </span>
+                    {upcoming && (
+                      <span className={"ll-countdown" + (soon ? " soon" : "")}>
+                        <Clock3 size={14} aria-hidden="true" />
+                        {days === 0
+                          ? t("Hôm nay")
+                          : formatUi("Còn {0} ngày", [days])}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <button className="secondary" onClick={() => openInbox(row.id)}>
+                  {t("Mở hộp thư")}
+                </button>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

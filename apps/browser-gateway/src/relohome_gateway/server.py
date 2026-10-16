@@ -89,6 +89,7 @@ HOUSING_MANAGEMENT_CODES = {
     "host_terms_required",
     "host_not_verified",
     "listing_incomplete",
+    "listing_unchanged",
     "revision_conflict",
     "rejection_reason_required",
     "location_confirmation_required",
@@ -1513,6 +1514,31 @@ def create_app(database=None, transport=None):
                                 )
                             ):
                                 conversation["thread_id"] = destination["thread_id"]
+        if isinstance(result, dict):
+            # Public reviews carry their author's id only so the name can be shown;
+            # replace it with the account name and never pass the id to the browser.
+            if resource in {"landlord/reviews", "moderation/housing/reviews"} or re.fullmatch(
+                r"housing/[0-9a-fA-F-]+/reviews?", resource
+            ):
+                reviews = [
+                    r for r in [
+                        *result.get("items", []), result.get("mine"),
+                        result if resource.endswith("/review") else None,
+                    ] if isinstance(r, dict)
+                ]
+                authors = list({r["author_user_id"] for r in reviews if isinstance(r.get("author_user_id"), str)})
+                names = {}
+                if authors:
+                    placeholders = ",".join("?" for _ in authors)
+                    names = {
+                        u["id"]: u["name"]
+                        for u in app.state.store.all(
+                            f"SELECT id,name FROM users WHERE id IN ({placeholders})", tuple(authors)
+                        )
+                    }
+                for review in reviews:
+                    author = review.pop("author_user_id", None)
+                    review["author_name"] = None if review.get("is_anonymous", True) else names.get(author)
         return result
 
     @app.get("/web/api/saved")

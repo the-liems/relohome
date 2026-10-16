@@ -49,6 +49,7 @@ class ViewingSettings:
     same_place_meters: int
     deposit_suggested_months: float
     timezone: ZoneInfo
+    proposal_days: int = 7
     visit_anytime: bool = False  # chỉ môi trường test
 
     @classmethod
@@ -73,6 +74,7 @@ class ViewingSettings:
             same_place_meters=s.housing_same_place_meters,
             deposit_suggested_months=s.housing_deposit_suggested_months,
             timezone=ZoneInfo(s.app_timezone),
+            proposal_days=s.housing_viewing_proposal_days,
             visit_anytime=s.housing_viewing_test_visit_anytime and get_settings().app_env != "production",
         )
 
