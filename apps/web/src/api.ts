@@ -7,12 +7,15 @@ export async function api<T = any>(
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const response = await fetch("/web/api" + path, {
     method,
     credentials: "same-origin",
     signal,
-    headers: { "Content-Type": "application/json", "X-SIU-Request": "1" },
+    headers: { "Content-Type": "application/json", "X-SIU-Request": "1",
+      ...headers,
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   let isJson = true;

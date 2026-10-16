@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 import pytest
@@ -143,3 +144,15 @@ async def test_disabled_keeps_single_selection(api_client_factory):
         assert state["intake"]["user_confirmed_facts"]["selected:property"]["value"] == "lst_001"
         assert state["viewing"] is None
         assert (await client.get(f"/api/v1/ui/chat/{thread_id}/viewings", headers=HEADERS)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_landlord_proposal_slots_follow_the_configured_window(api):
+    client, service, clock = api
+    for days in (7, 3):
+        service.viewing.settings = replace(service.viewing.settings, proposal_days=days)
+        r = await client.get("/api/v1/ui/viewings/slots", headers=HEADERS)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["days"] == days and body["slots"]
+        assert all(datetime.fromisoformat(s) <= clock.now + timedelta(days=days) for s in body["slots"])

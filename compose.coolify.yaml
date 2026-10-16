@@ -194,6 +194,8 @@ services:
       HOUSING_VIEWING_ENABLED: "true"
       # Operator opt-in; production ignores this even when configured true.
       HOUSING_VIEWING_TEST_VISIT_ANYTIME: ${HOUSING_VIEWING_TEST_VISIT_ANYTIME:-false}
+      # Landlord replacement-time window; platform reads the same value.
+      HOUSING_VIEWING_PROPOSAL_DAYS: ${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
       PAYMENT_TESTER_CONFIRM_ENABLED: "true"
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
       # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
@@ -330,6 +332,7 @@ services:
       # Empty: no poster-terms step (team has not published terms yet).
       HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
       HOUSING_MESSAGE_RATE_PER_MINUTE: ${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
+      HOUSING_VIEWING_PROPOSAL_DAYS: ${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
       HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
       HOUSING_REVIEW_PATTERN_DAYS: ${HOUSING_REVIEW_PATTERN_DAYS:-90}
       HOUSING_REVIEW_LOW_STARS: ${HOUSING_REVIEW_LOW_STARS:-2}

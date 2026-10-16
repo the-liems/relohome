@@ -8,6 +8,7 @@ import "./landing.css";
 import "./product-theme.css";
 import "./visual-polish.css";
 import "./housing-decision.css";
+import "./landlord/glass.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

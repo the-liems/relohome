@@ -15,6 +15,7 @@ the same PostGIS schemas and only become public after moderation.
 | `VIETMAP_API_KEY` | Server-only Autocomplete v4 and Place v4 for property location confirmation. |
 | `HOUSING_MODERATOR_IDS` | Comma-separated trusted account IDs that may verify posters and approve properties and listings. |
 | `HOUSING_MESSAGE_RATE_PER_MINUTE` | Optional, default 10. Messages one sender may post per minute in a tenant–landlord conversation. |
+| `HOUSING_VIEWING_PROPOSAL_DAYS` | Optional, default 7 (1–60). How many days ahead a landlord may propose replacement viewing times. Set the same value on the backend (agent API) and the platform API. |
 | `HOST_TERMS_VERSION` | Optional. Empty: no poster-terms step. A value makes posters accept that version before adding homes. |
 | `HOUSING_REVIEW_MIN_COUNT` | Default 1. Minimum visible reviews for a host rating; shared by Platform and Location MCP. |
 | `HOUSING_REVIEW_PATTERN_DAYS` | Default 90. Recent review edit/publication window for low-rating evidence. |

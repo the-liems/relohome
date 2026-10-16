@@ -20,13 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 pytestmark = pytest.mark.skipif(shutil.which("docker") is None, reason="Docker Compose CLI required; no daemon needed")
 
 
-def rendered_backend(variables):
+def rendered_backend(variables, service="backend"):
     """Use Docker Compose's actual interpolation without contacting a daemon."""
     source = (ROOT / "compose.coolify.yaml").read_text()
-    backend = yaml.safe_load(source)["services"]["backend"]
+    backend = yaml.safe_load(source)["services"][service]
     # Coolify annotations on other services are not standard Compose fields.
-    # Exercise the actual backend image/environment, independently of those.
-    definition = {"services": {"backend": {key: backend[key] for key in ("image", "environment")}}}
+    # Exercise the actual service image/environment, independently of those.
+    definition = {"services": {service: {key: backend[key] for key in ("image", "environment")}}}
     environment = {
         key: os.environ[key] for key in ("PATH", "HOME", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR") if key in os.environ
     }
@@ -51,7 +51,7 @@ def rendered_backend(variables):
             check=True,
             timeout=30,
         )
-    return json.loads(result.stdout)["services"]["backend"]["environment"]
+    return json.loads(result.stdout)["services"][service]["environment"]
 
 
 @pytest.mark.parametrize(
@@ -81,5 +81,18 @@ def test_compose_viewing_test_toggle_reaches_runtime_and_respects_production(con
     try:
         viewing = ViewingSettings.from_services(ServiceSettings(_env_file=None))
         assert viewing.visit_anytime is enabled
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("configured,days", [({}, 7), ({"HOUSING_VIEWING_PROPOSAL_DAYS": "10"}, 10)])
+def test_viewing_proposal_window_is_one_setting_for_backend_and_platform(configured, days, monkeypatch):
+    backend = rendered_backend(configured)
+    platform = rendered_backend(configured, "platform")
+    assert backend["HOUSING_VIEWING_PROPOSAL_DAYS"] == platform["HOUSING_VIEWING_PROPOSAL_DAYS"] == str(days)
+    monkeypatch.setenv("HOUSING_VIEWING_PROPOSAL_DAYS", backend["HOUSING_VIEWING_PROPOSAL_DAYS"])
+    get_settings.cache_clear()
+    try:
+        assert ViewingSettings.from_services(ServiceSettings(_env_file=None)).proposal_days == days
     finally:
         get_settings.cache_clear()

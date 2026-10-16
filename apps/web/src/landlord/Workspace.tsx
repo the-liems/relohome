@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
-  Eye,
   Home,
   ImagePlus,
   Inbox,
@@ -26,17 +25,19 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   Star,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
-import { ApiError, dateTime, money, requestId } from "../api";
+import { useSearchParams } from "react-router-dom";
+import { attentionItems } from "../housingActivity";
+import { viewingReminders } from "./viewingDue";
+import { ApiError, api, dateTime, money, requestId } from "../api";
 import type { Data } from "../types";
 import { formatUi, t } from "../uiPreferences";
 import { EmptyState } from "../components/UiStates";
-import { ContactThread } from "../components/ContactThread";
+import { useContactMessenger } from "../components/ContactMessenger";
+import { Dialog } from "../components/Dialog";
 import { LandlordReviews } from "../components/HousingReviews";
 import { housingManagement, uploadListingImage } from "./client";
 import {
@@ -63,6 +64,8 @@ import {
   PrivateLocationMap,
   type AddressSelection,
 } from "./LocationPicker";
+import { ContactInbox } from "./ContactInbox";
+import { RoomsInventory } from "./RoomsInventory";
 import { ListingPreview } from "./ListingPreview";
 import {
   ListingGallery,
@@ -124,13 +127,17 @@ const unitLabels: Record<string, string> = {
   person_month: "/ người / tháng",
   vehicle_month: "/ xe / tháng",
 };
-// Common fees offered as one-click rows; the owner edits or removes any of them.
+// Every listing states electricity and water; the service fee (parking included)
+// is optional. Earlier rows match by code, by the code their label produces, or
+// by an older English code, and keep their own code so saving changes nothing.
+const fixedFees = [
+  { code: "tien_dien", alias: "electricity", label: "Tiền điện", billing_unit: "kwh", mandatory: true },
+  { code: "tien_nuoc", alias: "water", label: "Tiền nước", billing_unit: "m3", mandatory: true },
+  { code: "phi_dich_vu", alias: "service", label: "Phí dịch vụ", billing_unit: "month", mandatory: false },
+] as const;
+// Further fees offered as one-click rows; the owner edits or removes them.
 const feeSuggestions: { label: string; billing_unit: string }[] = [
-  { label: "Tiền điện", billing_unit: "kwh" },
-  { label: "Tiền nước", billing_unit: "m3" },
   { label: "Internet", billing_unit: "month" },
-  { label: "Phí dịch vụ", billing_unit: "month" },
-  { label: "Gửi xe", billing_unit: "vehicle_month" },
 ];
 
 function addressText(address: Record<string, unknown>) {
@@ -173,6 +180,7 @@ function Status({ value }: { value: string }) {
 
 export function LandlordWorkspace() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [routeParams] = useSearchParams();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [properties, setProperties] = useState<PropertySummary[]>([]);
   const [contacts, setContacts] = useState<ContactRequest[]>([]);
@@ -186,8 +194,8 @@ export function LandlordWorkspace() {
   const [host, setHost] = useState<HostProfilePage | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const [hostPage, summary, propertyPage, inbox] = await Promise.all([
@@ -213,28 +221,66 @@ export function LandlordWorkspace() {
     void load();
   }, [load]);
 
-  const newContacts = contacts.filter(
-    (item) => item.status === "new" || item.unread > 0,
-  ).length;
-  // First visit in owner mode: the poster profile comes before anything else (host-mode-design §3.2).
-  // Moderators who do not post themselves are not pushed into the poster form or banner.
-  const showProfileForm =
-    editingProfile ||
-    (host !== null && !host.profile && properties.length === 0);
+  useEffect(() => {
+    if (editingProfile) return;
+    let active = true;
+    const refreshProfile = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const page = await housingManagement<HostProfilePage>("host/profile");
+        if (active) setHost(page);
+      } catch {
+        // Keep the last known profile; explicit workspace loads show errors.
+      }
+    };
+    const timer = window.setInterval(() => void refreshProfile(), 15000);
+    window.addEventListener("focus", refreshProfile);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshProfile);
+    };
+  }, [editingProfile]);
+
+  useEffect(() => {
+    const refresh = () => void load(true);
+    window.addEventListener("housing-contact-update", refresh);
+    return () => window.removeEventListener("housing-contact-update", refresh);
+  }, [load]);
+
+  useEffect(() => {
+    const request = routeParams.get("request"),
+      listing = routeParams.get("listing"),
+      property = routeParams.get("property");
+    if (request) {
+      setTab("inbox");
+      setInboxThread(request);
+      setSelected(null);
+      setEditingProfile(false);
+    } else if (property) {
+      setTab("properties");
+      setSelected(property);
+      setEditListing(listing);
+      setEditingProfile(false);
+    } else if (routeParams.has("profile")) setEditingProfile(true);
+  }, [routeParams]);
+  const newContacts = attentionItems(contacts).total;
+  const dueViewings = viewingReminders(contacts).length;
+  // Ask once when adding the first home; subsequent homes reuse the account profile.
+  const showProfileForm = editingProfile;
   const showHostBanner = Boolean(host);
   const startProperty = () => {
     setTab("properties");
     setSelected(null);
-    if (needsProfile(host)) setEditingProfile(true);
-    else setCreateProperty(true);
+    setCreateProperty(true);
+    setEditingProfile(needsProfile(host));
   };
   const tabs: [Tab, string, typeof Inbox, number][] = [
     ["overview", "Tổng quan", BarChart3, 0],
     ["properties", "Nhà & phòng", Building2, 0],
     ["inbox", "Yêu cầu liên hệ", Inbox, newContacts],
-
     ["listings", "Tin đăng", Home, 0],
-    ["calendar", "Lịch xem nhà", CalendarClock, 0],
+    ["calendar", "Lịch xem nhà", CalendarClock, dueViewings],
     ["statistics", "Thống kê", BarChart3, 0],
     ["reviews", "Đánh giá", Star, 0],
   ];
@@ -255,7 +301,11 @@ export function LandlordWorkspace() {
           </p>
         </div>
         <div className="ll-heading-actions">
-          <button className="primary" onClick={startProperty}>
+          <button
+            className="primary"
+            onClick={startProperty}
+            disabled={loading}
+          >
             <Plus size={17} /> {t("Thêm nhà")}
           </button>
         </div>
@@ -272,6 +322,7 @@ export function LandlordWorkspace() {
               setSelected(null);
               setEditListing(null);
               setListingFilter("");
+              setInboxThread("");
               setEditingProfile(false);
             }}
           >
@@ -295,11 +346,10 @@ export function LandlordWorkspace() {
       ) : showProfileForm && host ? (
         <HostProfileForm
           page={host}
-          close={
-            host.profile || properties.length
-              ? () => setEditingProfile(false)
-              : undefined
-          }
+          close={() => {
+            setEditingProfile(false);
+            setCreateProperty(false);
+          }}
           saved={(page) => {
             setHost(page);
             setEditingProfile(false);
@@ -308,8 +358,6 @@ export function LandlordWorkspace() {
       ) : tab === "overview" ? (
         <OverviewPanel
           overview={overview}
-          properties={properties}
-          contacts={contacts}
           go={(target, filter) => {
             setTab(target);
             setListingFilter(filter || "");
@@ -342,6 +390,12 @@ export function LandlordWorkspace() {
             back={() => setSelected(null)}
             changed={load}
           />
+        ) : ["rooms", "vacant"].includes(listingFilter) ? (
+          <RoomsInventory
+            properties={properties}
+            vacant={listingFilter === "vacant"}
+            open={setSelected}
+          />
         ) : (
           <PropertiesPanel
             properties={properties}
@@ -354,11 +408,19 @@ export function LandlordWorkspace() {
           />
         )
       ) : tab === "inbox" ? (
-        <InboxPanel
+        <ContactInbox
+          properties={properties}
           contacts={contacts}
           initialThread={inboxThread}
-          changed={load}
-        />
+        >
+          {(items) => (
+            <InboxPanel
+              contacts={items}
+              initialThread={inboxThread}
+              changed={() => load(true)}
+            />
+          )}
+        </ContactInbox>
       ) : tab === "reviews" ? (
         <LandlordReviews />
       ) : (
@@ -370,113 +432,40 @@ export function LandlordWorkspace() {
 
 function OverviewPanel({
   overview,
-  properties,
-  contacts,
   go,
 }: {
   overview: Overview | null;
-  properties: PropertySummary[];
-  contacts: ContactRequest[];
   go: (tab: Tab, filter?: string) => void;
 }) {
+  // Requests, viewings and interest signals have their own tabs; the overview
+  // keeps supply and listing work only.
   const stats = [
-    ["Nhà đang quản lý", overview?.properties || 0, Building2, "forest"],
-    ["Phòng trong hệ thống", overview?.units || 0, Home, "blue"],
-    ["Phòng còn trống", overview?.vacant || 0, CheckCircle2, "teal"],
-    ["Yêu cầu mới", overview?.new_contacts || 0, MessageSquareText, "amber"],
+    ["Nhà đang quản lý", overview?.properties || 0, Building2, "forest", ""],
+    ["Phòng trong hệ thống", overview?.units || 0, Home, "blue", "rooms"],
+    ["Phòng còn trống", overview?.vacant || 0, CheckCircle2, "teal", "vacant"],
   ] as const;
-  const hasMeasurement = Boolean(overview?.measured_since);
   return (
     <div className="ll-overview">
       <section className="ll-metrics" aria-label={t("Tình hình vận hành")}>
-        {stats.map(([label, value, Icon, tone]) => (
-          <article key={label} className={`ll-metric ${tone}`}>
+        {stats.map(([label, value, Icon, tone, filter]) => (
+          <button
+            type="button"
+            key={label}
+            className={`ll-metric ${tone}`}
+            onClick={() => go("properties", filter)}
+          >
             <span>
               <Icon size={20} />
             </span>
             <strong>{value}</strong>
             <p>{t(label)}</p>
-          </article>
+          </button>
         ))}
       </section>
       <StatisticsPanel
         compact
         go={(value, filter) => go(value as Tab, filter)}
       />
-      <div className="ll-overview-grid">
-        <section className="ll-panel ll-performance">
-          <div className="ll-section-heading">
-            <div>
-              <span className="ll-eyebrow">{t("HIỆU QUẢ TIN ĐĂNG")}</span>
-              <h2>{t("Tín hiệu quan tâm thực tế")}</h2>
-            </div>
-            {hasMeasurement && (
-              <small>
-                {formatUi("Từ {0}", [dateTime(overview!.measured_since!)])}
-              </small>
-            )}
-          </div>
-          {hasMeasurement ? (
-            <div className="ll-signal-grid">
-              <div>
-                <Eye />
-                <strong>{overview?.detail_views || 0}</strong>
-                <span>{t("Lượt xem chi tiết")}</span>
-              </div>
-              <div>
-                <Sparkles />
-                <strong>{overview?.saves || 0}</strong>
-                <span>{t("Lượt lưu")}</span>
-              </div>
-              <div>
-                <Users />
-                <strong>{overview?.contact_requests || 0}</strong>
-                <span>{t("Yêu cầu liên hệ")}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="ll-empty-inline">
-              <BarChart3 />
-              <div>
-                <strong>{t("Chưa đủ dữ liệu đo lường")}</strong>
-                <p>
-                  {t(
-                    "Số liệu sẽ xuất hiện khi tin đã duyệt bắt đầu có lượt xem, lưu hoặc liên hệ thật.",
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-        <section className="ll-panel">
-          <div className="ll-section-heading">
-            <div>
-              <span className="ll-eyebrow">{t("CẦN XỬ LÝ")}</span>
-              <h2>{t("Việc tiếp theo")}</h2>
-            </div>
-          </div>
-          <div className="ll-next-list">
-            <button onClick={() => go("properties")}>
-              <span>
-                {properties.filter((p) => p.status === "pending").length}
-              </span>
-              <div>
-                <strong>{t("Nhà chờ xác minh")}</strong>
-                <small>{t("Hoàn thiện thông tin trước khi đăng tin")}</small>
-              </div>
-              <ChevronRight />
-            </button>
-            <button onClick={() => go("inbox")}>
-              <span>{contacts.filter((c) => c.status === "new").length}</span>
-              <div>
-                <strong>{t("Yêu cầu liên hệ mới")}</strong>
-                <small>{t("Phản hồi người thuê đang quan tâm")}</small>
-              </div>
-              <ChevronRight />
-            </button>
-          </div>
-        </section>
-      </div>
     </div>
   );
 }
@@ -705,7 +694,6 @@ function PropertyPanel({
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [error, setError] = useState("");
   const [addingUnit, setAddingUnit] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<ManagedUnit | null>(null);
   const [editingProperty, setEditingProperty] = useState(false);
   const [listingUnit, setListingUnit] = useState<ManagedUnit | null>(null);
   const load = useCallback(async () => {
@@ -750,32 +738,20 @@ function PropertyPanel({
         }}
       />
     );
-  if (addingUnit || editingUnit)
-    return (
-      <UnitForm
-        propertyId={id}
-        existing={editingUnit || undefined}
-        close={() => {
-          setAddingUnit(false);
-          setEditingUnit(null);
-        }}
-        done={async () => {
-          setAddingUnit(false);
-          setEditingUnit(null);
-          await refresh();
-        }}
-      />
-    );
-  if (listingUnit)
+  if (addingUnit || listingUnit)
     return (
       <ListingForm
-        unit={listingUnit}
+        key={listingUnit?.id || "new"}
+        unit={listingUnit || undefined}
+        propertyId={id}
         active={property.management_status === "active"}
         close={() => {
+          setAddingUnit(false);
           setListingUnit(null);
           void refresh();
         }}
         done={async () => {
+          setAddingUnit(false);
           setListingUnit(null);
           await refresh();
         }}
@@ -852,7 +828,6 @@ function PropertyPanel({
               unit={unit}
               active={property.management_status === "active"}
               edit={() => setListingUnit(unit)}
-              editUnit={() => setEditingUnit(unit)}
               changed={load}
             />
           ))}
@@ -862,140 +837,21 @@ function PropertyPanel({
   );
 }
 
-function UnitForm({
-  propertyId,
-  close,
-  done,
-  existing,
-}: {
-  propertyId: string;
-  existing?: ManagedUnit;
-  close: () => void;
-  done: () => void;
-}) {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const f = new FormData(event.currentTarget);
-    const optionalNumber = (key: string) =>
-      f.get(key) === "" ? null : Number(f.get(key));
-    try {
-      await housingManagement(
-        existing
-          ? `landlord/units/${existing.id}`
-          : `landlord/properties/${propertyId}/units`,
-        existing ? "PATCH" : "POST",
-        {
-          ...(existing ? { revision: existing.unit_revision } : {}),
-          unit_code: f.get("unit_code"),
-          bedrooms: optionalNumber("bedrooms"),
-          bathrooms: optionalNumber("bathrooms"),
-          area_m2: optionalNumber("area_m2"),
-          amenities: String(f.get("amenities") || "")
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean),
-        },
-      );
-      done();
-    } catch (cause) {
-      setError((cause as Error).message);
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="ll-panel ll-form-panel">
-      <div className="ll-section-heading">
-        <div>
-          <span className="ll-eyebrow">{t("BƯỚC 2")}</span>
-          <h2>{t(existing ? "Sửa phòng hoặc căn" : "Thêm phòng hoặc căn")}</h2>
-        </div>
-        <button className="icon-button" onClick={close} aria-label={t("Đóng")}>
-          <X />
-        </button>
-      </div>
-      <form className="ll-form" onSubmit={submit}>
-        <label>
-          {t("Mã phòng")}
-          <input
-            name="unit_code"
-            required
-            placeholder="P.301"
-            defaultValue={existing?.unit_code}
-          />
-        </label>
-        <label>
-          {t("Diện tích (m²)")}
-          <input
-            name="area_m2"
-            defaultValue={existing?.area_m2 ?? undefined}
-            type="number"
-            min="1"
-            step="0.1"
-          />
-        </label>
-        <label>
-          {t("Phòng ngủ")}
-          <input
-            name="bedrooms"
-            defaultValue={existing?.bedrooms ?? undefined}
-            type="number"
-            min="0"
-            step="0.5"
-          />
-        </label>
-        <label>
-          {t("Phòng tắm")}
-          <input
-            name="bathrooms"
-            defaultValue={existing?.bathrooms ?? undefined}
-            type="number"
-            min="0"
-            step="0.5"
-          />
-        </label>
-        <label className="wide">
-          {t("Tiện ích, cách nhau bằng dấu phẩy")}
-          <input
-            name="amenities"
-            defaultValue={existing?.amenities.join(", ")}
-            placeholder={t("wifi, điều hòa, chỗ để xe")}
-          />
-        </label>
-        {error && <p className="ll-form-error wide">{error}</p>}
-        <div className="ll-form-actions wide">
-          <button type="button" className="secondary" onClick={close}>
-            {t("Hủy")}
-          </button>
-          <button className="primary" disabled={busy}>
-            {busy ? <LoaderCircle className="spin" /> : <Plus />}{" "}
-            {t(existing ? "Lưu thay đổi" : "Thêm phòng")}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
-
 function UnitCard({
   unit,
   active,
   edit,
-  editUnit,
   changed,
 }: {
   unit: ManagedUnit;
   active: boolean;
   edit: () => void;
-  editUnit: () => void;
   changed: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [preview, setPreview] = useState(false);
+  const [unchanged, setUnchanged] = useState(false);
   async function action(path: string, body: unknown, method = "POST") {
     setBusy(true);
     setError("");
@@ -1003,11 +859,14 @@ function UnitCard({
       await housingManagement(path, method, body);
       await changed();
     } catch (cause) {
-      setError(
-        (cause as Error).message +
-          " " +
-          Object.values((cause as ApiError).fields || {}).join(" "),
-      );
+      // A rejected listing goes back only after the owner changes something.
+      if ((cause as ApiError).code === "listing_unchanged") setUnchanged(true);
+      else
+        setError(
+          (cause as Error).message +
+            " " +
+            Object.values((cause as ApiError).fields || {}).join(" "),
+        );
     } finally {
       setBusy(false);
     }
@@ -1024,6 +883,12 @@ function UnitCard({
           <span className="ll-property-row">
             <h3>{unit.unit_code}</h3>
             {status && <Status value={status} />}
+            {/* Vacancy only means something once tenants can see the listing. */}
+            {status === "published" && unit.availability_status && (
+              <span className={`ll-availability ${unit.availability_status}`}>
+                {t(availabilityLabels[unit.availability_status])}
+              </span>
+            )}
           </span>
           <p>
             {unit.area_m2 ? `${unit.area_m2} m²` : t("Chưa có diện tích")} ·{" "}
@@ -1031,23 +896,17 @@ function UnitCard({
               unit.bedrooms ?? "?",
               unit.bathrooms ?? "?",
             ])}
+            {unit.bathroom_type &&
+              ` · ${t(unit.bathroom_type === "shared" ? "vệ sinh chung" : "vệ sinh khép kín")}`}
           </p>
           {unit.title && <strong>{unit.title}</strong>}
         </div>
       </div>
       <div className="ll-unit-side">
-        <button className="secondary" onClick={editUnit}>
-          {t("Sửa phòng")}
-        </button>
         {unit.listing_id && (
           <button className="secondary" onClick={() => setPreview(true)}>
             {t("Xem trước")}
           </button>
-        )}
-        {unit.availability_status && (
-          <span className={`ll-availability ${unit.availability_status}`}>
-            {t(availabilityLabels[unit.availability_status])}
-          </span>
         )}
         <button
           className="secondary"
@@ -1162,6 +1021,33 @@ function UnitCard({
       {preview && unit.listing_id && (
         <ListingPreview id={unit.listing_id} close={() => setPreview(false)} />
       )}
+      {unchanged && (
+        <Dialog
+          title={t("Chưa thể gửi duyệt")}
+          onClose={() => setUnchanged(false)}
+        >
+          <p>{t("Bạn phải bổ sung thêm thông tin phù hợp.")}</p>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setUnchanged(false)}
+            >
+              {t("Đóng")}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setUnchanged(false);
+                edit();
+              }}
+            >
+              {t("Sửa tin")}
+            </button>
+          </div>
+        </Dialog>
+      )}
     </article>
   );
 }
@@ -1174,6 +1060,36 @@ type FeeRow = {
   required: boolean;
   refundable: boolean;
 };
+
+/** Fixed fees first, in a stable order, then the owner's other rows. */
+/** Visible required mark; the field's own `required` is what gets announced. */
+const Required = () => (
+  <span className="ll-required" aria-hidden="true">
+    {" *"}
+  </span>
+);
+
+/** The fixed fees always come first, in order; other rows follow. */
+function withFixedFees(rows: FeeRow[]): FeeRow[] {
+  const rest = [...rows];
+  const fixed = fixedFees.map((fee) => {
+    const index = rest.findIndex((row) =>
+      [row.code, feeCode(row.label, new Set())].some(
+        (code) => code === fee.code || code === fee.alias,
+      ),
+    );
+    if (index >= 0) return rest.splice(index, 1)[0];
+    return {
+      code: fee.code,
+      label: t(fee.label),
+      amount: "",
+      billing_unit: fee.billing_unit,
+      required: true,
+      refundable: false,
+    };
+  });
+  return [...fixed, ...rest];
+}
 
 function feeCode(label: string, taken: Set<string>) {
   const base =
@@ -1193,23 +1109,28 @@ function feeCode(label: string, taken: Set<string>) {
 
 function ListingForm({
   unit,
+  propertyId,
   close,
   done,
   active = true,
 }: {
-  unit: ManagedUnit;
+  unit?: ManagedUnit;
+  propertyId: string;
   active?: boolean;
   close: () => void;
   done: () => void;
 }) {
   const [busy, setBusy] = useState(false),
-    [loading, setLoading] = useState(Boolean(unit.listing_id));
+    [loading, setLoading] = useState(Boolean(unit?.listing_id));
   const [error, setError] = useState(""),
-    [listingId, setListingId] = useState(unit.listing_id);
+    [listingId, setListingId] = useState(unit?.listing_id);
   const [existing, setExisting] = useState<ManagedListing | null>(null);
-  const [fees, setFees] = useState<FeeRow[]>([]);
+  const [fees, setFees] = useState<FeeRow[]>(() => withFixedFees([]));
+  const [bathroomType, setBathroomType] = useState(unit?.bathroom_type || "");
   const [files, setFiles] = useState<File[]>([]);
   const [nonce] = useState(requestId);
+  const [roomId, setRoomId] = useState(unit?.id);
+  const [roomRevision, setRoomRevision] = useState(unit?.unit_revision || 1);
   const [preview, setPreview] = useState(false);
   const intent = useRef<"save" | "preview" | "submit">("save");
   async function reload(id = listingId) {
@@ -1220,11 +1141,11 @@ function ListingForm({
   }
 
   useEffect(() => {
-    if (!unit.listing_id) return;
+    if (!unit?.listing_id) return;
     const controller = new AbortController();
     setLoading(true);
     housingManagement<ManagedListing>(
-      `landlord/listings/${unit.listing_id}`,
+      `landlord/listings/${unit?.listing_id}`,
       "GET",
       undefined,
       controller.signal,
@@ -1232,14 +1153,16 @@ function ListingForm({
       .then((listing) => {
         setExisting(listing);
         setFees(
-          listing.fees.map((fee) => ({
-            code: fee.code,
-            label: fee.label,
-            amount: fee.amount == null ? "" : String(fee.amount),
-            billing_unit: fee.billing_unit,
-            required: fee.required,
-            refundable: fee.refundable,
-          })),
+          withFixedFees(
+            listing.fees.map((fee) => ({
+              code: fee.code,
+              label: fee.label,
+              amount: fee.amount == null ? "" : String(fee.amount),
+              billing_unit: fee.billing_unit,
+              required: fee.required,
+              refundable: fee.refundable,
+            })),
+          ),
         );
       })
       .catch((cause) => {
@@ -1249,7 +1172,7 @@ function ListingForm({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [unit.listing_id]);
+  }, [unit?.listing_id]);
 
   function addFee(label: string, billing_unit: string) {
     setFees((rows) => [
@@ -1285,7 +1208,12 @@ function ListingForm({
       deposit_vnd: f.get("deposit_vnd") ? Number(f.get("deposit_vnd")) : null,
       availability_from: f.get("availability_from") || null,
       fees: fees
-        .filter((row) => row.label.trim())
+        // An empty optional service fee means "none", not "amount unknown".
+        .filter(
+          (row, index) =>
+            row.label.trim() &&
+            !(fixedFees[index]?.mandatory === false && row.amount === ""),
+        )
         .map((row) => ({
           code: row.code,
           label: row.label.trim(),
@@ -1296,30 +1224,60 @@ function ListingForm({
         })),
     };
     try {
-      let id = listingId;
-      if (id)
-        await housingManagement(`landlord/listings/${id}`, "PATCH", {
-          ...payload,
-          revision: existing?.revision ?? unit.revision,
-        });
-      else {
-        const result = await housingManagement<{ id: string }>(
-          `landlord/units/${unit.id}/listing`,
-          "POST",
-          payload,
-        );
-        id = result.id;
-        setListingId(id);
-      }
+      if (
+        !files.length &&
+        !(existing?.media || []).some(
+          (image) => image.moderation_status !== "rejected",
+        )
+      )
+        throw new Error(t("Hãy tải ít nhất một ảnh phòng hợp lệ."));
+      if (
+        files.some(
+          (file) =>
+            !["image/jpeg", "image/png"].includes(file.type) ||
+            file.size > 5 * 1024 * 1024,
+        )
+      )
+        throw new Error(t("Ảnh phải là JPEG/PNG hợp lệ, tối đa 5 MB."));
+      const room = {
+        unit_code: String(f.get("unit_code") || "").trim(),
+        area_m2: Number(f.get("area_m2")),
+        bedrooms: Number(f.get("bedrooms")),
+        bathrooms: Number(f.get("bathrooms")),
+        bathroom_type: bathroomType || null,
+        // Amenities are now written in the description; keep earlier tags as they were.
+        amenities: unit?.amenities || [],
+      };
+      const result = await housingManagement<{
+        id: string;
+        unit_id: string;
+        unit_revision: number;
+      }>(
+        roomId
+          ? `landlord/units/${roomId}/room-listing`
+          : `landlord/properties/${propertyId}/room-listing`,
+        roomId ? "PUT" : "POST",
+        {
+          request_id: nonce,
+          unit: room,
+          listing: payload,
+          ...(roomId
+            ? {
+                unit_revision: roomRevision,
+                listing_revision: existing?.revision ?? unit?.revision,
+              }
+            : {}),
+        },
+      );
+      const id = result.id;
+      setRoomId(result.unit_id);
+      setRoomRevision(result.unit_revision);
+      setListingId(id);
       savedId = id;
       if (id) {
         await reload(id);
         for (const file of files) {
-          await uploadListingImage(
-            id,
-            file,
-            String(f.get("image_alt") || payload.title),
-          );
+          await uploadListingImage(id, file, String(payload.title));
           setFiles((previous) => previous.filter((value) => value !== file));
         }
         const latest = await housingManagement<ManagedListing>(
@@ -1357,14 +1315,14 @@ function ListingForm({
     <section className="ll-panel ll-form-panel">
       <div className="ll-section-heading">
         <div>
-          <span className="ll-eyebrow">{t("BƯỚC 3")}</span>
+          <span className="ll-eyebrow">{t("BƯỚC 2")}</span>
           <h2>
-            {listingId
-              ? t("Cập nhật tin")
-              : formatUi("Đăng tin cho {0}", [unit.unit_code])}
+            {listingId ? t("Cập nhật tin") : t("Thêm phòng và đăng tin")}
           </h2>
           <p>
-            {t("Ghi rõ toàn bộ chi phí để người thuê ước tính đúng ngân sách.")}
+            {t(
+              "Nhập thông tin phòng và nội dung tin trong một lần. Ghi rõ toàn bộ chi phí để người thuê ước tính đúng ngân sách.",
+            )}
           </p>
         </div>
         <button className="icon-button" onClick={close} aria-label={t("Đóng")}>
@@ -1391,61 +1349,181 @@ function ListingForm({
         </p>
       )}
       <form className="ll-form ll-listing-form" onSubmit={submit}>
+        <h3 className="wide ll-form-section">{t("Thông tin phòng")}</h3>
+        <label>
+          <span>{t("Mã phòng")}<Required /></span>
+          <input
+            name="unit_code"
+            required
+            maxLength={80}
+            defaultValue={unit?.unit_code || ""}
+            placeholder="P.301"
+          />
+        </label>
+        <label>
+          <span>{t("Diện tích (m²)")}<Required /></span>
+          <input
+            name="area_m2"
+            required
+            type="number"
+            min="1"
+            step="0.1"
+            defaultValue={unit?.area_m2 ?? undefined}
+          />
+        </label>
+        <label>
+          <span>{t("Phòng ngủ")}<Required /></span>
+          <input
+            name="bedrooms"
+            required
+            type="number"
+            min="0"
+            step="0.5"
+            defaultValue={unit?.bedrooms ?? 0}
+          />
+        </label>
+        <fieldset className="wide ll-bathroom">
+          <legend>{t("Phòng tắm")}<Required /></legend>
+          <div className="ll-choice-row">
+            {(
+              [
+                ["shared", "Phòng vệ sinh chung"],
+                ["private", "Phòng vệ sinh khép kín"],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className={"ll-choice" + (bathroomType === value ? " active" : "")}
+              >
+                <input
+                  type="radio"
+                  name="bathroom_type"
+                  value={value}
+                  required
+                  checked={bathroomType === value}
+                  onChange={() => setBathroomType(value)}
+                />
+                {t(label)}
+              </label>
+            ))}
+          </div>
+          {bathroomType && (
+            <label className="ll-bathroom-count">
+              {t(
+                bathroomType === "shared"
+                  ? "Số phòng vệ sinh chung"
+                  : "Số phòng vệ sinh khép kín",
+              )}
+              <input
+                name="bathrooms"
+                required
+                type="number"
+                min="1"
+                step="0.5"
+                defaultValue={unit?.bathrooms || 1}
+              />
+            </label>
+          )}
+        </fieldset>
+        <h3 className="wide ll-form-section">{t("Nội dung tin đăng")}</h3>
         <label className="wide">
-          {t("Tiêu đề")}
+          <span>{t("Tiêu đề")}<Required /></span>
           <input
             name="title"
+            required
+            minLength={5}
             maxLength={240}
-            defaultValue={existing?.title || unit.title || ""}
+            defaultValue={existing?.title || unit?.title || ""}
             placeholder={t("Phòng sáng thoáng, gần trường học")}
           />
         </label>
         <label className="wide">
-          {t("Mô tả")}
+          <span>{t("Mô tả tiện ích")}<Required /></span>
           <textarea
             name="description"
+            required
             rows={5}
             maxLength={5000}
             defaultValue={existing?.description || ""}
             placeholder={t(
-              "Không gian, nội thất, quy định và những điều người thuê cần biết…",
+              "Không gian, nội thất, tiện ích (wifi, máy lạnh, chỗ để xe…), quy định và những điều người thuê cần biết…",
             )}
           />
         </label>
         <label>
-          {t("Giá thuê / tháng")}
+          <span>{t("Giá thuê / tháng")}<Required /></span>
           <input
             name="rent_vnd"
             type="number"
-            min="0"
+            min="1"
+            required
             defaultValue={existing?.rent_vnd}
           />
         </label>
         <label>
-          {t("Tiền cọc")}
+          <span>{t("Tiền cọc")}<Required /></span>
           <input
             name="deposit_vnd"
             type="number"
             min="0"
+            required
             defaultValue={existing?.deposit_vnd ?? undefined}
           />
         </label>
         <label>
-          {t("Ngày có thể vào ở")}
+          <span>{t("Ngày có thể vào ở")}<Required /></span>
           <input
             name="availability_from"
             type="date"
+            required
             defaultValue={existing?.availability_from?.slice(0, 10) || ""}
           />
         </label>
         <fieldset className="wide ll-fees">
-          <legend>{t("Các khoản phí")}</legend>
+          <legend>{t("Các khoản phí")}<Required /></legend>
           <p className="ll-form-hint">
             {t(
-              "Để trống số tiền nếu chưa chốt; người thuê sẽ thấy “Chưa rõ” thay vì 0.",
+              "Tiền điện và tiền nước là bắt buộc. Các khoản dịch vụ chỉ nhập nếu có.",
             )}
           </p>
-          {fees.map((row, index) => (
+          {fees.map((row, index) =>
+            index < fixedFees.length ? (
+              <div className="ll-fee-row ll-fee-fixed" key={row.code}>
+                <span className="ll-fee-name">
+                  <strong>
+                    {row.label}
+                    {fixedFees[index].mandatory && <Required />}
+                  </strong>
+                  {!fixedFees[index].mandatory && (
+                    <small>{t("Nếu có · gồm cả phí giữ xe")}</small>
+                  )}
+                </span>
+                <input
+                  aria-label={formatUi("Số tiền {0}", [row.label])}
+                  type="number"
+                  min="0"
+                  required={fixedFees[index].mandatory}
+                  value={row.amount}
+                  placeholder={t(
+                    fixedFees[index].mandatory ? "Nhập số tiền" : "Nếu có",
+                  )}
+                  onChange={(e) => setFee(index, { amount: e.target.value })}
+                />
+                <select
+                  aria-label={formatUi("Đơn vị tính {0}", [row.label])}
+                  value={row.billing_unit}
+                  onChange={(e) =>
+                    setFee(index, { billing_unit: e.target.value })
+                  }
+                >
+                  {Object.entries(unitLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {t(label)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
             <div className="ll-fee-row" key={row.code}>
               <input
                 aria-label={t("Tên khoản phí")}
@@ -1507,7 +1585,8 @@ function ListingForm({
                 <X size={15} />
               </button>
             </div>
-          ))}
+            ),
+          )}
           <div className="ll-fee-suggestions">
             {feeSuggestions
               .filter((s) => !fees.some((row) => row.label === t(s.label)))
@@ -1560,13 +1639,6 @@ function ListingForm({
             {formatUi("{0} ảnh sẽ tải khi lưu nháp", [files.length])}
           </p>
         )}
-        <label className="wide">
-          {t("Mô tả ảnh")}
-          <input
-            name="image_alt"
-            placeholder={t("Ví dụ: Phòng ngủ nhìn từ cửa vào")}
-          />
-        </label>
         {error && (
           <p className="ll-form-error wide" role="alert">
             {error}
@@ -1581,6 +1653,16 @@ function ListingForm({
             className="secondary"
             disabled={busy}
             onClick={() => {
+              intent.current = "save";
+            }}
+          >
+            {busy && <LoaderCircle className="spin" />} {t("Lưu bản nháp")}
+          </button>
+          <button
+            type="submit"
+            className="secondary"
+            disabled={busy}
+            onClick={() => {
               intent.current = "preview";
             }}
           >
@@ -1588,7 +1670,7 @@ function ListingForm({
           </button>
           <button
             type="submit"
-            className="secondary"
+            className="primary"
             disabled={busy || !active}
             onClick={() => {
               intent.current = "submit";
@@ -1599,17 +1681,7 @@ function ListingForm({
                 : undefined
             }
           >
-            {t("Lưu và gửi duyệt")}
-          </button>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => {
-              intent.current = "save";
-            }}
-          >
-            {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />}{" "}
-            {t("Lưu bản nháp")}
+            <Send size={16} /> {t("Lưu và gửi duyệt")}
           </button>
         </div>
       </form>
@@ -1629,61 +1701,76 @@ function InboxPanel({
   initialThread?: string;
   changed: () => Promise<void>;
 }) {
+  const messenger = useContactMessenger();
   const [busy, setBusy] = useState<string | null>(null),
-    [error, setError] = useState(""),
-    [openThread, setOpenThread] = useState(initialThread),
-    // Opened conversations are read; avoid reloading the whole workspace (it would close them).
-    [read, setRead] = useState<Set<string>>(new Set());
+    [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
-  const filtered = contacts.filter(
-    (item) =>
-      filter === "all" ||
-      (filter === "unread" && item.unread > 0 && !read.has(item.id)) ||
-      (filter === "viewing" && item.viewing_status === "requested") ||
-      (filter === "closed" && ["resolved", "declined"].includes(item.status)) ||
-      (filter === "new" && item.status === "new"),
-  );
-  async function update(
-    item: ContactRequest,
-    status: ContactRequest["status"],
-  ) {
-    setBusy(item.id);
-    setError("");
-    try {
-      await housingManagement(`landlord/contact-requests/${item.id}`, "PATCH", {
-        status,
-        revision: item.revision,
-      });
-      await changed();
-    } catch (cause) {
-      setError((cause as Error).message);
-    } finally {
-      setBusy(null);
+  const [proposal, setProposal] = useState<ContactRequest | null>(null);
+  const [slots, setSlots] = useState<string[]>([]),
+    [chosen, setChosen] = useState<string[]>([]);
+  // The proposal window comes from the server setting HOUSING_VIEWING_PROPOSAL_DAYS.
+  const [proposalDays, setProposalDays] = useState(7);
+  const [rejecting, setRejecting] = useState<ContactRequest | null>(null),
+    [reason, setReason] = useState("");
+  const initialOpened = useRef("");
+  useEffect(() => {
+    const item = contacts.find((row) => row.id === initialThread);
+    if (item && initialOpened.current !== item.id) {
+      initialOpened.current = item.id;
+      document
+        .getElementById("contact-request-" + item.id)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-  }
-  // Viewing time booked by the tenant in their "Xem nhà" tab (viewing-landlord-confirmation §3).
-  async function answerViewing(
-    item: ContactRequest,
-    decision: "confirm" | "decline",
-  ) {
+  }, [initialThread, contacts, messenger]);
+  async function action(item: ContactRequest, suffix: string, body: Data) {
     setBusy(item.id);
     setError("");
     try {
       await housingManagement(
-        `landlord/contact-requests/${item.id}/viewing`,
+        `landlord/contact-requests/${item.id}/${suffix}`,
         "POST",
-        {
-          decision,
-          revision: item.revision,
-        },
+        body,
       );
       await changed();
+      messenger.refresh();
+      return true;
+    } catch (cause) {
+      setError((cause as Error).message);
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function propose(item: ContactRequest) {
+    setBusy(item.id);
+    setError("");
+    try {
+      const page = await api<Data>("/landlord/viewing-options");
+      if (Number.isInteger(page.days) && page.days > 0) setProposalDays(page.days);
+      setSlots(
+        (page.slots || []).filter(
+          (slot: string) =>
+            Date.parse(slot) !== Date.parse(item.viewing_slot || ""),
+        ),
+      );
+      setChosen([]);
+      setProposal(item);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
       setBusy(null);
     }
   }
+  const filtered = contacts.filter(
+    (item) =>
+      filter === "all" ||
+      (filter === "unread" && item.unread > 0) ||
+      (filter === "viewing" && item.viewing_status === "requested") ||
+      (filter === "payment" && item.payment_report?.status === "pending") ||
+      (filter === "closed" &&
+        (["resolved", "declined"].includes(item.status) ||
+          item.viewing_status === "cancelled")),
+  );
   return (
     <section className="ll-panel ll-inbox">
       <div className="ll-section-heading">
@@ -1692,7 +1779,7 @@ function InboxPanel({
           <h2>{t("Yêu cầu liên hệ")}</h2>
           <p>
             {t(
-              "Chỉ tài khoản quản lý đã xác minh mới thấy và xử lý các yêu cầu này.",
+              "Xác nhận lịch xem, trao đổi và phản hồi chuyển tiền với người thuê.",
             )}
           </p>
         </div>
@@ -1710,18 +1797,18 @@ function InboxPanel({
         >
           {[
             ["all", "Tất cả yêu cầu"],
-            ["new", "Yêu cầu mới"],
             ["unread", "Chưa đọc"],
             ["viewing", "Lịch xem cần xác nhận"],
+            ["payment", "Chờ xác nhận chuyển tiền"],
             ["closed", "Đã xử lý"],
           ].map(([key, label]) => (
             <option key={key} value={key}>
-              {t(label!)}
+              {t(label)}
             </option>
           ))}
         </select>
       </div>
-      {filtered.length === 0 ? (
+      {!filtered.length ? (
         <EmptyState
           icon={<Inbox />}
           title={t("Chưa có yêu cầu")}
@@ -1730,10 +1817,16 @@ function InboxPanel({
       ) : (
         <div className="ll-contact-list">
           {filtered.map((item) => {
-            const open = ["new", "contacted", "viewing"].includes(item.status);
+            const open = ["new", "contacted", "viewing"].includes(item.status),
+              payment = item.payment_report;
+            const closed =
+              ["resolved", "declined"].includes(item.status) ||
+              item.viewing_status === "cancelled";
             return (
               <article
                 key={item.id}
+                id={"contact-request-" + item.id}
+                tabIndex={-1}
                 className={item.status === "new" ? "new" : ""}
               >
                 <div className="ll-contact-top">
@@ -1752,7 +1845,7 @@ function InboxPanel({
                 <blockquote>{item.message}</blockquote>
                 {item.viewing_slot && item.viewing_status && (
                   <div className={`ll-viewing ${item.viewing_status}`}>
-                    <CalendarClock size={16} aria-hidden="true" />
+                    <CalendarClock size={16} />
                     <span>
                       <strong>
                         {formatUi("Giờ xem người thuê chọn: {0}", [
@@ -1766,14 +1859,20 @@ function InboxPanel({
                         <button
                           className="primary"
                           disabled={busy === item.id}
-                          onClick={() => void answerViewing(item, "confirm")}
+                          onClick={() =>
+                            void action(item, "viewing", {
+                              decision: "confirm",
+                              revision: item.revision,
+                            })
+                          }
                         >
-                          <CheckCircle2 size={15} /> {t("Xác nhận giờ xem")}
+                          <CheckCircle2 size={15} />
+                          {t("Xác nhận giờ xem")}
                         </button>
                         <button
                           className="secondary"
                           disabled={busy === item.id}
-                          onClick={() => void answerViewing(item, "decline")}
+                          onClick={() => void propose(item)}
                         >
                           {t("Không nhận giờ này")}
                         </button>
@@ -1781,79 +1880,244 @@ function InboxPanel({
                     )}
                   </div>
                 )}
-                <small>
-                  {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
-                </small>
-                <button
-                  className="text-button ll-thread-toggle"
-                  aria-expanded={openThread === item.id}
-                  onClick={() =>
-                    setOpenThread(openThread === item.id ? "" : item.id)
-                  }
-                >
-                  <MessageSquareText size={15} />{" "}
-                  {openThread === item.id
-                    ? t("Ẩn tin nhắn")
-                    : t("Nhắn tin với người thuê")}
-                  {item.unread > 0 &&
-                    !read.has(item.id) &&
-                    openThread !== item.id && (
-                      <span className="ll-count">{item.unread}</span>
-                    )}
-                </button>
-                {openThread === item.id && (
-                  <ContactThread
-                    requestId={item.id}
-                    onRead={() =>
-                      setRead((ids) =>
-                        ids.has(item.id) ? ids : new Set([...ids, item.id]),
-                      )
-                    }
-                  />
-                )}
-                {open && (
-                  <div className="ll-contact-actions">
-                    {item.status === "new" && (
-                      <button
-                        className="primary"
-                        disabled={busy === item.id}
-                        onClick={() => void update(item, "contacted")}
-                      >
-                        {t("Đã liên hệ")}
-                      </button>
-                    )}
-                    {item.status !== "viewing" &&
-                      !["requested", "confirmed"].includes(
-                        item.viewing_status || "",
-                      ) && (
-                        <button
-                          className="secondary"
-                          disabled={busy === item.id}
-                          onClick={() => void update(item, "viewing")}
-                        >
-                          {t("Đã hẹn xem")}
-                        </button>
-                      )}
+                {open && item.viewing_status === "declined" && (
+                  <div className="ll-handoff-card">
+                    <strong>{t("Giờ bạn đề xuất cho người thuê")}</strong>
+                    <ul>
+                      {(item.viewing_options || []).map((slot) => (
+                        <li key={slot}>{dateTime(slot)}</li>
+                      ))}
+                    </ul>
                     <button
-                      className="text-button"
+                      className="secondary"
                       disabled={busy === item.id}
-                      onClick={() => void update(item, "resolved")}
+                      onClick={() => void propose(item)}
                     >
-                      {t("Hoàn tất")}
-                    </button>
-                    <button
-                      className="text-button"
-                      disabled={busy === item.id}
-                      onClick={() => void update(item, "declined")}
-                    >
-                      {t("Từ chối")}
+                      {t("Cập nhật giờ phù hợp")}
                     </button>
                   </div>
                 )}
+                {payment && (
+                  <div className="ll-handoff-card" role="status">
+                    <strong>
+                      {t(
+                        payment.status === "pending"
+                          ? "Người thuê báo đã chuyển tiền"
+                          : payment.status === "confirmed"
+                            ? "Đã xác nhận nhận tiền · hoàn tất"
+                            : "Đã phản hồi chưa nhận / chưa khớp",
+                      )}
+                    </strong>
+                    <p>
+                      {formatUi("Số tiền: {0} · ngày chuyển: {1}", [
+                        money(payment.amount_vnd),
+                        payment.paid_on.slice(0, 10),
+                      ])}
+                    </p>
+                    <p>
+                      {formatUi("Thỏa thuận: cọc {0} + tháng đầu {1}", [
+                        money(payment.agreement.deposit_vnd || 0),
+                        money(payment.agreement.first_month_vnd || 0),
+                      ])}
+                      {payment.agreement.move_in
+                        ? formatUi(" · dọn vào {0}", [
+                            payment.agreement.move_in,
+                          ])
+                        : ""}
+                    </p>
+                    {payment.reason && <p>{payment.reason}</p>}
+                    {payment.status === "pending" && open && (
+                      <div className="ll-viewing-actions">
+                        <button
+                          className="primary"
+                          disabled={busy === item.id}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                t(
+                                  "Xác nhận đã nhận khoản tiền này? Yêu cầu sẽ hoàn tất và phòng được đánh dấu đã thuê.",
+                                ),
+                              )
+                            )
+                              void action(item, "payment-review", {
+                                report_id: payment.id,
+                                revision: payment.revision,
+                                decision: "confirm",
+                              });
+                          }}
+                        >
+                          {t("Xác nhận đã nhận tiền")}
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy === item.id}
+                          onClick={() => {
+                            setRejecting(item);
+                            setReason("");
+                          }}
+                        >
+                          {t("Chưa nhận / không khớp")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <small>
+                  {formatUi("Nhận lúc {0}", [dateTime(item.created_at)])}
+                </small>
+                <div className="ll-contact-actions">
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      messenger.open(item.id, item.title, "landlord")
+                    }
+                  >
+                    <MessageSquareText size={15} />
+                    {t("Nhắn tin với người thuê")}
+                    {item.unread > 0 && (
+                      <span className="ll-count">{item.unread}</span>
+                    )}
+                  </button>
+                  {closed && payment?.status !== "pending" && (
+                    <button
+                      className="text-button"
+                      disabled={busy === item.id}
+                      onClick={() =>
+                        void action(item, "archive", {
+                          revision: item.revision,
+                        })
+                      }
+                    >
+                      <Trash2 size={15} />
+                      {t("Xóa khỏi hộp thư")}
+                    </button>
+                  )}
+                </div>
               </article>
             );
           })}
         </div>
+      )}
+      {proposal && (
+        <Dialog
+          title={formatUi("Đề xuất giờ xem trong {0} ngày tới", [proposalDays])}
+          onClose={() => {
+            if (!busy) setProposal(null);
+          }}
+        >
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (
+                await action(proposal, "viewing-options", {
+                  revision: proposal.revision,
+                  slots: chosen,
+                })
+              )
+                setProposal(null);
+            }}
+          >
+            <p>
+              {t(
+                "Người thuê chỉ được chọn những giờ bạn đề xuất. Chọn ít nhất một khung giờ phù hợp.",
+              )}
+            </p>
+            <div className="ll-proposal-days">
+              {[...new Set(slots.map((slot) => slot.slice(0, 10)))].map(
+                (day) => (
+                  <fieldset key={day}>
+                    <legend>{day.split("-").reverse().join("/")}</legend>
+                    <div>
+                      {slots
+                        .filter((slot) => slot.startsWith(day))
+                        .map((slot) => (
+                          <label key={slot}>
+                            <input
+                              type="checkbox"
+                              checked={chosen.includes(slot)}
+                              onChange={(event) =>
+                                setChosen((values) =>
+                                  event.target.checked
+                                    ? [...values, slot]
+                                    : values.filter((value) => value !== slot),
+                                )
+                              }
+                            />
+                            {slot.slice(11, 16)}
+                          </label>
+                        ))}
+                    </div>
+                  </fieldset>
+                ),
+              )}
+            </div>
+            {!slots.length && (
+              <p role="status">
+                {t(
+                  "Chưa có khung giờ khả dụng trong tuần tới. Hãy tải lại sau.",
+                )}
+              </p>
+            )}
+            {error && <p role="alert">{error}</p>}
+            <div className="form-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={Boolean(busy)}
+                onClick={() => setProposal(null)}
+              >
+                {t("Hủy")}
+              </button>
+              <button
+                className="primary"
+                disabled={Boolean(busy) || !chosen.length}
+              >
+                {t("Gửi giờ thay thế")}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      {rejecting?.payment_report && (
+        <Dialog
+          title={t("Phản hồi chuyển tiền")}
+          onClose={() => {
+            if (!busy) setRejecting(null);
+          }}
+        >
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const payment = rejecting.payment_report!;
+              if (
+                await action(rejecting, "payment-review", {
+                  report_id: payment.id,
+                  revision: payment.revision,
+                  decision: "reject",
+                  reason,
+                })
+              )
+                setRejecting(null);
+            }}
+          >
+            <label>
+              {t("Lý do / thông tin cần kiểm tra")}
+              <textarea
+                required
+                maxLength={1000}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </label>
+            {error && <p role="alert">{error}</p>}
+            <button
+              className="primary"
+              disabled={Boolean(busy) || !reason.trim()}
+            >
+              {t("Gửi phản hồi")}
+            </button>
+          </form>
+        </Dialog>
       )}
     </section>
   );
@@ -1898,9 +2162,11 @@ function HostLine({
 export function ModerationPanel({
   queue,
   changed,
+  viewerId,
 }: {
   queue: ModerationQueue | null;
   changed: () => Promise<void>;
+  viewerId: string;
 }) {
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState(""),
@@ -1943,7 +2209,7 @@ export function ModerationPanel({
       ) : (
         <div className="ll-review-list">
           {queue.hosts.map((h) => (
-            <article key={h.user_id}>
+            <article key={h.user_id} id={"moderation-identity-"+h.user_id} tabIndex={-1}>
               <div>
                 <strong>
                   {h.display_name} · {t(posterLabels[h.poster_type])}
@@ -1973,6 +2239,11 @@ export function ModerationPanel({
                     dateTime(h.updated_at),
                   ])}
                 </small>
+                {(h.user_id === viewerId || h.can_review === false) && (
+                  <p className="ll-form-hint">
+                    {t("Hồ sơ của bạn cần một Admin khác xác minh.")}
+                  </p>
+                )}
                 <div className="ll-review-inputs">
                   <select
                     aria-label={t("Cách đã xác minh")}
@@ -2004,7 +2275,12 @@ export function ModerationPanel({
               <div className="ll-review-actions">
                 <button
                   className="primary"
-                  disabled={busy === h.user_id || !methods[h.user_id]}
+                  disabled={
+                    busy === h.user_id ||
+                    !methods[h.user_id] ||
+                    h.user_id === viewerId ||
+                    h.can_review === false
+                  }
                   onClick={() =>
                     void run(
                       h.user_id,
@@ -2022,7 +2298,11 @@ export function ModerationPanel({
                 </button>
                 <button
                   className="secondary"
-                  disabled={busy === h.user_id}
+                  disabled={
+                    busy === h.user_id ||
+                    h.user_id === viewerId ||
+                    h.can_review === false
+                  }
                   onClick={() =>
                     void run(
                       h.user_id,
@@ -2050,7 +2330,7 @@ export function ModerationPanel({
       ) : (
         <div className="ll-review-list">
           {queue.properties.map((p) => (
-            <article key={p.id}>
+            <article key={p.id} id={"moderation-identity-"+p.id} tabIndex={-1}>
               <div>
                 <strong>{p.name}</strong>
                 <p>
@@ -2060,6 +2340,7 @@ export function ModerationPanel({
                   {t(propertyLabels[p.property_type] || p.property_type)} ·{" "}
                   {formatUi("gửi lúc {0}", [dateTime(p.requested_at)])}
                 </small>
+
                 {p.lat != null && p.lng != null && (
                   <PrivateLocationMap lat={p.lat} lng={p.lng} />
                 )}
@@ -2076,6 +2357,7 @@ export function ModerationPanel({
                 className="primary"
                 disabled={
                   busy === p.id ||
+                  p.user_id === viewerId ||
                   p.host_status !== "verified" ||
                   !p.location_confirmed_at
                 }

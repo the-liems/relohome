@@ -1,4 +1,4 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
@@ -242,9 +242,19 @@ function messageRate() {
 
 // Who may read a conversation: the tenant who sent the request, or an active manager of the property.
 // Anyone else gets 404 so request IDs cannot be probed.
-async function conversationRole(pool: DatabasePool, user: string, requestId: string) {
+// Resolve only the other participant of an authorized contact, never a client-supplied account.
+export const contactCounterpartySql = (userParameter: '$1' | '$2') => `
+  CASE WHEN cr.tenant_user_id<>${userParameter} THEN cr.tenant_user_id ELSE coalesce(
+    (SELECT m.sender_user_id FROM housing.contact_messages m
+      WHERE m.request_id=cr.id AND m.sender_role='landlord'
+      ORDER BY m.created_at DESC,m.id DESC LIMIT 1),
+    (SELECT mm.user_id FROM housing.management_members mm
+      WHERE mm.property_id=l.property_id AND mm.status='active'
+      ORDER BY (mm.role='owner') DESC,mm.requested_at,mm.user_id LIMIT 1)) END`
+
+export async function conversationRole(pool: Pick<DatabasePool, 'query'>, user: string, requestId: string) {
   const result = await pool.query(
-    `SELECT cr.*,l.title,
+    `SELECT cr.*,l.title,${contactCounterpartySql('$2')} AS counterparty_user_id,
        CASE WHEN cr.tenant_user_id=$2 THEN 'tenant'
             WHEN EXISTS(SELECT 1 FROM housing.management_members mm WHERE mm.property_id=l.property_id
                         AND mm.user_id=$2 AND mm.status='active') THEN 'landlord' END AS role
@@ -254,6 +264,16 @@ async function conversationRole(pool: DatabasePool, user: string, requestId: str
   const row = result.rows[0]
   if (!row?.role) throw new ManagementError(404, 'Không tìm thấy cuộc trò chuyện.')
   return row as Record<string, unknown> & { role: 'tenant' | 'landlord' }
+}
+
+async function notOwnContact(pool: DatabasePool, user: string, listing: string) {
+  const result = await pool.query(
+    `SELECT 1 FROM housing.listings l JOIN housing.management_members mm
+    ON mm.property_id=l.property_id WHERE l.id=$1 AND mm.user_id=$2 AND mm.status<>'revoked'`,
+    [listing, user],
+  )
+  if (result.rowCount)
+    throw new ManagementError(409, 'Hãy dùng tài khoản người thuê khác để liên hệ nhà bạn quản lý.', 'self_contact')
 }
 
 // Unread messages for one side of a conversation (SQL fragment over alias `cr`).
@@ -296,7 +316,11 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const input = HostProfileInput.parse(request.body)
     const terms = termsVersion()
     if (terms && input.accept_terms_version !== undefined && input.accept_terms_version !== terms) {
-      throw new ManagementError(409, 'Điều khoản đã có phiên bản mới; hãy tải lại trang.', 'host_terms_required')
+      throw new ManagementError(
+        409,
+        'Điều khoản đã có phiên bản mới; hãy tải lại trang.',
+        'host_terms_required',
+      )
     }
     const accepted = terms && input.accept_terms_version === terms ? terms : null
     const current = await hostProfile(pool, user)
@@ -494,6 +518,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     const units = await pool.query(
       `SELECT u.id,u.unit_code,u.bedrooms,u.bathrooms,u.area_m2,u.amenities,u.revision AS unit_revision,
+        u.attributes->>'bathroom_type' AS bathroom_type,
         l.id AS listing_id,l.title,ml.publication_status,ml.availability_status,ml.revision
        FROM housing.units u LEFT JOIN housing.listings l ON l.unit_id=u.id AND l.deleted_at IS NULL
        LEFT JOIN housing.managed_listings ml ON ml.listing_id=l.id
@@ -567,6 +592,229 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     }
   })
 
+  // One transaction for room details, listing content and costs. Photos use the
+  // existing validated uploader; publication still uses the existing review gate.
+  const RoomListingInput = z.object({
+    request_id: Id,
+    unit: UnitInput.extend({
+      area_m2: z.number().positive().max(100000),
+      bedrooms: z.number().min(0).max(100),
+      bathrooms: z.number().min(0).max(100),
+      // Shared or en-suite toilet; kept in unit attributes, no column of its own.
+      bathroom_type: z.enum(['shared', 'private']).nullable().default(null),
+    }),
+    listing: ListingInput.extend({
+      title: z.string().trim().min(5).max(240),
+      description: z.string().trim().min(1).max(5000),
+      rent_vnd: z.number().int().positive().max(10000000000),
+    }),
+    unit_revision: Revision.optional(),
+    listing_revision: Revision.optional(),
+  })
+  const saveRoomListing = async (request: FastifyRequest, reply: import('fastify').FastifyReply) => {
+    const user = actor(request),
+      input = RoomListingInput.parse(request.body)
+    const params = request.params as { propertyId?: string; unitId?: string }
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      let room: Record<string, any> | undefined
+      let propertyId = params.propertyId ? Id.parse(params.propertyId) : undefined
+      if (params.unitId) {
+        room = (
+          await client.query('SELECT * FROM housing.units WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [
+            Id.parse(params.unitId),
+          ])
+        ).rows[0]
+        if (!room) throw new ManagementError(404, 'Không tìm thấy phòng.')
+        propertyId = room.property_id
+      }
+      if (!propertyId) throw new ManagementError(404, 'Không tìm thấy nhà.')
+      await member(client, user, propertyId)
+      await requireHostProfile(client, user)
+      if (!room) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          user + ':room:' + propertyId + ':' + input.request_id,
+        ])
+        const fingerprint = createHash('sha256')
+          .update(JSON.stringify({ unit: input.unit, listing: input.listing }))
+          .digest('hex')
+        const previous = (
+          await client.query(
+            `SELECT u.id,u.revision AS unit_revision,u.attributes,l.id AS listing_id,ml.revision
+          FROM housing.units u JOIN housing.listings l ON l.unit_id=u.id JOIN housing.managed_listings ml ON ml.listing_id=l.id
+          WHERE u.property_id=$1 AND u.attributes->>'create_request_id'=$2 AND u.attributes->>'create_actor_id'=$3`,
+            [propertyId, input.request_id, user],
+          )
+        ).rows[0]
+        if (previous) {
+          if (previous.attributes.create_payload_sha256 !== fingerprint)
+            throw new ManagementError(409, 'Yêu cầu tạo phòng đã được dùng với nội dung khác.')
+          await client.query('COMMIT')
+          return reply
+            .status(200)
+            .send({
+              id: previous.listing_id,
+              unit_id: previous.id,
+              unit_revision: previous.unit_revision,
+              revision: previous.revision,
+              reused: true,
+            })
+        }
+        room = (
+          await client.query(
+            `INSERT INTO housing.units(property_id,unit_code,bedrooms,bathrooms,area_m2,amenities,attributes)
+          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [
+              propertyId,
+              input.unit.unit_code,
+              input.unit.bedrooms,
+              input.unit.bathrooms,
+              input.unit.area_m2,
+              input.unit.amenities,
+              {
+                source: 'self_service',
+                create_request_id: input.request_id,
+                create_actor_id: user,
+                create_payload_sha256: fingerprint,
+                ...(input.unit.bathroom_type ? { bathroom_type: input.unit.bathroom_type } : {}),
+              },
+            ],
+          )
+        ).rows[0]
+      }
+      const existing = (
+        await client.query(
+          `SELECT l.id,l.title,l.description,ml.revision,ml.publication_status FROM housing.listings l JOIN housing.managed_listings ml ON ml.listing_id=l.id WHERE l.unit_id=$1 AND l.deleted_at IS NULL FOR UPDATE OF l,ml`,
+          [room!.id],
+        )
+      ).rows[0]
+      // Saving an unchanged form keeps the revisions, so a rejected listing still
+      // counts as unchanged when it is sent back for review.
+      let changed = !existing
+      if (params.unitId) {
+        if (
+          input.unit_revision !== room!.revision ||
+          (existing && input.listing_revision !== existing.revision)
+        )
+          throw new ManagementError(409, 'Phòng hoặc tin đã thay đổi. Hãy tải lại.', 'revision_conflict')
+        if (existing?.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
+        const value = (v: unknown) => (v == null ? null : Number(v))
+        const unitChanged =
+          room!.unit_code !== input.unit.unit_code ||
+          value(room!.bedrooms) !== input.unit.bedrooms ||
+          value(room!.bathrooms) !== input.unit.bathrooms ||
+          value(room!.area_m2) !== input.unit.area_m2 ||
+          !isDeepStrictEqual(room!.amenities || [], input.unit.amenities) ||
+          (room!.attributes?.bathroom_type ?? null) !== input.unit.bathroom_type
+        if (unitChanged) {
+          changed = true
+          room = (
+            await client.query(
+              `UPDATE housing.units SET unit_code=$2,bedrooms=$3,bathrooms=$4,area_m2=$5,amenities=$6,
+              attributes=CASE WHEN $7::text IS NULL THEN attributes - 'bathroom_type'
+                ELSE attributes || jsonb_build_object('bathroom_type',$7::text) END,
+              revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`,
+              [
+                room!.id,
+                input.unit.unit_code,
+                input.unit.bedrooms,
+                input.unit.bathrooms,
+                input.unit.area_m2,
+                input.unit.amenities,
+                input.unit.bathroom_type,
+              ],
+            )
+          ).rows[0]
+        }
+      }
+      const listingId = existing?.id || randomUUID(),
+        content = input.listing
+      if (existing) {
+        if (existing.title !== content.title || existing.description !== content.description) {
+          changed = true
+          await client.query(
+            'UPDATE housing.listings SET title=$2,description=$3,updated_at=now() WHERE id=$1',
+            [listingId, content.title, content.description],
+          )
+        }
+      } else {
+        await client.query(
+          `INSERT INTO housing.listings(id,property_id,unit_id,listing_type,title,description,source_type,source_listing_id,status,attributes)
+          VALUES($1,$2,$3,'rent',$4,$5,'user',$6,'inactive',$7)`,
+          [
+            listingId,
+            propertyId,
+            room!.id,
+            content.title,
+            content.description,
+            'self:' + listingId,
+            { self_service: true, create_request_id: input.request_id },
+          ],
+        )
+        await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [
+          listingId,
+          user,
+        ])
+      }
+      const offer = (
+        await client.query(
+          'SELECT * FROM housing.offers WHERE listing_id=$1 AND is_active ORDER BY valid_from DESC LIMIT 1',
+          [listingId],
+        )
+      ).rows[0]
+      const date = offer?.availability_from
+        ? new Date(offer.availability_from).toISOString().slice(0, 10)
+        : null
+      if (
+        !offer ||
+        Number(offer.price_amount) !== content.rent_vnd ||
+        (offer.deposit_amount === null ? null : Number(offer.deposit_amount)) !== content.deposit_vnd ||
+        date !== content.availability_from
+      ) {
+        changed = true
+        await client.query(
+          'UPDATE housing.offers SET is_active=false,valid_to=now() WHERE listing_id=$1 AND is_active',
+          [listingId],
+        )
+        await client.query(
+          `INSERT INTO housing.offers(listing_id,price_amount,currency,price_period,deposit_amount,availability_from,is_active) VALUES($1,$2,'VND','month',$3,$4,true)`,
+          [listingId, content.rent_vnd, content.deposit_vnd, content.availability_from],
+        )
+      }
+      const oldFees = (
+        await client.query(
+          'SELECT code,label,amount::float,billing_unit,required,refundable FROM housing.listing_fees WHERE listing_id=$1 AND valid_to IS NULL ORDER BY code',
+          [listingId],
+        )
+      ).rows
+      const fees = [...content.fees].sort((a, b) => a.code.localeCompare(b.code))
+      if (!isDeepStrictEqual(oldFees, fees)) {
+        changed = true
+        await replaceFees(client, listingId, content.fees)
+      }
+      if (changed)
+        await client.query(
+          'UPDATE housing.managed_listings SET revision=revision+1,updated_at=now() WHERE listing_id=$1',
+          [listingId],
+        )
+      const result = await revisionOf(client, listingId)
+      await client.query('COMMIT')
+      return reply
+        .status(existing ? 200 : 201)
+        .send({ id: listingId, unit_id: room!.id, unit_revision: room!.revision, ...result })
+    } catch (error) {
+      await client.query('ROLLBACK')
+      if ((error as { code?: string }).code === '23505')
+        throw new ManagementError(409, 'Mã phòng đã tồn tại trong nhà này.')
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+  app.post('/v1/landlord/properties/:propertyId/room-listing', saveRoomListing)
+  app.put('/v1/landlord/units/:unitId/room-listing', saveRoomListing)
+
   app.post('/v1/landlord/properties/:propertyId/units', async (request, reply) => {
     const user = actor(request)
     const propertyId = Id.parse((request.params as { propertyId: string }).propertyId)
@@ -627,7 +875,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.post('/v1/landlord/units/:unitId/listing', async (request, reply) => {
     const user = actor(request)
     const unitId = Id.parse((request.params as { unitId: string }).unitId)
-    const owner = await pool.query('SELECT property_id FROM housing.units WHERE id=$1 AND deleted_at IS NULL', [unitId])
+    const owner = await pool.query(
+      'SELECT property_id FROM housing.units WHERE id=$1 AND deleted_at IS NULL',
+      [unitId],
+    )
     if (!owner.rows[0]) throw new ManagementError(404, 'Không tìm thấy phòng.')
     await member(pool, user, String(owner.rows[0].property_id))
     const input = ListingInput.parse(request.body)
@@ -673,7 +924,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
          VALUES($1,$2,'VND','month',$3,$4,true)`,
         [listingId, input.rent_vnd, input.deposit_vnd, input.availability_from],
       )
-      await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [listingId, user])
+      await client.query('INSERT INTO housing.managed_listings(listing_id,created_by) VALUES($1,$2)', [
+        listingId,
+        user,
+      ])
       await replaceFees(client, listingId, input.fees)
       const result = await revisionOf(client, listingId)
       await client.query('COMMIT')
@@ -880,7 +1134,14 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         VALUES($1,$2,$3,'self_service',COALESCE((SELECT max(position)+1 FROM housing.listing_media WHERE listing_id=$1),0),
         'pending',$4,$5,$6,NOT EXISTS(SELECT 1 FROM housing.listing_media WHERE listing_id=$1 AND deleted_at IS NULL))
         RETURNING id,url,alt_text,moderation_status`,
-        [listingId, input.url, input.alt, user, input.content_sha256, new URL(input.url).pathname.split('/').pop()],
+        [
+          listingId,
+          input.url,
+          input.alt,
+          user,
+          input.content_sha256,
+          new URL(input.url).pathname.split('/').pop(),
+        ],
       )
       await client.query('COMMIT')
       return reply.status(201).send(result.rows[0])
@@ -904,6 +1165,18 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       await requireHostProfile(client, user)
       if (!['draft', 'rejected', 'hidden'].includes(row.publication_status))
         throw new ManagementError(409, 'Tin không thể gửi duyệt ở trạng thái hiện tại.')
+      if (row.publication_status === 'rejected') {
+        // Every owner edit bumps the revision; the rejection itself left it at reviewed+1.
+        const rejection = (
+          await client.query(
+            `SELECT reviewed_revision FROM housing.listing_reviews
+             WHERE listing_id=$1 AND decision='reject' ORDER BY created_at DESC LIMIT 1`,
+            [listingId],
+          )
+        ).rows[0]
+        if (rejection && row.revision === rejection.reviewed_revision + 1)
+          throw new ManagementError(409, 'Bạn phải bổ sung thêm thông tin phù hợp.', 'listing_unchanged')
+      }
       await requireCompleteListing(client, listingId)
       await client.query(
         `UPDATE housing.managed_listings SET publication_status='pending_review',revision=revision+1,updated_at=now() WHERE listing_id=$1`,
@@ -967,9 +1240,17 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         )
       ).rows[0]
       if (!property || property.revision !== input.revision)
-        throw new ManagementError(409, 'Địa điểm đã thay đổi. Hãy tải lại trước khi duyệt.', 'revision_conflict')
+        throw new ManagementError(
+          409,
+          'Địa điểm đã thay đổi. Hãy tải lại trước khi duyệt.',
+          'revision_conflict',
+        )
       if (!property.location_confirmed_at)
-        throw new ManagementError(409, 'Địa điểm chưa được xác nhận trên bản đồ.', 'location_confirmation_required')
+        throw new ManagementError(
+          409,
+          'Địa điểm chưa được xác nhận trên bản đồ.',
+          'location_confirmation_required',
+        )
       const pending = await client.query(
         `SELECT user_id FROM housing.management_members WHERE property_id=$1 AND status='pending' FOR UPDATE`,
         [propertyId],
@@ -1021,10 +1302,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     const hosts = await pool.query(
       `SELECT hp.user_id,hp.poster_type,hp.display_name,hp.legal_name,hp.phone,hp.broker_license_no,hp.business_name,
-         hp.tax_code,hp.updated_at,hp.revision,
+         hp.tax_code,hp.updated_at,hp.revision,(hp.user_id <> $1) AS can_review,
          (SELECT count(*)::int FROM housing.management_members mm WHERE mm.user_id=hp.user_id AND mm.status='pending') AS pending_properties,
          (SELECT count(*)::int FROM housing.managed_listings ml WHERE ml.created_by=hp.user_id AND ml.publication_status='pending_review') AS pending_listings
-       FROM housing.host_profiles hp WHERE hp.status='pending' AND hp.user_id <> $1 ORDER BY hp.updated_at`,
+       FROM housing.host_profiles hp WHERE hp.status='pending' ORDER BY hp.updated_at`,
       [user],
     )
     return {
@@ -1105,6 +1386,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
     const input = ContactInput.parse(request.body)
+    await notOwnContact(pool, user, listingId)
     const eligible = await pool.query(
       `SELECT 1 FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
        WHERE ml.listing_id=$1 AND ml.publication_status='published' AND ml.availability_status='vacant' AND l.status='active'
@@ -1114,7 +1396,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!eligible.rowCount) throw new ManagementError(409, 'Tin hiện không nhận yêu cầu liên hệ.')
     try {
       const result = await pool.query(
-        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message) VALUES($1,$2,$3)
+        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,landlord_activity_at) VALUES($1,$2,$3,now())
          RETURNING id,status,revision,created_at`,
         [listingId, user, input.message],
       )
@@ -1134,11 +1416,14 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.get('/v1/landlord/contact-requests', async request => {
     const user = actor(request)
     const result = await pool.query(
-      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.unit_code,p.name AS property_name,
-         cr.viewing_slot,cr.viewing_status,cr.source,${unreadFor('landlord')}
+      `SELECT cr.id,cr.listing_id,cr.tenant_user_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,u.id AS unit_id,u.unit_code,p.id AS property_id,p.name AS property_name,
+         cr.viewing_slot,cr.viewing_status,cr.viewing_options,cr.source,
+         cr.landlord_activity_at>coalesce(cr.landlord_activity_read_at,'epoch') AS update_unread,
+         (SELECT to_jsonb(r) FROM housing.rent_payment_reports r WHERE r.request_id=cr.id ORDER BY created_at DESC,id DESC LIMIT 1) AS payment_report,${unreadFor('landlord')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        LEFT JOIN housing.units u ON u.id=l.unit_id JOIN housing.properties p ON p.id=l.property_id
        JOIN housing.management_members mm ON mm.property_id=p.id AND mm.user_id=$1 AND mm.status='active'
+       WHERE NOT EXISTS(SELECT 1 FROM housing.contact_archives a WHERE a.request_id=cr.id AND a.user_id=$1)
        ORDER BY (cr.viewing_status='requested') DESC,(cr.status='new') DESC,cr.created_at DESC`,
       [user],
     )
@@ -1149,7 +1434,9 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const result = await pool.query(
       `SELECT cr.id,cr.listing_id,cr.message,cr.status,cr.revision,cr.created_at,cr.updated_at,l.title,
-         cr.viewing_slot,cr.viewing_status,cr.viewing_updated_at,cr.source,${unreadFor('tenant')}
+         cr.viewing_slot,cr.viewing_status,cr.viewing_options,cr.viewing_updated_at,cr.source,
+         cr.tenant_activity_at>coalesce(cr.tenant_activity_read_at,'epoch') AS update_unread,
+         (SELECT to_jsonb(r) FROM housing.rent_payment_reports r WHERE r.request_id=cr.id ORDER BY created_at DESC,id DESC LIMIT 1) AS payment_report,${unreadFor('tenant')}
        FROM housing.contact_requests cr JOIN housing.listings l ON l.id=cr.listing_id
        WHERE cr.tenant_user_id=$1 ORDER BY cr.created_at DESC`,
       [user],
@@ -1163,6 +1450,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
     const input = ViewingInput.parse(request.body)
+    await notOwnContact(pool, user, listingId)
     const slot = new Date(input.slot)
     if (slot.getTime() <= Date.now()) throw new ManagementError(422, 'Giờ xem đã qua.')
     const eligible = await pool.query(
@@ -1173,11 +1461,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     )
     if (!eligible.rowCount) throw new ManagementError(409, 'Tin này không nhận lịch xem qua ReloHome.', 'not_managed')
     const open = await pool.query(
-      `SELECT id,viewing_slot,viewing_status FROM housing.contact_requests
+      `SELECT id,revision,viewing_slot,viewing_status,viewing_options FROM housing.contact_requests
        WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')`,
       [listingId, user],
     )
     const current = open.rows[0]
+    const options = current?.viewing_options as string[] | undefined
+    if (options?.length && !options.some(value => new Date(value).getTime() === slot.getTime())) {
+      throw new ManagementError(409, 'Hãy chọn một trong các giờ chủ nhà đề xuất.', 'viewing_option_required')
+    }
     const sameSlot = current?.viewing_slot && new Date(current.viewing_slot).getTime() === slot.getTime()
     // A slot the landlord already answered stays answered; the tenant has to pick a different time.
     if (current && sameSlot && ['requested', 'confirmed', 'declined'].includes(current.viewing_status)) {
@@ -1190,15 +1482,19 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (current) {
       const updated = await pool.query(
         `UPDATE housing.contact_requests SET viewing_slot=$2,viewing_status='requested',viewing_updated_at=now(),
-           revision=revision+1,updated_at=now() WHERE id=$1 RETURNING id,viewing_status`,
-        [current.id, slot],
+           revision=revision+1,source='viewing',updated_at=now(),landlord_activity_at=now() WHERE id=$1 AND revision=$3 AND status IN ('new','contacted','viewing')
+             AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=$1 AND r.status IN ('pending','confirmed'))
+             AND (jsonb_array_length(viewing_options)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(viewing_options) option WHERE option::timestamptz=$2::timestamptz))
+           RETURNING id,viewing_status`,
+        [current.id, slot, current.revision],
       )
+      if (!updated.rowCount) throw new ManagementError(409, 'Lịch hoặc báo cáo chuyển tiền đã thay đổi; hãy tải lại.')
       return { ...updated.rows[0], changed: true }
     }
     try {
       const created = await pool.query(
-        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,viewing_updated_at,source)
-         VALUES($1,$2,'Người thuê đặt lịch xem nhà qua ReloHome.',$3,'requested',now(),'viewing') RETURNING id,viewing_status`,
+        `INSERT INTO housing.contact_requests(listing_id,tenant_user_id,message,viewing_slot,viewing_status,viewing_updated_at,source,landlord_activity_at)
+         VALUES($1,$2,'Người thuê đặt lịch xem nhà qua ReloHome.',$3,'requested',now(),'viewing',now()) RETURNING id,viewing_status`,
         [listingId, user, slot],
       )
       await pool.query(
@@ -1217,27 +1513,49 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.delete('/v1/housing/:listingId/viewing', async request => {
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
-    // A request that only existed for this viewing and was never handled closes with it.
-    const result = await pool.query(
-      `UPDATE housing.contact_requests SET viewing_status='cancelled',viewing_updated_at=now(),
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(
+        "SELECT id FROM housing.contact_requests WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing') FOR UPDATE",
+        [listingId, user],
+      )
+      const pending = await client.query(
+        `SELECT 1 FROM housing.rent_payment_reports r JOIN housing.contact_requests cr ON cr.id=r.request_id
+        WHERE cr.listing_id=$1 AND cr.tenant_user_id=$2 AND r.status IN ('pending','confirmed')`,
+        [listingId, user],
+      )
+      if (pending.rowCount)
+        throw new ManagementError(409, 'Báo cáo chuyển tiền đang chờ hoặc đã xác nhận; không hủy lịch này.')
+      const result = await client.query(
+        `UPDATE housing.contact_requests SET viewing_status='cancelled',viewing_updated_at=now(),
          status=CASE WHEN source='viewing' AND status='new' THEN 'declined' ELSE status END,
-         revision=revision+1,updated_at=now()
-       WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')
-         AND viewing_status IN ('requested','confirmed')
+         revision=revision+1,updated_at=now(),landlord_activity_at=now()
+         WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing')
+         AND viewing_status IN ('requested','confirmed','declined')
        RETURNING id,status,viewing_status`,
-      [listingId, user],
-    )
-    return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
+        [listingId, user],
+      )
+      await client.query('COMMIT')
+      return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   })
 
   app.post('/v1/landlord/contact-requests/:requestId/viewing', async request => {
     const user = actor(request)
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const input = ViewingDecision.parse(request.body)
+    if (input.decision === 'decline')
+      throw new ManagementError(422, 'Hãy đề xuất giờ thay thế trong 7 ngày tới.', 'viewing_options_required')
     const confirmed = input.decision === 'confirm'
     const result = await pool.query(
       `UPDATE housing.contact_requests cr SET viewing_status=$2,viewing_updated_at=now(),
-         status=CASE WHEN $2='confirmed' THEN 'viewing' ELSE cr.status END,revision=cr.revision+1,updated_at=now()
+         status=CASE WHEN $2='confirmed' THEN 'viewing' ELSE cr.status END,revision=cr.revision+1,updated_at=now(),tenant_activity_at=now()
        FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
        WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
          AND cr.viewing_status='requested' AND cr.status IN ('new','contacted','viewing')
@@ -1253,16 +1571,23 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request)
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const conversation = await conversationRole(pool, user, requestId)
+    const readAt = new Date()
     const messages = await pool.query(
-      `SELECT id,sender_role,body,created_at FROM housing.contact_messages WHERE request_id=$1 ORDER BY created_at,id`,
+      `SELECT id,sender_role,sender_user_id,body,created_at FROM housing.contact_messages WHERE request_id=$1 ORDER BY created_at,id`,
       [requestId],
     )
-    await pool.query(`UPDATE housing.contact_requests SET ${conversation.role}_read_at=now() WHERE id=$1`, [requestId])
+    await pool.query(
+      `UPDATE housing.contact_requests SET ${conversation.role}_read_at=$2,${conversation.role}_activity_read_at=$2 WHERE id=$1`,
+      [requestId, readAt],
+    )
     return {
       role: conversation.role,
+      viewer_id: user,
+      counterparty_user_id: conversation.counterparty_user_id,
       request: {
         id: conversation.id,
         listing_id: conversation.listing_id,
+        tenant_user_id: conversation.tenant_user_id,
         title: conversation.title,
         status: conversation.status,
         message: conversation.message,
@@ -1283,6 +1608,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!['new', 'contacted', 'viewing'].includes(String(conversation.status))) {
       throw new ManagementError(409, 'Yêu cầu đã đóng; không gửi thêm tin nhắn được.')
     }
+    if (conversation.role === 'tenant') await notOwnContact(pool, user, String(conversation.listing_id))
     const recent = await pool.query(
       `SELECT count(*)::int AS n FROM housing.contact_messages
        WHERE request_id=$1 AND sender_user_id=$2 AND created_at > now() - interval '1 minute'`,
@@ -1292,12 +1618,13 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       throw new ManagementError(429, 'Bạn gửi hơi nhanh; chờ một chút rồi gửi tiếp.')
     const created = await pool.query(
       `INSERT INTO housing.contact_messages(request_id,sender_role,sender_user_id,body) VALUES($1,$2,$3,$4)
-       RETURNING id,sender_role,body,created_at`,
+       RETURNING id,sender_role,sender_user_id,body,created_at`,
       [requestId, conversation.role, user, input.body],
     )
     // The landlord's first reply means the request has been answered.
     await pool.query(
       `UPDATE housing.contact_requests SET ${conversation.role}_read_at=now(),updated_at=now(),
+         ${conversation.role === 'tenant' ? 'landlord' : 'tenant'}_activity_at=now(),
          status=CASE WHEN $2='landlord' AND status='new' THEN 'contacted' ELSE status END,
          revision=CASE WHEN $2='landlord' AND status='new' THEN revision+1 ELSE revision END
        WHERE id=$1`,
@@ -1311,8 +1638,10 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const requestId = Id.parse((request.params as { requestId: string }).requestId)
     const input = z.object({ revision: Revision }).parse(request.body)
     const result = await pool.query(
-      `UPDATE housing.contact_requests SET status='declined',revision=revision+1,updated_at=now()
-       WHERE id=$1 AND tenant_user_id=$2 AND revision=$3 AND status IN ('new','contacted')
+      `UPDATE housing.contact_requests SET status='declined',viewing_status=CASE WHEN viewing_slot IS NOT NULL THEN 'cancelled' ELSE viewing_status END,revision=revision+1,updated_at=now(),landlord_activity_at=now()
+       WHERE id=$1 AND tenant_user_id=$2 AND revision=$3
+         AND (status IN ('new','contacted') OR (status='viewing' AND viewing_slot IS NOT NULL))
+         AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=$1 AND r.status IN ('pending','confirmed'))
        RETURNING id,status,revision,updated_at`,
       [requestId, user, input.revision],
     )
@@ -1328,6 +1657,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       `UPDATE housing.contact_requests cr SET status=$2,revision=cr.revision+1,updated_at=now()
        FROM housing.listings l JOIN housing.management_members mm ON mm.property_id=l.property_id
        WHERE cr.id=$1 AND cr.listing_id=l.id AND mm.user_id=$3 AND mm.status='active' AND cr.revision=$4
+         AND cr.source='contact' AND cr.viewing_status IS NULL
+         AND NOT EXISTS(SELECT 1 FROM housing.rent_payment_reports r WHERE r.request_id=cr.id)
        RETURNING cr.id,cr.status,cr.revision,cr.updated_at`,
       [requestId, input.status, user, input.revision],
     )

@@ -4,6 +4,7 @@ import { waitForUiMotion } from "./helpers/ui-motion";
 
 test.use({
   launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH,
     args: [
       "--use-gl=angle",
       "--use-angle=swiftshader",

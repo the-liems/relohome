@@ -18,6 +18,9 @@ export interface HousingReview {
   reply_body: string | null;
   reply_at: string | null;
   author_label: string;
+  // The tenant decides; anonymous reviews never carry a name.
+  is_anonymous?: boolean;
+  author_name?: string | null;
   status?: "published" | "hidden" | "withdrawn";
   hidden_reason?: string | null;
   report_count?: number;
