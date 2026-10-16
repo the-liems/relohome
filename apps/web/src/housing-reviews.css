@@ -279,3 +279,39 @@
       border-color 0.15s;
   }
 }
+
+/* Star rows, reviewer visibility and the tenant's anonymity choice. */
+.hr-stars { gap: 2px; }
+.hr-stars svg.off { color: var(--line-strong); opacity: .7; }
+.hr-author { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.hr-visibility {
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+.hr-visibility.public { border-color: var(--accent); color: var(--accent); }
+.hr-visibility-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.hr-visibility-picker legend { margin-bottom: 8px; font-weight: 650; }
+.hr-panel .hr-visibility-picker label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+}
+.hr-visibility-picker label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.hr-visibility-picker input { margin-top: 3px; accent-color: var(--accent); }
+.hr-visibility-picker strong, .hr-visibility-picker small { display: block; }
+.hr-visibility-picker small { color: var(--muted); }

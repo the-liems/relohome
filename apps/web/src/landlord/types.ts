@@ -36,6 +36,7 @@ export interface ManagedUnit {
   bathrooms: number | null;
   area_m2: number | null;
   amenities: string[];
+  bathroom_type?: "shared" | "private" | null;
   listing_id: string | null;
   title: string | null;
   publication_status: PublicationStatus | null;

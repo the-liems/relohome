@@ -73,6 +73,7 @@ async function fixture(
           name: "Mai",
           email: "mai@example.test",
           preferences: {},
+          ...(mode === "moderator" ? { is_admin: true } : {}),
         },
       });
     if (path === "/threads") return route.fulfill({ json: [] });
@@ -112,7 +113,13 @@ async function fixture(
           status: 400,
           json: { detail: "Không đưa số điện thoại vào đánh giá." },
         });
-      mine = { ...review, ...body, id: "dddddddd-1111-4111-8111-111111111111" };
+      // The gateway names public authors from the account; anonymous ones stay unnamed.
+      mine = {
+        ...review,
+        ...body,
+        id: "dddddddd-1111-4111-8111-111111111111",
+        author_name: body.is_anonymous === false ? "Mai" : null,
+      };
       withdrawn = false;
       return route.fulfill({ json: mine });
     }
@@ -155,6 +162,8 @@ async function fixture(
           ? { json: { hosts: [], properties: [], listings: [] } }
           : { status: 403, json: { detail: "Forbidden" } },
       );
+    if (path.endsWith("/moderation/housing/listings"))
+      return route.fulfill({ json: { items: [], total: 0 } });
     if (path.endsWith("/landlord/reviews"))
       return route.fulfill({
         json: {
@@ -245,6 +254,12 @@ async function openDetail(page: Page) {
   ).toBeVisible();
 }
 async function audit(page: Page) {
+  // Check the settled theme, after finite color transitions have completed.
+  await page.evaluate(() => Promise.all(
+    document.getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => {})),
+  ));
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -253,7 +268,10 @@ async function audit(page: Page) {
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
-  expect(result.violations.map((v) => v.id)).toEqual([]);
+  expect(
+    result.violations.map((v) => v.id),
+    JSON.stringify(result.violations.map((v) => v.nodes.map((n) => n.failureSummary))),
+  ).toEqual([]);
 }
 test("tenant writes, edits, sorts and withdraws a review without exposing identity", async ({
   page,
@@ -276,16 +294,25 @@ test("tenant writes, edits, sorts and withdraws a review without exposing identi
   await page.screenshot({path:info.outputPath('tenant-review.png')});
   await page.getByRole("button", { name: "Lưu đánh giá" }).click();
   await expect(page.getByText("Đã lưu đánh giá của bạn.")).toBeVisible();
+  // Anonymous unless the tenant chooses to show their account name.
   expect(calls.find((c) => c.method === "PUT")?.body).toEqual({
     rating: 5,
     body: "Trao đổi lịch xem thuận tiện.",
+    is_anonymous: true,
   });
   await page.getByRole("button", { name: "Sửa đánh giá" }).click();
   await expect(page.getByLabel("Nhận xét (không bắt buộc)")).toHaveValue(
     "Trao đổi lịch xem thuận tiện.",
   );
   await page.getByText("3 sao", { exact: true }).click();
+  await page.getByRole("radio", { name: /Công khai/ }).check();
   await page.getByRole("button", { name: "Lưu đánh giá" }).click();
+  await expect
+    .poll(() => calls.filter((c) => c.method === "PUT").at(-1)?.body)
+    .toEqual({ rating: 3, body: "Trao đổi lịch xem thuận tiện.", is_anonymous: false });
+  const own = page.locator(".hr-review").filter({ hasText: "Trao đổi lịch xem thuận tiện." });
+  await expect(own.locator(".hr-author strong")).toHaveText("Mai");
+  await expect(own.locator(".hr-visibility")).toHaveText("Công khai");
   await page.getByLabel("Sắp xếp đánh giá").selectOption("lowest");
   await expect
     .poll(() => calls.some((c) => c.search.includes("sort=lowest")))
@@ -354,10 +381,10 @@ test("moderator hides a reported review and acknowledges a multi-property flag",
   page,
 }) => {
   const { calls } = await fixture(page, "moderator");
-  await page.goto("/landlord");
+  await page.goto("/admin");
   await page
     .locator(".ll-nav")
-    .getByRole("button", { name: "Duyệt tin", exact: true })
+    .getByRole("button", { name: "Đánh giá & báo cáo", exact: true })
     .click();
   await expect(page.getByText("Nội dung cần xem xét.")).toBeVisible();
   await expect(

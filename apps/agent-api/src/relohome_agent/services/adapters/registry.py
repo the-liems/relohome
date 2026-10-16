@@ -132,6 +132,8 @@ class ServiceSettings(BaseSettings):
     housing_viewing_day_start: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     housing_viewing_day_end: str = Field(default="20:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     housing_viewing_window_days: int = Field(default=14, ge=1, le=60)
+    # Ngày tối đa chủ nhà đề xuất giờ thay thế; platform-api đọc cùng biến HOUSING_VIEWING_PROPOSAL_DAYS.
+    housing_viewing_proposal_days: int = Field(default=7, ge=1, le=60)
     housing_viewing_lead_minutes: int = Field(default=120, ge=0, le=7 * 24 * 60)
     housing_viewing_travel_buffer_minutes: int = Field(default=15, ge=0, le=240)
     housing_viewing_min_gap_minutes: int = Field(default=60, ge=0, le=24 * 60)

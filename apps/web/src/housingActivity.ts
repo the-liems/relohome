@@ -53,6 +53,21 @@ export function activityDestination(event: Data) {
     ? `/ai/${encodeURIComponent(event.thread_id)}?panel=plan&planTab=viewing&listing=${encodeURIComponent(event.listing_id || "")}`
     : null;
 }
+/** Work waiting for the owner, counted per item: each viewing to confirm,
+ * each reported transfer and each unread message adds one. */
+export function attentionItems(items: Data[]) {
+  const open = (row: Data) =>
+    ["new", "contacted", "viewing"].includes(row.status);
+  const viewings = items.filter(
+    (row) => open(row) && row.viewing_status === "requested",
+  ).length;
+  const payments = items.filter(
+    (row) => row.payment_report?.status === "pending",
+  ).length;
+  const unread = items.reduce((sum, row) => sum + Number(row.unread || 0), 0);
+  return { viewings, payments, unread, total: viewings + payments + unread };
+}
+
 export function attentionCount(items: Data[]) {
   return items.filter(
     (row) =>

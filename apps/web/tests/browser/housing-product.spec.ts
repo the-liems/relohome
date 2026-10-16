@@ -446,7 +446,7 @@ test.beforeEach(async ({ page }) => {
 
 async function openInbox(page:import('@playwright/test').Page) {
   await page.locator('.ll-nav').getByRole('button',{name:/Yêu cầu liên hệ/}).click();
-  await page.locator('.ll-contact-hierarchy .ll-property-list').getByRole('button',{name:/Nhà Nguyễn Trãi/}).click();
+  await page.locator('.ll-contact-house-open').filter({hasText:'Nhà Nguyễn Trãi'}).click();
   await page.locator('.ll-contact-room').filter({hasText:'P.301'}).click();
 }
 
@@ -456,10 +456,18 @@ test("landlord workspace presents real operations clearly on desktop and mobile"
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/landlord");
+  await expect.poll(() => page.locator(".host-shell").evaluate(
+    (element) => getComputedStyle(element).backgroundImage,
+  )).toContain("radial-gradient");
   await expect(
     page.getByRole("heading", { name: "Quản lý nhà cho thuê" }),
   ).toBeVisible();
-  await expect(page.getByText("148")).toBeVisible();
+  // Supply tiles only; requests, viewings and interest live in their own tabs.
+  await expect(page.locator(".ll-metric")).toHaveCount(3);
+  await expect(
+    page.locator(".ll-metric").filter({ hasText: "Phòng còn trống" }),
+  ).toContainText("2");
+  await expect(page.getByText("148")).toHaveCount(0);
   await page.getByRole("button", { name: /Nhà & phòng/ }).click();
   await page.getByRole("button", { name: /Nhà Nguyễn Trãi/ }).click();
   await expect(page.getByText("P.301")).toBeVisible();
@@ -471,16 +479,16 @@ test("landlord workspace presents real operations clearly on desktop and mobile"
   await expect(page.getByRole("button", { name: "Gửi duyệt" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Duyệt tin/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Sửa tin" }).first().click();
-  await expect(page.getByLabel("Giá thuê / tháng")).toHaveValue("4500000");
+  await expect(page.getByRole("spinbutton", { name: "Giá thuê / tháng", exact: true })).toHaveValue("4500000");
   await expect(page.locator('textarea[name="description"]')).toHaveValue(
     "Phòng có cửa sổ lớn và nội thất cơ bản.",
   );
-  await expect(page.getByLabel("Tên khoản phí").first()).toHaveValue(
-    "Tiền điện",
-  );
-  await expect(page.getByLabel("Số tiền").first()).toHaveValue("4000");
-  // An unknown amount stays blank (shown to tenants as "Chưa rõ"), never 0.
-  await expect(page.getByLabel("Số tiền").nth(1)).toHaveValue("");
+  // Older fee codes land on the fixed electricity, water and service rows.
+  await expect(page.getByLabel("Số tiền Tiền điện")).toHaveValue("4000");
+  await expect(page.getByLabel("Số tiền Tiền nước")).toHaveValue("");
+  await expect(page.getByLabel("Số tiền Tiền nước")).toHaveAttribute("required", "");
+  await expect(page.getByLabel("Số tiền Phí dịch vụ")).toHaveValue("");
+  await expect(page.getByLabel("Tên khoản phí")).toHaveCount(0);
   await page.getByRole("button", { name: "Đóng" }).click();
   await openInbox(page);
   await expect(
@@ -1010,13 +1018,20 @@ test("one room form saves a complete draft, retries photos without duplicating t
     .click();
   await page.getByRole("button", { name: /Nhà Nguyễn Trãi/ }).click();
   await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Thêm phòng và tin cho thuê" })).toBeVisible();
-  await page.getByLabel("Mã phòng", { exact: true }).fill("P.999");
-  await page.getByLabel("Diện tích (m²)", { exact: true }).fill("25");
-  await page.getByLabel("Tiêu đề", { exact: true }).fill(listing.title);
-  await page.getByLabel("Mô tả", { exact: true }).fill(listing.description);
-  await page.getByLabel("Giá thuê / tháng", { exact: true }).fill("5000000");
-  await page.getByLabel("Tiền cọc", { exact: true }).fill("5000000");
+  await expect(page.getByRole("heading", { name: "Thêm phòng và đăng tin" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Mã phòng", exact: true }).fill("P.999");
+  await page.getByRole("spinbutton", { name: "Diện tích (m²)", exact: true }).fill("25");
+  // The count field appears once the toilet type is chosen.
+  await expect(page.getByLabel("Số phòng vệ sinh khép kín")).toHaveCount(0);
+  await page.getByLabel("Phòng vệ sinh khép kín").check();
+  await expect(page.getByLabel("Số phòng vệ sinh khép kín")).toHaveValue("1");
+  await page.getByRole("textbox", { name: "Tiêu đề", exact: true }).fill(listing.title);
+  await page.getByRole("textbox", { name: "Mô tả tiện ích", exact: true }).fill(listing.description);
+  await page.getByRole("spinbutton", { name: "Giá thuê / tháng", exact: true }).fill("5000000");
+  await page.getByRole("spinbutton", { name: "Tiền cọc", exact: true }).fill("5000000");
+  await page.getByLabel(/^Ngày có thể vào ở/).fill("2026-11-01");
+  await page.getByLabel("Số tiền Tiền điện").fill("3500");
+  await page.getByLabel("Số tiền Tiền nước").fill("20000");
   await page
     .locator("input[type=file]")
     .setInputFiles({
@@ -1031,9 +1046,26 @@ test("one room form saves a complete draft, retries photos without duplicating t
   await expect(page.getByRole("alert")).toContainText("Tải ảnh tạm thời chưa thành công");
   expect(creates).toHaveLength(1);
   expect(creates[0]).toMatchObject({
-    unit: { unit_code: "P.999", area_m2: 25, bedrooms: 0, bathrooms: 0 },
-    listing: { title: listing.title, rent_vnd: 5000000 },
+    unit: {
+      unit_code: "P.999",
+      area_m2: 25,
+      bedrooms: 0,
+      bathrooms: 1,
+      bathroom_type: "private",
+      amenities: [],
+    },
+    listing: {
+      title: listing.title,
+      rent_vnd: 5000000,
+      deposit_vnd: 5000000,
+      availability_from: "2026-11-01",
+    },
   });
+  // An empty optional service fee is left out rather than sent as unknown.
+  expect(creates[0].listing.fees).toEqual([
+    { code: "tien_dien", label: "Tiền điện", amount: 3500, billing_unit: "kwh", required: true, refundable: false },
+    { code: "tien_nuoc", label: "Tiền nước", amount: 20000, billing_unit: "m3", required: true, refundable: false },
+  ]);
   await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(creates).toHaveLength(1);
@@ -1055,17 +1087,14 @@ test("operating counters navigate to houses, all rooms, vacant rooms and the pro
   await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
   await page.getByRole("button", { name: /Phòng còn trống/ }).click();
   await expect(page.getByRole("heading", { name: "Phòng còn trống", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
-  await page
-    .locator(".ll-metrics")
-    .getByRole("button", { name: /Yêu cầu mới/ })
-    .click();
+  await expect(page.locator(".ll-metrics").getByRole("button", { name: /Yêu cầu mới/ })).toHaveCount(0);
+  // Requests now open from their tab, whose badge sums the waiting work.
+  const inboxTab = page.locator(".ll-nav").getByRole("button", { name: /Yêu cầu liên hệ/ });
+  await expect(inboxTab).toContainText("2");
+  await inboxTab.click();
   await expect(page.getByRole("heading", { name: "Yêu cầu liên hệ theo nhà" })).toBeVisible();
   await expect(page.getByText("Tôi muốn xem phòng vào cuối tuần.")).toHaveCount(0);
-  await page
-    .locator(".ll-contact-hierarchy .ll-property-list")
-    .getByRole("button", { name: /Nhà Nguyễn Trãi/ })
-    .click();
+  await page.locator(".ll-contact-house-open").filter({ hasText: "Nhà Nguyễn Trãi" }).click();
   await expect(page.locator(".ll-contact-room").filter({ hasText: "P.301" })).toBeVisible();
   await page.locator(".ll-contact-room").filter({ hasText: "P.301" }).click();
   await expect(page.getByText("Tôi muốn xem phòng vào cuối tuần.")).toBeVisible();
@@ -1079,10 +1108,17 @@ test('property and room badges count requests once and the chat timeline opens t
   await page.route('**/web/api/housing-management/housing/contact-requests/*/activity',route=>route.fulfill({json:{items:[{...event,created_at:'2026-10-09T09:06:00Z'}]}}));
   await page.route('**/web/api/housing-management/housing/activity/event-1/read',route=>{event.unread=false;return route.fulfill({json:{read:true}})});
   await page.goto('/landlord');await page.locator('.ll-nav').getByRole('button',{name:/Yêu cầu liên hệ/}).click();
-  const property=page.locator('.ll-contact-properties > button').first();
-  await expect(property.locator('.ll-request-badge')).toHaveText('1');
-  await property.click();const room=page.locator('.ll-contact-room').filter({hasText:'P.301'});
-  await expect(room.locator('.ll-request-badge')).toHaveText('1');
+  // Badges count work items: one viewing to confirm plus one unread message.
+  const property=page.locator('.ll-contact-house').first();
+  await expect(property.locator('.ll-request-badge')).toHaveText('2');
+  await expect(property.getByRole('img',{name:'1 lịch cần xác nhận'})).toBeVisible();
+  await expect(property.getByRole('img',{name:'0 báo chuyển tiền'})).toBeVisible();
+  await expect(property.getByRole('img',{name:'1 tin chưa đọc'})).toBeVisible();
+  // Quick view lists the rooms under the card and opens one directly.
+  await property.getByRole('button',{name:'Xem nhanh các phòng của Nhà Nguyễn Trãi'}).click();
+  await expect(property.locator('.ll-quick-rooms li')).toHaveCount(2);
+  await property.locator('.ll-contact-house-open').click();const room=page.locator('.ll-contact-room').filter({hasText:'P.301'});
+  await expect(room.locator('.ll-request-badge')).toHaveText('2');
   await page.getByRole('button',{name:/Tin nhắn và cập nhật/}).click();
   await expect(page.getByRole('heading',{name:'Thông báo hoạt động',exact:true})).toHaveCount(0);
   await page.locator('.contact-messenger-conversations > button').filter({hasText:'Khánh'}).click();
@@ -1100,4 +1136,50 @@ test('the admin chat bell hides activity items and has no badge for hidden notif
   await expect(page.getByRole('heading',{name:'Thông báo hoạt động',exact:true})).toHaveCount(0);
   await expect(page.getByText('Chưa có cuộc trò chuyện.',{exact:true})).toBeVisible();
   await expect(bell.locator('b')).toHaveCount(0);
+});
+
+test("a rejected listing sent back unchanged asks the owner to add information first", async ({
+  page,
+}) => {
+  await page.route(
+    `**/web/api/housing-management/landlord/listings/${listingId}/submit`,
+    (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          detail: "Bạn phải bổ sung thêm thông tin phù hợp.",
+          code: "listing_unchanged",
+        },
+      }),
+  );
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button", { name: /Nhà & phòng/ }).click();
+  await page.getByRole("button", { name: /Nhà Nguyễn Trãi/ }).click();
+  await page.getByRole("button", { name: "Gửi duyệt" }).click();
+  const dialog = page.getByRole("dialog", { name: "Chưa thể gửi duyệt" });
+  await expect(dialog).toContainText("Bạn phải bổ sung thêm thông tin phù hợp.");
+  await expect(page.locator(".ll-unit-card [role=alert]")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Sửa tin" }).click();
+  await expect(page.getByRole("heading", { name: "Cập nhật tin" })).toBeVisible();
+});
+
+test("the calendar reminds the owner of tomorrow's viewing and its tab counts it", async ({
+  page,
+}) => {
+  // 10:00 on 9 Oct in Vietnam; the requested slot is 13:00 the next day.
+  await page.clock.setFixedTime(new Date("2026-10-09T03:00:00Z"));
+  await page.goto("/landlord");
+  const tab = page.locator(".ll-nav").getByRole("button", { name: /Lịch xem nhà/ });
+  await expect(tab.locator(".ll-count")).toHaveText("1");
+  await tab.click();
+  const reminder = page.getByRole("status", { name: "Nhắc lịch xem nhà" });
+  await expect(reminder).toContainText("Nhắc lịch: ngày mai bạn có 1 lịch xem nhà");
+  const slot = page.locator("#viewing-99999999-9999-4999-8999-999999999999");
+  await expect(slot.locator(".ll-viewing-chip")).toHaveText("Chờ xác nhận");
+  await expect(slot.locator(".ll-countdown")).toHaveText("Còn 1 ngày");
+  await expect(slot).toHaveClass(/soon/);
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([]);
 });

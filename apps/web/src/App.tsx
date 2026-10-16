@@ -628,7 +628,9 @@ function Shell({ children }: { children: ReactNode }) {
   const isChat = location.pathname.startsWith("/ai");
   const active = threads.find((t) => location.pathname === "/ai/" + t.id);
   return (
-    <div className="app-shell chat-only-shell">
+    <div
+      className={"app-shell chat-only-shell" + (hostMode ? " host-shell" : "")}
+    >
       <a href="#app-main" className="app-skip">
         {uiText("Đến nội dung chính")}
       </a>

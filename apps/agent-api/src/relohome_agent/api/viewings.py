@@ -131,8 +131,9 @@ async def viewing_thread(listing_id: str, service: Service, user_id: UserId = "a
 @router.get("/viewings/slots")
 async def viewing_options(service: Service):
     viewing = viewing_of(service)
-    end = viewing.clock() + timedelta(days=7)
-    return {"slots": [slot for slot in viewing.slots() if datetime.fromisoformat(slot) <= end]}
+    days = viewing.settings.proposal_days
+    end = viewing.clock() + timedelta(days=days)
+    return {"slots": [slot for slot in viewing.slots() if datetime.fromisoformat(slot) <= end], "days": days}
 
 
 async def _store_action(service, thread_id: str, user_id: str, action, *, sync: bool = False):

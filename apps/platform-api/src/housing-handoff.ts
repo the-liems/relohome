@@ -7,6 +7,11 @@ import { actor, contactCounterpartySql, conversationRole, ManagementError } from
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
 const OPEN = ['new', 'contacted', 'viewing']
+/** Same setting as agent-api, which offers the slots the landlord proposes from. */
+export function proposalDays() {
+  const days = Number(process.env.HOUSING_VIEWING_PROPOSAL_DAYS || 7)
+  return Number.isInteger(days) && days >= 1 && days <= 60 ? days : 7
+}
 const Options = z.object({
   revision: Revision,
   slots: z
@@ -40,10 +45,11 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       id = Id.parse((request.params as { requestId: string }).requestId),
       input = Options.parse(request.body)
     const dates = [...new Set(input.slots.map((value) => new Date(value).toISOString()))].sort()
-    const now = Date.now(),
-      end = now + 7 * 24 * 60 * 60_000
+    const days = proposalDays(),
+      now = Date.now(),
+      end = now + days * 24 * 60 * 60_000
     if (dates.some((value) => Date.parse(value) <= now || Date.parse(value) > end))
-      throw new ManagementError(422, 'Chọn giờ phù hợp trong 7 ngày tới.')
+      throw new ManagementError(422, `Chọn giờ phù hợp trong ${days} ngày tới.`)
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -91,6 +97,9 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       if (!id) throw new ManagementError(409, 'Chưa có lịch hẹn với chủ nhà để báo chuyển tiền.')
       const contact = await conversationRole(client, user, id)
       if (contact.role !== 'tenant') throw new ManagementError(403, 'Chỉ người thuê được báo chuyển tiền.')
+      // Self-dealing guard: any unrevoked tie counts, including a membership still
+      // pending review (same rule as self-contact and self-review). Actions on a
+      // home, such as archive below, require an active membership instead.
       const self = await client.query(
         `SELECT 1 FROM housing.management_members mm JOIN housing.listings l ON l.property_id=mm.property_id
         WHERE l.id=$1 AND mm.user_id=$2 AND mm.status<>'revoked'`,
@@ -196,7 +205,8 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       await client.query('BEGIN')
       await client.query('SELECT id FROM housing.contact_requests WHERE id=$1 FOR UPDATE', [id])
       const contact = await conversationRole(client, user, id)
-      // A legacy self-contact can be cleared by its active property manager too.
+      // Acting for a home needs an active membership. A legacy self-contact can be
+      // cleared by its active property manager too.
       const manager = await client.query(
         `SELECT 1 FROM housing.management_members mm JOIN housing.listings l ON l.property_id=mm.property_id
         WHERE l.id=$1 AND mm.user_id=$2 AND mm.status='active'`,
