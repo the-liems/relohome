@@ -75,6 +75,7 @@ def build_request(capability: AgentCapability, inp: AgentInput, policy: AgentPol
         goal=public_data(inp.get("goal", ""))[:1500],
         user_request=public_data(inp.get("user_request", ""))[:2000],
         constraints=constraints,
+        retrieval_only=bool(inp.get("retrieval_only", False)),
         hints=hints,
         upstream={
             tid: UpstreamResult(task_id=tid, agent=r.agent, data=r.data, source_refs=r.source_refs)

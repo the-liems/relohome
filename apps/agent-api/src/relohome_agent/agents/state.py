@@ -6,7 +6,7 @@ Field không có reducer bị ghi đè (last write wins); ràng buộc "ai ghi" 
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
@@ -115,3 +115,4 @@ class AgentInput(TypedDict):
     user_request: str
     hints: dict[str, Any]
     upstream: dict[str, TaskResult]
+    retrieval_only: NotRequired[bool]
