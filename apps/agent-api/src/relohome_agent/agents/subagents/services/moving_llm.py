@@ -35,6 +35,7 @@ from relohome_agent.agents.subagents.services.location import MIN_SUGGESTION_SCO
 from relohome_agent.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
 from relohome_agent.agents.subagents.services.moving_catalog import MovingCatalogCache
 from relohome_agent.agents.subagents.services.moving_context import service_details_for_model
+from relohome_agent.agents.subagents.services.moving_diagnostics import record_tool_failure
 from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
 from relohome_contracts.moving_options import apply_draft_options, service_selection, validated_options
 
@@ -351,8 +352,13 @@ class MovingLlmAgent:
         except ToolCallError as exc:
             if form_quote and not exc.transport and not exc.retryable and exc.code in REQUEST_REJECTION_CODES:
                 return execution.ask("moving_request", "AhaMove từ chối báo giá: " + public_data(exc.message)[:400])
+            contract_error = {
+                "MCP_INPUT_VALIDATION_ERROR": "invalid_input",
+                "MCP_OUTPUT_VALIDATION_ERROR": "internal",
+                "TOOL_ERROR": "internal",
+            }.get(exc.code)
             return execution.failed(
-                "provider_unavailable" if exc.retryable else "provider_rejected",
+                "provider_unavailable" if exc.retryable else (contract_error or "provider_rejected"),
                 f"Moving tool failed ({exc.code}).",
                 exc.retryable,
             )
@@ -396,6 +402,7 @@ class MovingExecution:
         self.candidates: dict[str, list[dict]] = {}  # Location results per unresolved address
         self.rejection: dict | None = None  # last provider refusal, shown to the model
         self.tools: list[str] = []
+        self.tool_errors: list[dict] = []
 
     def result(self, status: str, **kwargs):
         data = dict(kwargs.pop("data", {}))
@@ -427,6 +434,7 @@ class MovingExecution:
             "uses_llm": self.run.usage.llm_calls > 0 if self.form_quote else True,
             "mode": "structured-form" if self.form_quote else "conversation",
             "tools": list(self.tools),
+            **({"tool_errors": list(self.tool_errors)} if self.tool_errors else {}),
             "timing": {
                 "total_ms": round((perf_counter() - self.started) * 1000),
                 "llm_ms": round(self.llm_ms),
@@ -466,7 +474,8 @@ class MovingExecution:
         tool_started = perf_counter()
         try:
             result = await client.call(name, args)
-        except ToolCallError:
+        except ToolCallError as exc:
+            self.tool_errors.append(record_tool_failure(exc, name))
             if client is self.agent.moving and name in {"list_moving_services", "estimate_move"}:
                 self.agent.catalog_cache.clear()
             raise
