@@ -28,6 +28,34 @@
   background: var(--ui-soft, #f3f8f5);
   border-bottom: 1px solid var(--ui-line, #cbdad4);
 }
+.contact-messenger-panel:has(.contact-thread[data-service="roommate"]) {
+  display: flex;
+  flex-direction: column;
+}
+.contact-messenger .contact-thread[data-service="roommate"] {
+  min-height: 0;
+  overflow-y: auto;
+}
+.contact-thread[data-service="roommate"] .contact-thread-form {
+  position: sticky;
+  bottom: 0;
+  background: var(--ui-surface);
+  padding-block: 6px;
+}
+.contact-thread[data-service="roommate"] .contact-thread-hint {
+  background: var(--ui-soft);
+  color: var(--ui-muted);
+  border-radius: 8px;
+}
+.contact-messenger .contact-thread-list .rm-chat-empty {
+  align-self: center;
+  max-width: 100%;
+  padding: 24px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  text-align: center;
+}
 .contact-messenger-panel > header > div {
   flex: 1;
   min-width: 0;
@@ -251,7 +279,33 @@
   }
 }
 
-.contact-thread-list > .system { width:100%; max-width:100%; margin:10px 0; background:var(--ui-accent-soft); border:1px solid var(--ui-line); border-radius:12px; padding:12px; }
-.contact-system-action { display:flex; flex-direction:column; gap:8px; width:100%; padding:0; border:0; background:transparent; color:var(--ui-text); text-align:left; line-height:1.6; cursor:pointer; }
-.contact-system-action small { color:var(--ui-accent); font-weight:700; }
-.contact-system-action:disabled { opacity:1; cursor:default; }
+.contact-thread-list > .system {
+  width: 100%;
+  max-width: 100%;
+  margin: 10px 0;
+  background: var(--ui-accent-soft);
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  padding: 12px;
+}
+.contact-system-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text);
+  text-align: left;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.contact-system-action small {
+  color: var(--ui-accent);
+  font-weight: 700;
+}
+.contact-system-action:disabled {
+  opacity: 1;
+  cursor: default;
+}

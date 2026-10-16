@@ -7,6 +7,26 @@ export function errorText(error: unknown) {
   const code =
     error instanceof RoommateError ? error.code : "service_unavailable";
   const messages: Record<string, string> = {
+    actor_changed: rt(
+      "Tài khoản đã thay đổi. Tải lại trang để tiếp tục với đúng tài khoản.",
+      "Your account changed. Reload the page to continue with the correct account.",
+    ),
+    conversation_unavailable: rt(
+      "Cuộc trò chuyện không còn khả dụng hoặc bạn không có quyền xem.",
+      "This conversation is unavailable or you do not have access.",
+    ),
+    conversation_closed: rt(
+      "Kết nối đã dừng. Không thể gửi thêm tin nhắn.",
+      "This connection is closed. You cannot send more messages.",
+    ),
+    invalid_message: rt(
+      "Nhập tin nhắn từ 1 đến 2.000 ký tự.",
+      "Enter a message between 1 and 2,000 characters.",
+    ),
+    invalid_cursor: rt(
+      "Không tải được phần tin nhắn này. Hãy tải lại hội thoại.",
+      "This message page is unavailable. Refresh the conversation.",
+    ),
     room_city_mismatch: rt(
       "Tin phòng thuộc thành phố khác. Hãy chọn lại tin hoặc đổi thành phố của hồ sơ.",
       "This listing belongs to a different city. Choose another listing or update your profile city.",

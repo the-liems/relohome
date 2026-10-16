@@ -1775,5 +1775,10 @@
   "Tìm lại vị trí {0}": "Find point {0} again",
   "Sửa điểm {0}": "Edit point {0}",
   "Không tìm thấy địa chỉ này. Thử thêm tên đường, thành phố hoặc ghim trên bản đồ.": "Address not found. Add a street or city, or pin the location on the map.",
-  "Đăng nhập để xem đánh giá chủ nhà": "Sign in to see landlord reviews"
+  "Đăng nhập để xem đánh giá chủ nhà": "Sign in to see landlord reviews",
+  "Người ở ghép": "Roommate",
+  "Đã kết nối": "Connected",
+  "Đã ngừng kết nối": "Connection ended",
+  "Xem thêm hội thoại ở ghép": "More roommate conversations",
+  "Tin nhắn và cập nhật nhà thuê / ở ghép": "Housing and roommate messages and updates"
 }

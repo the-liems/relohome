@@ -8,7 +8,8 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { activityText, activityDestination } from "../housingActivity";
-import { LoaderCircle, Send, ShieldAlert } from "lucide-react";
+import { LoaderCircle, ShieldAlert } from "lucide-react";
+import { MessageComposer } from "./MessageComposer";
 import { api, dateTime } from "../api";
 import type { Data } from "../types";
 
@@ -236,23 +237,17 @@ export function ContactThread({
         )}
       </p>
       {request.open ? (
-        <form className="contact-thread-form" onSubmit={send}>
-          <textarea
-            aria-label={uiText("Nội dung tin nhắn")}
-            maxLength={2000}
-            rows={2}
-            value={text}
-            placeholder={
-              role === "tenant"
-                ? uiText("Ví dụ: Chiều thứ Bảy em qua xem được không ạ?")
-                : uiText("Ví dụ: Được em, 3 giờ chiều nhé.")
-            }
-            onChange={(e) => setText(e.target.value)}
-          />
-          <button className="primary" disabled={sending || !text.trim()}>
-            <Send size={15} /> {uiText("Gửi")}
-          </button>
-        </form>
+        <MessageComposer
+          text={text}
+          change={setText}
+          send={send}
+          busy={sending}
+          placeholder={
+            role === "tenant"
+              ? uiText("Ví dụ: Chiều thứ Bảy em qua xem được không ạ?")
+              : uiText("Ví dụ: Được em, 3 giờ chiều nhé.")
+          }
+        />
       ) : (
         <p className="muted small">
           {formatUi("Yêu cầu đã đóng ({0}); không gửi thêm tin nhắn được.", [
