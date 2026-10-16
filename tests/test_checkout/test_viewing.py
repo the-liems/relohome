@@ -86,6 +86,20 @@ def test_selection_limit_comes_from_settings():
     assert [p["listing_id"] for p in service.projection(USER, THREAD)] == ["b", "c"]
 
 
+@pytest.mark.asyncio
+async def test_selecting_and_scheduling_another_home_preserves_existing_appointment():
+    service, *_ = make({("a", "b"): 900})
+    service.select(USER, THREAD, "t1", row("a"))
+    first_slot = slot(service, 9)
+    await service.schedule(USER, THREAD, "a", first_slot)
+    service.select(USER, THREAD, "t1", row("b"))
+    await service.schedule(USER, THREAD, "b", slot(service, 11))
+    items = {item["listing_id"]: item for item in service.thread_view(USER, THREAD, {})["items"]}
+    assert items["a"]["viewing"]["slot"] == first_slot
+    assert items["b"]["viewing"]["slot"] == slot(service, 11)
+    assert items["a"]["status"] == items["b"]["status"] == "viewing_scheduled"
+
+
 def test_slots_follow_configured_window_lead_and_length():
     service, clock, _ = make(
         housing_viewing_slot_minutes=60,
@@ -96,8 +110,37 @@ def test_slots_follow_configured_window_lead_and_length():
     )
     clock.now = datetime(2026, 10, 10, 8, 30, tzinfo=service.settings.timezone)
     hours = [s[:16] for s in service.slots()]
-    # Hôm nay: 08:30 + 180 phút = 11:30, nên chỉ còn ngày mai 09:00, 10:00, 11:00.
-    assert hours == ["2026-10-11T09:00", "2026-10-11T10:00", "2026-10-11T11:00"]
+    # day_end is the final allowed start time; a custom lead still applies.
+    assert hours == ["2026-10-10T12:00", "2026-10-11T09:00", "2026-10-11T10:00", "2026-10-11T11:00", "2026-10-11T12:00"]
+
+
+@pytest.mark.parametrize(
+    "hour,minute,first,last",
+    [(15, 33, "17:00", "22:00"), (20, 59, "22:00", "22:00"), (21, 0, "22:00", "22:00"), (21, 1, None, None)],
+)
+def test_default_slots_require_one_hour_notice_and_allow_starts_through_2200(hour, minute, first, last):
+    service, clock, _ = make()
+    clock.now = datetime(2026, 10, 16, hour, minute, tzinfo=service.settings.timezone)
+    slots = service.slots()
+    today = [s[11:16] for s in slots if s.startswith("2026-10-16")]
+    assert (today[0] if today else None) == first
+    assert (today[-1] if today else None) == last
+    assert all(datetime.fromisoformat(s) >= clock.now + timedelta(hours=1) for s in slots)
+    tomorrow = [s[11:16] for s in slots if s.startswith("2026-10-17")]
+    assert tomorrow[0] == "08:00" and tomorrow[-1] == "22:00"
+
+
+@pytest.mark.asyncio
+async def test_scheduling_rechecks_notice_period_and_accepts_2200():
+    service, clock, _ = make()
+    clock.now = datetime(2026, 10, 16, 20, 59, tzinfo=service.settings.timezone)
+    service.select(USER, THREAD, "t1", row("a"))
+    target = "2026-10-16T22:00:00+07:00"
+    await service.schedule(USER, THREAD, "a", target)
+    service.select(USER, THREAD, "t1", row("b"))
+    clock.now += timedelta(minutes=2)
+    with pytest.raises(CheckoutError):
+        await service.schedule(USER, THREAD, "b", target)
 
 
 @pytest.mark.asyncio

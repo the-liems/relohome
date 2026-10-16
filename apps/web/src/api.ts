@@ -1,6 +1,7 @@
 import { normalizeHousingMedia } from "./housingMedia";
 import { t, uiPreferences } from "./uiPreferences";
 import { apiFailure } from "./apiError";
+import { reportAuthFailure } from "./authEvents";
 export { ApiError, apiFailure } from "./apiError";
 export async function api<T = any>(
   path: string,
@@ -25,10 +26,7 @@ export async function api<T = any>(
   });
   if (!response.ok || !isJson) {
     const error = apiFailure(response.status, data, isJson);
-    if (error.code === "authentication_required" && method !== "GET")
-      window.dispatchEvent(new CustomEvent("relohome-login-required"));
-    if (error.code === "guest_expired")
-      window.dispatchEvent(new CustomEvent("relohome-guest-expired"));
+    reportAuthFailure(path, response.status, data, isJson);
     throw error;
   }
   return normalizeHousingMedia(data,window.location.origin);

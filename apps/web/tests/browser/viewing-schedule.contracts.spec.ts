@@ -107,6 +107,17 @@ test("partial failure never rolls back successes or submits remaining homes", as
   expect(result.map((r) => r.status)).toEqual(["saved", "failed", "not_sent"]);
 });
 
+test("auth rejection preserves successes and leaves denied and remaining entries unsent", async () => {
+  let calls = 0;
+  const result = await sendViewingBatch(view(), [...entries(), { listing_id: "c", slot: slots[2] }], async payload => {
+    if (++calls === 2) throw new ApiError(401, "Đăng nhập để tiếp tục", "authentication_required");
+    return { items: [{ listing_id: payload.listing_id, viewing: { slot: payload.slot } }] };
+  });
+  expect(calls).toBe(2);
+  expect(result.map(r => r.status)).toEqual(["saved", "not_sent", "not_sent"]);
+  expect(result[1].code).toBe("authentication_required");
+});
+
 test("transport ambiguity, missing success evidence and sync errors stop with truthful statuses", async () => {
   for (const error of [new ApiError(502, "Timeout"), new Error("network")]) {
     let calls = 0;

@@ -22,7 +22,7 @@ async function fixture(page: Page, limit = 3) {
     updated: Date.now() / 1000,
     revision: 1,
     runs: [],
-    messages: [],
+    messages: [] as any[],
     state: {
       plan: {
         version: 1,
@@ -91,6 +91,7 @@ async function fixture(page: Page, limit = 3) {
   });
   return {
     items,
+    thread,
     viewing,
     posts,
     mode: (value: string) => {
@@ -224,6 +225,217 @@ test("overlapping/missing times stop before a request and back keeps drafts", as
   await expect(
     page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true }),
   ).toHaveValue(slots[0]);
+});
+
+test("opening viewings again after saving starts another round without resending the saved home", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  await fillTimes(page, [0]);
+  await page
+    .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.saved")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Đóng kế hoạch nhanh", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Xem nhà (3 căn)", exact: true })
+    .click();
+  const secondTime = page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true });
+  await expect(secondTime).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", {
+      name: `Đặt lịch cho ${titles[0]}`,
+      exact: true,
+    }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true }),
+  ).toHaveValue(slots[0]);
+  await secondTime.selectOption(slots[1]);
+  await page
+    .getByLabel(`Giờ xem · ${titles[2]}`, { exact: true })
+    .selectOption(slots[2]);
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Xác nhận 2 lịch", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.saved")).toHaveCount(2);
+  expect(f.posts.map((p) => p.body.listing_id)).toEqual([
+    "home-0",
+    "home-1",
+    "home-2",
+  ]);
+  expect(f.items[0].viewing.slot).toBe(slots[0]);
+});
+
+test("map booking button starts a new round while keeping the same map mounted", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const candidates = f.items.map((item, index) => ({
+    id: item.listing_id,
+    title: item.title,
+    ...item.snapshot,
+    lat: 21.03 + index * 0.001,
+    lng: 105.78,
+  }));
+  const additionalHomes = f.items.splice(1);
+  Object.assign(f.thread.state, { task_status: { housing: "done" } });
+  f.thread.messages.push({
+    id: "housing-reply",
+    role: "assistant",
+    created: Date.now() / 1000,
+    content: {
+      response: { kind: "ANSWER", text: "Các căn phù hợp để hẹn xem." },
+      ui: {
+        version: 1,
+        plan_version: 1,
+        components: [
+          {
+            id: "housing-result",
+            task_id: "housing",
+            type: "property",
+            data: {
+              candidates,
+              map_context: {
+                viewport: {
+                  west: 105.77,
+                  south: 21.02,
+                  east: 105.79,
+                  north: 21.04,
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+  await page.route("https://tiles.openfreemap.org/**", (route) =>
+    route.fulfill({
+      json: {
+        version: 8,
+        sources: {},
+        layers: [
+          {
+            id: "background",
+            type: "background",
+            paint: { "background-color": "#edf3ef" },
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/web/api/platform/**", (route) =>
+    route.fulfill({
+      json: {
+        features: candidates.map((home) => ({ kind: "listing", ...home })),
+        results: candidates,
+        meta: {
+          mode: "listings",
+          returned_count: candidates.length,
+          truncated: false,
+        },
+        page: { returned_count: candidates.length, next_cursor: null },
+      },
+    }),
+  );
+  const selections: string[] = [];
+  await page.route("**/web/api/threads/th_bulk/action", (route) => {
+    const id = route.request().postDataJSON().entity_id;
+    selections.push(id);
+    f.items.push(additionalHomes.find((item) => item.listing_id === id));
+    f.thread.revision++;
+    return route.fulfill({ json: f.thread });
+  });
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  const map = page.getByRole("region", { name: "Bản đồ nhà ở", exact: true });
+  await expect(map).toBeVisible();
+  await page
+    .locator(".ws-map canvas")
+    .evaluate((el) => el.setAttribute("data-viewing-round-map", "retained"));
+  await fillTimes(page, [0]);
+  await page
+    .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.saved")).toHaveCount(1);
+  if (page.viewportSize()!.width < 768)
+    await page
+      .getByRole("button", { name: "Đóng kế hoạch nhanh", exact: true })
+      .click();
+  const list = page.getByRole("complementary", {
+    name: "Nhà trong vùng bản đồ",
+    exact: true,
+  });
+  if (
+    page.viewportSize()!.width < 768 &&
+    (await list.locator(".ws-sheet-toggle").getAttribute("aria-expanded")) !==
+      "true"
+  )
+    await list.locator(".ws-sheet-toggle").click();
+  await list
+    .getByRole("article", { name: `Xem ${titles[1]}`, exact: true })
+    .getByRole("button", { name: "Chọn căn này", exact: true })
+    .click();
+  await expect(list.locator(".ws-selection-tray")).toContainText(
+    "Đã chọn 2/3 căn để hẹn xem",
+  );
+  await page
+    .getByRole("button", { name: "Xong, hẹn lịch xem", exact: true })
+    .click();
+  await expect(
+    page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", {
+      name: `Đặt lịch cho ${titles[0]}`,
+      exact: true,
+    }),
+  ).not.toBeChecked();
+  await page
+    .getByLabel(`Giờ xem · ${titles[1]}`, { exact: true })
+    .selectOption(slots[1]);
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.saved")).toHaveCount(1);
+  await expect(
+    page.locator(".ws-map canvas[data-viewing-round-map=retained]"),
+  ).toHaveCount(1);
+  expect(selections).toEqual(["home-1"]);
+  expect(f.posts.map((p) => p.body.listing_id)).toEqual(["home-0", "home-1"]);
+  expect(f.items[0].viewing.slot).toBe(slots[0]);
+});
+
+test("opening another round cannot bypass an uncertain saved request", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  f.mode("unknown");
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  await fillTimes(page, [0]);
+  await page
+    .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.unknown")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Đóng kế hoạch nhanh", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Xem nhà (3 căn)", exact: true })
+    .click();
+  await expect(page.locator(".bulk-result.unknown")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Kiểm tra trạng thái", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Xem lại lịch", exact: true }),
+  ).toHaveCount(0);
+  expect(f.posts).toHaveLength(1);
 });
 
 test("backend travel failure keeps earlier successes; retry sends only unsent homes", async ({
@@ -495,17 +707,71 @@ test("green compact cards, accessible keyboard controls and pinned footer across
   });
 });
 
-test("replacement calendar contains only owner suggestions even when visit time is bypassed", async ({ page }) => {
-  const f=await fixture(page);
-  Object.assign(f.items[0],{status:"visit_due",viewing:{slot:slots[0]},landlord:{request_id:"request-1",request_status:"new",viewing_status:"declined",viewing_options:[slots[1]]},available_slots:[slots[1]]});
+test("initial calendar shows every server slot including 22:00 across all days", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const today = [
+    "17:00",
+    "17:30",
+    "18:00",
+    "18:30",
+    "19:00",
+    "19:30",
+    "20:00",
+    "20:30",
+    "21:00",
+    "21:30",
+    "22:00",
+  ];
+  f.viewing.slots = [
+    ...today.map((t) => `2027-02-10T${t}:00+07:00`),
+    "2027-02-11T08:00:00+07:00",
+    "2027-02-11T22:00:00+07:00",
+  ];
   await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
-  const time=page.getByLabel(`Giờ xem · ${titles[0]}`,{exact:true});
-  await expect(time.locator("option")).toHaveText(["Chọn giờ","10:30"]);
+  const picker = page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true });
+  await expect(picker.getByRole("option")).toHaveText(["Chọn giờ", ...today]);
+  await page
+    .getByLabel(`Ngày xem · ${titles[0]}`, { exact: true })
+    .selectOption("2027-02-11");
+  await expect(picker.getByRole("option")).toHaveText([
+    "Chọn giờ",
+    "08:00",
+    "22:00",
+  ]);
+});
+
+test("replacement calendar contains only owner suggestions even when visit time is bypassed", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  Object.assign(f.items[0], {
+    status: "visit_due",
+    viewing: { slot: slots[0] },
+    landlord: {
+      request_id: "request-1",
+      request_status: "new",
+      viewing_status: "declined",
+      viewing_options: [slots[1]],
+    },
+    available_slots: [slots[1]],
+  });
+  await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+  const time = page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true });
+  await expect(time.locator("option")).toHaveText(["Chọn giờ", "10:30"]);
   await time.selectOption(slots[1]);
-  await page.getByRole("button",{name:"Xem lại lịch",exact:true}).click();
-  await page.getByRole("button",{name:"Xác nhận 1 lịch",exact:true}).click();
-  await expect.poll(()=>f.posts.filter(p=>p.path.endsWith("/schedule")).length).toBe(1);
-  expect(f.posts.find(p=>p.path.endsWith("/schedule"))?.body).toEqual({listing_id:"home-0",slot:slots[1]});
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+    .click();
+  await expect
+    .poll(() => f.posts.filter((p) => p.path.endsWith("/schedule")).length)
+    .toBe(1);
+  expect(f.posts.find((p) => p.path.endsWith("/schedule"))?.body).toEqual({
+    listing_id: "home-0",
+    slot: slots[1],
+  });
 });
 
 for (const theme of ["light", "dark"]) {

@@ -24,6 +24,7 @@ import {
   type ReviewSummary,
 } from "../housingReviews";
 import "../housing-reviews.css";
+import { useAccountAccess } from "../accountAccess";
 
 function Summary({ data }: { data: ReviewSummary }) {
   return (
@@ -221,6 +222,19 @@ function ReportForm({
 }
 
 export function TenantHostReviews({ listingId }: { listingId: string }) {
+  const { isGuest, requireAccount } = useAccountAccess();
+  if (isGuest)
+    return (
+      <section className="hr-section">
+        <button className="text-button" onClick={requireAccount}>
+          {t("Đăng nhập để xem đánh giá chủ nhà")}
+        </button>
+      </section>
+    );
+  return <AccountTenantHostReviews key={listingId} listingId={listingId} />;
+}
+
+function AccountTenantHostReviews({ listingId }: { listingId: string }) {
   const [page, setPage] = useState<ReviewPage | null>(null),
     [error, setError] = useState(""),
     [sort, setSort] = useState("newest");

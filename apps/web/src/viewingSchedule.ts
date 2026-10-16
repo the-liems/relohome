@@ -6,6 +6,7 @@ export type BatchRow = ScheduleEntry & {
   status:
     "saved" | "unchanged" | "failed" | "unknown" | "sync_pending" | "not_sent";
   message?: string;
+  code?: string;
 };
 export const contactClosed = (item: Data) =>
   ["declined", "resolved"].includes(item.landlord?.request_status) ||
@@ -128,7 +129,10 @@ export async function sendViewingBatch(
           "Lịch đã lưu; yêu cầu với chủ nhà cần được kiểm tra hoặc gửi lại.";
       } else row.status = "saved";
     } catch (error) {
-      row.status =
+      const awaitingLogin = error instanceof ApiError &&
+        (error.status === 401 || error.code === "authentication_required");
+      if (awaitingLogin) row.code = "authentication_required";
+      row.status = awaitingLogin ? "not_sent" :
         error instanceof ApiError &&
         error.status >= 400 &&
         error.status < 500 &&

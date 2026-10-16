@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { waitForUiMotion } from "./helpers/ui-motion";
 
 async function fixture(page: Page, seeded = false) {
-  let account = false, failLogin = false, quota = false, sessions = 0;
+  let account = false, failLogin = false, quota = false, sessions = 0, denySchedule = false;
   const posts: string[] = [];
   const guest = {
     id: "guest_" + "a".repeat(32), kind: "guest", is_guest: true, name: "Khách", email: "", preferences: {},
@@ -50,9 +50,16 @@ async function fixture(page: Page, seeded = false) {
     if (path === "/roommate/availability") return route.fulfill({ json: { enabled: false, requires_account: true } });
     if (path === "/saved") return route.fulfill({ json: [] });
     if (path.endsWith("/viewings")) return route.fulfill({ json: thread.state.viewing });
+    if (path.endsWith("/viewings/schedule")) {
+      if (!account || denySchedule) return route.fulfill({ status: 401, json: { code: "authentication_required", detail: "Đăng nhập để sử dụng chức năng này." } });
+      const body = route.request().postDataJSON();
+      const item = thread.state.viewing.items.find((i: any) => i.listing_id === body.listing_id);
+      Object.assign(item, { status: "viewing_scheduled", viewing: { slot: body.slot } });
+      return route.fulfill({ json: thread.state.viewing });
+    }
     return route.fulfill({ json: {} });
   });
-  return { guest, thread, posts, failLogin: (value: boolean) => { failLogin = value; }, quota: () => { quota = true; }, sessions: () => sessions };
+  return { guest, thread, posts, denySchedule: (value: boolean) => { denySchedule = value; }, failLogin: (value: boolean) => { failLogin = value; }, quota: () => { quota = true; }, sessions: () => sessions };
 }
 
 async function login(page: Page) {
@@ -61,6 +68,60 @@ async function login(page: Page) {
   await dialog.getByLabel("Mật khẩu", { exact: true }).fill("correct-password");
   await dialog.getByRole("button", { name: "Đăng nhập", exact: true }).click();
 }
+
+function seedViewing(thread: any) {
+  const slot = "2027-02-10T22:00:00+07:00";
+  thread.state.viewing = { max_selected: 3, slot_minutes: 30, slots: [slot], items: [
+    { listing_id: "home", title: "Phòng Ocean Park", status: "selected", snapshot: { address: "Ocean Park 2" } },
+  ] };
+  return slot;
+}
+
+test("guest viewing confirmation preserves review through cancel and login without sending automatically", async ({ page }) => {
+  const f = await fixture(page, true);
+  const slot = seedViewing(f.thread);
+  await page.goto("/ai/th_guest?panel=plan&planTab=viewing");
+  await page.getByLabel("Giờ xem · Phòng Ocean Park", { exact: true }).selectOption(slot);
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
+  expect(f.posts.filter(p => p.endsWith("/schedule"))).toEqual([]);
+  await page.getByRole("dialog").getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Xem lại lịch trước khi gửi", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+  await login(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Xem lại lịch trước khi gửi", exact: true })).toBeVisible();
+  expect(f.posts.filter(p => p.endsWith("/schedule"))).toEqual([]);
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+  await expect(page.locator(".bulk-result.saved")).toContainText("Đã lưu lịch");
+  expect(f.posts.filter(p => p.endsWith("/schedule"))).toHaveLength(1);
+});
+
+test("expired account reauthenticates in place and keeps the unsent viewing review", async ({ page }, info) => {
+  const f = await fixture(page, true);
+  const slot = seedViewing(f.thread);
+  await page.goto("/ai/th_guest?panel=plan&planTab=viewing");
+  await page.getByLabel("Giờ xem · Phòng Ocean Park", { exact: true }).selectOption(slot);
+  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await login(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Xem lại lịch trước khi gửi", exact: true })).toBeVisible();
+  f.denySchedule(true);
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
+  f.denySchedule(false);
+  await login(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Xem lại lịch trước khi gửi", exact: true })).toBeVisible();
+  await expect(page.locator(".bulk-result.failed")).toHaveCount(0);
+  expect(f.posts.filter(p => p.endsWith("/schedule"))).toHaveLength(1);
+  await page.screenshot({ path: info.outputPath("review-after-reauth.png") });
+  await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
+  await expect(page.locator(".bulk-result.saved")).toHaveCount(1);
+  expect(f.posts.filter(p => p.endsWith("/schedule"))).toHaveLength(2);
+});
 
 test("guest login remains accessible in dark mode and English without losing the map", async ({ page }, info) => {
   const f = await fixture(page, true);
@@ -143,6 +204,37 @@ test("Roommate and landlord request login without changing workspace before cons
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page).toHaveURL(/\/ai$/);
   expect(f.posts).toEqual([]);
+});
+
+test("guest checkout asks for login before opening a payment or sending a summary", async ({ page }) => {
+  const f = await fixture(page, true);
+  f.thread.state.checkout = { transactions: [{ domain: "flight", title: "Vé thử nghiệm", status: "selected", price_vnd: 900000 }], totals: {} };
+  await page.goto("/ai/th_guest?panel=plan&planTab=checkout");
+  await page.locator(".checkout-card").getByRole("button", { name: "Thanh toán", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Thanh toán vé máy bay", exact: true })).toHaveCount(0);
+  expect(f.posts.filter(path => path.includes("/checkout/"))).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tab", { name: "Thanh toán", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("guest save and restricted reads request login, while wrong credentials stay a login error", async ({ page }) => {
+  const f = await fixture(page, true);
+  await page.goto("/ai/th_guest?panel=house&house=home");
+  await page.getByRole("button", { name: "Lưu nhà", exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
+  expect(f.posts.filter(path => path.startsWith("/saved/"))).toEqual([]);
+  await page.keyboard.press("Escape");
+  await page.route("**/web/api/profile/traveler", route => route.fulfill({status: 401, json: {code: "authentication_required", detail: "Đăng nhập để sử dụng chức năng này."}}));
+  await page.evaluate(async () => {
+    const { api } = await import("/src/api.ts");
+    await api("/profile/traveler").catch(() => {});
+  });
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
+  f.failLogin(true);
+  await login(page);
+  await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toContainText("Email hoặc mật khẩu chưa đúng.");
+  expect(f.posts.filter(path => /schedule|pay|decision/.test(path))).toEqual([]);
 });
 
 test("guest quota restores the unsent draft and does not invent a result", async ({ page }, info) => {

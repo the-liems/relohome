@@ -4626,6 +4626,8 @@ input[type="checkbox"] {
   font-weight: 600;
 }
 .mv-marker {
+  padding: 0;
+  cursor: pointer;
   width: 32px;
   height: 32px;
   border-radius: 50% 50% 50% 0;

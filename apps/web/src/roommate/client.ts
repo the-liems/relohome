@@ -1,3 +1,5 @@
+import { reportAuthFailure } from "../authEvents";
+
 export class RoommateError extends Error {
   constructor(
     public code: string,
@@ -46,9 +48,10 @@ export async function roommate<T>(
     );
   }
   if (!response.ok) {
+    reportAuthFailure("/roommate" + path, response.status, data);
     const detail = data?.detail;
     throw new RoommateError(
-      detail?.code ||
+      detail?.code || data?.code ||
         (response.status === 401 ? "authentication_required" : "invalid_input"),
       response.status,
       detail?.retry_at,

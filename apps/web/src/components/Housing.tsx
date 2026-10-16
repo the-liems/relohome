@@ -27,6 +27,7 @@ import { estimateCost, type CostLine, type Usage } from "../housingCost";
 import { Dialog } from "./Dialog";
 import { HouseGallery } from "./HouseGallery";
 import { TenantHostReviews } from "./HousingReviews";
+import { useAccountAccess } from "../accountAccess";
 
 export const amenities: Record<string, string> = {
   parking: "Chỗ để xe",
@@ -192,6 +193,7 @@ export function HousingDetail({
   const [detail, setDetail] = useState(house),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
+  const { isGuest } = useAccountAccess();
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -209,6 +211,7 @@ export function HousingDetail({
     return () => c.abort();
   }, [house.id]);
   useEffect(() => {
+    if (isGuest) return;
     let visitor = "session";
     try {
       visitor = sessionStorage.getItem("relohome-analytics-id") || requestId();
@@ -220,7 +223,7 @@ export function HousingDetail({
       event_type: "detail_view",
       dedup_key: `detail:${visitor}:${house.id}`,
     }).catch(() => {});
-  }, [house.id]);
+  }, [house.id, isGuest]);
   const source = safeUrl(
     detail.source?.url || detail.source?.source_url || detail.source_url,
   );
@@ -387,6 +390,7 @@ const amountText = (line: CostLine) =>
 // Daily or non-VND prices cannot be turned into a monthly total without guessing.
 const NO_MONTHLY_RENT = "Chưa rõ: giá không tính theo tháng";
 function HousingDecisionTools({ house }: { house: House }) {
+  const { isGuest, requireAccount } = useAccountAccess();
   const [usage, setUsage] = useState<Usage>({});
   const [message, setMessage] = useState(
     uiText("Tôi quan tâm căn này và muốn trao đổi thêm về lịch xem phòng."),
@@ -411,9 +415,10 @@ function HousingDecisionTools({ house }: { house: House }) {
     }
   }
   useEffect(() => {
-    if (acceptsContact) void loadMine();
-  }, [house.id, acceptsContact]);
+    if (acceptsContact && !isGuest) void loadMine();
+  }, [house.id, acceptsContact, isGuest]);
   async function contact() {
+    if (!requireAccount()) return;
     setSending(true);
     setRequestState("");
     try {

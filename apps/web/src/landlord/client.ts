@@ -1,5 +1,6 @@
 import { normalizeHousingMedia } from "../housingMedia";
 import { ApiError } from "../api";
+import { reportAuthFailure } from "../authEvents";
 
 export async function housingManagement<T>(
   path: string,
@@ -19,6 +20,7 @@ export async function housingManagement<T>(
   );
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    reportAuthFailure("/housing-management/" + path, response.status, data);
     throw new ApiError(
       response.status,
       typeof data.detail === "string"
@@ -46,7 +48,9 @@ export async function uploadListingImage(
     },
   );
   const data = await response.json().catch(() => ({}));
-  if (!response.ok)
+  if (!response.ok) {
+    reportAuthFailure("/landlord/listings/" + listingId + "/media-upload", response.status, data);
     throw new ApiError(response.status, data.detail || "Không tải được ảnh.");
+  }
   return data;
 }

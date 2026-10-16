@@ -241,9 +241,9 @@ chốt là thao tác UI có kiểu; agent trả lời kèm nút mở đúng ch�
 |---|---|---|
 | `HOUSING_MAX_SELECTED` | 3 | Số căn chọn tối đa |
 | `HOUSING_VIEWING_SLOT_MINUTES` | 30 | Độ dài buổi xem |
-| `HOUSING_VIEWING_DAY_START`, `HOUSING_VIEWING_DAY_END` | 08:00, 20:00 | Khung giờ trong ngày |
+| `HOUSING_VIEWING_DAY_START`, `HOUSING_VIEWING_DAY_END` | 08:00, 22:00 | Giờ bắt đầu sớm nhất và muộn nhất trong ngày, bao gồm 22:00 |
 | `HOUSING_VIEWING_WINDOW_DAYS` | 14 | Số ngày mở lịch |
-| `HOUSING_VIEWING_LEAD_MINUTES` | 120 | Thời gian báo trước tối thiểu |
+| `HOUSING_VIEWING_LEAD_MINUTES` | 60 | Thời gian báo trước tối thiểu; làm tròn lên theo bước lịch |
 | `HOUSING_VIEWING_TRAVEL_BUFFER_MINUTES` | 15 | Đệm giữa hai lịch |
 | `HOUSING_VIEWING_MIN_GAP_MINUTES` | 60 | Khoảng tối thiểu khi không tính được đường |
 | `HOUSING_VIEWING_DAILY_SOFT_LIMIT` | 4 | Ngưỡng nhắc số lịch/ngày |

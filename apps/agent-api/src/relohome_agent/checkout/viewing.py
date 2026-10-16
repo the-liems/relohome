@@ -155,7 +155,7 @@ class ViewingService:
             day = local_now.date() + timedelta(days=offset)
             start = datetime.combine(day, s.day_start, tzinfo=s.timezone)
             close = datetime.combine(day, s.day_end, tzinfo=s.timezone)
-            while start + step <= close:
+            while start <= close:
                 if start >= earliest:
                     result.append(start.isoformat())
                 start += step

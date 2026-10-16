@@ -1768,5 +1768,12 @@
   "Đơn vị tính {0}": "Billing unit for {0}",
   "Ẩn danh": "Anonymous",
   "{0} tin": "{0} listings",
-  "Không có tin nào khớp bộ lọc. Chọn \"Tất cả\" để xem thêm.": "No listings match the filter. Choose \"All\" to see more."
+  "Không có tin nào khớp bộ lọc. Chọn \"Tất cả\" để xem thêm.": "No listings match the filter. Choose \"All\" to see more.",
+  "Đăng nhập để lấy báo giá. Thông tin chuyển đồ đã nhập vẫn được giữ lại.": "Sign in to get a quote. Your moving details are preserved.",
+  "Đăng nhập xong, hãy xác nhận lại các lịch chưa gửi. Lịch đã chọn vẫn được giữ.": "After signing in, confirm the unsent appointments again. Your selected times are preserved.",
+  "Ghim điểm {0} trên bản đồ": "Pin point {0} on the map",
+  "Tìm lại vị trí {0}": "Find point {0} again",
+  "Sửa điểm {0}": "Edit point {0}",
+  "Không tìm thấy địa chỉ này. Thử thêm tên đường, thành phố hoặc ghim trên bản đồ.": "Address not found. Add a street or city, or pin the location on the map.",
+  "Đăng nhập để xem đánh giá chủ nhà": "Sign in to see landlord reviews"
 }

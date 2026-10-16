@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
+import { reportAuthFailure } from "../authEvents";
 import { ConfirmDialog } from "../components/Dialog";
 import { useResource } from "./useResource";
 import { roommate, RoommateError } from "./client";
@@ -53,13 +54,15 @@ export function AvatarEditor({
       } catch {
         throw new RoommateError("operation_unknown", 502);
       }
-      if (!response.ok)
+      if (!response.ok) {
+        reportAuthFailure("/roommate/media", response.status, value);
         throw new RoommateError(
           response.status >= 500
             ? "operation_unknown"
-            : value?.detail?.code || "invalid_image",
+            : value?.detail?.code || value?.code || (response.status === 401 ? "authentication_required" : "invalid_image"),
           response.status,
         );
+      }
       upload.current = null;
       setUncertain(false);
       data.reload();
@@ -113,6 +116,11 @@ export function AvatarEditor({
         />
       </label>
       <ErrorNotice error={error || data.error} retry={data.reload} />
+      {upload.current && !busy && error instanceof RoommateError && error.status === 401 && (
+        <button className="secondary" onClick={() => void send()}>
+          {rt("Thử tải lại ảnh", "Retry photo upload")}
+        </button>
+      )}
       {busy && <p role="status">{rt("Đang tải ảnh…", "Uploading photo…")}</p>}
       {uncertain && (
         <div className="rm-actions">

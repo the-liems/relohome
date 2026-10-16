@@ -975,6 +975,7 @@ export function MovingRequestWorkspace({
     asked.to_address && !asked.from_address ? "to_address" : "from_address",
   );
   const [found, setFound] = useState<Record<string, Data[]>>({}),
+    [searched, setSearched] = useState<Record<string, boolean>>({}),
     [drafts, setDrafts] = useState<Record<string, string>>({}),
     [searching, setSearching] = useState<EndpointField | null>(null),
     [sending, setSending] = useState(false),
@@ -1003,6 +1004,17 @@ export function MovingRequestWorkspace({
       ends[field].pin || undefined,
     );
   const shown = candidates(active);
+  function activate(field: EndpointField) {
+    activeRef.current = field;
+    setActive(field);
+    const point = ends[field].pin;
+    if (point && map.current)
+      focusMapPoint(map.current, [point.lng, point.lat], 17);
+  }
+  function editOnMap(field: EndpointField) {
+    activate(field);
+    if (window.matchMedia("(max-width: 767px)").matches) setSheetOpen(false);
+  }
   function pin(field: EndpointField, point: Data) {
     if (field === "to_address") destinationTouched.current = true;
     if (
@@ -1015,7 +1027,18 @@ export function MovingRequestWorkspace({
         requests: [],
         cod: undefined,
       }));
-    setEnds((e) => ({ ...e, [field]: { ...e[field], pin: point } }));
+    // A graph clarification resolves an existing detailed address; retain that
+    // address when it is unchanged. A new search result replaces its query text.
+    // Both the marker and the suggestion row use this same rule.
+    setEnds((e) => {
+      const resolvesKnown = e[field].address.trim() === text(known[field]).trim() &&
+        asked[field]?.choices?.some((c: Data) => c.id === point.id) &&
+        !found[field]?.some(c => c.id === point.id);
+      return { ...e, [field]: {
+        address: point.id && !resolvesKnown ? point.label : e[field].address || point.label,
+        pin: point,
+      } };
+    });
     if (field === "to_address")
       setUseHouse(
         (current) =>
@@ -1030,6 +1053,7 @@ export function MovingRequestWorkspace({
     setEnds((e) => ({ ...e, [field]: { address, pin: null } }));
     setDrafts((x) => ({ ...x, [field]: address }));
     setFound((x) => ({ ...x, [field]: [] }));
+    setSearched(x => ({ ...x, [field]: false }));
     searchAbort.current?.abort();
     ++searchGeneration.current;
     setSearching(null);
@@ -1051,7 +1075,7 @@ export function MovingRequestWorkspace({
     import("maplibre-gl").then(({ Map, NavigationControl, setWorkerUrl }) => {
       if (disposed || !container.current) return;
       setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
-      const first = housePointRef.current || candidates(active)[0];
+      const first = ends[active].pin || housePointRef.current || candidates(active)[0];
       const center: [number, number] = first
         ? [first.lng, first.lat]
         : DEFAULT_CENTER;
@@ -1115,15 +1139,18 @@ export function MovingRequestWorkspace({
         el.setAttribute("aria-label", "Chọn " + c.label);
         el.onclick = (ev) => {
           ev.stopPropagation();
-          pin(activeRef.current, c);
+          pinRef.current(activeRef.current, c);
         };
         markers.current.push(
           new Marker({ element: el }).setLngLat([c.lng, c.lat]).addTo(m),
         );
       }
       for (const [field, e] of pins) {
-        const el = document.createElement("div");
+        const el = document.createElement("button");
+        el.type = "button";
         el.className = "mv-marker mv-" + ENDPOINTS[field].tag.toLowerCase();
+        el.setAttribute("aria-label", formatUi("Sửa điểm {0}", [ENDPOINTS[field].tag]));
+        el.onclick = (ev) => { ev.stopPropagation(); activate(field); };
         el.append(
           Object.assign(document.createElement("span"), {
             textContent: ENDPOINTS[field].tag,
@@ -1135,7 +1162,7 @@ export function MovingRequestWorkspace({
             .addTo(m),
         );
       }
-      const focus = [...shown, ...pins.map(([, e]) => e.pin!)];
+      const focus = shown.length ? shown : pins.map(([, e]) => e.pin!);
       const activePin = ends[active].pin;
       if (
         activePin &&
@@ -1173,6 +1200,7 @@ export function MovingRequestWorkspace({
       );
       if (abort.signal.aborted || generation !== searchGeneration.current)
         return;
+      setSearched(x => ({ ...x, [field]: true }));
       setFound((x) => ({
         ...x,
         [field]: (r.results || [])
@@ -1355,7 +1383,7 @@ export function MovingRequestWorkspace({
                     (active === field ? "active " : "") +
                     (asked[field] ? "asked" : "")
                   }
-                  onClick={() => setActive(field)}
+                  onClick={() => { if (active !== field) activate(field); }}
                   aria-label={uiText(meta.label)}
                 >
                   <i className={"mv-dot " + meta.tag.toLowerCase()}>
@@ -1365,7 +1393,7 @@ export function MovingRequestWorkspace({
                     <button
                       type="button"
                       className="mv-endpoint-heading"
-                      onClick={() => setActive(field)}
+                      onClick={() => activate(field)}
                       aria-pressed={active === field}
                     >
                       {uiText("Chọn điểm ")}
@@ -1465,6 +1493,9 @@ export function MovingRequestWorkspace({
                         {uiText("Đang tìm địa điểm…")}
                       </small>
                     )}
+                    {active === field && searched[field] && !searching && !e.pin && !(found[field]?.length) && (
+                      <small role="status">{uiText("Không tìm thấy địa chỉ này. Thử thêm tên đường, thành phố hoặc ghim trên bản đồ.")}</small>
+                    )}
                     {active === field && !e.pin && shown.length > 0 && (
                       <div
                         className="mv-suggestions"
@@ -1482,17 +1513,6 @@ export function MovingRequestWorkspace({
                             onClick={(ev) => {
                               ev.stopPropagation();
                               pin(field, c);
-                              setEnds((x) => ({
-                                ...x,
-                                [field]: {
-                                  ...x[field],
-                                  address: found[field]?.some(
-                                    (p) => p.id === c.id,
-                                  )
-                                    ? c.label
-                                    : x[field].address.trim() || c.label,
-                                },
-                              }));
                               if (map.current)
                                 focusMapPoint(map.current, [c.lng, c.lat], 17);
                             }}
@@ -1520,12 +1540,23 @@ export function MovingRequestWorkspace({
                               "Gõ để tìm địa điểm hoặc chạm bản đồ để ghim.",
                             )}
                     </small>
+                    <button type="button" className="text-button"
+                      onClick={(ev) => { ev.stopPropagation(); editOnMap(field); }}>
+                      {formatUi("Ghim điểm {0} trên bản đồ", [meta.tag])}
+                    </button>
                     {e.pin && (
                       <button
                         type="button"
                         className="text-button"
                         onClick={(ev) => {
                           ev.stopPropagation();
+                          activate(field);
+                          if (field === "to_address") {
+                            destinationTouched.current = true;
+                            setUseHouse(false);
+                          }
+                          const query = e.address || e.pin?.label || "";
+                          setDrafts(x => ({ ...x, [field]: query }));
                           if (field === "from_address")
                             setOptions((x) => ({
                               ...x,
@@ -1535,11 +1566,11 @@ export function MovingRequestWorkspace({
                             }));
                           setEnds((x) => ({
                             ...x,
-                            [field]: { ...x[field], pin: null },
+                            [field]: { address: query, pin: null },
                           }));
                         }}
                       >
-                        {uiText("Bỏ ghim")}
+                        {formatUi("Tìm lại vị trí {0}", [meta.tag])}
                       </button>
                     )}
                   </span>
