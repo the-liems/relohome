@@ -38,6 +38,50 @@ Bản sửa bổ sung chỉ thay chuẩn hóa ngày/giá ở Platform API cùng 
 
 Giới hạn: phòng cho thuê trước khi có migration mà không có báo cáo chuyển tiền chỉ được tính từ lần đánh dấu Đã thuê gần nhất. Lịch sử đổi trạng thái trước đó không được lưu nên không dựng lại được.
 
+### PR #230: chặn kỳ thuê chồng nhau
+
+Review tiếp theo xác nhận kỳ thuê mới có thể bắt đầu trùng kỳ đã đóng: thuê từ
+01/09, đánh dấu trống ngày 17/10, rồi xác nhận thuê tiếp từ 01/09. API cũ trả 200
+và tính tháng 9 hai lần. Hai test API tái hiện lỗi trước sửa; hai test ghi trực
+tiếp/đồng thời cũng chứng minh DB cũ chưa chặn khoảng chồng nhau.
+
+- Thêm migration **030_housing_rent_period_overlap.sql**, giữ nguyên checksum 029.
+  Ràng buộc PostgreSQL `rent_periods_no_overlap` dùng GiST, `btree_gist` và
+  `daterange(starts_on, ends_on, '[)')` theo từng `listing_id`. DB bảo vệ cả INSERT,
+  UPDATE và transaction cạnh tranh; vẫn giữ index mỗi tin có tối đa một kỳ mở.
+- Ngày kết thúc không thuộc kỳ trước: kỳ mới bắt đầu đúng `ends_on` vẫn hợp lệ.
+  Kỳ rỗng vẫn không có doanh thu. Không chuyển ngày người dùng sang hôm nay hoặc
+  tự dời sang sau kỳ trước để xác nhận cho qua.
+- Vi phạm đúng constraint này trả **409 `rent_period_overlap`**, kèm hướng dẫn
+  kiểm tra ngày bắt đầu. Transaction xác nhận báo tiền rollback cả report,
+  contact, trạng thái tin và mọi thay đổi kỳ thuê; doanh thu trước đó giữ nguyên.
+- 6 regression case: trùng ngày bắt đầu kỳ đóng; bắt đầu trước kỳ đóng; giáp ranh
+  hợp lệ; INSERT/UPDATE trực tiếp; hai transaction ghi khoảng đóng chồng nhau;
+  migration gặp lịch sử xung đột. Hai ca lỗi API và hai ca lỗi DB đã đỏ trước sửa.
+- Sau sửa: 54/55 test trong 7 file Housing đạt; ca còn lại là lỗi revision draft
+  có sẵn ở dòng 1089 (`14` thay vì `11`), không nới assertion hoặc bỏ test.
+  Platform API build, 36 test gateway và kiểm tra whitespace đạt. Không thay CI hoặc env.
+
+Triển khai phải chạy migration 030 bằng migration runner hiện có trước API mới.
+`btree_gist` được tạo bởi role migration, không cấp thêm quyền cho app role.
+Migration **dừng** nếu đã có kỳ chồng nhau; không xóa kỳ hoặc tự sửa lịch sử. Trước
+rollout có thể kiểm tra bằng tài khoản vận hành DB:
+
+```sql
+SELECT a.listing_id, a.id AS first_period, b.id AS second_period,
+       a.starts_on, a.ends_on, b.starts_on, b.ends_on
+FROM housing.rent_periods a
+JOIN housing.rent_periods b ON a.listing_id = b.listing_id AND a.id < b.id
+WHERE daterange(a.starts_on, a.ends_on, '[)') && daterange(b.starts_on, b.ends_on, '[)');
+```
+
+Nếu có kết quả, đối chiếu thỏa thuận/lịch sử thật và sửa có chủ đích trong quy
+trình vận hành trước khi chạy lại migration. Không thay checksum migration đã
+áp dụng. Ràng buộc không thay cách tính doanh thu hoặc khôi phục lịch sử bị thiếu.
+
+Tham chiếu thiết kế: [PostgreSQL 16 — range constraints](https://www.postgresql.org/docs/16/rangetypes.html#RANGETYPES-CONSTRAINT)
+và [btree_gist](https://www.postgresql.org/docs/16/btree-gist.html).
+
 ## Admin dùng giao diện kính như chủ nhà
 
 `landlord/glass.css` áp dụng cho cả `.rh-admin-shell`:

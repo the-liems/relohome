@@ -24,7 +24,7 @@ export function plausibleRent(value: unknown): number | null {
   return Number.isFinite(rent) && rent >= 1 && rent <= RENT_LIMIT ? Math.round(rent) : null
 }
 
-/** Opens a rented stretch, closing any open one at the new start. */
+/** Caller owns the transaction: an overlap constraint failure rolls back both writes. */
 export async function startRentPeriod(
   client: HousingClient,
   listingId: string,
