@@ -113,3 +113,4 @@ class ReportInput(OperationInput):
 
 class ModerationInput(BlockInput):
     reason: ReasonText
+    expected_version: StrictInt | None = Field(default=None, ge=1)

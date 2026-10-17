@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Query
 from relohome_agent.api.roommate_access import Context, TrustedActor, perform
 from relohome_roommate.api_models import BlockInput, ModerationInput, ReportInput
@@ -55,14 +57,57 @@ def moderation_profiles(
     ctx: Context,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
-    status: str | None = None,
+    status: Literal["active", "paused", "resolved", "expired", "restricted"] | None = None,
+    q: str = Query("", max_length=100),
+    city: Literal["hcm", "hanoi", "danang"] | None = None,
+    need: Literal["has_room", "looking_together"] | None = None,
+    min_budget: int | None = Query(None, ge=0, le=1000000000),
+    max_budget: int | None = Query(None, ge=0, le=1000000000),
+    sort: Literal["updated_desc", "updated_asc", "budget_asc", "budget_desc"] = "updated_desc",
 ):
-    return perform(ModerationService(ctx).queue, actor, "profiles", status=status, offset=offset, limit=limit)
+    return perform(
+        ModerationService(ctx).queue,
+        actor,
+        "profiles",
+        status=status,
+        offset=offset,
+        limit=limit,
+        q=q,
+        city=city,
+        need=need,
+        min_budget=min_budget,
+        max_budget=max_budget,
+        sort=sort,
+    )
+
+
+@router.get("/moderation/profiles/{identifier}")
+def moderation_detail(identifier: str, actor: TrustedActor, ctx: Context):
+    return perform(ModerationService(ctx).detail, actor, identifier)
+
+
+@router.get("/moderation/profiles/{identifier}/history")
+def moderation_history(
+    identifier: str,
+    actor: TrustedActor,
+    ctx: Context,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+):
+    return perform(ModerationService(ctx).history, actor, identifier, offset=offset, limit=limit)
 
 
 @router.post("/moderation/profiles/{identifier}")
 def moderate(identifier: str, body: ModerationInput, actor: TrustedActor, ctx: Context):
-    return perform(ModerationService(ctx).restrict, actor, identifier, body.selected, body.reason, body.operation_key)
+    return perform(
+        ModerationService(ctx).restrict,
+        actor,
+        identifier,
+        body.selected,
+        body.reason,
+        body.operation_key,
+        expected_version=body.expected_version,
+    )
 
 
 @router.post("/moderation/reports/{identifier}/resolve")

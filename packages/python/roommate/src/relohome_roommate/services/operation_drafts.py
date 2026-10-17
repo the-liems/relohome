@@ -34,7 +34,10 @@ def validated_draft(path, method, body):
     ]
     for pattern, verb, model in routes:
         if method == verb and re.fullmatch(pattern, path):
-            return model.model_validate(body).model_dump(mode="json")
+            value = model.model_validate(body).model_dump(mode="json")
+            if model is ModerationInput and value.get("expected_version") is None:
+                value.pop("expected_version", None)
+            return value
     raise RoommateError("invalid_input", status=422)
 
 

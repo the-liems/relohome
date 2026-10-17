@@ -274,3 +274,57 @@ Full regression cuối: 870 pass /96 skip /16 lỗi Bash/symlink/Linux path trê
 - Chỉ các màn tìm/kết nối/hồ sơ cơ bản; không sửa backend, API/scoring hoặc UX/UI service cũ.
 - Handoff có module list, test commands/evidence và giới hạn contract: [ROOMMATE_UI_HANDOFF.md](../Frontend/ROOMMATE_UI_HANDOFF.md).
 - Các mục chưa tick vẫn là yêu cầu cho bản phát hành đầy đủ trong plan, không bị xóa hoặc hạ acceptance criteria.
+
+## Roommate Admin UI — 17/10/2026
+
+Phạm vi: **Admin → Ở ghép**, cùng yêu cầu bổ sung bỏ upload/duyệt ảnh Roommate
+của người dùng và Admin. Các task lịch sử phía trên giữ nguyên.
+Thiết kế: [kế hoạch](../docs/design/roommate-admin-redesign-2026-10-17.md).
+Evidence: [bàn giao](../docs/integration/roommate-admin-redesign-2026-10-17.md).
+
+### RA-01 — Dữ liệu và baseline
+
+- [x] Đồng bộ main `456b6d0`, giữ tài liệu/thay đổi local.
+- [x] Typed profile/report/summary/history; ngân sách VND/người/tháng, không tạo PII/KPI giả.
+
+### RA-02 — Header, KPI và bảng/card
+
+- [x] KPI thật nhấn được, hai queue compact; bảng desktop/thẻ mobile, CSS scope riêng.
+- [x] Chrome light/dark desktop/mobile và axe; giữ các tab Housing Admin.
+
+### RA-03 — Báo cáo và gỡ chức năng ảnh (thay phạm vi ảnh cũ theo yêu cầu)
+
+- [x] Báo cáo có tên/mã đối tượng, lý do, thời gian và trạng thái.
+- [x] Gỡ uploader người dùng, tab/CTA duyệt ảnh; đóng API/gateway upload/gắn/duyệt ảnh.
+- [x] Giữ private read/xóa ảnh cũ, dữ liệu và audit cũ; thêm UI xem/xóa từng ảnh cũ sau review P2; API test 404/405 và real browser qua gateway.
+
+### RA-04 — Drawer và hành động
+
+- [x] Drawer có footer cố định, tái dùng Dialog/focus/keyboard.
+- [x] Lý do/xác nhận hạn chế hoặc khôi phục, expected_version; restore về paused.
+- [x] Quyền Admin không yêu cầu consent cá nhân; người thường không có quyền moderation.
+
+### RA-05 — Query phía server
+
+- [x] Tìm tên/giới thiệu/mã, city/need/status/budget/sort; validate, phân trang/count, TTL nhất quán.
+- [x] SQL có tham số, Unicode search, sort ổn định, SQLite/PostgreSQL tests.
+- [x] URL lưu filter/page, không lưu search; đổi filter reset page/selection, hủy response cũ.
+
+### RA-06 — Chi tiết và lịch sử
+
+- [x] Detail/history có quyền và phân trang; không đọc nháp/đã xóa/private preferences/chat/contact.
+- [x] Chỉ hiện audit thật; test outsider/record thiếu/stale version và hồi quy privacy.
+
+### RA-07 — Resolve nhiều báo cáo
+
+- [x] Chọn trong trang tối đa 20, indeterminate, xác nhận số lượng; chỉ resolve báo cáo.
+- [x] Tuần tự; phân biệt thành công/lỗi/chưa rõ/chưa gửi. Dừng khi 401/503 hoặc operation_unknown (kể cả HTML 502); giữ mục chưa hoàn tất.
+- [x] Browser partial failure chứng minh refresh không gửi lại mutation đã thành công.
+
+### RA-08 — Kiểm thử và bàn giao
+
+- [x] Backend SQLite/PostgreSQL, browser Admin và tích hợp gateway/API thật; production build.
+- [x] Ghi rõ 128/130 hồi quy và hai ca auth baseline; không sửa/skip assertion để làm xanh.
+- [x] Cập nhật kế hoạch, runbook và tài liệu bàn giao.
+- [ ] CI trên commit sau push và smoke cloud sau deploy (chưa yêu cầu push/deploy trong lượt này).
+- [ ] Kiểm tra thủ công zoom 200% và tablet trên môi trường triển khai; không coi screenshot desktop/mobile thay thế bước này.

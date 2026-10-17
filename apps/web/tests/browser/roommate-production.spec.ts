@@ -1,6 +1,73 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+test("legacy photos can be viewed and individually deleted without upload or attachment", async ({
+  page,
+}) => {
+  await setup(page);
+  let photos = [
+    {
+      media_id: "legacy-photo",
+      status: "approved",
+      mime: "image/png",
+      created: 1,
+    },
+  ];
+  const writes: string[] = [];
+  await page.route("**/web/api/roommate/me/media", (route) =>
+    route.fulfill({ json: { items: photos } }),
+  );
+  await page.route("**/web/api/roommate/media/legacy-photo", (route) => {
+    if (route.request().method() === "DELETE") {
+      writes.push("DELETE legacy-photo");
+      photos = [];
+      return route.fulfill({ json: { deleted: true } });
+    }
+    return route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1eIAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+  });
+  page.on("request", (req) => {
+    if (
+      (req.method() === "POST" && req.url().endsWith("/roommate/media")) ||
+      (req.method() === "PUT" && req.url().endsWith("/profile/avatar"))
+    )
+      writes.push("unexpected photo write");
+  });
+  await page.goto("/roommate?tab=profile");
+  const gallery = page.getByRole("region", {
+    name: "Ảnh đã lưu trước đây",
+    exact: true,
+  });
+  await expect(gallery).toBeVisible();
+  await expect(gallery.locator("img")).toHaveCount(1);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  await gallery
+    .getByRole("button", { name: "Xóa ảnh này", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Hủy", exact: true })
+    .click();
+  expect(writes).toEqual([]);
+  await gallery
+    .getByRole("button", { name: "Xóa ảnh này", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Xóa ảnh", exact: true })
+    .click();
+  await expect(gallery).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Bản giới thiệu của bạn", exact: true }),
+  ).toBeVisible();
+  expect(writes).toEqual(["DELETE legacy-photo"]);
+});
+
 test("linked room picker scopes search without granting location consent", async ({
   page,
 }) => {
@@ -208,12 +275,10 @@ test("moderator gets an actionable private reports queue", async ({ page }) => {
   await setup(page, true);
   await page.goto("/roommate/moderation");
   await expect(
-    page.getByRole("heading", { name: "Quản lý cộng đồng" }),
+    page.getByRole("heading", { name: "Hồ sơ và báo cáo" }),
   ).toBeVisible();
   await expect(page.getByText("Tin không đúng", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Xử lý báo cáo" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xem báo cáo" })).toBeVisible();
 });
 
 test("a normal user cannot open moderation workspace", async ({ page }) => {
@@ -346,7 +411,7 @@ test("settings and moderation are accessible and fit the viewport", async ({
       page.getByRole("heading", {
         name: tab.includes("settings")
           ? "Liên hệ và quyền riêng tư"
-          : "Quản lý cộng đồng",
+          : "Hồ sơ và báo cáo",
       }),
     ).toBeVisible();
     await expect
@@ -379,7 +444,7 @@ test("settings and moderation are accessible and fit the viewport", async ({
       page.getByRole("heading", {
         name: tab.includes("settings")
           ? "Contacts and privacy"
-          : "Community moderation",
+          : "Profiles and reports",
         exact: true,
       }),
     ).toBeVisible();
@@ -391,14 +456,12 @@ test("settings and moderation are accessible and fit the viewport", async ({
           .analyze()
       ).violations,
     ).toEqual([]);
-    await page
-      .locator(".rm-workspace")
-      .screenshot({
-        path: info.outputPath(
-          tab.includes("settings")
-            ? "settings-dark-en.png"
-            : "moderation-dark-en.png",
-        ),
-      });
+    await page.locator(".rm-workspace").screenshot({
+      path: info.outputPath(
+        tab.includes("settings")
+          ? "settings-dark-en.png"
+          : "moderation-dark-en.png",
+      ),
+    });
   }
 });

@@ -1657,3 +1657,20 @@ Một task chỉ được tick khi acceptance criteria đạt, focused tests pas
 Khi thực thi cập nhật `todo.md` và evidence theo từng checkpoint. Sau review plan có thể chuyển task sang GitHub issue con của #65; giữ mã RM cố định và một nguồn tiến độ chính, không theo dõi hai checklist độc lập.
 
 **Lượt lập plan này chỉ tạo tài liệu. Chưa tạo module, migration, API, UI, dữ liệu pilot, chạy runtime hoặc chạy các tests implementation.**
+
+## 12. Admin → Ở ghép — cập nhật 17/10/2026
+
+Phạm vi hiện hành: nâng cấp riêng Admin Ở ghép và bỏ upload/duyệt ảnh Roommate
+ở cả người dùng lẫn Admin. Yêu cầu bổ sung thay thế hàng đợi ảnh trong kế hoạch
+RA ban đầu. Các mục lịch sử phía trên giữ nguyên.
+
+Thiết kế: [Roommate Admin](../docs/design/roommate-admin-redesign-2026-10-17.md).
+Tiến độ: RA-01–RA-08 trong `todo.md`.
+Evidence: [bàn giao](../docs/integration/roommate-admin-redesign-2026-10-17.md).
+
+Đã triển khai typed projection, query phía server, KPI/list/drawer/history,
+version guard và xử lý nhiều báo cáo. Giữ consent, đăng hồ sơ, thuật toán ghép,
+kết nối/chat và các tab Housing Admin. Không migration hoặc cấu hình mới.
+Ảnh cũ giữ trong private storage; đóng upload/gắn/duyệt ảnh qua HTTP.
+
+Đã kiểm thử local; chưa push, chưa có CI của nhánh mới và chưa smoke cloud.

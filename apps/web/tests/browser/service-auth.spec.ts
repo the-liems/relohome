@@ -417,47 +417,19 @@ test("403 permission denial does not open login", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("Roommate photo upload preserves its file through login and retries only on request", async ({
+test("Roommate has no photo upload even when a legacy backend advertises media", async ({
   page,
 }) => {
   const f = await fixture(page);
   f.enableMedia();
   await page.goto("/roommate?tab=profile");
-  const file = page.getByLabel("Chọn ảnh JPEG hoặc PNG · tối đa 5 MB", {
-    exact: true,
-  });
-  await expect(file).toBeVisible();
-  f.expire();
-  await file.setInputFiles({
-    name: "avatar.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFe8AAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
   await expect(
-    page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true }),
+    page.getByRole("textbox", { name: "Tên hiển thị", exact: true }),
   ).toBeVisible();
-  await signIn(page);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
   expect(
     f.calls.filter((c) => c.path === "/roommate/media" && c.method === "POST"),
-  ).toHaveLength(1);
-  await page
-    .getByRole("button", { name: "Thử tải lại ảnh", exact: true })
-    .click();
-  await expect
-    .poll(
-      () =>
-        f.calls.filter(
-          (c) => c.path === "/roommate/media" && c.method === "POST",
-        ).length,
-    )
-    .toBe(2);
-  const uploads = f.calls.filter(
-    (c) => c.path === "/roommate/media" && c.method === "POST",
-  );
-  expect(uploads[1].operation).toBe(uploads[0].operation);
+  ).toHaveLength(0);
 });
 
 test("late previous-account saved data cannot enter the new account", async ({

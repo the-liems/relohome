@@ -43,7 +43,7 @@ async def test_housing_admin_moderates_without_personal_profile_and_users_cannot
             admin = headers("housing-admin")
             access = (await client.get("access", headers=admin)).json()
             assert access["moderator"] and not access["eligible"]
-            for queue in ("summary", "profiles", "media", "reports"):
+            for queue in ("summary", "profiles", "reports"):
                 response = await client.get("moderation/" + queue, headers=admin)
                 assert response.status_code == 200
                 assert response.headers["cache-control"] == "private, no-store"
@@ -55,8 +55,14 @@ async def test_housing_admin_moderates_without_personal_profile_and_users_cannot
             assert (await client.get("moderation/summary", headers=spoof)).status_code == 403
             assert (await client.get("moderation/summary", headers=headers("mod"))).status_code == 200  # legacy IDs
             decision = {"approved": True, "reason": "Reviewed content"}
-            assert (await client.post(f"moderation/media/{media_id}", headers=spoof, json=decision)).status_code == 403
-            assert (await client.post(f"moderation/media/{media_id}", headers=admin, json=decision)).status_code == 200
+            assert (await client.post(f"moderation/media/{media_id}", headers=spoof, json=decision)).status_code in (
+                404,
+                405,
+            )
+            assert (await client.post(f"moderation/media/{media_id}", headers=admin, json=decision)).status_code in (
+                404,
+                405,
+            )
             assert (await client.post(f"moderation/reports/{report_id}/resolve", headers=admin)).status_code == 200
             body = {"selected": True, "reason": "Reviewed report", "operation_key": "admin-http-restrict-01"}
             path = "/moderation/profiles/candidate"

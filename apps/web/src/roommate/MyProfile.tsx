@@ -8,13 +8,9 @@ import { ProfileSummary } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
 import { emptyProfile, type OwnProfile, type Profile } from "./types";
 import { deadlineLabel, rt, stateName } from "./text";
-import { AvatarEditor } from "./AvatarEditor";
 import { useIntro } from "./useIntro";
-export function MyProfile({
-  mediaEnabled = false,
-}: {
-  mediaEnabled?: boolean;
-}) {
+import { LegacyPhotos } from "./LegacyPhotos";
+export function MyProfile() {
   const roommate = useRoommateClient();
   const intro = useIntro(),
     own = useResource<OwnProfile>("/me/profile");
@@ -238,9 +234,7 @@ export function MyProfile({
           <ProfileSummary profile={own.value.content} />
         )}
       </aside>
-      {mediaEnabled && (
-        <AvatarEditor profile={own.value} changed={own.reload} />
-      )}
+      <LegacyPhotos changed={own.reload} />
       {preview && (
         <ProfilePreview
           content={content}
