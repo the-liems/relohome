@@ -163,11 +163,9 @@ export function MapWorkspace({
   const [poiDetail, setPoiDetail] = useState<Data | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
-  const [demoAvailable, setDemoAvailable] = useState(false);
   const [roommateEnabled, setRoommateEnabled] = useState(false);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [roomMapRetry, setRoomMapRetry] = useState(0);
-  const [includeDemo, setIncludeDemo] = useState(false);
   const [roomMapError, setRoomMapError] = useState("");
   const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -179,8 +177,6 @@ export function MapWorkspace({
         if (!abort.signal.aborted) {
           setRoomMapError("");
           setRoommateEnabled(Boolean(a.enabled));
-          setDemoAvailable(Boolean(a.demo_enabled));
-          setIncludeDemo(Boolean(a.demo_enabled));
         }
       })
       .catch(() => {
@@ -213,13 +209,14 @@ export function MapWorkspace({
         "POST",
         {
           listing_ids: ids.slice(0, 250),
-          include_demo: includeDemo,
         },
         abort.signal,
       )
         .then((data) => {
           if (!abort.signal.aborted) {
-            setRoomMarkers(data.items);
+            setRoomMarkers(
+              data.items.filter((item) => item.source_kind === "real"),
+            );
             setRoomMapError("");
           }
         })
@@ -249,7 +246,7 @@ export function MapWorkspace({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [roomIds, includeDemo, roommateEnabled, roomMapRetry]);
+  }, [roomIds, roommateEnabled, roomMapRetry]);
   const generation = useRef(0);
   const activeSearchScope =
     focus?.searchScope?.area_id &&
@@ -1326,16 +1323,6 @@ export function MapWorkspace({
                   ghép trọ công khai.
                 </>
               )}
-              {demoAvailable && (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={includeDemo}
-                    onChange={(e) => setIncludeDemo(e.target.checked)}
-                  />
-                  Hiện phòng DEMO — liên kết minh họa, không phải người thật
-                </label>
-              )}
               {roomMapError && <small role="status">{roomMapError}</small>}
               {roomMapError && (
                 <button
@@ -1470,15 +1457,10 @@ export function MapWorkspace({
                   <p>{p.display_name}</p>
                   <a
                     href={
-                      p.source_kind === "demo"
-                        ? "/roommate?tab=demo"
-                        : "/roommate/profiles/" +
-                          encodeURIComponent(p.profile_id)
+                      "/roommate/profiles/" + encodeURIComponent(p.profile_id)
                     }
                   >
-                    {p.source_kind === "demo"
-                      ? "Xem hồ sơ DEMO (không kết nối)"
-                      : "Xem nhu cầu ở ghép"}
+                    {uiText("Xem nhu cầu ở ghép")}
                   </a>
                 </div>
               ))}

@@ -1,5 +1,7 @@
 # Roommate trong ReloHome: cách hoạt động và hướng cải thiện trải nghiệm
 
+**Cập nhật 17/10/2026:** đã bỏ hồ sơ demo khỏi UI/runtime và bản đồ. Roommate chỉ dùng hồ sơ do tài khoản người dùng đăng; xem [runbook hiện hành](../runbooks/roommate.md). Các ghi nhận DEMO bên dưới là lịch sử ngày 16/10, không còn là hướng dẫn cấu hình.
+
 Ngày đối chiếu: 16/10/2026, code `main` tại `49ab46a` (đã gồm PR #192 và #194).
 
 Tài liệu phân biệt **hành vi đang có trong code**, **cấu hình local**, và **đề xuất chưa triển khai**. Đây không phải xác nhận môi trường cloud đã được cấu hình hoặc kiểm thử tải.

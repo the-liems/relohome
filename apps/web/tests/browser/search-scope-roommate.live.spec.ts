@@ -1,11 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 test.skip(
   process.env.RUN_SEARCH_SCOPE_ROOMMATE_BROWSER !== "1",
-  "Real read providers + authorized DEMO opt-in",
+  "Real read providers + user-profile access checks",
 );
 async function signIn(page: Page) {
   if (
@@ -62,95 +61,37 @@ print(json.dumps({'token':store.create_session(row['owner'])}))
   await page.goto("/ai");
 }
 
-test("DEMO is browseable without granting real consent; map links are labeled and disconnected", async ({
+test("retired demo links never grant consent or expose synthetic room markers", async ({
   page,
 }) => {
-  const datasetPath = execFileSync(
-    "node",
-    [
-          "../../scripts/python.mjs",
-      "-c",
-      "from dotenv import dotenv_values; print(dotenv_values('.env.local')['ROOMMATE_DEMO_DATASET'])",
-    ],
-    { encoding: "utf8" },
-  ).trim();
-  const dataset = JSON.parse(readFileSync("../../" + datasetPath, "utf-8"));
-  const hanoiCount = dataset.profiles.filter(
-    (profile: any) => profile.content.facts.city === "hanoi",
-  ).length;
-  const mappedCount = dataset.profiles.filter(
-    (profile: any) => profile.content.room,
-  ).length;
   await signIn(page);
   await page.goto("/roommate?tab=demo");
-  await expect(
-    page.getByRole("heading", {
-      name: "Hồ sơ DEMO — không phải người thật",
-    }),
-  ).toBeVisible();
-  await expect(page.locator(".rm-candidate-list > li")).toHaveCount(
-    Math.min(hanoiCount, 12),
-  );
-  await expect(
-    page.getByText(`${hanoiCount} hồ sơ DEMO còn hiệu lực tại Hà Nội`, {
-      exact: true,
-    }),
-  ).toBeVisible();
-  if (hanoiCount > 12) {
-    await page.getByRole("button", { name: "Sau", exact: true }).click();
-    await expect(
-      page.getByText(`13–${Math.min(24, hanoiCount)} / ${hanoiCount}`, {
-        exact: true,
-      }),
-    ).toBeVisible();
-  }
+  await expect(page.locator(".rm-source-switch")).toHaveCount(0);
+  await expect(page.getByText(/DEMO/)).toHaveCount(0);
+  const availability = await (
+    await page.request.get("/web/api/roommate/availability")
+  ).json();
+  expect(availability.demo_enabled).toBe(false);
   const access = await (
     await page.request.get("/web/api/roommate/access")
   ).json();
   expect(access.eligible).toBe(false);
+  const retired = await page.request.post("/web/api/roommate/demo/search", {
+    headers: { "X-SIU-Request": "1" },
+    data: { criteria: { city: "hanoi" } },
+  });
+  expect(retired.status()).toBe(404);
   const real = await page.request.post("/web/api/roommate/search", {
     headers: { "X-SIU-Request": "1" },
     data: { criteria: { city: "hanoi" } },
   });
   expect(real.status()).toBe(403);
-  const ids = [
-    ...new Set(
-      dataset.profiles
-        .filter((p: any) => p.content.room)
-        .map((p: any) => p.content.room.listing_id),
-    ),
-  ];
-  const request = (include_demo: boolean) =>
-    page.request.post("/web/api/roommate/map/rooms", {
-      headers: { "X-SIU-Request": "1" },
-      data: { listing_ids: ids, include_demo },
-    });
-  const hidden = await request(false);
-  expect(hidden.ok()).toBeTruthy();
-  expect((await hidden.json()).items).toEqual([]);
-  const shown = await request(true);
-  expect(shown.ok()).toBeTruthy();
-  const markers = (await shown.json()).items;
-  expect(markers).toHaveLength(mappedCount);
-  expect(
-    markers.every(
-      (p: any) =>
-        p.source_kind === "demo" &&
-        p.connections_enabled === false &&
-        p.label.includes("minh họa"),
-    ),
-  ).toBe(true);
-  expect(page.getByRole("button", { name: /Gửi yêu cầu kết nối/ })).toHaveCount(
-    0,
-  );
-  console.log(
-    JSON.stringify({
-      case: "demo_isolation",
-      people: dataset.profiles.length,
-      mapped_demo_profiles: markers.length,
-      real_consent_granted: false,
-    }),
-  );
+  const markers = await page.request.post("/web/api/roommate/map/rooms", {
+    headers: { "X-SIU-Request": "1" },
+    data: { listing_ids: [], include_demo: true },
+  });
+  expect(markers.ok()).toBe(true);
+  expect(await markers.json()).toEqual({ items: [], demo_enabled: false });
 });
 
 test("ready Housing before pending Moving; current administrative polygon and explicit back-to-chat", async ({
@@ -245,29 +186,18 @@ test("ready Housing before pending Moving; current administrative polygon and ex
     "Phường Cầu Giấy",
   );
   const roomPayload = await (await roomResponse).json();
-  expect(roomPayload.items.some((i: any) => i.source_kind === "demo")).toBe(
-    true,
-  );
+  expect(
+    roomPayload.items.every(
+      (item: { source_kind: string }) => item.source_kind === "real",
+    ),
+  ).toBe(true);
+  await expect(page.getByText(/Hiện phòng DEMO/)).toHaveCount(0);
   const cards = page.locator(".ws-card .title-button");
   await expect(cards.first()).toBeVisible();
-  let foundDemo = false;
-  for (let i = 0; i < (await cards.count()); i++) {
-    await cards.nth(i).click();
-    await expect(page.locator(".ws-detail-body")).toBeVisible();
-    if (await page.locator(".ws-roommate-badge").count()) {
-      await expect(page.locator(".ws-roommate-badge").first()).toContainText(
-        "DEMO",
-      );
-      foundDemo = true;
-      break;
-    }
-    await page
-      .getByRole("button", { name: "Đóng chi tiết", exact: true })
-      .click();
-  }
-  expect(foundDemo).toBe(true);
-  await page.screenshot({
-    path: "../../data/issue73-browser-results/actual-scope-demo-yellow.png",
-  });
+  await cards.first().click();
+  await expect(page.locator(".ws-detail-body")).toBeVisible();
+  await expect(
+    page.locator(".ws-roommate-badge").filter({ hasText: "DEMO" }),
+  ).toHaveCount(0);
   expect(failures).toEqual([]);
 });

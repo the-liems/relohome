@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 test.skip(
   process.env.RUN_HOUSING_CONTROLS_LIVE !== "1",
-  "Requires real local read services and authorized DEMO",
+  "Requires real local read services",
 );
 
 async function register(page: Page) {
@@ -192,26 +192,14 @@ test("real Housing basket, four-way comparison, detail actions and actual denied
   );
 });
 
-test("Roommate DEMO lists configured real file; real discovery is separate and autoloads", async ({
+test("Roommate opens user discovery from legacy demo links without granting consent", async ({
   page,
 }) => {
   await register(page);
   await page.goto("/roommate?tab=demo");
-  await expect(page.locator(".rm-source-switch")).toBeVisible();
-  await expect(page.locator(".rm-candidate-list > li").first()).toBeVisible();
-  expect(await page.locator(".rm-candidate-list > li").count()).toBeGreaterThan(
-    0,
-  );
-  await expect(
-    page.getByRole("button", { name: /Kết nối|Gửi yêu cầu/ }),
-  ).toHaveCount(0);
-  await page.screenshot({ path: "../../data/issue79-roommate-demo.png" });
-  await page
-    .locator(".rm-source-switch")
-    .getByRole("link", { name: "Hồ sơ thật", exact: true })
-    .click();
-  // This disposable test identity declares eligibility explicitly; no public
-  // profile is created and no DEMO consent is imported into real discovery.
+  await expect(page.locator(".rm-source-switch")).toHaveCount(0);
+  await expect(page.getByText(/DEMO/)).toHaveCount(0);
+  // Only this disposable identity explicitly declares eligibility; it publishes no profile.
   const access = await (
     await page.request.get("/web/api/roommate/access")
   ).json();

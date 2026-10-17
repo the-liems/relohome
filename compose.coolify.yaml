@@ -206,7 +206,6 @@ services:
       ROOMMATE_ENABLED: ${ROOMMATE_ENABLED:-false}
       ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
       ROOMMATE_STATE_DIR: /app/private-roommate
-      ROOMMATE_DEMO_ENABLED: "false"
       # Opt in to shared PostgreSQL after provisioning/import; never silently
       # replace the database from an existing private SQLite volume.
       ROOMMATE_STORAGE: ${ROOMMATE_STORAGE:-sqlite}

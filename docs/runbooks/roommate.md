@@ -12,13 +12,23 @@ Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đ�
 
 ## Cấu hình
 
-### Bộ hồ sơ thử nghiệm
+### Hồ sơ do người dùng đăng — cập nhật 17/10/2026
 
-`data/roommate-demo-30.json` chứa 30 hồ sơ tổng hợp có nhãn `DEMO`, chia đều Hà Nội, TP.HCM, Đà Nẵng và 15 nam/15 nữ. Không có tài khoản, ảnh cá nhân, số điện thoại hay Zalo. Liên kết tới tin Housing thật chỉ để thử bản đồ, không thể suy ra người DEMO đang ở phòng đó. Dữ liệu này không đi vào danh sách hồ sơ thật hoặc luồng gửi yêu cầu kết nối.
+Roommate chỉ hiển thị hồ sơ do tài khoản người dùng chủ động đăng. Team tự tạo tài khoản,
+khai thông tin, đăng hồ sơ rồi gửi/nhận yêu cầu kết nối và chat theo luồng hiện có.
+Không tự cấp consent, đăng bài hoặc tạo hồ sơ thay người dùng. Khi chưa có bài phù hợp,
+giao diện hiển thị danh sách trống và nút **Đăng nhu cầu của tôi**.
 
-Ở local/staging, đặt `ROOMMATE_DEMO_ENABLED=true` và `ROOMMATE_DEMO_DATASET=data/roommate-demo-30.json`, rồi khởi động lại API; mở `/roommate?tab=demo` để xem. Docker image hiện bỏ qua `data/`, nên staging bằng container phải mount tệp này tại đúng đường dẫn. Trong production đặt `ROOMMATE_DEMO_ENABLED=false` và không dùng bộ dữ liệu này; không sao chép `.env` local đang bật DEMO vào cấu hình cloud. Runtime sẽ từ chối bật DEMO khi `APP_ENV=production`.
+Tab/nút/checkbox DEMO và endpoint `POST /roommate/demo/search` đã bị bỏ.
+`ROOMMATE_DEMO_ENABLED` và `ROOMMATE_DEMO_DATASET` không còn được runtime đọc;
+operator có thể xóa chúng nếu cấu hình cũ còn giữ. Không cần thêm biến thay thế.
+`demo_enabled:false` và input `include_demo` được giữ tương thích cho client cũ;
+input này không thể bật dữ liệu giả. Link cũ `/roommate?tab=demo` mở luồng thường.
 
-File được tạo bằng `scripts/generate-roommate-demo.py --count 30 --valid-days 1095 --output data/roommate-demo-30.json`. Script từ chối ghi đè; khi cần làm mới, tạo tên file mới rồi đổi cấu hình sau khi kiểm tra. Thời hạn dài chỉ áp dụng cho dữ liệu thử nghiệm, không thay đổi quy tắc 30 ngày của hồ sơ thật.
+Dataset/script sinh dữ liệu tổng hợp chỉ còn phục vụ kiểm thử offline, không được nạp
+vào runtime hay DB thật. Không cần xóa DB, file dữ liệu hoặc tạo lại contact key.
+Bản đồ chỉ hiện hồ sơ công khai còn hiệu lực và đã đồng ý công khai liên kết phòng;
+kiểm tra quyền, tuổi/điều khoản, block và moderation giữ nguyên.
 
 | Biến | Yêu cầu |
 | --- | --- |

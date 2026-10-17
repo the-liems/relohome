@@ -291,17 +291,6 @@
 .rm-results {
   min-width: 0;
 }
-.rm-source-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.rm-source-switch .rm-hint {
-  flex-basis: 100%;
-  margin: 0;
-}
 .rm-quick-search {
   margin: 16px 0;
   position: sticky;
