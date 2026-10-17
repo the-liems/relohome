@@ -296,7 +296,7 @@ Evidence: [bàn giao](../docs/integration/roommate-admin-redesign-2026-10-17.md)
 
 - [x] Báo cáo có tên/mã đối tượng, lý do, thời gian và trạng thái.
 - [x] Gỡ uploader người dùng, tab/CTA duyệt ảnh; đóng API/gateway upload/gắn/duyệt ảnh.
-- [x] Giữ private read/xóa ảnh cũ, dữ liệu và audit cũ; API test 404/405 và real browser qua gateway.
+- [x] Giữ private read/xóa ảnh cũ, dữ liệu và audit cũ; thêm UI xem/xóa từng ảnh cũ sau review P2; API test 404/405 và real browser qua gateway.
 
 ### RA-04 — Drawer và hành động
 
@@ -318,7 +318,7 @@ Evidence: [bàn giao](../docs/integration/roommate-admin-redesign-2026-10-17.md)
 ### RA-07 — Resolve nhiều báo cáo
 
 - [x] Chọn trong trang tối đa 20, indeterminate, xác nhận số lượng; chỉ resolve báo cáo.
-- [x] Tuần tự, báo thành công/lỗi/chưa gửi, dừng khi 401/503; giữ mục lỗi/chưa gửi.
+- [x] Tuần tự; phân biệt thành công/lỗi/chưa rõ/chưa gửi. Dừng khi 401/503 hoặc operation_unknown (kể cả HTML 502); giữ mục chưa hoàn tất.
 - [x] Browser partial failure chứng minh refresh không gửi lại mutation đã thành công.
 
 ### RA-08 — Kiểm thử và bàn giao

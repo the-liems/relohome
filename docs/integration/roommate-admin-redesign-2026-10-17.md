@@ -1,7 +1,8 @@
 # Bàn giao Admin Ở ghép và gỡ upload ảnh
 
 Ngày: 17/10/2026. Baseline `origin/main:456b6d0`.
-Nhánh: `feat/roommate-admin-no-media`. **Đã kiểm thử local; chưa push/deploy.**
+Nhánh: `feat/roommate-admin-no-media`. PR: [#220](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/220).
+Đã push bản đầu; đang bổ sung hai bản sửa P2. Chưa merge/deploy.
 
 ## 1. Những thay đổi đã làm
 
@@ -115,7 +116,8 @@ Giữ `ROOMMATE_ENABLED`, `HOUSING_MODERATOR_IDS`, DB/private volume và key hi�
 có; không thêm biến cho ảnh hoặc moderation mới. Nếu `/availability` vẫn trả
 enabled=false, đó là runtime/config cần kiểm tra riêng, bản UI này không tự bật.
 
-Chưa push/PR/CI trên commit mới, chưa deploy/smoke cloud và chưa kiểm tra thủ
+PR #220 đã có CI xanh ở commit `a5ac700`; kết quả đó không xác nhận bản sửa P2
+chưa push bên dưới. Chưa deploy/smoke cloud và chưa kiểm tra thủ
 công zoom 200%/tablet trên bản triển khai. Sau deploy: kiểm tra availability,
 đăng nhập Admin duyệt nhà hiện có, mở Ở ghép, lọc/xem hồ sơ, xử lý báo cáo test,
 hạn chế/khôi phục tài khoản test, kiểm tra lịch sử và chuyển lại tab Housing.
@@ -123,3 +125,34 @@ User không còn upload ảnh nhưng vẫn đăng hồ sơ, kết nối/chat the
 
 Rollback bằng revision trước cho cả web và backend; không cần hoàn tác schema,
 không xóa hoặc tái tạo DB/key.
+
+## 6. Hai lỗi P2 sau review #220
+
+### Khôi phục quyền xóa riêng ảnh cũ
+
+`LegacyPhotos` trong **Hồ sơ của tôi** dùng `GET /me/media`, private image read
+và `DELETE /media/{id}` đã có. Có xem ảnh, xác nhận xóa và hủy. Sau khi xóa tải
+lại danh sách/profile để lấy avatar và version mới. Không thêm upload, attach,
+đổi ảnh hoặc API mới; hồ sơ không có ảnh thì không hiện khối này.
+
+### Dừng batch khi kết quả chưa xác định
+
+Batch dừng theo `RoommateError.code === operation_unknown`, kể cả response
+HTML 502, thay vì chỉ dựa trên 401/503. Exception ngoài dự kiến cũng được xem
+là chưa rõ kết quả và dừng. Phân biệt thành công / lỗi / chưa rõ / chưa gửi;
+chỉ bỏ chọn mục đã xác nhận thành công. Refresh không gửi mutation trở lại.
+
+### Kiểm thử bổ sung
+
+- Hai ca tái hiện mới thất bại trên code trước sửa ở cả desktop/mobile (4 failed).
+- Sau sửa: **34/34 browser Admin + production Roommate**, **6/6 tích hợp thật**.
+- Hồi quy tìm/đăng/kết nối/chat và privacy Roommate: **42/42 browser**.
+- Backend/gateway chạy lại với SQLite và PostgreSQL test riêng: **263 passed**,
+  không bỏ qua ca PostgreSQL. Đây là local, chưa xác minh database staging.
+- Tích hợp seed ảnh lịch sử qua MediaService nội bộ trong DB test; HTTP upload
+  vẫn đóng. Sau xóa avatar=null, version tăng một, content/state giữ nguyên,
+  không đọc lại được ảnh. Không seed vào runtime hoặc DB người dùng.
+- Build TypeScript/Vite và Ruff đạt. CI commit mới sẽ cập nhật sau push;
+  không lấy CI xanh commit cũ làm kết quả của bản sửa.
+- Lần tích hợp đầu bị nhiễu vì build thay static assets trong lúc chạy test;
+  chạy lại sau khi build hoàn tất đạt 6/6, không hạ assertion hoặc bỏ test.

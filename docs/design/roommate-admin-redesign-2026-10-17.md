@@ -98,7 +98,8 @@ tối đa 20 mục. Không có bulk restrict/restore hoặc duyệt toàn hồ s
 1. Chọn từng mục hoặc chọn trong trang; checkbox có trạng thái indeterminate.
 2. Xác nhận đúng số lượng và ý nghĩa thao tác.
 3. Gọi endpoint resolve hiện có tuần tự, ghi số thành công/lỗi/chưa gửi.
-4. Dừng khi hết phiên hoặc kết quả không rõ; giữ mục lỗi/chưa gửi được chọn.
+4. Dừng khi hết phiên hoặc kết quả không rõ, kể cả `operation_unknown` với HTTP
+   502/HTML. Tách số chưa rõ kết quả khỏi số lỗi; giữ mục chưa rõ/lỗi/chưa gửi được chọn.
 5. Làm mới count/list; không tự gửi lại các mutation đã thành công.
 
 ## 7. Bỏ upload và duyệt ảnh
@@ -107,8 +108,9 @@ Gỡ AvatarEditor của người dùng; không phụ thuộc backend cũ còn qu
 Đóng các endpoint upload, gắn avatar và moderation media ở API lẫn gateway.
 `availability.features` không còn `media`.
 
-Ảnh cũ vẫn có thể hiển thị qua private API hiện có và chủ sở hữu vẫn có quyền
-xóa. MediaService/DB/audit cũ được giữ cho archive, privacy/export và dữ liệu
+Ảnh cũ vẫn hiển thị qua private API hiện có. Trong Hồ sơ của tôi, chủ sở hữu có
+mục **Ảnh đã lưu trước đây** để xem và xác nhận xóa riêng từng ảnh, không xóa
+hồ sơ. Không có upload/gắn/đổi ảnh. MediaService/DB/audit cũ được giữ cho archive, privacy/export và dữ liệu
 còn tồn tại; không dùng chúng để mở lại upload hay duyệt ảnh qua route khác.
 Ảnh Housing và profile tài khoản ngoài Roommate không thuộc thay đổi này.
 
