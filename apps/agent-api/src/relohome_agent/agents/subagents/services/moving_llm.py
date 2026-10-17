@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -41,6 +42,8 @@ from relohome_agent.agents.subagents.services.moving_context import (
 from relohome_agent.agents.task_prompts import FORM_SELECTION, MOVING_CORE, MOVING_MODES
 from relohome_agent.services.adapters.mcp import McpToolClient, ToolCallError
 from relohome_contracts.moving_options import apply_draft_options, service_selection, validated_options
+
+logger = logging.getLogger(__name__)
 
 
 def function(name: str, description: str, properties: dict | None = None) -> dict:
@@ -431,10 +434,12 @@ class MovingLlmAgent:
                 exc.retryable,
             )
         except APIError:
+            logger.warning("moving agent LLM call failed", exc_info=True)
             return execution.failed("provider_unavailable", "LLM không phản hồi; chưa hoàn thành task.", True)
         except (KeyError, TypeError, ValueError):
             if form_quote:
                 raise  # Unexpected form errors must reach the graph callback and HTTP instrumentation.
+            logger.warning("moving agent result broke the task contract", exc_info=True)
             return execution.failed("internal", "Dữ liệu trả về không đáp ứng contract; chưa hoàn thành task.")
 
 

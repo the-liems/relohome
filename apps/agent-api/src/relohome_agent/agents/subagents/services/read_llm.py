@@ -197,7 +197,9 @@ class ReadLlmAgent:
             KeyError,
             TypeError,
         ) as exc:
-            logger.warning("Domain tool loop failed domain=%s cause=%s", domain.value, type(exc).__name__)
+            logger.warning(
+                "Domain tool loop failed domain=%s cause=%s", domain.value, type(exc).__name__, exc_info=True
+            )
             run.usage.provider_calls = session.tools.calls
             run.usage.cached_calls = session.tools.cached_calls
             code = (

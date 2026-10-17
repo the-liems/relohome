@@ -135,7 +135,7 @@ def make_orchestrator(deps: GraphDeps):
         except Exception as exc:
             code = exc.code if isinstance(exc, LLMError) else "PLANNER_INTERNAL_ERROR"
             detail = exc.message if isinstance(exc, LLMError) else "Bộ lập kế hoạch gặp lỗi nội bộ."
-            logger.warning("planner failed: %s", code)
+            logger.warning("planner failed: %s", code, exc_info=True)
             if code == "LLM_BUDGET":
                 return stop(OutcomeCode.BUDGET, "hết lượt LLM trong lượt này")
             return stop(OutcomeCode.ERROR, f"[{code}] {detail}", [code])

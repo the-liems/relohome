@@ -286,7 +286,7 @@ def make_intake(deps: GraphDeps):
                 if isinstance(exc, LLMError)
                 else "Bộ xử lý yêu cầu gặp lỗi nội bộ; không phải do câu hỏi của bạn."
             )
-            logger.warning("intake failed: %s", code)
+            logger.warning("intake failed: %s", code, exc_info=True)
             return {
                 "outcome": Outcome(node="intake", code=OutcomeCode.ERROR, detail=f"[{code}] {detail}"),
                 "errors": [error_record("intake", code, now)],

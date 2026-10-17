@@ -167,7 +167,9 @@ async def run_with_policy(
                         # A ledger outage must not mask the actual agent cause.
                         logger.error("crashed subagent usage recording failed (%s)", type(recording_error).__name__)
                 raise
-            logger.warning("subagent %s failed (%s) task_id=%s", req.agent, type(exc).__name__, req.task_id)
+            logger.warning(
+                "subagent %s failed (%s) task_id=%s", req.agent, type(exc).__name__, req.task_id, exc_info=True
+            )
             raw = failed_result(req, "internal", f"subagent error: {type(exc).__name__}", retryable=False)
             break
     result = check_result(raw, req)
