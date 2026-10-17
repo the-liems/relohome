@@ -36,6 +36,7 @@ from relohome_agent.agents.subagents.services.location import MIN_SUGGESTION_SCO
 from relohome_agent.agents.subagents.services.moving import QuoteContact, order_time, summarize_order
 from relohome_agent.agents.subagents.services.moving_catalog import MovingCatalogCache
 from relohome_agent.agents.subagents.services.moving_context import (
+    compact_selection_catalog,
     selection_catalog_for_model,
     service_details_for_model,
 )
@@ -110,6 +111,9 @@ TOOL_SCHEMAS = {t["name"]: t["parameters"] for t in TOOLS}
 REQUEST_REJECTION_CODES = frozenset(
     {"PROVIDER_REJECTED", "VALIDATION_ERROR", "PROVIDER_NOT_FOUND", "PROVIDER_CONFLICT", "QUOTE_EXPIRED"}
 )
+MAX_SELECTION_CATALOG_CHARS = 20_000
+MAX_SELECTION_CONTEXT_CHARS = 24_000
+MAX_SELECTION_REQUEST_CHARS = 32_000
 
 
 class MovingLlmAgent:
@@ -166,9 +170,21 @@ class MovingLlmAgent:
         No model-driven detail-read loop or fallback first-N service selection.
         The provider, not the model or a city allowlist, validates the full route.
         """
-        catalog = selection_catalog_for_model(execution.catalog)
-        # Never silently hide alternatives or truncate operational restrictions.
-        if len(catalog) > 50 or len(model_json(catalog)) > 20_000:
+        projected = selection_catalog_for_model(execution.catalog)
+        catalog = compact_selection_catalog(projected)
+        defaults = catalog.get("catalog_defaults", {})
+        execution.catalog_selection = {
+            "service_count": len(projected),
+            "projected_chars": len(model_json(projected)),
+            "catalog_chars": len(model_json(catalog)),
+            "shared_fact_count": len(catalog.get("catalog_facts", {}))
+            + len(defaults.get("constraints", {}))
+            + len(set(defaults) - {"constraints"}),
+            "status": "prepared",
+        }
+        # Bound the actual compact payload, not vehicle count. Never discard an alternative or restriction.
+        if execution.catalog_selection["catalog_chars"] > MAX_SELECTION_CATALOG_CHARS:
+            execution.catalog_selection["status"] = "catalog_limit"
             return execution.ask("service_id", "Danh mục xe khá lớn; bạn chọn một gói xe để mình báo giá nhé.")
         if not self.api_key or self.api_key.startswith(("your-", "sk-your", "test-")):
             return execution.failed("provider_unavailable", "Chưa cấu hình LLM.")
@@ -202,29 +218,38 @@ class MovingLlmAgent:
             },
             "volume": execution.req.inputs.get("volume"),
             "schedule": {key: execution.req.inputs[key] for key in ("move_date", "move_time")},
-            "services": catalog,
+            **catalog,
             "route": "Both stops and schedule confirmed; provider estimate validates serviceability.",
         }
         if options.get("remarks") is not None:
             context["remarks"] = public_data(options["remarks"])
         model_input = model_json(context)
-        if len(model_input) > 24_000:
+        execution.catalog_selection.update(context_chars=len(model_input), status="context_limit")
+        if len(model_input) > MAX_SELECTION_CONTEXT_CHARS:
             return execution.ask("service_id", "Thông tin đồ đạc khá dài; bạn chọn một gói xe để mình báo giá nhé.")
+        tools = [estimate, ask]
+        model_request: dict[str, Any] = {
+            "model": provider_model(self.api_key, self.model),
+            "instructions": FORM_SELECTION,
+            "input": [{"role": "user", "content": model_input}],
+            "tools": tools,
+            "tool_choice": "required",
+            "parallel_tool_calls": False,
+            "max_output_tokens": 500,
+            "store": False,
+            **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
+        }
+        # Enum IDs are repeated in the tool schema, so include it in the request budget too.
+        request_chars = len(json.dumps(model_request, ensure_ascii=False, separators=(",", ":")))
+        execution.catalog_selection.update(request_chars=request_chars, status="request_limit")
+        if request_chars > MAX_SELECTION_REQUEST_CHARS:
+            return execution.ask("service_id", "Danh mục xe khá lớn; bạn chọn một gói xe để mình báo giá nhé.")
+        execution.catalog_selection["status"] = "ready"
         execution.run.reserve()
         started = perf_counter()
         try:
             async with asyncio.timeout(execution.run.remaining()):
-                response = await self.client.responses.create(
-                    model=provider_model(self.api_key, self.model),
-                    instructions=FORM_SELECTION,
-                    input=[{"role": "user", "content": model_input}],
-                    tools=[estimate, ask],
-                    tool_choice="required",
-                    parallel_tool_calls=False,
-                    max_output_tokens=500,
-                    store=False,
-                    **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
-                )
+                response = await self.client.responses.create(**model_request)
         finally:
             execution.llm_ms += (perf_counter() - started) * 1000
         if response.usage:
@@ -465,6 +490,7 @@ class MovingExecution:
         self.route: dict | None = None
         self.catalog: dict[str, dict] = {}
         self.catalog_loaded = False
+        self.catalog_selection: dict | None = None
         self.areas: list[dict] | None = None
         self.order: dict | None = None
         self.quote: dict | None = None
@@ -515,6 +541,7 @@ class MovingExecution:
             if self.form_quote
             else "tool-loop",
             "tools": list(self.tools),
+            **({"catalog_selection": dict(self.catalog_selection)} if self.catalog_selection is not None else {}),
             "timing": {
                 "total_ms": round((perf_counter() - self.started) * 1000),
                 "llm_ms": round(self.llm_ms),

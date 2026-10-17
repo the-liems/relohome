@@ -116,6 +116,44 @@ async def test_http_form_graph_preserves_redacted_vehicle_notes_before_one_model
 
 
 @pytest.mark.asyncio
+async def test_http_form_graph_quotes_from_large_catalog_once_with_redacted_notes_and_safe_trace(ledger):
+    from relohome_agent.agents.subagents.services.moving_context import selection_catalog_for_model
+
+    from tests.test_agents.test_moving_large_catalog import expand_catalog, install_catalog
+
+    meter, records = ledger
+    runtime, client = service(meter, auto_suggest=True)
+    runtime.mode = "fake"
+    services, selected = install_catalog(client, 60, repeated_rules=True)
+    responses = runtime.deps.moving_quote_agent.agent.client.responses
+    responses.output.output[0].arguments = json.dumps({"service_ids": [selected]})
+    note = "Cần xe có bửng nâng, không dùng xe thùng hở; gọi 0901234567"
+    body = form(auto_suggest=True).model_dump(mode="json")
+    body["moving_options"] = {"remarks": note}
+    app = FastAPI()
+    app.state.agent_service = runtime
+    app.include_router(moving_quote_router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as http:
+        response = await http.post(
+            "/ui/chat/fixture-large-catalog/moving/quote", json=body, headers={"X-User-Id": "fixture-owner"}
+        )
+    assert response.status_code == 200 and response.json()["response"]["kind"] == "ANSWER"
+    assert len(responses.calls) == 1 and len(client.calls) == 2
+    context = json.loads(responses.calls[0]["input"][0]["content"])
+    assert expand_catalog(context) == selection_catalog_for_model({s["service_id"]: s for s in services})
+    assert context["remarks"] == redact_pii(note)
+    assert client.calls[-1][1]["services"] == [{"service_id": selected}]
+    assert records() == [AgentUsage(llm_calls=1, tokens_in=700, tokens_out=30, provider_calls=2)]
+    values = (await runtime.graph.aget_state(run_config("fixture-large-catalog", runtime.deps))).values
+    result = next(iter(values["task_results"].values()))
+    data = result.data if hasattr(result, "data") else result["data"]
+    trace = data["agent_trace"]["catalog_selection"]
+    assert trace["service_count"] == 60 and trace["status"] == "ready"
+    assert "0901234567" not in json.dumps(trace) and "district-" not in json.dumps(trace)
+    assert not values.get("committed") and not values["plan"].commit_actions
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["missing_quote_id", "unexpected_runtime_error"])
 @pytest.mark.parametrize("auto_suggest", [False, True])
 async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, failure, auto_suggest):

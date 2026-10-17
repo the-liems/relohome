@@ -1630,7 +1630,7 @@ export function MovingRequestWorkspace({
           </button>
           <small className="muted">
             {uiText(
-              "Báo giá AhaMove (staging). Thanh toán trong app sau khi chọn gói; không tạo đơn.",
+              "Báo giá AhaMove. Thanh toán trong app sau khi chọn gói; chưa tạo đơn.",
             )}
           </small>
         </div>

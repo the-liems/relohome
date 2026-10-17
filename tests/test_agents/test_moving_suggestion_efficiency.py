@@ -213,7 +213,7 @@ async def test_model_can_ask_without_quoting_or_silently_dropping_a_custom_requi
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["empty", "missing_pin", "too_large", "too_many", "large_load"])
+@pytest.mark.parametrize("case", ["empty", "missing_pin", "too_large", "large_load"])
 async def test_preparation_problem_asks_without_model_or_estimate(case):
     agent, client, responses = fixture_agent()
     req = form_request()
@@ -225,8 +225,6 @@ async def test_preparation_problem_asks_without_model_or_estimate(case):
         client.handlers["list_moving_services"]["services"][0]["description"] = "x" * 20_001
     elif case == "large_load":
         req.inputs["moving_options"] = {"packages": [{"weight_kg": 1, "description": "x" * 500}] * 100}
-    else:
-        client.handlers["list_moving_services"] = {"services": [{"service_id": str(i)} for i in range(51)]}
     result = await agent.run_form_quote(req)
     assert result.status == "needs_input" and not responses.calls and result.usage.llm_calls == 0
     assert all(name == "list_moving_services" for name, _ in client.calls)
