@@ -31,6 +31,15 @@ processors:
     attributes:
       - {key: deployment.environment.name, value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}", action: upsert}
       - {key: service.namespace, value: relohome, action: upsert}
+  # Langfuse shares the global tracer provider, so its spans also reach Tempo. Langfuse keeps the
+  # prompt and completion text; Tempo keeps structure, timing, model and usage. Provider API keys
+  # sent as query parameters (SerpApi, Vietmap) are masked in recorded URLs.
+  transform/redact:
+    error_mode: ignore
+    trace_statements:
+      - delete_matching_keys(span.attributes, "^langfuse\\.observation\\.(input|output)$")
+      - replace_pattern(span.attributes["url.full"], "(?i)([?&]api_?key=)[^&]*", "$${1}REDACTED")
+      - replace_pattern(span.attributes["url.query"], "(?i)((?:^|&)api_?key=)[^&]*", "$${1}REDACTED")
   batch:
     timeout: 2s
     send_batch_size: 128
@@ -78,7 +87,7 @@ service:
   pipelines:
     traces/tempo:
       receivers: [otlp]
-      processors: [memory_limiter, resource/environment, batch]
+      processors: [memory_limiter, resource/environment, transform/redact, batch]
       exporters: [otlphttp/tempo]
     logs:
       receivers: [otlp]
