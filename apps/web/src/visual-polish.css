@@ -521,35 +521,47 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 .viewing-panel .viewing-item, .bulk-review-list > li, .bulk-result-list > li {
   background: var(--viewing-bg); border-color: var(--ui-line); align-content: start;
 }
-.viewing-item.after-viewing > header { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.viewing-item.after-viewing > header { grid-template-columns: minmax(0, 1fr) fit-content(50%); gap: 8px; }
 .viewing-item.after-viewing > header strong { display: block; white-space: nowrap; text-overflow: ellipsis; }
-.viewing-item.after-viewing > header .viewing-status { grid-column: 2; max-width: 160px; text-align: right; }
-.viewing-status:is(.agreed, .pending, .rejected, .confirmed) {
-  padding: 4px 8px; border: 1px solid currentColor; border-radius: 6px; font-weight: 700;
+.viewing-item.after-viewing > header .viewing-status { grid-column: 2; justify-self: end; text-align: right; font-weight: 700; }
+.viewing-item.after-viewing > header .viewing-status:not(:is(.agreed, .pending, .rejected, .confirmed):not(.viewing-landlord)) { color: var(--ui-accent-strong); }
+.viewing-status:not(.viewing-landlord):is(.agreed, .pending, .rejected, .confirmed) {
+  padding: 3px 12px; border: 1.5px solid currentColor; border-radius: 999px; font-size: 12px; font-weight: 700;
 }
-.viewing-status.agreed { color: var(--ui-warning); background: var(--ui-warning-soft); }
-.viewing-status.pending { color: var(--ui-info); background: var(--ui-info-soft); }
-.viewing-status.rejected { color: var(--ui-danger); background: var(--ui-danger-soft); }
-.viewing-status.confirmed { color: var(--ui-success); background: var(--ui-success-soft); }
-.viewing-item .bulk-card-slot { color: var(--viewing-ink); font-weight: 750; }
+.viewing-status.agreed:not(.viewing-landlord) { color: var(--ui-warning); background: var(--ui-warning-soft); border-color: var(--tenant-warning-line); }
+.viewing-status.pending:not(.viewing-landlord) { color: var(--ui-info); background: var(--ui-info-soft); }
+.viewing-status.rejected:not(.viewing-landlord) { color: var(--ui-danger); background: var(--ui-danger-soft); }
+.viewing-status.confirmed:not(.viewing-landlord) { color: var(--ui-success); background: var(--ui-success-soft); }
+.viewing-item .bulk-card-slot { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--ui-text); }
+/* Before the visit the booked time is the key fact, so it stands out as a pill. */
+.viewing-item:not(.after-viewing) .bulk-card-slot {
+  justify-self: start; width: fit-content; padding: 4px 12px; border-radius: 8px;
+  font-size: 13px; font-weight: 700; color: var(--tenant-slot-text); background: var(--tenant-slot-bg);
+}
 .bulk-slot-fields .bulk-field-error { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-danger); }
 .bulk-slot-fields select[aria-invalid="true"] { border: 2px solid var(--ui-danger); }
 .bulk-review-list li > b { width: fit-content; padding: 5px 9px; border-radius: 6px; background: var(--tenant-slot-bg); color: var(--tenant-slot-text); font-weight: 750; }
 .viewing-item .agreement { padding: 12px; background: var(--viewing-soft); border: 1px solid var(--viewing-ink); border-radius: 8px; }
 .viewing-payment-due { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--tenant-warning-line); font-weight: 700; }
-.viewing-payment-report { border: 2px solid var(--viewing-ink); background: var(--viewing-soft); padding: 12px; border-radius: 8px; }
+.viewing-payment-report { border: 2px solid var(--viewing-ink); background: color-mix(in srgb, var(--viewing-ink) 9%, var(--viewing-bg)); padding: 12px 16px; border-radius: 8px; }
 .viewing-payment-report p { margin: 0 0 6px; }
-.viewing-payment-report.rejected { background: var(--ui-danger-soft); border-color: var(--ui-danger); color: var(--ui-danger); }
-.viewing-payment-report.rejected > p { display: flex; gap: 8px; align-items: flex-start; }
-.viewing-landlord-note { margin: 10px 0 0; padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
-.viewing-landlord-note strong { display: block; font-size: 12px; margin-bottom: 4px; }
-.viewing-landlord-note p { font-style: italic; }
+.viewing-payment-report.rejected {
+  position: relative; padding-left: 48px; font-weight: 600;
+  background: color-mix(in srgb, var(--ui-danger) 10%, var(--ui-surface)); border-color: var(--ui-danger); color: var(--ui-danger);
+}
+.viewing-payment-report.rejected > .notice-symbol { position: absolute; left: 14px; top: 12px; width: 24px; height: 24px; }
+.viewing-landlord-note {
+  margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--ui-danger); border-left-width: 4px; border-radius: 10px;
+  background: var(--ui-surface);
+}
+.viewing-landlord-note strong { display: block; font-size: 11px; margin-bottom: 2px; color: var(--ui-danger); }
+.viewing-landlord-note p { margin: 0; font-style: italic; font-weight: 500; color: var(--ui-text); }
 .viewing-item .viewing-preparation { background: var(--viewing-soft); border-color: var(--viewing-ink); }
 .viewing-preparation.settled { border-style: dashed; }
 .viewing-item .viewing-preparation :is(.service-suggestion, .service-suggestion-icon) { background: var(--viewing-soft); border-color: var(--viewing-ink); color: var(--viewing-ink); }
 .viewing-item .viewing-preparation :is(.service-suggestion-arrow, .viewing-preparation-heading, .viewing-preparation-optional > span) { color: var(--viewing-ink); }
 .viewing-item .viewing-preparation-optional { border-color: var(--viewing-ink); }
-.viewing-suggestion-label { margin-left: auto; padding: 3px 8px; border-radius: 20px; color: var(--viewing-ink); border: 1px solid currentColor; font-size: 12px; }
+.viewing-suggestion-label { margin-left: auto; padding: 2px 10px; border-radius: 999px; color: var(--ui-surface); background: var(--viewing-ink); font-size: 11px; font-weight: 700; letter-spacing: .02em; flex-shrink: 0; }
 .viewing-item .agreement .form-actions { display: flex; gap: 8px; }
 .viewing-item .agreement .form-actions button { flex: 1; min-height: 44px; }
 .viewing-item .agreement .secondary { background: var(--ui-surface); color: var(--ui-accent-strong); border-color: var(--ui-accent-strong); }
@@ -559,21 +571,27 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 .account-security h3 { display: flex; align-items: center; gap: 8px; }
 .account-page .account-preferences { grid-template-columns: minmax(0, 1fr); }
 .account-preferences .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.request-history-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--ui-line); border-radius: var(--radius-panel); overflow: hidden; }
+.request-history-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--ui-line); border-radius: var(--radius-panel); overflow: hidden; }
 .request-history-list .request-history-card { border: 0; border-bottom: 1px solid var(--ui-line); border-radius: 0; box-shadow: none; }
-.request-history-card:nth-child(odd) { border-right: 1px solid var(--ui-line); }
-.saved-grid .housing-card { background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); }
+.request-history-card:not(:nth-child(3n)) { border-right: 1px solid var(--ui-line); }
+@media (min-width: 621px) and (max-width: 1100px) {
+  .request-history-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .request-history-card:not(:nth-child(3n)) { border-right: 0; }
+  .request-history-card:nth-child(odd) { border-right: 1px solid var(--ui-line); }
+}
+.saved-grid .housing-card { background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--radius-panel); padding: 16px; gap: 12px; }
 .contact-thread-seen { display: block; font-size: 11px; text-align: right; color: var(--ui-muted); padding-top: 4px; }
 .contact-request-status { margin: 0; color: var(--ui-muted); font-size: 12px; }
 .map-workspace[data-service="property"] .ws-list { background: var(--tenant-map-bg); border-color: var(--tenant-map-line); }
 .map-workspace[data-service="property"] .ws-list .ws-list-head { background: var(--tenant-map-selected); border-color: var(--tenant-map-line); }
 .map-workspace[data-service="property"] .ws-list .ws-card { background: var(--tenant-map-card); border-color: var(--tenant-map-line); }
-.map-workspace[data-service="property"] .ws-list .ws-card:is(.active, .chosen) { background: var(--tenant-map-selected); }
+.map-workspace[data-service="property"] .ws-list .ws-card { border-width: 1.5px; }
+.map-workspace[data-service="property"] .ws-list .ws-card:is(.active, .chosen) { background: var(--tenant-map-selected); border: 2px solid var(--tenant-map-ink); }
 .map-workspace[data-service="property"] .ws-list .price, .map-workspace[data-service="property"] .ws-list .ws-list-head h3 { color: var(--tenant-map-ink); }
 .map-workspace[data-service="property"] .ws-list .ws-select-small, .map-workspace[data-service="property"] .ws-detail .ws-select { background: var(--tenant-map-ink); color: var(--ui-surface); border-color: var(--tenant-map-ink); }
 .map-workspace[data-service="property"] .ws-list .ws-compare-toggle, .map-workspace[data-service="property"] .ws-detail .ws-compare-toggle { color: var(--tenant-map-ink); border-color: var(--tenant-map-line); background: var(--tenant-map-card); }
 .map-workspace[data-service="property"] .ws-detail-price { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.housing-detail-link { border: 1px solid var(--ui-info); background: var(--ui-info-soft); color: var(--ui-info); font-size: 12px; font-weight: 700; padding: 6px 8px; border-radius: 6px; }
+.housing-detail-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: var(--ui-info-soft); color: var(--ui-info); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
 @media (hover: none), (pointer: coarse), (max-width: 767px) {
   :root[data-theme] .header-reveal .chat-header { transform: none; opacity: 1; pointer-events: auto; }
   .header-reveal { height: var(--ui-header-height); }
@@ -585,7 +603,7 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 @media (max-width: 900px) { .account-preferences .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
   .account-page .account-grid, .request-history-list { grid-template-columns: minmax(0, 1fr); }
-  .request-history-card:nth-child(odd) { border-right: 0; }
+  .request-history-card:is(:nth-child(odd), :not(:nth-child(3n))) { border-right: 0; }
   .account-preferences .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { :root[data-theme] .header-reveal .chat-header { transition: none; } }
@@ -624,6 +642,31 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
   pointer-events: none;
   background: color-mix(in srgb, var(--ui-surface) 45%, transparent);
 }
-:root[data-theme] :is(.app-shell, .main-shell, .page-main, .chat-page, .composer-wrap, .service-journey) {
+/* The landlord workspace keeps its own shell background. */
+:root[data-theme] .app-shell:not(.host-shell),
+:root[data-theme] .app-shell:not(.host-shell) :is(.main-shell, .page-main, .chat-page, .composer-wrap, .service-journey) {
   background: transparent;
 }
+
+/* Open plan: the page behind it dims and blurs (canvas). Clicks pass through to the
+   existing outside-click close; the plan tab stays above the veil. */
+.plan-peek-backdrop {
+  position: fixed; inset: 0; z-index: 75; pointer-events: none;
+  background: color-mix(in srgb, var(--ui-text) 38%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+:root[data-theme="dark"] .plan-peek-backdrop { background: rgb(0 0 0 / 0.45); }
+.plan-peek-tab { z-index: 81; }
+
+/* Account profile (canvas): personal info and security side by side at equal height,
+   flight booker across both columns with a three-column form. */
+.account-page .account-grid:not(.account-preferences) { align-items: stretch; }
+.account-page .account-grid > :is(.traveler-profile, .account-roommate-intro) { grid-column: 1 / -1; }
+.account-page .traveler-profile .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.account-page .account-security { display: flex; flex-direction: column; }
+.account-page .account-security > .text-button.danger { margin-top: auto; align-self: flex-start; }
+@media (max-width: 767px) {
+  .account-page .traveler-profile .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* The plan container takes focus only to move screen readers into it; no ring around the panel. */
+.plan-peek-panel:focus { outline: none; }

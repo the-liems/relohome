@@ -169,6 +169,9 @@ export function PlanPeek({
       </button>
       {open &&
         createPortal(
+          <>
+          {/* Dims and blurs the page so the open plan reads as the focus. */}
+          <div className="plan-peek-backdrop" aria-hidden="true" />
           <section
             ref={panel}
             id={panelId}
@@ -406,7 +409,8 @@ export function PlanPeek({
                 </>
               )}
             </footer>
-          </section>,
+          </section>
+          </>,
           document.body,
         )}
     </>

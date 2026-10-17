@@ -2651,7 +2651,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
             </section>
             {tab === "profile" && (
           <section className="surface account-security">
-            <h3><ShieldCheck size={18} aria-hidden="true" /> {uiText("Đăng nhập & bảo mật")}</h3>
+            <h3>{uiText("Đăng nhập & bảo mật")}</h3>
             <p className="muted">
               {uiText(
                 "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",

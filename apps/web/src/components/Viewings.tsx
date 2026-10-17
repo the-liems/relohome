@@ -661,6 +661,7 @@ export function ViewingPanel({
               )}
               {item.reported_payment && (
                 <div className={"viewing-payment-report small " + (item.payment_report?.status || "")} role="status">
+                  {item.payment_report?.status === "rejected" && <span className="notice-symbol" aria-hidden="true">!</span>}
                   <p>
                     {formatUi("Đã báo trả {0} ngày {1}", [
                       money(item.reported_payment.amount_vnd),
@@ -668,7 +669,6 @@ export function ViewingPanel({
                     ])}
                   </p>
                   <p>
-                    {item.payment_report?.status === "rejected" && <span className="notice-symbol" aria-hidden="true">!</span>}
                     {uiText(
                       item.payment_report?.status === "confirmed"
                         ? "Chủ nhà đã xác nhận nhận tiền. Hoàn tất."
