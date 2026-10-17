@@ -1935,7 +1935,7 @@ function Chat() {
                               "map",
                             ].includes(c.type),
                           )
-                          .filter((c) => !c.data?.comparison)
+                          .filter((c) => !c.data?.comparison && !c.data?.order)
                           .map((c, _index, components) => {
                             const target = journey.find(
                               (t) => t.c.task_id === c.task_id,
@@ -1980,7 +1980,7 @@ function Chat() {
                                       "flight",
                                       "relocation",
                                       "map",
-                                    ].includes(c.type),
+                                    ].includes(c.type) || (c.type === "relocation" && !!c.data?.order),
                                 ),
                               }
                             : undefined,

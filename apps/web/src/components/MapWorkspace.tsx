@@ -1521,7 +1521,7 @@ export function MapWorkspace({
       {fullDetail && (
         <HousingDetail house={fullDetail} saved={saved.has(fullDetail.id)} selected={isChosen(fullDetail.id)}
           onClose={() => setFullDetail(null)} onSave={() => onSave(fullDetail)}
-          onSelect={() => void choose_house(fullDetail)} busy={chat.busy || selecting !== null} />
+          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)} busy={chat.busy || selecting !== null} />
       )}
       {comparing && (
         <Comparison

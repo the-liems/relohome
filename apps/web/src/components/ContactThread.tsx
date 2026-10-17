@@ -184,8 +184,20 @@ export function ContactThread({
   async function cancelRequest() {
     setSending(true);
     try {
-      await api(path.replace(/messages$/, "cancel"), "POST", { revision: request.revision },
-        undefined, viewerId ? { "X-SIU-User": viewerId } : undefined);
+      // The messages response omits revision. Read the current request before its guarded mutation.
+      const headers = viewerId ? { "X-SIU-User": viewerId } : undefined;
+      const own = await api<Data>(
+        "/housing-management/housing/contact-requests/me",
+        "GET", undefined, undefined, headers,
+      );
+      if (active.current !== identity) return;
+      const latest = own.items?.find((item: Data) => item.id === requestId);
+      if (!latest || !Number.isInteger(latest.revision))
+        throw new Error(uiText("Không tìm thấy yêu cầu liên hệ."));
+      await api(
+        path.replace(/messages$/, "cancel"), "POST",
+        { revision: latest.revision }, undefined, headers,
+      );
       await load();
       window.dispatchEvent(new Event("housing-contact-update"));
     } catch (cause) { setError((cause as Error).message); }
@@ -194,7 +206,7 @@ export function ContactThread({
   return (
     <div className="contact-thread">
       <p className="contact-request-status">{formatUi("Trạng thái yêu cầu: {0}", [
-        uiText(({ new: "Đã gửi, chủ nhà chưa xem", contacted: "Chủ nhà đã liên hệ", viewing: "Chủ nhà đã hẹn xem",
+        uiText(({ new: "Đã gửi yêu cầu", contacted: "Chủ nhà đã liên hệ", viewing: "Chủ nhà đã hẹn xem",
           resolved: "Đã hoàn tất", declined: "Đã đóng" } as Record<string, string>)[request.status] || request.status),
       ])}</p>
       <ol

@@ -305,15 +305,17 @@ export function HousingDetail({
           <ExternalLink size={14} />
         </a>
       )}
-      {onAsk && onSelect && (
+      {onSelect && (
         <div className="detail-footer">
-          <button
-            className="secondary"
-            onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
-          >
-            <MessageCircle size={16} />
-            {uiText("Hỏi AI")}
-          </button>
+          {onAsk && (
+            <button
+              className="secondary"
+              onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
+            >
+              <MessageCircle size={16} />
+              {uiText("Hỏi AI")}
+            </button>
+          )}
           <button
             className="primary"
             disabled={busy || selected}
@@ -336,7 +338,7 @@ export function HousingDetail({
 
 const OPEN_REQUEST = new Set(["new", "contacted", "viewing"]);
 const REQUEST_STATUS: Record<string, string> = {
-  new: "Đã gửi, chủ nhà chưa xem",
+  new: "Đã gửi yêu cầu",
   contacted: "Chủ nhà đã liên hệ",
   viewing: "Chủ nhà đã hẹn xem",
   resolved: "Đã hoàn tất",

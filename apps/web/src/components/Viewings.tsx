@@ -725,11 +725,16 @@ export function ViewingPanel({
                       ? "Hủy lịch & bỏ chọn" : "Bỏ chọn")}
                   </button>
                 )}
+                {item.payment_report?.status === "rejected" && !reporting && (
+                  <button className="secondary" disabled={busy} onClick={() => setConfirming({ kind: "reopen" })}>
+                    {uiText("Thỏa thuận không thành")}
+                  </button>
+                )}
                 {(item.status === "agreed" ||
                   item.payment_report?.status === "rejected") &&
                   !reporting && (
                     <button
-                      className="secondary"
+                      className={item.payment_report?.status === "rejected" ? "primary" : "secondary"}
                       onClick={() => {
                         reportKey.current = requestId();
                         setReporting(true);
@@ -738,11 +743,6 @@ export function ViewingPanel({
                       {uiText(item.payment_report?.status === "rejected" ? "Phản hồi lại" : "Báo đã trả chủ nhà")}
                     </button>
                   )}
-                {item.payment_report?.status === "rejected" && !reporting && (
-                  <button className="secondary" disabled={busy} onClick={() => setConfirming({ kind: "reopen" })}>
-                    {uiText("Thỏa thuận không thành")}
-                  </button>
-                )}
               </div>
               {(item.status === "agreed" ||
                 item.payment_report?.status === "rejected") &&
@@ -795,7 +795,7 @@ export function ViewingPanel({
                         {uiText("Thỏa thuận không thành")}
                       </button>
                       <button className="primary" disabled={busy}>
-                        {uiText("Xác nhận")}
+                        {uiText(item.payment_report?.status === "rejected" ? "Phản hồi lại" : "Xác nhận")}
                       </button>
                     </div>
                   </form>
