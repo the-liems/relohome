@@ -377,3 +377,25 @@ async def test_payment_report_key_retries_are_idempotent_and_revisions_preserve_
     second = service.report_paid(USER, THREAD, 3, "2026-10-12", "report-two")
     assert second["reported_payment"]["report_key"] == "report-two"
     assert service._item(USER, THREAD, "a").details["reported_payment_history"] == [first["reported_payment"]]
+
+@pytest.mark.asyncio
+async def test_reopen_rejected_payment_requires_the_exact_report_and_preserves_history():
+    service, clock, _ = make()
+    service.select(USER, THREAD, "t1", row("a"))
+    await visited(service, clock, "a")
+    decision = service.begin_decision(
+        USER, THREAD, "a", [], {"rent_vnd": 1, "deposit_vnd": 1, "move_in": None}, "r" * 16
+    )
+    service.finish_decision(decision)
+    first = service.report_paid(USER, THREAD, 2, "2026-10-12", "rejected-report")
+    with pytest.raises(CheckoutError):
+        service.reopen(USER, THREAD, rejected_report_key="different-report")
+    # A later report cannot be reopened with evidence about the earlier rejected report.
+    latest = service.report_paid(USER, THREAD, 3, "2026-10-13", "latest-report")
+    with pytest.raises(CheckoutError):
+        service.reopen(USER, THREAD, rejected_report_key="rejected-report")
+    assert service.reopen(USER, THREAD, rejected_report_key="latest-report") == "a"
+    item = service._item(USER, THREAD, "a")
+    assert item.status == "visited"
+    assert "reported_payment" not in item.details
+    assert item.details["reported_payment_history"] == [first["reported_payment"], latest["reported_payment"]]

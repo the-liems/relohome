@@ -1017,6 +1017,7 @@ def create_app(database=None, transport=None):
                 if (
                     row
                     and row.get("payment_report")
+                    and item.get("reported_payment")
                     and ((item.get("reported_payment") or {}).get("report_key") or item.get("transaction_id"))
                     == row["payment_report"].get("report_key")
                 ):
@@ -1230,7 +1231,9 @@ def create_app(database=None, transport=None):
                 else False
             )
             if managed:
-                reviewed = await upstream("PUT", f"/housing/{intent.listing_id}/review", owner, review, platform=True)
+                reviewed = await upstream(
+                    "PUT", f"/housing/{intent.listing_id}/review", owner, {**review, "visit_slot": slot}, platform=True
+                )
                 if isinstance(reviewed, JSONResponse):
                     return reviewed
             result = await checkout_call(
@@ -1291,6 +1294,19 @@ def create_app(database=None, transport=None):
                         raise HTTPException(409, "Báo cáo chuyển tiền đang chờ hoặc đã được chủ nhà xác nhận.")
                     return previous
                 await require_landlord_confirmation(thread, owner, chosen["listing_id"])
+        if step == "reopen":
+            # Never trust a client's claim that the landlord rejected a payment.
+            body = {}
+            previous = await landlord_viewings(
+                owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread
+            )
+            if not isinstance(previous, dict) or previous.get("landlord_unavailable"):
+                raise HTTPException(503, "Chưa kiểm tra được phản hồi chuyển tiền của chủ nhà.")
+            chosen = next((item for item in previous.get("items", []) if item.get("status") == "reported_paid"), None)
+            if chosen:
+                if (chosen.get("payment_report") or {}).get("status") != "rejected":
+                    raise HTTPException(409, "Báo cáo chuyển tiền đang chờ hoặc đã được chủ nhà xác nhận.")
+                body["rejected_report_key"] = (chosen.get("reported_payment") or {}).get("report_key") or chosen["transaction_id"]
         if step == "payment-retry":
             view = await landlord_viewings(
                 owner, await checkout_call("GET", f"/ui/chat/{thread}/viewings", owner), thread=thread

@@ -55,6 +55,11 @@ class PaidBody(BaseModel):
     request_id: str | None = Field(default=None, min_length=8, max_length=160)
 
 
+class ReopenBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rejected_report_key: str | None = Field(default=None, min_length=8, max_length=160)
+
+
 class MovingModeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     mode: Literal["wait_for_home"] | None
@@ -293,13 +298,13 @@ async def decide(thread_id: str, body: DecideBody, service: Service, user_id: Us
 
 
 @router.post("/chat/{thread_id}/viewings/reopen")
-async def reopen(thread_id: str, service: Service, user_id: UserId = "anonymous"):
+async def reopen(thread_id: str, service: Service, body: ReopenBody | None = None, user_id: UserId = "anonymous"):
     """Thỏa thuận không thành: gỡ căn của kế hoạch; chuyển đồ tuần tự quay về chờ chốt (V10)."""
     viewing = viewing_of(service)
     async with _lock(service, thread_id):
         values = await _values(service, thread_id, user_id)
         try:
-            viewing.reopen(user_id, thread_id)
+            viewing.reopen(user_id, thread_id, rejected_report_key=body.rejected_report_key if body else None)
         except CheckoutError as exc:
             return failure(exc)
         update: dict = {}
