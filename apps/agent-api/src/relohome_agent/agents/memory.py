@@ -83,6 +83,8 @@ def prefill_from_memory(
     cost_tiers: dict[AgentName, str],
     ttl: dict[str, timedelta],
     now: datetime,
+    *,
+    excluded_housing_fields: frozenset[str] = frozenset(),
 ) -> dict[str, PrefilledValue]:
     """Giá trị mức 1 được tự điền cho lượt này. Tin nhắn luôn thắng bộ nhớ."""
     candidates: dict[str, PrefilledValue] = {}
@@ -96,6 +98,8 @@ def prefill_from_memory(
         if cost_tiers.get(domain) != "cheap":
             continue
         for key in PREFILL_FIELDS_BY_DOMAIN.get(domain, ()):
+            if domain == AgentName.PROPERTY and key in excluded_housing_fields:
+                continue
             if domain == AgentName.PROPERTY and explicit_housing_scope and key in remembered_search_filters:
                 continue
             tier = MEMORY_TIERS.get(key)

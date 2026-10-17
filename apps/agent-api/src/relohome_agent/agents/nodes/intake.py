@@ -685,6 +685,29 @@ def make_intake(deps: GraphDeps):
                 values.pop("near_coordinate", None)
                 values.pop("bounding_box", None)
         viewing_selection = chat_housing_selection(deps, state, facts, values, result)
+        prefill_exclusions = (
+            set(previous.housing_prefill_exclusions)
+            if previous is not None and result.kind != RequestKind.NEW_GOAL
+            else set()
+        )
+        prefill_exclusions.update(cleared_filters)
+        # Only newly grounded facts or API-verified scope choices can reopen a
+        # field. Carrying old facts/memory cannot undo an explicit removal.
+        prefill_exclusions.difference_update(
+            key
+            for key, fact in result.user_confirmed_facts.items()
+            if key not in grounded.dropped and facts.get(key) == fact
+        )
+        if choice:
+            prefill_exclusions.discard(choice_field)
+        if housing_pin and housing_pin.get("confirmed") is True:
+            prefill_exclusions.discard("near")
+        if cleared_filters.intersection({"near", "district"}) and not any(
+            values.get(key) for key in ("city", "district", "near", "bounding_box")
+        ):
+            # Removing the final scope asks for a new area, not an unrelated
+            # remembered city/district as a substitute for the removed landmark.
+            prefill_exclusions.update({"city", "district", "near"})
         result = result.model_copy(
             update={
                 "constraints": result.constraints.model_copy(update={"values": values}),
@@ -694,6 +717,7 @@ def make_intake(deps: GraphDeps):
                 "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts])),
                 "declined_suggestions": [k for k in result.declined_suggestions if k in suggestion_keys],
                 "retrieval_only": result.retrieval_only and not grounded.dropped,
+                "housing_prefill_exclusions": sorted(prefill_exclusions),
             }
         )
         result = resolve_missing(

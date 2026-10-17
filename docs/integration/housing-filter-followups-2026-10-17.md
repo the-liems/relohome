@@ -69,7 +69,7 @@ patches, feature-off fallback, independent threads, full-path safety boundaries
 and a one-generation budget. These are control-flow/data-flow tests, not natural
 language quality or production-provider benchmarks.
 
-Final related regression: **928 passed, 16 skipped**, two existing library
+Initial related regression: **928 passed, 16 skipped**, two existing library
 warnings, across agent, checkout, Roommate, browser-gateway, standalone service
 and this opt-in test file (skipped in the regular run). The new offline file has
 44 cases; the existing efficiency file has 38. Ruff check/format and
@@ -77,6 +77,36 @@ and this opt-in test file (skipped in the regular run). The new offline file has
 venv's editable install pointing to another checkout; a separate worktree venv
 with editable packages resolved them without changing those tests or the user's
 application venv.
+
+### Review correction: memory must not restore explicitly cleared filters
+
+At the original PR head `14b7e3a`, removing the last location (a near-only search
+for Ocean Park 2) removed its facts but allowed `resolve_missing` to prefill the
+same landmark from account memory. The graph regression failed with both the
+in-memory session store and real SQLite session storage before this correction.
+
+The intake node now persists code-owned `housing_prefill_exclusions` for the
+active goal and passes them to the prefill step before missing-field validation.
+Cleared filters remain excluded on later turns; only a newly grounded fact or
+API-verified location choice can reopen a field. A genuine new goal resets the
+exclusions. This does not delete or disable the shared account preference.
+
+Clearing the last location also excludes remembered city/district as a fallback:
+ask the user for a new area instead of substituting an unrelated remembered area.
+The existing price and other confirmed constraints remain. No planner or provider
+call occurs while the location is missing; the one semantic Intake call remains.
+No prompt or `IntakeDraft` schema changes, no new model/provider calls or migration.
+
+Twelve additional regression cases cover real graph/memory and SQLite stores,
+persistence across later turns and checkpoint model roundtrip, clearing price
+then the final scope, explicit reintroduction of the same/different location,
+other conversations' remembered city/district, new-goal reset and unchanged
+account preferences. No paid model or real domain-provider calls were made for
+this correction.
+
+After the correction, the same related regression suite passes **940 tests,
+16 skipped**, with the same two existing library warnings. Ruff check/format and
+`git diff --check` pass.
 
 ### Bounded real-model check
 

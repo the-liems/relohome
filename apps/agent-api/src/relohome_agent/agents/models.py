@@ -168,6 +168,8 @@ class IntakeResult(BaseModel):
     # Semantic classification, NOT authorization. Code rechecks domain, mode and constraints.
     retrieval_only: bool = False
     housing_filter_patch: HousingFilterPatch | None = None
+    # Code-owned, goal-local negative memory; not part of the model's IntakeDraft schema.
+    housing_prefill_exclusions: list[str] = []
 
     @property
     def needs_clarification(self) -> bool:
