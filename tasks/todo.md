@@ -274,3 +274,87 @@ Full regression cuối: 870 pass /96 skip /16 lỗi Bash/symlink/Linux path trê
 - Chỉ các màn tìm/kết nối/hồ sơ cơ bản; không sửa backend, API/scoring hoặc UX/UI service cũ.
 - Handoff có module list, test commands/evidence và giới hạn contract: [ROOMMATE_UI_HANDOFF.md](../Frontend/ROOMMATE_UI_HANDOFF.md).
 - Các mục chưa tick vẫn là yêu cầu cho bản phát hành đầy đủ trong plan, không bị xóa hoặc hạ acceptance criteria.
+
+## Roommate Admin UI — 17/10/2026
+
+Thiết kế: [kế hoạch chi tiết](../docs/design/roommate-admin-redesign-2026-10-17.md).
+Chỉ tab **Admin → Ở ghép**. Tất cả task dưới đây **chưa triển khai**.
+Giữ nguyên trạng thái của các task lịch sử phía trên.
+
+### RA-01 — Chốt dữ liệu và adapter danh sách
+
+Phụ thuộc: không. Quy mô S, 2–3 file types/adapter và test liên quan.
+
+- [ ] Mapping hồ sơ/ảnh/báo cáo đúng enum, `facts`, ngân sách/người/tháng và dữ liệu thiếu.
+- [ ] Ghi rõ trường có sẵn/chưa có; không tạo title, ngày đăng, PII hay KPI giả.
+- [ ] Đồng bộ baseline main vào nhánh triển khai an toàn, giữ thay đổi local; adapter tests đạt.
+
+### RA-02 — Header, KPI và bảng/card hồ sơ
+
+Phụ thuộc: RA-01. Quy mô M, `admin/RoommateModeration.tsx`, component mới ở
+`admin/roommate/`, CSS scope riêng và `roommate-admin.spec.ts`.
+
+- [ ] Tab con compact có selected/count, KPI thật, toolbar thẳng hàng; hồ sơ table desktop/card mobile.
+- [ ] Dữ liệu thật từ queue/status/pagination hiện có; chưa hiện filter/batch giả hoặc CTA duyệt toàn hồ sơ.
+- [ ] Build + Chrome light/dark desktop/mobile đạt; không đổi CSS các màn Roommate người dùng hoặc Admin Housing.
+
+### RA-03 — Trình bày hàng đợi ảnh và báo cáo
+
+Phụ thuộc: RA-01, RA-02. Quy mô M, hai view queue và browser test.
+
+- [ ] Ảnh có preview đọc được qua private API; báo cáo có mục tiêu, lý do và trạng thái đúng.
+- [ ] Pending/empty/error/403 phân biệt được; payload/client/actor và quy trình duyệt/resolve hiện có được giữ.
+- [ ] Browser qua gateway/API test xác nhận duyệt ảnh không tự gắn avatar, resolve không tự hạn chế tài khoản.
+
+### RA-04 — Drawer và hành động quản trị
+
+Phụ thuộc: RA-02, RA-03. Quy mô M, drawer/actions, Dialog reuse, browser test.
+
+- [ ] Drawer đọc dữ liệu có sẵn, giữ focus/filter/page; footer sticky hoạt động trên mobile, Escape và keyboard dùng được.
+- [ ] Hạn chế/khôi phục có lý do và thông báo tác động đúng policy; restore trả hồ sơ về paused.
+- [ ] Test Admin chưa consent, user thường, timeout/recovery/hết phiên và bấm đôi; không tự submit lại sau đăng nhập.
+
+### Checkpoint A — Giao diện sử dụng được với API hiện có
+
+- [ ] So sánh screenshot trước/sau, light/dark, desktop/mobile; controls chưa hoạt động không xuất hiện.
+- [ ] Build, focused browser/API và hồi quy Admin Housing/Roommate người dùng đạt hoặc ghi rõ lỗi baseline đã đối chiếu.
+
+### RA-05 — Tìm kiếm/lọc/sort và số đếm phía server
+
+Phụ thuộc: Checkpoint A. Chia thành hai lát M: read service/API/tests, sau đó toolbar/URL/tests.
+File chính: `services/moderation.py`, `api/roommate_safety.py`, gateway whitelist,
+typed client và toolbar của Admin Roommate.
+
+- [ ] Query có validate/allowlist, total/list cùng predicate/expiry; thứ tự có khóa phụ ổn định, SQLite/PostgreSQL nhất quán.
+- [ ] Tên/mã hồ sơ, thành phố/nhu cầu/ngân sách và status kết hợp được; date chỉ theo timestamp thật, không lọc tại một trang client.
+- [ ] Filter reset page/selection; hủy response cũ, Back/Forward đúng; PII search không mặc định lưu URL/localStorage; API/browser tests đạt.
+
+### RA-06 — Chi tiết đầy đủ và lịch sử xử lý có quyền
+
+Phụ thuộc: RA-04, RA-05. Chia thành hai lát M: detail/history read API, sau đó drawer/history UI.
+File chính: moderation service/router, gateway allowlist, drawer và tests.
+
+- [ ] Detail/history theo target, có phân trang và quyền moderator; không mở chat, contact, preferences riêng hoặc nội dung đã xóa.
+- [ ] Audit chỉ hiện actor/target/action/reason/time thật; không dựng before/after, ngày tạo tài khoản hay ID ảnh mà DB chưa lưu.
+- [ ] Test record biến mất/version thay đổi, privacy erase và outsider; thêm schema/index chỉ khi có thiết kế và bằng chứng cần thiết.
+
+### RA-07 — Resolve báo cáo hàng loạt trong trang
+
+Phụ thuộc: RA-03, RA-05, RA-06. Quy mô M, selection/batch bar và browser/API tests.
+
+- [ ] Checkbox chọn mục hợp lệ trong trang, select-all indeterminate, hiện đúng số lượng và xác nhận; không bulk restrict hoặc duyệt hồ sơ.
+- [ ] Resolve dùng endpoint hiện có, giới hạn đồng thời; kết quả riêng từng mục, giữ mục lỗi và refetch KPI/list sau xử lý.
+- [ ] Test partial failure, timeout, đổi trang/filter/account, hết phiên giữa batch; không retry mù hoặc tạo audit lặp cho resolve.
+
+### Checkpoint B — Công cụ quản trị đầy đủ trong phạm vi
+
+- [ ] KPI/filter/list/detail/history thống nhất dữ liệu và quyền; restrict/restore không đổi policy Roommate.
+- [ ] Test SQLite/PostgreSQL, race/expiry/retry/partial failure đạt; không hạ assertion hoặc skip test để làm xanh.
+
+### RA-08 — Nghiệm thu và bàn giao
+
+Phụ thuộc: Checkpoint B. Quy mô M, browser regression, docs/runbook và test evidence.
+
+- [ ] Build, focused backend/browser, axe/keyboard/zoom và VI/EN light/dark đạt ở desktop/tablet/mobile; trạng thái lỗi/trống/disabled rõ ràng.
+- [ ] Hồi quy các tab Admin Housing và Roommate người dùng; hai ca auth baseline cũ được kiểm tra lại và báo đúng trạng thái.
+- [ ] Bàn giao phạm vi/ảnh trước-sau/API/env không đổi, CI đúng SHA và smoke cloud bằng tài khoản test được phép; ghi rõ phần chưa xác minh.

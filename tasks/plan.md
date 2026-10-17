@@ -1657,3 +1657,24 @@ Một task chỉ được tick khi acceptance criteria đạt, focused tests pas
 Khi thực thi cập nhật `todo.md` và evidence theo từng checkpoint. Sau review plan có thể chuyển task sang GitHub issue con của #65; giữ mã RM cố định và một nguồn tiến độ chính, không theo dõi hai checklist độc lập.
 
 **Lượt lập plan này chỉ tạo tài liệu. Chưa tạo module, migration, API, UI, dữ liệu pilot, chạy runtime hoặc chạy các tests implementation.**
+
+## 12. Bổ sung kế hoạch Admin → Ở ghép — 17/10/2026
+
+Chủ sản phẩm yêu cầu lập lại kế hoạch nâng cấp riêng tab **Ở ghép trong Admin**,
+dựa trên screenshot và bản yêu cầu đính kèm. Đây là phần mở rộng của kế hoạch
+Roommate; toàn bộ lịch sử và checklist cũ được giữ nguyên.
+
+Thiết kế, đối chiếu model/API, wireframe, trạng thái và phạm vi triển khai:
+[roommate-admin-redesign-2026-10-17.md](../docs/design/roommate-admin-redesign-2026-10-17.md).
+Checklist duy nhất cho đợt này: mã **RA-01–RA-08** trong `todo.md`.
+
+Thứ tự: typed adapter → giao diện queue trên dữ liệu thật → chi tiết/hành động cũ →
+read API lọc/tìm/sort → detail/audit có quyền → resolve báo cáo hàng loạt → nghiệm thu.
+Các tab Admin Housing và nghiệp vụ Roommate người dùng giữ nguyên.
+
+Quyết định quan trọng: hồ sơ Roommate hiện được chủ hồ sơ chủ động đăng; không tự
+thêm duyệt toàn tin, gộp trạng thái ảnh với trạng thái hồ sơ, hoặc đổi hạn chế tài
+khoản thành ẩn tin. Giai đoạn giao diện không yêu cầu schema mới. Read API chỉ bổ
+sung khi cần dữ liệu thật; metadata audit mới là phần mở rộng riêng.
+
+Lượt này chỉ lập kế hoạch, chưa thực hiện RA-01–RA-08.
