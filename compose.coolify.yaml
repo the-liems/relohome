@@ -8,6 +8,9 @@ x-telemetry: &telemetry-env
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
   OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION: "true"
+  # Root logger at INFO with trace IDs on stderr; otherwise Python keeps WARNING.
+  OTEL_PYTHON_LOG_CORRELATION: "true"
+  OTEL_PYTHON_LOG_LEVEL: ${OTEL_PYTHON_LOG_LEVEL:-info}
   OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
 
