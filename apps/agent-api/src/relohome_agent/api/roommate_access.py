@@ -89,7 +89,7 @@ def availability(request: Request):
         "cities": [city.value for city in City],
         "terms_version": TERMS_VERSION,
         "demo_enabled": False,  # Compatibility for older clients; synthetic discovery has been retired.
-        "features": ["notifications", "media", "moderation", "privacy", "operation_drafts", "chat"],
+        "features": ["notifications", "moderation", "privacy", "operation_drafts", "chat"],
     }
 
 

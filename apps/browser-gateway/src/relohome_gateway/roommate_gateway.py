@@ -7,7 +7,6 @@ import re
 import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from relohome_roommate.media import MAX_IMAGE_BYTES
 
 IDENTIFIER = r"[A-Za-z0-9_.:-]{1,128}"
 ROUTES = {
@@ -20,7 +19,8 @@ ROUTES = {
         rf"requests/{IDENTIFIER}(?:/contact)?",
         rf"operations/{IDENTIFIER}",
         rf"media/{IDENTIFIER}",
-        r"moderation/(?:reports|media|summary|profiles)",
+        r"moderation/(?:reports|summary|profiles)",
+        rf"moderation/profiles/{IDENTIFIER}(?:/history)?",
         r"notifications",
         r"me/privacy(?:/export|/chat-messages)?",
         r"me/operation-drafts",
@@ -34,14 +34,12 @@ ROUTES = {
         r"map/rooms",
         r"requests",
         r"reports",
-        r"media",
         r"notifications/read",
         r"me/privacy/erase",
         r"me/profile/(?:preview|actions)",
         rf"requests/{IDENTIFIER}/(?:accept|reject|withdraw|revoke|read)",
         rf"moderation/profiles/{IDENTIFIER}",
         rf"moderation/reports/{IDENTIFIER}/resolve",
-        rf"moderation/media/{IDENTIFIER}",
         r"chat/requests",
         rf"chat/requests/{IDENTIFIER}/accept",
         rf"chat/conversations/{IDENTIFIER}/(?:messages|read|close)",
@@ -49,7 +47,6 @@ ROUTES = {
     "PUT": [
         r"operation-drafts",
         r"me/(?:profile|intro|criteria|contacts)",
-        r"me/profile/avatar",
         rf"me/bookmarks/{IDENTIFIER}",
         rf"blocks/{IDENTIFIER}",
     ],
@@ -68,11 +65,22 @@ def attach_roommate_gateway(app, user) -> None:
             "me/privacy/chat-messages": {"before", "limit"},
             "notifications": {"offset", "limit"},
             "moderation/reports": {"offset", "limit", "status"},
-            "moderation/media": {"offset", "limit", "status"},
-            "moderation/profiles": {"offset", "limit", "status"},
+            "moderation/profiles": {
+                "offset",
+                "limit",
+                "status",
+                "q",
+                "city",
+                "need",
+                "min_budget",
+                "max_budget",
+                "sort",
+            },
         }
         if re.fullmatch(rf"chat/conversations/{IDENTIFIER}/messages", resource):
             query_routes[resource] = {"before", "limit"}
+        if re.fullmatch(rf"moderation/profiles/{IDENTIFIER}/history", resource):
+            query_routes[resource] = {"offset", "limit"}
         if request.query_params and (
             request.method != "GET"
             or resource not in query_routes
@@ -93,18 +101,7 @@ def attach_roommate_gateway(app, user) -> None:
         if owner:
             headers["X-User-Id"] = owner
         kwargs = {"params": dict(request.query_params)} if request.query_params else {}
-        if request.method == "POST" and resource == "media":
-            key = request.headers.get("X-Roommate-Operation", "")
-            if not 16 <= len(key) <= 128:
-                raise HTTPException(422, {"code": "invalid_operation_key"})
-            body = bytearray()
-            async for chunk in request.stream():
-                if len(body) + len(chunk) > MAX_IMAGE_BYTES:
-                    raise HTTPException(413, {"code": "image_size_limit"})
-                body.extend(chunk)
-            headers.update({"X-Roommate-Operation": key, "Content-Type": "application/octet-stream"})
-            kwargs["content"] = bytes(body)
-        elif request.method in ("POST", "PUT") and not re.fullmatch(r"moderation/reports/[^/]+/resolve", resource):
+        if request.method in ("POST", "PUT") and not re.fullmatch(r"moderation/reports/[^/]+/resolve", resource):
             try:
                 encoded = bytearray()
                 async for chunk in request.stream():
