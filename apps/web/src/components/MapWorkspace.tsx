@@ -112,6 +112,7 @@ export function MapWorkspace({
   onUnselect,
   onSelectionDone,
   readOnly = false,
+  readOnlyNotice,
   chat,
   onSave,
   onSelect,
@@ -131,6 +132,7 @@ export function MapWorkspace({
   onUnselect?: (h: House) => Promise<void>;
   onSelectionDone?: () => void;
   readOnly?: boolean;
+  readOnlyNotice?: string;
   chat: ChatDockProps;
   onSave: (h: House) => void;
   // Any listing (chat result or explored on the map) can be chosen; the backend re-reads it.
@@ -908,7 +910,7 @@ export function MapWorkspace({
           {readOnly && (
             <p className="muted small">
               {uiText(
-                "Phương án đã lưu. Muốn đổi căn, hãy yêu cầu trong chat để cập nhật kế hoạch.",
+                readOnlyNotice || "Phương án đã lưu. Muốn đổi căn, hãy yêu cầu trong chat để cập nhật kế hoạch.",
               )}
             </p>
           )}

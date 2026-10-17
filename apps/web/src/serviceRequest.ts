@@ -205,6 +205,13 @@ export function guidedReplyText(
   services: FormService[],
 ): string {
   const handled = questions
+    // A location clarification can explain ambiguity or an unavailable match.
+    // Controls cannot replace that explanation, even when a full form is shown.
+    .filter((q) => {
+      const parts = String(q.field || "").split(".");
+      return !(services.includes("property") && (parts.length === 1 || parts[0] === "property") &&
+        ["city", "district", "near"].includes(parts.at(-1)!));
+    })
     .filter((q) =>
       services.some((s) => {
         const parts = String(q.field || "").split(".");

@@ -119,7 +119,7 @@ def test_deferral_rejects_unknown_field_unrequested_domain_and_task_overlap():
 
 
 @pytest.mark.asyncio
-async def test_new_district_replaces_an_old_near_scope_but_keeps_city_and_budget():
+async def test_new_district_replaces_old_scope_keeps_budget_and_resolves_its_own_city():
     from relohome_agent.agents.deps import test_deps
     from relohome_agent.agents.intake import ScriptedIntake
     from relohome_agent.agents.planning import TemplatePlanner
@@ -147,7 +147,9 @@ async def test_new_district_replaces_an_old_near_scope_but_keeps_city_and_budget
     out = await session.say("Mình muốn tìm căn ở Cầu Giấy")
     values = out["intake"].constraints.values
     assert values["district"] == "Cầu Giấy" and "near" not in values
-    assert values["city"] == "Hà Nội" and values["max_price_vnd"] == 6_000_000
+    # The new district resolves its own catalog parent; account preferences may
+    # not reintroduce the old city (which could belong to a different province).
+    assert "city" not in values and values["max_price_vnd"] == 6_000_000
 
 
 @pytest.mark.asyncio

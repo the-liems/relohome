@@ -3319,6 +3319,77 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   expect(errors).toEqual([]);
 });
 
+for (const replyKind of ["ERROR", "CLARIFY"]) {
+  test(`housing map scope follow-up keeps context on ${replyKind} and replaces it only after success`, async ({ page }) => {
+    const calls: any[] = [];
+    const { thread, component } = await fixture(page, true, calls);
+    seed(thread, [component]);
+    thread.state.intake = { kind: "new_goal", intent: { domains: ["property"] }, user_confirmed_facts: {} };
+    await page.goto("/ai/th_ui");
+    const map = page.getByRole("region", { name: "Bản đồ nhà ở" });
+    await expect(map).toBeVisible();
+    await map.evaluate(el => el.setAttribute("data-followup-identity", "mounted"));
+    const reason = replyKind === "ERROR"
+      ? "Tìm ở Cầu Giấy đang bị gián đoạn. Bạn thử lại nhé."
+      : 'Mình chưa xác định được vị trí "Cầu Giấy". Bạn muốn tìm theo khu vực nào?';
+    let attempt = 0;
+    await page.route("**/web/api/threads/th_ui/chat", async route => {
+      attempt += 1;
+      const body = route.request().postDataJSON();
+      thread.messages.push({ id: `scope-user-${attempt}`, role: "user", content: { status: "done", text: body.message } });
+      const success = attempt > 1;
+      thread.state.plan.version = attempt + 1;
+      thread.state.intake = {
+        kind: "change", intent: { domains: ["property"] },
+        constraints: { values: { district: "Cầu Giấy", city: "Hà Nội", max_price_vnd: 5000000 } },
+        user_confirmed_facts: {},
+      };
+      thread.state.task_status.housing = success ? "done" : replyKind === "ERROR" ? "failed" : "needs_input";
+      const updated = {
+        ...component, id: "housing:caugiay", data: {
+          ...component.data, area_name: "Phường Cầu Giấy",
+          search_request: { administrative_area_ids: ["caugiay"], max_price: { amount: 5000000, currency: "VND", period: "month" } },
+          map_context: { viewport: { west: 105.77, south: 21.01, east: 105.82, north: 21.05 } },
+        },
+      };
+      thread.messages.push({
+        id: `scope-reply-${attempt}`, role: "assistant", created: Date.now() / 1000,
+        content: {
+          status: "done",
+          response: { kind: success ? "ANSWER" : replyKind, text: success ? "Kết quả tại Cầu Giấy." : reason,
+            questions: !success && replyKind === "CLARIFY" ? [{ field: "near", text: reason, options: ["Phường Cầu Giấy"] }] : [] },
+          ui: { version: 1, plan_version: attempt + 1, components: success ? [updated] : [] },
+        },
+      });
+      await route.fulfill({ json: thread });
+    });
+    await page.getByRole("button", { name: "Hiện khung chat" }).click();
+    const input = page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" });
+    await input.fill("đổi lại khu vực cầu giấy hà nội");
+    await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+    const dock = page.getByRole("region", { name: "Trò chuyện với ReloHome" });
+    await expect(dock).toContainText(reason);
+    await expect(dock).toContainText("khu vực mới chưa được cập nhật");
+    await expect(map).toHaveAttribute("data-followup-identity", "mounted");
+    await expect(page.locator(".guided-service-panel")).toHaveCount(0);
+    for (const button of await page.getByRole("button", { name: "Chọn căn này", exact: true }).all())
+      await expect(button).toBeDisabled();
+    if (replyKind === "CLARIFY") {
+      await dock.getByRole("button", { name: "Phường Cầu Giấy", exact: true }).click();
+    } else {
+      await input.fill("Thử tìm lại ở khu vực Cầu Giấy Hà Nội");
+      await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+    }
+    await expect.poll(() => calls.filter(c => c.path === "/platform/housing/search").at(-1)?.body.administrative_area_ids).toEqual(["caugiay"]);
+    await expect(map).toHaveAttribute("data-followup-identity", "mounted");
+    await expect(page.getByText("Bản đồ đang hiển thị kết quả trước; khu vực mới chưa được cập nhật.")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Chọn căn này", exact: true }).first()).toBeEnabled();
+    // Explicit exit must still return to chat rather than immediately reopening the map.
+    await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+    await expect(map).toHaveCount(0);
+  });
+}
+
 test("choosing a home keeps the map selection; chat dock can hide", async ({
   page,
 }, info) => {
