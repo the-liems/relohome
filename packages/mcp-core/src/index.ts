@@ -1,4 +1,7 @@
+import { logger } from './logger.js'
+
 export { authenticateMcpRequest, requireServiceToken, sendAuthError, validBearerToken } from './auth.js'
+export { logger } from './logger.js'
 
 export interface AuditExecutor {
   query(sql: string, values?: unknown[]): Promise<unknown>
@@ -25,6 +28,15 @@ export function toolFailure(error: unknown, classify: (error: unknown) => ToolEr
   }
 }
 
+/**
+ * Classified failures carry a sanitized message the caller already receives, so log their code only.
+ * Unclassified failures keep the error and stack, the only record of their root cause.
+ */
+export function logToolFailure(tool: string, code: string, error: unknown) {
+  if (code === 'INTERNAL_ERROR') logger.error({ err: error, tool, code }, 'mcp_tool_failed')
+  else logger.warn({ tool, code }, 'mcp_tool_failed')
+}
+
 export function auditedTool<Input, Output extends Record<string, unknown>>(
   db: AuditExecutor,
   toolName: string,
@@ -39,6 +51,7 @@ export function auditedTool<Input, Output extends Record<string, unknown>>(
       return toolSuccess(output)
     } catch (error) {
       const result = classify(error)
+      logToolFailure(toolName, result.code, error)
       await writeAudit(db, toolName, input, 'error', performance.now() - started, result.code)
       return toolFailure(error, classify)
     }
@@ -61,6 +74,6 @@ async function writeAudit(
       [toolName, JSON.stringify({ keys }), status, Math.max(0, Math.round(durationMs)), errorCode || null],
     )
   } catch (error) {
-    console.error('Failed to write MCP audit event:', error instanceof Error ? error.message : 'unknown error')
+    logger.error({ err: error, tool: toolName }, 'mcp_audit_write_failed')
   }
 }

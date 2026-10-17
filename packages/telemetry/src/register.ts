@@ -4,7 +4,9 @@ try {
   const { register } = await import('node:module')
   register('@opentelemetry/instrumentation/hook.mjs', import.meta.url)
   await import('./sdk.js')
-} catch {
-  process.stderr.write('{"event":"telemetry_initialization_failed"}\n')
+} catch (error) {
+  // No logger exists before the SDK; keep the cause so a service without telemetry is diagnosable.
+  const cause = error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) }
+  process.stderr.write(JSON.stringify({ event: 'telemetry_initialization_failed', ...cause }) + '\n')
 }
 export {}

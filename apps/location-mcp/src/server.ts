@@ -1,3 +1,4 @@
+import { logger } from '@relohome/mcp-core'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { createReloHomeMcpServer } from './create-server.js'
 import { createReloHomeMcpRuntime } from './runtime.js'
@@ -8,7 +9,7 @@ const handle = serveStdio(
   () => createReloHomeMcpServer(dependencies),
   {
     onerror(error) {
-      console.error('LifeFlow MCP transport error:', error)
+      logger.error({ err: error }, 'location_mcp_transport_error')
     },
   },
 )

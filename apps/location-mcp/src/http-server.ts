@@ -1,4 +1,4 @@
-import { authenticateMcpRequest, requireServiceToken } from '@relohome/mcp-core'
+import { authenticateMcpRequest, logger, requireServiceToken } from '@relohome/mcp-core'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import {
   hostHeaderValidation,
@@ -24,18 +24,18 @@ const validateOrigin = originValidation(allowedOriginHosts)
 const { pool, dependencies } = createReloHomeMcpRuntime()
 const mcpHandler = createMcpHandler(() => createReloHomeMcpServer(dependencies), {
   onerror(error) {
-    console.error('LifeFlow MCP handler error:', error)
+    logger.error({ err: error }, 'location_mcp_handler_error')
   },
 })
 const handleMcpRequest = toNodeHandler(mcpHandler, {
   onerror(error) {
-    console.error('LifeFlow MCP HTTP transport error:', error)
+    logger.error({ err: error }, 'location_mcp_transport_error')
   },
 })
 
 const httpServer = createServer((request, response) => {
   void routeRequest(request, response).catch((error) => {
-    console.error('LifeFlow MCP HTTP request error:', error)
+    logger.error({ err: error }, 'location_mcp_request_failed')
     if (!response.headersSent) {
       sendJson(response, 500, { status: 'error', code: 'INTERNAL_ERROR' })
     } else {
@@ -94,14 +94,14 @@ function sendJson(response: ServerResponse, statusCode: number, body: Record<str
 }
 
 httpServer.listen(port, host, () => {
-  console.log(`LifeFlow Location MCP listening on http://${host}:${port}/mcp`)
+  logger.info({ host, port }, 'location_mcp_listening')
 })
 
 let closing = false
 async function shutdown(signal: string) {
   if (closing) return
   closing = true
-  console.log(`Received ${signal}; shutting down LifeFlow Location MCP.`)
+  logger.info({ signal }, 'location_mcp_shutting_down')
 
   await mcpHandler.close()
   await new Promise<void>((resolve, reject) => {
@@ -113,7 +113,7 @@ async function shutdown(signal: string) {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void shutdown(signal).catch((error) => {
-      console.error('LifeFlow MCP shutdown error:', error)
+      logger.error({ err: error }, 'location_mcp_shutdown_failed')
       process.exitCode = 1
     })
   })

@@ -1,4 +1,4 @@
-import { authenticateMcpRequest, requireServiceToken, sendAuthError } from '@relohome/mcp-core'
+import { authenticateMcpRequest, logger, requireServiceToken, sendAuthError } from '@relohome/mcp-core'
 import { createServer, type ServerResponse } from 'node:http'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { hostHeaderValidation, toNodeHandler } from '@modelcontextprotocol/node'
@@ -43,7 +43,7 @@ export function buildMovingHttpServer(
   const handlerOptions = {
     legacy: 'stateless' as const,
     maxRequestBodySize: 1_000_000,
-    onerror: () => console.error(JSON.stringify({ event: 'moving_mcp_protocol_error' })),
+    onerror: (error: Error) => logger.error({ err: error }, 'moving_mcp_protocol_error'),
   }
   const handler = createMcpHandler(() => createMovingMcpServer({ ...dependencies, access: 'read' }), handlerOptions)
   const writeHandler = options.writeToken
@@ -59,16 +59,20 @@ export function buildMovingHttpServer(
   }
   const server = createServer(async (req, res) => {
     const started = performance.now()
-    res.once('finish', () => console.error(JSON.stringify({ event: 'moving_mcp_http',
-      method: req.method, status: res.statusCode, duration_ms: Math.round(performance.now() - started),
-      release: options.release })))
+    let path = ''
+    res.once('finish', () => {
+      // Health probes run every few seconds; their failures surface as container health.
+      if (path === '/health' || path === '/ready') return
+      logger.info({ method: req.method, path, status: res.statusCode,
+        duration_ms: Math.round(performance.now() - started), release: options.release }, 'moving_mcp_http')
+    })
     try {
       if (!validateHost(req, res)) return
       const origin = req.headers.origin
       if (origin && !options.allowedOrigins.includes(origin)) {
         sendAuthError(res, 403, 'ORIGIN_NOT_ALLOWED'); return
       }
-      const path = new URL(req.url || '/', 'http://localhost').pathname
+      path = new URL(req.url || '/', 'http://localhost').pathname
       if (req.method === 'GET' && (path === '/health' || path === '/ready')) {
         if (stopping) { json(res, 503, { status: 'stopping' }); return }
         if (path === '/ready') {
@@ -86,7 +90,8 @@ export function buildMovingHttpServer(
       const canWrite = credential === 1
       if (canWrite && handleWriteMcp) await handleWriteMcp(req, res)
       else await handleMcp(req, res)
-    } catch {
+    } catch (error) {
+      logger.error({ err: error, path }, 'moving_mcp_request_failed')
       if (!res.headersSent) json(res, 500, { code: 'INTERNAL_ERROR' })
       else res.destroy()
     }

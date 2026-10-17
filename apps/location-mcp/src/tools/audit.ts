@@ -6,6 +6,7 @@ import {
   withinOperation,
   type QueryExecutor,
 } from '@relohome/housing-query'
+import { logger, logToolFailure } from '@relohome/mcp-core'
 import { z } from 'zod'
 import type { ServerContext } from '@modelcontextprotocol/server'
 
@@ -25,6 +26,7 @@ export function audited<Input, Output extends Record<string, unknown>>(
       }
     } catch (error) {
       const code = errorCode(error)
+      logToolFailure(toolName, code, error)
       void writeAudit(pool, toolName, input, 'error', performance.now() - started, code)
       return {
         isError: true,
@@ -60,7 +62,7 @@ async function writeAudit(
       [toolName, JSON.stringify({ keys }), status, Math.max(0, Math.round(durationMs)), errorCodeValue || null],
     )
   } catch (error) {
-    console.error('Failed to write MCP audit event:', error)
+    logger.error({ err: error, tool: toolName }, 'mcp_audit_write_failed')
   }
 }
 

@@ -27,7 +27,7 @@ import {
   type DatabasePool,
   type ApplicationRuntimeConfig,
 } from '@relohome/housing-query'
-import Fastify from 'fastify'
+import Fastify, { LogController, type FastifyReply, type FastifyRequest } from 'fastify'
 import { z, ZodError } from 'zod'
 import { ManagementError, registerHousingManagement } from './housing-management.js'
 import { registerHousingWorkspace } from './housing-workspace.js'
@@ -43,8 +43,23 @@ const NearbyRequestSchema = z.object({
   constraints: z.array(NearbyPlaceConstraintSchema).min(1).max(10),
 })
 
+/** One access line per request, written at completion: 5xx at error, healthy probes silent. */
+class AccessLog extends LogController {
+  override incomingRequest () {}
+
+  override routeNotFound () {}
+
+  override requestCompleted (error: Error | null | undefined, request: FastifyRequest, reply: FastifyReply) {
+    // Container probes run every 15 s; only unhealthy results are worth a line.
+    if (!error && request.routeOptions.url === '/health' && reply.statusCode < 400) return
+    const line = { req: request, res: reply, err: error ?? undefined, responseTime: reply.elapsedTime }
+    if (error || reply.statusCode >= 500) reply.log.error(line, 'request completed')
+    else reply.log.info(line, 'request completed')
+  }
+}
+
 export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
-  const app = Fastify({ logger: true })
+  const app = Fastify({ logger: true, logController: new AccessLog() })
   const routeService = new RouteService(config.osrmUrls, config.publicDrivingOsrmUrl)
   const queries = boundedQueries(pool)
   const entityRouteService = new RouteEndpointService(queries, routeService)
