@@ -104,6 +104,23 @@ read-only Roommate criteria with no contact/publish/request or financial action.
 
 ## Verification
 
+### Review correction: retain vehicle requirements in remarks
+
+The initial compact form-selection context omitted `moving_options.remarks`.
+This could hide requirements such as a lift gate or excluding open-bed trucks
+until after vehicle selection, even though the provider draft retained the note.
+Restore the complete note as a separate user-data field before selection, using
+the existing PII redactor; do not interpolate it into system instructions.
+Phone numbers and email addresses are covered by these regressions; the existing
+redactor is not a guarantee of removing every personal name or address.
+
+Four regressions fail on the original PR head and pass after the correction:
+direct agent requests with/without contact details, and HTTP form through the real
+LangGraph path with memory/SQLite usage ledgers. They verify the vehicle request
+reaches the model before selection, contacts are redacted, provider notes remain
+intact and usage stays at one generation/two provider calls. These fixture tests
+verify data flow, not that a real model guarantees vehicle suitability.
+
 Offline tests exercise the real agent/graph with fixture model/provider responses:
 one vs zero generations; batched observed IDs; no geocoding for confirmed pins;
 no hidden retries; invalid/duplicate/excess/unknown IDs; malformed model responses;
@@ -111,10 +128,10 @@ provider refusal, required questions, budget/timeout/cancellation; unchanged
 conversation catalog/order paths; projection immutability/privacy; prompt scope
 including carried domains; and memory/SQLite crash usage with quota blocking.
 
-Final local regression: **920 passed, 18 skipped** across agent, checkout,
+Final local regression after the review correction: **924 passed, 18 skipped** across agent, checkout,
 Roommate, browser-gateway, standalone agent-service and opt-in prompt-eval tests
-(the seven paid cases skip in this run). The two new offline files contain 45
-cases; the existing crash-ledger test gains four auto-suggestion cases. Ruff
+(the seven paid cases skip in this run). The two new offline files contain 47
+cases; the existing crash-ledger test gains six auto-suggestion cases. Ruff
 check/format on all nine changed/new Python files and `git diff --check` pass.
 Concurrent form requests also retain independent routes/usage on a shared agent.
 

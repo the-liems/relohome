@@ -10,8 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import httpx
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.deps import AgentRegistry, default_deps
 from relohome_agent.agents.graph import build_graph, default_checkpointer, run_config
@@ -21,10 +22,12 @@ from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.moving import QuoteContact
 from relohome_agent.agents.subagents.services.moving_llm import FormQuoteAgent, MovingLlmAgent
 from relohome_agent.api.moving_quotes import quote_form
+from relohome_agent.api.moving_quotes import router as moving_quote_router
 from relohome_agent.services.adapters.fakes import InMemoryUsageMeter
 from relohome_agent.services.adapters.mcp import ToolCallError
 from relohome_agent.services.adapters.sqlite_runtime import SqliteUsageMeter
 from relohome_contracts.schemas import MovingQuoteForm
+from relohome_privacy import redact_pii
 
 from tests.test_agents.test_moving_suggestion_efficiency import Responses
 from tests.test_agents.test_service_subagents import moving_client
@@ -82,6 +85,34 @@ def service(meter, auto_suggest=False):
         ),
     )
     return SimpleNamespace(deps=deps, graph=build_graph(deps, default_checkpointer()), locks={}), client
+
+
+@pytest.mark.asyncio
+async def test_http_form_graph_preserves_redacted_vehicle_notes_before_one_model_selection(ledger):
+    meter, records = ledger
+    runtime, client = service(meter, auto_suggest=True)
+    runtime.mode = "fake"  # Isolated offline API/graph fixture, not a production auth assertion.
+    responses = runtime.deps.moving_quote_agent.agent.client.responses
+    requirement = "Cần xe có bửng nâng, không dùng xe thùng hở"
+    raw_note = requirement + "; gọi 0901234567 hoặc fixture@example.test"
+    body = form(auto_suggest=True).model_dump(mode="json")
+    body["moving_options"] = {"remarks": raw_note}
+    app = FastAPI()
+    app.state.agent_service = runtime
+    app.include_router(moving_quote_router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as http:
+        response = await http.post(
+            "/ui/chat/fixture-remarks/moving/quote", json=body, headers={"X-User-Id": "fixture-owner"}
+        )
+    assert response.status_code == 200 and response.json()["response"]["kind"] == "ANSWER"
+    assert len(responses.calls) == 1
+    context = json.loads(responses.calls[0]["input"][0]["content"])
+    assert context.get("remarks") == redact_pii(raw_note)
+    assert requirement not in context["goal"] and requirement not in context["user_request"]
+    assert "0901234567" not in json.dumps(context) and "fixture@example.test" not in json.dumps(context)
+    estimate = next(arguments for name, arguments in client.calls if name == "estimate_move")
+    assert estimate["draft"]["remarks"] == redact_pii(raw_note)
+    assert records() == [AgentUsage(llm_calls=1, tokens_in=700, tokens_out=30, provider_calls=2)]
 
 
 @pytest.mark.asyncio

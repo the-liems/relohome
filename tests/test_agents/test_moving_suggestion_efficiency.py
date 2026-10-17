@@ -16,6 +16,7 @@ from relohome_agent.agents.subagents.services.moving_context import selection_ca
 from relohome_agent.agents.subagents.services.moving_llm import MovingLlmAgent
 from relohome_agent.agents.task_prompts import FORM_SELECTION, MOVING_CORE, MOVING_MODES
 from relohome_agent.services.adapters.mcp import ToolCallError
+from relohome_privacy import redact_pii
 
 from tests.test_agents.test_service_subagents import moving_client
 
@@ -117,6 +118,28 @@ async def test_auto_suggest_uses_one_generation_no_geocoding_and_one_batched_est
     assert "private-debug" not in context and "icon_url" not in context and "provider_data" not in context
     assert '"capacity_kg":500' in context and '"cross_city":false' in context
     assert req.inputs == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("contact", ["", "; gọi 0901234567 hoặc fixture@example.test"])
+async def test_vehicle_requirements_in_remarks_reach_the_single_selection_with_contact_redacted(contact):
+    requirement = "Cần xe có bửng nâng, không dùng xe thùng hở"
+    raw_note = requirement + contact
+    req = form_request(moving_options={"remarks": raw_note})
+    original = copy.deepcopy(req.inputs)
+    agent, client, responses = fixture_agent()
+    result = await agent.run_form_quote(req)
+    assert result.status == "done" and result.usage.llm_calls == len(responses.calls) == 1
+    call = responses.calls[0]
+    context = json.loads(call["input"][0]["content"])
+    assert context.get("remarks") == redact_pii(raw_note)
+    assert requirement in context["remarks"]
+    assert requirement not in call["instructions"]  # Notes stay untrusted user data, not system instructions.
+    assert "0901234567" not in call["input"][0]["content"]
+    assert "fixture@example.test" not in call["input"][0]["content"]
+    estimate = next(arguments for name, arguments in client.calls if name == "estimate_move")
+    assert estimate["draft"]["remarks"] == redact_pii(raw_note)
+    assert req.inputs == original and len(client.calls) == 2
 
 
 @pytest.mark.asyncio

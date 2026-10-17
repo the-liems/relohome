@@ -202,6 +202,8 @@ class MovingLlmAgent:
             "services": catalog,
             "route": "Both stops and schedule confirmed; provider estimate validates serviceability.",
         }
+        if options.get("remarks") is not None:
+            context["remarks"] = public_data(options["remarks"])
         model_input = model_json(context)
         if len(model_input) > 24_000:
             return execution.ask("service_id", "Thông tin đồ đạc khá dài; bạn chọn một gói xe để mình báo giá nhé.")
