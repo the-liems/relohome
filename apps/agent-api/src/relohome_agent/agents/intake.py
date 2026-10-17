@@ -241,11 +241,7 @@ def ground_facts(
         # A transaction reference (payment/order/booking ID) is a long code by nature; only a value that is
         # itself an email or phone number is personal data there.
         reference = name in REFERENCE_KEYS or name == "listing_ids"
-        personal = (
-            contains_contact_pii(fact.value)
-            if reference
-            else looks_like_pii(fact.value)
-        )
+        personal = contains_contact_pii(fact.value) if reference else looks_like_pii(fact.value)
         if name in PII_FACT_KEYS or (not numeric_constraint and personal):
             dropped.append(name)
             continue
@@ -420,7 +416,15 @@ def resolve_missing(
     domains = result.domains
     tiers = {**DEFAULT_COST_TIERS, **cost_tiers}
     stated = {**fact_values(result.user_confirmed_facts), **result.constraints.values}
-    prefilled = prefill_from_memory(stated, session, domains, tiers, prefill_ttl, now)
+    prefilled = prefill_from_memory(
+        stated,
+        session,
+        domains,
+        tiers,
+        prefill_ttl,
+        now,
+        excluded_housing_fields=frozenset(result.housing_prefill_exclusions),
+    )
     values = {**stated, **{k: v.value for k, v in prefilled.items()}}
     sources = set(domains) | ({t.agent for t in plan.tasks} if plan else set())
     missing = {d: missing_for(d, values, sources, result.user_confirmed_facts) for d in domains}

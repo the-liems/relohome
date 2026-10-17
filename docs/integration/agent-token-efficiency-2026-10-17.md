@@ -2,6 +2,10 @@
 
 Tracking: [issue #202](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/issues/202).
 
+Follow-up extension: [issue #216 implementation and verification](housing-filter-followups-2026-10-17.md)
+adds conservative filter edits/refreshes to the initial NEW_GOAL-only shortcut
+described below. Historical measurements here remain the initial baseline.
+
 Base: main `713266f` (includes PR #201). No model/provider change, database migration,
 business-provider search/quote, booking, payment or cloud configuration change.
 Four bounded Intake-only model requests used the existing configured provider;

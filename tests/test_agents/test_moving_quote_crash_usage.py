@@ -10,8 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import httpx
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.deps import AgentRegistry, default_deps
 from relohome_agent.agents.graph import build_graph, default_checkpointer, run_config
@@ -21,11 +22,14 @@ from relohome_agent.agents.subagents.base import AgentPolicy, run_with_policy
 from relohome_agent.agents.subagents.services.moving import QuoteContact
 from relohome_agent.agents.subagents.services.moving_llm import FormQuoteAgent, MovingLlmAgent
 from relohome_agent.api.moving_quotes import quote_form
+from relohome_agent.api.moving_quotes import router as moving_quote_router
 from relohome_agent.services.adapters.fakes import InMemoryUsageMeter
 from relohome_agent.services.adapters.mcp import ToolCallError
 from relohome_agent.services.adapters.sqlite_runtime import SqliteUsageMeter
 from relohome_contracts.schemas import MovingQuoteForm
+from relohome_privacy import redact_pii
 
+from tests.test_agents.test_moving_suggestion_efficiency import Responses
 from tests.test_agents.test_service_subagents import moving_client
 
 
@@ -51,22 +55,25 @@ def ledger(request, tmp_path):
             connection.close()
 
 
-def form(version=0):
+def form(version=0, auto_suggest=False):
     return MovingQuoteForm(
         plan_version=version,
         pickup={"address": "Fixture A", "lat": 21.03, "lng": 105.8, "confirmed": True},
         destination={"address": "Fixture B", "lat": 21.04, "lng": 105.81, "confirmed": True},
         move_date=(utcnow() + timedelta(days=2)).date(),
         move_time="14:00",
-        moving_options={"service_id": "SGN-TRUCK-500"},
+        moving_options={} if auto_suggest else {"service_id": "SGN-TRUCK-500"},
     )
 
 
-def service(meter):
+def service(meter, auto_suggest=False):
     client = moving_client()
     client.endpoint = SimpleNamespace(service="moving")
     client.handlers["estimate_move"]["quote"]["expires_at"] = (utcnow() + timedelta(minutes=4)).isoformat()
     agent = MovingLlmAgent("", "unused", client, contact=QuoteContact("Fixture contact", "19001234"))
+    if auto_suggest:
+        agent.api_key = "configured-fixture-key"
+        agent.client = SimpleNamespace(responses=Responses(args={"service_ids": ["SGN-TRUCK-500"]}))
     deps = default_deps()
     deps = replace(
         deps,
@@ -81,10 +88,39 @@ def service(meter):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["missing_quote_id", "unexpected_runtime_error"])
-async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, failure):
+async def test_http_form_graph_preserves_redacted_vehicle_notes_before_one_model_selection(ledger):
     meter, records = ledger
-    runtime, client = service(meter)
+    runtime, client = service(meter, auto_suggest=True)
+    runtime.mode = "fake"  # Isolated offline API/graph fixture, not a production auth assertion.
+    responses = runtime.deps.moving_quote_agent.agent.client.responses
+    requirement = "Cần xe có bửng nâng, không dùng xe thùng hở"
+    raw_note = requirement + "; gọi 0901234567 hoặc fixture@example.test"
+    body = form(auto_suggest=True).model_dump(mode="json")
+    body["moving_options"] = {"remarks": raw_note}
+    app = FastAPI()
+    app.state.agent_service = runtime
+    app.include_router(moving_quote_router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as http:
+        response = await http.post(
+            "/ui/chat/fixture-remarks/moving/quote", json=body, headers={"X-User-Id": "fixture-owner"}
+        )
+    assert response.status_code == 200 and response.json()["response"]["kind"] == "ANSWER"
+    assert len(responses.calls) == 1
+    context = json.loads(responses.calls[0]["input"][0]["content"])
+    assert context.get("remarks") == redact_pii(raw_note)
+    assert requirement not in context["goal"] and requirement not in context["user_request"]
+    assert "0901234567" not in json.dumps(context) and "fixture@example.test" not in json.dumps(context)
+    estimate = next(arguments for name, arguments in client.calls if name == "estimate_move")
+    assert estimate["draft"]["remarks"] == redact_pii(raw_note)
+    assert records() == [AgentUsage(llm_calls=1, tokens_in=700, tokens_out=30, provider_calls=2)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["missing_quote_id", "unexpected_runtime_error"])
+@pytest.mark.parametrize("auto_suggest", [False, True])
+async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, failure, auto_suggest):
+    meter, records = ledger
+    runtime, client = service(meter, auto_suggest=auto_suggest)
     original = RuntimeError("fixture estimate crashed")
     if failure == "missing_quote_id":
         del client.handlers["estimate_move"]["quote"]["quote_id"]
@@ -98,21 +134,25 @@ async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, 
         error_type = RuntimeError
     thread = "th_" + uuid4().hex
     with pytest.raises(error_type) as error:
-        await quote_form(thread, form(), runtime, "fixture-owner")
+        await quote_form(thread, form(auto_suggest=auto_suggest), runtime, "fixture-owner")
     if failure == "unexpected_runtime_error":
         assert error.value is original
     else:
         assert error.value.args == ("quote_id",)
     assert "call" in [frame.name for frame in traceback.extract_tb(error.value.__traceback__)]
     assert [name for name, _ in client.calls] == ["list_moving_services", "estimate_move"]
-    assert records() == [AgentUsage(provider_calls=2)]
+    assert records() == [
+        AgentUsage(provider_calls=2, llm_calls=1, tokens_in=700, tokens_out=30)
+        if auto_suggest
+        else AgentUsage(provider_calls=2)
+    ]
     assert (await meter.counts(thread)).paid_calls == 1
-    assert (await meter.counts(thread)).subagent_llm_calls == 0
+    assert (await meter.counts(thread)).subagent_llm_calls == int(auto_suggest)
     values = (await runtime.graph.aget_state(run_config(thread, runtime.deps))).values
     assert values["plan"].version == 1
     assert not values["plan"].commit_actions and not values.get("committed")
     with pytest.raises(HTTPException) as retry:
-        await quote_form(thread, form(version=1), runtime, "fixture-owner")
+        await quote_form(thread, form(version=1, auto_suggest=auto_suggest), runtime, "fixture-owner")
     assert retry.value.status_code == 429
     assert len(client.calls) == 2 and len(records()) == 1
 

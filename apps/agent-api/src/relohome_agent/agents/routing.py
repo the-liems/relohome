@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from langgraph.types import Send
-from relohome_agent.agents.housing_fast_path import is_filter_search
+from relohome_agent.agents.housing_fast_path import is_filter_retrieval
 from relohome_agent.agents.llm_runtime import public_data
 from relohome_agent.agents.models import SessionContext
 from relohome_agent.agents.state import AgentInput, WorkflowState
@@ -60,7 +60,13 @@ def route_from_executor(state: WorkflowState) -> list[Send] | str:
             request_id=state.get("request_id", ""),
             thread_id=state.get("thread_id", ""),
             constraints=intake.constraints,
-            retrieval_only=is_filter_search(intake) and task.agent == "property" and not task.depends_on,
+            retrieval_only=(
+                task.id in (state.get("filter_search_task_ids") or [])
+                and is_filter_retrieval(intake)
+                and task.agent == "property"
+                and not task.depends_on
+                and not plan.commit_actions
+            ),
             goal=public_data(intake.normalized_goal)[:1500],
             user_request=public_data(
                 next((str(m.content) for m in reversed(state.get("messages") or []) if m.type == "human"), "")

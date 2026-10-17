@@ -11,17 +11,24 @@ from typing import Literal
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.agents.common import nfc, utcnow
+from relohome_agent.agents.housing_constraints import AMENITIES
+from relohome_agent.agents.housing_filter_edits import valid_filter_patch
 from relohome_agent.agents.intake import MAP_ENTITY_ANCHORS, REQUIRED_INPUTS, IntakeInput, ground_facts, missing_for
 from relohome_agent.agents.intake_prompts import prompt_for
 from relohome_agent.agents.llm import StructuredLLM
 from relohome_agent.agents.llm_runtime import MAX_REPAIR_CALLS, Invocation, UsageOwner, public_data
-from relohome_agent.agents.models import AgentName, ConfirmedFact, Constraints, IntakeResult, Intent, RequestKind
+from relohome_agent.agents.models import (
+    AgentName,
+    ConfirmedFact,
+    Constraints,
+    HousingFilterPatch,
+    IntakeResult,
+    Intent,
+    RequestKind,
+)
 from relohome_agent.agents.subagents.capabilities import fact_fits_capabilities
 from relohome_roommate.models import RoommateSearchCriteria
 
-AMENITIES = frozenset(
-    "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
-)
 CATEGORIES = frozenset(
     # Canonical categories emitted by Location's poi-normalization.ts and shown
     # by the existing map UI. Keep this vocabulary aligned with that provider;
@@ -110,7 +117,11 @@ class IntakeDraft(BaseModel):
     declined_suggestions: list[str]
     retrieval_only: bool = Field(
         default=False,
-        description="New property-filter list only; no analysis, ranking, references, changes or other services. When unsure false.",
+        description="Unranked property-filter search or safe filter edit/refresh; no analysis, selection, comparison or other services. When unsure false.",
+    )
+    housing_filter_patch: HousingFilterPatch | None = Field(
+        default=None,
+        description="Follow-up only: explicit add/remove amenities or clear named optional Housing filters, with exact latest-message evidence. Unchanged filters stay; numeric/place changes use facts. Never clear IDs, city, coordinates or modes.",
     )
 
 
@@ -470,6 +481,21 @@ class LlmIntake(UsageOwner):
         targets = (
             inp.decision.target_task_ids if inp.decision and inp.decision.target_task_ids else draft.target_task_ids
         )
+        patch = draft.housing_filter_patch
+        if patch is not None and not (
+            inp.previous is not None
+            and kind in {RequestKind.REFINE, RequestKind.CHANGE}
+            and AgentName.PROPERTY in domains
+            and (
+                facts["housing_mode"].value
+                if "housing_mode" in facts
+                else inp.previous.constraints.values.get("housing_mode", "search")
+            )
+            == "search"
+            and valid_filter_patch(patch, user_text, {k: f.value for k, f in facts.items()})
+        ):
+            rejected.append("housing_filter_patch: invalid filter edit or latest-message evidence")
+            patch = None
         result = IntakeResult(
             kind=kind,
             normalized_goal=public_data(draft.normalized_goal),
@@ -479,6 +505,7 @@ class LlmIntake(UsageOwner):
                 and draft.domains == [AgentName.PROPERTY]
                 and draft.housing_comparison_evidence is None
             ),
+            housing_filter_patch=patch,
             intent=Intent(name=draft.intent_name or "request", domains=domains) if domains else None,
             constraints=Constraints(
                 values={k: f.value for k, f in facts.items() if k in VALUE_KEYS} if domains else {}

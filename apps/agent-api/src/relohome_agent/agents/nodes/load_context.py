@@ -25,6 +25,7 @@ def make_load_context(deps: GraphDeps):
             "dispatch": [],
             "replan_count": 0,
             "housing_selection_changed": False,
+            "filter_search_task_ids": [],
         }
         try:
             update["session"] = await deps.session.load(state.get("user_id") or "anonymous")
