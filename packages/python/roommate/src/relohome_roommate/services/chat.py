@@ -285,7 +285,7 @@ class ChatService:
             self.db.execute("INSERT INTO chat_message_keys VALUES (?,?,?,?)", (actor.id, key, signature, message_id))
             self.db.execute("UPDATE chat_conversations SET updated=? WHERE id=?", (now, identifier))
             other = row["second"] if row["first"] == actor.id else row["first"]
-            emit(self.db, other, "chat_message", row["request"], self.ctx.clock.now())
+            emit(self.db, other, "chat_message", row["request"], self.ctx.clock.now(), event_id=message_id)
             message = self.db.execute("SELECT * FROM chat_messages WHERE id=?", (message_id,)).fetchone()
             return {"message": message_view(message)}
 

@@ -28,6 +28,48 @@ def connect(ctx):
     return service, sent, accepted["conversation_id"]
 
 
+@pytest.fixture(params=["sqlite", "postgres"])
+def notification_context(request):
+    if request.param == "sqlite":
+        yield request.getfixturevalue("chat_context")
+    else:
+        with request.getfixturevalue("pg_store").storage() as storage:
+            yield prepare(storage)
+
+
+def test_new_message_notifies_again_after_read_but_retry_does_not(notification_context):
+    from relohome_roommate.services.notifications import NotificationService
+
+    ctx = notification_context
+    chat, _, identifier = connect(ctx)
+    sender, recipient = Actor(id="a"), Actor(id="b")
+    notices = NotificationService(ctx)
+    notices.mark_read(recipient, [item["id"] for item in notices.list(recipient)["items"]])
+    first = chat.send(sender, identifier, "First", "chat-notification-001")
+    first_notice = next(item for item in notices.list(recipient)["items"] if item["kind"] == "chat_message")
+    assert first_notice["resource_id"] == identifier and not first_notice["read"]
+    notices.mark_read(recipient, [first_notice["id"]])
+    chat.mark_read(recipient, identifier, first["message"]["id"])
+    assert chat.send(sender, identifier, "First", "chat-notification-001") == first
+    assert notices.list(recipient)["unread"] == 0
+
+    ctx.clock.advance(timedelta(seconds=1))
+    second = chat.send(sender, identifier, "First", "chat-notification-002")
+    assert second["message"]["id"] != first["message"]["id"]
+    assert chat.conversations(recipient)["unread_total"] == 1
+    after = notices.list(recipient)
+    assert after["unread"] == 1
+    unread = [item for item in after["items"] if not item["read"]]
+    assert len(unread) == 1 and unread[0]["resource_id"] == identifier
+    assert unread[0]["id"] != first_notice["id"]
+
+    assert chat.send(sender, identifier, "First", "chat-notification-002") == second
+    assert notices.list(recipient) == after
+    notices.mark_read(recipient, [unread[0]["id"]])
+    chat.send(sender, identifier, "First", "chat-notification-002")
+    assert notices.list(recipient)["unread"] == 0
+
+
 def test_contactless_connection_is_explicit_idempotent_and_private(chat_context):
     ctx = chat_context
     chat = ChatService(ctx)
