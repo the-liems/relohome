@@ -198,7 +198,7 @@ services:
       HOUSING_VIEWING_TEST_VISIT_ANYTIME: ${HOUSING_VIEWING_TEST_VISIT_ANYTIME:-false}
       # Landlord replacement-time window; platform reads the same value.
       HOUSING_VIEWING_PROPOSAL_DAYS: ${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
-      PAYMENT_TESTER_CONFIRM_ENABLED: "true"
+      PAYMENT_TESTER_CONFIRM_ENABLED: ${PAYMENT_TESTER_CONFIRM_ENABLED:-true}
       PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
       # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
       PAYMENT_RECONCILE_ACTIVE_SECONDS: ${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
