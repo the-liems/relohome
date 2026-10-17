@@ -973,6 +973,25 @@ test("moving van choice shows only its supported sizes and keeps compact selecti
   });
 });
 
+test("moving quote footer does not hard-code a provider environment in either language", async ({
+  page,
+}) => {
+  const { turns } = await movingFormFixture(page);
+  await page.goto("/ai/th_ui");
+  const footer = page.locator(".moving-booking .mv-confirm small");
+  await expect(footer).toHaveText(
+    "Báo giá AhaMove. Thanh toán trong app sau khi chọn gói; chưa tạo đơn.",
+  );
+  await expect(footer).not.toContainText(/staging|production/i);
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(footer).toHaveText(
+    "AhaMove quote. Pay in the app after choosing a vehicle; no order has been created.",
+  );
+  await expect(footer).not.toContainText(/staging|production/i);
+  expect(turns).toEqual([]);
+});
+
 test("moving vehicle guide explains automatic comparison and never books or clears input when opened", async ({
   page,
 }, info) => {

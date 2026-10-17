@@ -1,5 +1,8 @@
 """Model-only projection of observed service details; provider storage stays intact."""
 
+import json
+from collections import Counter
+
 from relohome_agent.agents.llm_runtime import public_data
 
 PRESENTATION_FIELDS = frozenset({"icon_url", "img_url", "map_icon_url", "map_icon_3d"})
@@ -46,6 +49,67 @@ def selection_catalog_for_model(catalog: dict[str, dict]) -> list[dict]:
             row["required_request_options"] = service.get("requests", [])
         rows.append(public_data(row))
     return rows
+
+
+def compact_selection_catalog(rows: list[dict]) -> dict:
+    """Lossless defaults / references, never a shortlist or a provider-data mutation.
+
+    Defaults apply only to fields present and identical on EVERY observed service.
+    Missing restrictions therefore remain unknown. References share long repeated
+    values in subsets; their keys are owned by this projection, not provider data.
+    """
+
+    def identity(value):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+    # The input is an already-redacted model projection. Clone it before factoring.
+    services = json.loads(identity(rows))
+    if not services:
+        return {"services": services}
+    defaults = {}
+    for key, value in list(services[0].items()):
+        if key not in {"service_id", "constraints"} and all(
+            key in row and identity(row[key]) == identity(value) for row in services
+        ):
+            defaults[key] = value
+    constraint_defaults = {}
+    for key, value in services[0]["constraints"].items():
+        if all(key in row["constraints"] and identity(row["constraints"][key]) == identity(value) for row in services):
+            constraint_defaults[key] = value
+    if constraint_defaults:
+        defaults["constraints"] = constraint_defaults
+    for row in services:
+        for key in defaults:
+            if key != "constraints":
+                row.pop(key)
+        for key in constraint_defaults:
+            row["constraints"].pop(key)
+
+    candidates = []
+    for row in services:
+        for key in ("description", "required_request_options"):
+            if key in row:
+                candidates.append((row, "fact_refs", key, identity(row[key])))
+        for key, value in row["constraints"].items():
+            candidates.append((row, "constraint_refs", key, identity(value)))
+    counts = Counter(encoded for _, _, _, encoded in candidates if len(encoded) >= 80)
+    facts: dict[str, object] = {}
+    references: dict[str, str] = {}
+    for row, namespace, key, encoded in candidates:
+        if counts[encoded] < 2:
+            continue
+        if encoded not in references:
+            ref = f"f{len(facts)}"
+            references[encoded] = ref
+            facts[ref] = json.loads(encoded)
+        row.setdefault(namespace, {})[key] = references[encoded]
+        (row["constraints"] if namespace == "constraint_refs" else row).pop(key)
+    result = {"services": services}
+    if defaults:
+        result["catalog_defaults"] = defaults
+    if facts:
+        result["catalog_facts"] = facts
+    return result
 
 
 def service_details_for_model(observed: dict) -> dict:
