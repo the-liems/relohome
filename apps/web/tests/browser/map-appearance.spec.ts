@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.use({
   launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH,
     args: [
       "--use-gl=angle",
       "--use-angle=swiftshader",
