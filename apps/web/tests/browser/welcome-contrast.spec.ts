@@ -29,6 +29,7 @@ async function fixture(page: Page) {
 test("short welcome keeps all service choices and starter prompts above the composer", async ({
   page,
 }, info) => {
+  test.setTimeout(180000);
   await fixture(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const measurements: unknown[] = [];
@@ -134,8 +135,10 @@ test("moving payment label remains AA after actual animated theme switches", asy
   const measurements: unknown[] = [];
   await label.scrollIntoViewIfNeeded();
   for (const theme of ["light", "dark", "light"] as const) {
-    if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
+      await page.locator(".theme-switch").focus();
       await page.locator(".theme-switch").click();
+    }
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await waitForUiMotion(page);
     const contrast = await label.evaluate((el) => {

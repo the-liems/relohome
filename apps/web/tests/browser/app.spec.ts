@@ -1061,12 +1061,11 @@ test("welcome: all starting actions fit before scrolling at laptop and mobile he
     await page.setViewportSize(size);
     await page.goto("/ai");
     for (const locale of ["vi", "en"] as const) {
-      await page
-        .getByRole("button", {
-          name: locale === "vi" ? "VI" : "EN",
-          exact: true,
-        })
-        .click();
+      const localeButton = page.getByRole("button", {
+        name: locale === "vi" ? "VI" : "EN", exact: true,
+      });
+      await localeButton.focus();
+      await localeButton.click();
       const scroll = page.locator(".conversation-scroll");
       await expect(page.locator(".quick-card")).toHaveCount(6);
       await expect(page.locator(".starter > button")).toHaveCount(2);
@@ -1411,6 +1410,7 @@ async function fixture(page: Page, authenticated = true, calls: any[] = []) {
       },
       intake: { user_confirmed_facts: {} },
       task_status: { housing: "done" },
+      progress: { items: [{ task_id: "housing", agent: "property", inputs: { city: "Thành phố Hồ Chí Minh" }, state: "reviewed", task_status: "done", after: [], level: 0 }], totals: {} },
       pending: null,
     },
   };
@@ -1622,8 +1622,14 @@ async function fixture(page: Page, authenticated = true, calls: any[] = []) {
 }
 
 function seed(thread: any, components: any[] = [], data: any = {}) {
+  // A returned service result belongs to an active task, as required by the current API contract.
+  for (const component of components) {
+    if (!thread.state.plan.tasks.some((task: any) => task.id === component.task_id))
+      thread.state.plan.tasks.push({ id: component.task_id, agent: component.type, inputs: {} });
+    thread.state.task_status = { ...thread.state.task_status, [component.task_id]: "done" };
+  }
   thread.messages.push({
-    id: "audit-result",
+    id: "audit-result-" + thread.messages.length,
     role: "assistant",
     created: Date.now() / 1000,
     content: {
@@ -1948,6 +1954,10 @@ for (const withQuotes of [true, false]) {
   test(`moving PARTIAL reply ${withQuotes ? "opens usable quotes despite housing warnings" : "keeps the form when no quote was returned"}`, async ({ page }) => {
     const { thread } = await movingFormFixture(page);
     await page.route("**/web/api/threads/th_ui/moving/quote", route => {
+      if (withQuotes) {
+        thread.state.plan.tasks.push({ id: "moving", agent: "relocation", inputs: {} });
+        thread.state.task_status = { ...thread.state.task_status, moving: "done" };
+      }
       thread.messages.push({
         id: "partial-moving-reply", role: "assistant", created: Date.now() / 1000,
         content: {
@@ -2092,7 +2102,7 @@ for (const domain of ["flight", "relocation"]) {
     expect(calls.filter((c) => c.path.endsWith("/action"))).toHaveLength(0);
   });
 
-  test(`${domain === "flight" ? "flight" : "moving"} also expires prices in chat cards and flight details`, async ({
+  test(`${domain === "flight" ? "flight" : "moving"} keeps price expiry when reopening results from chat`, async ({
     page,
   }) => {
     await page.clock.install({ time: new Date() });
@@ -2142,12 +2152,12 @@ for (const domain of ["flight", "relocation"]) {
     await page
       .getByRole("button", { name: "Về hội thoại", exact: true })
       .click();
-    if (domain === "flight")
+    await page.getByRole("button", { name: "Xem phương án", exact: true }).click();
+    if (domain === "flight") {
       await page.getByRole("button", { name: /Xem hành trình/ }).click();
-    const choose =
-      domain === "flight"
-        ? page.getByRole("dialog").locator("button.primary")
-        : page.locator(".moving-card .offer-end .text-button");
+      await expect(page.getByRole("complementary", { name: "Chi tiết hành trình" })).toBeVisible();
+    }
+    const choose = page.locator(domain === "flight" ? ".svc-card-end .primary" : ".mv-card .ws-select-small");
     await expect(choose).toBeEnabled();
     await page.clock.fastForward(31000);
     await expect(choose).toBeDisabled();
@@ -2366,6 +2376,7 @@ test("map handles structured provider warnings and approximate POIs", async ({
   await page
     .getByRole("button", { name: "Tính đường tới Nhà thuốc thử nghiệm" })
     .click();
+  await page.getByRole("button", { name: "Về hội thoại", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }),
   ).toHaveValue(/Nhà thuốc thử nghiệm/);
@@ -2659,24 +2670,22 @@ test("chat, housing details, selection, saved, plan and reload", async ({
     .getByRole("textbox", { name: "Tin nhắn cho ReloHome" })
     .fill("Tìm nhà 2 phòng ngủ tại Quận 1 dưới 10 triệu/tháng");
   await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
-  // Housing answers open the map workspace; this test continues in the chat cards.
-  await page.getByRole("button", { name: "Về hội thoại" }).click();
-  await expect(page.getByText("Đang hiển thị 2 căn")).toBeVisible();
-  await expect(page.locator('[data-map-ready="true"]').first()).toBeAttached();
+  // Current search results live in the map; the full detail dialog is shared with saved homes.
+  const list = page.getByRole("complementary", { name: "Nhà trong vùng bản đồ" });
+  await expect(list.locator(".ws-card")).toHaveCount(2);
+  await expect(page.locator(".ws-canvas canvas")).toBeAttached();
   await page.screenshot({
     path: info.outputPath("housing.png"),
     fullPage: true,
   });
-  await page
-    .getByRole("button", { name: "Xem chi tiết", exact: true })
-    .nth(1)
-    .click();
+  await list.locator(".title-button").nth(1).click();
+  await page.getByRole("button", { name: "Thông tin chi tiết ›", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Chi tiết nhà" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Chọn căn này", exact: true }).click();
+  await page.getByRole("dialog", { name: "Chi tiết nhà" }).getByRole("button", { name: "Chọn căn này", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Đã chọn", exact: true }),
+    page.getByRole("dialog", { name: "Chi tiết nhà" }).getByRole("button", { name: "Đã chọn", exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("dialog")
@@ -2686,14 +2695,9 @@ test("chat, housing details, selection, saved, plan and reload", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "Đóng", exact: true })
     .click();
-  await expect(
-    page.getByText("Đã chọn:", { exact: false }).first(),
-  ).toBeVisible();
+  await expect(list.locator(".ws-card.chosen")).toContainText(houses[1].title);
   await page.reload();
-  await page.getByRole("button", { name: "Về hội thoại" }).click();
-  await expect(
-    page.getByText("Đã chọn:", { exact: false }).first(),
-  ).toBeVisible();
+  await expect(list.locator(".ws-card.chosen")).toContainText(houses[1].title);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -3240,17 +3244,15 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   await expect
     .poll(() => calls.filter((c) => c.path === "/platform/places/map").length)
     .toBeGreaterThan(0);
-  // Every listing is shown individually with its own address and directions link.
+  // Every listing has its own address and opens the existing consent-based directions dialog.
   await expect(list.getByText(houses[0].title)).toBeAttached();
   await expect(
     list.getByText("12, Lê Lợi, Bến Nghé, Quận 1, Hồ Chí Minh").first(),
   ).toBeAttached();
-  await expect(
-    list.getByRole("link", { name: "Chỉ đường" }).first(),
-  ).toHaveAttribute(
-    "href",
-    /google\.com\/maps\/dir\/.*destination=10\.776,106\.697/,
-  );
+  await list.getByRole("button", { name: "Chỉ đường từ vị trí của bạn" }).first().click();
+  const directions = page.getByRole("dialog", { name: "Từ vị trí của bạn tới căn nhà" });
+  await expect(directions).toBeVisible();
+  await directions.getByRole("button", { name: "Đóng", exact: true }).click();
   // Chat filters are applied to the viewport list request, with the chosen sort and page size.
   await expect
     .poll(() => calls.filter((c) => c.path.endsWith("/search")).length)
@@ -3260,6 +3262,7 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   expect(search.max_price.amount).toBe(10000000);
   expect(search.pagination.limit).toBe(10);
   expect(search.bounding_box.west).toBeLessThan(search.bounding_box.east);
+  if (info.project.name === "mobile") await page.getByRole("button", { name: "Bộ lọc", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Sắp xếp" })
     .selectOption("price_asc");
@@ -3293,7 +3296,7 @@ test("housing answer opens the map workspace with viewport list, filters and cha
   expect(errors).toEqual([]);
 });
 
-test("choosing a home from the map list returns to chat; chat dock can hide", async ({
+test("choosing a home keeps the map selection; chat dock can hide", async ({
   page,
 }, info) => {
   const calls: any[] = [];
@@ -3340,16 +3343,10 @@ test("choosing a home from the map list returns to chat; chat dock can hide", as
   await expect
     .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body.entity_id)
     .toBe(houses[1].id);
-  // Back in the conversation with the chosen home, ready for moving or other services.
-  await expect(page.getByRole("region", { name: "Bản đồ nhà ở" })).toHaveCount(
-    0,
-  );
-  await expect(
-    page.getByText("Đã chọn:", { exact: false }).first(),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Mở bản đồ nhà ở" }),
-  ).toBeVisible();
+  // Current main keeps the map mounted after a choice, preserving its viewport and dock.
+  await expect(page.getByRole("region", { name: "Bản đồ nhà ở" })).toBeVisible();
+  await expect(list.locator(".ws-card.chosen")).toContainText(houses[1].title);
+  await expect(input).toBeVisible();
 });
 
 test("flight results open a flight workspace with sorting and selection", async ({
@@ -3421,7 +3418,8 @@ test("flight results open a flight workspace with sorting and selection", async 
   await expect
     .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body)
     .toMatchObject({ kind: "select", task_id: "flight", entity_id: "f-exp" });
-  await expect(flights).toHaveCount(0);
+  await expect(flights).toBeVisible();
+  await expect(flights.getByRole("button", { name: "Đã chọn", exact: true })).toBeDisabled();
 });
 
 test("flight detail keeps the latest request, shows provider airport codes and stays closed", async ({
@@ -3626,7 +3624,9 @@ test("moving quotes open a moving workspace with A/B points and fee details", as
   await expect(
     page.getByRole("status").filter({ hasText: "OSRM (ô tô)" }),
   ).toBeVisible();
-  expect(routeCalls).toEqual([
+  expect(routeCalls.length).toBeGreaterThan(0);
+  // StrictMode may repeat the read; every request must retain the exact provider coordinates.
+  for (const call of routeCalls) expect(call).toEqual(
     {
       city: "hcm",
       profile: "driving",
@@ -3634,17 +3634,15 @@ test("moving quotes open a moving workspace with A/B points and fee details", as
       origin: { type: "coordinate", location: { lat: 10.7725, lng: 106.698 } },
       destination: { type: "coordinate", location: { lat: 10.78, lng: 106.7 } },
     },
-  ]);
+  );
   await panel.getByRole("button", { name: "Xem chi phí" }).click();
   await expect(panel.getByText("200.000 ₫")).toBeVisible();
   await panel.getByRole("button", { name: "Chọn phương án" }).click();
   await expect
     .poll(() => calls.find((c) => c.path.endsWith("/action"))?.body.entity_id)
     .toBe("q:truck");
-  await expect(panel).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Mở phương án chuyển đồ" }),
-  ).toBeVisible();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Đã chọn", exact: true })).toBeDisabled();
 });
 
 test("a conversation can be deleted, and all conversations reset", async ({
