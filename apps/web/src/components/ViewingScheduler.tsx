@@ -82,7 +82,7 @@ export function ViewingScheduler({
           </p>
           <ul className="bulk-review-list">
             {s.targets.map((id) => (
-              <li key={id}>
+              <li key={id} className={s.toneFor(id)}>
                 <strong>
                   {itemFor(id)?.title ||
                     uiText("Căn không còn trong danh sách")}
@@ -115,7 +115,7 @@ export function ViewingScheduler({
           </p>
           <ul className="bulk-result-list">
             {s.rows.map((row) => (
-              <li key={row.listing_id} className={"bulk-result " + row.status}>
+              <li key={row.listing_id} className={"bulk-result " + row.status + " " + s.toneFor(row.listing_id)}>
                 <strong>
                   {itemFor(row.listing_id)?.title || row.listing_id}
                 </strong>
@@ -143,7 +143,7 @@ export function ViewingScheduler({
           )}
         </>
       )}
-      {footerHost &&
+      {footerHost && (s.step !== "selection" || (s.eligible.length > 0 && (!s.afterViewing || s.selected.length > 0))) &&
         createPortal(
           <div className="bulk-footer">
             {s.step === "selection" ? (
@@ -165,7 +165,7 @@ export function ViewingScheduler({
                   }
                   onClick={s.review}
                 >
-                  {uiText("Xem lại lịch")}
+                  {uiText("Đi tiếp")}
                   <ArrowRight size={16} />
                 </button>
               </>

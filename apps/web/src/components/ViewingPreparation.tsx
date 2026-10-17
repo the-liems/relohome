@@ -28,7 +28,7 @@ export function ViewingPreparation({
   const settled = ["agreed", "reported_paid"].includes(item.status);
   const landlord = item.landlord;
   const scheduled =
-    ["viewing_scheduled", "visit_due"].includes(item.status) &&
+    item.status === "viewing_scheduled" &&
     item.viewing?.slot &&
     landlord?.sync !== "failed" &&
     !["declined", "cancelled"].includes(landlord?.viewing_status) &&
@@ -79,17 +79,18 @@ export function ViewingPreparation({
     <section
       ref={region}
       tabIndex={-1}
-      className="viewing-preparation"
+      className={"viewing-preparation" + (settled ? " settled" : "")}
       aria-label={uiText(title)}
     >
       <div className="viewing-preparation-heading">
         <CalendarCheck size={18} aria-hidden="true" />
         <strong>{uiText(title)}</strong>
+        {settled && <span className="viewing-suggestion-label">{uiText("Gợi ý")}</span>}
       </div>
       <p>
         {uiText(
           settled
-            ? "Sắp xếp bước tiếp theo khi bạn sẵn sàng."
+            ? "Chỉ là gợi ý, bạn có thể làm sau. Sắp xếp bước tiếp theo khi bạn sẵn sàng."
             : "Bạn có thể chuẩn bị trước; giờ hẹn vẫn theo trạng thái xác nhận ở trên.",
         )}
       </p>

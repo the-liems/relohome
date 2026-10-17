@@ -6,8 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Target, X } from "lucide-react";
 import type { Data, Thread } from "../types";
 import { ConfirmedTotal, describePlanItem } from "./PlanProgress";
-import { Approval } from "./Forms";
-import { PendingPayment, Receipts } from "./Transactions";
+import { Receipts } from "./Transactions";
 import { TabList } from "./TabList";
 import { CheckoutPanel } from "./Checkout";
 import { ViewingPanel } from "./Viewings";
@@ -38,9 +37,6 @@ export function PlanPeek({
   progress,
   threadId,
   thread,
-  writesEnabled = false,
-  onDecision,
-  onPaymentCheck,
   onCheckoutChanged,
   onMovingForm,
   house,
@@ -71,7 +67,7 @@ export function PlanPeek({
 }) {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("panel") === "plan");
-  const [tab, setTab] = useState(params.get("planTab") || "progress");
+  const [tab, setTab] = useState(params.get("planTab") === "pending" ? "progress" : params.get("planTab") || "progress");
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
   const panelId = useId();
@@ -103,15 +99,11 @@ export function PlanPeek({
       state: state.task_status?.[task.id] === "done" ? "reviewed" : "waiting",
     }));
   const chosen = items.filter((item) => item.state === "confirmed").length;
-  const pending = state.pending;
-  const questions =
-    [...(thread?.messages || [])].reverse().find((m) => m.role === "assistant")
-      ?.content.response?.questions || [];
 
   useEffect(() => {
     if (params.get("panel") === "plan") {
       setOpen(true);
-      if (params.get("planTab")) setTab(params.get("planTab")!);
+      if (params.get("planTab")) setTab(params.get("planTab") === "pending" ? "progress" : params.get("planTab")!);
     }
   }, [params.toString()]);
 
@@ -217,9 +209,8 @@ export function PlanPeek({
               {[
                 ["progress", "Tiến trình"],
                 ["cost", "Chi phí"],
-                ...(state.viewing ? [["viewing", "Xem nhà"]] : []),
-                ...(state.checkout ? [["checkout", "Thanh toán"]] : []),
-                ["pending", "Cần phản hồi"],
+                ["viewing", "Xem nhà"],
+                ["checkout", "Thanh toán"],
               ].map(([key, label]) => (
                 <button
                   key={key}
@@ -231,7 +222,6 @@ export function PlanPeek({
                   onClick={() => setTab(key)}
                 >
                   {uiText(label)}
-                  {key === "pending" && pending && <i />}
                 </button>
               ))}
             </TabList>
@@ -368,6 +358,8 @@ export function PlanPeek({
                   )}
                 </div>
               )}
+              {tab === "viewing" && !state.viewing && <p className="muted">{uiText("Chọn căn nhà để bắt đầu hẹn xem.")}</p>}
+              {tab === "checkout" && !state.checkout && <p className="muted">{uiText("Chưa có dịch vụ cần thanh toán.")}</p>}
               {tab === "viewing" && threadId && state.viewing && (
                 <div className="plan-panel-section">
                   <ViewingPanel
@@ -399,41 +391,7 @@ export function PlanPeek({
                   />
                 </div>
               )}
-              {tab === "pending" && (
-                <div className="plan-panel-section">
-                  {pending?.type === "confirmation_required" ? (
-                    <Approval
-                      pending={pending}
-                      enabled={writesEnabled}
-                      busy={busy}
-                      onDecision={onDecision}
-                    />
-                  ) : pending?.type === "payment_required" && threadId ? (
-                    <PendingPayment
-                      pending={pending}
-                      threadId={threadId}
-                      busy={busy}
-                      onCheck={onPaymentCheck}
-                    />
-                  ) : (
-                    <>
-                      <h4>
-                        {questions.length
-                          ? uiText("ReloHome cần bạn bổ sung")
-                          : uiText("Không có xác nhận đang chờ")}
-                      </h4>
-                      <p className="muted">
-                        {uiText("Bạn có thể tiếp tục trả lời ngay trong chat.")}
-                      </p>
-                      {questions.map((q: Data, i: number) => (
-                        <p key={i} className="notice">
-                          {q.text}
-                        </p>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
+
             </div>
             <footer className="plan-peek-footer">
               {tab === "viewing" ? (

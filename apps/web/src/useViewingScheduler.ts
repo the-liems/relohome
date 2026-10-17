@@ -112,6 +112,17 @@ export function useViewingScheduler(
     };
   }, []);
   const items: Data[] = viewing.items || [];
+  const tones = useRef({ threadId, values: new Map<string, string>() });
+  if (tones.current.threadId !== threadId) tones.current = { threadId, values: new Map() };
+  const palette = [0, 1, 2, 3].map(index => "viewing-tone-" + index);
+  for (const item of items) {
+    if (!tones.current.values.has(item.listing_id)) {
+      const used = items.map(home => tones.current.values.get(home.listing_id));
+      tones.current.values.set(item.listing_id, palette.find(tone => !used.includes(tone)) || palette[0]);
+    }
+  }
+  const toneFor = (id: string) => tones.current.values.get(id) || palette[0];
+  const afterViewing = items.some(item => ["visit_due", "visited", "agreed", "reported_paid"].includes(item.status));
   const eligible = items.filter(scheduleEligible);
   const unresolved = rows
     .filter((r) => r.status === "unknown")
@@ -411,6 +422,8 @@ export function useViewingScheduler(
   }
   return {
     step,
+    toneFor,
+    afterViewing,
     setStep,
     selected,
     checked,

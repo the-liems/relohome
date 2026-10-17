@@ -110,7 +110,7 @@ async function fillTimes(page: Page, indices = [0, 1, 2]) {
     await page
       .getByLabel(`Giờ xem · ${titles[index]}`, { exact: true })
       .selectOption(slots[index]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
 }
 
 test("three compact homes, draft preservation, review and one confirmation with exact serial payloads", async ({
@@ -139,7 +139,7 @@ test("three compact homes, draft preservation, review and one confirmation with 
   }
 
   await expect(
-    page.getByRole("button", { name: "Xem lại lịch", exact: true }),
+    page.getByRole("button", { name: "Đi tiếp", exact: true }),
   ).toBeDisabled();
   await chooseAll(page);
   await fillTimes(page);
@@ -163,7 +163,7 @@ test("three compact homes, draft preservation, review and one confirmation with 
   await expect(
     page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true }),
   ).toHaveValue(slots[1]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   const confirm = page.getByRole("button", {
     name: "Xác nhận 3 lịch",
     exact: true,
@@ -202,19 +202,17 @@ test("overlapping/missing times stop before a request and back keeps drafts", as
   const { posts } = await fixture(page);
   await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
   await chooseAll(page);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await expect(
-    page.getByText("Chọn ngày và giờ cho căn này.", { exact: true }),
+    page.locator(".bulk-field-error").filter({ hasText: "Chọn ngày và giờ cho căn này." }),
   ).toHaveCount(3);
   for (const title of titles)
     await page
       .getByLabel(`Giờ xem · ${title}`, { exact: true })
       .selectOption(slots[0]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await expect(
-    page.getByText("Hai lịch bị trùng giờ. Hãy chọn giờ khác.", {
-      exact: true,
-    }),
+    page.locator(".bulk-field-error").filter({ hasText: "Hai lịch bị trùng giờ. Hãy chọn giờ khác." }),
   ).toHaveCount(3);
   expect(posts).toHaveLength(0);
 
@@ -258,7 +256,7 @@ test("opening viewings again after saving starts another round without resending
   await page
     .getByLabel(`Giờ xem · ${titles[2]}`, { exact: true })
     .selectOption(slots[2]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page
     .getByRole("button", { name: "Xác nhận 2 lịch", exact: true })
     .click();
@@ -398,7 +396,7 @@ test("map booking button starts a new round while keeping the same map mounted",
   await page
     .getByLabel(`Giờ xem · ${titles[1]}`, { exact: true })
     .selectOption(slots[1]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page
     .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
     .click();
@@ -433,7 +431,7 @@ test("opening another round cannot bypass an uncertain saved request", async ({
     page.getByRole("button", { name: "Kiểm tra trạng thái", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Xem lại lịch", exact: true }),
+    page.getByRole("button", { name: "Đi tiếp", exact: true }),
   ).toHaveCount(0);
   expect(f.posts).toHaveLength(1);
 });
@@ -462,7 +460,7 @@ test("backend travel failure keeps earlier successes; retry sends only unsent ho
   await expect(
     page.getByLabel(`Giờ xem · ${titles[1]}`, { exact: true }),
   ).toHaveValue(slots[1]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page
     .getByRole("button", { name: "Xác nhận 2 lịch", exact: true })
     .click();
@@ -543,7 +541,7 @@ test("changed shared basket at preflight requires review instead of scheduling s
   await page
     .getByRole("button", { name: "Xác nhận 3 lịch", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("alert").filter({ hasText: "Danh sách hoặc lịch đã thay đổi" })).toContainText(
     "Danh sách hoặc lịch đã thay đổi",
   );
   await expect(
@@ -603,7 +601,7 @@ test("inline time selection checks the home without extra steps or losing drafts
   await expect(
     page.getByLabel(`Giờ xem · ${titles[2]}`, { exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Xác nhận 2 lịch", exact: true }),
   ).toBeVisible();
@@ -659,7 +657,7 @@ test("green compact cards, accessible keyboard controls and pinned footer across
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(
-      page.getByRole("button", { name: "Xem lại lịch", exact: true }),
+      page.getByRole("button", { name: "Đi tiếp", exact: true }),
     ).toBeInViewport();
     expect(
       await page
@@ -681,8 +679,11 @@ test("green compact cards, accessible keyboard controls and pinned footer across
     ).violations,
   ).toEqual([]);
   await page
+    .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true }).focus();
+  await page
     .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
     .click();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await page
     .getByRole("button", { name: "Quick plan view", exact: true })
@@ -691,7 +692,7 @@ test("green compact cards, accessible keyboard controls and pinned footer across
     page.getByLabel(`Viewing time · ${titles[0]}`, { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Review viewings", exact: true }),
+    page.getByRole("button", { name: "Continue", exact: true }),
   ).toBeInViewport();
   expect(
     (
@@ -761,7 +762,7 @@ test("replacement calendar contains only owner suggestions even when visit time 
   const time = page.getByLabel(`Giờ xem · ${titles[0]}`, { exact: true });
   await expect(time.locator("option")).toHaveText(["Chọn giờ", "10:30"]);
   await time.selectOption(slots[1]);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page
     .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
     .click();

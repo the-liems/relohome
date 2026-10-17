@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { ApiError, api, money, requestId } from "../api";
 import type { Data } from "../types";
-import { Dialog } from "./Dialog";
+import { ConfirmDialog, Dialog } from "./Dialog";
 import { useContactMessenger } from "./ContactMessenger";
 import { ViewingPreparation } from "./ViewingPreparation";
 import { ViewingScheduler } from "./ViewingScheduler";
@@ -29,7 +29,7 @@ const STATUS: Record<string, string> = {
   visit_due: "Đã tới giờ xem, ghi kết quả",
   visited: "Đã gặp chủ nhà",
   backup: "Dự phòng",
-  agreed: "Đã chốt (bạn tự báo)",
+  agreed: "Đã chốt (chưa chuyển tiền)",
   reported_paid: "Đã báo trả chủ nhà (chưa xác minh)",
 };
 // Landlord answer for homes managed on ReloHome; other homes keep the test-mode label above.
@@ -47,7 +47,7 @@ function statusLabel(item: Data, testVisit: boolean) {
   if (item.payment_report?.status === "pending")
     return "Chờ chủ nhà xác nhận nhận tiền";
   if (item.payment_report?.status === "rejected")
-    return "Chủ nhà phản hồi chuyển tiền · cần kiểm tra";
+    return "Chủ nhà báo chưa nhận tiền";
   const landlord = item.landlord;
   if (landlord?.sync === "failed") return "Chưa gửi được giờ hẹn cho chủ nhà";
   // A closed or withdrawn request stays closed until the tenant books again (review PR #88).
@@ -327,6 +327,7 @@ export function ViewingPanel({
     [error, setError] = useState(""),
     [deciding, setDeciding] = useState<Data | null>(null),
     [reporting, setReporting] = useState(false),
+    [confirming, setConfirming] = useState<{ kind: "paid" | "reopen"; body?: Data } | null>(null),
     [movingHint, setMovingHint] = useState("");
   const items: Data[] = viewing.items || [];
   useEffect(() => {
@@ -364,7 +365,7 @@ export function ViewingPanel({
     <div className="viewing-panel" ref={panel}>
       {scheduler.step === "selection" && (
         <>
-          <div className="bulk-selection-tools">
+          {!scheduler.afterViewing && scheduler.eligible.length > 0 && <div className="bulk-selection-tools">
             <label className="bulk-all">
               <input
                 type="checkbox"
@@ -400,7 +401,7 @@ export function ViewingPanel({
             <span className="muted small">
               {formatUi("Tối đa {0} căn/lượt", [scheduler.limit])}
             </span>
-          </div>
+          </div>}
           {scheduler.unresolved.length > 0 && (
             <p className="notice amber small" role="status">
               {uiText(
@@ -475,11 +476,11 @@ export function ViewingPanel({
             <section
               id={"viewing-home-" + item.listing_id}
               tabIndex={-1}
-              className="checkout-card viewing-item"
+              className={"checkout-card viewing-item " + scheduler.toneFor(item.listing_id) + (scheduler.afterViewing ? " after-viewing" : "")}
               key={item.listing_id}
             >
               <header>
-                <label className="bulk-card-toggle">
+                {!scheduler.afterViewing && scheduleEligible(item) && <label className="bulk-card-toggle">
                   <input
                     type="checkbox"
                     className="bulk-card-checkbox"
@@ -496,12 +497,13 @@ export function ViewingPanel({
                     }
                     onChange={() => scheduler.toggle(item.listing_id)}
                   />
-                </label>
+                </label>}
                 <strong>{item.title}</strong>
                 <span
                   className={
-                    "muted small" +
-                    (item.landlord
+                    "muted small viewing-status " +
+                    (item.payment_report?.status || (item.status === "agreed" ? "agreed" : "")) +
+                    (item.landlord && !["agreed", "reported_paid"].includes(item.status)
                       ? ` viewing-landlord ${item.landlord.viewing_status}`
                       : "")
                   }
@@ -643,8 +645,10 @@ export function ViewingPanel({
                     ))}
                   </div>
                 )}
-              {item.agreement && (
-                <p className="small">
+              {item.agreement && !item.reported_payment && !item.payment_report && (
+                <p className="notice amber viewing-payment-due">
+                  <span className="notice-symbol" aria-hidden="true">!</span>
+                  <span>
                   {formatUi("Cần trả chủ nhà: cọc {0} + tháng đầu {1}", [
                     money(item.agreement.deposit_vnd),
                     money(item.agreement.first_month_vnd),
@@ -652,10 +656,11 @@ export function ViewingPanel({
                   {item.agreement.move_in
                     ? formatUi(" · dọn vào {0}", [item.agreement.move_in])
                     : ""}
+                  </span>
                 </p>
               )}
               {item.reported_payment && (
-                <div className="notice small" role="status">
+                <div className={"viewing-payment-report small " + (item.payment_report?.status || "")} role="status">
                   <p>
                     {formatUi("Đã báo trả {0} ngày {1}", [
                       money(item.reported_payment.amount_vnd),
@@ -663,6 +668,7 @@ export function ViewingPanel({
                     ])}
                   </p>
                   <p>
+                    {item.payment_report?.status === "rejected" && <span className="notice-symbol" aria-hidden="true">!</span>}
                     {uiText(
                       item.payment_report?.status === "confirmed"
                         ? "Chủ nhà đã xác nhận nhận tiền. Hoàn tất."
@@ -676,7 +682,7 @@ export function ViewingPanel({
                     )}
                   </p>
                   {item.payment_report?.reason && (
-                    <p>{item.payment_report.reason}</p>
+                    <blockquote className="viewing-landlord-note"><strong>{uiText("Chủ nhà nhắn")}</strong><p>“{item.payment_report.reason}”</p></blockquote>
                   )}
                   {item.payment_sync === "failed" && (
                     <button
@@ -708,28 +714,15 @@ export function ViewingPanel({
                     {uiText(" Chốt căn này")}
                   </button>
                 )}
-                {item.viewing &&
-                  ["viewing_scheduled", "backup"].includes(item.status) && (
-                    <button
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() =>
-                        void post("cancel", { listing_id: item.listing_id })
-                      }
-                    >
-                      {uiText("Hủy lịch")}
-                    </button>
-                  )}
                 {!["agreed", "reported_paid"].includes(item.status) && (
                   <button
                     className="text-button"
                     disabled={busy}
-                    onClick={() =>
-                      void post("unselect", { listing_id: item.listing_id })
-                    }
+                    onClick={() => void post("unselect", { listing_id: item.listing_id })}
                   >
                     <X size={13} />
-                    {uiText(" Bỏ chọn")}
+                    {uiText(item.viewing && item.landlord?.viewing_status !== "declined"
+                      ? "Hủy lịch & bỏ chọn" : "Bỏ chọn")}
                   </button>
                 )}
                 {(item.status === "agreed" ||
@@ -742,37 +735,15 @@ export function ViewingPanel({
                         setReporting(true);
                       }}
                     >
-                      {uiText("Báo đã trả chủ nhà")}
+                      {uiText(item.payment_report?.status === "rejected" ? "Phản hồi lại" : "Báo đã trả chủ nhà")}
                     </button>
                   )}
-                {item.status === "agreed" && (
-                  <button
-                    className="text-button"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          uiText(
-                            "Thỏa thuận không thành? Căn của kế hoạch sẽ bị gỡ và chuyển đồ tuần tự quay về chờ chốt.",
-                          ),
-                        )
-                      )
-                        void post("reopen");
-                    }}
-                  >
-                    <RotateCcw size={13} />
-                    {uiText(" Thỏa thuận không thành")}
+                {item.payment_report?.status === "rejected" && !reporting && (
+                  <button className="secondary" disabled={busy} onClick={() => setConfirming({ kind: "reopen" })}>
+                    {uiText("Thỏa thuận không thành")}
                   </button>
                 )}
               </div>
-              {onPrepare && !viewing.landlord_unavailable && (
-                <ViewingPreparation
-                  item={item}
-                  available={availableServices}
-                  disabled={busy || scheduler.busy || scheduler.blocked}
-                  onOpen={onPrepare}
-                />
-              )}
               {(item.status === "agreed" ||
                 item.payment_report?.status === "rejected") &&
                 reporting && (
@@ -783,12 +754,11 @@ export function ViewingPanel({
                       const f = Object.fromEntries(
                         new FormData(e.currentTarget),
                       ) as Data;
-                      const saved = await post("paid", {
+                      setConfirming({ kind: "paid", body: {
                         request_id: reportKey.current,
                         amount_vnd: Number(f.amount_vnd),
                         paid_on: f.paid_on,
-                      });
-                      if (saved) setReporting(false);
+                      } });
                     }}
                   >
                     <div className="form-grid">
@@ -819,16 +789,21 @@ export function ViewingPanel({
                       <button
                         type="button"
                         className="secondary"
-                        onClick={() => setReporting(false)}
+                        disabled={busy}
+                        onClick={() => setConfirming({ kind: "reopen" })}
                       >
-                        {uiText("Hủy")}
+                        {uiText("Thỏa thuận không thành")}
                       </button>
                       <button className="primary" disabled={busy}>
-                        {uiText("Lưu")}
+                        {uiText("Xác nhận")}
                       </button>
                     </div>
                   </form>
                 )}
+              {onPrepare && !viewing.landlord_unavailable && (
+                <ViewingPreparation item={item} available={availableServices}
+                  disabled={busy || scheduler.busy || scheduler.blocked} onOpen={onPrepare} />
+              )}
             </section>
           ))}
         </>
@@ -872,6 +847,21 @@ export function ViewingPanel({
         <p className="notice error" role="alert">
           {error}
         </p>
+      )}
+      {confirming && (
+        <ConfirmDialog title={uiText(confirming.kind === "paid"
+          ? "Bạn có chắc chắn xác nhận đã chuyển tiền?" : "Bạn có chắc chắn thỏa thuận không thành?")}
+          action={uiText("Đồng ý")} cancelLabel={uiText("Quay lại")} destructive={false}
+          onClose={() => setConfirming(null)}
+          onConfirm={async () => {
+            const saved = await post(confirming.kind, confirming.body || {});
+            if (!saved) throw new Error(uiText("Chưa lưu được. Hãy thử lại."));
+            setReporting(false);
+          }}>
+          <p>{uiText(confirming.kind === "paid"
+            ? "Báo cáo được gửi cho chủ nhà để xác nhận đã nhận tiền."
+            : "Căn của kế hoạch sẽ bị gỡ và chuyển đồ tuần tự quay về chờ chốt.")}</p>
+        </ConfirmDialog>
       )}
       {reviewing && (
         <Dialog
