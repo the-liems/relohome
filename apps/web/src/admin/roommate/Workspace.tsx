@@ -13,6 +13,7 @@ import {
 import { ConfirmDialog } from "../../components/Dialog";
 import { ContentSkeleton, EmptyState } from "../../components/UiStates";
 import { ErrorNotice } from "../../roommate/ErrorNotice";
+import { RoommateError } from "../../roommate/client";
 import { useResource } from "../../roommate/useResource";
 import { useRoommateClient } from "../../roommate/useRoommateClient";
 import { useActiveRefresh } from "../../roommate/useActiveRefresh";
@@ -632,6 +633,8 @@ export function ModerationWorkspace({ allowed }: { allowed: boolean }) {
             setBusy(true);
             let success = 0;
             const failed: string[] = [];
+            const unknown: string[] = [];
+            const completed = new Set<string>();
             const ids = [...selected];
             for (const id of ids) {
               if (!alive.current || stop.current) break;
@@ -641,9 +644,14 @@ export function ModerationWorkspace({ allowed }: { allowed: boolean }) {
                   "POST",
                 );
                 success++;
+                completed.add(id);
               } catch (e) {
-                failed.push(id);
+                const uncertain =
+                  !(e instanceof RoommateError) ||
+                  e.code === "operation_unknown";
+                (uncertain ? unknown : failed).push(id);
                 if (
+                  uncertain ||
                   (e as { status?: number }).status === 401 ||
                   (e as { status?: number }).status === 503
                 )
@@ -653,15 +661,9 @@ export function ModerationWorkspace({ allowed }: { allowed: boolean }) {
             if (alive.current) {
               setBusy(false);
               setBatchConfirm(false);
-              setSelected(
-                ids.filter(
-                  (id) =>
-                    !ids.slice(0, success + failed.length).includes(id) ||
-                    failed.includes(id),
-                ),
-              );
+              setSelected(ids.filter((id) => !completed.has(id)));
               setNotice(
-                `${success} ${rt("thành công", "succeeded")} · ${failed.length} ${rt("lỗi", "failed")} · ${ids.length - success - failed.length} ${rt("chưa gửi", "not sent")}`,
+                `${success} ${rt("thành công", "succeeded")} · ${failed.length} ${rt("lỗi", "failed")}${unknown.length ? ` · ${unknown.length} ${rt("chưa rõ kết quả", "unknown outcome")}` : ""} · ${ids.length - success - failed.length - unknown.length} ${rt("chưa gửi", "not sent")}`,
               );
               reload();
             }

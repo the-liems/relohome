@@ -256,7 +256,7 @@ test("profile filters use the server and reports support explicit batch review",
   await expect(page.getByText("Linh", { exact: true })).toBeVisible();
 });
 
-test("batch review keeps failed reports selected and does not resend successful writes", async ({
+test("batch review keeps unknown reports selected and does not resend successful writes", async ({
   page,
 }) => {
   const f = await fixture(page);
@@ -282,7 +282,9 @@ test("batch review keeps failed reports selected and does not resend successful 
     .getByRole("button", { name: "Xác nhận xử lý", exact: true })
     .click();
   await expect(
-    page.getByText("1 thành công · 1 lỗi · 0 chưa gửi", { exact: true }),
+    page.getByText("1 thành công · 0 lỗi · 1 chưa rõ kết quả · 0 chưa gửi", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("checkbox", {
@@ -298,6 +300,60 @@ test("batch review keeps failed reports selected and does not resend successful 
   expect(
     f.calls.filter((call) => call.path.endsWith("report-one/resolve")),
   ).toHaveLength(1);
+});
+
+test("batch stops on an HTML 502 and preserves reports that were not sent", async ({
+  page,
+}) => {
+  await fixture(page);
+  const attempts: string[] = [];
+  const items = ["one", "two", "three"].map((id) => ({
+    id: "report-" + id,
+    target: "candidate",
+    reason: id,
+    status: "open",
+    created: 1,
+  }));
+  await page.route("**/web/api/roommate/moderation/reports?**", (route) =>
+    route.fulfill({ json: { items, total: 3 } }),
+  );
+  await page.route(
+    "**/web/api/roommate/moderation/reports/*/resolve",
+    (route) => {
+      attempts.push(route.request().url().split("/").at(-2)!);
+      return route.fulfill({
+        status: 502,
+        contentType: "text/html",
+        body: "<h1>Bad Gateway</h1>",
+      });
+    },
+  );
+  await page.goto("/admin?tab=roommate");
+  await page
+    .getByRole("checkbox", { name: "Chọn báo cáo trong trang", exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "Đánh dấu đã xem xét", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Xác nhận xử lý", exact: true })
+    .click();
+  await expect(
+    page.getByText("0 thành công · 0 lỗi · 1 chưa rõ kết quả · 2 chưa gửi", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(attempts).toEqual(["report-one"]);
+  for (const item of items)
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Chọn báo cáo " + item.id,
+        exact: true,
+      }),
+    ).toBeChecked();
+  await page.getByRole("button", { name: "Làm mới", exact: true }).click();
+  await expect(page.getByText("one", { exact: true })).toBeVisible();
+  expect(attempts).toEqual(["report-one"]);
 });
 
 for (const state of ["disabled", "denied", "unavailable"] as const) {
