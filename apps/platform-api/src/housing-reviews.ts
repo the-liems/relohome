@@ -14,6 +14,8 @@ const Page = z.object({
 const Rating = z.object({
   rating: z.number().int().min(1).max(5), body: z.string().trim().max(2000).default(''),
   is_anonymous: z.boolean().default(true),
+  // Present only when the tenant records a completed meeting in the viewing flow.
+  visit_slot: z.iso.datetime({ offset: true }).optional(),
 })
 const Body = z.object({ body: z.string().trim().min(1).max(2000) })
 const Reason = z.object({ reason: z.string().trim().min(1).max(500) })
@@ -39,7 +41,7 @@ async function listingContext(db: Db, listingId: string, user: string) {
       EXISTS(SELECT 1 FROM housing.contact_requests cr JOIN housing.listings cl ON cl.id=cr.listing_id
          WHERE cl.property_id=l.property_id AND cr.tenant_user_id=$2) AS contacted,
       EXISTS(SELECT 1 FROM housing.contact_requests cr JOIN housing.listings cl ON cl.id=cr.listing_id
-         WHERE cl.property_id=l.property_id AND cr.tenant_user_id=$2 AND cr.viewing_status='confirmed') AS viewed
+         WHERE cl.property_id=l.property_id AND cr.tenant_user_id=$2 AND cr.visit_met_at IS NOT NULL) AS viewed
      FROM housing.listings l JOIN housing.managed_listings ml ON ml.listing_id=l.id
      JOIN housing.properties p ON p.id=l.property_id WHERE l.id=$1`, [listingId, user],
   )
@@ -123,7 +125,7 @@ export function registerHousingReviews(app: FastifyInstance, pool: DatabasePool)
       pool.query('SELECT r.*,p.name AS property_name FROM housing.reviews r JOIN housing.properties p ON p.id=r.property_id WHERE r.property_id=$1 AND r.author_user_id=$2', [context.property_id, user]),
     ])
     return { summary, property_summary: propertySummary, items: items.rows.map(r => visibleReview(r)),
-      mine: own.rows[0] ? visibleReview(own.rows[0], true) : null, can_review: !context.manages && context.contacted,
+      mine: own.rows[0] ? visibleReview(own.rows[0], true) : null, can_review: !context.manages && context.viewed,
       next_offset: page.offset+items.rows.length < summary.count ? page.offset+items.rows.length : null }
   })
 
@@ -132,14 +134,26 @@ export function registerHousingReviews(app: FastifyInstance, pool: DatabasePool)
     const input = Rating.parse(request.body)
     validateReviewText(input.body)
     const context = await listingContext(pool, listing, user)
-    if (context.manages || context.host_user_id===user || !context.contacted) throw new ManagementError(403, 'Chỉ người thuê đã liên hệ nhà này mới được đánh giá.')
+    if (context.manages || context.host_user_id===user) throw new ManagementError(403, 'Người quản lý không tự đánh giá nhà mình.')
     return transaction(pool, context.host_user_id, async db => {
+      let met = context.viewed
+      if (input.visit_slot) {
+        const recorded = await db.query(
+          `UPDATE housing.contact_requests SET visit_met_at=coalesce(visit_met_at,now())
+           WHERE listing_id=$1 AND tenant_user_id=$2 AND viewing_status='confirmed'
+             AND viewing_slot=$3::timestamptz AND viewing_slot<=now()
+             AND status IN ('new','contacted','viewing') RETURNING id`, [listing, user, input.visit_slot],
+        )
+        if (!recorded.rowCount) throw new ManagementError(403, 'Chỉ ghi nhận đã gặp từ giờ hẹn được chủ nhà xác nhận trở đi.')
+        met = true
+      }
+      if (!met) throw new ManagementError(403, 'Chỉ viết đánh giá sau khi bạn đã hẹn xem lịch và gặp chủ nhà.')
       const result = await db.query(
         `INSERT INTO housing.reviews(property_id,host_user_id,author_user_id,rating,body,stage,is_anonymous) VALUES($1,$2,$3,$4,$5,$6,$7)
          ON CONFLICT(property_id,author_user_id) DO UPDATE SET rating=$4,body=$5,is_anonymous=$7,
            stage=CASE WHEN housing.reviews.stage='viewed' THEN 'viewed' ELSE $6 END,
            status=CASE WHEN housing.reviews.hidden_reason IS NOT NULL THEN 'hidden' ELSE 'published' END,updated_at=now()
-         RETURNING *`, [context.property_id, context.host_user_id, user, input.rating, input.body, context.viewed ? 'viewed' : 'contacted', input.is_anonymous],
+         RETURNING *`, [context.property_id, context.host_user_id, user, input.rating, input.body, 'viewed', input.is_anonymous],
       )
       // Ownership is snapshotted when first written, including subsequent edits.
       await refreshFlag(db, result.rows[0].host_user_id)
