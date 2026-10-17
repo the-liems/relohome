@@ -43,6 +43,11 @@
   margin: 16px 0;
   padding: 0;
 }
+.rm-legacy-photos { grid-column: 1 / -1; }
+.rm-legacy-photos .rm-media-list { display: flex; flex-wrap: wrap; gap: 20px; }
+.rm-legacy-photos li { display: flex; flex-direction: column; gap: 10px; max-width: 100%; }
+.rm-legacy-photos .rm-avatar { width: 160px; height: 160px; border-radius: 8px; }
+.rm-legacy-photos .rm-avatar img { object-fit: contain; }
 .rm-room-search {
   display: flex;
   flex-wrap: wrap;

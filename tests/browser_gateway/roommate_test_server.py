@@ -3,10 +3,12 @@
 import os
 import secrets
 from contextlib import asynccontextmanager
+from io import BytesIO
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
+from PIL import Image
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api import (
     roommate_access,
@@ -25,6 +27,7 @@ from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_agent.services.adapters.registry import ServiceSettings
 from relohome_gateway.server import create_app
 from relohome_gateway.store import password_hash
+from relohome_roommate.media import MediaService
 from relohome_roommate.models import RoommateProfile
 from relohome_roommate.ports import Actor
 from relohome_roommate.services.access import AccessService
@@ -144,6 +147,14 @@ async def lifespan(gateway):
                     ProfileService(ctx).save_intro(actor, profile)
                     ProfileService(ctx).transition(actor, "publish", 1, True)
                     ContactService(ctx).save(actor, "phone", "0901234567", None, "fixture-contact-" + identifier)
+                    if identifier == "fixture-linh":
+                        # Seed historical media internally; the upload/attach HTTP routes stay closed.
+                        data = BytesIO()
+                        Image.new("RGB", (16, 16), "green").save(data, format="PNG")
+                        media = MediaService(ctx)
+                        photo = media.upload(actor, data.getvalue(), "fixture-legacy-photo-001")["media_id"]
+                        media.review(Actor(id="fixture-admin"), photo, True, "Historical fixture photo")
+                        media.attach(actor, photo, 2)
             yield
     finally:
         await api.state.agent_service.close()

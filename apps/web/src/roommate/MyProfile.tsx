@@ -9,6 +9,7 @@ import { ErrorNotice } from "./ErrorNotice";
 import { emptyProfile, type OwnProfile, type Profile } from "./types";
 import { deadlineLabel, rt, stateName } from "./text";
 import { useIntro } from "./useIntro";
+import { LegacyPhotos } from "./LegacyPhotos";
 export function MyProfile() {
   const roommate = useRoommateClient();
   const intro = useIntro(),
@@ -233,6 +234,7 @@ export function MyProfile() {
           <ProfileSummary profile={own.value.content} />
         )}
       </aside>
+      <LegacyPhotos changed={own.reload} />
       {preview && (
         <ProfilePreview
           content={content}

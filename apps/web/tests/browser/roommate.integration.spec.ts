@@ -1,5 +1,57 @@
 import { test, expect } from "@playwright/test";
 
+test("owner deletes a legacy avatar without losing the profile or reopening photo writes", async ({
+  page,
+}) => {
+  const headers = { "X-SIU-Request": "1", Origin: "http://127.0.0.1:18503" };
+  expect(
+    (
+      await page.request.post("/web/api/auth/login", {
+        headers,
+        data: {
+          email: "linh@roommate.test",
+          password: "roommate-test-password",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  const before = await (
+    await page.request.get("/web/api/roommate/me/profile")
+  ).json();
+  expect(before.avatar_id).toBeTruthy();
+  const photo = before.avatar_id;
+  await page.goto("/roommate?tab=profile");
+  const gallery = page.getByRole("region", {
+    name: "Ảnh đã lưu trước đây",
+    exact: true,
+  });
+  await expect(gallery.locator("img")).toHaveCount(1);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  await gallery
+    .getByRole("button", { name: "Xóa ảnh này", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Xóa ảnh", exact: true })
+    .click();
+  await expect(gallery).toHaveCount(0);
+  const after = await (
+    await page.request.get("/web/api/roommate/me/profile")
+  ).json();
+  expect(after.avatar_id).toBeNull();
+  expect(after.content).toEqual(before.content);
+  expect(after.state).toBe(before.state);
+  expect(after.version).toBe(before.version + 1);
+  expect(
+    (await page.request.get("/web/api/roommate/media/" + photo)).status(),
+  ).toBe(404);
+  expect(
+    (
+      await page.request.post("/web/api/roommate/media", { headers, data: {} })
+    ).status(),
+  ).toBe(404);
+});
+
 test("Housing Admin filters profiles, resolves reports and restricts without personal consent", async ({
   page,
 }) => {
