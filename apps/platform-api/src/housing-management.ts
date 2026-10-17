@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { verifyLocation } from './housing-location.js'
 import { lockedListing, requireCompleteListing, revisionOf } from './housing-policy.js'
+import { endRentPeriod, startRentPeriod } from './housing-revenue.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -1213,6 +1214,9 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         revision=revision+1,updated_at=now() WHERE listing_id=$1`,
         [listingId, input.status],
       )
+      if (input.status === 'rented' && row.availability_status !== 'rented')
+        await startRentPeriod(client, listingId, { source: 'manual' })
+      else if (input.status !== 'rented' && row.availability_status === 'rented') await endRentPeriod(client, listingId)
       const result = await revisionOf(client, listingId)
       await client.query('COMMIT')
       return { id: listingId, availability_status: input.status, ...result }

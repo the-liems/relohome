@@ -177,7 +177,12 @@ async function fixture(
         },
       });
     let json: any = {};
-    if (path === "/roommate/availability")
+    // Admin renders queue counts and a listing page; empty shapes keep it mounted.
+    if (path === "/housing-management/moderation/housing/queue")
+      json = { hosts: [], properties: [], listings: [] };
+    else if (path === "/housing-management/moderation/housing/listings")
+      json = { items: [], total: 0 };
+    else if (path === "/roommate/availability")
       json = {
         enabled: true,
         cities: ["hcm"],

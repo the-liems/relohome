@@ -73,6 +73,7 @@ import {
   StatisticsPanel,
   ViewingCalendar,
 } from "./ManagementPanels";
+import { RevenuePanel } from "./RevenuePanel";
 import "./landlord.css";
 import "./workspace-upgrade.css";
 
@@ -381,7 +382,10 @@ export function LandlordWorkspace() {
           }}
         />
       ) : tab === "statistics" ? (
-        <StatisticsPanel />
+        <>
+          <StatisticsPanel />
+          <RevenuePanel />
+        </>
       ) : tab === "properties" ? (
         selected ? (
           <PropertyPanel

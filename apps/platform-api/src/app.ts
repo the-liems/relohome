@@ -34,6 +34,7 @@ import { registerHousingWorkspace } from './housing-workspace.js'
 import { registerHousingReviews } from './housing-reviews.js'
 import { registerHousingActivity } from './housing-activity.js'
 import { registerHousingHandoff } from './housing-handoff.js'
+import { registerHousingRevenue } from './housing-revenue.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -55,6 +56,7 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   registerHousingReviews(app, pool)
   registerHousingHandoff(app, pool)
   registerHousingActivity(app, pool)
+  registerHousingRevenue(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
@@ -167,6 +169,12 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
       const status = error.code === 'OSRM_OFFLINE' ? 503 : 422
       return reply.status(status).send({ code: error.code, message: error.message })
     }
+    const databaseError = error as { code?: string; constraint?: string }
+    if (databaseError.code === '23P01' && databaseError.constraint === 'rent_periods_no_overlap')
+      return reply.status(409).send({
+        code: 'rent_period_overlap',
+        message: 'Khoảng thuê trùng với kỳ thuê đã ghi nhận. Hãy kiểm tra ngày bắt đầu trước khi xác nhận.',
+      })
     if (['40001', '40P01', '23505'].includes((error as { code?: string }).code || ''))
       return reply.status(409).send({
         code: 'revision_conflict',

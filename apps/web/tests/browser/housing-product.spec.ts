@@ -738,7 +738,7 @@ test("dashboard counters open the matching filter and statistics retain the chos
     .toBe(true);
 });
 
-test("Admin uses the existing dark theme and English language controls", async ({
+test("Admin uses the dark glass theme and English language controls", async ({
   page,
 }) => {
   moderator = true;
@@ -763,7 +763,8 @@ test("Admin uses the existing dark theme and English language controls", async (
       expectedColor: root.color,
     };
   });
-  expect(styles.background).toBe(styles.expectedBackground);
+  // Admin shares the owner workspace glass backdrop, in its dark variant here.
+  expect(styles.background).toBe("rgb(11, 33, 27)");
   expect(styles.color).toBe(styles.expectedColor);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -1277,4 +1278,110 @@ test("saving an older listing keeps a service fee whose amount is still unknown"
     "tien_nuoc",
     "service",
   ]);
+});
+
+test("statistics estimate monthly revenue per home without deposits", async ({ page }) => {
+  const second = "22222222-2222-4222-8222-222222222222";
+  const calls: string[] = [];
+  const revenue = (months: number) => ({
+    months,
+    as_of: "2026-10-15",
+    estimated: true,
+    series: ["2026-08", "2026-09", "2026-10"].map((month, index) => ({
+      month,
+      total: [9_000_000, 22_000_000, 11_000_000][index]!,
+      by_property: { [propertyId]: [9_000_000, 9_000_000, 4_500_000][index]!, [second]: [0, 13_000_000, 6_500_000][index]! },
+    })),
+    properties: [
+      { id: propertyId, name: "Nhà Nguyễn Trãi", units: 2, rented_units: 1, period_total: 22_500_000, current_month: 4_500_000, previous_month: 9_000_000 },
+      { id: second, name: "Căn hộ Sunrise", units: 1, rented_units: 1, period_total: 19_500_000, current_month: 6_500_000, previous_month: 13_000_000 },
+    ],
+    total: 42_000_000,
+    previous_total: 30_000_000,
+    average_monthly: 14_000_000,
+  });
+  await page.route("**/web/api/housing-management/landlord/revenue?*", (route) => {
+    calls.push(route.request().url());
+    const months = Number(new URL(route.request().url()).searchParams.get("months"));
+    return route.fulfill({ json: revenue(months) });
+  });
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button", { name: "Thống kê", exact: true }).click();
+  const panel = page.locator(".ll-revenue");
+  await expect(panel.getByRole("heading", { name: "Doanh thu ước tính", exact: true })).toBeVisible();
+  await expect(panel).toContainText("Không tính tiền cọc.");
+  await expect(panel.locator(".ll-status-metrics")).toContainText("42.000.000");
+  await expect(panel.locator(".ll-status-metrics")).toContainText("+40%");
+  // Two homes, three months: one stacked segment per home with revenue in that month.
+  await expect(panel.locator(".ll-revenue-bar")).toHaveCount(5);
+  await expect(panel.locator(".ll-chart-legend li")).toHaveText(["Nhà Nguyễn Trãi", "Căn hộ Sunrise"]);
+  await expect(panel.getByRole("img", { name: /Tháng 09\/2026: tổng 22\.000\.000/ })).toBeVisible();
+  const compare = panel.locator(".ll-revenue-compare");
+  await expect(compare.getByRole("row", { name: /Nhà Nguyễn Trãi/ })).toContainText("1/2 phòng · 50%");
+  await expect(compare.getByRole("row", { name: /^Tổng/ })).toContainText("2/3 phòng · 67%");
+  await panel.getByRole("combobox", { name: "Khoảng thời gian doanh thu" }).selectOption("3");
+  await expect.poll(() => calls.some((url) => url.includes("months=3"))).toBe(true);
+  await panel.getByRole("combobox", { name: "Lọc doanh thu theo nhà" }).selectOption(second);
+  await expect.poll(() => calls.some((url) => url.includes("property_id=" + second))).toBe(true);
+  const accessibility = await new AxeBuilder({ page })
+    .include(".ll-revenue")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(accessibility.violations.map((v) => v.id)).toEqual([]);
+});
+
+test("revenue colours follow each home's place in the list, not its revenue rank", async ({ page }) => {
+  const homes = Array.from({ length: 7 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-00000000000${index + 1}`,
+    name: `Nhà ${index + 1}`,
+    units: 1,
+    rented_units: 1,
+  }));
+  // The ranking flips between periods: the first home earns most over 3 months, least over 6.
+  const answer = (months: number) => {
+    const amounts = homes.map((_, index) => (months === 3 ? 7 - index : index + 1) * 1_000_000);
+    return {
+      months,
+      as_of: "2026-10-15",
+      estimated: true,
+      series: [
+        {
+          month: "2026-10",
+          total: amounts.reduce((sum, value) => sum + value, 0),
+          by_property: Object.fromEntries(homes.map((home, index) => [home.id, amounts[index]!])),
+        },
+      ],
+      properties: homes.map((home, index) => ({
+        ...home,
+        period_total: amounts[index]!,
+        current_month: amounts[index]!,
+        previous_month: 0,
+      })),
+      total: amounts.reduce((sum, value) => sum + value, 0),
+      previous_total: 0,
+      average_monthly: 1,
+    };
+  };
+  await page.route("**/web/api/housing-management/landlord/revenue?*", (route) =>
+    route.fulfill({ json: answer(Number(new URL(route.request().url()).searchParams.get("months"))) }),
+  );
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button", { name: "Thống kê", exact: true }).click();
+  const legend = page.locator(".ll-revenue .ll-chart-legend li");
+  const colours = async () =>
+    legend.evaluateAll((items) =>
+      items.map((item) => [item.textContent, item.querySelector("i")!.className.match(/ll-revenue-(\d+|other)\b/)![1]]),
+    );
+  const expected = [
+    ["Nhà 1", "1"],
+    ["Nhà 2", "2"],
+    ["Nhà 3", "3"],
+    ["Nhà 4", "4"],
+    ["Nhà 5", "5"],
+    ["Khác", "other"],
+  ];
+  await expect.poll(colours).toEqual(expected);
+  await page.getByRole("combobox", { name: "Khoảng thời gian doanh thu" }).selectOption("3");
+  await expect(page.locator(".ll-revenue .ll-status-metrics")).toContainText("28.000.000");
+  await expect.poll(colours).toEqual(expected);
 });

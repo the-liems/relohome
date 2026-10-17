@@ -51,7 +51,7 @@ def housing_media_dir() -> Path:
 
 
 HOUSING_MANAGEMENT_PATHS = (
-    re.compile(r"^landlord/(overview|properties|contact-requests|reviews|listings|stats)$"),
+    re.compile(r"^landlord/(overview|properties|contact-requests|reviews|listings|stats|revenue)$"),
     re.compile(r"^landlord/locations/(search|resolve)$"),
     re.compile(r"^landlord/reviews/[0-9a-f-]+/reply$"),
     re.compile(r"^landlord/properties/[0-9a-f-]+(?:/(?:units|room-listing))?$"),

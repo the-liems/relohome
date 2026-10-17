@@ -1204,3 +1204,376 @@ it('records scoped system updates and atomically saves room drafts without self-
     ).status,
   ).toBe(403)
 })
+
+it('revenue: estimated from rent x days rented, never deposits, and scoped to the owner', async () => {
+  const owner = `test-revenue-owner-${run}`, tenant = `test-revenue-tenant-${run}`
+  await host(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {decision:'verify',method:'phone_call'})
+  const p = await property(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})
+  const paidRoom = await listing(owner, await unit(owner,p,'V.1'), [])
+  const manualRoom = await listing(owner, await unit(owner,p,'V.2'), [])
+  for (const id of [paidRoom, manualRoom]) {
+    await call(owner,'POST',`/v1/landlord/listings/${id}/submit`,{})
+    await call(MODERATOR,'POST',`/v1/moderation/housing/listings/${id}/review`,{decision:'approve'})
+  }
+  const today = String((await admin.query(`SELECT to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'YYYY-MM-DD') AS d`)).rows[0].d)
+  const [year, month, day] = today.split('-').map(Number) as [number, number, number]
+  const previous = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10)
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+  // A confirmed transfer opens a period at the agreed move-in with the monthly rent only.
+  const slot = new Date(Date.now()+86400000).toISOString()
+  const request = (await call(tenant,'PUT',`/v1/housing/${paidRoom}/viewing`,{slot})).body.id
+  const path = `/v1/landlord/contact-requests/${request}`
+  const revisionOf = async () => (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1',[request])).rows[0].revision
+  expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:await revisionOf()})).status).toBe(200)
+  const report = await call(tenant,'POST',`/v1/housing/${paidRoom}/payment-reports`,{
+    report_key:randomUUID(),amount_vnd:9_000_000,paid_on:previous,
+    agreement:{deposit_vnd:4_000_000,first_month_vnd:5_000_000,rent_vnd:5_000_000,move_in:previous},
+  })
+  expect(report.status, JSON.stringify(report.body)).toBe(201)
+  expect((await call(owner,'POST',path+'/payment-review',{report_id:report.body.id,revision:report.body.revision,decision:'confirm'})).status).toBe(200)
+
+  // A room marked rented by hand opens today at its listed rent; marking it vacant closes it.
+  const availability = async (status: string) => {
+    const revision = (await call(owner,'GET',`/v1/landlord/listings/${manualRoom}`)).body.revision
+    expect((await call(owner,'POST',`/v1/landlord/listings/${manualRoom}/availability`,{status,revision})).status).toBe(200)
+  }
+  await availability('rented')
+  await availability('rented')
+  const periods = async () => (await admin.query(
+    'SELECT source,monthly_rent_vnd::float AS rent,to_char(starts_on,$2) AS starts_on,to_char(ends_on,$2) AS ends_on FROM housing.rent_periods WHERE listing_id=$1 ORDER BY created_at',
+    [manualRoom,'YYYY-MM-DD'])).rows
+  expect(await periods()).toEqual([{source:'manual',rent:4_000_000,starts_on:today,ends_on:null}])
+
+  const revenue = await call(owner,'GET',`/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(revenue.status, JSON.stringify(revenue.body)).toBe(200)
+  expect(revenue.body.estimated).toBe(true)
+  expect(revenue.body.series.map((m: {month:string}) => m.month)).toHaveLength(3)
+  const byMonth = Object.fromEntries(revenue.body.series.map((m: {month:string;total:number}) => [m.month, m.total]))
+  expect(byMonth[previous.slice(0, 7)]).toBe(5_000_000)
+  expect(byMonth[today.slice(0, 7)]).toBe(Math.round((5_000_000 * day + 4_000_000) / days))
+  const row = revenue.body.properties.find((r: {id:string}) => r.id === p)
+  expect(row).toMatchObject({units:2,rented_units:2,previous_month:5_000_000})
+  expect(revenue.body.total).toBe(byMonth[previous.slice(0, 7)] + byMonth[today.slice(0, 7)])
+
+  await availability('vacant')
+  expect((await periods())[0]).toMatchObject({ends_on:today})
+  const after = await call(owner,'GET',`/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(after.body.series.at(-1).total).toBe(Math.round(5_000_000 * day / days))
+
+  expect((await call(OTHER,'GET',`/v1/landlord/revenue?property_id=${p}`)).status).toBe(403)
+  expect((await call(OTHER,'GET','/v1/landlord/revenue')).body.total).toBe(0)
+  expect((await call(owner,'GET','/v1/landlord/revenue?months=4')).status).toBe(400)
+})
+
+it('revenue: future move-in earns nothing yet and impossible dates never block payment review or the migration', async () => {
+  const owner = `test-revenue-edge-owner-${run}`, tenant = `test-revenue-edge-tenant-${run}`
+  await host(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {decision:'verify',method:'phone_call'})
+  const p = await property(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})
+  const rooms = [await listing(owner, await unit(owner,p,'E.1'), []), await listing(owner, await unit(owner,p,'E.2'), [])]
+  for (const id of rooms) {
+    await call(owner,'POST',`/v1/landlord/listings/${id}/submit`,{})
+    await call(MODERATOR,'POST',`/v1/moderation/housing/listings/${id}/review`,{decision:'approve'})
+  }
+  const today = String((await admin.query(`SELECT to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'YYYY-MM-DD') AS d`)).rows[0].d)
+  const dateIn = (days: number) => new Date(Date.parse(today + 'T00:00:00Z') + days * 86_400_000).toISOString().slice(0, 10)
+  async function transfer(listingId: string, tenantId: string, agreement: Record<string, unknown>) {
+    const request = (await call(tenantId,'PUT',`/v1/housing/${listingId}/viewing`,{slot:new Date(Date.now()+86400000).toISOString()})).body.id
+    const path = `/v1/landlord/contact-requests/${request}`
+    const revision = async () => (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1',[request])).rows[0].revision
+    expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:await revision()})).status).toBe(200)
+    const report = await call(tenantId,'POST',`/v1/housing/${listingId}/payment-reports`,{report_key:randomUUID(),amount_vnd:9_000_000,paid_on:today,agreement})
+    expect(report.status, JSON.stringify(report.body)).toBe(201)
+    const review = await call(owner,'POST',path+'/payment-review',{report_id:report.body.id,revision:report.body.revision,decision:'confirm'})
+    expect(review.status, JSON.stringify(review.body)).toBe(200)
+    return report.body.id as string
+  }
+  const monthTotal = async () => {
+    const revenue = await call(owner,'GET',`/v1/landlord/revenue?months=3&property_id=${p}`)
+    expect(revenue.status, JSON.stringify(revenue.body)).toBe(200)
+    return revenue.body
+  }
+
+  // A move-in later than today has not produced revenue; it must never go negative.
+  await transfer(rooms[0]!, tenant, { rent_vnd: 5_000_000, first_month_vnd: 5_000_000, deposit_vnd: 5_000_000, move_in: dateIn(3) })
+  const future = await monthTotal()
+  expect(future.series.every((m: { total: number }) => m.total === 0)).toBe(true)
+  expect(future.total).toBe(0)
+  expect(future.properties[0]).toMatchObject({ current_month: 0, previous_month: 0 })
+
+  // An impossible calendar date used to be accepted by the report API; it falls back to the transfer date.
+  const bad = `test-revenue-edge-bad-${run}`
+  const reportId = await transfer(rooms[1]!, bad, { rent_vnd: 6_000_000, first_month_vnd: 6_000_000, move_in: '2026-02-31' })
+  const period = await admin.query(
+    'SELECT to_char(starts_on,$2) AS starts_on,monthly_rent_vnd::float AS rent FROM housing.rent_periods WHERE payment_report_id=$1',
+    [reportId, 'YYYY-MM-DD'],
+  )
+  expect(period.rows).toEqual([{ starts_on: today, rent: 6_000_000 }])
+
+  // The migration backfill reads legacy reports defensively: rerun it over bad dates and amounts.
+  await admin.query('DELETE FROM housing.rent_periods WHERE listing_id = ANY($1::uuid[])', [rooms])
+  await admin.query(
+    `UPDATE housing.rent_payment_reports SET agreement=jsonb_set(agreement,'{move_in}','"2026-02-31"')
+    WHERE id=$1`,
+    [reportId],
+  )
+  const other = (await admin.query(
+    `SELECT id FROM housing.rent_payment_reports r WHERE r.request_id IN
+    (SELECT id FROM housing.contact_requests WHERE listing_id=$1) AND id<>$2`,
+    [rooms[0], reportId],
+  )).rows[0]
+  if (other) await admin.query(`UPDATE housing.rent_payment_reports SET agreement=agreement||'{"rent_vnd":1e30,"first_month_vnd":"abc"}'::jsonb WHERE id=$1`, [other.id])
+  const sql = (await import('node:fs')).readFileSync(new URL('../../../deploy/database/migrations/029_housing_rent_periods.sql', import.meta.url), 'utf8')
+  await admin.query(sql)
+  const restored = await admin.query(
+    'SELECT listing_id,to_char(starts_on,$2) AS starts_on,monthly_rent_vnd::float AS rent FROM housing.rent_periods WHERE listing_id = ANY($1::uuid[]) ORDER BY monthly_rent_vnd',
+    [rooms, 'YYYY-MM-DD'],
+  )
+  // An unusable rent falls back to the listed rent and keeps its future move-in;
+  // an impossible date falls back to the transfer date.
+  expect(restored.rows.map((r: { starts_on: string; rent: number }) => [r.starts_on, r.rent])).toEqual([
+    [dateIn(3), 4_000_000],
+    [today, 6_000_000],
+  ])
+})
+
+it.each([
+  { name: 'impossible move-in', moveIn: '2026-02-31', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'empty move-in', moveIn: '', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'missing move-in', moveIn: null, rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'year zero', moveIn: '0000-01-01', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'unusable rent with valid first month', moveIn: null, rent: 1e30, firstMonth: 6_000_000, expectedRent: 6_000_000 },
+  { name: 'both agreement rents unusable', moveIn: null, rent: 1e30, firstMonth: 0, expectedRent: 4_000_000 },
+])('revenue fallback: $name agrees between payment confirmation and migration', async ({ moveIn, rent, firstMonth, expectedRent }) => {
+  const owner = `test-rent-fallback-owner-${randomUUID()}-${run}`, tenant = `test-rent-fallback-tenant-${randomUUID()}-${run}`
+  await host(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, { decision: 'verify', method: 'phone_call' })).status).toBe(200)
+  const p = await property(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})).status).toBe(200)
+  const room = await listing(owner, await unit(owner, p, 'F.1'), [])
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${room}/submit`, {})).status).toBe(200)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${room}/review`, { decision: 'approve' })).status).toBe(200)
+  const request = await call(tenant, 'PUT', `/v1/housing/${room}/viewing`, { slot: new Date(Date.now() + 86400000).toISOString() })
+  expect(request.status).toBe(201)
+  const requestId = request.body.id
+  const revision = (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1', [requestId])).rows[0].revision
+  expect((await call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/viewing`, { decision: 'confirm', revision })).status).toBe(200)
+
+  // A previous-month payment distinguishes paid_on from today's review date.
+  const dates = (await admin.query(`SELECT
+    to_char(date_trunc('month',(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)-interval '1 month','YYYY-MM-DD') AS paid_on`)).rows[0]
+  const report = await call(tenant, 'POST', `/v1/housing/${room}/payment-reports`, {
+    report_key: randomUUID(), amount_vnd: 9_000_000, paid_on: dates.paid_on,
+    agreement: { move_in: moveIn, rent_vnd: rent, first_month_vnd: firstMonth, deposit_vnd: 4_000_000 },
+  })
+  expect(report.status, JSON.stringify(report.body)).toBe(201)
+  const reviewed = await call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/payment-review`, {
+    report_id: report.body.id, revision: report.body.revision, decision: 'confirm',
+  })
+  expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200)
+  expect(reviewed.body.status).toBe('confirmed')
+  const periodSql = `SELECT to_char(starts_on,'YYYY-MM-DD') AS starts_on,monthly_rent_vnd::float AS rent
+    FROM housing.rent_periods WHERE payment_report_id=$1`
+  const actual = (await admin.query(periodSql, [report.body.id])).rows
+  expect(actual).toEqual([{ starts_on: dates.paid_on, rent: expectedRent }])
+
+  const revenue = await call(owner, 'GET', `/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(revenue.status).toBe(200)
+  const months = Object.fromEntries(revenue.body.series.map((m: { month: string; total: number }) => [m.month, m.total]))
+  expect(months[String(dates.paid_on).slice(0, 7)]).toBe(expectedRent)
+
+  // Rebuild the same report with the migration, but roll back all backfill changes.
+  const sql = (await import('node:fs')).readFileSync(new URL('../../../deploy/database/migrations/029_housing_rent_periods.sql', import.meta.url), 'utf8')
+  const client = await admin.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM housing.rent_periods WHERE payment_report_id=$1', [report.body.id])
+    await client.query(sql)
+    expect((await client.query(periodSql, [report.body.id])).rows).toEqual(actual)
+  } finally {
+    await client.query('ROLLBACK')
+    client.release()
+  }
+})
+
+async function closedRentFixture() {
+  const owner = `test-rent-overlap-owner-${randomUUID()}-${run}`
+  await host(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {
+    decision: 'verify', method: 'phone_call',
+  })).status).toBe(200)
+  const propertyId = await property(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${propertyId}/approve`, {})).status).toBe(200)
+  const room = await listing(owner, await unit(owner, propertyId, 'O.1'), [])
+  const listingRevision = (await call(owner, 'GET', `/v1/landlord/listings/${room}`)).body.revision
+  expect((await call(owner, 'PATCH', `/v1/landlord/listings/${room}`, {
+    revision: listingRevision, rent_vnd: 5_000_000,
+  })).status).toBe(200)
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${room}/submit`, {})).status).toBe(200)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${room}/review`, { decision: 'approve' })).status).toBe(200)
+  const dates = (await admin.query(`SELECT
+    to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'YYYY-MM-DD') AS today,
+    to_char(date_trunc('month',(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)-interval '1 month','YYYY-MM-DD') AS previous,
+    to_char(date_trunc('month',(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)-interval '2 months','YYYY-MM-DD') AS earlier`)).rows[0]
+  const reportFor = async (moveIn: string, rent = 5_000_000) => {
+    const tenant = `test-rent-overlap-tenant-${randomUUID()}-${run}`
+    const request = await call(tenant, 'PUT', `/v1/housing/${room}/viewing`, {
+      slot: new Date(Date.now() + 86400000).toISOString(),
+    })
+    expect(request.status, JSON.stringify(request.body)).toBe(201)
+    const requestId = request.body.id as string
+    const revision = (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1', [requestId])).rows[0].revision
+    expect((await call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/viewing`, {
+      decision: 'confirm', revision,
+    })).status).toBe(200)
+    const report = await call(tenant, 'POST', `/v1/housing/${room}/payment-reports`, {
+      report_key: randomUUID(), amount_vnd: rent, paid_on: dates.today,
+      agreement: { move_in: moveIn, rent_vnd: rent, first_month_vnd: rent },
+    })
+    expect(report.status, JSON.stringify(report.body)).toBe(201)
+    return { requestId, report: report.body }
+  }
+  const confirm = async ({ requestId, report }: Awaited<ReturnType<typeof reportFor>>) =>
+    call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/payment-review`, {
+      report_id: report.id, revision: report.revision, decision: 'confirm',
+    })
+  const first = await reportFor(dates.previous)
+  const confirmed = await confirm(first)
+  expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200)
+  const revision = (await call(owner, 'GET', `/v1/landlord/listings/${room}`)).body.revision
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${room}/availability`, {
+    status: 'vacant', revision,
+  })).status).toBe(200)
+  const periods = async () => (await admin.query(`SELECT id,payment_report_id,
+    to_char(starts_on,'YYYY-MM-DD') AS starts_on,to_char(ends_on,'YYYY-MM-DD') AS ends_on,
+    monthly_rent_vnd::float AS rent FROM housing.rent_periods WHERE listing_id=$1 ORDER BY starts_on,id`, [room])).rows
+  expect(await periods()).toEqual([{
+    id: expect.any(String), payment_report_id: first.report.id,
+    starts_on: dates.previous, ends_on: dates.today, rent: 5_000_000,
+  }])
+  const revenue = async () => {
+    const result = await call(owner, 'GET', `/v1/landlord/revenue?months=3&property_id=${propertyId}`)
+    expect(result.status, JSON.stringify(result.body)).toBe(200)
+    return result.body
+  }
+  return { owner, room, dates, reportFor, confirm, periods, revenue }
+}
+
+it.each([
+  { name: 'the same start as the closed tenancy', start: 'previous' },
+  { name: 'a start before the closed tenancy', start: 'earlier' },
+])('revenue overlap: payment review rejects $name without changing committed state', async ({ start }) => {
+  const fixture = await closedRentFixture()
+  const pending = await fixture.reportFor(fixture.dates[start])
+  const beforePeriods = await fixture.periods()
+  const beforeRevenue = await fixture.revenue()
+  expect(beforeRevenue.series.find((month: { month: string }) => month.month === fixture.dates.previous.slice(0, 7)).total).toBe(5_000_000)
+  const state = async () => ({
+    report: (await admin.query('SELECT * FROM housing.rent_payment_reports WHERE id=$1', [pending.report.id])).rows[0],
+    contact: (await admin.query('SELECT * FROM housing.contact_requests WHERE id=$1', [pending.requestId])).rows[0],
+    listing: (await admin.query('SELECT * FROM housing.managed_listings WHERE listing_id=$1', [fixture.room])).rows[0],
+  })
+  const before = await state()
+  expect(before.report.status).toBe('pending')
+  expect(before.listing.availability_status).toBe('vacant')
+
+  const reviewed = await fixture.confirm(pending)
+
+  expect([reviewed.status, reviewed.body.code], JSON.stringify(reviewed.body)).toEqual([409, 'rent_period_overlap'])
+  expect(await state()).toEqual(before)
+  expect(await fixture.periods()).toEqual(beforePeriods)
+  expect(await fixture.revenue()).toEqual(beforeRevenue)
+})
+
+it('revenue overlap: a new tenancy may start exactly on the prior exclusive end date', async () => {
+  const fixture = await closedRentFixture()
+  const beforePeriods = await fixture.periods()
+  const boundary = beforePeriods[0]!.ends_on
+  const pending = await fixture.reportFor(boundary, 7_000_000)
+
+  const reviewed = await fixture.confirm(pending)
+
+  expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200)
+  expect(reviewed.body.status).toBe('confirmed')
+  expect(await fixture.periods()).toEqual([
+    beforePeriods[0],
+    { id: expect.any(String), payment_report_id: pending.report.id, starts_on: boundary, ends_on: null, rent: 7_000_000 },
+  ])
+  const revenue = await fixture.revenue()
+  expect(revenue.series.find((month: { month: string }) => month.month === fixture.dates.previous.slice(0, 7)).total).toBe(5_000_000)
+  const [year, month, day] = fixture.dates.today.split('-').map(Number) as [number, number, number]
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  expect(revenue.series.find((entry: { month: string }) => entry.month === fixture.dates.today.slice(0, 7)).total)
+    .toBe(Math.round((5_000_000 * (day - 1) + 7_000_000) / daysInMonth))
+})
+
+it('revenue overlap: the database rejects overlapping direct inserts and updates', async () => {
+  const fixture = await closedRentFixture()
+  const before = await fixture.periods()
+  await expect(pool.query(`INSERT INTO housing.rent_periods
+    (listing_id,monthly_rent_vnd,starts_on,ends_on,source) VALUES($1,7000000,$2,$3,'manual')`,
+    [fixture.room, fixture.dates.previous, fixture.dates.today]))
+    .rejects.toMatchObject({ code: '23P01', constraint: 'rent_periods_no_overlap' })
+  expect(await fixture.periods()).toEqual(before)
+
+  const next = await pool.query(`INSERT INTO housing.rent_periods
+    (listing_id,monthly_rent_vnd,starts_on,source) VALUES($1,7000000,$2,'manual') RETURNING id`,
+    [fixture.room, fixture.dates.today])
+  const adjacent = await fixture.periods()
+  await expect(pool.query('UPDATE housing.rent_periods SET starts_on=$2 WHERE id=$1',
+    [next.rows[0].id, fixture.dates.previous]))
+    .rejects.toMatchObject({ code: '23P01', constraint: 'rent_periods_no_overlap' })
+  expect(await fixture.periods()).toEqual(adjacent)
+})
+
+it('revenue overlap: concurrent transactions cannot commit intersecting closed periods', async () => {
+  const fixture = await closedRentFixture()
+  const [first, second] = await Promise.all([pool.connect(), pool.connect()])
+  try {
+    await Promise.all([first.query('BEGIN'), second.query('BEGIN')])
+    const inserted = await first.query(`INSERT INTO housing.rent_periods
+      (listing_id,monthly_rent_vnd,starts_on,ends_on,source)
+      VALUES($1,7000000,$2::date+1,$2::date+3,'manual') RETURNING id`, [fixture.room, fixture.dates.today])
+    // Attach the rejection handler before committing the competing transaction.
+    const competing = second.query(`INSERT INTO housing.rent_periods
+      (listing_id,monthly_rent_vnd,starts_on,ends_on,source)
+      VALUES($1,8000000,$2::date+2,$2::date+4,'manual')`, [fixture.room, fixture.dates.today])
+      .then(() => ({ code: 'committed', constraint: '' }), (error: { code: string; constraint: string }) => error)
+    await first.query('COMMIT')
+    expect(await competing).toMatchObject({ code: '23P01', constraint: 'rent_periods_no_overlap' })
+    await second.query('ROLLBACK')
+    const periods = await fixture.periods()
+    expect(periods).toHaveLength(2)
+    expect(periods.find(period => period.id === inserted.rows[0].id)?.rent).toBe(7_000_000)
+  } finally {
+    await Promise.all([first.query('ROLLBACK'), second.query('ROLLBACK')])
+    first.release()
+    second.release()
+  }
+})
+
+it('revenue overlap: migration refuses conflicting legacy history without rewriting dates', async () => {
+  const fixture = await closedRentFixture()
+  const before = await fixture.periods()
+  const sql = (await import('node:fs')).readFileSync(
+    new URL('../../../deploy/database/migrations/030_housing_rent_period_overlap.sql', import.meta.url), 'utf8')
+  const client = await admin.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('ALTER TABLE housing.rent_periods DROP CONSTRAINT rent_periods_no_overlap')
+    await client.query(`INSERT INTO housing.rent_periods
+      (listing_id,monthly_rent_vnd,starts_on,ends_on,source) VALUES($1,7000000,$2,$3,'manual')`,
+      [fixture.room, fixture.dates.previous, fixture.dates.today])
+    await expect(client.query(sql)).rejects.toMatchObject({
+      code: 'P0001', message: 'Existing housing rent periods overlap; migration 030 cannot be applied',
+    })
+  } finally {
+    await client.query('ROLLBACK')
+    client.release()
+  }
+  expect(await fixture.periods()).toEqual(before)
+})

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { actor, contactCounterpartySql, conversationRole, ManagementError } from './housing-management.js'
+import { calendarDate, plausibleRent, startRentPeriod } from './housing-revenue.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -186,6 +187,16 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
         availability_confirmed_at=now(),updated_at=now(),revision=revision+1 WHERE listing_id=$1`,
           [contact.listing_id],
         )
+      if (input.decision === 'confirm') {
+        // Revenue estimates start at the agreed move-in; the deposit is never counted.
+        const report = result.rows[0], agreement = report.agreement || {}
+        await startRentPeriod(client, String(contact.listing_id), {
+          source: 'payment',
+          startsOn: calendarDate(agreement.move_in) ?? report.paid_on,
+          rentVnd: plausibleRent(agreement.rent_vnd) ?? plausibleRent(agreement.first_month_vnd),
+          reportId: String(report.id),
+        })
+      }
       await client.query('COMMIT')
       return result.rows[0]
     } catch (error) {
