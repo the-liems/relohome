@@ -691,6 +691,10 @@ def make_intake(deps: GraphDeps):
             else set()
         )
         prefill_exclusions.update(cleared_filters)
+        if fresh_housing_scope and "city" not in result.user_confirmed_facts:
+            # A fresh named area must resolve its own parent city. Removing the
+            # old city above is pointless if account memory immediately restores it.
+            prefill_exclusions.add("city")
         # Only newly grounded facts or API-verified scope choices can reopen a
         # field. Carrying old facts/memory cannot undo an explicit removal.
         prefill_exclusions.difference_update(

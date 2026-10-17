@@ -2,6 +2,18 @@ import type { Component, Message, Thread } from "./types";
 
 export type ServiceTarget = { c: Component; version: number };
 
+/** Keep an already open map as read-only context, never as a successful new search. */
+export function retainHousingWorkspace(thread: Thread | null, previousThreadId?: string): boolean {
+  if (!thread || thread.id !== previousThreadId) return false;
+  const intake = thread.state.intake;
+  const domains = intake?.intent?.domains ?? intake?.domains ?? [];
+  const reply = [...thread.messages].reverse().find(m => m.role === "assistant")?.content.response;
+  return ["change", "refine"].includes(intake?.kind) &&
+    domains.length === 1 && domains[0] === "property" &&
+    !["compare", "search_compare"].includes(intake?.constraints?.values?.housing_mode) &&
+    ["ERROR", "CLARIFY"].includes(reply?.kind || "");
+}
+
 /** History is opened by its task ID, never silently substituted for a failed new search. */
 export function currentHousingTarget(
   thread: Thread | null,

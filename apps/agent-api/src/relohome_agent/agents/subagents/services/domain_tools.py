@@ -23,6 +23,7 @@ from relohome_agent.agents.subagents.services.location import (
     bbox_of_points,
     pick_city_area,
     pick_named_area,
+    requested_area_query,
     to_candidate,
     union_bbox,
 )
@@ -407,16 +408,26 @@ class DomainToolSession:
                 }
             self.anchors["city"] = city
             bbox = city.get("bounding_box")
+        if self.req.agent == AgentName.PROPERTY and name == "resolve_location" and field == "near":
+            matching = await self.adapter._areas_for_near(self.req, self.tools, bbox)
+            if len(matching) > 1:
+                self.result = self.adapter._choose(
+                    self.req, self.tools, "district", requested_area_query(self.req) or text, matching
+                )
+                return {
+                    "status": "needs_input",
+                    "questions": [q.model_dump(mode="json") for q in self.result.questions],
+                }
+            if matching:
+                # An administrative polygon is NOT a point anchor. The adapter
+                # consumes this same memoized lookup when search_housing runs.
+                return decision_data({"field": field, "resolved_area": matching[0], "next": "search_housing"})
         if name == "search_areas":
             arguments = {"text": text, "limit": 5}
             if bbox and field == "district":
                 arguments["bounding_box"] = bbox
             options = ((await self.tools.call(name, arguments)) or {}).get("results") or []
-            found = (
-                pick_city_area(options)
-                if field == "city"
-                else pick_named_area(options, text, bbox)
-            )
+            found = pick_city_area(options) if field == "city" else pick_named_area(options, text, bbox)
         else:
             found, options = await self.adapter._resolve(self.tools, text, bbox)
         if found is None:
