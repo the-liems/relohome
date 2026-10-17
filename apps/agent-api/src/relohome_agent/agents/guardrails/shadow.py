@@ -253,11 +253,4 @@ def build_guardrail(settings) -> ShadowGuardrail | None:
     if not key:
         logger.warning("jev_shadow status=unconfigured")
         return None
-    # Uvicorn normally configures its own logger, not the application's root logger.
-    # Ensure opt-in observations reach stderr even without a custom logging config.
-    if not logger.hasHandlers():
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
     return ShadowGuardrail(JevClient(key, timeout_s=settings.agent_guardrail_timeout_s))
