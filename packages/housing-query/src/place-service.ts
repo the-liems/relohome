@@ -11,6 +11,7 @@ import {
 import type { QueryExecutor } from './database.js'
 import { decodeCursor, encodeCursor } from './cursor.js'
 import { QueryValidationError } from './errors.js'
+import { checkOperation } from './execution.js'
 
 interface SqlBuilder {
   values: unknown[]
@@ -198,49 +199,55 @@ export class PlaceService {
   }
 
   async findNearby(origin: Coordinate, constraints: NearbyPlaceConstraint[]): Promise<NearbyPlaceMatch[]> {
-    const matches: NearbyPlaceMatch[] = []
-    for (const constraint of constraints) {
-      const result = await this.pool.query(
-        `SELECT
+    return (await this.findNearbyBatch([origin], constraints))[0]!
+  }
+
+  /** One round trip for a bounded batch; ordinality preserves duplicate constraints and origin order. */
+  async findNearbyBatch(origins: Coordinate[], constraints: NearbyPlaceConstraint[]): Promise<NearbyPlaceMatch[][]> {
+    checkOperation()
+    const matches: NearbyPlaceMatch[][] = origins.map(() => [])
+    if (!origins.length || !constraints.length) return matches
+    const result = await this.pool.query(
+      `WITH origins AS (
+         SELECT origin_index, ST_SetSRID(ST_MakePoint(lng,lat),4326)::geography AS geog
+         FROM unnest($1::double precision[],$2::double precision[]) WITH ORDINALITY AS o(lng,lat,origin_index)
+       ), constraints AS (
+         SELECT * FROM unnest($3::text[],$4::double precision[]) WITH ORDINALITY AS c(category,max_distance_m,constraint_index)
+       )
+       SELECT o.origin_index,c.constraint_index,nearest.*,
+         source.source_type,source.source_id,source.source_url,source.observed_at
+       FROM origins o CROSS JOIN constraints c
+       CROSS JOIN LATERAL (
+         SELECT
            p.id AS place_id,
            p.name,
-           c.slug AS category,
+           pc.slug AS category,
            ST_X(p.geom) AS lng, ST_Y(p.geom) AS lat,
-           ST_Distance(
-             p.geog,
-             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-           ) AS distance_meters,
+           ST_Distance(p.geog,o.geog) AS distance_meters,
            p.verification_status,
            p.verified_at,
-           p.verified_by,
-           source.source_type,
-           source.source_id,
-           source.source_url,
-           source.observed_at
+           p.verified_by
          FROM catalog.places p
-         JOIN catalog.place_categories c ON c.id = p.category_id
-         LEFT JOIN LATERAL (
-           SELECT ps.source_type, ps.source_id, ps.source_url, ps.observed_at
-           FROM catalog.place_sources ps
-           WHERE ps.place_id = p.id
-           ORDER BY ps.observed_at DESC, ps.id
-           LIMIT 1
-         ) source ON true
+         JOIN catalog.place_categories pc ON pc.id = p.category_id
          WHERE p.status = 'active'
            AND p.deleted_at IS NULL
            AND COALESCE(p.attributes->>'entity_role', '') <> 'housing_anchor'
-           AND c.slug = $3
-           AND ST_DWithin(
-             p.geog,
-             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-             $4
-           )
-         ORDER BY p.geog <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, p.id
-         LIMIT 1`,
-        [origin.lng, origin.lat, constraint.category, constraint.max_distance_m],
-      )
-      if (result.rowCount) matches.push(rowToNearbyMatch(result.rows[0]))
-    }
+           AND pc.slug = c.category
+           AND ST_DWithin(p.geog,o.geog,c.max_distance_m)
+         ORDER BY p.geog <-> o.geog,p.id
+         LIMIT 1
+       ) nearest
+       LEFT JOIN LATERAL (
+         SELECT ps.source_type,ps.source_id,ps.source_url,ps.observed_at
+         FROM catalog.place_sources ps WHERE ps.place_id=nearest.place_id
+         ORDER BY ps.observed_at DESC,ps.id LIMIT 1
+       ) source ON true
+       ORDER BY o.origin_index,c.constraint_index`,
+      [origins.map(o => o.lng), origins.map(o => o.lat),
+        constraints.map(c => c.category), constraints.map(c => c.max_distance_m)],
+    )
+    checkOperation()
+    for (const row of result.rows) matches[Number(row.origin_index) - 1]!.push(rowToNearbyMatch(row))
     return matches
   }
 }
