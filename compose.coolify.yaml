@@ -8,6 +8,9 @@ x-telemetry: &telemetry-env
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
   OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION: "true"
+  # Root logger at INFO with trace IDs on stderr; otherwise Python keeps WARNING.
+  OTEL_PYTHON_LOG_CORRELATION: "true"
+  OTEL_PYTHON_LOG_LEVEL: ${OTEL_PYTHON_LOG_LEVEL:-info}
   OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
 
@@ -201,12 +204,12 @@ services:
       # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
       PAYMENT_RECONCILE_ACTIVE_SECONDS: ${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
       # Roommate (docs/runbooks/roommate.md): off until the team turns it on in Coolify.
-      # Set ROOMMATE_MODERATORS before ROOMMATE_ENABLED=true; the backend refuses to start
-      # Roommate without a moderator. State lives outside /app/data, which the runtime rejects.
+      # Reuse existing Housing Admin IDs. Legacy ROOMMATE_MODERATORS remain additive.
+      # At least one moderator is required. State must stay outside /app/data.
       ROOMMATE_ENABLED: ${ROOMMATE_ENABLED:-false}
+      HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
       ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
       ROOMMATE_STATE_DIR: /app/private-roommate
-      ROOMMATE_DEMO_ENABLED: "false"
       # Opt in to shared PostgreSQL after provisioning/import; never silently
       # replace the database from an existing private SQLite volume.
       ROOMMATE_STORAGE: ${ROOMMATE_STORAGE:-sqlite}

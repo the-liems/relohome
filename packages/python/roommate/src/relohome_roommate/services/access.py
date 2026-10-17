@@ -20,6 +20,15 @@ class AccessService:
         if actor.id not in self.ctx.moderators:
             raise RoommateError("moderator_required", status=403)
 
+    def require_operation_owner(self, actor: Actor) -> None:
+        """Allow admins to reconcile their own actions without a personal discovery profile.
+
+        Callers must still scope every query to actor.id. This grants no access to
+        other people's drafts or permission to execute consumer actions.
+        """
+        if actor.id not in self.ctx.moderators:
+            self.require(actor)
+
     def accept(self, actor: Actor, adult: bool, terms: str) -> dict:
         if terms != TERMS_VERSION:
             raise RoommateError("terms_version_changed")

@@ -152,3 +152,30 @@ Kiểm chứng bổ sung:
 - Production web build, Ruff check/format và diff whitespace đạt. Không gọi provider/LLM trả phí để kiểm thử hai bản sửa này.
 
 Artifact nằm trong worktree test riêng `apps/web/test-results/chat-fixes-release`, `chat-history-final`, `chat-fixes-integration`; không đưa dữ liệu test vào bundle hoặc DB ứng dụng.
+
+## 9. Bỏ hồ sơ demo khỏi sản phẩm — 17/10/2026
+
+- Bỏ tab DEMO, CTA xem demo ở trạng thái trống, checkbox trên bản đồ và component `DemoDiscovery`. Link cũ `?tab=demo` mở khám phá hồ sơ người dùng theo gate tài khoản/tuổi/điều khoản hiện có.
+- Backend không nạp dataset và bỏ endpoint `/roommate/demo/search`; gateway không chuyển tiếp route này. Hai biến `ROOMMATE_DEMO_ENABLED`/`ROOMMATE_DEMO_DATASET` được bỏ khỏi settings, env mẫu và Compose; cấu hình cũ còn lưu không bật lại demo hoặc làm runtime đọc file cũ.
+- Giữ `demo_enabled:false` và nhận `include_demo` nhưng bỏ qua để client cũ vẫn đọc được marker thật. Frontend chỉ hiển thị marker `source_kind=real`, kể cả khi nhận phản hồi từ backend cũ.
+- Không thay matching, publish/review, quyền/consent, chat, thời hạn lưu tin nhắn, database hoặc key. Dữ liệu tổng hợp và generator chỉ phục vụ test offline, không nạp vào runtime.
+- Team dùng tài khoản của từng người, tự khai thông tin và đăng bài. Hồ sơ riêng vẫn không tự công khai; chưa có bài phù hợp thì có CTA **Đăng nhu cầu của tôi**.
+- Thay đổi cần build/deploy web và backend; bản cloud đang chạy chưa tự đổi chỉ vì sửa code local. Không cần biến môi trường mới, migration hay xóa database.
+
+Kiểm chứng đợt bỏ demo: **255 passed** cho Roommate SQLite/PostgreSQL + gateway/auth; **42 passed** UI Roommate desktop/mobile, light/dark và VI/EN; **4 passed** bản đồ/gallery với phản hồi legacy trộn real/demo; **4 passed** Chrome → gateway → API → SQLite cho đăng hồ sơ, ảnh, kết nối/chat và privacy. Web build, Ruff và diff check đạt. Các test live dùng provider ngoài đã cập nhật kỳ vọng nhưng không chạy trong đợt này; toàn bộ state ghi kiểm thử nằm riêng, không đăng hồ sơ vào DB người dùng.
+
+## 10. Tích hợp Roommate vào Admin Housing — 17/10/2026
+
+- Thêm tab **Ở ghép** trong `/admin`, tái sử dụng `ModerationWorkspace`, API báo cáo,
+  ảnh và hạn chế hồ sơ, không tạo hệ thống duyệt hoặc tài khoản Admin thứ hai.
+- Backend hợp `HOUSING_MODERATOR_IDS` hiện có với `ROOMMATE_MODERATORS` legacy.
+  Compose truyền Housing IDs cho backend, cùng nguồn đang cấp quyền platform.
+  Bắt buộc ít nhất một moderator khi bật Roommate; không âm thầm cấp quyền cho mọi
+  người đăng nhập hoặc tự tắt dịch vụ khi cấu hình lỗi.
+- Quyền kiểm duyệt độc lập với consent khám phá cá nhân. Admin không cần đăng hồ sơ
+  để duyệt; người dùng thường vẫn giữ kiểm tra tuổi/điều khoản/quyền hiện có.
+- Khôi phục thao tác quản trị khi mất mạng dùng draft mã hóa/operation key hiện có,
+  chỉ đọc được dữ liệu thao tác của chính actor. Không mở đọc chat/contact người khác.
+- Không đổi schema, matching, luồng chủ nhà, khóa mã hóa hay CI. Không sửa `.env` thật.
+  Cần deploy web/backend/Compose mới; code local không tự thay cấu hình Coolify.
+- Chi tiết cấu hình và smoke test: [runbook](../runbooks/roommate.md#dùng-admin-hiện-có--cập-nhật-17102026).

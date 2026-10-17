@@ -31,7 +31,6 @@ ROUTES = {
     "POST": [
         r"access",
         r"search",
-        r"demo/search",
         r"map/rooms",
         r"requests",
         r"reports",

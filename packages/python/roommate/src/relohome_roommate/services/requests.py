@@ -112,6 +112,6 @@ class RequestService:
             return result
 
     def operation(self, actor: Actor, key: str) -> dict:
-        self.access.require(actor)
+        self.access.require_operation_owner(actor)
         result = self.ctx.connections.operation(actor.id, key)
         return {"status": "completed", "result": result} if result else {"status": "not_found"}

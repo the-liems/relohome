@@ -61,6 +61,12 @@ async def test_map_lifecycle_consent_blocks_expiry_and_minimal_disclosure(tmp_pa
             AccessService(ctx).accept(viewer, True, TERMS_VERSION)
         shown = await markers()
         assert len(shown) == 1 and shown[0]["source_kind"] == "real"
+        legacy = await client.post(
+            "/api/v1/roommate/map/rooms",
+            json={"listing_ids": [content.room.listing_id], "include_demo": True},
+            headers=headers(),
+        )
+        assert legacy.json() == {"items": shown, "demo_enabled": False}
         assert set(shown[0]) == {
             "listing_id",
             "profile_id",
@@ -132,21 +138,33 @@ async def test_room_binding_fails_closed_without_housing_service(tmp_path):
         assert ctx.profiles.get("viewer") is None
 
 
-@pytest.mark.parametrize("app_env,path", [("production", "demo.json"), ("test", None)])
-def test_demo_runtime_requires_explicit_nonproduction_configuration(tmp_path, app_env, path):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("app_env", ["production", "test"])
+async def test_legacy_demo_env_cannot_enable_synthetic_profiles(tmp_path, monkeypatch, app_env):
     from relohome_agent.config import Settings
     from relohome_agent.roommate_runtime import RoommateRuntime
 
-    with pytest.raises(ValueError, match="explicit dataset and a non-production"):
-        RoommateRuntime.open(
-            Settings(
-                _env_file=None,
-                app_env=app_env,
-                roommate_enabled=True,
-                agent_api_token="test-token",
-                roommate_moderators="mod",
-                roommate_state_dir=tmp_path,
-                roommate_demo_enabled=True,
-                roommate_demo_dataset=tmp_path / path if path else None,
-            )
+    monkeypatch.setenv("ROOMMATE_DEMO_ENABLED", "true")
+    monkeypatch.setenv("ROOMMATE_DEMO_DATASET", str(tmp_path / "missing-demo.json"))
+    app, _ = make_app(tmp_path)
+    runtime = RoommateRuntime.open(
+        Settings(
+            _env_file=None,
+            app_env=app_env,
+            roommate_enabled=True,
+            agent_api_token="test-token",
+            roommate_moderators="mod",
+            roommate_state_dir=tmp_path,
         )
+    )
+    app.state.roommate_runtime = runtime
+    app.include_router(router, prefix="/api/v1")
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            availability = (await client.get("/api/v1/roommate/availability")).json()
+            assert availability["enabled"] and availability["demo_enabled"] is False
+            assert (
+                await client.post("/api/v1/roommate/demo/search", json={"criteria": {"city": "hcm"}}, headers=headers())
+            ).status_code == 404
+    finally:
+        runtime.close()

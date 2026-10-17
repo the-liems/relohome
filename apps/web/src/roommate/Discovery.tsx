@@ -21,11 +21,9 @@ import {
 export function Discovery({
   initial,
   initialOffset = 0,
-  demoAvailable = false,
 }: {
   initial?: Criteria;
   initialOffset?: number;
-  demoAvailable?: boolean;
 }) {
   const roommate = useRoommateClient();
   const stored = useResource<Criteria>(initial ? null : "/me/criteria");
@@ -302,8 +300,8 @@ export function Discovery({
             text={
               result
                 ? rt(
-                    "Chưa có hồ sơ thật công khai phù hợp tại đây. Thử thành phố khác, đổi bộ lọc hoặc chủ động đăng nhu cầu.",
-                    "No active real profiles match here. Try another city, change filters, or publish your own needs.",
+                    "Chưa có hồ sơ công khai phù hợp tại đây. Thử đổi bộ lọc hoặc đăng nhu cầu để mọi người tìm thấy bạn.",
+                    "No public profiles match here. Try changing your filters or publish your needs so others can find you.",
                   )
                 : rt(
                     "Chọn tiêu chí và bấm tìm. Bạn không cần đăng hồ sơ công khai để xem kết quả.",
@@ -314,15 +312,7 @@ export function Discovery({
         )}
         {result?.total === 0 && (
           <div className="rm-empty-actions">
-            {demoAvailable && (
-              <Link className="secondary" to="/roommate?tab=demo">
-                {rt(
-                  "Xem hồ sơ DEMO (không kết nối)",
-                  "Explore DEMO profiles (no connections)",
-                )}
-              </Link>
-            )}
-            <Link className="text-button" to="/roommate?tab=profile">
+            <Link className="primary" to="/roommate?tab=profile">
               {rt("Đăng nhu cầu của tôi", "Publish my needs")}
             </Link>
           </div>

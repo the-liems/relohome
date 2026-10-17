@@ -84,7 +84,6 @@ export type Availability = {
   enabled: boolean;
   cities: City[];
   terms_version: string;
-  demo_enabled?: boolean;
   features?: string[];
 };
 export type OwnProfile = {

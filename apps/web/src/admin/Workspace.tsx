@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { LogOut, ShieldCheck, RefreshCw, Search } from "lucide-react";
@@ -11,6 +11,8 @@ import { ReviewModerationPanel } from "../components/HousingReviews";
 import { housingManagement } from "../landlord/client";
 import { publicationText } from "../landlord/ManagementPanels";
 import { PreviewContent } from "../landlord/ListingPreview";
+import { RoommateModeration } from "./RoommateModeration";
+import { rt } from "../roommate/text";
 import "../landlord/workspace-upgrade.css";
 
 export function AdminWorkspace({
@@ -20,8 +22,11 @@ export function AdminWorkspace({
   user: User;
   onLogout: () => void;
 }) {
-  const [routeParams] = useSearchParams();
-  const [tab, setTab] = useState("listings"),
+  const [routeParams, setRouteParams] = useSearchParams();
+  const navigation = useRef<HTMLElement>(null);
+  const [tab, setTab] = useState(
+      routeParams.get("tab") === "roommate" ? "roommate" : "listings",
+    ),
     [queue, setQueue] = useState<ModerationQueue | null>(null),
     [page, setPage] = useState<Data | null>(null),
     [detail, setDetail] = useState<Data | null>(null);
@@ -55,10 +60,12 @@ export function AdminWorkspace({
     }
   }, [status, search, offset]);
   useEffect(() => {
+    if (tab === "roommate") return;
     const timer = setTimeout(() => void load(), 200);
     return () => clearTimeout(timer);
-  }, [load]);
+  }, [load, tab]);
   useEffect(() => {
+    if (tab === "roommate") return;
     const refresh = () => {
       if (document.visibilityState === "visible") void load();
     };
@@ -68,7 +75,16 @@ export function AdminWorkspace({
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [load]);
+  }, [load, tab]);
+  useEffect(() => {
+    if (
+      navigation.current &&
+      navigation.current.scrollWidth > navigation.current.clientWidth
+    )
+      navigation.current
+        .querySelector('[aria-current="page"]')
+        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab]);
   useEffect(() => {
     const listing = routeParams.get("listing");
     if (listing) {
@@ -77,6 +93,14 @@ export function AdminWorkspace({
     } else if (routeParams.has("identity")) {
       setTab("identity");
       void load();
+    } else if (routeParams.get("tab") === "roommate") {
+      setTab("roommate");
+    } else {
+      setTab(
+        ["listings", "identity", "reviews"].includes(routeParams.get("tab")!)
+          ? routeParams.get("tab")!
+          : "listings",
+      );
     }
   }, [routeParams]);
   useEffect(() => {
@@ -159,29 +183,41 @@ export function AdminWorkspace({
         <div className="ll-heading">
           <div>
             <span className="ll-kicker">{t("KIỂM DUYỆT")}</span>
-            <h1>{t("Quản lý và duyệt tin")}</h1>
+            <h1>
+              {tab === "roommate"
+                ? rt("Quản lý ở ghép", "Roommate management")
+                : t("Quản lý và duyệt tin")}
+            </h1>
             <p>
-              {t(
-                "Kiểm tra người đăng, địa điểm và nội dung trước khi công khai.",
-              )}
+              {tab === "roommate"
+                ? rt(
+                    "Duyệt ảnh hồ sơ, xử lý báo cáo và quản lý quyền sử dụng ở ghép.",
+                    "Review profile photos, reports and roommate service access.",
+                  )
+                : t(
+                    "Kiểm tra người đăng, địa điểm và nội dung trước khi công khai.",
+                  )}
             </p>
           </div>
-          <button
-            className="secondary"
-            onClick={() => {
-              setDetail(null);
-              void load();
-            }}
-          >
-            <RefreshCw size={16} />
-            {t("Làm mới")}
-          </button>
+          {tab !== "roommate" && (
+            <button
+              className="secondary"
+              onClick={() => {
+                setDetail(null);
+                void load();
+              }}
+            >
+              <RefreshCw size={16} />
+              {t("Làm mới")}
+            </button>
+          )}
         </div>
-        <nav className="ll-nav" aria-label={t("Quản trị Housing")}>
+        <nav ref={navigation} className="ll-nav" aria-label={t("Quản trị")}>
           {[
             ["listings", "Duyệt tin"],
             ["identity", "Người đăng & địa điểm"],
             ["reviews", "Đánh giá & báo cáo"],
+            ["roommate", "Ở ghép"],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -190,18 +226,21 @@ export function AdminWorkspace({
               onClick={() => {
                 setTab(key!);
                 setDetail(null);
+                setRouteParams({ tab: key! });
               }}
             >
-              {t(label!)}
+              {key === "roommate" ? rt("Ở ghép", "Roommates") : t(label!)}
             </button>
           ))}
         </nav>
-        {error && (
+        {error && tab !== "roommate" && (
           <p role="alert" className="ll-error">
             {error}
           </p>
         )}
-        {tab === "identity" ? (
+        {tab === "roommate" ? (
+          <RoommateModeration key={user.id} user={user} />
+        ) : tab === "identity" ? (
           <ModerationPanel queue={queue} changed={load} viewerId={user.id} />
         ) : tab === "reviews" ? (
           <ReviewModerationPanel />

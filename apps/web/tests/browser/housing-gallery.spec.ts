@@ -124,6 +124,7 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
         : [],
   }));
   const listHomes = homes.map(({ images, ...home }) => home);
+  const roomRequests: Record<string, unknown>[] = [];
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route("**/web/api/**", (route) => {
@@ -131,6 +132,29 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
       "/web/api",
       "",
     );
+    if (path === "/roommate/map/rooms") {
+      roomRequests.push(route.request().postDataJSON());
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              listing_id: "gallery-home",
+              profile_id: "user-anna",
+              display_name: "Anna",
+              source_kind: "real",
+              label: "Đang tìm bạn trọ",
+            },
+            {
+              listing_id: "gallery-home",
+              profile_id: "demo_old",
+              display_name: "DEMO old profile",
+              source_kind: "demo",
+              label: "DEMO",
+            },
+          ],
+        },
+      });
+    }
     return route.fulfill({
       status: ["/session", "/status"].includes(path) ? 401 : 200,
       json:
@@ -147,7 +171,7 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
             : path === "/platform/places/map"
               ? { type: "FeatureCollection", features: [] }
               : path === "/roommate/availability"
-                ? { enabled: false, demo_enabled: false }
+                ? { enabled: true, demo_enabled: true }
                 : path.startsWith("/housing/")
                   ? homes.find((h) => h.id === path.split("/").pop())
                   : {},
@@ -189,6 +213,13 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
       .getByRole("button", { name: "Xem Gallery fixture 1", exact: true })
       .click();
     await expect(detail).toBeVisible();
+    await expect(detail.locator(".ws-roommate-badge")).toHaveCount(1);
+    await expect(
+      detail.getByRole("link", { name: "Xem nhu cầu ở ghép" }),
+    ).toHaveAttribute("href", "/roommate/profiles/user-anna");
+    await expect(page.getByText(/DEMO/)).toHaveCount(0);
+    expect(roomRequests.length).toBeGreaterThan(0);
+    expect(roomRequests.every((body) => !("include_demo" in body))).toBe(true);
     await expect(
       detail.getByRole("button", { name: "Ảnh tiếp theo", exact: true }),
     ).toBeVisible();

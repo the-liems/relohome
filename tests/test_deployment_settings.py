@@ -64,6 +64,19 @@ def test_backend_app_env_in_compose_is_a_valid_setting(configured, expected):
     assert settings.app_env == expected
 
 
+@pytest.mark.parametrize("identifiers", ["", "admin-one", "admin-one,admin-two"])
+def test_housing_admin_ids_reach_both_backends_without_a_second_moderator_list(identifiers):
+    configured = {"HOUSING_MODERATOR_IDS": identifiers}
+    backend = rendered_backend(configured)
+    platform = rendered_backend(configured, service="platform")
+    assert backend["HOUSING_MODERATOR_IDS"] == platform["HOUSING_MODERATOR_IDS"] == identifiers
+    assert backend["ROOMMATE_MODERATORS"] == ""
+    assert (
+        Settings(_env_file=None, housing_moderator_ids=backend["HOUSING_MODERATOR_IDS"]).housing_moderator_ids
+        == identifiers
+    )
+
+
 @pytest.mark.parametrize(
     "configured,enabled",
     [

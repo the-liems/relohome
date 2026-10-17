@@ -48,6 +48,7 @@ async function fixture(
     received?: boolean;
     unknownMessage?: boolean;
     noIntro?: boolean;
+    legacyDemo?: boolean;
   } = {},
 ) {
   const payloads: { path: string; body: Record<string, unknown> }[] = [];
@@ -85,6 +86,7 @@ async function fixture(
     else if (path === "/roommate/availability")
       data = {
         enabled: settings.enabled !== false,
+        demo_enabled: settings.legacyDemo === true,
         cities: ["hcm", "hanoi", "danang"],
         terms_version: "roommate-1.0",
         features: settings.chat ? ["chat"] : [],
@@ -220,6 +222,28 @@ async function fixture(
     await route.fulfill({ json: data });
   });
   return payloads;
+}
+
+for (const url of ["/roommate", "/roommate?tab=demo"]) {
+  test(`only user profiles are shown at ${url}, even with legacy demo availability`, async ({
+    page,
+  }) => {
+    const calls = await fixture(page, {
+      chat: true,
+      empty: true,
+      legacyDemo: true,
+    });
+    await page.goto(url);
+    await expect(page.locator(".rm-quick-search")).toBeVisible();
+    await expect(
+      page
+        .locator(".rm-empty-actions")
+        .getByRole("link", { name: "Đăng nhu cầu của tôi" }),
+    ).toBeVisible();
+    await expect(page.locator(".rm-source-switch")).toHaveCount(0);
+    await expect(page.getByText(/DEMO/)).toHaveCount(0);
+    expect(calls.some((call) => call.path.includes("/demo/"))).toBe(false);
+  });
 }
 
 test("chat connection reuses intro without contact and survives browser focus", async ({

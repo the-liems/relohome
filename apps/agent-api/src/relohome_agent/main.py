@@ -28,11 +28,13 @@ from relohome_agent.config import get_settings
 from relohome_agent.roommate_runtime import RoommateRuntime
 from relohome_roommate.background import RoommateMaintenance
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    print(f"Starting {settings.app_name} in {settings.app_env} mode")
+    logger.info("Starting %s in %s mode", settings.app_name, settings.app_env)
     roommate = RoommateRuntime.open(settings)
     app.state.roommate_runtime = roommate
     service = None
@@ -55,7 +57,7 @@ async def lifespan(app: FastAPI):
             await service.close()
         if roommate:
             roommate.close()
-        print("Shutting down...")
+        logger.info("Shut down %s", settings.app_name)
 
 
 app = FastAPI(

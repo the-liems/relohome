@@ -27,7 +27,6 @@ import { CandidateDetail } from "./CandidateDetail";
 import { ConnectionDetail } from "./ConnectionDetail";
 import type { Access, Availability, Criteria } from "./types";
 import { rt } from "./text";
-import { DemoDiscovery } from "./DemoDiscovery";
 import { RoommateSettings } from "./Settings";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { ModerationWorkspace } from "./Moderation";
@@ -102,41 +101,7 @@ function Workspace() {
             access.reload();
           }}
         />
-        {availability.value?.demo_enabled &&
-          location.pathname === "/roommate" && (
-            <section
-              className="rm-source-switch"
-              aria-label={rt("Nguồn hồ sơ", "Profile source")}
-            >
-              <Link
-                className={
-                  params.get("tab") === "demo" ? "secondary" : "primary"
-                }
-                to="/roommate"
-                aria-current={params.get("tab") !== "demo" ? "page" : undefined}
-              >
-                {rt("Hồ sơ thật", "Real profiles")}
-              </Link>
-              <Link
-                className={
-                  params.get("tab") === "demo" ? "primary" : "secondary"
-                }
-                to="/roommate?tab=demo"
-                aria-current={params.get("tab") === "demo" ? "page" : undefined}
-              >
-                {rt("Trải nghiệm hồ sơ DEMO", "Explore DEMO profiles")}
-              </Link>
-              <p className="rm-hint">
-                {rt(
-                  "DEMO là hồ sơ giả tách riêng, không có liên hệ hoặc kết nối thật.",
-                  "DEMO profiles are separate synthetic examples, with no real contacts or connections.",
-                )}
-              </p>
-            </section>
-          )}
-        {availability.value?.demo_enabled && params.get("tab") === "demo" ? (
-          <DemoDiscovery />
-        ) : availability.loading || access.loading ? (
+        {availability.loading || access.loading ? (
           <ContentSkeleton
             label={rt("Đang mở dịch vụ…", "Opening the service…")}
           />
@@ -230,9 +195,6 @@ function Workspace() {
                       <RoommateSettings />
                     ) : (
                       <Discovery
-                        demoAvailable={Boolean(
-                          availability.value?.demo_enabled,
-                        )}
                         initialOffset={location.state?.offset || 0}
                         initial={
                           location.state?.criteria as Criteria | undefined
