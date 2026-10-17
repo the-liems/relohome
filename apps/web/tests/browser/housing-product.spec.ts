@@ -1329,3 +1329,59 @@ test("statistics estimate monthly revenue per home without deposits", async ({ p
     .analyze();
   expect(accessibility.violations.map((v) => v.id)).toEqual([]);
 });
+
+test("revenue colours follow each home's place in the list, not its revenue rank", async ({ page }) => {
+  const homes = Array.from({ length: 7 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-00000000000${index + 1}`,
+    name: `Nhà ${index + 1}`,
+    units: 1,
+    rented_units: 1,
+  }));
+  // The ranking flips between periods: the first home earns most over 3 months, least over 6.
+  const answer = (months: number) => {
+    const amounts = homes.map((_, index) => (months === 3 ? 7 - index : index + 1) * 1_000_000);
+    return {
+      months,
+      as_of: "2026-10-15",
+      estimated: true,
+      series: [
+        {
+          month: "2026-10",
+          total: amounts.reduce((sum, value) => sum + value, 0),
+          by_property: Object.fromEntries(homes.map((home, index) => [home.id, amounts[index]!])),
+        },
+      ],
+      properties: homes.map((home, index) => ({
+        ...home,
+        period_total: amounts[index]!,
+        current_month: amounts[index]!,
+        previous_month: 0,
+      })),
+      total: amounts.reduce((sum, value) => sum + value, 0),
+      previous_total: 0,
+      average_monthly: 1,
+    };
+  };
+  await page.route("**/web/api/housing-management/landlord/revenue?*", (route) =>
+    route.fulfill({ json: answer(Number(new URL(route.request().url()).searchParams.get("months"))) }),
+  );
+  await page.goto("/landlord");
+  await page.locator(".ll-nav").getByRole("button", { name: "Thống kê", exact: true }).click();
+  const legend = page.locator(".ll-revenue .ll-chart-legend li");
+  const colours = async () =>
+    legend.evaluateAll((items) =>
+      items.map((item) => [item.textContent, item.querySelector("i")!.className.match(/ll-revenue-(\d+|other)\b/)![1]]),
+    );
+  const expected = [
+    ["Nhà 1", "1"],
+    ["Nhà 2", "2"],
+    ["Nhà 3", "3"],
+    ["Nhà 4", "4"],
+    ["Nhà 5", "5"],
+    ["Khác", "other"],
+  ];
+  await expect.poll(colours).toEqual(expected);
+  await page.getByRole("combobox", { name: "Khoảng thời gian doanh thu" }).selectOption("3");
+  await expect(page.locator(".ll-revenue .ll-status-metrics")).toContainText("28.000.000");
+  await expect.poll(colours).toEqual(expected);
+});

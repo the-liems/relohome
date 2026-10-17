@@ -20,6 +20,12 @@ Tiền thuê sau tháng đầu không đi qua ReloHome, nên doanh thu là **ư�
 | Gateway | Thêm `landlord/revenue` vào danh sách đường dẫn được chuyển tiếp. |
 | Giao diện `RevenuePanel` | Đặt dưới Thống kê tin đăng:<ul><li>Bộ lọc kỳ và nhà.</li><li>Ba số: tổng kỳ, trung bình tháng, % so với kỳ trước.</li><li>Biểu đồ cột chồng theo nhà. Tối đa 5 nhà có màu riêng, còn lại gom vào "Khác". Màu theo thứ tự nhà trong danh sách, không theo hạng doanh thu. Bảng màu đã kiểm tra phân biệt cho người mù màu ở cả nền sáng và tối.</li><li>Bảng theo tháng.</li><li>Bảng so sánh giữa các nhà.</li><li>Ghi chú cách ước tính.</li></ul> |
 
+Sau review PR #225:
+
+- Migration đọc báo cáo cũ an toàn. API cũ nhận ngày dọn vào là chuỗi bất kỳ khớp `YYYY-MM-DD` (ví dụ `2026-02-31`), ép thẳng sang `date` sẽ làm migration lỗi và chặn deploy. Nay ngày không có thật hoặc số tiền không dùng được thì dùng ngày chuyển tiền và giá đang đăng. Cùng kiểm tra này áp dụng khi chủ nhà xác nhận đã nhận tiền, để một ngày sai không làm hỏng bước xác nhận.
+- Khoảng thuê chưa bắt đầu (ngày dọn vào ở tương lai) hoặc rỗng không tạo doanh thu, không còn ra số âm.
+- Màu của một nhà theo vị trí trong danh sách nhà (5 nhà đầu có màu riêng, còn lại là "Khác"), không đổi theo hạng doanh thu hay kỳ thống kê.
+
 Giới hạn: phòng cho thuê trước khi có migration mà không có báo cáo chuyển tiền chỉ được tính từ lần đánh dấu Đã thuê gần nhất. Lịch sử đổi trạng thái trước đó không được lưu nên không dựng lại được.
 
 ## Admin dùng giao diện kính như chủ nhà
@@ -40,6 +46,8 @@ Cấu trúc và thao tác của các tab Admin giữ nguyên.
   - Đánh dấu Đã thuê hai lần không tạo khoảng trùng.
   - Đổi sang Còn trống thì đóng khoảng.
   - Lọc nhà người khác trả 403; tham số kỳ sai trả 400.
+- Test mới cho hai lỗi review: ngày dọn vào tương lai cho doanh thu 0; ngày `2026-02-31` và số tiền không dùng được không làm hỏng xác nhận chuyển tiền lẫn migration (chạy lại migration trên dữ liệu xấu). Đã xác nhận test lỗi với code cũ: migration cũ báo `date/time field value out of range`, phép tính cũ cho doanh thu âm.
+- Playwright: thêm ca màu ổn định khi đổi kỳ với 7 nhà.
 - Platform API toàn bộ: các test housing và review qua. 5 ca POI/khu vực hành chính lỗi do database tạm không có dữ liệu bản đồ.
 - Gateway housing management: 36 qua, thêm kiểm tra chuyển tiếp `landlord/revenue`.
 - Playwright toàn bộ: 612 qua, 34 bỏ qua. 2 lỗi ở ca Admin đăng nhập lại (`service-auth.spec.ts`) cũng lỗi trên `main`: fixture trả `{}` cho hàng chờ Admin nên trang Admin sập tùy thời điểm. Đã sửa fixture trả đúng dạng rỗng; chạy lại cả file 2 lần: 26/26 qua.

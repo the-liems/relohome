@@ -11,13 +11,26 @@ import type { HousingClient } from './housing-policy.js'
 const TODAY = `(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`
 const ACTIVE_RENT = `(SELECT price_amount FROM housing.offers WHERE listing_id=$1 AND is_active ORDER BY valid_from DESC LIMIT 1)`
 
+/** Accepts only a real calendar date (older reports allowed text such as 2026-02-31). */
+export function calendarDate(value: unknown): string | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value
+}
+const RENT_LIMIT = 10_000_000_000
+export function plausibleRent(value: unknown): number | null {
+  const rent = Number(value)
+  return Number.isFinite(rent) && rent >= 1 && rent <= RENT_LIMIT ? Math.round(rent) : null
+}
+
 /** Opens a rented stretch, closing any open one at the new start. */
 export async function startRentPeriod(
   client: HousingClient,
   listingId: string,
   options: { source: 'payment' | 'manual'; startsOn?: string | null; rentVnd?: number | null; reportId?: string },
 ) {
-  const startsOn = options.startsOn && /^\d{4}-\d{2}-\d{2}$/.test(options.startsOn) ? options.startsOn : null
+  const startsOn = calendarDate(options.startsOn)
+  const rent = plausibleRent(options.rentVnd)
   await client.query(
     `UPDATE housing.rent_periods SET ends_on=GREATEST(starts_on,COALESCE($2::date,${TODAY}))
     WHERE listing_id=$1 AND ends_on IS NULL`,
@@ -25,10 +38,10 @@ export async function startRentPeriod(
   )
   await client.query(
     `INSERT INTO housing.rent_periods(listing_id,monthly_rent_vnd,starts_on,source,payment_report_id)
-    SELECT $1,rent,COALESCE($2::date,${TODAY}),$4,$5
-    FROM (SELECT round(COALESCE($3::numeric,${ACTIVE_RENT}))::bigint AS rent) r
-    WHERE rent BETWEEN 1 AND 10000000000`,
-    [listingId, startsOn, options.rentVnd && options.rentVnd > 0 ? options.rentVnd : null, options.source, options.reportId ?? null],
+    SELECT $1,rent::bigint,COALESCE($2::date,${TODAY}),$4,$5
+    FROM (SELECT round(COALESCE($3::numeric,${ACTIVE_RENT})) AS rent) r
+    WHERE rent BETWEEN 1 AND ${RENT_LIMIT}`,
+    [listingId, startsOn, rent, options.source, options.reportId ?? null],
   )
 }
 
@@ -58,6 +71,7 @@ export function registerHousingRevenue(app: FastifyInstance, pool: DatabasePool)
       WHERE p.deleted_at IS NULL AND $2::int>0 AND ($3::uuid IS NULL OR p.id=$3)`
     // Periods end before ends_on, today+1 for open ones, or when the listing was deleted.
     // Each month earns rent x overlapping days / days in that month; the current month runs to today.
+    // A period that has not started yet (future move-in) or is empty earns nothing.
     const [amounts, properties, today] = await Promise.all([
       pool.query(
         `WITH owned AS (${owned}),
@@ -73,7 +87,7 @@ export function registerHousingRevenue(app: FastifyInstance, pool: DatabasePool)
         SELECT to_char(m.month_start,'YYYY-MM') AS month,p.property_id,
         round(sum(p.monthly_rent_vnd*(LEAST(p.ends_before,m.next_month)-GREATEST(p.starts_on,m.month_start))::numeric
           /(m.next_month-m.month_start)))::float AS amount
-        FROM months m JOIN periods p ON p.starts_on<m.next_month AND p.ends_before>m.month_start
+        FROM months m JOIN periods p ON p.starts_on<m.next_month AND p.ends_before>m.month_start AND p.ends_before>p.starts_on
         GROUP BY 1,2`,
         values,
       ),

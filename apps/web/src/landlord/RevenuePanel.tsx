@@ -64,35 +64,45 @@ function scale(max: number) {
 }
 
 /**
- * Up to five homes keep their own colour; the rest fold into "Khác". Colour slots
- * follow the home's place in the owner's list, never its revenue rank.
+ * The first five homes in the owner's list keep their own colour and the rest fold
+ * into "Khác". Colour follows the home's place in that list, never its revenue
+ * rank, so switching the period or filter never repaints a home. Filtered to one
+ * home, that home is shown by itself.
  */
 function seriesOf(data: Revenue, homes: Property[]) {
-  const order = new Map(
-    (homes.length ? homes : data.properties).map((p, index) => [p.id, index]),
+  const listed = homes.length ? homes : data.properties;
+  const slotOf = (id: string) => listed.findIndex((home) => home.id === id);
+  if (data.properties.length === 1 && listed.length > 1) {
+    const only = data.properties[0];
+    return [
+      {
+        key: only.id,
+        label: only.name,
+        slot:
+          slotOf(only.id) >= 0 && slotOf(only.id) < MAX_SERIES
+            ? slotOf(only.id) + 1
+            : 1,
+        ids: [only.id],
+      },
+    ];
+  }
+  const shown = data.properties.filter(
+    (p) => slotOf(p.id) >= 0 && slotOf(p.id) < MAX_SERIES,
   );
-  const listed = [...data.properties].sort(
-    (a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity),
-  );
-  const ranked = [...listed].sort((a, b) => b.period_total - a.period_total);
-  const shown = new Set(ranked.slice(0, MAX_SERIES).map((p) => p.id));
-  const base = homes.length ? homes : listed;
-  const slots =
-    base.length <= MAX_SERIES ? base : base.filter((p) => shown.has(p.id));
   const series: {
     key: string;
     label: string;
     slot: number | "other";
     ids: string[];
-  }[] = listed
-    .filter((p) => shown.has(p.id))
-    .map((p) => ({
-      key: p.id,
-      label: p.name,
-      slot: slots.findIndex((home) => home.id === p.id) + 1 || 1,
-      ids: [p.id],
-    }));
-  const rest = listed.filter((p) => !shown.has(p.id)).map((p) => p.id);
+  }[] = shown.map((p) => ({
+    key: p.id,
+    label: p.name,
+    slot: slotOf(p.id) + 1,
+    ids: [p.id],
+  }));
+  const rest = data.properties
+    .filter((p) => !shown.includes(p))
+    .map((p) => p.id);
   if (rest.length)
     series.push({ key: OTHER, label: "Khác", slot: "other", ids: rest });
   return series;
