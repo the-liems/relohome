@@ -41,6 +41,7 @@ from relohome_roommate.access import RoommateError
 from relohome_roommate.agent_projection import history_projection
 from relohome_roommate.media import MAX_IMAGE_BYTES, sanitized_image
 
+logger = logging.getLogger(__name__)
 COOKIE = "siu_session"
 
 
@@ -244,7 +245,7 @@ def create_app(database=None, transport=None):
     @app.exception_handler(HTTPException)
     async def http_error(request, exc):
         if code := getattr(exc, "error_code", None):
-            logging.getLogger(__name__).error("Request failed: %s", code)
+            logger.error("Request failed: %s", code)
         if isinstance(exc.detail, dict) and exc.detail.get("code") in {"guest_quota", "guest_expired"}:
             quota = exc.detail["code"] == "guest_quota"
             headers = {"Cache-Control": "no-store"}
@@ -368,6 +369,13 @@ def create_app(database=None, transport=None):
                 error = HTTPException(502, detail)
                 error.error_code = "upstream_invalid_json"
                 raise error from None
+            logger.warning(
+                "upstream request failed target=%s method=%s path=%s",
+                "platform" if platform else "backend",
+                method,
+                path,
+                exc_info=True,
+            )
             raise HTTPException(502, detail) from None
         if not response.is_success:
             detail = data.get("detail", data.get("message", "Dịch vụ chưa xử lý được yêu cầu."))
@@ -636,7 +644,7 @@ def create_app(database=None, transport=None):
             try:
                 await finish_guest_claim(row, row["claim_target"])
             except Exception as exc:
-                logging.getLogger(__name__).warning("guest claim reconcile failed: %s", type(exc).__name__)
+                logger.warning("guest claim reconcile failed: %s", type(exc).__name__)
         for row in app.state.store.all(
             "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NULL AND expires<=? LIMIT 10",
             (time.time(),),
@@ -646,7 +654,7 @@ def create_app(database=None, transport=None):
                     await remove_thread(row["thread"], row["id"])
                 app.state.store.write("DELETE FROM guest_sessions WHERE id=?", (row["id"],))
             except Exception as exc:
-                logging.getLogger(__name__).warning("guest expiry cleanup failed: %s", type(exc).__name__)
+                logger.warning("guest expiry cleanup failed: %s", type(exc).__name__)
         app.state.store.write("DELETE FROM guest_sessions WHERE claimed=1")
 
     async def guest_maintenance():
@@ -835,7 +843,7 @@ def create_app(database=None, transport=None):
             # The payment may exist upstream; the UI checks status instead of paying again.
             content = {"detail": "Chưa nhận được phản hồi. Hãy bấm Kiểm tra trước khi thử lại.", "code": "uncertain"}
             if isinstance(exc, ValueError):
-                logging.getLogger(__name__).error("Upstream response is not valid JSON")
+                logger.error("Upstream response is not valid JSON")
                 return JSONResponse(content, status_code=502)
             return JSONResponse(content, status_code=502)
         if not response.is_success:

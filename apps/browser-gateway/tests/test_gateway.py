@@ -1,6 +1,7 @@
 """Gateway contract tests use explicit HTTP fixtures; no live provider calls."""
 
 import json
+import logging
 
 import httpx
 import pytest
@@ -269,3 +270,28 @@ async def test_delete_and_reset_conversations(tmp_path, monkeypatch):
         assert [t["id"] for t in (await a.get("/web/api/threads")).json()] == [paying]
         assert (await a.get(f"/web/api/threads/{other}")).status_code == 404
         assert ("DELETE", "/api/v1/memory") in calls
+
+
+@pytest.mark.asyncio
+async def test_unreachable_upstream_is_logged(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("AGENT_API_TOKEN", "private-server-token")
+
+    def offline(request):
+        raise httpx.ConnectError("backend offline", request=request)
+
+    caplog.set_level(logging.WARNING, logger="relohome_gateway.server")
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(offline))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS) as client,
+    ):
+        await client.post(
+            "/web/api/auth/register",
+            json={"name": "Test", "email": "offline@example.test", "password": "a-long-password"},
+        )
+        assert (await client.get("/web/api/moving/services?lat=10.77&lng=106.7")).status_code == 502
+    upstream = next(r for r in caplog.records if r.getMessage().startswith("upstream request failed"))
+    assert upstream.getMessage().startswith(
+        "upstream request failed target=backend method=GET path=/ui/moving/services"
+    )
+    assert upstream.exc_info and isinstance(upstream.exc_info[1], httpx.ConnectError)

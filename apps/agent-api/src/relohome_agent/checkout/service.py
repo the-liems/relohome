@@ -744,6 +744,7 @@ class CheckoutService:
         tx = self.store.get_tx(job.transaction_id)
         attempt = self.store.get_attempt(job.attempt_id)
         if tx is None or attempt is None:
+            logger.error("checkout fulfilment lost its records transaction_id=%s", job.transaction_id)
             job.status, job.last_error = "failed", "missing transaction"
             self.store.put_job(self._touch(job))
             return
@@ -760,10 +761,17 @@ class CheckoutService:
             booking = await self.flight.call("confirm_booking", {"booking_ref": booking_id})
         except ToolCallError as exc:
             if (exc.transport or exc.retryable) and job.tries < self.settings.job_retry_limit:
+                logger.warning(
+                    "checkout fulfilment will retry transaction_id=%s code=%s tries=%s",
+                    job.transaction_id,
+                    exc.code,
+                    job.tries,
+                )
                 job.last_error = exc.code
                 self.store.put_job(self._touch(job))
                 return
             # Đã trả nhưng không xuất được vé (giữ chỗ hết hạn...): giữ sự kiện thanh toán, cần xử lý.
+            logger.error("checkout paid but unfulfilled transaction_id=%s code=%s", job.transaction_id, exc.code)
             tx.status = "paid_unfulfilled"
             tx.details["fulfilment_issue"] = (
                 "Đã thanh toán nhưng chưa xuất được vé mô phỏng; cần giữ chỗ lại hoặc hoàn tiền thủ công."

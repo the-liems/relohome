@@ -314,7 +314,7 @@ async def test_tester_control_requires_flag_list_ownership_and_unexpired(env):
 
 
 @pytest.mark.asyncio
-async def test_expiry_waits_for_grace_then_reconciles_late_payment(env):
+async def test_expiry_waits_for_grace_then_reconciles_late_payment(env, caplog):
     service, clock, flight, payment, _ = env
     _, attempt = await pay_flight(service)
     clock.now += timedelta(minutes=15, seconds=10)
@@ -336,6 +336,7 @@ async def test_expiry_waits_for_grace_then_reconciles_late_payment(env):
     tx = service.store.get_tx(attempt["transaction_id"])
     # Đã trả nhưng giữ chỗ hết hạn: giữ sự kiện thanh toán, cần xử lý.
     assert tx.status == "paid_unfulfilled"
+    assert f"checkout paid but unfulfilled transaction_id={attempt['transaction_id']}" in caplog.text
     assert service.thread_view(USER, THREAD, flight_values())["totals"]["paid_vnd"] == 1_500_000
 
 
