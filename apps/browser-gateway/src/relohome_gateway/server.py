@@ -1409,7 +1409,8 @@ def create_app(database=None, transport=None):
         identifier = secrets.token_hex(20)
         target = media_dir / f"{identifier}.png"
         await asyncio.to_thread(target.write_bytes, clean)
-        public_base = os.getenv("SIU_PUBLIC_BASE_URL", str(request.base_url)).rstrip("/")
+        # An empty value (as in the env template) means "not configured", like a missing one.
+        public_base = (os.getenv("SIU_PUBLIC_BASE_URL") or str(request.base_url)).rstrip("/")
         url = f"{public_base}/web/media/housing/{identifier}.png"
         digest = hashlib.sha256(clean).hexdigest()
         signature = hmac.new(
