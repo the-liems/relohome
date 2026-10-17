@@ -10,7 +10,6 @@ import {
   ChevronRight,
   GitCompareArrows,
   Heart,
-  House as HouseIcon,
   Layers,
   MapPin,
   Navigation,
@@ -55,7 +54,7 @@ import {
   registerMapImages,
   tuneBasemap,
 } from "../mapStyle";
-import { HouseImage, Comparison, amenities as AMENITY_LABELS } from "./Housing";
+import { HouseImage, HousingDetail, Comparison, amenities as AMENITY_LABELS } from "./Housing";
 import { HouseGallery } from "./HouseGallery";
 import { HousingDirections } from "./HousingDirections";
 import {
@@ -169,6 +168,7 @@ export function MapWorkspace({
   const [roomMapError, setRoomMapError] = useState("");
   const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
   const [comparing, setComparing] = useState(false);
+  const [fullDetail, setFullDetail] = useState<House | null>(null);
   const [directions, setDirections] = useState<House | null>(null);
   useEffect(() => {
     const abort = new AbortController();
@@ -1276,45 +1276,6 @@ export function MapWorkspace({
               {uiText(" Về hội thoại")}
             </button>
           </div>
-          <div className="ws-counter">
-            <span>
-              <HouseIcon size={16} /> <strong>{countLabel}</strong>
-              {uiText(" chỗ ở")}
-            </span>
-            <span>
-              <Layers size={15} />{" "}
-              {pois ? (
-                <>
-                  <strong>
-                    {(pois.features || []).length.toLocaleString("vi-VN")}
-                  </strong>{" "}
-                  {uiText("tiện ích")}
-                </>
-              ) : (
-                uiText("Phóng to để xem tiện ích")
-              )}
-            </span>
-          </div>
-          {searchScopeFeature(activeSearchScope) && (
-            <div className="search-scope-legend" role="note">
-              <MapPin size={14} color="#dc2626" />
-              {activeSearchScope?.geometry
-                ? `${uiText("Ranh giới theo dữ liệu hiện tại")}: ${activeSearchScope.label || ""}`
-                : activeSearchScope?.center
-                  ? uiText(
-                      "Ghim đỏ: điểm tìm kiếm · vòng nét đứt: bán kính tìm, không phải khoảng cách đi đường",
-                    )
-                  : uiText(
-                      "Nét đứt: khung khu vực tìm kiếm, không phải ranh giới hành chính chính xác",
-                    )}
-            </div>
-          )}
-          {focus?.searchScope?.boundary_unavailable && (
-            <div className="search-scope-legend" role="note">
-              Chưa có ranh giới đúng đơn vị hành chính này trong dữ liệu. Map
-              chỉ đưa tới các căn tìm được; không giả lập đường bao.
-            </div>
-          )}
           {(roommateEnabled || roomMapError) && (
             <div className="ws-roommate-legend" role="note">
               {roommateEnabled && (
@@ -1464,7 +1425,12 @@ export function MapWorkspace({
                   </a>
                 </div>
               ))}
-            <strong className="price">{housePrice(detail)}</strong>
+            <div className="ws-detail-price">
+              <strong className="price">{housePrice(detail)}</strong>
+              <button className="housing-detail-link" onClick={() => setFullDetail(detail)}>
+                {uiText("Thông tin chi tiết ›")}
+              </button>
+            </div>
             <p className="muted address">
               <MapPin size={14} />
               {formatAddress(detail.address)}
@@ -1533,6 +1499,11 @@ export function MapWorkspace({
             {compareButton(detail)}
           </div>
         </aside>
+      )}
+      {fullDetail && (
+        <HousingDetail house={fullDetail} saved={saved.has(fullDetail.id)} selected={isChosen(fullDetail.id)}
+          onClose={() => setFullDetail(null)} onSave={() => onSave(fullDetail)}
+          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)} busy={chat.busy || selecting !== null} />
       )}
       {comparing && (
         <Comparison

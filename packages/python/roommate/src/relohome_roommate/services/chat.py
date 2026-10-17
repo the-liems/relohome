@@ -236,9 +236,15 @@ class ChatService:
                 f"SELECT * FROM chat_messages WHERE {where} ORDER BY created DESC,id DESC LIMIT ?",
                 [*parameters, limit + 1],
             ).fetchall()
+            other = row["second"] if row["first"] == actor.id else row["first"]
+            receipt = self.db.execute(
+                "SELECT message_id FROM chat_reads WHERE conversation=? AND actor=?", (identifier, other)
+            ).fetchone()
             return {
                 **self._summary(actor, row),
                 "viewer_id": actor.id,
+                # This is the exact read cursor, not an inferred presence/online indicator.
+                "counterparty_read_message_id": receipt[0] if receipt else None,
                 "retention_days": self.ctx.chat_retention_days,
                 "items": [message_view(item) for item in reversed(rows[:limit])],
                 "has_more": len(rows) > limit,

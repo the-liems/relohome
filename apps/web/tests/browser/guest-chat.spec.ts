@@ -82,7 +82,7 @@ test("guest viewing confirmation preserves review through cancel and login witho
   const slot = seedViewing(f.thread);
   await page.goto("/ai/th_guest?panel=plan&planTab=viewing");
   await page.getByLabel("Giờ xem · Phòng Ocean Park", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Đăng nhập để tiếp tục", exact: true })).toBeVisible();
   expect(f.posts.filter(p => p.endsWith("/schedule"))).toEqual([]);
@@ -103,7 +103,8 @@ test("expired account reauthenticates in place and keeps the unsent viewing revi
   const slot = seedViewing(f.thread);
   await page.goto("/ai/th_guest?panel=plan&planTab=viewing");
   await page.getByLabel("Giờ xem · Phòng Ocean Park", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await login(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -127,7 +128,9 @@ test("guest login remains accessible in dark mode and English without losing the
   const f = await fixture(page, true);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/ai");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode", exact: true }).focus();
   await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -161,6 +164,7 @@ test("login dialog keeps draft on error/cancel and restores focus without sendin
   await page.goto("/ai");
   const input = page.getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true });
   await input.fill("Nội dung đang viết");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   f.failLogin(true);
   await login(page);
@@ -168,6 +172,7 @@ test("login dialog keeps draft on error/cancel and restores focus without sendin
   await page.getByRole("dialog").getByRole("button", { name: "Đóng", exact: true }).click();
   await expect(input).toHaveValue("Nội dung đang viết");
   await expect(page).toHaveURL(/\/ai$/);
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   f.failLogin(false);
   await login(page);
@@ -182,6 +187,7 @@ test("signing in keeps the original map mounted and never sends booking or payme
   const map = page.locator(".maplibregl-canvas").first();
   await map.waitFor();
   await map.evaluate(element => element.setAttribute("data-guest-continuity", "same-map"));
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await waitForUiMotion(page);
   expect((await new AxeBuilder({ page }).include(".dialog").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
@@ -200,6 +206,7 @@ test("Roommate and landlord request login without changing workspace before cons
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page).toHaveURL(/\/ai$/);
   await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Chế độ chủ nhà", exact: true }).focus();
   await page.getByRole("link", { name: "Chế độ chủ nhà", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page).toHaveURL(/\/ai$/);

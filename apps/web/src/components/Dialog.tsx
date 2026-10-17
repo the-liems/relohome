@@ -20,10 +20,11 @@ export function Dialog({
     const element = ref.current!;
     const active = document.activeElement as HTMLElement;
     element.showModal();
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       element.close();
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       active?.focus();
     };
   }, []);
@@ -80,10 +81,14 @@ export function ConfirmDialog({
   action,
   onConfirm,
   onClose,
+  cancelLabel = uiText("Hủy"),
+  destructive = true,
 }: {
   title: string;
   children: ReactNode;
   action: string;
+  cancelLabel?: string;
+  destructive?: boolean;
   onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -99,10 +104,10 @@ export function ConfirmDialog({
       )}
       <div className="form-actions">
         <button className="secondary" disabled={busy} onClick={onClose}>
-          {uiText("Hủy")}
+          {cancelLabel}
         </button>
         <button
-          className="primary danger"
+          className={destructive ? "primary danger" : "primary"}
           disabled={busy}
           onClick={async () => {
             setBusy(true);

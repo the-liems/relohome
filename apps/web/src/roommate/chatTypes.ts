@@ -14,6 +14,7 @@ export type ChatMessage = {
 };
 export type ChatPage = ChatConversation & {
   viewer_id: string;
+  counterparty_read_message_id?: string | null;
   items: ChatMessage[];
   has_more: boolean;
   retention_days?: number;

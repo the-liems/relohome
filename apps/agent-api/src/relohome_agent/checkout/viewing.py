@@ -521,13 +521,18 @@ class ViewingService:
         self.mark_decision(decision, "done")
         return self.item_view(tx)
 
-    def reopen(self, user_id: str, thread_id: str) -> str | None:
+    def reopen(self, user_id: str, thread_id: str, *, rejected_report_key: str | None = None) -> str | None:
         """Thỏa thuận không thành: trả căn đã chốt về `visited`, căn dự phòng về trạng thái cũ."""
         chosen = next((t for t in self.active(user_id, thread_id) if t.status in DECIDED), None)
         if chosen is None:
             return None
         if chosen.status == "reported_paid":
-            raise CheckoutError(409, "Bạn đã báo trả tiền cho chủ nhà; hãy tự xử lý với chủ nhà.", "already_paid")
+            payment = chosen.details.get("reported_payment") or {}
+            # Only the trusted gateway supplies a key, after reading the landlord's rejected report.
+            # Matching the exact report prevents a concurrent new transfer from being reopened.
+            if not rejected_report_key or rejected_report_key != (payment.get("report_key") or chosen.transaction_id):
+                raise CheckoutError(409, "Bạn đã báo trả tiền cho chủ nhà; hãy tự xử lý với chủ nhà.", "already_paid")
+            chosen.details.setdefault("reported_payment_history", []).append(chosen.details.pop("reported_payment"))
         history = chosen.details.setdefault("agreement_history", [])
         history.append({**(chosen.details.pop("agreement", None) or {}), "ended": self.clock().isoformat()})
         chosen.status = "visited"

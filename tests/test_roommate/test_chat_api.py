@@ -65,6 +65,14 @@ async def test_chat_api_without_contact_and_server_derived_membership(tmp_path):
         response = await client.get(conversation + "/messages", headers=headers("b"))
         assert len(response.json()["items"]) == 1
         assert response.headers["cache-control"] == "private, no-store"
+        message_id = response.json()["items"][0]["id"]
+        assert (await client.get(conversation + "/messages", headers=headers("a"))).json()[
+            "counterparty_read_message_id"
+        ] is None
+        assert (await client.post(conversation + "/read", json={"message_id": message_id}, headers=headers("b"))).status_code == 200
+        assert (await client.get(conversation + "/messages", headers=headers("a"))).json()[
+            "counterparty_read_message_id"
+        ] == message_id
         own_export = await client.get(root + "/me/privacy/chat-messages?limit=1", headers=headers("a"))
         assert own_export.status_code == 200 and own_export.json()["chat_messages"][0]["body"] == body["body"]
         assert (await client.get(root + "/me/privacy/chat-messages", headers=headers("b"))).json()[

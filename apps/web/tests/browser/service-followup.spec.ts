@@ -310,8 +310,11 @@ test("a single selected flight offers optional forms, preserves results and neve
     fullPage: true,
   });
   await page
+    .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true }).focus();
+  await page
     .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
     .click();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   const english = page.getByRole("region", {
     name: "Related service suggestions",
@@ -546,6 +549,7 @@ test("multi-service chat keeps domain labels without a blanket success claim", a
   await expect(summary.locator("span")).toHaveText("Chuyến bay");
   await expect(summary).not.toContainText("Có kết quả");
   await expect(page.getByRole("navigation", { name: "Dịch vụ trong kế hoạch", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(summary.locator("span")).toHaveText("Flights");
   expect(f.posts).toHaveLength(0);

@@ -23,6 +23,11 @@ export function ViewingSlotPicker({
   const day = days.includes(value.day) ? value.day : days[0] || "";
   return (
     <div className="bulk-slot-fields">
+      {error && (
+        <p id={id + "error"} className="bulk-field-error" role="alert">
+          <span className="notice-symbol" aria-hidden="true">!</span>{uiText(error)}
+        </p>
+      )}
       <label htmlFor={id + "day"}>
         {uiText("Ngày xem")}
         <select
@@ -30,6 +35,8 @@ export function ViewingSlotPicker({
           aria-label={formatUi("Ngày xem · {0}", [title])}
           disabled={disabled}
           value={day}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? id + "error" : undefined}
           onChange={(e) => onChange({ day: e.target.value, slot: "" })}
         >
           {!days.length && (
@@ -67,11 +74,6 @@ export function ViewingSlotPicker({
             ))}
         </select>
       </label>
-      {error && (
-        <p id={id + "error"} className="bulk-field-error">
-          {uiText(error)}
-        </p>
-      )}
     </div>
   );
 }

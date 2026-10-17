@@ -16,6 +16,7 @@ const facts = {
 async function fixture(
   page: Page,
   role: "guest" | "account" | "admin" = "account",
+  expireOnWriteOnly = false,
 ) {
   let expired = false,
     otherAccount = false,
@@ -167,7 +168,7 @@ async function fixture(
       path.startsWith("/landlord/") ||
       (path.startsWith("/roommate/") && path !== "/roommate/availability") ||
       path === "/profile/traveler";
-    if (privatePath && (expired || !authenticated))
+    if (privatePath && ((!expireOnWriteOnly || req.method() !== "GET") && expired || !authenticated))
       return route.fulfill({
         status: 401,
         json: {
@@ -329,7 +330,8 @@ test("guest can read a managed home; only an explicit contact request asks for l
 test("Roommate intro survives expiry and same-account login; a different account gets a fresh editor", async ({
   page,
 }) => {
-  const f = await fixture(page);
+  // Isolate write expiry from background refreshes, which have separate read-expiry coverage.
+  const f = await fixture(page, "account", true);
   await page.goto("/roommate?tab=profile");
   const name = page.getByRole("textbox", { name: "Tên hiển thị", exact: true });
   await expect(name).toHaveValue("An");
@@ -497,6 +499,7 @@ test("late previous-account saved data cannot enter the new account", async ({
   f.switchAccount();
   switched = true;
   await signIn(page);
+  await page.getByRole("link", { name: "Mở tài khoản", exact: true }).focus();
   await page.getByRole("link", { name: "Mở tài khoản", exact: true }).click();
   await page.getByRole("tab", { name: /Đã lưu/ }).click();
   const oldResponse = page.waitForResponse(
@@ -606,6 +609,7 @@ test("Roommate direct-link login retains the requested tab", async ({
     .click();
   await page.getByLabel("Email", { exact: true }).fill("test@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("correct-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(
     page

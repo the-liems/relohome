@@ -39,6 +39,8 @@ async def test_review_is_saved_before_visit_and_retry_does_not_duplicate(tmp_pat
         if path.endswith("/housing/" + LISTING):
             return httpx.Response(200, json={"management": {"accepts_contact_requests": True}})
         if path.endswith("/review"):
+            payload = json.loads(request.content)
+            assert payload["visit_slot"] == slot
             calls.append("review")
             return httpx.Response(200, json={"rating": 4, "stage": "viewed"})
         if path.endswith("/visit"):
@@ -80,3 +82,43 @@ async def test_review_is_saved_before_visit_and_retry_does_not_duplicate(tmp_pat
         assert calls == ["review", "visit"]
         assert (await client.post(path, json=body)).status_code == 200
         assert calls == ["review", "visit"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payment_status", ["pending", "confirmed", "rejected"])
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_reopen_uses_server_verified_rejected_report_only(tmp_path, monkeypatch, payment_status, legacy):
+    monkeypatch.setenv("AGENT_API_TOKEN", "trusted-token")
+    forwarded = []
+    slot = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    report_key = "transaction-1" if legacy else "server-report"
+    item = {"listing_id": LISTING, "status": "reported_paid", "transaction_id": "transaction-1",
+            "viewing": {"slot": slot}, "reported_payment": {"amount_vnd": 10, **({} if legacy else {"report_key": report_key})}}
+    view = {"items": [item], "history": []}
+
+    def provider(request):
+        if request.url.path.endswith("/contact-requests/me"):
+            return httpx.Response(200, json={"items": [{"listing_id": LISTING, "status": "viewing",
+                "viewing_status": "confirmed", "viewing_slot": slot,
+                "payment_report": {"report_key": report_key, "status": payment_status}}]})
+        if request.url.path.endswith("/reopen"):
+            forwarded.append(json.loads(request.content))
+            item["status"] = "visited"
+            item.pop("reported_payment", None)
+        return httpx.Response(200, json=view)
+
+    app = create_app(tmp_path / "web.db", httpx.MockTransport(provider))
+    async with (app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test", headers=HEADERS
+    ) as client):
+        await client.post("/web/api/auth/register", json={
+            "email": "reopen@example.test", "password": "a-long-password", "name": "Tenant"})
+        thread = (await client.post("/web/api/threads")).json()["id"]
+        response = await client.post(f"/web/api/threads/{thread}/viewings/reopen",
+                                    json={"rejected_report_key": "client-forged-report"})
+        assert response.status_code == (200 if payment_status == "rejected" else 409)
+        assert forwarded == ([{"rejected_report_key": report_key}] if payment_status == "rejected" else [])
+        if payment_status == "rejected":
+            reopened = response.json()["items"][0]
+            assert reopened["status"] == "visited"
+            assert "payment_report" not in reopened

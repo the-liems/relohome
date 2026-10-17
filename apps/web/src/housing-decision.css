@@ -28,3 +28,17 @@
 .contact-thread-form button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .unread-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 10px; background: var(--ui-danger); color: var(--ui-on-accent); font-size: .72rem; font-weight: 800; }
 @media (max-width: 620px) { .contact-thread-form { flex-direction: column; align-items: stretch; } .contact-thread-list li { max-width: 100%; } }
+
+/* Two independent panels from the tenant design, using theme-aware tokens. */
+.housing-decision-tools { padding: 0; border: 0; background: transparent; }
+.housing-cost-box, .housing-contact-box { padding: 18px; border-radius: var(--radius-panel); border: 1px solid var(--ui-line); }
+.housing-cost-box { background: var(--tenant-cost-bg); }
+.housing-contact-box { margin-top: 18px; background: var(--tenant-contact-bg); border-color: var(--tenant-contact-line); }
+.housing-contact-box textarea { display: block; width: 100%; max-width: 100%; box-sizing: border-box; }
+.housing-cost-summary .total { font-size: inherit; }
+.comparison-guide { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--ui-info); background: var(--ui-info-soft); color: var(--ui-info); font-weight: 700; border-radius: var(--radius-control); }
+.housing-cost-comparison table { border-collapse: collapse; width: 100%; table-layout: fixed; min-width: 580px; }
+.housing-cost-comparison :is(th, td) { border: 2px solid var(--ui-section-line); padding: 12px; overflow-wrap: anywhere; }
+.housing-cost-comparison thead th { background: var(--tenant-table-head); color: var(--tenant-slot-text); font-weight: 750; }
+.housing-cost-comparison tbody tr:nth-child(odd) { background: var(--ui-surface); }
+.housing-cost-comparison tbody tr:nth-child(even) { background: var(--tenant-cost-bg); }

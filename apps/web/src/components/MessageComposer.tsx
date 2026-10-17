@@ -34,3 +34,8 @@ export function MessageComposer({
     </form>
   );
 }
+
+// Shared message presentation; callers only render this with an actual counterpart read marker.
+export function MessageReadReceipt() {
+  return <span className="contact-thread-seen">{t("Đã xem")}</span>;
+}

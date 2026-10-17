@@ -469,7 +469,7 @@ test("account introduction updates the same roommate source without publishing",
 }) => {
   const calls = await fixture(page, { chat: true });
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   const panel = page.locator(".account-roommate-intro");
   await panel.getByRole("button", { name: "Chỉnh sửa bản giới thiệu" }).click();
   await panel
@@ -502,7 +502,7 @@ test("account gates intro access, suggests account name and keeps dirty edits on
   });
   await fixture(page, { chat: true, eligible: false, noIntro: true });
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   const panel = page.locator(".account-roommate-intro");
   await expect(
     panel.getByText("Không gian tìm người ở cùng", { exact: true }),
@@ -733,6 +733,7 @@ test("responsive, keyboard and accessibility in both themes/languages with clean
       })),
     ).toEqual([]);
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Find a roommate", exact: true }),
@@ -826,3 +827,25 @@ test("unknown write outcome is reconciled without sending a second connection", 
   await expect(page).toHaveURL(/requests\/request-one/);
   expect(calls.filter((c) => c.path === "/roommate/requests")).toHaveLength(1);
 });
+
+
+for (const state of ["unread", "earlier", "seen", "replied"] as const) {
+  test(`roommate read receipt follows the exact last unanswered message: ${state}`, async ({ page }) => {
+    await fixture(page, { chat: true, received: true });
+    const messages = [
+      { id: "earlier", sender_id: "viewer", body: "Chào bạn.", created_at: "2026-10-17T01:00:00.000001Z" },
+      { id: "last", sender_id: "viewer", body: "Mình đã gửi thông tin.", created_at: "2026-10-17T01:00:00.000002Z" },
+      ...(state === "replied" ? [{ id: "reply", sender_id: "anna", body: "Mình nhận được rồi.", created_at: "2026-10-17T01:01:00Z" }] : []),
+    ];
+    await page.route("**/roommate/chat/conversations/request-one/messages", route => route.fulfill({ json: {
+      id: "request-one", request_id: "request-one", state: "active", counterparty_name: "Anna Nguyễn", viewer_id: "viewer",
+      items: messages, has_more: false,
+      ...(state === "unread" ? {} : { counterparty_read_message_id: state === "earlier" ? "earlier" : "last" }),
+    } }));
+    await page.goto("/roommate/requests/request-one");
+    await page.getByRole("button", { name: "Đồng ý kết nối", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Nội dung tin nhắn" })).toBeVisible();
+    await expect(page.locator(".contact-thread-seen")).toHaveCount(state === "seen" ? 1 : 0);
+    if (state === "seen") await expect(page.locator(".contact-thread-list li.mine").last()).toContainText("Đã xem");
+  });
+}

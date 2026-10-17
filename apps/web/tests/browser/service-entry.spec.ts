@@ -45,6 +45,7 @@ test("welcome shows six equal service entries with Roommates and Guides working"
     const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(audit.violations.map(v => v.id)).toEqual([]);
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Guides for your next chapter", exact: true })).toBeVisible();
   await page.goto("/ai");
@@ -67,6 +68,7 @@ test("guide library is public and opens original in-app articles", async ({ page
   await expect(page.getByRole("heading", { name: "Đi xem phòng: kiểm tra gì ngoài ảnh đăng?", exact: true })).toBeVisible();
   await expect(page.locator('.guides-reader-body > section[id^="guide-section-"]')).toHaveCount(3);
   if (await page.locator("html").getAttribute("data-theme") !== "dark") {
+    await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).focus();
     await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).click();
   }
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

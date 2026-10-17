@@ -121,7 +121,7 @@ export function estimateCost(house: House, usage: Usage = {}): CostEstimate {
     fees.length > 0 && monthly.every((l) => l.amount != null);
   const moveInLines = [
     { label: "Tiền cọc", amount: deposit },
-    { label: "Tháng thuê đầu", amount: rent },
+    ...monthly,
     ...oneTime,
   ];
   const area = typeof house.area_m2 === "number" ? house.area_m2 : null;
@@ -134,7 +134,7 @@ export function estimateCost(house: House, usage: Usage = {}): CostEstimate {
     monthlyKnown: sum(monthly),
     monthlyComplete,
     moveInKnown: sum(moveInLines),
-    moveInComplete: moveInLines.every((l) => l.amount != null),
+    moveInComplete: monthlyComplete && moveInLines.every((l) => l.amount != null),
     feesPublished: fees.length > 0,
     pricePerM2:
       rent != null && area && area > 0 ? Math.round(rent / area) : null,

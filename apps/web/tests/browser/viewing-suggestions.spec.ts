@@ -140,6 +140,9 @@ async function fixture(
           },
         });
       data = thread.state.viewing;
+    } else if (path.endsWith("/viewings/unselect")) {
+      thread.state.viewing.items = [];
+      data = thread.state.viewing;
     } else if (path.endsWith("/viewings/cancel")) {
       Object.assign(item, {
         status: "selected",
@@ -164,7 +167,7 @@ async function fixture(
 async function scheduleOne(page: Page, slot: string) {
   await page.getByRole("checkbox", { name: "Đặt lịch cho Phòng hẹn xem", exact: true }).check();
   await page.getByLabel("Giờ xem · Phòng hẹn xem", { exact: true }).selectOption(slot);
-  await page.getByRole("button", { name: "Xem lại lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
   await page.getByRole("button", { name: "Xác nhận 1 lịch", exact: true }).click();
 }
 
@@ -315,8 +318,11 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     fullPage: true,
   });
   await page
+    .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true }).focus();
+  await page
     .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
     .click();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   // Appearance controls sit outside the plan popover and close it by design.
   await page
@@ -346,12 +352,13 @@ test("saved viewing shows contextual preparation; route form uses that home's ad
     path: info.outputPath("viewing-preparation-dark-en.png"),
     fullPage: true,
   });
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
   await page
     .getByRole("button", { name: "Xem nhanh kế hoạch", exact: true })
     .click();
   await page.getByRole("button", { name: "Xong", exact: true }).click();
-  await page.getByRole("button", { name: "Hủy lịch", exact: true }).click();
+  await page.getByRole("button", { name: "Hủy lịch & bỏ chọn", exact: true }).click();
   await expect(preparation).toHaveCount(0);
   expect(errors).toEqual([]);
 });

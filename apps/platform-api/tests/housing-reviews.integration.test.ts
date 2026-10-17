@@ -102,6 +102,11 @@ beforeAll(async () => {
         message: 'Tôi muốn tìm hiểu phòng.',
       })
   }
+  // Existing review scenarios start with completed appointments, rather than contact-only requests.
+  await admin.query(`UPDATE housing.contact_requests SET viewing_status='confirmed',
+    viewing_slot=now()-interval '1 day',visit_met_at=now()
+    WHERE tenant_user_id=ANY($1::text[]) AND listing_id=ANY($2::uuid[])`, [tenants.slice(0, 2), listings])
+
 })
 afterAll(async () => {
   await app?.close()
@@ -204,7 +209,7 @@ describe('landlord stars (housing-feedback-design RV-01..07)', () => {
       count: 1,
     })
   })
-  it('confirmed appointments label the author viewed; owner can reply but not edit the review', async () => {
+  it('only a reported meeting after a confirmed appointment permits review; owner can reply', async () => {
     const slot = new Date(Date.now() + 86400000).toISOString()
     const booked = await call(tenants[2], 'PUT', `/v1/housing/${listings[0]}/viewing`, { slot })
     const request = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items.find(
@@ -214,8 +219,14 @@ describe('landlord stars (housing-feedback-design RV-01..07)', () => {
       decision: 'confirm',
       revision: request.revision,
     })
+    expect((await call(tenants[2], 'GET', `/v1/housing/${listings[0]}/reviews`)).body.can_review).toBe(false)
+    expect((await call(tenants[2], 'PUT', `/v1/housing/${listings[0]}/review`, { rating: 5 })).status).toBe(403)
+    expect((await call(tenants[2], 'PUT', `/v1/housing/${listings[0]}/review`, { rating: 5, visit_slot: slot })).status).toBe(403)
+    const metSlot = new Date(Date.now() - 3600000).toISOString()
+    await admin.query('UPDATE housing.contact_requests SET viewing_slot=$2 WHERE id=$1', [request.id, metSlot])
     const saved = await call(tenants[2], 'PUT', `/v1/housing/${listings[0]}/review`, {
       rating: 5,
+      visit_slot: metSlot,
       body: 'Lịch xem thuận tiện.',
     })
     expect(saved.body.stage).toBe('viewed')

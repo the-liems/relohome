@@ -48,16 +48,18 @@ async def test_management_gateway_uses_session_actor_and_strict_allowlist(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_housing_image_upload_is_sanitized_and_registered(tmp_path, monkeypatch):
+# An empty public URL (as in the env template) falls back to the request origin.
+@pytest.mark.parametrize(("public_base", "origin"), [("https://example.test", "https://example.test"), ("", "http://test")])
+async def test_housing_image_upload_is_sanitized_and_registered(tmp_path, monkeypatch, public_base, origin):
     monkeypatch.setenv("AGENT_API_TOKEN", "server-token")
-    monkeypatch.setenv("SIU_PUBLIC_BASE_URL", "https://example.test")
+    monkeypatch.setenv("SIU_PUBLIC_BASE_URL", public_base)
     monkeypatch.setenv("SIU_HOUSING_MEDIA_DIR", str(tmp_path / "media"))
 
     def provider(request):
         if request.method == "GET":
             return httpx.Response(200, json={"public": False})
         body = json.loads(request.content)
-        assert body["url"].startswith("https://example.test/web/media/housing/")
+        assert body["url"].startswith(origin + "/web/media/housing/")
         assert body["url"].endswith(".png")
         return httpx.Response(201, json={"id": "media-1", "url": body["url"]})
 

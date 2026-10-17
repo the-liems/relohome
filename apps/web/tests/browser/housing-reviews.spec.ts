@@ -368,10 +368,12 @@ test("landlord replies and reports, with accessible dark mode", async ({
   await page.getByLabel("Lý do báo cáo").fill("Cần kiểm tra đúng địa điểm.");
   await page.getByRole("button", { name: "Gửi báo cáo" }).click();
   await expect.poll(f.reported).toBeTruthy();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Tenant reviews" }),
   ).toBeVisible();
+  await page.getByRole('button',{name:'Switch to dark mode'}).focus();
   await page.getByRole('button',{name:'Switch to dark mode'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await audit(page);

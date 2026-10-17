@@ -112,11 +112,13 @@ test("VI/EN and light/dark survive reload with no untranslated landing copy", as
   page,
 }, info) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator(".landing-upgrade")).not.toContainText(
     /[àáảãạăâđèéêìíòóôơùúưỳý]/i,
   );
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -127,7 +129,9 @@ test("VI/EN and light/dark survive reload with no untranslated landing copy", as
     path: info.outputPath("landing-en-dark.png"),
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Switch to light mode" }).focus();
   await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "vi");
 });
@@ -194,6 +198,7 @@ for (const theme of ["light", "dark"] as const) {
         ).toEqual([]);
       }
     }
+    await page.getByRole("button", { name: "VI", exact: true }).focus();
     await page.getByRole("button", { name: "VI", exact: true }).click();
     await page.screenshot({
       path: info.outputPath(`landing-vi-${theme}-desktop.png`),
