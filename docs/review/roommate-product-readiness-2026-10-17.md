@@ -45,10 +45,46 @@ fixture hoặc service nội bộ cùng DB test, không gọi LLM/provider trả
 bài hộ tài khoản thật trên cloud. Test live cần provider ngoài không được chạy đợt này.
 CI của PR cần kiểm tra riêng theo SHA sau push.
 
+### Bổ sung: dùng chung Admin Housing
+
+Admin `/admin` có tab **Ở ghép**, tái sử dụng công cụ xử lý báo cáo, duyệt ảnh và
+hạn chế/khôi phục hồ sơ. Backend đọc cùng `HOUSING_MODERATOR_IDS` như platform;
+`ROOMMATE_MODERATORS` chỉ là danh sách bổ sung tương thích cấu hình cũ. Compose mới
+truyền danh sách Housing sang backend, nên không cần cấu hình danh sách quyền thứ
+hai khi Admin duyệt nhà đã được cấu hình đúng. Cần deploy web/backend/Compose mới.
+
+Admin không cần tạo hồ sơ/consent cá nhân để kiểm duyệt; điều kiện khám phá/đăng hồ
+sơ và kết nối của người dùng giữ nguyên. Quyền thao tác được kiểm ở backend qua
+ID đáng tin từ gateway. Không nhận role từ browser. Recovery chỉ cho đọc/khôi phục
+draft hoặc kết quả của chính actor, không mở chat hay dữ liệu riêng người khác.
+
+Kiểm chứng cho phần tích hợp:
+
+- **259 passed**: Roommate SQLite/PostgreSQL + gateway/auth, gồm Admin Housing/legacy,
+  từ chối user thường và role giả; retry cùng key, draft owner isolation và consent.
+- **34 passed, 1 skipped, 5 subtests passed**: deployment/Compose, xác minh cùng ID
+  đi vào cả platform/backend. Trên Windows gọi trực tiếp Docker Compose plugin do
+  test tối giản env không tìm được plugin; không sửa workflow CI hoặc hạ assertion.
+- **10 passed**: tab Admin Roommate desktop/mobile, sáng/tối, axe, selected tab thấy
+  được trong thanh cuộn ngang; disabled, thiếu quyền và lỗi dịch vụ không chặn Housing.
+- **5 passed**: Chrome → gateway → Roommate API → SQLite, có tài khoản Admin không
+  có hồ sơ/consent cá nhân, duyệt ảnh/báo cáo, hạn chế/khôi phục; luồng người dùng cũ đạt.
+  Platform trong fixture tích hợp này được mô phỏng; quyền Housing thật đã có các
+  test platform/gateway và cần smoke trên cloud sau deploy.
+- Hồi quy browser rộng Housing/Roommate/auth: **136 passed, 2 failed**. Đối chiếu đúng
+  hai ca `service-auth.spec.ts:329` trên main `4a14c23`: **cùng 2 ca failed** ở click
+  lưu intro sau lần hết phiên thứ hai (nút bị disabled hoặc dialog đăng nhập chặn).
+  Không sửa/skip test hoặc đổi luồng đăng nhập riêng để làm xanh đợt tích hợp này.
+  Không coi toàn bộ frontend suite là xanh.
+- Web build, Ruff và diff whitespace đạt; state test tách riêng. Screenshot local:
+  `apps/web/test-results/admin-theme-final2`, tích hợp `admin-integration-final`;
+  đối chiếu main trong `.tmp/roommate-admin-baseline`.
+
 ## Điều kiện cần xác nhận trên cloud khi triển khai
 
 1. Backend thật nhận `ROOMMATE_ENABLED=true`, token gateway đồng nhất và moderator là
-   account ID thật. Availability cần trả `enabled:true`, `demo_enabled:false`, có `chat`.
+   account ID thật từ `HOUSING_MODERATOR_IDS` (hoặc Roommate legacy). Availability cần
+   trả `enabled:true`, `demo_enabled:false`, có `chat`.
    Không suy luận giá trị hiệu lực từ `.env` local hoặc chỉ từ `/health`.
 2. Giữ private volume/schema và contact key hiện có. PR không có migration, không yêu
    cầu đổi key hoặc import/xóa dữ liệu. Các cờ demo cũ có thể bỏ khỏi Coolify; không cần
@@ -65,7 +101,7 @@ CI của PR cần kiểm tra riêng theo SHA sau push.
 
 ## Phạm vi PR
 
-Bỏ demo và cập nhật hướng dẫn/test tương ứng. Giữ thuật toán ghép, quota/consent,
+Bỏ demo, dùng chung Admin Housing và cập nhật hướng dẫn/test tương ứng. Giữ thuật toán ghép, quota/consent cá nhân,
 luồng Phone/Zalo legacy, thời hạn chat, API nghiệp vụ khác và workflow CI. Hai field
 legacy `demo_enabled:false` và `include_demo` được giữ tương thích, không còn khả năng
 bật dữ liệu giả. Dataset/generator tổng hợp chỉ phục vụ kiểm thử offline.

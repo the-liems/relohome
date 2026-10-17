@@ -34,7 +34,8 @@ kiểm tra quyền, tuổi/điều khoản, block và moderation giữ nguyên.
 | --- | --- |
 | `ROOMMATE_ENABLED` | `false` mặc định; `true` mới khởi tạo DB/khóa. |
 | `ROOMMATE_STATE_DIR` | Mặc định `logs/private-roommate`; thư mục private của service account. Runtime từ chối dưới `data/`, `Frontend/public/`, `apps/web/public/` và `apps/web/dist/`. |
-| `ROOMMATE_MODERATORS` | Account IDs do operator chọn, phân tách dấu phẩy; bắt buộc khi enabled. Không nhận role từ request/browser. |
+| `HOUSING_MODERATOR_IDS` | Dùng lại account IDs của Admin duyệt nhà, phân tách dấu phẩy. Compose truyền cùng biến này cho platform và backend. Không dùng email hoặc role từ browser. |
+| `ROOMMATE_MODERATORS` | Tùy chọn: thêm account IDs chỉ quản lý Roommate, giữ tương thích cấu hình cũ. Để trống nếu đã có Housing Admin; khi enabled cần ít nhất một ID trong hợp hai danh sách. |
 | `ROOMMATE_AREA_CATALOG` | Tùy chọn: JSON object canonical area ID → `hcm`/`hanoi`/`danang` được export từ Location. Không có file thì chỉ whole-city IDs. Không ghi giá trị rỗng vào env cho Path tùy chọn; bỏ biến khi chưa dùng. |
 | `AGENT_API_TOKEN` | Secret chung API/gateway đã có, bắt buộc khi enabled. Chỉ server giữ. |
 | `LIFEFLOW_API_BASE_URL` | Gateway mặc định `http://127.0.0.1:8000/api/v1`. |
@@ -84,7 +85,44 @@ if runtime is not None:
 
 Chưa tạo background daemon/scheduler/email/push. Inbox trả trạng thái và nhắc xác nhận lại trong ba ngày cuối; frontend đã có trạng thái/deadline, nhắc ba ngày cuối còn trong checklist phát hành đầy đủ.
 
-Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa ảnh gắn public; restrict/revoke có audit. Restore profile trở về paused, không tự mở lại consent. Moderator UI ở phase frontend.
+### Dùng Admin hiện có — cập nhật 17/10/2026
+
+Đăng nhập bằng **Đăng nhập Admin**, mở `/admin` → **Ở ghép** (hoặc
+`/admin?tab=roommate`). Tái sử dụng các công cụ Roommate hiện có: danh sách báo cáo,
+duyệt ảnh hồ sơ và hạn chế/khôi phục quyền sử dụng. Các tab duyệt nhà/người đăng/đánh
+giá vẫn dùng API và kiểm tra quyền Housing cũ.
+
+Backend nhận cùng `HOUSING_MODERATOR_IDS` đã cấp quyền Admin cho platform. **Không
+cần thêm `ROOMMATE_MODERATORS`** nếu danh sách Housing đã đúng. Sau thay đổi này phải
+build/deploy cả web và backend với Compose mới; phiên bản backend cũ vẫn chỉ đọc danh
+sách Roommate riêng. Nếu deploy các service bằng resource tách rời ngoài Compose,
+truyền cùng giá trị `HOUSING_MODERATOR_IDS` hiện có sang backend, không tạo danh sách
+quyền thứ hai. `ROOMMATE_ENABLED=true`, token, DB/private volume và contact key giữ
+cấu hình hiện tại. Không cần migration hoặc tạo lại DB/key.
+
+Admin không phải tạo hồ sơ ở ghép hoặc tự nhận đã đủ tuổi/đồng ý điều khoản cá nhân
+để kiểm duyệt. Điều này không tự mở quyền tìm người, đăng hồ sơ, gửi yêu cầu hay đọc
+tin nhắn của người khác. API vẫn xác thực bearer từ gateway và account ID trong
+danh sách server; không tin `is_admin` hoặc role do browser gửi.
+
+Các thao tác hạn chế hồ sơ giữ operation key để tránh làm lặp khi retry; Admin chỉ
+đọc/khôi phục draft và kết quả thao tác của chính mình. Draft cho hành động cá nhân
+vẫn yêu cầu điều kiện sử dụng Roommate như cũ. `ROOMMATE_MODERATORS` riêng vẫn hỗ trợ
+công cụ `/roommate/moderation` nếu chưa chuyển sang Admin Housing.
+
+Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account
+allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa
+ảnh gắn public; restrict/revoke có audit. Khôi phục hồ sơ trả về **tạm dừng**, không
+tự đăng lại hoặc mở lại consent.
+
+Smoke test sau deploy:
+
+1. `/web/api/roommate/availability` trả `enabled:true`; đăng nhập Admin đang duyệt nhà.
+2. Tab **Ở ghép** mở báo cáo/ảnh/hồ sơ; `/access` có `moderator:true` kể cả `eligible:false`.
+3. Duyệt một ảnh test, xử lý báo cáo, hạn chế rồi khôi phục một tài khoản test được phép.
+4. Người dùng thường không gọi được `/moderation/*` (403); tab duyệt nhà vẫn hoạt động.
+5. Nếu startup vẫn báo thiếu moderator, kiểm tra env **hiệu lực trong backend**, không
+   chỉ env platform hay file `.env` local. Không gửi token/key khi chụp cấu hình.
 
 ## Lỗi/timeout/rollback
 

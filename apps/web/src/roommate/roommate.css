@@ -4,6 +4,14 @@
   background: var(--ui-bg);
 }
 
+.rm-workspace.rm-admin-workspace {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
 .account-roommate-intro {
   grid-column: 1 / -1;
   min-width: 0;

@@ -56,6 +56,21 @@ for router in (
 
 
 async def forward(request):
+    # Only the platform is a fixture here; Roommate API, permissions and persistence are real.
+    if request.url.path.startswith("/v1/"):
+        authorized = (
+            request.headers.get("x-user-id") == "fixture-admin"
+            and request.headers.get("authorization") == "Bearer roommate-browser-test-token"
+        )
+        if not authorized:
+            return httpx.Response(403, json={"code": "moderator_required"})
+        if request.url.path == "/v1/admin/session":
+            return httpx.Response(200, json={"can_moderate_housing": True})
+        if request.url.path == "/v1/moderation/housing/queue":
+            return httpx.Response(200, json={"hosts": [], "properties": [], "listings": []})
+        if request.url.path == "/v1/moderation/housing/listings":
+            return httpx.Response(200, json={"items": [], "total": 0})
+        return httpx.Response(404)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api), base_url="http://roommate-test") as client:
         return await client.request(
             request.method, request.url.raw_path.decode(), headers=request.headers, content=request.content
@@ -74,6 +89,7 @@ async def lifespan(gateway):
             roommate_enabled=True,
             roommate_state_dir=STATE / "private",
             roommate_moderators="fixture-anna",
+            housing_moderator_ids="fixture-admin",
             agent_api_token="roommate-browser-test-token",
         )
     )
@@ -83,7 +99,12 @@ async def lifespan(gateway):
     )
     try:
         async with gateway_lifespan(gateway):
-            for identifier, name in (("fixture-anna", "Anna"), ("fixture-linh", "Linh")):
+            for identifier, name in (
+                ("fixture-anna", "Anna"),
+                ("fixture-linh", "Linh"),
+                ("fixture-admin", "Admin"),
+                ("fixture-reviewee", "Reviewee"),
+            ):
                 if gateway.state.store.one("SELECT id FROM users WHERE id=?", (identifier,)):
                     continue
                 salt = secrets.token_hex(16)
@@ -97,6 +118,8 @@ async def lifespan(gateway):
                         password_hash("roommate-test-password", salt),
                     ),
                 )
+                if identifier == "fixture-admin":
+                    continue  # No personal Roommate consent or discovery profile for this Admin.
                 actor = Actor(id=identifier)
                 profile = RoommateProfile(
                     display_name=name,

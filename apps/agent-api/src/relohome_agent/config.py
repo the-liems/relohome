@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     roommate_state_dir: Path = Path("logs/private-roommate")
     roommate_area_catalog: Path | None = None
     roommate_moderators: str = ""
+    # Reuse the existing Housing Admin account IDs; legacy Roommate IDs remain additive.
+    housing_moderator_ids: str = ""
     roommate_storage: Literal["sqlite", "postgres"] = "sqlite"
     roommate_database_url: SecretStr = SecretStr("")
     roommate_contact_key: SecretStr = SecretStr("")

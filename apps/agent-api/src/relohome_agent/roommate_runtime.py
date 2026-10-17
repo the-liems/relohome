@@ -36,9 +36,14 @@ class RoommateRuntime:
         token = settings.agent_api_token.get_secret_value()
         if not token:
             raise ValueError("Roommate requires a trusted gateway token")
-        moderators = frozenset(value.strip() for value in settings.roommate_moderators.split(",") if value.strip())
+        moderators = frozenset(
+            value.strip()
+            for configured in (settings.housing_moderator_ids, settings.roommate_moderators)
+            for value in configured.split(",")
+            if value.strip()
+        )
         if not moderators:
-            raise ValueError("Roommate requires at least one configured moderator")
+            raise ValueError("Roommate requires a moderator in HOUSING_MODERATOR_IDS or ROOMMATE_MODERATORS")
         configured_root = os.getenv("RELOHOME_RUNTIME_ROOT")
         if not configured_root or not Path(configured_root).expanduser().is_absolute():
             raise ValueError("RELOHOME_RUNTIME_ROOT must be an absolute path for Roommate")

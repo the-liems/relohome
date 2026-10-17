@@ -17,6 +17,7 @@ def test_runtime_requires_private_path_token_and_moderators(tmp_path):
                 roommate_enabled=True,
                 agent_api_token="",
                 roommate_moderators="",
+                housing_moderator_ids="",
                 roommate_state_dir=tmp_path,
             )
         )
@@ -27,9 +28,28 @@ def test_runtime_requires_private_path_token_and_moderators(tmp_path):
                 roommate_enabled=True,
                 agent_api_token="test-token",
                 roommate_moderators="",
+                housing_moderator_ids="",
                 roommate_state_dir=tmp_path,
             )
         )
+
+
+@pytest.mark.parametrize("legacy", ["", " legacy, housing-admin, "])
+def test_runtime_reuses_housing_admin_ids_without_roommate_configuration(tmp_path, monkeypatch, legacy):
+    monkeypatch.setenv("HOUSING_MODERATOR_IDS", " housing-admin, second-admin, housing-admin, ")
+    runtime = RoommateRuntime.open(
+        Settings(
+            _env_file=None,
+            roommate_enabled=True,
+            agent_api_token="test-token",
+            roommate_moderators=legacy,
+            roommate_state_dir=tmp_path,
+        )
+    )
+    try:
+        assert runtime.moderators == frozenset({"housing-admin", "second-admin"} | ({"legacy"} if legacy else set()))
+    finally:
+        runtime.close()
 
 
 def test_runtime_context_restart_and_missing_key(tmp_path):
@@ -58,8 +78,11 @@ def test_configured_root_preserves_private_paths_from_unrelated_cwd(tmp_path, mo
     monkeypatch.chdir(unrelated)
     monkeypatch.setenv("RELOHOME_RUNTIME_ROOT", str(root))
     settings = Settings(
-        _env_file=None, roommate_enabled=True, agent_api_token="test-token",
-        roommate_moderators="mod", roommate_state_dir="private-roommate",
+        _env_file=None,
+        roommate_enabled=True,
+        agent_api_token="test-token",
+        roommate_moderators="mod",
+        roommate_state_dir="private-roommate",
     )
     runtime = RoommateRuntime.open(settings)
     assert runtime.path == root / "private-roommate/roommate.sqlite3"
