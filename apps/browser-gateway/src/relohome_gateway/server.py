@@ -849,6 +849,7 @@ def create_app(database=None, transport=None):
             if isinstance(exc, ValueError):
                 logger.error("Upstream response is not valid JSON")
                 return JSONResponse(content, status_code=502)
+            logger.warning("upstream request failed target=backend method=%s path=%s", method, path, exc_info=True)
             return JSONResponse(content, status_code=502)
         if not response.is_success:
             detail = data.get("detail") if isinstance(data, dict) else None
