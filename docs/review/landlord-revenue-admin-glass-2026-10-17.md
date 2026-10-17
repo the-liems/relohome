@@ -26,6 +26,16 @@ Sau review PR #225:
 - Khoảng thuê chưa bắt đầu (ngày dọn vào ở tương lai) hoặc rỗng không tạo doanh thu, không còn ra số âm.
 - Màu của một nhà theo vị trí trong danh sách nhà (5 nhà đầu có màu riêng, còn lại là "Khác"), không đổi theo hạng doanh thu hay kỳ thống kê.
 
+### Bổ sung sau vòng review ngày 17/10/2026
+
+- Xác nhận báo chuyển tiền dùng ngày dọn vào hợp lệ, nếu không có thì dùng `paid_on`. Ngày review chỉ là mặc định cho thao tác đánh dấu thuê thủ công; ngày dọn vào rỗng hoặc sai không còn làm mất doanh thu trước ngày review.
+- Kiểm tra riêng từng giá trị trước khi fallback: giá thuê tháng hợp lệ → giá tháng đầu hợp lệ → giá tin đăng. API và backfill dùng cùng thứ tự.
+- `calendarDate` loại năm `0000`, dù JavaScript chấp nhận, để tránh lỗi ép kiểu ngày trong PostgreSQL khi chủ nhà xác nhận nhận tiền. Báo cáo cũ vẫn được xử lý bằng ngày chuyển tiền; không đổi API contract.
+- Thêm 10 unit test ngày tháng và 6 integration case: ngày không tồn tại, chuỗi rỗng, thiếu ngày, năm 0, giá thuê sai nhưng tháng đầu đúng, cả hai giá thỏa thuận không dùng được. Mỗi integration case đối chiếu kỳ thuê qua API với chính migration trong transaction rollback.
+- Đã chạy trước sửa: unit test năm 0 và 4 integration case thất bại đúng lỗi review. Sau sửa: 18 ca doanh thu/ngày tháng đạt. Toàn bộ hai file test Housing/ngày tháng: 29 đạt, còn 1 lỗi revision ở ca lưu draft (`revision=14` thay vì `11`) đã tồn tại trước bản sửa và được ghi nhận trong review; không bỏ test hoặc nới assertion.
+
+Bản sửa bổ sung chỉ thay chuẩn hóa ngày/giá ở Platform API cùng test và tài liệu; không thêm env, không đổi migration 029 và không sửa CI. Migration 029 vẫn là yêu cầu triển khai của tính năng doanh thu trong PR gốc.
+
 Giới hạn: phòng cho thuê trước khi có migration mà không có báo cáo chuyển tiền chỉ được tính từ lần đánh dấu Đã thuê gần nhất. Lịch sử đổi trạng thái trước đó không được lưu nên không dựng lại được.
 
 ## Admin dùng giao diện kính như chủ nhà

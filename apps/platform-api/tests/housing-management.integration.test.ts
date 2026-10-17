@@ -1340,3 +1340,62 @@ it('revenue: future move-in earns nothing yet and impossible dates never block p
     [today, 6_000_000],
   ])
 })
+
+it.each([
+  { name: 'impossible move-in', moveIn: '2026-02-31', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'empty move-in', moveIn: '', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'missing move-in', moveIn: null, rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'year zero', moveIn: '0000-01-01', rent: 5_000_000, firstMonth: 6_000_000, expectedRent: 5_000_000 },
+  { name: 'unusable rent with valid first month', moveIn: null, rent: 1e30, firstMonth: 6_000_000, expectedRent: 6_000_000 },
+  { name: 'both agreement rents unusable', moveIn: null, rent: 1e30, firstMonth: 0, expectedRent: 4_000_000 },
+])('revenue fallback: $name agrees between payment confirmation and migration', async ({ moveIn, rent, firstMonth, expectedRent }) => {
+  const owner = `test-rent-fallback-owner-${randomUUID()}-${run}`, tenant = `test-rent-fallback-tenant-${randomUUID()}-${run}`
+  await host(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, { decision: 'verify', method: 'phone_call' })).status).toBe(200)
+  const p = await property(owner)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})).status).toBe(200)
+  const room = await listing(owner, await unit(owner, p, 'F.1'), [])
+  expect((await call(owner, 'POST', `/v1/landlord/listings/${room}/submit`, {})).status).toBe(200)
+  expect((await call(MODERATOR, 'POST', `/v1/moderation/housing/listings/${room}/review`, { decision: 'approve' })).status).toBe(200)
+  const request = await call(tenant, 'PUT', `/v1/housing/${room}/viewing`, { slot: new Date(Date.now() + 86400000).toISOString() })
+  expect(request.status).toBe(201)
+  const requestId = request.body.id
+  const revision = (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1', [requestId])).rows[0].revision
+  expect((await call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/viewing`, { decision: 'confirm', revision })).status).toBe(200)
+
+  // A previous-month payment distinguishes paid_on from today's review date.
+  const dates = (await admin.query(`SELECT
+    to_char(date_trunc('month',(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)-interval '1 month','YYYY-MM-DD') AS paid_on`)).rows[0]
+  const report = await call(tenant, 'POST', `/v1/housing/${room}/payment-reports`, {
+    report_key: randomUUID(), amount_vnd: 9_000_000, paid_on: dates.paid_on,
+    agreement: { move_in: moveIn, rent_vnd: rent, first_month_vnd: firstMonth, deposit_vnd: 4_000_000 },
+  })
+  expect(report.status, JSON.stringify(report.body)).toBe(201)
+  const reviewed = await call(owner, 'POST', `/v1/landlord/contact-requests/${requestId}/payment-review`, {
+    report_id: report.body.id, revision: report.body.revision, decision: 'confirm',
+  })
+  expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200)
+  expect(reviewed.body.status).toBe('confirmed')
+  const periodSql = `SELECT to_char(starts_on,'YYYY-MM-DD') AS starts_on,monthly_rent_vnd::float AS rent
+    FROM housing.rent_periods WHERE payment_report_id=$1`
+  const actual = (await admin.query(periodSql, [report.body.id])).rows
+  expect(actual).toEqual([{ starts_on: dates.paid_on, rent: expectedRent }])
+
+  const revenue = await call(owner, 'GET', `/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(revenue.status).toBe(200)
+  const months = Object.fromEntries(revenue.body.series.map((m: { month: string; total: number }) => [m.month, m.total]))
+  expect(months[String(dates.paid_on).slice(0, 7)]).toBe(expectedRent)
+
+  // Rebuild the same report with the migration, but roll back all backfill changes.
+  const sql = (await import('node:fs')).readFileSync(new URL('../../../deploy/database/migrations/029_housing_rent_periods.sql', import.meta.url), 'utf8')
+  const client = await admin.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM housing.rent_periods WHERE payment_report_id=$1', [report.body.id])
+    await client.query(sql)
+    expect((await client.query(periodSql, [report.body.id])).rows).toEqual(actual)
+  } finally {
+    await client.query('ROLLBACK')
+    client.release()
+  }
+})

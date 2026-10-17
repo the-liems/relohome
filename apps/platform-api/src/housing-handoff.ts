@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { actor, contactCounterpartySql, conversationRole, ManagementError } from './housing-management.js'
-import { startRentPeriod } from './housing-revenue.js'
+import { calendarDate, plausibleRent, startRentPeriod } from './housing-revenue.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -192,8 +192,8 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
         const report = result.rows[0], agreement = report.agreement || {}
         await startRentPeriod(client, String(contact.listing_id), {
           source: 'payment',
-          startsOn: typeof agreement.move_in === 'string' ? agreement.move_in : report.paid_on,
-          rentVnd: Number(agreement.rent_vnd ?? agreement.first_month_vnd) || null,
+          startsOn: calendarDate(agreement.move_in) ?? report.paid_on,
+          rentVnd: plausibleRent(agreement.rent_vnd) ?? plausibleRent(agreement.first_month_vnd),
           reportId: String(report.id),
         })
       }
