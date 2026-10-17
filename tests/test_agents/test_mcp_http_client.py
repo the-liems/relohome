@@ -1,6 +1,7 @@
 """McpToolClient qua Streamable HTTP + Bearer (đường nối dùng cho Location và Moving), thử với Flight MCP thật."""
 
 import asyncio
+import logging
 import os
 import socket
 import sys
@@ -8,6 +9,7 @@ import sys
 import httpx
 import pytest
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
 from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
 
@@ -90,3 +92,32 @@ async def test_location_accepts_large_boundary_events_without_relaxing_other_ser
             await ordinary.call("search_areas", {})
         assert limited.value.code == "unavailable"
         assert "1048576 byte limit" in repr(limited.value.__cause__)
+
+
+@pytest.mark.asyncio
+async def test_tool_errors_and_unreachable_servers_are_logged_without_contacts(caplog):
+    server = MCPServer("failing-fixture")
+
+    @server.tool()
+    def estimate_move() -> dict:
+        raise ToolError("Input validation error: contact rider@example.com is not allowed")
+
+    caplog.set_level(logging.WARNING, logger="relohome_agent.services.adapters.mcp")
+    async with running_mcp(server) as url:
+        client = McpToolClient(McpEndpoint("moving", frozenset({"estimate_move"}), url=url, token=TEST_MCP_TOKEN))
+        with pytest.raises(ToolCallError) as rejected:
+            await client.call("estimate_move", {})
+    assert rejected.value.code == "TOOL_ERROR" and not rejected.value.transport
+    logged = next(r for r in caplog.records if r.getMessage().startswith("mcp_tool_error"))
+    assert logged.levelno == logging.WARNING
+    assert "service=moving tool=estimate_move code=TOOL_ERROR retryable=False" in logged.getMessage()
+    assert "[email]" in logged.getMessage() and "rider@example.com" not in logged.getMessage()
+
+    caplog.clear()
+    down = McpToolClient(McpEndpoint("moving", frozenset({"estimate_move"}), url=url, token=TEST_MCP_TOKEN))
+    with pytest.raises(ToolCallError) as unreachable:
+        await down.call("estimate_move", {})
+    assert unreachable.value.code == "unavailable"
+    logged = next(r for r in caplog.records if r.getMessage().startswith("mcp_tool_unavailable"))
+    assert "service=moving tool=estimate_move sent=False" in logged.getMessage()
+    assert logged.exc_info is not None  # The connection cause is kept for root-cause analysis.

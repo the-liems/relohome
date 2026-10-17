@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -18,6 +19,9 @@ import httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
+from relohome_privacy import redact_pii
+
+logger = logging.getLogger(__name__)
 
 
 class ToolCallError(Exception):
@@ -147,18 +151,34 @@ class McpToolClient:
                     sent = True
                     result = await session.call_tool(tool, arguments)
             return unwrap(result)
-        except ToolCallError:
+        except ToolCallError as exc:
+            if sent:  # A tool-level error (isError) leaves the SDK's client span OK; record it here.
+                logger.warning(
+                    "mcp_tool_error service=%s tool=%s code=%s retryable=%s message=%s",
+                    self.endpoint.service,
+                    tool,
+                    exc.code,
+                    exc.retryable,
+                    redact_pii(exc.message),
+                )
             raise
         except TimeoutError as exc:
+            logger.warning("mcp_tool_timeout service=%s tool=%s sent=%s", self.endpoint.service, tool, sent)
             raise ToolCallError(
                 "timeout", f"{self.endpoint.service}.{tool} timed out", retryable=True, transport=not sent
             ) from exc
         except Exception as exc:  # lỗi kết nối nằm trong ExceptionGroup của anyio
             if status := _auth_failure(exc):
+                logger.error(
+                    "mcp_tool_rejected_access service=%s tool=%s status=%s", self.endpoint.service, tool, status
+                )
                 raise ToolCallError(
                     "UNAUTHORIZED" if status == 401 else "FORBIDDEN",
                     f"{self.endpoint.service} rejected MCP access",
                 ) from exc
+            logger.warning(
+                "mcp_tool_unavailable service=%s tool=%s sent=%s", self.endpoint.service, tool, sent, exc_info=True
+            )
             raise ToolCallError(
                 "unavailable",
                 f"{self.endpoint.service} unreachable: {type(exc).__name__}",
