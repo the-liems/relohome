@@ -35,8 +35,8 @@ If uncertain, false. This flag never authorizes a transaction. Unsupported: one 
 """
 
 DOMAIN = {
-    AgentName.PROPERTY: """Housing (property): keep the user's place names/abbreviations, no geocoding or invented defaults.
-Administrative 'ở/trong/tại' city/district/ward: city/district scope; near is a specific landmark/address.
+    AgentName.PROPERTY: """Housing: preserve place spelling; no geocoding/defaults. 'Đổi khu vực Cầu Giấy Hà Nội':
+district='Cầu Giấy', city='Hà Nội', NOT near. Administrative scopes use city/district; 'gần X' uses near=X.
 City alone is sufficient. Map viewport reference when map_view_available: near='current:map_view'.
 Price is VND/month; must_have only explicit amenities. '2 phòng ngủ' means min_bedrooms=max_bedrooms=2;
 'ít nhất 2' only min. Bedrooms are not household_size or room_type; do not invent a property type.

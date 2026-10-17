@@ -19,6 +19,7 @@ export interface ChatDockProps {
   suggestions?: Data[];
   busy: boolean;
   error?: string;
+  notice?: string;
   online: boolean;
   onSend: (text: string, extra?: Data) => Promise<void>;
 }
@@ -26,6 +27,9 @@ export interface ChatDockProps {
 // Workspaces start with a floating launcher. Opening it reveals a compact composer;
 // service results stay in the workspace and the full conversation remains in the main chat.
 export function WorkspaceChat({
+  text,
+  kind,
+  notice,
   questions,
   suggestions = [],
   busy,
@@ -48,8 +52,8 @@ export function WorkspaceChat({
   const launcher = useRef<HTMLButtonElement>(null);
   const opened = useRef(false);
   useEffect(() => {
-    if (error) setHidden(false);
-  }, [error]);
+    if (error || notice || questions.length) setHidden(false);
+  }, [error, notice, questions.length]);
   useEffect(() => {
     if (!hidden) {
       opened.current = true;
@@ -135,8 +139,10 @@ export function WorkspaceChat({
         </span>
       )}
       {((!busy && (questions.length > 0 || suggestions.length > 0)) ||
-        error) && (
+        error || notice || (!busy && kind === "ERROR" && text)) && (
         <div className="ws-dock-context">
+          {notice && <p role="status">{uiText(notice)}</p>}
+          {!busy && kind === "ERROR" && text && <p role="alert">{text}</p>}
           {!busy &&
             questions.map((q, i) => (
               <div key={i}>

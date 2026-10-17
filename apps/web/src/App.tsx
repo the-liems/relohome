@@ -59,6 +59,7 @@ import {
   currentHousingTarget,
   hasSelection,
   nextServiceTarget,
+  retainHousingWorkspace,
   serviceTargets,
   closedResultSummary,
   canSelectServiceResult,
@@ -1234,7 +1235,21 @@ function Chat() {
     [...allComponents]
       .reverse()
       .find(({ c }) => c.type === type && (c.data?.[field] || []).length > 0);
-  const latestProperty = currentHousingTarget(thread, workspaceTaskId);
+  const housingWorkspaceSnapshot = useRef<{
+    threadId: string;
+    target: NonNullable<ReturnType<typeof currentHousingTarget>>;
+  } | null>(null);
+  const currentProperty = currentHousingTarget(thread, workspaceTaskId);
+  const retainedHousing = workspace === "property" && thread?.id === threadId &&
+    retainHousingWorkspace(thread, housingWorkspaceSnapshot.current?.threadId);
+  const latestProperty = currentProperty || (retainedHousing ? housingWorkspaceSnapshot.current?.target : undefined);
+  useEffect(() => {
+    if (workspace === "property" && currentProperty && thread) {
+      housingWorkspaceSnapshot.current = { threadId: thread.id, target: currentProperty };
+    } else if (housingWorkspaceSnapshot.current?.threadId !== thread?.id) {
+      housingWorkspaceSnapshot.current = null;
+    }
+  }, [workspace, thread?.id, currentProperty?.c.id]);
   const latestFlight =
       (activeTarget?.c.type === "flight" ? activeTarget : undefined) ||
       latestOf("flight", "offers"),
@@ -1377,6 +1392,7 @@ function Chat() {
       // Explicit navigation to another conversation must not retain this form.
       setMovingSubmission(null);
     }
+    if (retainedHousing && !lastHasService) return;
     setWorkspace(
       lastHasService && !latestService?.c.data?.comparison
         ? (latestService?.c.type ?? null)
@@ -1399,6 +1415,9 @@ function Chat() {
     busy,
     error,
     online: !!status,
+    notice: retainedHousing
+      ? "Bản đồ đang hiển thị kết quả trước; khu vực mới chưa được cập nhật."
+      : undefined,
     onSend: (text: string, extra?: Data) => send(text, extra),
   };
   async function selectIn(
@@ -1655,7 +1674,8 @@ function Chat() {
         </section>
       ) : workspace === "property" && latestProperty ? (
         <MapWorkspace
-          readOnly={!canSelectServiceResult(thread, latestProperty)}
+          readOnly={retainedHousing || !canSelectServiceResult(thread, latestProperty)}
+          readOnlyNotice={chatDock.notice}
           focus={{
             key: latestProperty.c.id,
             viewport: latestProperty.c.data?.map_context?.viewport,
