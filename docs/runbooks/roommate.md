@@ -2,6 +2,12 @@
 
 ## Trạng thái
 
+**Admin và ảnh — 17/10/2026:** bản nâng cấp local có hai hàng đợi Hồ sơ/Báo cáo,
+tìm kiếm/lọc phía server, drawer và lịch sử xử lý. Đã bỏ upload/gắn avatar/duyệt
+ảnh Roommate ở user, Admin, gateway và API. Ảnh cũ vẫn đọc qua private API hoặc
+được chủ sở hữu xóa; không xóa dữ liệu cũ. Không thêm env/migration. Xem
+[bàn giao](../integration/roommate-admin-redesign-2026-10-17.md); chưa xác minh cloud.
+
 **Nâng cấp 12/10/2026:** xem [bàn giao production](../integration/roommate-production-2026-10-12.md) về inbox/media/moderation/privacy, SQLite schema v2, PostgreSQL tùy chọn trên cluster hiện có, backup/cutover/rollback và gates local/cloud. Các mốc dưới đây ghi lại cấu hình và evidence trước nâng cấp; không dùng chúng để kết luận bản mới đã deploy cloud. Thuật toán và consent policy giữ nguyên.
 
 Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đã triển khai; xem [frontend handoff](../../apps/web/ROOMMATE_UI_HANDOFF.md) về phạm vi và tests. `ROOMMATE_ENABLED=false` mặc định. Chỉ bật môi trường thử riêng với tài khoản/dữ liệu được đồng ý; production cần gates G7–G9 và review chủ sản phẩm.
@@ -89,7 +95,7 @@ Chưa tạo background daemon/scheduler/email/push. Inbox trả trạng thái v�
 
 Đăng nhập bằng **Đăng nhập Admin**, mở `/admin` → **Ở ghép** (hoặc
 `/admin?tab=roommate`). Tái sử dụng các công cụ Roommate hiện có: danh sách báo cáo,
-duyệt ảnh hồ sơ và hạn chế/khôi phục quyền sử dụng. Các tab duyệt nhà/người đăng/đánh
+chi tiết/lịch sử hồ sơ và hạn chế/khôi phục quyền sử dụng. Các tab duyệt nhà/người đăng/đánh
 giá vẫn dùng API và kiểm tra quyền Housing cũ.
 
 Backend nhận cùng `HOUSING_MODERATOR_IDS` đã cấp quyền Admin cho platform. **Không
@@ -111,15 +117,17 @@ vẫn yêu cầu điều kiện sử dụng Roommate như cũ. `ROOMMATE_MODERAT
 công cụ `/roommate/moderation` nếu chưa chuyển sang Admin Housing.
 
 Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account
-allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa
-ảnh gắn public; restrict/revoke có audit. Khôi phục hồ sơ trả về **tạm dừng**, không
+allowlisted. Report không tự block/restrict; đánh dấu đã xem xét là thao tác
+riêng với hạn chế tài khoản. Upload/duyệt ảnh đã đóng; audit ảnh cũ vẫn được giữ.
+Restrict/revoke có audit. Khôi phục hồ sơ trả về **tạm dừng**, không
 tự đăng lại hoặc mở lại consent.
 
 Smoke test sau deploy:
 
 1. `/web/api/roommate/availability` trả `enabled:true`; đăng nhập Admin đang duyệt nhà.
-2. Tab **Ở ghép** mở báo cáo/ảnh/hồ sơ; `/access` có `moderator:true` kể cả `eligible:false`.
-3. Duyệt một ảnh test, xử lý báo cáo, hạn chế rồi khôi phục một tài khoản test được phép.
+2. Tab **Ở ghép** mở báo cáo/hồ sơ; `/access` có `moderator:true` kể cả `eligible:false`.
+3. Lọc/xem chi tiết hồ sơ, xử lý báo cáo, hạn chế rồi khôi phục tài khoản test được phép;
+   kiểm tra lịch sử. User/Admin không còn uploader hoặc hàng đợi ảnh.
 4. Người dùng thường không gọi được `/moderation/*` (403); tab duyệt nhà vẫn hoạt động.
 5. Nếu startup vẫn báo thiếu moderator, kiểm tra env **hiệu lực trong backend**, không
    chỉ env platform hay file `.env` local. Không gửi token/key khi chụp cấu hình.
