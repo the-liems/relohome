@@ -163,3 +163,58 @@
 [data-service="guides"], [data-service="guide"] { --service-color: var(--service-guide); --service-soft: var(--service-guide-soft); }
 @media (max-width: 767px) { :root { --ui-header-height: 120px; --control-height: 44px; } }
 @media (pointer: coarse) { :root { --control-height: 44px; } }
+
+/* Tenant canvas: listing identity colors and separate cost/contact surfaces. */
+:root {
+  --tenant-home-purple: #f3eefc;
+  --tenant-home-purple-soft: #faf8fe;
+  --tenant-home-purple-ink: #5742ba;
+  --tenant-home-blue: #e6f1fc;
+  --tenant-home-blue-soft: #f7fafe;
+  --tenant-home-blue-ink: #245fc3;
+  --tenant-home-peach: #fff0e5;
+  --tenant-home-peach-soft: #fffaf4;
+  --tenant-home-peach-ink: #a44310;
+  --tenant-home-teal: #ddf4f5;
+  --tenant-home-teal-soft: #f6fcfc;
+  --tenant-home-teal-ink: #087684;
+  --tenant-cost-bg: #f2f9f5;
+  --tenant-contact-bg: #f1f6fe;
+  --tenant-contact-line: #c9dcf5;
+  --tenant-table-head: #087653;
+  --tenant-map-selected: #d3f2f1;
+  --tenant-map-bg: #ecf9f9d9;
+  --tenant-map-card: #f7fdfd;
+  --tenant-map-ink: #087684;
+  --tenant-map-line: #5cb8bc;
+  --tenant-warning-line: #e2b450;
+  --tenant-alert: #d92d20;
+  --tenant-glass: #ffffffb8;
+  --tenant-slot-bg: #066649;
+  --tenant-slot-text: #ffffff;
+}
+:root[data-theme="dark"] {
+  --tenant-home-purple: #302847;
+  --tenant-home-purple-soft: #252037;
+  --tenant-home-purple-ink: #c4b5ff;
+  --tenant-home-blue: #203652;
+  --tenant-home-blue-soft: #1a2b42;
+  --tenant-home-blue-ink: #a5c7ff;
+  --tenant-home-peach: #422d23;
+  --tenant-home-peach-soft: #32251f;
+  --tenant-home-peach-ink: #ffb47f;
+  --tenant-home-teal: #1d3b42;
+  --tenant-home-teal-soft: #172e35;
+  --tenant-home-teal-ink: #8be2e6;
+  --tenant-cost-bg: #172e28;
+  --tenant-contact-bg: #1b304a;
+  --tenant-contact-line: #48668f;
+  --tenant-map-selected: #224b4d;
+  --tenant-map-bg: #162e34;
+  --tenant-map-card: #1a333b;
+  --tenant-map-ink: #8be2e6;
+  --tenant-map-line: #559caa;
+  --tenant-warning-line: #a88741;
+  --tenant-alert: #ff8a80;
+  --tenant-glass: #151f2eb8;
+}
