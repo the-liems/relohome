@@ -72,6 +72,7 @@ class WorkflowState(TypedDict, total=False):
     dispatch: list[str]
     dispatch_llm_budgets: dict[str, int]
     planner_questions: list[Question]  # domain Planner hoãn vì input chưa dùng được (needs_input)
+    filter_search_task_ids: list[str]  # planner-issued, turn-local validated retrieval hint; never model output
     goal_tasks: dict[str, dict]  # các bước trong cuộc trò chuyện, cho bảng kế hoạch (progress.record_goal)
     goal_selections: dict[str, str]  # option ID đã chọn theo task; độc lập với intake của lượt hiện tại
     last_housing_search_options: list[dict]  # IDs/labels only; prices/details are re-read before comparing.

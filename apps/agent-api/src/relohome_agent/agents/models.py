@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AgentName(StrEnum):
@@ -140,6 +140,16 @@ class PrefilledValue(BaseModel):
     last_confirmed_at: datetime
 
 
+class HousingFilterPatch(BaseModel):
+    """Evidence-backed edits, not a replacement for the previously confirmed filter set."""
+
+    model_config = ConfigDict(extra="forbid")
+    add_amenities: list[str] = []
+    remove_amenities: list[str] = []
+    clear_fields: list[str] = []
+    evidence: str
+
+
 class IntakeResult(BaseModel):
     kind: RequestKind
     normalized_goal: str = ""
@@ -157,6 +167,7 @@ class IntakeResult(BaseModel):
     unsupported_reason: str | None = None  # câu giải thích ngắn khi kind=unsupported, do Intake viết
     # Semantic classification, NOT authorization. Code rechecks domain, mode and constraints.
     retrieval_only: bool = False
+    housing_filter_patch: HousingFilterPatch | None = None
 
     @property
     def needs_clarification(self) -> bool:

@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage
 from relohome_agent.agents.cost import call_graph_component, llm_calls_left
 from relohome_agent.agents.deps import GraphDeps
 from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS
+from relohome_agent.agents.housing_filter_edits import patched_amenities, valid_filter_patch
 from relohome_agent.agents.housing_operations import is_housing_comparison
 from relohome_agent.agents.intake import (
     MAP_ENTITY_ANCHORS,
@@ -47,7 +48,10 @@ logger = logging.getLogger(__name__)
 
 EXPLICIT_HOUSING_CITIES = (
     (re.compile(r"(?<!\w)(Hà Nội|Ha Noi)(?!\w)", re.IGNORECASE), "Hà Nội"),
-    (re.compile(r"(?<!\w)(TP\.?\s*HCM|TP\.?\s*Hồ Chí Minh|Thành phố Hồ Chí Minh)(?!\w)", re.IGNORECASE), "Thành phố Hồ Chí Minh"),
+    (
+        re.compile(r"(?<!\w)(TP\.?\s*HCM|TP\.?\s*Hồ Chí Minh|Thành phố Hồ Chí Minh)(?!\w)", re.IGNORECASE),
+        "Thành phố Hồ Chí Minh",
+    ),
     (re.compile(r"(?<!\w)(Đà Nẵng|Da Nang)(?!\w)", re.IGNORECASE), "Đà Nẵng"),
 )
 
@@ -289,6 +293,18 @@ def make_intake(deps: GraphDeps):
             }
 
         result = continue_referenced_goal(result, previous)
+        if previous is not None and result.kind != RequestKind.NEW_GOAL:
+            # A filter-only follow-up cannot erase unrepresented requirements or
+            # choices from a previous analytical/multi-service goal. Legacy
+            # checkpoints (no semantic hint) deliberately keep the full path.
+            result.retrieval_only = bool(
+                result.retrieval_only
+                and previous.retrieval_only
+                and previous.domains == [AgentName.PROPERTY]
+                and not state.get("housing_selection")
+                and not state.get("goal_selections")
+                and not state.get("pending_payment")
+            )
         contextual_coordinates = resolve_moving_references(result, previous)
         decision = state.get("user_decision")
         plan = state.get("plan")
@@ -311,9 +327,8 @@ def make_intake(deps: GraphDeps):
         # value; it is not a contradiction or a new workflow.
         pending_fields = {q.field.rsplit(".", 1)[-1] for q in last_response.questions} if last_response else set()
         latest_text = str(next((m.content for m in reversed(messages) if isinstance(m, HumanMessage)), ""))
-        fresh_housing_scope = (
-            AgentName.PROPERTY in result.domains
-            and any(key in result.user_confirmed_facts for key in SEARCH_SCOPE_KEYS)
+        fresh_housing_scope = AgentName.PROPERTY in result.domains and any(
+            key in result.user_confirmed_facts for key in SEARCH_SCOPE_KEYS
         )
         fresh_comparison_search = (
             fresh_housing_scope
@@ -377,6 +392,38 @@ def make_intake(deps: GraphDeps):
         user_texts = [str(m.content) for m in messages if isinstance(m, HumanMessage)]
         suggestion_keys = [s.key for s in last_response.suggestions] if last_response else []
         previous_facts = dict(previous.user_confirmed_facts) if previous else {}
+        cleared_filters: set[str] = set()
+        patch = result.housing_filter_patch
+        if patch is not None:
+            if (
+                previous is not None
+                and result.kind in {RequestKind.REFINE, RequestKind.CHANGE}
+                and AgentName.PROPERTY in result.domains
+                and result.constraints.values.get(
+                    "housing_mode", previous.constraints.values.get("housing_mode", "search")
+                )
+                == "search"
+                and valid_filter_patch(patch, latest_text, result.constraints.values)
+            ):
+                cleared_filters.update(patch.clear_fields)
+                for key in patch.clear_fields:
+                    cleared_filters.update(SCOPE_DEPENDENTS.get(key, ()))
+                if patch.add_amenities or patch.remove_amenities:
+                    updated = patched_amenities(previous.constraints.values.get("must_have", []), patch)
+                    result.constraints.values["must_have"] = updated
+                    result.user_confirmed_facts["must_have"] = ConfirmedFact(
+                        value=updated, evidence=patch.evidence, stated_at=now
+                    )
+                for key in cleared_filters:
+                    previous_facts.pop(key, None)
+                result = result.model_copy(update={"kind": RequestKind.CHANGE})
+            else:
+                result.conflicts.append(
+                    "Bạn muốn bỏ hoặc thêm điều kiện tìm nhà nào? Mình chưa xác minh được thay đổi."
+                )
+                result.retrieval_only = False
+        # The patch is turn-local; only its grounded, merged effects survive.
+        result.housing_filter_patch = None
         for endpoint, address_key in (("pickup", "from_address"), ("destination", "to_address")):
             pin = (state.get("moving_locations") or {}).get(endpoint)
             if pin and pin.get("confirmed") is True:
@@ -485,6 +532,8 @@ def make_intake(deps: GraphDeps):
         if previous is not None and result.kind != RequestKind.NEW_GOAL:
             # Gộp dần qua các lượt: ràng buộc đã nói ở lượt trước vẫn giữ, giá trị mới thắng.
             carried = {k: v for k, v in previous.constraints.values.items() if k not in previous.prefilled}
+            for key in cleared_filters:
+                carried.pop(key, None)
             values = {**carried, **values}
         if fresh_housing_scope and "city" not in result.user_confirmed_facts:
             values.pop("city", None)
@@ -512,7 +561,7 @@ def make_intake(deps: GraphDeps):
             and previous.constraints.values.get("city")
             and values.get("city") != previous.constraints.values.get("city")
         ):
-            for key in ("district", "near", "near_coordinate"):
+            for key in ("district", "near", "near_coordinate", "near_place_id", "bounding_box"):
                 if key not in result.user_confirmed_facts:
                     values.pop(key, None)
                     facts.pop(key, None)
@@ -556,6 +605,8 @@ def make_intake(deps: GraphDeps):
                     values.pop(key, None)
                     facts.pop(key, None)
         housing_pin = state.get("housing_location")
+        if "near" in cleared_filters:
+            housing_pin = None
         if (
             housing_pin
             and previous
@@ -642,6 +693,7 @@ def make_intake(deps: GraphDeps):
                 "unavailable_commit_requested": unsupported,
                 "conflicts": list(dict.fromkeys([*result.conflicts, *grounded.conflicts])),
                 "declined_suggestions": [k for k in result.declined_suggestions if k in suggestion_keys],
+                "retrieval_only": result.retrieval_only and not grounded.dropped,
             }
         )
         result = resolve_missing(

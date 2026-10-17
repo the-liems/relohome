@@ -99,7 +99,7 @@ def make_orchestrator(deps: GraphDeps):
         if change is not None and change.blocked_by_commit and not change.invalidated_task_ids:
             return stop(OutcomeCode.CHANGE_BLOCKED, ",".join(change.blocked_by_commit))
         uses_llm = getattr(deps.planner, "uses_llm", False)
-        if uses_llm:
+        if uses_llm and not getattr(deps.planner, "supports_zero_call_plans", False):
             counts = await deps.usage.counts(state.get("thread_id", ""), state.get("request_id", ""))
             if llm_calls_left(counts, deps.settings) <= 0:
                 return stop(OutcomeCode.BUDGET, "hết lượt LLM trong lượt này")
@@ -136,6 +136,8 @@ def make_orchestrator(deps: GraphDeps):
             code = exc.code if isinstance(exc, LLMError) else "PLANNER_INTERNAL_ERROR"
             detail = exc.message if isinstance(exc, LLMError) else "Bộ lập kế hoạch gặp lỗi nội bộ."
             logger.warning("planner failed: %s", code)
+            if code == "LLM_BUDGET":
+                return stop(OutcomeCode.BUDGET, "hết lượt LLM trong lượt này")
             return stop(OutcomeCode.ERROR, f"[{code}] {detail}", [code])
         plan = out.plan
         if not plan.tasks:
@@ -163,6 +165,10 @@ def make_orchestrator(deps: GraphDeps):
         if uses_llm and deps.guardrail:
             deps.guardrail.observe_plan(state, new_plan)
         invalidated = set(change.invalidated_task_ids) if change else set()
+        if reuse:
+            # An explicit refresh must search again even when the filters are
+            # unchanged and the previous result has not reached its TTL.
+            invalidated.update(out.retrieval_only_task_ids)
         statuses = initial_status(new_plan, previous, state, deps, reuse, invalidated)
         attempts = {tid: 0 for tid, s in statuses.items() if s == TaskStatus.PENDING}
         return {
@@ -176,6 +182,7 @@ def make_orchestrator(deps: GraphDeps):
             "change_context": None,
             "dispatch": [],
             "planner_questions": out.questions,
+            "filter_search_task_ids": out.retrieval_only_task_ids,
         }
 
     return orchestrator

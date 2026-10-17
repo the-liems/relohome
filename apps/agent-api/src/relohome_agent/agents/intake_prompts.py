@@ -27,9 +27,10 @@ ONLY in requested_actions as commit:* true with exact action evidence; never imp
 Keep booking intent even if details/provider are missing. No deposit/payment collection through chat.
 Explicit dates become YYYY-MM-DD; use today/calendar in Vietnam time for relative dates. Missing year:
 next occurrence. Month only: move_month, not an invented day. Exact time: HH:MM; vague time stays missing.
-retrieval_only=true ONLY for a NEW, single-property request for an unranked list fully represented by
-the extracted filters. False for comparisons, ranking/preferences, custom checks, choosing homes,
-references to old results, changes, or ANY other requested service (even if that service lacks inputs).
+retrieval_only=true ONLY for a single-property unranked filter search, or edits/refresh of that search
+fully represented by filters. For follow-ups extract only changed facts; backend retains other filters.
+False for comparisons, ranking/preferences, custom checks, choosing homes, filtering an old shortlist
+instead of searching again, or ANY other requested service (even if that service lacks inputs).
 If uncertain, false. This flag never authorizes a transaction. Unsupported: one helpful Vietnamese reason.
 """
 
@@ -39,6 +40,10 @@ Administrative 'ở/trong/tại' city/district/ward: city/district scope; near i
 City alone is sufficient. Map viewport reference when map_view_available: near='current:map_view'.
 Price is VND/month; must_have only explicit amenities. '2 phòng ngủ' means min_bedrooms=max_bedrooms=2;
 'ít nhất 2' only min. Bedrooms are not household_size or room_type; do not invent a property type.
+Follow-up add/remove amenities: housing_filter_patch.add_amenities/remove_amenities, not facts.must_have.
+Clear optional filters via housing_filter_patch.clear_fields (filter keys), never null/0 substitutes.
+Patch evidence is exact latest-message text; null if unused. New/replacement lists use facts.must_have.
+Price/scope edits use facts and kind=change. 'Tìm căn khác' is refresh/refine, not a new empty goal.
 limit is requested result count 1–20, not price/bedrooms. Retain requests exceeding limits in the goal.
 search_radius_m is straight-line housing radius around near; do not convert travel minutes to metres.
 Housing 'phòng gần bệnh viện' is nearby_categories (+ nearby_radius_m): property only, not a Map task.
