@@ -47,9 +47,10 @@ class OperationDraftService:
         key = body["operation_key"]
         signature = fingerprint("draft", {"path": path, "method": method, "body": body})
         with self.ctx.transaction():
-            AccessService(self.ctx).require(actor)
             if path.startswith("/moderation/"):
                 AccessService(self.ctx).require_moderator(actor)
+            else:
+                AccessService(self.ctx).require(actor)
             db = self.ctx.storage.connection
             old = db.execute(
                 "SELECT fingerprint FROM operation_drafts WHERE actor=? AND key=?", (actor.id, key)
@@ -72,7 +73,7 @@ class OperationDraftService:
 
     def list(self, actor):
         with self.ctx.read_transaction():
-            AccessService(self.ctx).require(actor)
+            AccessService(self.ctx).require_operation_owner(actor)
             return {
                 "items": [
                     {"operation_key": row["key"], "expires_at": datetime.fromtimestamp(row["expires"], UTC).isoformat()}
@@ -85,7 +86,7 @@ class OperationDraftService:
 
     def get(self, actor, key):
         with self.ctx.read_transaction():
-            AccessService(self.ctx).require(actor)
+            AccessService(self.ctx).require_operation_owner(actor)
             completed = self.ctx.connections.operation(actor.id, key)
             if completed:
                 return {"status": "completed", "result": completed}
@@ -98,6 +99,6 @@ class OperationDraftService:
 
     def discard(self, actor, key):
         with self.ctx.transaction():
-            AccessService(self.ctx).require(actor)
+            AccessService(self.ctx).require_operation_owner(actor)
             self.ctx.storage.connection.execute("DELETE FROM operation_drafts WHERE actor=? AND key=?", (actor.id, key))
         return {"discarded": True}

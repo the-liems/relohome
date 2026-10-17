@@ -20,9 +20,7 @@ export async function roommate<T>(
   let response: Response;
   const write =
     method !== "GET" &&
-    !["/search", "/demo/search", "/map/rooms", "/me/profile/preview"].includes(
-      path,
-    );
+    !["/search", "/map/rooms", "/me/profile/preview"].includes(path);
   try {
     response = await fetch("/web/api/roommate" + path, {
       method,

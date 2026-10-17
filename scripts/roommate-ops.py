@@ -91,7 +91,6 @@ def main():
                 result = {
                     "storage": settings.roommate_storage,
                     "schema": settings.roommate_database_schema if runtime.postgres else "sqlite",
-                    "demo": runtime.demo is not None,
                     "configured_moderators": len(runtime.moderators),
                     "counts": counts,
                     "contact_key_verified": True,

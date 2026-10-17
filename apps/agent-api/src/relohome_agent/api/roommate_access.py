@@ -88,7 +88,7 @@ def availability(request: Request):
         "enabled": getattr(request.app.state, "roommate_runtime", None) is not None,
         "cities": [city.value for city in City],
         "terms_version": TERMS_VERSION,
-        "demo_enabled": bool(getattr(getattr(request.app.state, "roommate_runtime", None), "demo", None)),
+        "demo_enabled": False,  # Compatibility for older clients; synthetic discovery has been retired.
         "features": ["notifications", "media", "moderation", "privacy", "operation_drafts", "chat"],
     }
 

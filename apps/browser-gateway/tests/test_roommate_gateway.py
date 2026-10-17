@@ -59,6 +59,9 @@ async def test_gateway_session_csrf_whitelist_and_binary(tmp_path, monkeypatch):
         assert (await client.get("/web/api/roommate/chat/conversations?actor=spoof")).status_code == 422
         assert (await client.get("/web/api/roommate/chat/conversations?limit=1&limit=2")).status_code == 422
         assert (await client.get("/web/api/roommate/arbitrary/path")).status_code == 404
+        before = len(calls)
+        assert (await client.post("/web/api/roommate/demo/search", json={}, headers=HEADERS)).status_code == 404
+        assert len(calls) == before
         assert (await client.get("/web/api/roommate/access?actor=spoof")).status_code == 422
         assert (await client.get("/web/api/roommate/me/privacy")).status_code == 200
         response = await client.post(

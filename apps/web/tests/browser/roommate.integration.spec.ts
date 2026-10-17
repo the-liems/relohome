@@ -1,5 +1,121 @@
 import { test, expect } from "@playwright/test";
 
+test("Housing Admin uses real Roommate moderation without accepting discovery terms", async ({
+  page,
+}) => {
+  const headers = { "X-SIU-Request": "1", Origin: "http://127.0.0.1:18503" };
+  const auth = await page.request.post("/web/api/auth/login", {
+    headers,
+    data: { email: "linh@roommate.test", password: "roommate-test-password" },
+  });
+  expect(auth.ok()).toBe(true);
+  const upload = await page.request.post("/web/api/roommate/media", {
+    headers: {
+      ...headers,
+      "X-Roommate-Operation": "admin-integration-photo-01",
+      "Content-Type": "image/png",
+    },
+    data: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNeUAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  expect(upload.ok()).toBe(true);
+  const media = await upload.json();
+  const report = await page.request.post("/web/api/roommate/reports", {
+    headers,
+    data: {
+      profile_id: "fixture-reviewee",
+      reason: "Admin integration report",
+      operation_key: "admin-integration-report-01",
+    },
+  });
+  expect(report.ok()).toBe(true);
+  await page.request.post("/web/api/logout", { headers });
+  await page.goto("/admin/login");
+  await page.getByLabel("Email", { exact: true }).fill("admin@roommate.test");
+  await page
+    .getByLabel("Mật khẩu", { exact: true })
+    .fill("roommate-test-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.getByRole("button", { name: "Ở ghép", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Quản lý cộng đồng", exact: true }),
+  ).toBeVisible();
+  expect(
+    await (await page.request.get("/web/api/roommate/access")).json(),
+  ).toMatchObject({ moderator: true, eligible: false });
+  await page
+    .getByRole("button", { name: "Xử lý báo cáo", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Đã xử lý", exact: true }).click();
+  await expect(
+    page.getByText("Admin integration report", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Ảnh hồ sơ", exact: true }).click();
+  await page.getByRole("button", { name: "Duyệt ảnh", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Lý do xử lý")
+    .fill("Reviewed in existing Admin workspace");
+  await page
+    .getByRole("button", { name: "Lưu kết quả duyệt", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const approved = await page.request.get(
+    "/web/api/roommate/moderation/media?status=approved&offset=0&limit=20",
+  );
+  expect(
+    (await approved.json()).items.some(
+      (item: { media_id: string }) => item.media_id === media.media_id,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
+  const candidate = page
+    .locator("li")
+    .filter({
+      has: page.getByRole("heading", { name: "Reviewee", exact: true }),
+    });
+  await candidate.getByRole("button", { name: "Hạn chế", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Lý do xử lý")
+    .fill("Temporary integration moderation test");
+  await page
+    .getByRole("button", { name: "Xác nhận xử lý", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const restricted = await page.request.get(
+    "/web/api/roommate/moderation/profiles?status=restricted",
+  );
+  expect(
+    (await restricted.json()).items.some(
+      (item: { profile_id: string }) => item.profile_id === "fixture-reviewee",
+    ),
+  ).toBe(true);
+  // Restore this shared fixture for other integration scenarios; original policy returns it paused.
+  expect(
+    (
+      await page.request.post(
+        "/web/api/roommate/moderation/profiles/fixture-reviewee",
+        {
+          headers,
+          data: {
+            selected: false,
+            reason: "Integration test cleanup",
+            operation_key: "admin-integration-restore-01",
+          },
+        },
+      )
+    ).ok(),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Duyệt tin", exact: true }).click();
+  await expect(
+    page.getByLabel("Tìm tin theo tiêu đề hoặc phòng"),
+  ).toBeVisible();
+});
+
 test("real photo upload, moderator review and explicit avatar selection", async ({
   page,
 }) => {

@@ -4,7 +4,7 @@ import { Dialog, ConfirmDialog } from "../components/Dialog";
 import { ContentSkeleton, EmptyState } from "../components/UiStates";
 import { useResource } from "./useResource";
 import { useOperation } from "./useOperation";
-import { roommate } from "./client";
+import { useRoommateClient } from "./useRoommateClient";
 import { PrivateAvatar } from "./PrivateAvatar";
 import { ErrorNotice } from "./ErrorNotice";
 import { rt, stateName } from "./text";
@@ -99,6 +99,7 @@ function RestrictDialog({
 }
 
 export function ModerationWorkspace({ allowed }: { allowed: boolean }) {
+  const roommate = useRoommateClient();
   const [tab, setTab] = useState<"reports" | "media" | "profiles">("reports"),
     [offset, setOffset] = useState(0),
     [status, setStatus] = useState("open");

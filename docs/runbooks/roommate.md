@@ -12,19 +12,30 @@ Backend/API/Agent và frontend các màn tìm/kết nối/hồ sơ cơ bản đ�
 
 ## Cấu hình
 
-### Bộ hồ sơ thử nghiệm
+### Hồ sơ do người dùng đăng — cập nhật 17/10/2026
 
-`data/roommate-demo-30.json` chứa 30 hồ sơ tổng hợp có nhãn `DEMO`, chia đều Hà Nội, TP.HCM, Đà Nẵng và 15 nam/15 nữ. Không có tài khoản, ảnh cá nhân, số điện thoại hay Zalo. Liên kết tới tin Housing thật chỉ để thử bản đồ, không thể suy ra người DEMO đang ở phòng đó. Dữ liệu này không đi vào danh sách hồ sơ thật hoặc luồng gửi yêu cầu kết nối.
+Roommate chỉ hiển thị hồ sơ do tài khoản người dùng chủ động đăng. Team tự tạo tài khoản,
+khai thông tin, đăng hồ sơ rồi gửi/nhận yêu cầu kết nối và chat theo luồng hiện có.
+Không tự cấp consent, đăng bài hoặc tạo hồ sơ thay người dùng. Khi chưa có bài phù hợp,
+giao diện hiển thị danh sách trống và nút **Đăng nhu cầu của tôi**.
 
-Ở local/staging, đặt `ROOMMATE_DEMO_ENABLED=true` và `ROOMMATE_DEMO_DATASET=data/roommate-demo-30.json`, rồi khởi động lại API; mở `/roommate?tab=demo` để xem. Docker image hiện bỏ qua `data/`, nên staging bằng container phải mount tệp này tại đúng đường dẫn. Trong production đặt `ROOMMATE_DEMO_ENABLED=false` và không dùng bộ dữ liệu này; không sao chép `.env` local đang bật DEMO vào cấu hình cloud. Runtime sẽ từ chối bật DEMO khi `APP_ENV=production`.
+Tab/nút/checkbox DEMO và endpoint `POST /roommate/demo/search` đã bị bỏ.
+`ROOMMATE_DEMO_ENABLED` và `ROOMMATE_DEMO_DATASET` không còn được runtime đọc;
+operator có thể xóa chúng nếu cấu hình cũ còn giữ. Không cần thêm biến thay thế.
+`demo_enabled:false` và input `include_demo` được giữ tương thích cho client cũ;
+input này không thể bật dữ liệu giả. Link cũ `/roommate?tab=demo` mở luồng thường.
 
-File được tạo bằng `scripts/generate-roommate-demo.py --count 30 --valid-days 1095 --output data/roommate-demo-30.json`. Script từ chối ghi đè; khi cần làm mới, tạo tên file mới rồi đổi cấu hình sau khi kiểm tra. Thời hạn dài chỉ áp dụng cho dữ liệu thử nghiệm, không thay đổi quy tắc 30 ngày của hồ sơ thật.
+Dataset/script sinh dữ liệu tổng hợp chỉ còn phục vụ kiểm thử offline, không được nạp
+vào runtime hay DB thật. Không cần xóa DB, file dữ liệu hoặc tạo lại contact key.
+Bản đồ chỉ hiện hồ sơ công khai còn hiệu lực và đã đồng ý công khai liên kết phòng;
+kiểm tra quyền, tuổi/điều khoản, block và moderation giữ nguyên.
 
 | Biến | Yêu cầu |
 | --- | --- |
 | `ROOMMATE_ENABLED` | `false` mặc định; `true` mới khởi tạo DB/khóa. |
 | `ROOMMATE_STATE_DIR` | Mặc định `logs/private-roommate`; thư mục private của service account. Runtime từ chối dưới `data/`, `Frontend/public/`, `apps/web/public/` và `apps/web/dist/`. |
-| `ROOMMATE_MODERATORS` | Account IDs do operator chọn, phân tách dấu phẩy; bắt buộc khi enabled. Không nhận role từ request/browser. |
+| `HOUSING_MODERATOR_IDS` | Dùng lại account IDs của Admin duyệt nhà, phân tách dấu phẩy. Compose truyền cùng biến này cho platform và backend. Không dùng email hoặc role từ browser. |
+| `ROOMMATE_MODERATORS` | Tùy chọn: thêm account IDs chỉ quản lý Roommate, giữ tương thích cấu hình cũ. Để trống nếu đã có Housing Admin; khi enabled cần ít nhất một ID trong hợp hai danh sách. |
 | `ROOMMATE_AREA_CATALOG` | Tùy chọn: JSON object canonical area ID → `hcm`/`hanoi`/`danang` được export từ Location. Không có file thì chỉ whole-city IDs. Không ghi giá trị rỗng vào env cho Path tùy chọn; bỏ biến khi chưa dùng. |
 | `AGENT_API_TOKEN` | Secret chung API/gateway đã có, bắt buộc khi enabled. Chỉ server giữ. |
 | `LIFEFLOW_API_BASE_URL` | Gateway mặc định `http://127.0.0.1:8000/api/v1`. |
@@ -74,7 +85,44 @@ if runtime is not None:
 
 Chưa tạo background daemon/scheduler/email/push. Inbox trả trạng thái và nhắc xác nhận lại trong ba ngày cuối; frontend đã có trạng thái/deadline, nhắc ba ngày cuối còn trong checklist phát hành đầy đủ.
 
-Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa ảnh gắn public; restrict/revoke có audit. Restore profile trở về paused, không tự mở lại consent. Moderator UI ở phase frontend.
+### Dùng Admin hiện có — cập nhật 17/10/2026
+
+Đăng nhập bằng **Đăng nhập Admin**, mở `/admin` → **Ở ghép** (hoặc
+`/admin?tab=roommate`). Tái sử dụng các công cụ Roommate hiện có: danh sách báo cáo,
+duyệt ảnh hồ sơ và hạn chế/khôi phục quyền sử dụng. Các tab duyệt nhà/người đăng/đánh
+giá vẫn dùng API và kiểm tra quyền Housing cũ.
+
+Backend nhận cùng `HOUSING_MODERATOR_IDS` đã cấp quyền Admin cho platform. **Không
+cần thêm `ROOMMATE_MODERATORS`** nếu danh sách Housing đã đúng. Sau thay đổi này phải
+build/deploy cả web và backend với Compose mới; phiên bản backend cũ vẫn chỉ đọc danh
+sách Roommate riêng. Nếu deploy các service bằng resource tách rời ngoài Compose,
+truyền cùng giá trị `HOUSING_MODERATOR_IDS` hiện có sang backend, không tạo danh sách
+quyền thứ hai. `ROOMMATE_ENABLED=true`, token, DB/private volume và contact key giữ
+cấu hình hiện tại. Không cần migration hoặc tạo lại DB/key.
+
+Admin không phải tạo hồ sơ ở ghép hoặc tự nhận đã đủ tuổi/đồng ý điều khoản cá nhân
+để kiểm duyệt. Điều này không tự mở quyền tìm người, đăng hồ sơ, gửi yêu cầu hay đọc
+tin nhắn của người khác. API vẫn xác thực bearer từ gateway và account ID trong
+danh sách server; không tin `is_admin` hoặc role do browser gửi.
+
+Các thao tác hạn chế hồ sơ giữ operation key để tránh làm lặp khi retry; Admin chỉ
+đọc/khôi phục draft và kết quả thao tác của chính mình. Draft cho hành động cá nhân
+vẫn yêu cầu điều kiện sử dụng Roommate như cũ. `ROOMMATE_MODERATORS` riêng vẫn hỗ trợ
+công cụ `/roommate/moderation` nếu chưa chuyển sang Admin Housing.
+
+Moderators dùng routes `/web/api/roommate/moderation/*` qua session của account
+allowlisted. Report không tự block/restrict. Review ảnh trước approve; reject xóa
+ảnh gắn public; restrict/revoke có audit. Khôi phục hồ sơ trả về **tạm dừng**, không
+tự đăng lại hoặc mở lại consent.
+
+Smoke test sau deploy:
+
+1. `/web/api/roommate/availability` trả `enabled:true`; đăng nhập Admin đang duyệt nhà.
+2. Tab **Ở ghép** mở báo cáo/ảnh/hồ sơ; `/access` có `moderator:true` kể cả `eligible:false`.
+3. Duyệt một ảnh test, xử lý báo cáo, hạn chế rồi khôi phục một tài khoản test được phép.
+4. Người dùng thường không gọi được `/moderation/*` (403); tab duyệt nhà vẫn hoạt động.
+5. Nếu startup vẫn báo thiếu moderator, kiểm tra env **hiệu lực trong backend**, không
+   chỉ env platform hay file `.env` local. Không gửi token/key khi chụp cấu hình.
 
 ## Lỗi/timeout/rollback
 
