@@ -9,6 +9,7 @@ import {
   type HousingMapResponse,
   type HousingSearchResponse,
   type HousingSearchResult,
+  type NearbyPlaceMatch,
   type ParsedHousingSearchRequest,
   type RouteResult,
 } from '@relohome/contracts'
@@ -226,7 +227,13 @@ export class HousingQueryService {
     for (let start = 0; start < candidates.length && results.length < request.pagination.limit; start += ROUTE_CONCURRENCY) {
       checkOperation()
       const batch = candidates.slice(start, start + ROUTE_CONCURRENCY)
-      const mapped = await Promise.all(batch.map((row) => this.mapCandidate(row, request)))
+      const nearby = request.nearby?.length
+        ? await this.placeService.findNearbyBatch(
+            batch.map(row => ({ lng: Number(row.lng), lat: Number(row.lat) })), request.nearby,
+          )
+        : batch.map(() => [])
+      checkOperation()
+      const mapped = await Promise.all(batch.map((row, index) => this.mapCandidate(row, request, nearby[index])))
       if (request.commute) commuteEvaluatedCount += batch.length
       for (const item of mapped) {
         scanned += 1
@@ -503,9 +510,10 @@ export class HousingQueryService {
   private async mapCandidate(
     row: CandidateRow,
     request: ParsedHousingSearchRequest,
+    nearbyMatches?: NearbyPlaceMatch[],
   ): Promise<HousingSearchResult> {
     const location = { lng: Number(row.lng), lat: Number(row.lat) }
-    const nearby = request.nearby ? await this.placeService.findNearby(location, request.nearby) : []
+    const nearby = nearbyMatches ?? (request.nearby ? await this.placeService.findNearby(location, request.nearby) : [])
     let commute: RouteResult | null = null
     if (request.commute) {
       try {

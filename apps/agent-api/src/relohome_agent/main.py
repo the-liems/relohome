@@ -119,10 +119,10 @@ async def roommate_private_cache(request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request, exc):
     # Pydantic errors normally include rejected inputs, which may contain PII.
-    return JSONResponse(
-        status_code=422,
-        content={"detail": [{"loc": list(e["loc"]), "type": e["type"]} for e in exc.errors()]},
-    )
+    errors = [{"loc": list(e["loc"]), "type": e["type"]} for e in exc.errors()]
+    # In deployment only the web gateway calls this API, so a 422 means their contracts drifted.
+    logger.warning("request validation failed path=%s errors=%s", request.url.path, errors)
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.get("/health")

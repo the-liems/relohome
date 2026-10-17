@@ -247,6 +247,7 @@ esac
         # only listed gateway accounts see it. An unset list means nobody.
         backend = self.compose["services"]["backend"]["environment"]
         self.assertNotEqual(backend["APP_ENV"], "production")
+        self.assertEqual(backend["PAYMENT_TESTER_CONFIRM_ENABLED"], "${PAYMENT_TESTER_CONFIRM_ENABLED:-true}")
         self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
         payment = self.compose["services"]["payments-mcp"]
         self.assertEqual(payment["environment"]["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")

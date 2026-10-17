@@ -236,6 +236,7 @@ transaction writes stay disabled. See [payment design](../docs/review/payment-de
 
 | Optional variable | Purpose |
 | --- | --- |
+| `PAYMENT_TESTER_CONFIRM_ENABLED` | Default `true` for team testing; set `false` with `APP_ENV=production` |
 | `PAYMENT_TESTER_USER_IDS` | Comma-separated gateway account IDs allowed to use the paid tester control; empty hides it |
 | `PAYMENT_RECONCILE_ACTIVE_SECONDS` | ZaloPay checks while an order is payable; default 10 seconds, plus a check just before expiry |
 | `SIU_TRAVELER_KEY` | Fernet key for flight booker profiles; empty creates a key file in `web-data` |
@@ -250,9 +251,8 @@ docker exec <web-container> python -c "import sqlite3; print(sqlite3.connect('/a
 The control requires an awaiting, unexpired payment owned by that account. Its
 result is labelled marked by tester separately from gateway status. Preserve the
 traveler key with the web database; losing it makes saved profiles unreadable.
-Before outside users try the site, change the fixed
-`PAYMENT_TESTER_CONFIRM_ENABLED` setting in Compose to disable the tester control,
-remove the tester IDs and set `APP_ENV=production`. The backend refuses an enabled
+Before outside users try the site, set `PAYMENT_TESTER_CONFIRM_ENABLED=false` on
+the Application, remove the tester IDs and set `APP_ENV=production`. The backend refuses an enabled
 tester control in production. Real provider transactions need separate
 application/configuration work.
 

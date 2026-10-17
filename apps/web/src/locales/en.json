@@ -879,7 +879,7 @@
   "Khứ hồi · đi {0} · về {1} ·": "Round trip · out {0} · back {1} ·",
   "· thanh toán trong app (sandbox)": "· in-app payment (sandbox)",
   "Chọn gói xe rồi bấm Thanh toán. Bản demo không tạo đơn AhaMove và không cần tên/SĐT.": "Choose a vehicle, then press Payment. The demo creates no AhaMove order and needs no name/phone.",
-  "Báo giá AhaMove (staging). Thanh toán trong app sau khi chọn gói; không tạo đơn.": "AhaMove quote (staging). Pay in the app after choosing a vehicle; no order is created.",
+  "Báo giá AhaMove. Thanh toán trong app sau khi chọn gói; chưa tạo đơn.": "AhaMove quote. Pay in the app after choosing a vehicle; no order has been created.",
   "Thanh toán trong app": "In-app payment",
   "Sau khi chọn gói xe, thanh toán qua ZaloPay sandbox. Bản demo không tạo đơn AhaMove; chưa thu tiền ở bước báo giá.": "After choosing a vehicle, pay through the ZaloPay sandbox. The demo creates no AhaMove order; nothing is charged at the quote step.",
   "Bản demo không cần tên/SĐT người gửi, người nhận: không có đơn thật nào được tạo.": "The demo needs no sender or recipient name/phone: no real order is created.",

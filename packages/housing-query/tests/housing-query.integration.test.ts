@@ -339,6 +339,26 @@ describe('HousingQueryService hard constraints', () => {
     expect(response.results[0]!.nearby[0]!.distance_meters).toBeLessThanOrEqual(1_500)
   })
 
+  it('shares nearby SQL across a candidate batch without changing listing order or pagination', async () => {
+    const query = vi.fn((text: string, values?: unknown[]) => client.query(text, values))
+    const counted = new HousingQueryService({ query } as unknown as QueryExecutor,
+      new RouteService(getRuntimeConfig().osrmUrls), { commuteCandidateLimit: 20 })
+    const nearby = [
+      { category: 'hospital', max_distance_m: 10_000 },
+      { category: 'hospital', max_distance_m: 10_000 },
+    ]
+    const result = await counted.search({ nearby, pagination: { limit: 3, cursor: null } })
+    expect(result.results.map(row => row.listing_id)).toEqual([ids.unknownListing, ids.slowListing, ids.validListing])
+    expect(result.results.every(row => row.nearby.length === 2)).toBe(true)
+    expect(query).toHaveBeenCalledTimes(2) // candidate page + one nearby batch, not 3 * 2 additional queries
+    const next = await counted.search({ nearby, pagination: { limit: 3, cursor: result.page.next_cursor } })
+    expect(next.results.map(row => row.listing_id)).toEqual([ids.expensiveListing])
+    expect(next.page.next_cursor).toBeNull()
+    query.mockClear()
+    await counted.search({ pagination: { limit: 3, cursor: null } })
+    expect(query).toHaveBeenCalledTimes(1) // no extra SQL for searches without nearby constraints
+  })
+
   it('uses OSRM duration rather than straight-line distance for commute constraints', async () => {
     vi.stubGlobal(
       'fetch',
