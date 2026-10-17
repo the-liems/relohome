@@ -607,3 +607,23 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
   }
   .moving-booking .ws-filterbar .ws-filter-label { display: inline-flex; }
 }
+
+/* Page backdrop from the tenant canvas: soft mint waves under translucent page wrappers.
+   Surfaces (cards, panels, dialogs) keep their own colors; only page-level wrappers clear. */
+:root[data-theme] body {
+  background: var(--ui-bg) url("./assets/page-backdrop.svg") center / cover no-repeat fixed;
+}
+:root[data-theme="dark"] body {
+  background-image: url("./assets/page-backdrop-dark.svg");
+}
+:root[data-theme] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ui-surface) 45%, transparent);
+}
+:root[data-theme] :is(.app-shell, .main-shell, .page-main, .chat-page, .composer-wrap, .service-journey) {
+  background: transparent;
+}
