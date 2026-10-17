@@ -191,8 +191,8 @@ export function AdminWorkspace({
             <p>
               {tab === "roommate"
                 ? rt(
-                    "Duyệt ảnh hồ sơ, xử lý báo cáo và quản lý quyền sử dụng ở ghép.",
-                    "Review profile photos, reports and roommate service access.",
+                    "Quản lý hồ sơ, xử lý báo cáo và quyền sử dụng ở ghép.",
+                    "Manage profiles, reports and roommate service access.",
                   )
                 : t(
                     "Kiểm tra người đăng, địa điểm và nội dung trước khi công khai.",

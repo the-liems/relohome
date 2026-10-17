@@ -208,12 +208,10 @@ test("moderator gets an actionable private reports queue", async ({ page }) => {
   await setup(page, true);
   await page.goto("/roommate/moderation");
   await expect(
-    page.getByRole("heading", { name: "Quản lý cộng đồng" }),
+    page.getByRole("heading", { name: "Hồ sơ và báo cáo" }),
   ).toBeVisible();
   await expect(page.getByText("Tin không đúng", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Xử lý báo cáo" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xem báo cáo" })).toBeVisible();
 });
 
 test("a normal user cannot open moderation workspace", async ({ page }) => {
@@ -346,7 +344,7 @@ test("settings and moderation are accessible and fit the viewport", async ({
       page.getByRole("heading", {
         name: tab.includes("settings")
           ? "Liên hệ và quyền riêng tư"
-          : "Quản lý cộng đồng",
+          : "Hồ sơ và báo cáo",
       }),
     ).toBeVisible();
     await expect
@@ -379,7 +377,7 @@ test("settings and moderation are accessible and fit the viewport", async ({
       page.getByRole("heading", {
         name: tab.includes("settings")
           ? "Contacts and privacy"
-          : "Community moderation",
+          : "Profiles and reports",
         exact: true,
       }),
     ).toBeVisible();
@@ -391,14 +389,12 @@ test("settings and moderation are accessible and fit the viewport", async ({
           .analyze()
       ).violations,
     ).toEqual([]);
-    await page
-      .locator(".rm-workspace")
-      .screenshot({
-        path: info.outputPath(
-          tab.includes("settings")
-            ? "settings-dark-en.png"
-            : "moderation-dark-en.png",
-        ),
-      });
+    await page.locator(".rm-workspace").screenshot({
+      path: info.outputPath(
+        tab.includes("settings")
+          ? "settings-dark-en.png"
+          : "moderation-dark-en.png",
+      ),
+    });
   }
 });

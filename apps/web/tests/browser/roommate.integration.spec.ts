@@ -1,36 +1,37 @@
 import { test, expect } from "@playwright/test";
 
-test("Housing Admin uses real Roommate moderation without accepting discovery terms", async ({
+test("Housing Admin filters profiles, resolves reports and restricts without personal consent", async ({
   page,
 }) => {
   const headers = { "X-SIU-Request": "1", Origin: "http://127.0.0.1:18503" };
-  const auth = await page.request.post("/web/api/auth/login", {
-    headers,
-    data: { email: "linh@roommate.test", password: "roommate-test-password" },
-  });
-  expect(auth.ok()).toBe(true);
-  const upload = await page.request.post("/web/api/roommate/media", {
-    headers: {
-      ...headers,
-      "X-Roommate-Operation": "admin-integration-photo-01",
-      "Content-Type": "image/png",
-    },
-    data: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNeUAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
-  expect(upload.ok()).toBe(true);
-  const media = await upload.json();
-  const report = await page.request.post("/web/api/roommate/reports", {
-    headers,
-    data: {
-      profile_id: "fixture-reviewee",
-      reason: "Admin integration report",
-      operation_key: "admin-integration-report-01",
-    },
-  });
-  expect(report.ok()).toBe(true);
+  expect(
+    (
+      await page.request.post("/web/api/auth/login", {
+        headers,
+        data: {
+          email: "linh@roommate.test",
+          password: "roommate-test-password",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.post("/web/api/roommate/media", { headers, data: {} })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await page.request.post("/web/api/roommate/reports", {
+        headers,
+        data: {
+          profile_id: "fixture-reviewee",
+          reason: "Admin integration report",
+          operation_key: "admin-integration-report-01",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
   await page.request.post("/web/api/logout", { headers });
   await page.goto("/admin/login");
   await page.getByLabel("Email", { exact: true }).fill("admin@roommate.test");
@@ -38,46 +39,30 @@ test("Housing Admin uses real Roommate moderation without accepting discovery te
     .getByLabel("Mật khẩu", { exact: true })
     .fill("roommate-test-password");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin$/);
   await page.getByRole("button", { name: "Ở ghép", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Quản lý cộng đồng", exact: true }),
+    page.getByRole("heading", { name: "Hồ sơ và báo cáo", exact: true }),
   ).toBeVisible();
   expect(
     await (await page.request.get("/web/api/roommate/access")).json(),
   ).toMatchObject({ moderator: true, eligible: false });
+  await page.getByRole("button", { name: "Xem báo cáo", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "Admin integration report",
+  );
   await page
-    .getByRole("button", { name: "Xử lý báo cáo", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Đã xử lý", exact: true }).click();
-  await expect(
-    page.getByText("Admin integration report", { exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "Ảnh hồ sơ", exact: true }).click();
-  await page.getByRole("button", { name: "Duyệt ảnh", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByLabel("Lý do xử lý")
-    .fill("Reviewed in existing Admin workspace");
-  await page
-    .getByRole("button", { name: "Lưu kết quả duyệt", exact: true })
+    .getByRole("button", { name: "Đánh dấu đã xem xét", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const approved = await page.request.get(
-    "/web/api/roommate/moderation/media?status=approved&offset=0&limit=20",
-  );
-  expect(
-    (await approved.json()).items.some(
-      (item: { media_id: string }) => item.media_id === media.media_id,
-    ),
-  ).toBe(true);
   await page.getByRole("button", { name: "Hồ sơ", exact: true }).click();
-  const candidate = page
-    .locator("li")
-    .filter({
-      has: page.getByRole("heading", { name: "Reviewee", exact: true }),
-    });
-  await candidate.getByRole("button", { name: "Hạn chế", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Tìm tên hoặc mã hồ sơ", exact: true })
+    .fill("Reviewee");
+  const row = page.getByRole("row").filter({ hasText: "Reviewee" });
+  await row.getByRole("button", { name: "Xem chi tiết", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Hạn chế tài khoản", exact: true })
+    .click();
   await page
     .getByRole("dialog")
     .getByLabel("Lý do xử lý")
@@ -91,10 +76,15 @@ test("Housing Admin uses real Roommate moderation without accepting discovery te
   );
   expect(
     (await restricted.json()).items.some(
-      (item: { profile_id: string }) => item.profile_id === "fixture-reviewee",
+      (p: { profile_id: string }) => p.profile_id === "fixture-reviewee",
     ),
   ).toBe(true);
-  // Restore this shared fixture for other integration scenarios; original policy returns it paused.
+  const history = await page.request.get(
+    "/web/api/roommate/moderation/profiles/fixture-reviewee/history?offset=0&limit=20",
+  );
+  expect((await history.json()).items[0].reason).toBe(
+    "Temporary integration moderation test",
+  );
   expect(
     (
       await page.request.post(
@@ -103,7 +93,7 @@ test("Housing Admin uses real Roommate moderation without accepting discovery te
           headers,
           data: {
             selected: false,
-            reason: "Integration test cleanup",
+            reason: "Integration cleanup",
             operation_key: "admin-integration-restore-01",
           },
         },
@@ -116,9 +106,10 @@ test("Housing Admin uses real Roommate moderation without accepting discovery te
   ).toBeVisible();
 });
 
-test("real photo upload, moderator review and explicit avatar selection", async ({
+test("Roommate upload and review stay unavailable through the real gateway", async ({
   page,
 }) => {
+  const headers = { "X-SIU-Request": "1", Origin: "http://127.0.0.1:18503" };
   await page.goto("/roommate?signin=1");
   await page.getByLabel("Email", { exact: true }).fill("anna@roommate.test");
   await page
@@ -127,37 +118,24 @@ test("real photo upload, moderator review and explicit avatar selection", async 
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await page.getByRole("link", { name: "Hồ sơ của tôi", exact: true }).click();
-  await page.getByLabel("Chọn ảnh JPEG hoặc PNG · tối đa 5 MB").setInputFiles({
-    name: "synthetic-test.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNeUAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
-  await expect(page.getByText("Đang chờ duyệt", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Dùng ảnh này", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  for (const endpoint of ["media", "moderation/media/photo-old"])
+    expect(
+      (
+        await page.request.post("/web/api/roommate/" + endpoint, {
+          headers,
+          data: {},
+        })
+      ).status(),
+    ).toBe(404);
   await page
     .getByRole("link", { name: "Quản lý cộng đồng", exact: true })
     .click();
-  await page.getByRole("button", { name: "Ảnh hồ sơ", exact: true }).click();
-  await page.getByRole("button", { name: "Duyệt ảnh", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByLabel("Lý do xử lý")
-    .fill("Synthetic test image; no contact data.");
-  await page
-    .getByRole("button", { name: "Lưu kết quả duyệt", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("link", { name: "Hồ sơ của tôi", exact: true }).click();
-  await page.getByRole("button", { name: "Dùng ảnh này", exact: true }).click();
   await expect(
-    page.getByText("Ảnh đại diện hiện tại", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Ảnh hồ sơ", exact: true }),
+  ).toHaveCount(0);
 });
+
 test("private introduction does not publish; profile publication, pause and resume require review", async ({
   page,
 }) => {

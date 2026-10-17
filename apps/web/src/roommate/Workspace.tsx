@@ -186,11 +186,7 @@ function Workspace() {
                     ) : tab === "inbox" ? (
                       <Inbox />
                     ) : tab === "profile" ? (
-                      <MyProfile
-                        mediaEnabled={availability.value?.features?.includes(
-                          "media",
-                        )}
-                      />
+                      <MyProfile />
                     ) : tab === "settings" ? (
                       <RoommateSettings />
                     ) : (
