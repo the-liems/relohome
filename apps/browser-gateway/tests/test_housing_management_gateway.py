@@ -38,6 +38,10 @@ async def test_management_gateway_uses_session_actor_and_strict_allowlist(tmp_pa
         )
         assert response.status_code == 200
         assert response.json()["path"].endswith("/v1/landlord/overview")
+        response = await client.get("/web/api/housing-management/landlord/revenue?months=6")
+        assert response.status_code == 200
+        assert response.json()["path"].endswith("/v1/landlord/revenue")
+        assert calls[-1].url.params["months"] == "6"
         assert (await client.get("/web/api/housing-management/arbitrary/admin")).status_code == 404
         response = await client.patch(
             f"/web/api/housing-management/landlord/listings/{LISTING}",

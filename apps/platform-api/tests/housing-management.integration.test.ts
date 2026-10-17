@@ -1204,3 +1204,66 @@ it('records scoped system updates and atomically saves room drafts without self-
     ).status,
   ).toBe(403)
 })
+
+it('revenue: estimated from rent x days rented, never deposits, and scoped to the owner', async () => {
+  const owner = `test-revenue-owner-${run}`, tenant = `test-revenue-tenant-${run}`
+  await host(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/host/${owner}/review`, {decision:'verify',method:'phone_call'})
+  const p = await property(owner)
+  await call(MODERATOR, 'POST', `/v1/moderation/housing/properties/${p}/approve`, {})
+  const paidRoom = await listing(owner, await unit(owner,p,'V.1'), [])
+  const manualRoom = await listing(owner, await unit(owner,p,'V.2'), [])
+  for (const id of [paidRoom, manualRoom]) {
+    await call(owner,'POST',`/v1/landlord/listings/${id}/submit`,{})
+    await call(MODERATOR,'POST',`/v1/moderation/housing/listings/${id}/review`,{decision:'approve'})
+  }
+  const today = String((await admin.query(`SELECT to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'YYYY-MM-DD') AS d`)).rows[0].d)
+  const [year, month, day] = today.split('-').map(Number) as [number, number, number]
+  const previous = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10)
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+  // A confirmed transfer opens a period at the agreed move-in with the monthly rent only.
+  const slot = new Date(Date.now()+86400000).toISOString()
+  const request = (await call(tenant,'PUT',`/v1/housing/${paidRoom}/viewing`,{slot})).body.id
+  const path = `/v1/landlord/contact-requests/${request}`
+  const revisionOf = async () => (await admin.query('SELECT revision FROM housing.contact_requests WHERE id=$1',[request])).rows[0].revision
+  expect((await call(owner,'POST',path+'/viewing',{decision:'confirm',revision:await revisionOf()})).status).toBe(200)
+  const report = await call(tenant,'POST',`/v1/housing/${paidRoom}/payment-reports`,{
+    report_key:randomUUID(),amount_vnd:9_000_000,paid_on:previous,
+    agreement:{deposit_vnd:4_000_000,first_month_vnd:5_000_000,rent_vnd:5_000_000,move_in:previous},
+  })
+  expect(report.status, JSON.stringify(report.body)).toBe(201)
+  expect((await call(owner,'POST',path+'/payment-review',{report_id:report.body.id,revision:report.body.revision,decision:'confirm'})).status).toBe(200)
+
+  // A room marked rented by hand opens today at its listed rent; marking it vacant closes it.
+  const availability = async (status: string) => {
+    const revision = (await call(owner,'GET',`/v1/landlord/listings/${manualRoom}`)).body.revision
+    expect((await call(owner,'POST',`/v1/landlord/listings/${manualRoom}/availability`,{status,revision})).status).toBe(200)
+  }
+  await availability('rented')
+  await availability('rented')
+  const periods = async () => (await admin.query(
+    'SELECT source,monthly_rent_vnd::float AS rent,to_char(starts_on,$2) AS starts_on,to_char(ends_on,$2) AS ends_on FROM housing.rent_periods WHERE listing_id=$1 ORDER BY created_at',
+    [manualRoom,'YYYY-MM-DD'])).rows
+  expect(await periods()).toEqual([{source:'manual',rent:4_000_000,starts_on:today,ends_on:null}])
+
+  const revenue = await call(owner,'GET',`/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(revenue.status, JSON.stringify(revenue.body)).toBe(200)
+  expect(revenue.body.estimated).toBe(true)
+  expect(revenue.body.series.map((m: {month:string}) => m.month)).toHaveLength(3)
+  const byMonth = Object.fromEntries(revenue.body.series.map((m: {month:string;total:number}) => [m.month, m.total]))
+  expect(byMonth[previous.slice(0, 7)]).toBe(5_000_000)
+  expect(byMonth[today.slice(0, 7)]).toBe(Math.round((5_000_000 * day + 4_000_000) / days))
+  const row = revenue.body.properties.find((r: {id:string}) => r.id === p)
+  expect(row).toMatchObject({units:2,rented_units:2,previous_month:5_000_000})
+  expect(revenue.body.total).toBe(byMonth[previous.slice(0, 7)] + byMonth[today.slice(0, 7)])
+
+  await availability('vacant')
+  expect((await periods())[0]).toMatchObject({ends_on:today})
+  const after = await call(owner,'GET',`/v1/landlord/revenue?months=3&property_id=${p}`)
+  expect(after.body.series.at(-1).total).toBe(Math.round(5_000_000 * day / days))
+
+  expect((await call(OTHER,'GET',`/v1/landlord/revenue?property_id=${p}`)).status).toBe(403)
+  expect((await call(OTHER,'GET','/v1/landlord/revenue')).body.total).toBe(0)
+  expect((await call(owner,'GET','/v1/landlord/revenue?months=4')).status).toBe(400)
+})

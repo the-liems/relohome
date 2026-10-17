@@ -1,6 +1,7 @@
-/* Landlord workspace: green backdrop with frosted panels, stronger lines and
+/* Landlord and Admin workspaces: green backdrop with frosted panels, stronger lines and
    text so information never sinks into the background (design canvas, 15/10). */
-.app-shell.host-shell {
+.app-shell.host-shell,
+.rh-admin-shell {
   --ll-backdrop:
     radial-gradient(circle at 10% 6%, #def896f2 0, #def89600 42%),
     radial-gradient(circle at 88% 10%, #b0f4def2 0, #b0f4de00 48%),
@@ -18,7 +19,8 @@
   background-image: var(--ll-backdrop);
   background-attachment: fixed;
 }
-:root[data-theme="dark"] .app-shell.host-shell {
+:root[data-theme="dark"] .app-shell.host-shell,
+:root[data-theme="dark"] .rh-admin-shell {
   --ll-backdrop:
     radial-gradient(circle at 12% 8%, #1f6b4f99 0, #1f6b4f00 45%),
     radial-gradient(circle at 85% 12%, #1a5a6b80 0, #1a5a6b00 48%),
@@ -34,8 +36,8 @@
   background-image: var(--ll-backdrop);
   background-attachment: fixed;
 }
-.host-shell .main-shell { background: transparent; }
-:root[data-theme] .host-shell .chat-header {
+:is(.host-shell, .rh-admin-shell) .main-shell { background: transparent; }
+:root[data-theme] :is(.host-shell, .rh-admin-shell) .chat-header {
   background: var(--ll-glass);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   backdrop-filter: blur(18px) saturate(160%);
@@ -44,24 +46,24 @@
 }
 
 /* Contrast: lines, controls and secondary text inside the workspace. */
-.host-shell .ll-workspace {
+:is(.host-shell, .rh-admin-shell) .ll-workspace {
   --muted: var(--ll-muted);
   --ll-line: var(--ll-strong-line);
   --line-strong: var(--ll-control-line);
   --ui-control-line: var(--ll-control-line);
 }
-.host-shell .ll-workspace .secondary,
-.host-shell .ll-workspace select,
-.host-shell .ll-workspace .icon-button { border-color: var(--ll-control-line); }
+:is(.host-shell, .rh-admin-shell) .ll-workspace .secondary,
+:is(.host-shell, .rh-admin-shell) .ll-workspace select,
+:is(.host-shell, .rh-admin-shell) .ll-workspace .icon-button { border-color: var(--ll-control-line); }
 
 /* Frosted panes. */
-.host-shell .ll-heading,
-.host-shell .ll-nav,
-.host-shell .ll-panel,
-.host-shell .ll-metric,
-.host-shell .ll-host-banner,
-.host-shell .ll-workspace > .ll-contact-hierarchy > .ll-panel,
-.host-shell .ll-workspace .hr-panel {
+:is(.host-shell, .rh-admin-shell) .ll-heading,
+:is(.host-shell, .rh-admin-shell) .ll-nav,
+:is(.host-shell, .rh-admin-shell) .ll-panel,
+:is(.host-shell, .rh-admin-shell) .ll-metric,
+:is(.host-shell, .rh-admin-shell) .ll-host-banner,
+:is(.host-shell, .rh-admin-shell) .ll-workspace > .ll-contact-hierarchy > .ll-panel,
+:is(.host-shell, .rh-admin-shell) .ll-workspace .hr-panel {
   background: var(--ll-glass);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   backdrop-filter: blur(18px) saturate(160%);
@@ -69,28 +71,28 @@
   border-radius: 18px;
   box-shadow: var(--ll-glass-shadow);
 }
-.host-shell .ll-heading { padding: 24px 28px; margin-bottom: 16px; }
-.host-shell .ll-nav { padding: 0 8px; border-radius: 16px; margin-bottom: 20px; }
-.host-shell .ll-workspace .hr-panel { padding: 28px; margin-block: 0; }
-.host-shell .ll-contact-hierarchy > .ll-back {
+:is(.host-shell, .rh-admin-shell) .ll-heading { padding: 24px 28px; margin-bottom: 16px; }
+:is(.host-shell, .rh-admin-shell) .ll-nav { padding: 0 8px; border-radius: 16px; margin-bottom: 20px; }
+:is(.host-shell, .rh-admin-shell) .ll-workspace .hr-panel { padding: 28px; margin-block: 0; }
+:is(.host-shell, .rh-admin-shell) .ll-contact-hierarchy > .ll-back {
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--ll-glass);
 }
 
 /* Tabs: the open tab sits on a tinted tab shape; others tint on hover. */
-.host-shell .ll-nav button.active {
+:is(.host-shell, .rh-admin-shell) .ll-nav button.active {
   color: #065f43;
   background: #dff3e8;
   border-radius: 10px 10px 0 0;
 }
-.host-shell .ll-nav button:not(.active):hover {
+:is(.host-shell, .rh-admin-shell) .ll-nav button:not(.active):hover {
   color: var(--ink);
   background: #eaf0ed;
   border-radius: 10px 10px 0 0;
 }
-:root[data-theme="dark"] .host-shell .ll-nav button.active { color: var(--ui-accent); background: var(--ui-accent-soft); }
-:root[data-theme="dark"] .host-shell .ll-nav button:not(.active):hover { background: var(--ui-soft); }
+:root[data-theme="dark"] :is(.host-shell, .rh-admin-shell) .ll-nav button.active { color: var(--ui-accent); background: var(--ui-accent-soft); }
+:root[data-theme="dark"] :is(.host-shell, .rh-admin-shell) .ll-nav button:not(.active):hover { background: var(--ui-soft); }
 
 /* Overview: supply tiles plus colour-coded listing work. */
 .ll-metrics { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
@@ -343,16 +345,62 @@ circle.ll-series-contacts { fill: var(--service-moving); stroke: var(--ui-surfac
 
 /* Keep fee controls and action labels readable on narrow screens. */
 @media (max-width: 620px) {
-  .host-shell .ll-fee-row.ll-fee-fixed {
+  :is(.host-shell, .rh-admin-shell) .ll-fee-row.ll-fee-fixed {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .host-shell .ll-fee-fixed .ll-fee-name { grid-column: 1 / -1; }
-  .host-shell .ll-listing-form .ll-form-actions {
+  :is(.host-shell, .rh-admin-shell) .ll-fee-fixed .ll-fee-name { grid-column: 1 / -1; }
+  :is(.host-shell, .rh-admin-shell) .ll-listing-form .ll-form-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .host-shell .ll-listing-form .ll-form-actions button {
+  :is(.host-shell, .rh-admin-shell) .ll-listing-form .ll-form-actions button {
     width: 100%;
     min-width: 0;
   }
+}
+
+/* Estimated revenue: one colour per home in the owner's list order (validated
+   for colour-blind separation on both themes); every other home folds into "Khác". */
+.ll-revenue { margin-top: 20px; }
+.ll-revenue h3 { margin: 24px 0 10px; font-size: 16px; }
+.ll-revenue-1 { --rev: #087653; }
+.ll-revenue-2 { --rev: #245fc3; }
+.ll-revenue-3 { --rev: #b77a12; }
+.ll-revenue-4 { --rev: #b32b62; }
+.ll-revenue-5 { --rev: #6b4fbb; }
+.ll-revenue-other { --rev: #7d8a85; }
+:root[data-theme="dark"] .ll-revenue-1 { --rev: #2a9f74; }
+:root[data-theme="dark"] .ll-revenue-2 { --rev: #5486dc; }
+:root[data-theme="dark"] .ll-revenue-3 { --rev: #bd841a; }
+:root[data-theme="dark"] .ll-revenue-4 { --rev: #d45b88; }
+:root[data-theme="dark"] .ll-revenue-5 { --rev: #8a74dc; }
+:root[data-theme="dark"] .ll-revenue-other { --rev: #8d9c96; }
+.ll-revenue-bar { fill: var(--rev); stroke: var(--ui-surface); stroke-width: 2; }
+.ll-chart-legend i.ll-revenue-swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--rev); }
+.ll-revenue .ll-status-metrics strong { display: inline-flex; align-items: center; gap: 4px; }
+.ll-revenue-up { color: var(--ui-success); font-weight: 700; }
+.ll-revenue-down { color: var(--ui-danger); font-weight: 700; }
+.ll-revenue-flat { color: var(--muted); }
+.ll-revenue-compare { width: 100%; }
+.ll-revenue-compare th[scope="row"] { text-align: left; font-weight: 700; }
+.ll-revenue-total > * { background: var(--ui-soft); }
+.ll-revenue-note { margin-top: 16px; }
+
+/* Admin shares the owner workspace glass: frosted header and a pane around the
+   roommate moderation tools, which have no panel of their own. */
+:root[data-theme] .rh-admin-header {
+  background: var(--ll-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border-bottom: 1px solid var(--ll-glass-border);
+  box-shadow: 0 4px 24px #0a1e281f;
+}
+.rh-admin-shell .ra-workspace {
+  padding: 28px;
+  background: var(--ll-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--ll-glass-border);
+  border-radius: 18px;
+  box-shadow: var(--ll-glass-shadow);
 }

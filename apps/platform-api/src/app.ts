@@ -34,6 +34,7 @@ import { registerHousingWorkspace } from './housing-workspace.js'
 import { registerHousingReviews } from './housing-reviews.js'
 import { registerHousingActivity } from './housing-activity.js'
 import { registerHousingHandoff } from './housing-handoff.js'
+import { registerHousingRevenue } from './housing-revenue.js'
 
 const ListingParamsSchema = z.object({ listingId: z.uuid() })
 const PlaceParamsSchema = z.object({ placeId: z.uuid() })
@@ -55,6 +56,7 @@ export function buildApp(pool: DatabasePool, config: ApplicationRuntimeConfig) {
   registerHousingReviews(app, pool)
   registerHousingHandoff(app, pool)
   registerHousingActivity(app, pool)
+  registerHousingRevenue(app, pool)
 
   void app.register(cors, {
     origin: [/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/],
