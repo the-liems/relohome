@@ -67,7 +67,7 @@ Chromium dùng bản có sẵn trong cache; các thư viện còn thiếu đư�
 - Contracts: 49 test qua.
 - Platform API: unit đánh giá 7 qua; integration housing + migration 028: 18 qua; roommate chat/API trên Postgres: 17 qua.
 - Python (xem nhà, gateway activity, roommate chat/API): 45 qua, 3 bỏ qua khi không có Postgres (đã chạy trên Postgres tạm). Gateway housing management + viewing consistency: 53 qua.
-- Playwright toàn bộ: 570 qua, 4 lỗi, 34 bỏ qua (608 ca). Chạy lại 4 ca lỗi: 3 ca qua (lỗi do tải máy khi chạy song song); ca bản đồ chuyển đồ trên mobile lỗi thật do nút "Hiện khung chat" nay nằm trong luồng và đè điểm bấm của test. Test bấm vào vùng bản đồ trống phía dưới các nút; qua cả desktop và mobile.
+- Playwright toàn bộ (sau khi bổ sung nền trang và đối chiếu lại canvas): 582 qua, 0 lỗi, 34 bỏ qua (ca live/integration thiếu backend thật). Lần chạy trước có 4 lỗi; 3 ca qua khi chạy lại, ca bản đồ chuyển đồ trên mobile được sửa: test bấm vào vùng bản đồ trống bên dưới các nút.
 - Read receipt ở ghép: 8 ca mới (chưa đọc, đọc tin trước, đã xem, đã trả lời; desktop/mobile) qua.
 - Kiểm tra mới: hai hộp xác nhận, ẩn hiện yêu cầu trả tiền, màu trạng thái, không chọn lại sau buổi xem, tab tài khoản, header hover/focus/touch, khóa đánh giá, công thức chi phí, nhãn Đã xem, mở chi tiết và so sánh từ bản đồ.
 - Xung đột: `origin/main` vẫn ở `4a14c23`. Thử merge với PR mở #218, #213, #208 (cùng đụng `MapWorkspace.tsx`, `roommate.spec.ts`, gateway `server.py`): đều merge sạch; build web sau khi gộp #218 qua.
