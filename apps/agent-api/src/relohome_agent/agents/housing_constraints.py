@@ -1,5 +1,9 @@
 """Shared graph-to-Housing filter names; provider schema remains authoritative."""
 
+AMENITIES = frozenset(
+    "air_conditioning internet refrigerator washing_machine hot_water kitchen allow_cooking bed wardrobe desk elevator security parking balcony natural_light private_bathroom shared_bathroom pet_friendly gym swimming_pool".split()
+)
+
 HOUSING_NUMERIC_FILTERS = (
     "min_bedrooms",
     "max_bedrooms",

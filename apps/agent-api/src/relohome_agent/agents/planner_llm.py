@@ -9,7 +9,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.agents.contracts import AgentCapability
 from relohome_agent.agents.housing_constraints import HOUSING_INPUT_KEYS
-from relohome_agent.agents.housing_fast_path import is_filter_search
+from relohome_agent.agents.housing_fast_path import filter_followup_task, is_filter_search
 from relohome_agent.agents.housing_operations import is_housing_comparison, same_housing_operation
 from relohome_agent.agents.intake import missing_for, selected_fact_key
 from relohome_agent.agents.llm import LLMError, StructuredLLM
@@ -75,6 +75,8 @@ class CapabilityRegistry:
 
 
 class LlmPlanner(UsageOwner):
+    supports_zero_call_plans = True  # Invocation.reserve still enforces the budget before any generation.
+
     def __init__(self, llm: StructuredLLM, capabilities: Mapping[AgentName, AgentCapability], *, max_calls: int = 5):
         super().__init__()
         if max_calls < 1:
@@ -92,24 +94,34 @@ class LlmPlanner(UsageOwner):
             return PlannerOutput(plan=Plan(version=0, tasks=[]))
         available = {n: cap for n, cap in self.registry.capabilities.items() if n in inp.available_agents}
         registry = CapabilityRegistry(available)
-        if (
+        followup = filter_followup_task(inp)
+        new_search = (
             is_filter_search(inp.intake)
             and not inp.previous_plan
             and not inp.previous_results
             and not inp.committed
             and inp.validation is None
             and inp.change_context is None
-        ):
+        )
+        if new_search or followup is not None:
             inputs, _ = TemplatePlanner._inputs(AgentName.PROPERTY, inp.intake.constraints.values, inp.intake)
             candidate = Plan(
                 version=0,
-                tasks=[Task(id="housing-search-" + uuid4().hex, agent=AgentName.PROPERTY, inputs=inputs)],
+                tasks=[
+                    Task(
+                        id=followup.id if followup else "housing-search-" + uuid4().hex,
+                        agent=AgentName.PROPERTY,
+                        inputs=inputs,
+                    )
+                ],
             )
             # Exactly the same contract/grounding gates as a model-authored plan.
-            if not validate_plan(candidate, registry, inp.intake, inp.committed) and not self._grounding_errors(
-                candidate, inp
-            ):
-                return PlannerOutput(plan=candidate)
+            if not validate_plan(
+                candidate, registry, inp.intake, inp.committed, inp.previous_plan
+            ) and not self._grounding_errors(candidate, inp):
+                return PlannerOutput(plan=candidate, retrieval_only_task_ids=[candidate.tasks[0].id])
+        if run.max_calls <= 0:
+            raise LLMError("LLM_BUDGET", "Đã hết lượt gọi LLM cho yêu cầu.")
         data = inp.model_dump(mode="json", exclude={"session"})
         blocked = set(inp.intake.blocking_missing + inp.intake.constraints.missing)
         data["ready_requested_domains"] = [

@@ -51,6 +51,8 @@ class PlannerInput(BaseModel):
 
 class PlannerOutput(BaseModel):
     plan: Plan
+    # Trusted code-only optimization; never part of the LLM PlanDraft schema.
+    retrieval_only_task_ids: list[str] = []
     # Domain được yêu cầu nhưng Planner xác định input hiện có chưa dùng được (ví dụ địa chỉ chỉ tới
     # cấp quận): câu hỏi gắn đúng field "<domain>.<key>", graph hỏi lại thay vì báo lỗi kế hoạch.
     questions: list[Question] = []
@@ -320,6 +322,8 @@ class TemplatePlanner:
             for key in HOUSING_INPUT_KEYS:
                 if key in intake.prefilled and key in SOFT_FILTER_KEYS:
                     _put(soft, key, values.get(key))
+                elif key == "must_have" and values.get(key) == []:
+                    inputs[key] = []  # Explicitly clearing the last amenity is a valid, grounded filter.
                 else:
                     _put(inputs, key, values.get(key))
             _put(inputs, "soft_filters", soft)

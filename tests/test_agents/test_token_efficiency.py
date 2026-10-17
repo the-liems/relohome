@@ -326,13 +326,15 @@ async def test_property_reuses_the_grounded_tool_without_llm_and_preserves_ambig
 @pytest.mark.asyncio
 async def test_routing_and_request_builder_carry_only_the_validated_retrieval_hint():
     intake = search_intake()
-    plan = (await LlmPlanner(Model(), BASELINE_CAPABILITIES).plan(planner_input(intake))).plan
+    planned = await LlmPlanner(Model(), BASELINE_CAPABILITIES).plan(planner_input(intake))
+    plan = planned.plan
     task = plan.tasks[0]
     sends = route_from_executor(
         {
             "dispatch": [task.id],
             "plan": plan,
             "intake": intake,
+            "filter_search_task_ids": planned.retrieval_only_task_ids,
             "messages": [HumanMessage(MESSAGE)],
         }
     )
