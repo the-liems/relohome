@@ -12,7 +12,8 @@ import { RoommateError } from "./client";
 import { useRoommateClient } from "./useRoommateClient";
 import { ErrorNotice } from "./ErrorNotice";
 import { rt } from "./text";
-import type { ChatMessage, ChatPage } from "./chatTypes";
+import type { ChatPage } from "./chatTypes";
+import { compareChatMessages, mergeChatPages } from "./chatHistory";
 
 export function RoommateThread({
   conversationId,
@@ -33,30 +34,75 @@ export function RoommateThread({
     [pending, setPending] = useState<{
       body: string;
       client_message_id: string;
-    } | null>(null),
-    [older, setOlder] = useState<ChatMessage[]>([]),
-    [olderHasMore, setOlderHasMore] = useState(true);
+    } | null>(null);
   const active = useRef(true),
     locked = useRef(false),
     loading = useRef(false),
     generation = useRef(0),
+    history = useRef<ChatPage | null>(null),
+    historyEpoch = useRef(0),
     read = useRef(onRead),
     details = useRef(onDetails),
     end = useRef<HTMLDivElement>(null);
   read.current = onRead;
   details.current = onDetails;
   const path = "/chat/conversations/" + encodeURIComponent(conversationId);
+  const savePage = useCallback((value: ChatPage) => {
+    history.current = value;
+    setPage(value);
+  }, []);
+  const clearHistory = useCallback(() => {
+    historyEpoch.current++;
+    history.current = null;
+    setPage(null);
+  }, []);
   const load = useCallback(
     async (force = false) => {
       if (loading.current && !force) return;
       const version = ++generation.current;
+      const epoch = historyEpoch.current;
       loading.current = true;
       try {
-        const next = await roommate<ChatPage>(path + "/messages");
-        if (!active.current || version !== generation.current) return;
+        let next = await roommate<ChatPage>(path + "/messages");
+        if (
+          !active.current ||
+          version !== generation.current ||
+          epoch !== historyEpoch.current
+        )
+          return;
         if (next.viewer_id !== viewerId)
           throw new RoommateError("authentication_required", 401);
-        setPage(next);
+        const lastKnown = history.current?.items.at(-1);
+        // A background tab may miss more than one latest page. Follow server
+        // cursors until the refreshed range reaches the history already loaded.
+        while (
+          lastKnown &&
+          next.has_more &&
+          next.items[0] &&
+          compareChatMessages(next.items[0], lastKnown) > 0
+        ) {
+          const first = next.items[0];
+          const earlier = await roommate<ChatPage>(
+            path + "/messages?before=" + encodeURIComponent(first.id),
+          );
+          if (
+            !active.current ||
+            version !== generation.current ||
+            epoch !== historyEpoch.current
+          )
+            return;
+          if (earlier.viewer_id !== viewerId)
+            throw new RoommateError("authentication_required", 401);
+          if (
+            earlier.items[0] &&
+            compareChatMessages(earlier.items[0], first) >= 0
+          )
+            throw new RoommateError("service_unavailable", 503);
+          next = mergeChatPages(next, earlier);
+        }
+        savePage(
+          next.items.length ? mergeChatPages(history.current, next) : next,
+        );
         setError(null);
         details.current(
           next.counterparty_name || rt("Người ở ghép", "Roommate"),
@@ -67,8 +113,7 @@ export function RoommateThread({
         if (active.current && version === generation.current) read.current();
       } catch (cause) {
         if (!active.current || version !== generation.current) return;
-        setPage(null);
-        setOlder([]);
+        clearHistory();
         setError(cause);
         if (
           cause instanceof RoommateError &&
@@ -82,14 +127,13 @@ export function RoommateThread({
         if (version === generation.current) loading.current = false;
       }
     },
-    [path, viewerId, roommate],
+    [path, viewerId, roommate, clearHistory, savePage],
   );
   useEffect(() => {
     active.current = true;
     void load();
     const invalidate = () => {
-      setPage(null);
-      setOlder([]);
+      clearHistory();
       setText("");
       setPending(null);
       void load(true);
@@ -100,12 +144,13 @@ export function RoommateThread({
     }, 15000);
     return () => {
       active.current = false;
+      historyEpoch.current++;
       generation.current++;
       loading.current = false;
       window.clearInterval(timer);
       window.removeEventListener("roommate-chat-update", invalidate);
     };
-  }, [load]);
+  }, [load, clearHistory]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
   }, [page?.items.at(-1)?.id]);
@@ -136,8 +181,7 @@ export function RoommateThread({
         (cause.code === "actor_changed" ||
           [401, 403, 404].includes(cause.status))
       ) {
-        setPage(null);
-        setOlder([]);
+        clearHistory();
         setText("");
         setPending(null);
       }
@@ -157,32 +201,38 @@ export function RoommateThread({
     void transmit(payload);
   }
   async function previous() {
-    const first = older[0] || page?.items[0];
+    const first = history.current?.items[0];
     if (!first || locked.current) return;
+    const epoch = historyEpoch.current;
     locked.current = true;
     setBusy(true);
     try {
       const result = await roommate<ChatPage>(
         path + "/messages?before=" + encodeURIComponent(first.id),
       );
-      if (!active.current) return;
-      setOlder((value) => [...result.items, ...value]);
-      setOlderHasMore(result.has_more);
+      if (!active.current || epoch !== historyEpoch.current) return;
+      if (result.viewer_id !== viewerId)
+        throw new RoommateError("authentication_required", 401);
+      const merged = mergeChatPages(history.current, result);
+      // An older-page request may finish after a newer status/unread refresh.
+      // It extends history only; it must not roll conversation metadata back.
+      savePage({
+        ...merged,
+        ...history.current,
+        items: merged.items,
+        has_more: merged.has_more,
+      });
     } catch (cause) {
-      if (active.current) {
+      if (active.current && epoch === historyEpoch.current) {
         setError(cause);
-        setOlder([]);
-        setPage(null);
+        clearHistory();
       }
     } finally {
       locked.current = false;
       if (active.current) setBusy(false);
     }
   }
-  const messages = [...older, ...(page?.items || [])].filter(
-    (message, index, all) =>
-      all.findIndex((item) => item.id === message.id) === index,
-  );
+  const messages = page?.items || [];
   return (
     <div className="contact-thread" data-service="roommate">
       <ErrorNotice error={error} retry={() => void load()} />
@@ -205,7 +255,7 @@ export function RoommateThread({
               )}
             </p>
           )}
-          {!!page.has_more && olderHasMore && (
+          {!!page.has_more && (
             <button
               className="secondary"
               disabled={busy}

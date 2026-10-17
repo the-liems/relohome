@@ -288,6 +288,158 @@ test("accept opens in-app chat and ambiguous retry keeps the same message ID", a
     .toBeTruthy();
 });
 
+for (const initialCount of [60, 90]) {
+  for (const update of [
+    "send",
+    "poll",
+    ...(initialCount === 60 ? ["poll-gap"] : []),
+  ]) {
+    test(`chat history retains cursor boundaries after ${update} with ${initialCount} messages`, async ({
+      page,
+    }) => {
+      await page.clock.install();
+      await fixture(page, { chat: true, received: true });
+      const message = (number: number, sender = "anna") => ({
+        id: `history-${String(number).padStart(4, "0")}`,
+        sender_id: sender,
+        body: `Synthetic history ${number}`,
+        created_at: new Date(Date.UTC(2026, 9, 17, 8, 0, number)).toISOString(),
+      });
+      const messages = Array.from({ length: initialCount }, (_, index) =>
+        message(index + 1),
+      );
+      await page.route(
+        "**/web/api/roommate/chat/conversations/request-one/messages**",
+        async (route) => {
+          if (route.request().method() === "POST") {
+            const next = message(messages.length + 1, "viewer");
+            next.body = route.request().postDataJSON().body;
+            messages.push(next);
+            return route.fulfill({ json: { message: next } });
+          }
+          const before = new URL(route.request().url()).searchParams.get(
+            "before",
+          );
+          const end = before
+            ? messages.findIndex((item) => item.id === before)
+            : messages.length;
+          const start = Math.max(0, end - 30);
+          return route.fulfill({
+            json: {
+              id: "request-one",
+              request_id: "request-one",
+              state: "active",
+              counterparty_name: "Anna Nguyễn",
+              viewer_id: "viewer",
+              items: messages.slice(start, end),
+              has_more: start > 0,
+            },
+          });
+        },
+      );
+      await page.goto("/roommate/requests/request-one");
+      await page
+        .getByRole("button", { name: "Đồng ý kết nối", exact: true })
+        .click();
+      const list = page.locator(".contact-thread-list");
+      await expect(list.locator("li")).toHaveCount(30);
+      const previous = page.getByRole("button", {
+        name: "Tin nhắn trước",
+        exact: true,
+      });
+      await previous.click();
+      await expect(list.locator("li")).toHaveCount(60);
+      if (update === "send") {
+        await page
+          .getByRole("textbox", { name: "Nội dung tin nhắn" })
+          .fill(message(initialCount + 1).body);
+        await page.getByRole("button", { name: "Gửi", exact: true }).click();
+      } else {
+        const extra = update === "poll-gap" ? 31 : 1;
+        for (let i = 0; i < extra; i++)
+          messages.push(message(messages.length + 1));
+        await page.clock.fastForward(15_001);
+      }
+      const visibleCount = 60 + messages.length - initialCount;
+      await expect(list.locator("li")).toHaveCount(visibleCount);
+      await expect(list.locator("li p")).toHaveText(
+        messages.slice(initialCount - 60).map((item) => item.body),
+      );
+      await page.clock.fastForward(15_001);
+      await expect(list.locator("li")).toHaveCount(visibleCount);
+      if (initialCount === 90) {
+        await expect(previous).toBeVisible();
+        await previous.click();
+        await expect(list.locator("li p")).toHaveText(
+          messages.map((item) => item.body),
+        );
+      }
+      await expect(previous).toHaveCount(0);
+    });
+  }
+}
+
+test("delayed history cannot reopen a connection closed by a newer refresh", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await fixture(page, { chat: true, received: true });
+  const messages = Array.from({ length: 60 }, (_, index) => ({
+    id: `delayed-${String(index).padStart(3, "0")}`,
+    sender_id: "anna",
+    body: `Earlier message ${index}`,
+    created_at: new Date(Date.UTC(2026, 9, 17, 8, 0, index)).toISOString(),
+  }));
+  let closed = false;
+  let releaseOlder!: () => void;
+  const olderReady = new Promise<void>((resolve) => {
+    releaseOlder = resolve;
+  });
+  await page.route(
+    "**/web/api/roommate/chat/conversations/request-one/messages**",
+    async (route) => {
+      const older = new URL(route.request().url()).searchParams.has("before");
+      const response = {
+        id: "request-one",
+        request_id: "request-one",
+        state: closed ? "closed" : "active",
+        counterparty_name: "Anna Nguyễn",
+        viewer_id: "viewer",
+        items: older ? messages.slice(0, 30) : messages.slice(30),
+        has_more: !older,
+      };
+      if (older) await olderReady;
+      return route.fulfill({ json: response });
+    },
+  );
+  await page.goto("/roommate/requests/request-one");
+  await page
+    .getByRole("button", { name: "Đồng ý kết nối", exact: true })
+    .click();
+  const list = page.locator(".contact-thread-list");
+  await expect(list.locator("li")).toHaveCount(30);
+  const requested = page.waitForRequest((request) =>
+    request.url().includes("/messages?before="),
+  );
+  await page
+    .getByRole("button", { name: "Tin nhắn trước", exact: true })
+    .click();
+  await requested;
+  closed = true;
+  await page.clock.fastForward(15_001);
+  const notice = page.getByText(
+    "Kết nối đã dừng. Bạn vẫn có thể xem lịch sử còn được phép.",
+    { exact: true },
+  );
+  await expect(notice).toBeVisible();
+  releaseOlder();
+  await expect(list.locator("li")).toHaveCount(60);
+  await expect(notice).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Nội dung tin nhắn", exact: true }),
+  ).toHaveCount(0);
+});
+
 test("account introduction updates the same roommate source without publishing", async ({
   page,
 }) => {

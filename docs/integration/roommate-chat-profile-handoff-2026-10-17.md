@@ -128,3 +128,27 @@ Các ca PostgreSQL yêu cầu `ROOMMATE_TEST_DATABASE_URL` của database test t
 - Intro riêng vẫn chưa có optimistic version đa thiết bị. Có bảo vệ dirty form, actor và refetch; không cam kết merge đồng thời từ hai thiết bị.
 - Cloud backup schedule, tải thực tế và observability hạ tầng tiếp tục theo runbook vận hành; chưa diễn tập deploy cloud trong đợt này.
 - Các lỗi baseline ở mục 6 cần được xử lý riêng trước khi tuyên bố toàn bộ frontend CI xanh.
+
+## 8. Sửa lỗi review PR #212 — 17/10/2026
+
+Hai ca lỗi đã được tái hiện trước khi sửa:
+
+- Tải 60 tin rồi gửi tin 61 làm mất tin 31 khỏi giao diện. Test Chrome thất bại cả desktop/mobile; database vẫn giữ tin.
+- Đọc thông báo tin đầu, nhận tin mới: badge thông báo là 0 trong khi messenger là 1. Test service SQLite thất bại tại đúng assertion unread.
+
+Bản sửa:
+
+- Ghép các trang theo message ID và thứ tự cursor `(created_at, id)`, giữ `has_more` của biên lịch sử cũ nhất đã tải. Không thay toàn bộ lịch sử bằng cửa sổ 30 tin mới nhất.
+- Nếu tab bỏ lỡ hơn một trang tin, đọc tiếp bằng cursor tới đoạn đã biết trước khi ghép. Tải trang cũ không được ghi đè trạng thái hội thoại mới hơn; phản hồi từ trước lần invalidation không được phục hồi lịch sử đã xóa khỏi UI.
+- Thông báo chat dùng message ID làm khóa sự kiện, còn `resource_id` vẫn là request/conversation để deep link hiện có hoạt động. Retry cùng client message ID trả kết quả cũ trước bước phát thông báo. Thông báo lifecycle khác giữ cách định danh cũ.
+- Không cần migration bổ sung so với schema v3 của PR; không đổi API contract, workflow CI, matching hoặc luồng Phone/Zalo cũ.
+
+Kiểm chứng bổ sung:
+
+- Roommate SQLite/PostgreSQL, gateway Roommate và auth matrix: **255 passed**, database PostgreSQL test riêng.
+- UI Roommate rộng: **52 passed**, desktop/mobile, theme/ngôn ngữ, retry, privacy và accessibility.
+- Hồi quy lịch sử: **12 passed** ở lượt cuối; gửi/poll với 60 tin, tải một phần trong 90 tin, nhận 31 tin khi tab bỏ lỡ một cửa sổ, tải trang cũ chậm sau khi hội thoại đóng; gồm desktop/mobile.
+- Chrome → gateway → API → SQLite: **4 passed** với state synthetic riêng; gồm chat hai chiều, từ chối actor cũ, đóng kết nối và privacy erase.
+- Production web build, Ruff check/format và diff whitespace đạt. Không gọi provider/LLM trả phí để kiểm thử hai bản sửa này.
+
+Artifact nằm trong worktree test riêng `apps/web/test-results/chat-fixes-release`, `chat-history-final`, `chat-fixes-integration`; không đưa dữ liệu test vào bundle hoặc DB ứng dụng.
