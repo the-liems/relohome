@@ -31,11 +31,24 @@ import { DemoDiscovery } from "./DemoDiscovery";
 import { RoommateSettings } from "./Settings";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { ModerationWorkspace } from "./Moderation";
-import { RoommateFeatures } from "./Features";
+import { RoommateFeatures, RoommateIdentity } from "./Features";
 import { RecoveryPanel } from "./RecoveryPanel";
 import "./roommate.css";
 export { RoommateGuest } from "./RoommateGuest";
-export function RoommateWorkspace() {
+export function RoommateWorkspace({
+  name = "",
+  id = "",
+}: {
+  name?: string;
+  id?: string;
+}) {
+  return (
+    <RoommateIdentity.Provider value={{ id, name }}>
+      <Workspace />
+    </RoommateIdentity.Provider>
+  );
+}
+function Workspace() {
   useUiPreferences();
   const availability = useResource<Availability>("/availability"),
     access = useResource<Access>(

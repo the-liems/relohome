@@ -32,7 +32,9 @@ def trusted_actor(
 
     resource = request.url.path.rsplit("/", 1)[-1]
     budget = (
-        "search"
+        "chat_message"
+        if request.method == "POST" and resource == "messages" and "/roommate/chat/" in request.url.path
+        else "search"
         if resource in ("search", "rooms")
         else "upload"
         if request.method == "POST" and resource == "media"
@@ -42,7 +44,7 @@ def trusted_actor(
         if request.method == "GET"
         else "write"
     )
-    limits = {"search": 60, "upload": 12, "report": 10, "read": 240, "write": 120}
+    limits = {"search": 60, "upload": 12, "report": 10, "read": 240, "write": 120, "chat_message": 20}
     with runtime.context() as ctx:
         perform(take_budget, ctx, actor, budget, limit=limits[budget])
     return actor
@@ -87,7 +89,7 @@ def availability(request: Request):
         "cities": [city.value for city in City],
         "terms_version": TERMS_VERSION,
         "demo_enabled": bool(getattr(getattr(request.app.state, "roommate_runtime", None), "demo", None)),
-        "features": ["notifications", "media", "moderation", "privacy", "operation_drafts"],
+        "features": ["notifications", "media", "moderation", "privacy", "operation_drafts", "chat"],
     }
 
 

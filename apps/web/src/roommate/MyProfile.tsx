@@ -2,19 +2,21 @@ import { useEffect, useState } from "react";
 import { ProfilePreview, ProfileTransition } from "./ProfileDialogs";
 import { ContentSkeleton } from "../components/UiStates";
 import { useResource } from "./useResource";
-import { roommate } from "./client";
+import { useRoommateClient } from "./useRoommateClient";
 import { ProfileEditor } from "./ProfileEditor";
 import { ProfileSummary } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
 import { emptyProfile, type OwnProfile, type Profile } from "./types";
 import { deadlineLabel, rt, stateName } from "./text";
 import { AvatarEditor } from "./AvatarEditor";
+import { useIntro } from "./useIntro";
 export function MyProfile({
   mediaEnabled = false,
 }: {
   mediaEnabled?: boolean;
 }) {
-  const intro = useResource<Profile>("/me/intro"),
+  const roommate = useRoommateClient();
+  const intro = useIntro(),
     own = useResource<OwnProfile>("/me/profile");
   const [content, setContent] = useState(emptyProfile()),
     [busy, setBusy] = useState(false),
@@ -24,8 +26,8 @@ export function MyProfile({
     [reviewed, setReviewed] = useState(false),
     [action, setAction] = useState<string | null>(null);
   useEffect(() => {
-    if (intro.value) setContent(intro.value);
-  }, [intro.value]);
+    if (!intro.loading && !intro.dirty.current) setContent(intro.content);
+  }, [intro.content, intro.loading]);
   async function transition(value: string) {
     if (!own.value || busy) return;
     setBusy(true);
@@ -107,6 +109,7 @@ export function MyProfile({
               setError(null);
               try {
                 await roommate("/me/intro", "PUT", content);
+                intro.saved();
                 setNotice(
                   rt(
                     "Đã lưu bản giới thiệu riêng. Chưa đăng công khai.",
@@ -127,6 +130,7 @@ export function MyProfile({
               <ProfileEditor
                 value={content}
                 change={(v) => {
+                  intro.dirty.current = true;
                   setContent(v);
                   setNotice("");
                 }}

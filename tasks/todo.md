@@ -1,5 +1,26 @@
 # Roommate Discovery — Implementation checklist
 
+## Hồ sơ dùng lại và kết nối để chat — cập nhật 17/10/2026
+
+Đã hoàn tất code và kiểm thử theo [kế hoạch](../docs/architecture/roommate-profile-ux-plan-2026-10-16.md). Evidence và hướng dẫn nâng cấp tại [bàn giao ngày 17/10](../docs/integration/roommate-chat-profile-handoff-2026-10-17.md); chưa deploy cloud.
+
+- [x] RU-01 Account intro — cùng nguồn `/me/intro`, gate và dirty form đúng, tách thông tin riêng tư.
+- [x] RU-02 Criteria defaults — giữ criteria/route/current edits; tải criteria lỗi không tự nới bộ lọc.
+- [x] Checkpoint hồ sơ — cùng dữ liệu hai màn, guest/terms đúng; xóa hồ sơ không tự điền lại tên.
+- [x] RC-01 Lời mời chat — contract/domain/migration additive; không cần Phone/Zalo; giữ eligibility/quota và pending TTL.
+- [x] RC-02 Accept — mở đúng một conversation nguyên tử/idempotent; không tạo contact grant; tương thích legacy.
+- [x] RC-03 Messages API — member-only read/send, pagination/unread, chống gửi trùng và rate/body limits; SQLite/PG.
+- [x] Checkpoint backend — hai actor chưa có contact gửi/đồng ý/nhắn được; outsider/pending bị chặn; race/retry và legacy đạt.
+- [x] RU-03 Composer — summary/edit trong một khung; bỏ chọn kênh/checkbox chia sẻ liên hệ; giữ preview/recovery.
+- [x] RU-04 Accept/focus — Đồng ý kết nối mở chat; không thêm xác nhận; đổi tab giữ draft, đổi actor dọn state.
+- [x] RC-04 Messenger — view chung, adapter Housing/Roommate riêng, đúng conversation identity/unread/CTA Nhắn tin, reload được.
+- [x] RC-05 Lifecycle/privacy — close/block/restriction, export phân trang/erase/retention, migration/rollback; private-only sender erase cũng thu hồi chat.
+- [x] Checkpoint UI/lifecycle — double click, preview lỗi, unknown/retry, expiry pending, logout/block; không chat trùng hoặc lộ nội dung.
+- [x] RU-05 UI — card/footer gọn, mobile, VI/EN, light/dark, keyboard/Axe.
+- [x] RU-06 Regression/handoff — build, 206 PG, 42 UI, 4 tích hợp thật, 6 Housing messenger; 32 lỗi workspace trùng baseline đã ghi, CI không sửa.
+
+Chat nội bộ Roommate đã triển khai theo yêu cầu ngày 17/10: gửi → đồng ý → chat ngay, không chia sẻ Phone/Zalo; tái sử dụng view Housing nhưng không dùng API/bảng/grant Housing thay cho Roommate. Checklist ngày 12/10 và baseline dưới đây giữ nguyên.
+
 > Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
 
 

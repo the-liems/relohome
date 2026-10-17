@@ -9,6 +9,10 @@ def purge_connections(
     context: RoommateContext, actor: str, *, incoming_only: bool = False, revoke: bool = False
 ) -> None:
     now = context.clock.now()
+    if revoke:
+        from relohome_roommate.chat_repository import close_chats
+
+        close_chats(context, actor, revoke=True)
     for request in context.connections.for_actor(actor):
         if request.state is RequestState.PENDING and (not incoming_only or request.recipient_id == actor):
             context.connections.close(request, RequestState.CANCELLED, now)

@@ -110,6 +110,7 @@ import { LandlordWorkspace } from "./landlord/Workspace";
 import { forgetActiveChat, readActiveChat, rememberActiveChat } from "./activeChatSession";
 import { ResumeChat } from "./components/ResumeChat";
 import { ContactMessengerProvider } from "./components/ContactMessenger";
+import { AccountIntroPanel } from "./roommate/AccountIntroPanel";
 import { AccountAccess } from "./accountAccess";
 import { AUTH_RESTORED } from "./authEvents";
 
@@ -396,7 +397,7 @@ export default function App() {
       <ContactMessengerProvider userId={user.id} enabled={!user.is_guest}><Shell>
         <Routes>
           <WebRoute path="/ai/:threadId?" element={<Chat key={accountGeneration} />} />
-          <WebRoute path="/roommate/*" element={<RoommateWorkspace key={user.id} />} />
+          <WebRoute path="/roommate/*" element={<RoommateWorkspace key={user.id} id={user.id} name={user.name} />} />
           <WebRoute path="/guides" element={<GuidesPage />} />
           <WebRoute path="/landlord" element={<LandlordWorkspace key={user.id} />} />
           <WebRoute
@@ -2685,6 +2686,8 @@ function Account({ onLogout }: { onLogout: () => void }) {
               </form>
             </section>
             {tab === "profile" && <TravelerProfileForm />}
+
+            {tab === "profile" && <AccountIntroPanel key={user.id} id={user.id} name={user.name} />}
 
           </div>
         ) : saved.length ? (

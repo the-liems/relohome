@@ -108,6 +108,10 @@ export type Contact = {
   value: string | null;
 };
 export type RequestSummary = {
+  mode?: "contact" | "chat";
+  conversation_id?: string | null;
+  conversation_state?: "active" | "closed" | null;
+  counterparty_id?: string | null;
   request_id: string;
   direction: "sent" | "received";
   state: string;

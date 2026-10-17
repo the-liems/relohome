@@ -4,6 +4,32 @@
   background: var(--ui-bg);
 }
 
+.account-roommate-intro {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.account-roommate-intro .rm-fields {
+  max-width: 960px;
+}
+.rm-composer-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 16px 0 max(16px, env(safe-area-inset-bottom));
+  margin-bottom: 0;
+  background: var(--ui-surface);
+  border-top: 1px solid var(--ui-line);
+  justify-content: flex-end;
+}
+.rm-composer-footer .primary {
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .rm-composer-footer .primary {
+    width: 100%;
+  }
+}
+
 .rm-media-list {
   list-style: none;
   margin: 16px 0;

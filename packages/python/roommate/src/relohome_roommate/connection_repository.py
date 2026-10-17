@@ -99,9 +99,10 @@ class SqlConnections:
             (actor, now.timestamp()),
         ).fetchone()[0]
 
-    def pair(self, first: str, second: str, now: datetime) -> RequestRecord | None:
+    def pair(self, first: str, second: str, now: datetime, *, mode: str = "contact") -> RequestRecord | None:
+        table = "chat_pairs" if mode == "chat" else "pairs"
         row = self.db.execute(
-            "SELECT request FROM pairs WHERE first=? AND second=? AND expires>?",
+            f"SELECT request FROM {table} WHERE first=? AND second=? AND (expires IS NULL OR expires>?)",
             (*sorted((first, second)), utc(now).timestamp()),
         ).fetchone()
         return self.get(row[0]) if row else None
@@ -133,7 +134,7 @@ class SqlConnections:
     def create(self, record: RequestRecord, now: datetime) -> RequestRecord:
         require_transaction(self.db)
         self.expire(now)
-        existing = self.pair(record.sender_id, record.recipient_id, now)
+        existing = self.pair(record.sender_id, record.recipient_id, now, mode=record.mode)
         if existing:
             return existing
         deadline = self.cooldown(record.sender_id, record.recipient_id)
@@ -145,8 +146,9 @@ class SqlConnections:
         if pending >= MAX_PENDING:
             raise RepositoryPolicyError("pending_limit")
         self.save(record)
+        table = "chat_pairs" if record.mode == "chat" else "pairs"
         self.db.execute(
-            "INSERT INTO pairs VALUES (?,?,?,?)",
+            f"INSERT INTO {table} VALUES (?,?,?,?)",
             (*sorted((record.sender_id, record.recipient_id)), record.id, record.expires_at.timestamp()),
         )
         return record
@@ -158,6 +160,7 @@ class SqlConnections:
             raise ValueError("Use consent service for acceptance")
         self.save(record.model_copy(update={"state": state, "closed_at": utc(now)}))
         self.db.execute("DELETE FROM pairs WHERE request=?", (record.id,))
+        self.db.execute("DELETE FROM chat_pairs WHERE request=?", (record.id,))
         delay = {
             RequestState.REJECTED: REJECT_COOLDOWN,
             RequestState.WITHDRAWN: WITHDRAW_COOLDOWN,
@@ -200,6 +203,7 @@ class SqlConnections:
         ).fetchall():
             self.save_grant(GrantRecord.model_validate_json(row[0]).model_copy(update={"state": GrantState.EXPIRED}))
         self.db.execute("DELETE FROM pairs WHERE expires<=?", (utc(now).timestamp(),))
+        self.db.execute("DELETE FROM chat_pairs WHERE expires<=?", (utc(now).timestamp(),))
 
     def operation(self, actor: str, key: str, fingerprint: str | None = None) -> dict | None:
         row = self.db.execute(

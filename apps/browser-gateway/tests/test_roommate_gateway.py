@@ -31,6 +31,8 @@ async def test_gateway_session_csrf_whitelist_and_binary(tmp_path, monkeypatch):
     ):
         assert (await client.get("/web/api/roommate/availability")).status_code == 200
         assert (await client.get("/web/api/roommate/access")).status_code == 401
+        assert (await client.get("/web/api/roommate/chat/conversations")).status_code == 401
+        assert (await client.post("/web/api/roommate/chat/requests", json={}, headers=HEADERS)).status_code == 401
         await client.post(
             "/web/api/auth/register",
             json={"email": "roommate@example.test", "password": "a-long-password", "name": "Test"},
@@ -42,6 +44,20 @@ async def test_gateway_session_csrf_whitelist_and_binary(tmp_path, monkeypatch):
         )
         assert response.status_code == 200 and response.json()["actor"] != "spoof"
         assert response.headers["cache-control"] == "no-store"
+        assert (await client.post("/web/api/roommate/chat/requests", json={})).status_code == 403
+        before = len(calls)
+        response = await client.post(
+            "/web/api/roommate/chat/requests", json={}, headers={**HEADERS, "X-Roommate-Actor": "previous-account"}
+        )
+        assert response.status_code == 409 and response.json()["detail"]["code"] == "actor_changed"
+        assert len(calls) == before
+        response = await client.get(
+            "/web/api/roommate/chat/conversations/conversation-one/messages?limit=20&before=message-one",
+            headers={"X-User-Id": "spoof"},
+        )
+        assert response.status_code == 200 and response.json()["actor"] != "spoof"
+        assert (await client.get("/web/api/roommate/chat/conversations?actor=spoof")).status_code == 422
+        assert (await client.get("/web/api/roommate/chat/conversations?limit=1&limit=2")).status_code == 422
         assert (await client.get("/web/api/roommate/arbitrary/path")).status_code == 404
         assert (await client.get("/web/api/roommate/access?actor=spoof")).status_code == 422
         assert (await client.get("/web/api/roommate/me/privacy")).status_code == 200

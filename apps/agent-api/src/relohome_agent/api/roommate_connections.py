@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 from relohome_agent.api.roommate_access import Context, TrustedActor, perform
+from relohome_agent.api.roommate_chat import router as chat_router
 from relohome_roommate.api_models import AcceptInput, ContactLeaseView, ContactUpdate, OperationInput, SendInput
 from relohome_roommate.services.consent import ConsentService
 from relohome_roommate.services.contacts import ContactService
@@ -9,6 +10,7 @@ from relohome_roommate.services.inbox import InboxService
 from relohome_roommate.services.requests import RequestService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])
+router.include_router(chat_router)
 
 
 @router.get("/me/contacts")

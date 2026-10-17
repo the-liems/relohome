@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     roommate_contact_key: SecretStr = SecretStr("")
     roommate_database_schema: str = "roommate"
     roommate_database_pool_size: int = Field(default=8, ge=1, le=32)
+    roommate_chat_retention_days: int = Field(default=180, ge=1, le=3650)
     agent_api_token: SecretStr = SecretStr("")
 
 

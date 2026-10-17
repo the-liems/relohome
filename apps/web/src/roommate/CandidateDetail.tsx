@@ -46,7 +46,6 @@ export function CandidateDetail() {
   }, [criteria, profile.value, profileId, offset]);
   useEffect(() => {
     const refresh = () => {
-      setCompose(false);
       profile.reload();
     };
     window.addEventListener("focus", refresh);
@@ -69,7 +68,7 @@ export function CandidateDetail() {
         error={profile.error || error}
         retry={profile.error ? profile.reload : undefined}
       />
-      {profile.loading ? (
+      {profile.loading && !profile.value ? (
         <ContentSkeleton label={rt("Đang mở hồ sơ…", "Loading profile…")} />
       ) : profile.value?.profile && profile.value.available ? (
         <>

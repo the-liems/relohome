@@ -5,11 +5,13 @@ import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
-from relohome_roommate.migrations import EXPANSION, SCHEMA
+from relohome_roommate.migrations import CHAT, EXPANSION, SCHEMA
 from relohome_roommate.storage import Storage
 
 TABLES = tuple(
-    statement.split("(")[0].split()[-1] for statement in (*SCHEMA, *EXPANSION) if statement.startswith("CREATE TABLE ")
+    statement.split("(")[0].split()[-1]
+    for statement in (*SCHEMA, *EXPANSION, *CHAT)
+    if statement.startswith("CREATE TABLE ")
 )
 
 
@@ -65,8 +67,7 @@ def _private_destination(directory: Path):
     directory = _runtime_path(directory)
     root = _runtime_path(Path("."))
     if directory.is_relative_to(root / "data") or any(
-        directory.is_relative_to(root / public)
-        for public in ("Frontend/public", "apps/web/public", "apps/web/dist")
+        directory.is_relative_to(root / public) for public in ("Frontend/public", "apps/web/public", "apps/web/dist")
     ):
         raise ValueError("Roommate backups must stay outside public data")
     directory.mkdir(parents=True, exist_ok=False, mode=0o700)

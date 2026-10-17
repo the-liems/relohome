@@ -1,5 +1,15 @@
 # Implementation Plan — ReloHome Roommate Discovery
 
+## Hồ sơ dùng lại và kết nối để chat — cập nhật 17/10/2026
+
+Audit và kế hoạch: [Roommate profile UX](../docs/architecture/roommate-profile-ux-plan-2026-10-16.md). **Đã triển khai và kiểm thử local**, xem [bàn giao ngày 17/10](../docs/integration/roommate-chat-profile-handoff-2026-10-17.md). Chưa deploy cloud; không thay evidence/checklist lịch sử bên dưới.
+
+Hướng đã được người dùng chốt: Account và Roommate dùng chung private intro; gửi yêu cầu → người nhận đồng ý → chat trực tiếp trong ReloHome. Không ContactPicker/Phone/Zalo hoặc checkbox chia sẻ liên hệ trong luồng mới. Hai hành động gửi/đồng ý thể hiện ý định mở chat; không thêm màn xác nhận nữa. Tận dụng view/widget Housing, thêm dữ liệu và permission Roommate riêng.
+
+Thứ tự: RU-01 Account intro → RU-02 criteria defaults → checkpoint; RC-01 lời mời chat → RC-02 accept/conversation → RC-03 read/send API → checkpoint; RU-03 composer + RU-04 accept/focus → RC-04 messenger → RC-05 lifecycle/privacy → checkpoint → RU-05 presentation → RU-06 regression/handoff. Scope/file/acceptance/lệnh kiểm chứng nằm trong bản kế hoạch liên kết; task lớn chia slice 3–5 file. Migration additive hỗ trợ SQLite/PG; không dùng bảng Housing hoặc đổi thuật toán. Bảng `intros` chưa có optimistic version nên không cam kết giải quyết đồng thời đa thiết bị trong phạm vi UI.
+
+Rủi ro phải kiểm chứng: accept nguyên tử/idempotent chỉ tạo một chat, không tạo grant contact; pending 7 ngày nhưng chat đã accept không áp TTL grant 7 ngày; hết hạn/pause hồ sơ không tự khóa chat; read/send kiểm tra membership/block/restriction. Save intro vẫn có thể đóng pending không phù hợp. Giữ matching/quota/legacy consent; không tự đổi consent cũ thành quyền chat, không replay draft cũ sang kiểu mới. Migration/rollback không mất tin nhắn; retention và privacy phải được chốt/kiểm chứng trước phát hành. Không lưu message/PII trong browser storage; đổi actor dọn state.
+
 > Historical layout/command evidence (M23); use the [current development map](../DEVELOPMENT.md) for this branch.
 
 

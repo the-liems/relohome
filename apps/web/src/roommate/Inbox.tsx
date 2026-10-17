@@ -24,8 +24,8 @@ export function Inbox() {
           <h2>{rt("Yêu cầu kết nối", "Connection requests")}</h2>
           <p className="rm-hint">
             {rt(
-              "Phản hồi trong 7 ngày. Liên hệ luôn cần consent hai bên.",
-              "Reply within 7 days. Contacts always require mutual consent.",
+              "Phản hồi trong 7 ngày. Đồng ý kết nối để trò chuyện trong ReloHome; liên hệ cũ vẫn theo quyền đã xác nhận.",
+              "Reply within 7 days. Accept a connection to chat in ReloHome; legacy contacts retain their existing permissions.",
             )}
           </p>
         </div>
@@ -103,10 +103,12 @@ export function Inbox() {
                   {rt("Tạo ngày ", "Created ")}
                   {dateLabel(item.created_at)}
                 </p>
-                <p>
-                  {rt("Hạn phản hồi: ", "Reply deadline: ")}
-                  {deadlineLabel(item.expires_at)}
-                </p>
+                {item.state === "pending" && (
+                  <p>
+                    {rt("Hạn phản hồi: ", "Reply deadline: ")}
+                    {deadlineLabel(item.expires_at)}
+                  </p>
+                )}
                 {item.grant_state && (
                   <small>
                     {rt("Quyền liên hệ: ", "Contact access: ")}
@@ -123,7 +125,9 @@ export function Inbox() {
                     "/roommate/requests/" + encodeURIComponent(item.request_id)
                   }
                 >
-                  {rt("Xem yêu cầu", "View request")}
+                  {item.conversation_id
+                    ? rt("Mở kết nối", "Open connection")
+                    : rt("Xem yêu cầu", "View request")}
                 </Link>
               ) : (
                 <span className="rm-hint">

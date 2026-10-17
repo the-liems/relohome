@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Dialog } from "../components/Dialog";
 import { useResource } from "./useResource";
 import { useActiveRefresh } from "./useActiveRefresh";
-import { roommate } from "./client";
+import { useRoommateClient } from "./useRoommateClient";
 import { ErrorNotice } from "./ErrorNotice";
 import { rt } from "./text";
 
@@ -16,6 +16,9 @@ type Outcome = {
 function replayAllowed(draft: Draft) {
   const routes: Record<string, string[]> = {
     POST: [
+      "^/chat/requests$",
+      "^/chat/requests/[A-Za-z0-9_.:-]{1,128}/accept$",
+      "^/chat/conversations/[A-Za-z0-9_.:-]{1,128}/close$",
       "^/requests$",
       "^/reports$",
       "^/requests/[A-Za-z0-9_.:-]{1,128}/(accept|reject|withdraw|revoke)$",
@@ -30,6 +33,7 @@ function replayAllowed(draft: Draft) {
   );
 }
 export function RecoveryPanel() {
+  const roommate = useRoommateClient();
   const data = useResource<{
     items: { operation_key: string; expires_at: string }[];
   }>("/me/operation-drafts");

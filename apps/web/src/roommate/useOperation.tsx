@@ -1,5 +1,6 @@
-import { useContext, useRef, useState } from "react";
-import { roommate, RoommateError } from "./client";
+import { useContext, useEffect, useRef, useState } from "react";
+import { RoommateError } from "./client";
+import { useRoommateClient } from "./useRoommateClient";
 import { ErrorNotice } from "./ErrorNotice";
 import { rt } from "./text";
 import { RoommateFeatures } from "./Features";
@@ -11,6 +12,14 @@ type Pending = {
   done: (result: Result) => void;
 };
 export function useOperation() {
+  const roommate = useRoommateClient();
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const draftsEnabled =
     useContext(RoommateFeatures).includes("operation_drafts");
   const current = useRef<Pending | null>(null),
@@ -32,15 +41,18 @@ export function useOperation() {
           method: operation.method,
           body: operation.body,
         });
+      if (!active.current) return;
       const result = await roommate<Result>(
         operation.path,
         operation.method,
         operation.body,
       );
+      if (!active.current) return;
       current.current = null;
       setUncertain(false);
       operation.done(result);
     } catch (e) {
+      if (!active.current) return;
       setError(e);
       const unknown =
         e instanceof RoommateError && e.code === "operation_unknown";
@@ -55,7 +67,7 @@ export function useOperation() {
       }
     } finally {
       locked.current = false;
-      setBusy(false);
+      if (active.current) setBusy(false);
     }
   }
   function run(
@@ -83,6 +95,7 @@ export function useOperation() {
       const response = await roommate<{ status: string; result?: Result }>(
         "/operations/" + operation.body.operation_key,
       );
+      if (!active.current) return;
       if (response.status === "completed" && response.result) {
         current.current = null;
         setUncertain(false);
@@ -90,10 +103,11 @@ export function useOperation() {
         operation.done(response.result);
       } else setNotFound(true);
     } catch (e) {
+      if (!active.current) return;
       setError(e);
     } finally {
       locked.current = false;
-      setBusy(false);
+      if (active.current) setBusy(false);
     }
   }
   const notice = (

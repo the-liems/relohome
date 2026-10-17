@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { RoommateFeatures } from "./Features";
+import { ChatConnectionComposer } from "./ChatConnectionComposer";
 import { useNavigate } from "react-router-dom";
 import { Dialog } from "../components/Dialog";
 import { ContentSkeleton } from "../components/UiStates";
@@ -16,7 +18,18 @@ import {
   type PublicProfile,
 } from "./types";
 import { rt } from "./text";
-export function ConnectionComposer({
+export function ConnectionComposer(props: {
+  recipient: PublicProfile;
+  close: () => void;
+}) {
+  const features = useContext(RoommateFeatures);
+  return features.includes("chat") ? (
+    <ChatConnectionComposer {...props} />
+  ) : (
+    <LegacyConnectionComposer {...props} />
+  );
+}
+function LegacyConnectionComposer({
   recipient,
   close,
 }: {

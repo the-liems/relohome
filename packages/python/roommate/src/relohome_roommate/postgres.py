@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from psycopg import pq, sql
 from psycopg_pool import ConnectionPool
 
-from relohome_roommate.migrations import EXPANSION, SCHEMA, SCHEMA_VERSION
+from relohome_roommate.migrations import CHAT, EXPANSION, SCHEMA, SCHEMA_VERSION
 
 
 class Row(dict):
@@ -93,7 +93,7 @@ class PostgresPool:
             current = raw.execute("SELECT COALESCE(MAX(version),0) FROM schema_version").fetchone()[0]
             if current > SCHEMA_VERSION:
                 raise ValueError("Unsupported Roommate schema version")
-            for version, statements in ((1, SCHEMA), (2, EXPANSION)):
+            for version, statements in ((1, SCHEMA), (2, EXPANSION), (3, CHAT)):
                 if current >= version:
                     continue
                 for statement in statements:

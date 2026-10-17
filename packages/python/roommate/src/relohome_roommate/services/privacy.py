@@ -28,6 +28,7 @@ class PrivacyService:
                 "introduction": intro.model_dump(mode="json") if intro else None,
                 "criteria": criteria.model_dump(mode="json") if criteria else None,
                 "bookmarks": self.ctx.profiles.bookmarks(actor.id),
+                **self._message_page(actor),
                 "contacts": [
                     {
                         "kind": row["kind"],
@@ -38,6 +39,39 @@ class PrivacyService:
                     )
                 ],
             }
+
+    def _message_page(self, actor, before=None, limit=250):
+        if not 1 <= limit <= 500:
+            raise RoommateError("invalid_pagination", status=422)
+        db = self.ctx.storage.connection
+        where, parameters = "sender=?", [actor.id]
+        if before:
+            cursor = db.execute(
+                "SELECT created FROM chat_messages WHERE sender=? AND id=?", (actor.id, before)
+            ).fetchone()
+            if not cursor:
+                raise RoommateError("invalid_cursor", status=422)
+            where += " AND (created<? OR (created=? AND id<?))"
+            parameters.extend((cursor[0], cursor[0], before))
+        rows = db.execute(
+            f"SELECT * FROM chat_messages WHERE {where} ORDER BY created DESC,id DESC LIMIT ?", [*parameters, limit + 1]
+        ).fetchall()
+        return {
+            "chat_messages": [
+                {
+                    "id": row["id"],
+                    "conversation_id": row["conversation"],
+                    "body": row["body"],
+                    "created": row["created"],
+                }
+                for row in rows[:limit]
+            ],
+            "chat_messages_next": rows[limit - 1]["id"] if len(rows) > limit else None,
+        }
+
+    def export_messages(self, actor, *, before=None, limit=250):
+        with self.ctx.read_transaction():
+            return self._message_page(actor, before, limit)
 
     def erase(self, actor, confirmed: bool, version: int | None):
         if confirmed is not True:
@@ -62,6 +96,8 @@ class PrivacyService:
                     record.version,
                 )
             db = self.ctx.storage.connection
+            db.execute("DELETE FROM chat_reads WHERE actor=?", (actor.id,))
+            db.execute("DELETE FROM chat_messages WHERE sender=?", (actor.id,))
             for table, column in (
                 ("intros", "owner"),
                 ("criteria", "owner"),

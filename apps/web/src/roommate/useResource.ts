@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { RoommateIdentity } from "./Features";
 import { roommate, RoommateError } from "./client";
 import { AUTH_RESTORED } from "../authEvents";
 export function useResource<T>(path: string | null) {
+  const identity = useContext(RoommateIdentity);
   const [value, setValue] = useState<T | null>(null),
     [error, setError] = useState<unknown>(null),
     [loading, setLoading] = useState(Boolean(path)),
@@ -20,7 +22,7 @@ export function useResource<T>(path: string | null) {
     setError(null);
     setLoading(Boolean(path));
     if (path)
-      void roommate<T>(path, "GET", undefined, controller.signal)
+      void roommate<T>(path, "GET", undefined, controller.signal, identity.id)
         .then((data) => {
           if (!controller.signal.aborted) setValue(data);
         })
@@ -34,7 +36,7 @@ export function useResource<T>(path: string | null) {
           if (!controller.signal.aborted) setLoading(false);
         });
     return () => controller.abort();
-  }, [path, revision]);
+  }, [path, revision, identity.id]);
   return {
     value: loadedPath === path ? value : null,
     error: loadedPath === path ? error : null,

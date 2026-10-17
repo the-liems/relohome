@@ -57,7 +57,9 @@ for router in (
 
 async def forward(request):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api), base_url="http://roommate-test") as client:
-        return await client.request(request.method, request.url.path, headers=request.headers, content=request.content)
+        return await client.request(
+            request.method, request.url.raw_path.decode(), headers=request.headers, content=request.content
+        )
 
 
 app = create_app(STATE / "web.sqlite3", transport=httpx.MockTransport(forward))

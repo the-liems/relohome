@@ -15,6 +15,7 @@ export async function roommate<T>(
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
+  expectedActor?: string,
 ): Promise<T> {
   let response: Response;
   const write =
@@ -28,7 +29,11 @@ export async function roommate<T>(
       credentials: "same-origin",
       cache: "no-store",
       signal: signal || AbortSignal.timeout(30000),
-      headers: { "Content-Type": "application/json", "X-SIU-Request": "1" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-SIU-Request": "1",
+        ...(expectedActor ? { "X-Roommate-Actor": expectedActor } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
@@ -51,7 +56,8 @@ export async function roommate<T>(
     reportAuthFailure("/roommate" + path, response.status, data);
     const detail = data?.detail;
     throw new RoommateError(
-      detail?.code || data?.code ||
+      detail?.code ||
+        data?.code ||
         (response.status === 401 ? "authentication_required" : "invalid_input"),
       response.status,
       detail?.retry_at,
