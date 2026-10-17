@@ -109,6 +109,22 @@ def test_chat_outlives_public_profile_and_contact_grant_deadlines(chat_context):
     assert chat.messages(Actor(id="a"), identifier)["items"][0]["body"] == "Still here"
 
 
+def test_counterparty_read_receipt_tracks_the_exact_message_and_never_moves_back(notification_context):
+    chat, _, identifier = connect(notification_context)
+    sender, recipient = Actor(id="a"), Actor(id="b")
+    first = chat.send(sender, identifier, "First", "receipt-message-key-01")["message"]
+    second = chat.send(sender, identifier, "Second", "receipt-message-key-02")["message"]
+    assert chat.messages(sender, identifier)["counterparty_read_message_id"] is None
+    chat.mark_read(recipient, identifier, first["id"])
+    assert chat.messages(sender, identifier)["counterparty_read_message_id"] == first["id"]
+    assert chat.messages(recipient, identifier)["counterparty_read_message_id"] is None
+    chat.mark_read(recipient, identifier, second["id"])
+    chat.mark_read(recipient, identifier, first["id"])
+    assert chat.messages(sender, identifier, limit=1)["counterparty_read_message_id"] == second["id"]
+    with pytest.raises(RoommateError):
+        chat.messages(Actor(id="outsider"), identifier)
+
+
 def test_close_block_and_unblock_do_not_restore_send(chat_context):
     ctx = chat_context
     chat, _, identifier = connect(ctx)
