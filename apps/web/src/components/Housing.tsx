@@ -261,15 +261,15 @@ export function HousingDetail({
       <dl className="detail-grid">
         {[
           ["Diện tích", detail.area_m2 != null ? detail.area_m2 + " m²" : null],
-          ["Phòng ngủ", detail.bedrooms],
-          ["Phòng tắm", detail.bathrooms],
           [
             "Tiền cọc",
             detail.deposit_vnd != null ? money(detail.deposit_vnd) : null,
           ],
+          ["Phòng ngủ", detail.bedrooms],
+          ["Phòng tắm", detail.bathrooms],
         ].map(([k, v]) => (
           <div key={k}>
-            <dt>{k}</dt>
+            <dt>{uiText(String(k))}</dt>
             <dd>{v ?? uiText("Chưa có dữ liệu")}</dd>
           </div>
         ))}
@@ -456,6 +456,7 @@ function HousingDecisionTools({ house }: { house: House }) {
   }
   return (
     <section className="housing-decision-tools" aria-labelledby="housing-cost-title">
+      <div className="housing-cost-box">
       <div className="housing-tool-heading">
         <span>
           <Calculator size={19} />
@@ -486,6 +487,10 @@ function HousingDecisionTools({ house }: { house: House }) {
           <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.monthlyKnown)}</dd>
         </div>
         <div>
+          <dt>{uiText("Tiền cọc")}</dt>
+          <dd>{cost.deposit != null ? money(cost.deposit) : uiText("Chưa rõ")}</dd>
+        </div>
+        <div>
           <dt>
             {cost.moveInComplete
               ? uiText("Cần chuẩn bị khi vào ở")
@@ -493,22 +498,12 @@ function HousingDecisionTools({ house }: { house: House }) {
           </dt>
           <dd>{cost.rent == null ? uiText(NO_MONTHLY_RENT) : money(cost.moveInKnown)}</dd>
         </div>
-        <div>
-          <dt>{uiText("Tiền cọc")}</dt>
-          <dd>{cost.deposit != null ? money(cost.deposit) : uiText("Chưa rõ")}</dd>
-        </div>
         {cost.oneTime.map((l, i) => (
           <div key={"o" + i}>
             <dt>{formatUi("{0} (một lần)", [uiText(l.label)])}</dt>
             <dd>{amountText(l)}</dd>
           </div>
         ))}
-        {cost.pricePerM2 != null && (
-          <div>
-            <dt>{uiText("Giá thuê / m²")}</dt>
-            <dd>{money(cost.pricePerM2)}</dd>
-          </div>
-        )}
       </dl>
       {cost.optional.length > 0 && (
         <p className="muted small">
@@ -534,6 +529,7 @@ function HousingDecisionTools({ house }: { house: House }) {
           )}
         </p>
       )}
+      </div>
       {acceptsContact && (
         <div className="housing-contact-box">
           <h3>{uiText("Gửi yêu cầu liên hệ")}</h3>
@@ -653,7 +649,8 @@ export function Comparison({
           " Thông tin từ những kết quả đã tải. Giá và tình trạng trống cần được xác minh với nguồn tin.",
         )}
       </p>
-      <p className="muted small">
+      <p className="comparison-guide">
+        <span className="notice-symbol info" aria-hidden="true">i</span>
         {uiText(
           "Nhập mức dùng của bạn để so sánh chi phí; để trống thì khoản đó được ghi là chưa tính.",
         )}
@@ -669,7 +666,7 @@ export function Comparison({
           )}
         </p>
       )}
-      <div className="table-scroll">
+      <div className="table-scroll housing-cost-comparison">
         <table>
           <thead>
             <tr>
@@ -684,13 +681,6 @@ export function Comparison({
           <tbody>
             {[
               ["Giá", (h: House) => housePrice(h)],
-              [
-                "Giá / m²",
-                (h: House) =>
-                  h.price_vnd != null && h.area_m2
-                    ? money(Math.round(h.price_vnd / h.area_m2))
-                    : "Chưa có dữ liệu",
-              ],
               [
                 "Tạm tính mỗi tháng",
                 (h: House) => {
