@@ -21,6 +21,33 @@ CONSTRAINT_FIELDS = (
 )
 
 
+def selection_catalog_for_model(catalog: dict[str, dict]) -> list[dict]:
+    """Facts needed to compare base vehicle options, not an entire provider payload.
+
+    Keep every observed candidate and operational constraint; do not guess capacity
+    from IDs, rank by provider order or truncate safety fields. Backend keeps the
+    originals for service_selection/estimate. Missing constraints remain unknown.
+    Form add-ons already require an explicit service and bypass this selection.
+    """
+    rows = []
+    for service_id, service in catalog.items():
+        provider = service.get("provider_data") or {}
+        constraints = {key: provider[key] for key in CONSTRAINT_FIELDS if key in provider}
+        constraints.update({key: service[key] for key in CONSTRAINT_FIELDS if key in service})
+        row = {
+            "service_id": service_id,
+            "name": service.get("name") or service.get("service_name"),
+            "description": service.get("description"),
+            "delivery_type": service.get("delivery_type"),
+            "cod_limit": service.get("cod_limit"),
+            "constraints": constraints,
+        }
+        if constraints.get("require_request"):
+            row["required_request_options"] = service.get("requests", [])
+        rows.append(public_data(row))
+    return rows
+
+
 def service_details_for_model(observed: dict) -> dict:
     def project(item):
         if isinstance(item, dict):

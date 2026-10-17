@@ -26,6 +26,7 @@ from relohome_agent.services.adapters.mcp import ToolCallError
 from relohome_agent.services.adapters.sqlite_runtime import SqliteUsageMeter
 from relohome_contracts.schemas import MovingQuoteForm
 
+from tests.test_agents.test_moving_suggestion_efficiency import Responses
 from tests.test_agents.test_service_subagents import moving_client
 
 
@@ -51,22 +52,25 @@ def ledger(request, tmp_path):
             connection.close()
 
 
-def form(version=0):
+def form(version=0, auto_suggest=False):
     return MovingQuoteForm(
         plan_version=version,
         pickup={"address": "Fixture A", "lat": 21.03, "lng": 105.8, "confirmed": True},
         destination={"address": "Fixture B", "lat": 21.04, "lng": 105.81, "confirmed": True},
         move_date=(utcnow() + timedelta(days=2)).date(),
         move_time="14:00",
-        moving_options={"service_id": "SGN-TRUCK-500"},
+        moving_options={} if auto_suggest else {"service_id": "SGN-TRUCK-500"},
     )
 
 
-def service(meter):
+def service(meter, auto_suggest=False):
     client = moving_client()
     client.endpoint = SimpleNamespace(service="moving")
     client.handlers["estimate_move"]["quote"]["expires_at"] = (utcnow() + timedelta(minutes=4)).isoformat()
     agent = MovingLlmAgent("", "unused", client, contact=QuoteContact("Fixture contact", "19001234"))
+    if auto_suggest:
+        agent.api_key = "configured-fixture-key"
+        agent.client = SimpleNamespace(responses=Responses(args={"service_ids": ["SGN-TRUCK-500"]}))
     deps = default_deps()
     deps = replace(
         deps,
@@ -82,9 +86,10 @@ def service(meter):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["missing_quote_id", "unexpected_runtime_error"])
-async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, failure):
+@pytest.mark.parametrize("auto_suggest", [False, True])
+async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, failure, auto_suggest):
     meter, records = ledger
-    runtime, client = service(meter)
+    runtime, client = service(meter, auto_suggest=auto_suggest)
     original = RuntimeError("fixture estimate crashed")
     if failure == "missing_quote_id":
         del client.handlers["estimate_move"]["quote"]["quote_id"]
@@ -98,21 +103,25 @@ async def test_crashed_quote_records_actual_usage_once_and_blocks_retry(ledger, 
         error_type = RuntimeError
     thread = "th_" + uuid4().hex
     with pytest.raises(error_type) as error:
-        await quote_form(thread, form(), runtime, "fixture-owner")
+        await quote_form(thread, form(auto_suggest=auto_suggest), runtime, "fixture-owner")
     if failure == "unexpected_runtime_error":
         assert error.value is original
     else:
         assert error.value.args == ("quote_id",)
     assert "call" in [frame.name for frame in traceback.extract_tb(error.value.__traceback__)]
     assert [name for name, _ in client.calls] == ["list_moving_services", "estimate_move"]
-    assert records() == [AgentUsage(provider_calls=2)]
+    assert records() == [
+        AgentUsage(provider_calls=2, llm_calls=1, tokens_in=700, tokens_out=30)
+        if auto_suggest
+        else AgentUsage(provider_calls=2)
+    ]
     assert (await meter.counts(thread)).paid_calls == 1
-    assert (await meter.counts(thread)).subagent_llm_calls == 0
+    assert (await meter.counts(thread)).subagent_llm_calls == int(auto_suggest)
     values = (await runtime.graph.aget_state(run_config(thread, runtime.deps))).values
     assert values["plan"].version == 1
     assert not values["plan"].commit_actions and not values.get("committed")
     with pytest.raises(HTTPException) as retry:
-        await quote_form(thread, form(version=1), runtime, "fixture-owner")
+        await quote_form(thread, form(version=1, auto_suggest=auto_suggest), runtime, "fixture-owner")
     assert retry.value.status_code == 429
     assert len(client.calls) == 2 and len(records()) == 1
 
