@@ -143,7 +143,7 @@ export function ViewingScheduler({
           )}
         </>
       )}
-      {footerHost && (s.step !== "selection" || (s.eligible.length > 0 && (!s.afterViewing || s.selected.length > 0))) &&
+      {footerHost && (s.step !== "selection" || s.eligible.length > 0) &&
         createPortal(
           <div className="bulk-footer">
             {s.step === "selection" ? (

@@ -122,7 +122,6 @@ export function useViewingScheduler(
     }
   }
   const toneFor = (id: string) => tones.current.values.get(id) || palette[0];
-  const afterViewing = items.some(item => ["visit_due", "visited", "agreed", "reported_paid"].includes(item.status));
   const eligible = items.filter(scheduleEligible);
   const unresolved = rows
     .filter((r) => r.status === "unknown")
@@ -423,7 +422,6 @@ export function useViewingScheduler(
   return {
     step,
     toneFor,
-    afterViewing,
     setStep,
     selected,
     checked,

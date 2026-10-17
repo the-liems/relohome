@@ -113,6 +113,92 @@ async function fillTimes(page: Page, indices = [0, 1, 2]) {
   await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
 }
 
+for (const completedStatus of [
+  "visit_due",
+  "visited",
+  "agreed",
+  "reported_paid",
+]) {
+  test(`mixed viewing states keep remaining homes selectable after ${completedStatus}`, async ({
+    page,
+  }) => {
+    const f = await fixture(page);
+    Object.assign(f.items[0], {
+      status: completedStatus,
+      viewing: { slot: "2026-10-10T09:00:00+07:00" },
+    });
+    if (["agreed", "reported_paid"].includes(completedStatus)) {
+      f.items[0].agreement = { deposit_vnd: 4000000, first_month_vnd: 4000000 };
+      for (const item of f.items.slice(1))
+        Object.assign(item, { status: "backup", backup_from: "selected" });
+    }
+    if (completedStatus === "reported_paid")
+      f.items[0].reported_payment = {
+        amount_vnd: 8000000,
+        paid_on: "2026-10-11",
+      };
+    await page.goto("/ai/th_bulk?panel=plan&planTab=viewing");
+    await expect(
+      page.locator("#viewing-home-home-0").getByRole("checkbox"),
+    ).toHaveCount(0);
+    const first = page.getByRole("checkbox", {
+      name: `Đặt lịch cho ${titles[1]}`,
+      exact: true,
+    });
+    const second = page.getByRole("checkbox", {
+      name: `Đặt lịch cho ${titles[2]}`,
+      exact: true,
+    });
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
+    await expect(page.locator("#viewing-home-home-0")).toHaveClass(
+      /after-viewing/,
+    );
+    await expect(page.locator("#viewing-home-home-1")).not.toHaveClass(
+      /after-viewing/,
+    );
+    await chooseAll(page);
+    await expect(first).toBeChecked();
+    await expect(second).toBeChecked();
+    await page
+      .getByRole("checkbox", { name: "Chọn tất cả", exact: true })
+      .uncheck();
+    await expect(first).not.toBeChecked();
+    await expect(second).not.toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "Đi tiếp", exact: true }),
+    ).toBeDisabled();
+    for (const index of [1, 2])
+      await page
+        .getByLabel(`Giờ xem · ${titles[index]}`, { exact: true })
+        .selectOption(slots[index]);
+    // Excluding a draft from this batch must preserve both its time and the housing shortlist.
+    await second.uncheck();
+    await expect(
+      page.getByLabel(`Giờ xem · ${titles[2]}`, { exact: true }),
+    ).toHaveValue(slots[2]);
+    await expect(page.locator(".viewing-item")).toHaveCount(3);
+    expect(f.posts).toHaveLength(0);
+    await page.getByRole("button", { name: "Đi tiếp", exact: true }).click();
+    await expect(page.locator(".bulk-review-list > li")).toHaveCount(1);
+    await expect(page.locator(".bulk-review-list")).toContainText(titles[1]);
+    await page
+      .getByRole("button", { name: "Xác nhận 1 lịch", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Kết quả đặt lịch", exact: true }),
+    ).toBeVisible();
+    expect(f.posts).toEqual([
+      {
+        path: "/threads/th_bulk/viewings/schedule",
+        body: { listing_id: "home-1", slot: slots[1] },
+      },
+    ]);
+    expect(f.items).toHaveLength(3);
+    expect(f.items[2].viewing).toBeUndefined();
+  });
+}
+
 test("three compact homes, draft preservation, review and one confirmation with exact serial payloads", async ({
   page,
 }, info) => {

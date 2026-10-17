@@ -365,7 +365,7 @@ export function ViewingPanel({
     <div className="viewing-panel" ref={panel}>
       {scheduler.step === "selection" && (
         <>
-          {!scheduler.afterViewing && scheduler.eligible.length > 0 && <div className="bulk-selection-tools">
+          {scheduler.eligible.length > 0 && <div className="bulk-selection-tools">
             <label className="bulk-all">
               <input
                 type="checkbox"
@@ -476,11 +476,11 @@ export function ViewingPanel({
             <section
               id={"viewing-home-" + item.listing_id}
               tabIndex={-1}
-              className={"checkout-card viewing-item " + scheduler.toneFor(item.listing_id) + (scheduler.afterViewing ? " after-viewing" : "")}
+              className={"checkout-card viewing-item " + scheduler.toneFor(item.listing_id) + (scheduleEligible(item) ? "" : " after-viewing")}
               key={item.listing_id}
             >
               <header>
-                {!scheduler.afterViewing && scheduleEligible(item) && <label className="bulk-card-toggle">
+                {scheduleEligible(item) && <label className="bulk-card-toggle">
                   <input
                     type="checkbox"
                     className="bulk-card-checkbox"
