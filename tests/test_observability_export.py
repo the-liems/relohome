@@ -177,6 +177,8 @@ def test_http_error_causes_and_log_correlation_survive_real_otlp(environment):
             assert correlated[0]["spanId"] == span["spanId"]
             assert reason in correlated[0]["body"]["stringValue"]
 
+        for name in ("missing_token", "invalid_json", "connection_error"):  # Gateway responses.
+            assert cases[name]["traceresponse"].startswith(f"00-{cases[name]['trace_id']}-")
         matching = [span for span in spans if trace_id(span) == cases["connection_error"]["trace_id"]]
         server = next(span for span in matching if span["kind"] == "SPAN_KIND_SERVER")
         client = next(span for span in matching if span["kind"] == "SPAN_KIND_CLIENT"

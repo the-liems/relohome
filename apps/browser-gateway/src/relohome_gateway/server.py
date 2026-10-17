@@ -25,6 +25,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
+from opentelemetry.instrumentation.propagators import TraceResponsePropagator, set_global_response_propagator
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_contracts.moving_options import MovingOptions
 from relohome_contracts.schemas import MovingQuoteForm
@@ -198,6 +199,9 @@ def presentation(payload, state):
 
 
 def create_app(database=None, transport=None):
+    # The ASGI instrumentation returns each request's trace context as W3C `traceresponse`,
+    # so a user or tester can quote the trace behind a failure.
+    set_global_response_propagator(TraceResponsePropagator())
     @asynccontextmanager
     async def lifespan(app):
         root = runtime_root()

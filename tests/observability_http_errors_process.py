@@ -27,7 +27,11 @@ async def main():
             await client.get("/web/api/session")
             trace_id = uuid.uuid4().hex
             response = await client.get("/web/api/status", headers={"traceparent": f"00-{trace_id}-2222222222222222-01"})
-            results[name] = {"status": response.status_code, "trace_id": trace_id}
+            results[name] = {
+                "status": response.status_code,
+                "trace_id": trace_id,
+                "traceresponse": response.headers.get("traceresponse"),
+            }
 
     with tempfile.TemporaryDirectory() as temporary:
         folder = Path(temporary)
