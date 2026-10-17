@@ -76,7 +76,6 @@ import type {
 } from "./types";
 import { ConfirmDialog, Dialog } from "./components/Dialog";
 import { Comparison, HousingCard, HousingDetail } from "./components/Housing";
-import { TenantRequests } from "./components/TenantRequests";
 import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
 import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
@@ -665,6 +664,7 @@ function Shell({ children }: { children: ReactNode }) {
         {uiText("Đến nội dung chính")}
       </a>
       <div className="main-shell">
+        <div className="header-reveal">
         <header className="chat-header">
           {isChat ? (
             <div className="chat-brand">
@@ -771,6 +771,7 @@ function Shell({ children }: { children: ReactNode }) {
             </Link>}
           </div>
         </header>
+        </div>
         <main
           id="app-main"
           tabIndex={-1}
@@ -2358,16 +2359,25 @@ function LegacyPlanRedirect() {
 
 function Account({ onLogout }: { onLogout: () => void }) {
   const accountId = useId();
+  const [accountParams, setAccountParams] = useSearchParams();
+  const initialTab = accountParams.get("tab") || "history";
   const { user, setUser, saved, threads, save, notify } = useApp();
   const [resetting, setResetting] = useState(false),
     [openSaved, setOpenSaved] = useState<Saved | null>(null);
   // Persistent shortlist = saved homes; compare 2–4 of them with re-read details (SPEC-021 AC-04).
   const [savedCompare, setSavedCompare] = useState<HouseData[]>([]),
     [comparingSaved, setComparingSaved] = useState(false);
-  const [tab, setTab] = useState("history"),
+  const [tab, setTab] = useState(["security", "profile"].includes(initialTab) ? "profile" : ["preferences", "saved"].includes(initialTab) ? initialTab : "history"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (accountParams.get("tab") !== "security") return;
+    setTab("profile");
+    const next = new URLSearchParams(accountParams);
+    next.set("tab", "profile");
+    setAccountParams(next, { replace: true });
+  }, [accountParams, setAccountParams]);
   useEffect(() => {
     const fn = (e: BeforeUnloadEvent) => {
       if (dirty) e.preventDefault();
@@ -2401,6 +2411,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
     if (dirty && !window.confirm("Bỏ những thay đổi chưa lưu để chuyển tab?"))
       return;
     setTab(next);
+    setAccountParams({ tab: next }, { replace: true });
     setDirty(false);
     setError("");
   }
@@ -2486,17 +2497,6 @@ function Account({ onLogout }: { onLogout: () => void }) {
         </button>
         <button
           role="tab"
-          id={accountId + "security"}
-          aria-selected={tab === "security"}
-          aria-controls={accountId + "panel"}
-          className={tab === "security" ? "active" : ""}
-          onClick={() => changeTab("security")}
-        >
-          <ShieldCheck size={17} />
-          {uiText(" Đăng nhập & bảo mật")}
-        </button>
-        <button
-          role="tab"
           id={accountId + "profile"}
           aria-selected={tab === "profile"}
           aria-controls={accountId + "panel"}
@@ -2504,7 +2504,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
           onClick={() => changeTab("profile")}
         >
           <UserRound size={17} />
-          {uiText(" Hồ sơ")}
+          {uiText("Hồ sơ & bảo mật")}
         </button>
         <button
           role="tab"
@@ -2528,17 +2528,6 @@ function Account({ onLogout }: { onLogout: () => void }) {
           <Heart size={17} />
           {uiText(" Đã lưu")} <span className="count">{saved.length}</span>
         </button>
-        <button
-          role="tab"
-          id={accountId + "contacts"}
-          aria-selected={tab === "contacts"}
-          aria-controls={accountId + "panel"}
-          className={tab === "contacts" ? "active" : ""}
-          onClick={() => changeTab("contacts")}
-        >
-          <MessageCircle size={17} />
-          {uiText(" Liên hệ chủ nhà")}
-        </button>
       </TabList>
       <section
         id={accountId + "panel"}
@@ -2546,35 +2535,10 @@ function Account({ onLogout }: { onLogout: () => void }) {
         aria-labelledby={accountId + tab}
         tabIndex={0}
       >
-        {tab === "contacts" ? (
-          <TenantRequests />
-        ) : tab === "history" ? (
+        {tab === "history" ? (
           <RequestHistory threads={threads} />
-        ) : tab === "security" ? (
-          <section className="surface account-security">
-            <ShieldCheck size={26} />
-            <h3>{uiText(" Đăng nhập & bảo mật")}</h3>
-            <label>
-              {uiText("Email đăng nhập")}
-              <input value={user.email} disabled />
-            </label>
-            <p className="muted">
-              {uiText(
-                "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
-              )}
-            </p>
-            <p className="muted">
-              {uiText(
-                "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
-              )}
-            </p>
-            <p className="muted small">
-              {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
-            </p>
-            <button className="text-button danger" onClick={() => setResetting(true)}><Trash2 size={16} aria-hidden="true" />{uiText("Xóa dữ liệu trò chuyện")}</button>
-          </section>
         ) : tab !== "saved" ? (
-          <div className="account-grid">
+          <div className={"account-grid" + (tab === "preferences" ? " account-preferences" : "")}>
             <section className="surface">
               <h3>
                 {tab === "profile"
@@ -2685,6 +2649,25 @@ function Account({ onLogout }: { onLogout: () => void }) {
                 </div>
               </form>
             </section>
+            {tab === "profile" && (
+          <section className="surface account-security">
+            <h3><ShieldCheck size={18} aria-hidden="true" /> {uiText("Đăng nhập & bảo mật")}</h3>
+            <p className="muted">
+              {uiText(
+                "Tài khoản đã được lưu. Mật khẩu được bảo vệ và không hiển thị lại.",
+              )}
+            </p>
+            <p className="muted">
+              {uiText(
+                "Bạn có thể dùng chức năng lưu mật khẩu của trình duyệt để tự điền khi đăng nhập lần sau.",
+              )}
+            </p>
+            <p className="muted small">
+              {uiText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ.")}
+            </p>
+            <button className="text-button danger" onClick={() => setResetting(true)}><Trash2 size={16} aria-hidden="true" />{uiText("Xóa dữ liệu trò chuyện")}</button>
+          </section>
+            )}
             {tab === "profile" && <TravelerProfileForm />}
 
             {tab === "profile" && <AccountIntroPanel key={user.id} id={user.id} name={user.name} />}

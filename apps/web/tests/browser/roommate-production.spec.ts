@@ -368,6 +368,7 @@ test("settings and moderation are accessible and fit the viewport", async ({
       ),
     });
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await page
     .getByRole("button", { name: /Switch to dark|Chuyển sang tối/ })

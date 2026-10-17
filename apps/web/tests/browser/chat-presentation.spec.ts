@@ -30,6 +30,7 @@ test("fixed ReloHome brand hides the archive and resumes only the current sessio
   expect(Object.keys(stored).sort()).toEqual(["expiresAt", "threadId"]);
   expect(stored.threadId).toBe("th_session");
   expect(stored.expiresAt - Date.now()).toBeGreaterThan(23 * 3600000);
+  await page.getByRole("link", { name: "Cuộc trò chuyện mới", exact: true }).focus();
   await page.getByRole("link", { name: "Cuộc trò chuyện mới", exact: true }).click();
   const resume = page.getByRole("link", { name: "Tiếp tục phiên đang làm", exact: true });
   await expect(resume).toBeVisible();
@@ -38,7 +39,7 @@ test("fixed ReloHome brand hides the archive and resumes only the current sessio
   await expect(page).toHaveURL(/\/ai\/th_session$/);
   await expect(page.getByText("Nội dung phiên đang làm", { exact: true })).toBeVisible();
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   await expect(page.locator(".recent-activity")).toHaveCount(0);
   await expect(page.getByText("Hội thoại gần đây", { exact: true })).toHaveCount(0);
   expect(writes).toEqual([]);

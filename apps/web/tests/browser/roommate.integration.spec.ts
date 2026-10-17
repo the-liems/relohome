@@ -8,6 +8,7 @@ test("real photo upload, moderator review and explicit avatar selection", async 
   await page
     .getByLabel("Mật khẩu", { exact: true })
     .fill("roommate-test-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await page.getByRole("link", { name: "Hồ sơ của tôi", exact: true }).click();
   await page.getByLabel("Chọn ảnh JPEG hoặc PNG · tối đa 5 MB").setInputFiles({
@@ -145,6 +146,7 @@ test("real browser -> session gateway -> Roommate API -> SQLite: contactless con
     await page
       .getByLabel("Mật khẩu", { exact: true })
       .fill("roommate-test-password");
+    await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
     await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Tìm người ở cùng", exact: true }),
@@ -254,6 +256,7 @@ test("owner privacy erasure clears stale contact views while retaining the sessi
   await page
     .getByLabel("Mật khẩu", { exact: true })
     .fill("roommate-test-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await page.getByRole("link", { name: "Cài đặt", exact: true }).click();
   const status = await page.request.get("/web/api/roommate/me/privacy");

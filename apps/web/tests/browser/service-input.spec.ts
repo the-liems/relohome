@@ -452,8 +452,11 @@ test("a home chosen for viewing offers Moving explicitly and keeps the destinati
     fullPage: true,
   });
   await page
+    .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true }).focus();
+  await page
     .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
     .click();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await page.setViewportSize({ width: 320, height: 960 });
   const englishStep = page.getByRole("region", {
@@ -478,6 +481,7 @@ test("a home chosen for viewing offers Moving explicitly and keeps the destinati
     path: info.outputPath("home-next-step-dark-en-320.png"),
     fullPage: true,
   });
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
   await step
     .getByRole("button", { name: "Bước tiếp theo: Chuyển đồ", exact: true })
@@ -664,10 +668,13 @@ test("service forms are responsive, keyboard accessible and readable in light/da
   await page.goto("/ai");
   for (const dark of [false, true]) {
     await page.setViewportSize({ width: 1440, height: 960 });
-    if (dark)
+    if (dark) {
+      await page
+        .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true }).focus();
       await page
         .getByRole("button", { name: "Chuyển sang chế độ tối", exact: true })
         .click();
+    }
     for (const width of [320, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 960 });
       await page
@@ -697,6 +704,7 @@ test("service forms are responsive, keyboard accessible and readable in light/da
       ).toBeFocused();
     }
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await page.getByRole("button", { name: /Find a flight Ready/ }).click();
   const english = page.getByRole("dialog");

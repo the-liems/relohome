@@ -445,7 +445,7 @@ test("account introduction updates the same roommate source without publishing",
 }) => {
   const calls = await fixture(page, { chat: true });
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   const panel = page.locator(".account-roommate-intro");
   await panel.getByRole("button", { name: "Chỉnh sửa bản giới thiệu" }).click();
   await panel
@@ -478,7 +478,7 @@ test("account gates intro access, suggests account name and keeps dirty edits on
   });
   await fixture(page, { chat: true, eligible: false, noIntro: true });
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   const panel = page.locator(".account-roommate-intro");
   await expect(
     panel.getByText("Không gian tìm người ở cùng", { exact: true }),
@@ -709,6 +709,7 @@ test("responsive, keyboard and accessibility in both themes/languages with clean
       })),
     ).toEqual([]);
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Find a roommate", exact: true }),

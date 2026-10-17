@@ -621,6 +621,7 @@ test("first home asks once for the poster profile and subsequent homes reuse it"
   profile = null;
   properties = false;
   await page.goto("/ai");
+  await page.getByRole("link", { name: "Chế độ chủ nhà" }).focus();
   await page.getByRole("link", { name: "Chế độ chủ nhà" }).click();
   await expect(
     page.getByRole("heading", { name: "Bắt đầu cho thuê trên ReloHome" }),

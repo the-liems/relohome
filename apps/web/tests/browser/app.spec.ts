@@ -266,6 +266,7 @@ test("layout regression: flight timeline, housing and history inputs keep separa
     await assertInputIconSpacing(page.locator(".ws-dock-input"));
     await page.getByRole("button", { name: "Ẩn khung chat" }).click();
     await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Mở tài khoản" }).focus();
     await page.getByRole("link", { name: "Mở tài khoản" }).click();
     await assertInputIconSpacing(page.locator(".history-search"));
     expect(
@@ -307,9 +308,10 @@ test("production: landmarks, contrast and responsive controls at required widths
       }
     }
     await auditAccessibility(page);
+    await page.getByRole("link", { name: "Mở tài khoản" }).focus();
     await page.getByRole("link", { name: "Mở tài khoản" }).click();
     await expect(
-      page.getByRole("tab", { name: "Hồ sơ", exact: true }),
+      page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -322,7 +324,9 @@ test("production: landmarks, contrast and responsive controls at required widths
       fullPage: true,
     });
   }
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await auditAccessibility(page);
   await page.goto("/");
@@ -370,6 +374,7 @@ test("production: keyboard tabs, native modal focus and readonly flight detail p
   );
   await auditAccessibility(page);
   await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Mở tài khoản" }).focus();
   await page.getByRole("link", { name: "Mở tài khoản" }).click();
   const accountTabs = page.getByRole("tablist", { name: "Nội dung tài khoản" });
   await accountTabs
@@ -382,6 +387,8 @@ test("production: keyboard tabs, native modal focus and readonly flight detail p
     accountTabs.getByRole("tab", { name: /Đã lưu/ }),
   ).toHaveAttribute("aria-selected", "true");
   expect(turns).toEqual([]);
+  thread.state.plan.tasks.push({ id: "flight", agent: "flight", inputs: {} });
+  thread.state.task_status = { ...thread.state.task_status, flight: "done" };
   seed(thread, [
     {
       id: "audit-flight",
@@ -457,7 +464,9 @@ test("production: housing map and moving UI pass accessibility without losing fo
   await selectMovingService(form, "TEST-TRUCK");
   await form.getByLabel("Ghi chú cho tài xế").fill("Cổng sau, giữ nguyên");
   await auditAccessibility(page);
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   const enForm = page.getByRole("complementary", { name: "Moving details" });
   await expect(enForm.getByLabel("Driver notes")).toHaveValue(
@@ -501,6 +510,8 @@ test("production: moving and flight panes fit narrow, tablet and desktop screens
       fullPage: true,
     });
   }
+  thread.state.plan.tasks.push({ id: "flight", agent: "flight", inputs: {} });
+  thread.state.task_status = { ...thread.state.task_status, flight: "done" };
   seed(thread, [
     {
       id: "responsive-flight",
@@ -599,6 +610,7 @@ test("landing cover keeps the home visible and the primary action readable acros
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     await page.screenshot({ path: info.outputPath(`home-cover-${width}.png`) });
   }
+  await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).focus();
   await page.getByRole("button", { name: "Chuyển sang chế độ tối" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await auditAccessibility(page);
@@ -664,9 +676,11 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
     await expect(
       page.getByRole("button", { name: "Mở điều hướng" }),
     ).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.locator("#guide")).toContainText("Short guides written by ReloHome");
   await expect(page.locator("#next")).toContainText("You choose who to share it with.");
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await page.screenshot({
     path: info.outputPath("landing-dark-en.png"),
@@ -682,7 +696,9 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page.getByRole("button", { name: "Switch to light mode" }).focus();
   await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
   await page.screenshot({
     path: info.outputPath("landing-light-vi.png"),
@@ -697,6 +713,7 @@ test("landing: public introduction, active guide and roommates, CTA uses existin
   ).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill("ui@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("password-test-123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page.locator(".welcome")).toBeVisible();
   await page.goto("/");
@@ -825,7 +842,9 @@ test("moving picker explains vehicle types, selects packages directly and preser
   await form.locator('input[value="SGN-TRICYCLE"]').check();
   await groups.getByRole("button", { name: "Xe tải", exact: true }).click();
   await form.locator('input[value="HAN-TRUCK-ECO-750"]').check();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   const enForm = page.getByRole("complementary", { name: "Moving details" });
   await expect(
@@ -933,6 +952,7 @@ test("moving van choice shows only its supported sizes and keeps compact selecti
     .click();
   await expect(form.getByRole("radio")).toHaveCount(2);
   await expect(form.locator('input[value="HAN-VAN-1000"]')).toBeChecked();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   const enForm = page.getByRole("complementary", { name: "Moving details" });
   await expect(enForm.locator(".mv-service-picker legend")).toHaveText(
@@ -983,11 +1003,13 @@ test("moving vehicle guide explains automatic comparison and never books or clea
   await expect(
     form.getByRole("checkbox", { name: /Bốc xếp tận nơi/ }),
   ).toBeChecked();
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   const enForm = page.getByRole("complementary", { name: "Moving details" });
   await expect(
     enForm.getByRole("region", { name: "About Truck" }),
   ).toContainText("separate cabin and cargo body");
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await page.screenshot({
     path: info.outputPath("moving-vehicle-guide.png"),
@@ -1084,6 +1106,7 @@ test("welcome: all starting actions fit before scrolling at laptop and mobile he
         });
     }
   }
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
   await page.locator(".starter > button").first().click();
   await expect(
@@ -1110,6 +1133,7 @@ test("appearance: language and theme persist without changing conversation data 
   await page
     .getByRole("textbox", { name: "Tin nhắn cho ReloHome", exact: true })
     .fill(draft);
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(
@@ -1121,6 +1145,7 @@ test("appearance: language and theme persist without changing conversation data 
   await expect(
     page.getByText("Địa chỉ gốc: 12 Lê Lợi, Quận 1.", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({
@@ -1133,7 +1158,9 @@ test("appearance: language and theme persist without changing conversation data 
   await expect(
     page.getByRole("textbox", { name: "Message ReloHome", exact: true }),
   ).toHaveValue(draft);
+  await page.getByRole("button", { name: "VI", exact: true }).focus();
   await page.getByRole("button", { name: "VI", exact: true }).click();
+  await page.getByRole("button", { name: "Chuyển sang chế độ sáng" }).focus();
   await page.getByRole("button", { name: "Chuyển sang chế độ sáng" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(
@@ -1165,6 +1192,7 @@ test("appearance: English account labels preserve canonical preference values an
   await page
     .getByRole("spinbutton", { name: "Ngân sách thuê · VND/tháng" })
     .fill("6500000");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "My account", exact: true }),
@@ -1197,7 +1225,9 @@ test("appearance: moving pins and service choices survive theme and language swi
   await form
     .getByLabel("Ghi chú cho tài xế")
     .fill("Đến cổng sau, giữ nguyên ghi chú");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   form = page.getByRole("complementary", { name: "Moving details" });
   await expect(form.getByLabel("Pickup address")).toHaveValue(
@@ -1248,10 +1278,12 @@ test("appearance: login, welcome and map are readable in both themes without ove
   await page.emulateMedia({ reducedMotion: "reduce" });
   const { thread, component } = await fixture(page, false);
   await page.goto("/login");
+  await page.getByRole("button", { name: "EN", exact: true }).focus();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome back", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await page.screenshot({
     path: info.outputPath("login-dark-en.png"),
@@ -1291,6 +1323,7 @@ test("appearance: login, welcome and map are readable in both themes without ove
     path: info.outputPath("welcome-dark-en.png"),
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Switch to light mode" }).focus();
   await page.getByRole("button", { name: "Switch to light mode" }).click();
   await page.screenshot({
     path: info.outputPath("welcome-light-en.png"),
@@ -1303,6 +1336,7 @@ test("appearance: login, welcome and map are readable in both themes without ove
   ).toBeVisible();
   const canvas = page.locator(".ws-canvas canvas").first();
   const handle = await canvas.elementHandle();
+  await page.getByRole("button", { name: "Switch to dark mode" }).focus();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(canvas).toBeVisible();
   expect(await handle!.evaluate((el) => el.isConnected)).toBeTruthy();
@@ -2514,16 +2548,7 @@ test("expired approval stays blocked and payment check never claims paid", async
     r.fulfill({ json: { domains: ["relocation"], writes_enabled: true } }),
   );
   await page.goto("/ai/th_ui");
-  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
-  const planPanel = page.getByRole("region", {
-    name: "Kế hoạch trong cuộc trò chuyện",
-  });
-  await planPanel
-    .getByRole("tab", { name: "Cần phản hồi", exact: true })
-    .click();
-  await expect(
-    planPanel.getByRole("button", { name: "Xác nhận thao tác" }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Xác nhận thao tác" })).toBeDisabled();
   thread.state.pending = {
     type: "payment_required",
     amount_vnd: 10000,
@@ -2537,17 +2562,9 @@ test("expired approval stays blocked and payment check never claims paid", async
     return r.fulfill({ json: thread });
   });
   await page.reload();
-  await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
-  await planPanel
-    .getByRole("tab", { name: "Cần phản hồi", exact: true })
-    .click();
-  await expect(
-    planPanel.getByRole("link", { name: /Mở trang thanh toán/ }),
-  ).toHaveAttribute("href", "https://example.test/pay");
-  await planPanel.getByRole("button", { name: "Kiểm tra thanh toán" }).click();
-  await expect(
-    planPanel.getByText("Thanh toán đang chờ xác minh"),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /Mở trang thanh toán/ })).toHaveAttribute("href", "https://example.test/pay");
+  await page.getByRole("button", { name: "Kiểm tra thanh toán" }).click();
+  await expect(page.getByText("Thanh toán đang chờ xác minh")).toBeVisible();
   expect(checks).toBe(1);
   await expect(page.getByText("Đã thanh toán", { exact: true })).toHaveCount(0);
 });
@@ -2578,6 +2595,7 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
   await page.screenshot({ path: info.outputPath("login.png"), fullPage: true });
   await page.getByLabel("Email", { exact: true }).fill("minhanh@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("strong-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).focus();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: /kế hoạch gì hôm nay/ }),
@@ -2597,6 +2615,7 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
+  await page.getByRole("link", { name: "Mở tài khoản" }).focus();
   await page.getByRole("link", { name: "Mở tài khoản" }).click();
   await expect(
     page.getByRole("heading", { name: "Tài khoản của tôi" }),
@@ -2604,16 +2623,17 @@ test("login, welcome and responsive navigation", async ({ page }, info) => {
   await expect(
     page.getByRole("heading", { name: "Chưa có lịch sử yêu cầu" }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
     "Minh Anh",
   );
   await page
-    .getByRole("tab", { name: "Đăng nhập & bảo mật", exact: true })
+    .getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true })
     .click();
   await expect(
     page.getByText("Đổi hoặc khôi phục mật khẩu hiện chưa được hỗ trợ."),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Về chat", exact: true }).focus();
   await page.getByRole("link", { name: "Về chat", exact: true }).click();
   await page.getByRole("button", { name: "Xem nhanh kế hoạch" }).click();
   await expect(
@@ -3637,11 +3657,13 @@ test("a conversation can be deleted, and all conversations reset", async ({
   await expect(
     page.getByText("Kết quả kiểm tra hợp đồng dịch vụ"),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).focus();
   await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).click();
   const confirm = page.getByRole("dialog", { name: "Xóa cuộc trò chuyện?" });
   await expect(confirm).toContainText("Đơn đã đặt không bị hủy");
   await confirm.getByRole("button", { name: "Hủy" }).click();
   expect(calls).toEqual([]);
+  await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).focus();
   await page.getByRole("button", { name: "Xóa cuộc trò chuyện này" }).click();
   await confirm.getByRole("button", { name: "Xóa cuộc trò chuyện" }).click();
   await expect(page).toHaveURL(/\/ai$/);
@@ -3652,7 +3674,7 @@ test("a conversation can be deleted, and all conversations reset", async ({
   await page.reload();
   await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Đăng nhập & bảo mật", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   await page.getByRole("button", { name: "Xóa dữ liệu trò chuyện", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Xóa tất cả và làm mới ReloHome?" })
@@ -3778,9 +3800,8 @@ test("right panel contains only current progress, costs and responses", async ({
   await expect(peek).toContainText("4.000.000");
   await expect(peek).toContainText("Chưa có biên nhận dịch vụ.");
   await expect(page).toHaveURL(/\/ai\/th_ui$/);
-  await peek.getByRole("tab", { name: "Cần phản hồi", exact: true }).click();
-  await expect(peek).toContainText("Không có xác nhận đang chờ");
-  await expect(peek.getByRole("tab")).toHaveCount(3);
+  await expect(peek.getByRole("tab", { name: "Cần phản hồi", exact: true })).toHaveCount(0);
+  await expect(peek.getByRole("tab")).toHaveCount(4);
   await expect(
     peek.getByRole("tab", { name: "Các kế hoạch", exact: true }),
   ).toHaveCount(0);
@@ -3877,8 +3898,9 @@ test("account profile and preferences persist, the saved thread remains accessib
     await route.fallback();
   });
   await page.goto("/ai/th_ui");
+  await page.getByRole("link", { name: "Mở tài khoản" }).focus();
   await page.getByRole("link", { name: "Mở tài khoản" }).click();
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Tên hiển thị" })
     .fill("Minh Anh mới");
@@ -3900,7 +3922,7 @@ test("account profile and preferences persist, the saved thread remains accessib
     preferences: { city: "Hà Nội", budget: "6000000" },
   });
   await page.reload();
-  await page.getByRole("tab", { name: "Hồ sơ", exact: true }).click();
+  await page.getByRole("tab", { name: "Hồ sơ & bảo mật", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Tên hiển thị" })).toHaveValue(
     "Minh Anh mới",
   );
@@ -3908,6 +3930,7 @@ test("account profile and preferences persist, the saved thread remains accessib
   await expect(
     page.getByRole("combobox", { name: "Thành phố", exact: true }),
   ).toHaveValue("Hà Nội");
+  await page.getByRole("link", { name: "Về chat", exact: true }).focus();
   await page.getByRole("link", { name: "Về chat", exact: true }).click();
   await expect(page.getByRole("button", { name: "Lịch sử", exact: true })).toHaveCount(0);
   await page.goto("/ai/th_ui");
@@ -3917,6 +3940,7 @@ test("account profile and preferences persist, the saved thread remains accessib
     page.getByRole("region", { name: "Kế hoạch trong cuộc trò chuyện" }),
   ).toContainText(thread.title);
   await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Mở tài khoản" }).focus();
   await page.getByRole("link", { name: "Mở tài khoản" }).click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -4013,3 +4037,39 @@ test("relocation preserves existing browser preferences, draft and identity keys
   }
   expect(turns).toHaveLength(0);
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`tenant map detail and comparison match the ${theme} design`, async ({ page }, info) => {
+    await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+    await fixture(page, true);
+    await page.goto("/ai");
+    await page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }).fill("Tìm nhà dưới 10 triệu ở Quận 1");
+    await page.getByRole("button", { name: "Gửi tin nhắn", exact: true }).click();
+    const list = page.getByRole("complementary", { name: "Nhà trong vùng bản đồ" });
+    await expect(list).toBeVisible();
+    await expect(page.locator(".ws-counter, .search-scope-legend")).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`map-list-${theme}.png`) });
+    await list.locator(".title-button").first().click();
+    const detail = page.getByRole("complementary", { name: "Chi tiết nhà", exact: true });
+    await expect(detail.getByRole("button", { name: "Thông tin chi tiết ›", exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`map-detail-${theme}.png`) });
+    await detail.getByRole("button", { name: "Thông tin chi tiết ›", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "Chi tiết nhà", exact: true });
+    await expect(modal).toBeVisible();
+    await expect(modal.locator(".housing-cost-box")).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`map-full-detail-${theme}.png`) });
+    await modal.getByRole("button", { name: "Đóng", exact: true }).click();
+    await detail.getByRole("button", { name: "Đóng chi tiết", exact: true }).click();
+    await list.locator(".ws-compare-toggle").nth(0).click();
+    await list.locator(".ws-compare-toggle").nth(1).click();
+    await page.screenshot({ path: info.outputPath(`map-compare-tray-${theme}.png`) });
+    await page.getByRole("button", { name: "So sánh 2 căn", exact: true }).click();
+    const compare = page.getByRole("dialog", { name: "So sánh các căn đã chọn", exact: true });
+    await expect(compare.locator("thead th")).toHaveCount(3);
+    await expect(compare).not.toContainText("Giá / m²");
+    await expect(compare.locator(".comparison-guide")).toBeVisible();
+    await expect(compare.locator("table")).toHaveCSS("border-collapse", "collapse");
+    await page.screenshot({ path: info.outputPath(`map-comparison-${theme}.png`) });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  });
+}
