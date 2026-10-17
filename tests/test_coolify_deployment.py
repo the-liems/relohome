@@ -157,8 +157,9 @@ class ComposeContractTests(unittest.TestCase):
                 credentials.append(name)
         self.assertEqual(writers, ["provisioner"])
         self.assertEqual(credentials, ["provisioner"])
-        self.assertEqual(self.services["location-seed"]["volumes"], ["blob-cache:/cache:ro"])
+        self.assertEqual(self.services["location-seed"]["volumes"], ["location-seed-data:/seed-data:ro"])
         self.assertIn("blob-cache", self.compose["volumes"])
+        self.assertIn("location-seed-data", self.compose["volumes"])
 
     def test_osrm_mounts_and_dependency_chain(self):
         osrm = [name for name in self.services if re.match(r"^(hcm|hanoi|danang)-", name)]
@@ -176,10 +177,12 @@ class ComposeContractTests(unittest.TestCase):
             self.assertEqual(self.services[name]["restart"], "no")
             self.assertIs(self.services[name]["exclude_from_hc"], True)
         env = self.services["provisioner"]["environment"]
-        for pin in (env["SYNC_TARGETS"].split("=", 1)[1], env["FETCH_BLOBS"]):
+        sync_targets = dict(target.split("=", 1) for target in env["SYNC_TARGETS"].split())
+        for pin in sync_targets.values():
             self.assertRegex(pin, r"^[0-9a-f]{64}\.tar\.gz$")
-        self.assertEqual(env["FETCH_BLOBS"], self.services["location-seed"]["environment"]["SEED_BLOB"])
-        self.assertEqual(env["FETCH_BLOBS"], self.compose["x-blobs"]["location-dump"])
+        seed_blob = self.services["location-seed"]["environment"]["SEED_BLOB"]
+        self.assertEqual(sync_targets["location-seed-data"], seed_blob)
+        self.assertEqual(seed_blob, self.compose["x-blobs"]["location-dump"])
         self.assertEqual(self.services["provisioner"]["security_opt"], ["no-new-privileges:true"])
         self.assertIs(self.services["provisioner"]["init"], True)
         self.assertNotIn("cap_drop", self.services["provisioner"])
@@ -195,10 +198,9 @@ class ComposeContractTests(unittest.TestCase):
         script = self.services["location-seed"]["entrypoint"][2]
         self.assertIn("select to_regclass('public.lifeflow_schema_migrations') is not null", script)
         self.assertIn("Location database already initialized; skipping seed", script)
-        self.assertIn('tar -xzf "/cache/$$SEED_BLOB" -C /tmp lifeflow.dump', script)
+        self.assertIn('pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /seed-data/lifeflow.dump', script)
         self.assertIn("DROP EXTENSION IF EXISTS postgis_tiger_geocoder, postgis_topology, fuzzystrmatch, postgis CASCADE;", script)
         self.assertIn("DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;", script)
-        self.assertIn('pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump', script)
         self.assertIn("-c ANALYZE", script)
 
     @unittest.skipUnless(shutil.which("sh"), "sh is required")
@@ -209,7 +211,7 @@ class ComposeContractTests(unittest.TestCase):
                                                    (0, "f", True, True), (0, "", False, False)):
             with self.subTest(status=status, output=output), tempfile.TemporaryDirectory() as directory:
                 calls_file = Path(directory) / "calls"
-                for name in ("psql", "tar", "pg_restore"):
+                for name in ("psql", "pg_restore"):
                     stub = Path(directory) / name
                     stub.write_text(f"""#!{shell}
 {{
@@ -234,9 +236,9 @@ esac
                 self.assertIn("to_regclass", calls[0])
                 if restores:
                     self.assertEqual([call.split("\t")[0] for call in calls],
-                                     ["psql", "tar", "psql", "pg_restore", "psql"])
-                    self.assertIn("DROP EXTENSION", calls[2])
-                    self.assertTrue(calls[4].endswith("\t-c\tANALYZE"))
+                                     ["psql", "psql", "pg_restore", "psql"])
+                    self.assertIn("DROP EXTENSION", calls[1])
+                    self.assertTrue(calls[3].endswith("\t-c\tANALYZE"))
                 else:
                     self.assertEqual(len(calls), 1)
 

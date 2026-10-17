@@ -30,8 +30,8 @@ restore and run migrations. The check is for that table, not database emptiness.
 
 `blob-cache` keeps downloads under `<sha256>.tar.gz`, verified before entering
 the cache. A cached file is never re-downloaded or re-verified. The provisioner
-and seed job do not clear or replace any other volumes; applications and
-migrations continue to write their own state.
+extracts the pinned location archive into the dedicated `location-seed-data`
+volume; `location-seed` reads `lifeflow.dump` from that volume read-only.
 
 ## One-time S3 setup
 
@@ -52,9 +52,11 @@ done
 Use an upload credential for this step. Give the deployment a separate read-only
 key with `s3:GetObject` on `arn:aws:s3:::<bucket>/*`.
 
-Replace the placeholder names in `compose.coolify.yaml`: put the routing name
-in the provisioner's `SYNC_TARGETS` entry (`routing-data=<sha256>.tar.gz`) and
-the dump name in `x-blobs.location-dump`. Commit those pins before deploying.
+Replace the placeholder names in `compose.coolify.yaml`: put the routing and
+location dump names in the provisioner's `SYNC_TARGETS` entries
+(`routing-data=<sha256>.tar.gz` and `location-seed-data=<sha256>.tar.gz`), and
+keep the dump name in `x-blobs.location-dump` aligned. Commit those pins before
+deploying.
 The routing archive must contain `hcm/`, `hanoi/` and `danang/`, each with
 `driving/`, `walking/` and `motorcycle/` and the complete `<city>.osrm*` files.
 Keep the OSRM image pins compatible with the graphs; driving uses a different

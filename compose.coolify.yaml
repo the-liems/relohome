@@ -100,9 +100,8 @@ services:
       AWS_DEFAULT_REGION: ${DATA_S3_REGION:?}
       DATA_S3_ENDPOINT: ${DATA_S3_ENDPOINT:-}
       # <volume>=<blob>: rebuilt from the pinned blob on every deploy.
-      SYNC_TARGETS: "routing-data=b021df942ac6aa6a859583429a55db66d354ea50f55ce9b7852ea3d7a031ec1f.tar.gz"
-      FETCH_BLOBS: *location-dump
-    volumes: [routing-data:/volumes/routing-data, blob-cache:/cache]
+      SYNC_TARGETS: "routing-data=b021df942ac6aa6a859583429a55db66d354ea50f55ce9b7852ea3d7a031ec1f.tar.gz location-seed-data=e7bf3ea31659a756ecd7e75b935d925368f62317e123eb6b83b5320dcffaa119.tar.gz"
+    volumes: [routing-data:/volumes/routing-data, location-seed-data:/volumes/location-seed-data, blob-cache:/cache]
 
   web:
     <<: *app
@@ -276,7 +275,7 @@ services:
     platform: linux/arm64
     restart: "no"
     exclude_from_hc: true
-    volumes: [blob-cache:/cache:ro]
+    volumes: [location-seed-data:/seed-data:ro]
     environment:
       SEED_BLOB: *location-dump
       PGHOST: postgis
@@ -296,9 +295,8 @@ services:
           f) ;;
           *) echo "Unexpected initialization check result: $$initialized" >&2; exit 1 ;;
         esac
-        tar -xzf "/cache/$$SEED_BLOB" -C /tmp lifeflow.dump
         psql -v ON_ERROR_STOP=1 -c "DROP EXTENSION IF EXISTS postgis_tiger_geocoder, postgis_topology, fuzzystrmatch, postgis CASCADE; DROP SCHEMA IF EXISTS tiger, tiger_data, topology CASCADE;"
-        pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /tmp/lifeflow.dump
+        pg_restore --single-transaction --exit-on-error --no-owner --no-privileges -d "$$PGDATABASE" /seed-data/lifeflow.dump
         psql -v ON_ERROR_STOP=1 -c ANALYZE
         echo "Restored location database from $$SEED_BLOB"
 
@@ -443,4 +441,5 @@ volumes:
   location-data:
   moving-data:
   routing-data:
+  location-seed-data:
   blob-cache:

@@ -63,6 +63,3 @@ for target in ${SYNC_TARGETS:-}; do
     case "$target" in *=*) ;; *) fail "Invalid sync target: $target" ;; esac
     sync_volume "${target%%=*}" "${target#*=}"
 done
-for blob in ${FETCH_BLOBS:-}; do
-    fetch "$blob"
-done

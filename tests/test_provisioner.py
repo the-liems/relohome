@@ -48,7 +48,7 @@ cp "$TEST_BUCKET/${3#s3://bucket/}" "$4"
                                  "DATA_S3_BUCKET": "bucket", "DATA_S3_ENDPOINT": "",
                                  "PROVISION_CACHE_DIR": str(self.cache), "PROVISION_VOLUMES_DIR": str(self.volumes),
                                  "TEST_BUCKET": str(self.bucket), "TEST_AWS_CALLS": str(self.calls),
-                                 "SYNC_TARGETS": "", "FETCH_BLOBS": ""}
+                                 "SYNC_TARGETS": ""}
 
     def archive(self, files=None):
         data = io.BytesIO()
@@ -129,18 +129,9 @@ cp "$TEST_BUCKET/${3#s3://bucket/}" "$4"
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(list(self.target.iterdir()), [self.old])
 
-    def test_fetch_blobs_only_populates_cache(self):
-        first = self.archive({"dump": b"one"})
-        second = self.archive({"dump": b"two"})
-        result = self.run_provisioner(FETCH_BLOBS=first + " " + second)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual({path.name for path in self.cache.iterdir()}, {first, second})
-        self.assertEqual(list(self.target.iterdir()), [self.old])
-
     def test_invalid_blob_and_volume_names_are_rejected(self):
         blob = self.archive()
         invalid = [{"SYNC_TARGETS": volume + "=" + blob} for volume in ("../bad", "Bad", "-bad", "bad.name", "*")]
-        invalid += [{"FETCH_BLOBS": name} for name in ("bad", "../" + blob, "A" * 64 + ".tar.gz", "*", "0" * 63 + ".tar.gz")]
         invalid += [{"SYNC_TARGETS": "sample-data=" + blob + "=extra"}, {"SYNC_TARGETS": "sample-data"}]
         for settings in invalid:
             with self.subTest(settings=settings):
