@@ -9,7 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { activityText, activityDestination } from "../housingActivity";
 import { LoaderCircle, ShieldAlert } from "lucide-react";
-import { MessageComposer } from "./MessageComposer";
+import { MessageComposer, MessageReadReceipt } from "./MessageComposer";
 import { api, dateTime } from "../api";
 import type { Data } from "../types";
 
@@ -178,8 +178,25 @@ export function ContactThread({
       body: activityText(event),
     })),
   ].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const lastMessage = rows.filter((row) => !row.system).at(-1);
+  const seen = role === "tenant" && lastMessage?.sender_role === "tenant" &&
+    data.counterparty_read_at && Date.parse(data.counterparty_read_at) >= Date.parse(lastMessage.created_at);
+  async function cancelRequest() {
+    setSending(true);
+    try {
+      await api(path.replace(/messages$/, "cancel"), "POST", { revision: request.revision },
+        undefined, viewerId ? { "X-SIU-User": viewerId } : undefined);
+      await load();
+      window.dispatchEvent(new Event("housing-contact-update"));
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setSending(false); }
+  }
   return (
     <div className="contact-thread">
+      <p className="contact-request-status">{formatUi("Trạng thái yêu cầu: {0}", [
+        uiText(({ new: "Đã gửi, chủ nhà chưa xem", contacted: "Chủ nhà đã liên hệ", viewing: "Chủ nhà đã hẹn xem",
+          resolved: "Đã hoàn tất", declined: "Đã đóng" } as Record<string, string>)[request.status] || request.status),
+      ])}</p>
       <ol
         className="contact-thread-list"
         tabIndex={0}
@@ -223,7 +240,9 @@ export function ContactThread({
                   </small>
                 </button>
               ) : (
-                <p>{m.body}</p>
+                <div className="contact-message-body"><p>{m.body}</p>
+                  {seen && m.id === lastMessage?.id && <MessageReadReceipt />}
+                </div>
               )}
             </li>
           );
@@ -254,6 +273,9 @@ export function ContactThread({
             uiText(request.status === "resolved" ? "hoàn tất" : "đã đóng"),
           ])}
         </p>
+      )}
+      {role === "tenant" && request.open && ["new", "contacted"].includes(request.status) && (
+        <button className="text-button" disabled={sending} onClick={() => void cancelRequest()}>{uiText("Hủy yêu cầu")}</button>
       )}
       {error && (
         <p className="notice error" role="alert">
