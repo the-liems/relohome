@@ -1738,13 +1738,17 @@ test("moving map selection matches the result address, and finding A again prese
   await expect(form.getByRole("button", { name: "Chọn điểm A · Điểm lấy đồ", exact: true })).toHaveAttribute("aria-pressed", "true");
   if (info.project.name === "mobile") await toggle.click();
   const canvas = page.locator(".moving-booking .maplibregl-canvas");
-  await canvas.click({ position: { x: 125, y: 140 } });
+  // Map controls stack at the top of the map on mobile; click the free map area below them.
+  const mapBox = (await canvas.boundingBox())!;
+  const controls = info.project.name === "mobile" ? await page.locator(".moving-booking .ws-chat-show").boundingBox() : null;
+  const top = controls ? Math.max(140, controls.y + controls.height - mapBox.y + 24) : 140;
+  await canvas.click({ position: { x: 125, y: top } });
   await expect(page.locator(".mv-marker.mv-a")).toHaveCount(1);
   if (info.project.name === "mobile") await toggle.click();
   await expect(form.getByLabel("Địa chỉ giao đồ", { exact: true })).toHaveValue("Cổng B · Hà Nội");
   await form.getByRole("button", { name: "Chọn điểm B · Điểm giao đồ", exact: true }).click();
   if (info.project.name === "mobile") await toggle.click();
-  await canvas.click({ position: { x: 160, y: 180 } });
+  await canvas.click({ position: { x: 160, y: top + 40 } });
   await expect(page.locator(".mv-marker")).toHaveCount(2);
   await page.screenshot({ path: info.outputPath("moving-A-B-pins.png") });
   if (info.project.name === "mobile") await toggle.click();

@@ -1745,7 +1745,7 @@
   "{0} – {1} · cao nhất {2} lượt vào {3}": "{0} – {1} · peak {2} views on {3}",
   "{0}: {1} lượt lưu, {2} liên hệ": "{0}: {1} saves, {2} contacts",
   "{0}: {1} lượt xem": "{0}: {1} views",
-  "Đánh giá từ người đã liên hệ. Nhãn Đã hẹn xem cho biết chủ nhà đã xác nhận giờ hẹn, không chứng minh đã thuê. Người viết tự chọn ẩn danh hoặc hiện tên tài khoản.": "Reviews from people who contacted the host. The Viewing time confirmed label means the host confirmed a time, not that the home was rented. Authors choose to stay anonymous or show their account name.",
+  "Đánh giá từ người đã hẹn xem và báo đã gặp chủ nhà, không chứng minh đã thuê. Người viết tự chọn ẩn danh hoặc hiện tên tài khoản.": "Reviews from tenants who scheduled a viewing and reported meeting the landlord; they do not prove tenancy. Authors choose anonymity or their account name.",
   "Đã hủy": "Cancelled",
   "Đã xác nhận": "Confirmed",
   "Đơn vị tính {0}": "Billing unit for {0}",
@@ -1786,5 +1786,8 @@
   "Quay lại": "Go back",
   "Báo cáo được gửi cho chủ nhà để xác nhận đã nhận tiền.": "The report is sent to the landlord to confirm receipt of the payment.",
   "Đã gửi yêu cầu": "Request sent",
-  "Không tìm thấy yêu cầu liên hệ.": "Contact request not found."
+  "Không tìm thấy yêu cầu liên hệ.": "Contact request not found.",
+  "Chưa kiểm tra được phản hồi chuyển tiền của chủ nhà.": "Could not check the landlord’s payment response.",
+  "Người quản lý không tự đánh giá nhà mình.": "Managers cannot review their own homes.",
+  "Chỉ ghi nhận đã gặp từ giờ hẹn được chủ nhà xác nhận trở đi.": "A meeting can only be recorded from a landlord-confirmed viewing time onward."
 }

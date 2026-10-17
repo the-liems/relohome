@@ -332,7 +332,7 @@ function AccountTenantHostReviews({ listingId }: { listingId: string }) {
           {page.property_summary && <p className="hr-hint">{formatUi('Nhà đang xem: {0} · {1} đánh giá', [page.property_summary.rating == null ? t('Chưa đủ đánh giá để hiện điểm') : `${page.property_summary.rating.toLocaleString(document.documentElement.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/5`, page.property_summary.count])}</p>}
           <p className="hr-hint">
             {t(
-              "Đánh giá từ người đã liên hệ. Nhãn Đã hẹn xem cho biết chủ nhà đã xác nhận giờ hẹn, không chứng minh đã thuê. Người viết tự chọn ẩn danh hoặc hiện tên tài khoản.",
+              "Đánh giá từ người đã hẹn xem và báo đã gặp chủ nhà, không chứng minh đã thuê. Người viết tự chọn ẩn danh hoặc hiện tên tài khoản.",
             )}
           </p>
           {notice && (

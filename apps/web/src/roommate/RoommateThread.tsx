@@ -6,7 +6,7 @@ import {
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import { MessageComposer } from "../components/MessageComposer";
+import { MessageComposer, MessageReadReceipt } from "../components/MessageComposer";
 import { dateTime } from "../api";
 import { RoommateError } from "./client";
 import { useRoommateClient } from "./useRoommateClient";
@@ -294,6 +294,11 @@ export function RoommateThread({
                   · {dateTime(message.created_at)}
                 </span>
                 <p>{message.body}</p>
+                {message.sender_id === viewerId &&
+                  message.id === messages.at(-1)?.id &&
+                  message.id === page.counterparty_read_message_id && (
+                    <MessageReadReceipt />
+                  )}
               </li>
             ))}
           </ol>
