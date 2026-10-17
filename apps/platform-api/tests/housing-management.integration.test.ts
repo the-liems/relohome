@@ -582,7 +582,11 @@ describe('Housing Product V1 rules (SPEC-021)', () => {
     // Strangers, including other landlords, cannot read or write.
     expect((await call(OTHER, 'GET', path)).status).toBe(404)
     expect((await call(OTHER, 'POST', path, { body: 'xin chào' })).status).toBe(404)
+    expect((await call(tenant, 'GET', path)).body.counterparty_read_at).toBeNull()
     const read = await call(owner, 'GET', path)
+    const receipt = await call(tenant, 'GET', path)
+    expect(Date.parse(receipt.body.counterparty_read_at)).toBeGreaterThanOrEqual(Date.parse(receipt.body.messages[0].created_at))
+    expect(receipt.body.request.revision).toBeGreaterThan(0)
     expect(read.body.role).toBe('landlord')
     expect(read.body.messages.map((m: { body: string }) => m.body)).toEqual(['Chiều mai em qua xem được không?'])
     inbox = (await call(owner, 'GET', '/v1/landlord/contact-requests')).body.items.find(
