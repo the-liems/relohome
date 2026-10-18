@@ -1,6 +1,31 @@
 # Delivery roadmap — THE LIEMS (P-044)
 
-Source: [official Gate 1 and G2 announcements](references/gate-announcements.md), confirmed by @ai-dnn and applicable until further official notices. The dates below use the current project year, 2026, and the confirmed timezone **UTC+7**. These gates define the submission requirements; passing or submitting a gate requires separate evidence. GitHub Issues and Milestones track implementation tasks and owners.
+Source: [recorded announcements](references/gate-announcements.md). The Build Phase
+notice supplied by the team on 18 October 2026 is the current submission instruction;
+Gate 1 and G2 remain historical milestones. All deadlines below use **UTC+7**.
+Submission and passing require separate evidence. GitHub Issues and Milestones
+track implementation tasks and owners.
+
+## Build Phase — current submission
+
+**One checkpoint, due 23:00 on Sunday, 18 October 2026.** The judges select top
+projects from the submitted materials. Demo Day is **22 October 2026**, alongside
+VinUni Tech Career Day; the notice replaces individual team pitching with judging
+of submissions for this selection.
+
+One representative submits at [Phoenix](https://phoenix.note.transformerlabs.ai/demo-day).
+Required fields are project name/description, a live MVP URL, a demo video of at
+most 3 minutes, a pitch deck covering the problem, solution, feasibility and future
+development, and one thumbnail image link. The repository must also contain source,
+README, architecture, specifications/design, testing documents, weekly logs, live
+URL, demo and deck links, with all AI Logs uploaded. Every member must meet the
+required AI Log threshold for valid submission access.
+
+Use the [submission checklist](../presentation/README.md) and
+[README submission fields](../README.md#build-phase-submission) for current readiness.
+The older 23:59 G2 deadline below does not apply to this Build checkpoint.
+
+## Historical gates
 
 | Gate | Deadline | Required outcome | Reward when passed |
 |---|---|---|---|
@@ -26,7 +51,7 @@ The deadline has passed. This roadmap does not establish whether Gate 1 was subm
 | Architecture diagram | Components and data flow for the demonstrated implementation. Update the [architecture diagrams](architecture_diagram.md) to match what actually runs. |
 | At least 10 merged PRs | Link at least 10 merged pull requests in this repository; verify their merged state at submission. Open PRs do not count. |
 | README.md | Reproducible setup instructions, environment variables, sample queries, and other instructions needed to run the MVP. Update the [README](../README.md) for the demonstrated version. |
-| Evaluation evidence | At least **5 manual test cases with actual outputs**, recorded in the [evaluation report](../eval/results/report.md#g2-manual-evaluation-evidence). |
+| Evaluation evidence | At least **5 manual test cases with actual outputs**. The [testing summary](../eval/results/report.md#representative-recorded-inputs-and-actual-outputs) indexes later recorded observations and explains their limits; it does not certify historical G2 completion. |
 
 The demonstrated flow should follow the [confirmed MVP scope](product.md#mvp-scope), including travel booking. Record which providers or actions are simulated so the video, README, diagrams, and test outputs describe the same implementation.
 

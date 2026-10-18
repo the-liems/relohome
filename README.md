@@ -2,6 +2,30 @@
 
 ReloHome is an AI system for people planning a relocation. Finding a home, arranging transport for belongings, and booking travel require separate vendors, repeated details, and decisions that affect one another. The intended product turns the customer's goal into one plan they can review, change, and approve step by step.
 
+## Build Phase submission
+
+**Deadline: 23:00 on 18 October 2026 (Vietnam time, UTC+7).** Demo Day is
+22 October 2026 alongside VinUni Tech Career Day. One team representative submits
+through [Phoenix](https://phoenix.note.transformerlabs.ai/demo-day). Every member
+must meet the required AI Log threshold before the team can submit validly.
+
+| Submission field | Value / status |
+|---|---|
+| Project | **ReloHome — AI-assisted relocation planning** |
+| Description | Helps people find housing, explore maps and nearby amenities, request moving quotes, and search flights through a conversational plan with explicit confirmation for supported paid actions. Provider availability and transaction limits are described below. |
+| Live MVP | [Staging application](https://staging.c4-app-044.io.vn) — Cloudflare Access sign-in was observed on 18 October; judge access and the final deployment still need verification. |
+| Demo video, maximum 3 minutes | **TODO: add the shareable demo video URL** |
+| Pitch deck | **TODO: add the shareable pitch deck URL** |
+| Project thumbnail, one image | **TODO: add the shareable thumbnail image URL** |
+
+The [submission checklist](presentation/README.md) tracks outstanding materials,
+judge access, AI Logs and the Phoenix receipt. See the [testing summary](eval/results/report.md),
+[weekly worklog](WORKLOG.md), and [development journal](JOURNAL.md) for evidence.
+The reviewed GitHub snapshot is [`29d9df7`](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/commit/29d9df78ec342d2409a95b2efa958442907aa945).
+Its [CI passed](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/actions/runs/39128807544);
+deployment was still in progress at the 18 October, 19:59 UTC+7 evidence cutoff.
+This is a readiness record, not confirmation of submission or end-to-end acceptance.
+
 ## Customer journey
 
 1. Tell the AI system where and when you want to move, along with housing, travel, and budget constraints.
@@ -9,7 +33,7 @@ ReloHome is an AI system for people planning a relocation. Finding a home, arran
 3. Review the combined plan, source and validity of quotes, estimated costs, dependencies, and missing decisions.
 4. Approve each paid action separately, then follow its progress and any recovery or manual follow-up.
 
-The [product brief](docs/product.md) defines the intended customer flow and open decisions. This branch contains the local integration MVP; provider availability and transaction support depend on configuration.
+The [product brief](docs/product.md) defines the intended customer flow and open decisions. The repository contains an integrated MVP; provider availability and transaction support depend on configuration and the deployed revision.
 
 ## Current application
 
@@ -18,9 +42,9 @@ The [product brief](docs/product.md) defines the intended customer flow and open
 - Location/Housing/Map and Moving services: [current guide](docs/location/README.md), [map example](examples/map-app/README.md), and [Streamlit lab](docs/location/STREAMLIT_MVP.md).
 - Flight search and Payment MCP servers in `apps/flights-mcp/` and `apps/payments-mcp/`. The integrated runtime disables flight booking; moving writes and the standalone ZaloPay sandbox demo require explicit configuration.
 - Supported [Streamlit demos](examples/streamlit/README.md) in `examples/streamlit/`: Flight (8501), Payment (8502), and local agent-chat (8501). [Static design references](examples/design-reference/) are retained separately.
-- Separate Intake and Routing services in `apps/intake-api/` and `apps/orchestrator-api/`; their execution gateway is disconnected by default.
+- Housing tenant/landlord workspaces and Roommate discovery/chat have continued to evolve through merged PRs; see the [weekly worklog](WORKLOG.md). Standalone Intake and Routing services were retired from GitHub `main` in [PR #234](https://github.com/AI20K-Build-Phase-Cohort-4/P-044/pull/234); their older guides describe historical experiments.
 
-The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) describe coverage and limitations. Existing test failures and review findings remain open.
+The [testing summary](eval/results/report.md) links current CI and dated browser/provider evidence, including failures and limits. The [frontend service audit](apps/web/SERVICE_AUDIT.md), [integration index](docs/integration/README.md), and [MVP architecture review](docs/review/mvp-architecture.md) are dated records; their findings must be interpreted against the revision they reviewed.
 
 ## Run locally
 
@@ -41,7 +65,7 @@ Use the [root tooling runbook](docs/runbooks/root-tooling.md) with Node 24 and P
 
 ## Product scope and delivery
 
-The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The current integration implements part of that target; real flight booking and production readiness are not established. The [roadmap](docs/roadmap.md) owns Gate 1 and G2 deadlines. The [work-in-progress map](docs/work-in-progress.md) is a dated snapshot of branch work.
+The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection, moving services, and travel booking. The current integration implements part of that target; real flight booking and production readiness are not established. The [roadmap](docs/roadmap.md) records the current Build submission and historical Gate 1/G2 deadlines. The [work-in-progress map](docs/work-in-progress.md) is a historical snapshot of branch work; the [weekly worklog](WORKLOG.md) summarizes subsequent merges through 18 October.
 
 ## Documentation
 
@@ -56,7 +80,7 @@ The [confirmed MVP scope](docs/product.md#mvp-scope) includes housing selection,
 - [City dataset catalog](Maps%20VN/Cities/README.md) and [map data workflow](docs/runbooks/map-data.md)
 - [Development journal](JOURNAL.md) and [worklog](WORKLOG.md)
 - [Evaluation report](eval/results/report.md)
-- [Demo materials status](presentation/README.md)
+- [Build submission checklist and demo materials](presentation/README.md)
 - [AI20K technical guide](docs/guide/chapter-01.md)
 
 ## Team
