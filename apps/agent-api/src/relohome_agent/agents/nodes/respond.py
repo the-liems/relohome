@@ -152,7 +152,11 @@ def unique_questions(questions: list[Question]) -> list[Question]:
         field = aliases.get(question.field, question.field)
         normalized = question.model_copy(update={"field": field})
         existing = unique.get(field)
-        if existing is None or (normalized.choices and not existing.choices):
+        if (
+            existing is None
+            or (normalized.choices and not existing.choices)
+            or (normalized.reason and not existing.reason and not existing.choices)
+        ):
             unique[field] = normalized
     return list(unique.values())
 

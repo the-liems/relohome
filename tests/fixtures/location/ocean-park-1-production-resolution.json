@@ -1,0 +1,198 @@
+{
+  "query": "Ocean Park 1",
+  "ambiguous": true,
+  "results": [
+    {
+      "entity_type": "place",
+      "canonical_id": "89590e2a-15ed-54d7-b6fe-b6984ba9075d",
+      "name": "Ocean Palace",
+      "category": "restaurant",
+      "administrative_level": null,
+      "location": { "lng": 108.4468202, "lat": 11.9282663 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:34025413",
+        "name": "Phường Xuân Hương - Đà Lạt",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "node/1152320175",
+        "source_url": "https://www.openstreetmap.org/node/1152320175"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.44444445,
+      "display_name": "Ocean Palace · Nhà hàng · Tỉnh Lâm Đồng · Phường Xuân Hương - Đà Lạt",
+      "city": "Tỉnh Lâm Đồng",
+      "alias_ids": []
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "7090b64c-beae-5574-b9a1-b243836a5f6b",
+      "name": "Ocean Pool",
+      "category": "swimming_pool",
+      "administrative_level": null,
+      "location": { "lng": 108.25172541104565, "lat": 16.04033695 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:27935685",
+        "name": "Phường Ngũ Hành Sơn",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "area/237332816",
+        "source_url": "https://www.openstreetmap.org/way/118666408"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.4117647,
+      "display_name": "Ocean Pool · Bể bơi · Thành phố Đà Nẵng · Phường Ngũ Hành Sơn",
+      "city": "Thành phố Đà Nẵng",
+      "alias_ids": ["c0c40513-ee20-50bd-9a11-292de92d6ea9"]
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "e692d973-6e1e-579a-9c3a-03c93f8d3868",
+      "name": "Ocean Pool",
+      "category": "swimming_pool",
+      "administrative_level": null,
+      "location": { "lng": 108.2518345354657, "lat": 16.040357399999998 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:27935685",
+        "name": "Phường Ngũ Hành Sơn",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "way/485394029",
+        "source_url": "https://www.openstreetmap.org/way/485394029"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.4117647,
+      "display_name": "Ocean Pool · Bể bơi · Thành phố Đà Nẵng · Phường Ngũ Hành Sơn",
+      "city": "Thành phố Đà Nẵng",
+      "alias_ids": ["86a8e8f1-42a0-5261-a680-39ffbbe650cd"]
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "ad14e55d-3fc4-57db-88ca-17217d5dfe73",
+      "name": "Điểm đỗ xe buýt Ocean Park",
+      "category": "parking",
+      "administrative_level": null,
+      "location": { "lng": 105.9604738976719, "lat": 20.99132855 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:38634861",
+        "name": "Xã Gia Lâm",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "way/1296565154",
+        "source_url": "https://www.openstreetmap.org/way/1296565154"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.39285713,
+      "display_name": "Điểm đỗ xe buýt Ocean Park · Bãi đỗ xe · Thành phố Hà Nội · Xã Gia Lâm",
+      "city": "Thành phố Hà Nội",
+      "alias_ids": ["62859739-19dc-5ecd-a639-68c4d95fd8c2"]
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "ee2df8fb-8935-58ea-8bce-1198597d903c",
+      "name": "Điểm đỗ xe buýt Ocean Park",
+      "category": "bus_stop",
+      "administrative_level": null,
+      "location": { "lng": 105.9606601, "lat": 20.9919495 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:38634861",
+        "name": "Xã Gia Lâm",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "node/8857316026",
+        "source_url": "https://www.openstreetmap.org/node/8857316026"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.39285713,
+      "display_name": "Điểm đỗ xe buýt Ocean Park · Trạm xe buýt · Thành phố Hà Nội · Xã Gia Lâm",
+      "city": "Thành phố Hà Nội",
+      "alias_ids": []
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "e8a0d276-0df1-57ae-b7ec-a6e32c02e1bf",
+      "name": "Vincom Mega Mall Ocean Park",
+      "category": "shopping_mall",
+      "administrative_level": null,
+      "location": { "lng": 105.95955379446849, "lat": 20.9939238 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:38634861",
+        "name": "Xã Gia Lâm",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "area/1823424662",
+        "source_url": "https://www.openstreetmap.org/way/911712331"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.37931034,
+      "display_name": "Vincom Mega Mall Ocean Park · shopping_mall · Thành phố Hà Nội · Xã Gia Lâm",
+      "city": "Thành phố Hà Nội",
+      "alias_ids": ["666c74cc-01a8-57f9-a000-2059ed80340c"]
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "728dcb28-894b-5b0b-8012-0abb79e44410",
+      "name": "Blue Ocean",
+      "category": "hotel",
+      "administrative_level": null,
+      "location": { "lng": 109.1945392, "lat": 12.2342208 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:32407299",
+        "name": "Phường Nha Trang",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "node/1629551681",
+        "source_url": "https://www.openstreetmap.org/node/1629551681"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.33333334,
+      "display_name": "Blue Ocean · Khách sạn · Phường Nha Trang",
+      "city": "Phường Nha Trang",
+      "alias_ids": []
+    },
+    {
+      "entity_type": "place",
+      "canonical_id": "a2f5c7a9-e15d-5da6-8f76-fe3562a3fbed",
+      "name": "Blue Ocean",
+      "category": "hotel",
+      "administrative_level": null,
+      "location": { "lng": 108.20255777386353, "lat": 10.947193850000001 },
+      "bounding_box": null,
+      "parent": {
+        "area_id": "osm:relation:27007713",
+        "name": "Phường Mũi Né",
+        "level": "6"
+      },
+      "source": {
+        "type": "osm",
+        "source_id": "area/150130812",
+        "source_url": "https://www.openstreetmap.org/way/75065406"
+      },
+      "match_type": "fuzzy",
+      "match_score": 0.33333334,
+      "display_name": "Blue Ocean · Khách sạn · Tỉnh Lâm Đồng · Phường Mũi Né",
+      "city": "Tỉnh Lâm Đồng",
+      "alias_ids": ["583d4edc-5bc2-55b3-bbbc-bd05ba881df6"]
+    }
+  ]
+}

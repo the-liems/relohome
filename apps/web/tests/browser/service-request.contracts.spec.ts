@@ -226,6 +226,42 @@ test("housing questions without form controls stay in chat even alongside suppor
   }
 });
 
+test("location failures never reopen generic forms, including older backend responses", () => {
+  for (const field of ["near", "district", "city"]) {
+    for (const prefix of ["", "property."]) {
+      for (const reason of [undefined, "location_not_found", "location_ambiguous"]) {
+        const question = { field: prefix + field, reason, text: "Chưa định vị được địa điểm." };
+        const thread = {
+          state: { intake: { intent: { domains: ["property"] }, constraints: { values: { [field]: "Ocean Park 1", max_price_vnd: 5000000 } } } },
+          messages: [{ role: "assistant", content: { response: { kind: "CLARIFY", text: question.text, questions: [question] } } }],
+        } as unknown as Thread;
+        expect(clarificationServices(thread)).toEqual([]);
+        expect(guidedReplyText(question.text, [question], ["property"])).toBe(question.text);
+        // A different genuinely missing value may still use a form.
+        thread.messages[0].content.response!.questions!.push({ field: "property.room_type", text: "Loại nhà?" });
+        expect(clarificationServices(thread)).toEqual(["property"]);
+      }
+    }
+  }
+});
+
+test("typed location failures and location choices stay out of forms even without stored inputs", () => {
+  for (const extra of [{ reason: "location_not_found" }, { reason: "location_ambiguous" }, { choices: [{ id: "real-id" }] }, { options: ["Real area"] }]) {
+    const question = { field: "property.near", text: "Xác nhận địa điểm.", ...extra };
+    const thread = {
+      state: { intake: { intent: { domains: ["property"] } } },
+      messages: [{ role: "assistant", content: { response: { kind: "CLARIFY", text: question.text, questions: [question] } } }],
+    } as unknown as Thread;
+    expect(clarificationServices(thread)).toEqual([]);
+    expect(guidedReplyText(question.text, [question], ["property"])).toBe(question.text);
+  }
+  const missing = {
+    state: { intake: { intent: { domains: ["property"] } } },
+    messages: [{ role: "assistant", content: { response: { kind: "CLARIFY", questions: [{ field: "near", text: "Tìm ở đâu?" }] } } }],
+  } as unknown as Thread;
+  expect(clarificationServices(missing)).toEqual(["property"]);
+});
+
 test("route forms only replace route questions and keep other notices intact", () => {
   const thread = {
     state: {
