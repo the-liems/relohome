@@ -544,6 +544,86 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 3px;
 }
+.rm-disclosure summary small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ui-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.rm-disclosure-body {
+  padding: 0 0 12px;
+}
+.rm-disclosure-body > .rm-disclosure:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+.rm-profile-editor {
+  font-size: 16px;
+}
+.rm-profile-editor label,
+.rm-filter-panel label {
+  font-size: 16px;
+  margin: 4px 0;
+}
+.rm-profile-editor :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select),
+.rm-filter-panel :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  font-size: 16px;
+}
+.rm-profile-editor .rm-essential-group,
+.rm-filter-panel .rm-essential-group {
+  margin: 16px 0;
+}
+.rm-profile-editor .rm-essential-group h3,
+.rm-filter-panel .rm-essential-group h3 {
+  font-size: 22px;
+  line-height: 1.35;
+  margin: 0 0 12px;
+}
+.rm-profile-editor .rm-essential-group > .rm-area-fields {
+  margin: 12px 0;
+}
+.rm-profile-editor label > span,
+.rm-filter-panel label > span {
+  font-weight: 600;
+}
+.rm-profile-editor .rm-intro-fields {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 20px;
+}
+.rm-profile-editor .rm-fields,
+.rm-filter-panel .rm-fields {
+  gap: 8px 20px;
+}
+.rm-profile-editor small {
+  color: var(--ui-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.rm-profile-editor > .rm-disclosure > summary,
+.rm-filter-panel form > .rm-disclosure > summary {
+  font-size: 20px;
+  line-height: 1.4;
+  padding: 16px 0;
+}
+.rm-budget-fields > .rm-disclosure {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 0;
+}
+.rm-budget-fields > .rm-disclosure > summary {
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.rm-budget-fields > .rm-disclosure label {
+  max-width: 360px;
+}
+.rm-filter-panel h2 {
+  font-size: 24px;
+  line-height: 1.3;
+}
 .rm-preference {
   border-bottom: 1px solid var(--ui-line);
   padding: 8px 0;
@@ -684,6 +764,10 @@
   }
 }
 @media (max-width: 767px) {
+  .rm-profile-editor .rm-fields,
+  .rm-filter-panel .rm-fields {
+    grid-template-columns: 1fr;
+  }
   .rm-candidate .rm-facts,
   .rm-candidate-list:has(> li:only-child) .rm-facts {
     grid-template-columns: 1fr;
@@ -702,9 +786,6 @@
   .rm-filter-panel {
     position: static;
     max-height: none;
-  }
-  .rm-filter-panel .rm-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .rm-navigation a {
     padding: 12px 8px;

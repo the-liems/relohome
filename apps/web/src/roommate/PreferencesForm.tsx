@@ -3,6 +3,7 @@ import { AreaFields } from "./FactsForm";
 import { BudgetFields, MoveInFields, QuietFields, SelectField } from "./Fields";
 import { options, rt } from "./text";
 import type { ReactNode } from "react";
+import { FormDisclosure } from "./FormDisclosure";
 function Strength({
   value,
   change,
@@ -95,13 +96,12 @@ export function PreferencesForm({
           change={(v) => set("move_in", v)}
         />
       </Strength>
-      <details className="rm-disclosure">
-        <summary>
-          {rt(
-            "Sinh hoạt và thói quen · tùy chọn",
-            "Lifestyle preferences · optional",
-          )}
-        </summary>
+      <FormDisclosure
+        title={rt(
+          "Sinh hoạt và thói quen · tùy chọn",
+          "Lifestyle preferences · optional",
+        )}
+      >
         {enums.map(([key, label, kind]) => (
           <Strength
             key={key}
@@ -130,7 +130,7 @@ export function PreferencesForm({
             change={(v) => set("quiet_hours", v)}
           />
         </Strength>
-      </details>
+      </FormDisclosure>
     </div>
   );
 }

@@ -96,6 +96,7 @@ test("linked room picker scopes search without granting location consent", async
   await page
     .getByLabel("Nhu cầu của bạn", { exact: true })
     .selectOption("has_room");
+  await page.getByText("Thông tin bổ sung", { exact: true }).click();
   await page
     .getByText("Hiện phòng trên map (tùy chọn)", { exact: true })
     .click();

@@ -120,7 +120,7 @@ export function MyProfile() {
             }}
           >
             <fieldset disabled={busy}>
-              <legend>
+              <legend className="sr-only">
                 {rt("Thông tin và sinh hoạt", "Your information and lifestyle")}
               </legend>
               <ProfileEditor
