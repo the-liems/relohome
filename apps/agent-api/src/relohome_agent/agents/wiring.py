@@ -197,10 +197,10 @@ class AgentService:
                 moving=registry.moving.write_client() if services.agent_writes_enabled else None,
                 moving_approvals=bridge,
                 moving_source_kind=registry.moving.source_kind,
+                receipts=DurableModels(db, "receipts", Receipt),
+                holds=DurableModels(db, "holds", PendingPayment),
+                intent_store=db,
             )
-            tx._receipts = DurableModels(db, "receipts", Receipt)
-            tx._holds = DurableModels(db, "holds", PendingPayment)
-            tx.intent_store = db
             checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
             viewing = build_viewing(services, registry, db, checkout) if services.housing_viewing_enabled else None
             from relohome_agent.agents.guardrails.shadow import build_guardrail

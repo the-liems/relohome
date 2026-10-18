@@ -15,6 +15,7 @@ import logging
 import secrets
 import string
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -81,6 +82,8 @@ class CheckoutService:
     _next_check: dict[str, tuple[datetime, timedelta]] = field(default_factory=dict)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
     _worker: asyncio.Task | None = None
+    _wake: asyncio.Event = field(default_factory=asyncio.Event)
+    _stopping: asyncio.Event = field(default_factory=asyncio.Event)
 
     # ------------------------------------------------------------------ helpers
 
@@ -706,11 +709,8 @@ class CheckoutService:
     # ------------------------------------------------------------------ hoàn tất (bền, chạy một lần)
 
     def kick(self) -> None:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        loop.create_task(self.run_jobs())
+        """Wake the worker so a new job runs now instead of at its next scheduled pass."""
+        self._wake.set()
 
     async def reconcile_open(self) -> None:
         """Đối soát lần thanh toán còn mở dù người dùng không bấm Kiểm tra, để trả tiền xong là xuất vé
@@ -811,13 +811,15 @@ class CheckoutService:
         """Đối soát lần thanh toán còn mở, chạy tiếp công việc dở khi khởi động và quét định kỳ (một worker)."""
 
         async def loop():
-            while True:
+            while not self._stopping.is_set():
+                self._wake.clear()
                 try:
                     await self.reconcile_open()
                     await self.run_jobs()
                 except Exception:  # pragma: no cover - log và chạy tiếp vòng sau
                     logger.exception("checkout job loop failed")
-                await asyncio.sleep(self.seconds_until_next(interval))
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(self._wake.wait(), self.seconds_until_next(interval))
 
         self._worker = asyncio.create_task(loop())
 
@@ -831,8 +833,11 @@ class CheckoutService:
         return max(wait, 0.05)
 
     async def stop(self) -> None:
+        """Let the current pass finish, so a provider call is never cut off mid-request, then wait for the worker."""
+        self._stopping.set()
+        self._wake.set()
         if self._worker:
-            self._worker.cancel()
+            await self._worker
 
     # ------------------------------------------------------------------ nhà (người dùng tự báo, app không thu tiền)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -598,3 +599,48 @@ async def test_rejection_during_reconciliation_cancels_once_and_stops(env):
     assert flight.calls.count(("cancel_booking", {"booking_ref": "bk_1", "confirm": True})) == 1
     await service.check(USER, attempt["attempt_id"])  # A cancelled attempt is not retried.
     assert [tool for tool, _ in payment.calls].count("create_payment") == 2
+
+
+@pytest.mark.asyncio
+async def test_kick_wakes_the_idle_worker_for_a_new_job(env, monkeypatch):
+    service, _, _, _, _ = env
+    passes: asyncio.Queue[None] = asyncio.Queue()
+    run_jobs = service.run_jobs
+
+    async def counted_run_jobs():
+        await run_jobs()
+        passes.put_nowait(None)
+
+    monkeypatch.setattr(service, "run_jobs", counted_run_jobs)
+    await service.start(interval=3600)  # The timer alone would not run another pass during this test.
+    await passes.get()
+    _, attempt = await pay_flight(service)
+    await service.tester_paid(USER, attempt["attempt_id"])
+    await asyncio.wait_for(passes.get(), 1)
+    assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_lets_the_in_flight_confirmation_finish(env, monkeypatch):
+    service, _, flight, _, _ = env
+    confirming, release = asyncio.Event(), asyncio.Event()
+    call = flight.call
+
+    async def slow_call(tool, args):
+        if tool == "confirm_booking":
+            confirming.set()
+            await release.wait()
+        return await call(tool, args)
+
+    monkeypatch.setattr(flight, "call", slow_call)
+    _, attempt = await pay_flight(service)
+    await service.tester_paid(USER, attempt["attempt_id"])
+    await service.start()
+    await asyncio.wait_for(confirming.wait(), 1)
+    stopping = asyncio.create_task(service.stop())
+    await asyncio.sleep(0)
+    assert not stopping.done()  # Shutdown waits instead of cancelling the paid booking's confirmation.
+    release.set()
+    await asyncio.wait_for(stopping, 1)
+    assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"
