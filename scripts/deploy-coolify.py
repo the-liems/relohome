@@ -125,13 +125,13 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
     deadline = time.monotonic() + health_timeout
     while True:
         status = request(health_path).get("status")
-        if status == "running:healthy":
+        if status in {"running:healthy", "running:unknown"}:
             break
         if time.monotonic() >= deadline:
-            raise RuntimeError(f"Coolify Application never became running:healthy; last status: {status}")
+            raise RuntimeError(f"Coolify Application never reached an accepted running status; last status: {status}")
         time.sleep(interval)
     target = f"Application {app}" + (f" preview PR #{preview_id}" if preview_id else "")
-    print(f"Coolify {target} deployed {sha} and is running:healthy.")
+    print(f"Coolify {target} deployed {sha} and has status {status}.")
 
 
 if __name__ == "__main__":

@@ -99,7 +99,7 @@ jobs:
           trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           python scripts/deploy-coolify.py --compose release-compose.yaml --preview-id "$PR_NUMBER"
-          printf 'Preview PR #%s is healthy at commit `%s`. Open its domain in Coolify Preview Deployments.\n' "$PR_NUMBER" "$DEPLOY_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Preview PR #%s is running at commit `%s`. Open its domain in Coolify Preview Deployments.\n' "$PR_NUMBER" "$DEPLOY_SHA" >> "$GITHUB_STEP_SUMMARY"
       - name: Clean up Python environment
         if: always()
         run: |

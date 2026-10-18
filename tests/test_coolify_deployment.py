@@ -137,9 +137,18 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "commit mismatch"):
             self.invoke(iter(self.prefix() + [{"status": "finished", "commit": "b" * 40}]))
 
-    def test_application_must_be_healthy(self):
-        with self.assertRaisesRegex(RuntimeError, "last status: exited:unhealthy"):
-            self.invoke(iter(self.prefix() + [FINISHED, {"status": "exited:unhealthy"}]), health_timeout=0)
+    def test_running_without_healthcheck_is_accepted(self):
+        self.invoke(iter(self.prefix() + [FINISHED, {"status": "running:unknown"}]))
+        self.assertIn("running:unknown", self.output.getvalue())
+        self.invoke(iter([{'deployment_uuid': 'preview-1'}, FINISHED,
+                          {'status': 'running:unknown'}]), preview_id=200)
+        self.assertIn("running:unknown", self.output.getvalue())
+
+    def test_unhealthy_stopped_and_missing_statuses_are_rejected(self):
+        for status in ("running:unhealthy", "degraded:unhealthy", "exited:unhealthy",
+                       "starting:unknown", "exited", None):
+            with self.subTest(status=status), self.assertRaisesRegex(RuntimeError, "last status:"):
+                self.invoke(iter(self.prefix() + [FINISHED, {"status": status}]), health_timeout=0)
 
     def test_already_queued_missing_deployment_has_clear_error(self):
         queued = {"deployments": [QUEUED["deployments"][1] | {"message": "Deployment already queued for this commit."}]}

@@ -62,7 +62,10 @@ Configure these GitHub repository settings:
 
 The workflow builds all application images at the PR head SHA, verifies those
 images, and requests a preview at that exact commit. It checks deployment commit
-and preview health before reporting success. Normal CI runs separately; this
+and preview status before reporting success. Both `running:healthy` and
+`running:unknown` (running without a healthcheck) are accepted; unhealthy,
+degraded and stopped states are not. The upstream Collector image is used
+without a Docker healthcheck. Normal CI runs separately; this
 workflow does not wait for every normal CI test. Fork PRs and drafts are excluded.
 Use repository collaborators' trusted PRs because application code runs with
 the preview credentials on the deployment server.
