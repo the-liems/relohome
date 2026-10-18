@@ -1,6 +1,7 @@
 import { formatUi, useUiPreferences } from "../uiPreferences";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import {
   Bath,
@@ -66,6 +67,9 @@ import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
 import { ContentSkeleton } from "./UiStates";
 import { roommate } from "../roommate/client";
 import type { Availability } from "../roommate/types";
+import { rt } from "../roommate/text";
+import { Dialog } from "./Dialog";
+import { RoommateRoomActions, type RoomMarker } from "./RoommateRoomActions";
 import "./roommateMap.css";
 
 const PRICES = [
@@ -93,14 +97,6 @@ const PLACE_FIELDS = ["near", "route_from", "route_to"];
 // POIs are only loaded close enough for them to be readable and the request to stay small.
 const POI_MIN_ZOOM = 14;
 type BBox = { west: number; south: number; east: number; north: number };
-type RoomMarker = {
-  listing_id: string;
-  profile_id: string;
-  display_name: string;
-  source_kind: "real" | "demo";
-  label: string;
-};
-
 export function MapWorkspace({
   focus,
   initialFilters,
@@ -164,6 +160,10 @@ export function MapWorkspace({
   const [poiDetail, setPoiDetail] = useState<Data | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
+  const [contactRoomId, setContactRoomId] = useState<string | null>(null);
+  const roomProfiles = (id: string) =>
+    roomMarkers.filter((p) => p.listing_id === id);
+  const contactProfiles = contactRoomId ? roomProfiles(contactRoomId) : [];
   const [roommateEnabled, setRoommateEnabled] = useState(false);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [roomMapRetry, setRoomMapRetry] = useState(0);
@@ -747,6 +747,11 @@ export function MapWorkspace({
     }
   }
   async function choose_house(h: House) {
+    if (roomProfiles(h.id).length) {
+      setFullDetail(null);
+      setContactRoomId(h.id);
+      return;
+    }
     setListError("");
     setSelecting(h.id);
     try {
@@ -818,43 +823,59 @@ export function MapWorkspace({
     id !== selectedId &&
     Boolean(onUnselect) &&
     Boolean(selectedIds?.includes(id));
-  const selectButton = (h: House, primary = false) => (
-    <button
-      className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={
-        readOnly ||
-        chat.busy ||
-        selecting !== null ||
-        (isChosen(h.id) && !removable(h.id))
-      }
-      onClick={() =>
-        void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
-          () => {},
-        )
-      }
-    >
-      {removable(h.id) ? (
-        selecting === h.id ? (
-          uiText("Đang bỏ…")
-        ) : (
-          <>
-            <X size={14} />
-            {uiText(" Bỏ chọn")}
-          </>
-        )
-      ) : isChosen(h.id) ? (
-        <>
-          <Check size={14} />
-          {uiText(" Đã chọn")}
-        </>
-      ) : selecting === h.id ? (
-        uiText("Đang chọn…")
-      ) : (
-        uiText("Chọn căn này")
-      )}
-    </button>
+  const roommateButton = (h: House, primary = false) => (
+    <RoommateRoomActions
+      profiles={roomProfiles(h.id)}
+      onChoosePoster={() => {
+        // Replace the detail dialog, rather than stacking native modals and
+        // leaving their body-scroll locks behind when navigating to a profile.
+        setFullDetail(null);
+        setContactRoomId(h.id);
+      }}
+      primary={primary}
+    />
   );
+  const selectButton = (h: House, primary = false) =>
+    roomProfiles(h.id).length ? (
+      roommateButton(h, primary)
+    ) : (
+      <button
+        className={primary ? "primary ws-select" : "ws-select-small"}
+        disabled={
+          readOnly ||
+          chat.busy ||
+          selecting !== null ||
+          (isChosen(h.id) && !removable(h.id))
+        }
+        onClick={() =>
+          void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
+            () => {},
+          )
+        }
+      >
+        {removable(h.id) ? (
+          selecting === h.id ? (
+            uiText("Đang bỏ…")
+          ) : (
+            <>
+              <X size={14} />
+              {uiText(" Bỏ chọn")}
+            </>
+          )
+        ) : isChosen(h.id) ? (
+          <>
+            <Check size={14} />
+            {uiText(" Đã chọn")}
+          </>
+        ) : selecting === h.id ? (
+          uiText("Đang chọn…")
+        ) : (
+          uiText("Chọn căn này")
+        )}
+      </button>
+    );
   const compareButton = (h: House) => {
+    if (roomProfiles(h.id).length) return null;
     const checked = comparisonHomes.some((home) => home.id === h.id);
     return (
       <button
@@ -1419,18 +1440,21 @@ export function MapWorkspace({
                 <div className="ws-roommate-badge" key={p.profile_id}>
                   <strong>{p.label}</strong>
                   <p>{p.display_name}</p>
-                  <a
-                    href={
+                  <Link
+                    to={
                       "/roommate/profiles/" + encodeURIComponent(p.profile_id)
                     }
                   >
                     {uiText("Xem nhu cầu ở ghép")}
-                  </a>
+                  </Link>
                 </div>
               ))}
             <div className="ws-detail-price">
               <strong className="price">{housePrice(detail)}</strong>
-              <button className="housing-detail-link" onClick={() => setFullDetail(detail)}>
+              <button
+                className="housing-detail-link"
+                onClick={() => setFullDetail(detail)}
+              >
                 {uiText("Thông tin chi tiết ›")}
               </button>
             </div>
@@ -1504,9 +1528,55 @@ export function MapWorkspace({
         </aside>
       )}
       {fullDetail && (
-        <HousingDetail house={fullDetail} saved={saved.has(fullDetail.id)} selected={isChosen(fullDetail.id)}
-          onClose={() => setFullDetail(null)} onSave={() => onSave(fullDetail)}
-          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)} busy={chat.busy || selecting !== null} />
+        <HousingDetail
+          house={fullDetail}
+          saved={saved.has(fullDetail.id)}
+          selected={isChosen(fullDetail.id)}
+          onClose={() => setFullDetail(null)}
+          onSave={() => onSave(fullDetail)}
+          roommateActions={
+            roomProfiles(fullDetail.id).length
+              ? roommateButton(fullDetail, true)
+              : undefined
+          }
+          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)}
+          busy={chat.busy || selecting !== null}
+        />
+      )}
+      {contactRoomId && (
+        <Dialog
+          title={rt(
+            "Chọn người đăng để kết nối",
+            "Choose a poster to connect with",
+          )}
+          onClose={() => setContactRoomId(null)}
+        >
+          <p>
+            {rt(
+              "Xem nhu cầu ở ghép rồi gửi yêu cầu kết nối nếu phù hợp. Chưa có yêu cầu nào được gửi.",
+              "Review the roommate profile before sending a connection request. No request has been sent.",
+            )}
+          </p>
+          {contactProfiles.length ? (
+            contactProfiles.map((p) => (
+              <div className="ws-roommate-badge" key={p.profile_id}>
+                <p>{p.display_name}</p>
+                <Link
+                  to={"/roommate/profiles/" + encodeURIComponent(p.profile_id)}
+                >
+                  {rt("Xem nhu cầu ở ghép", "View roommate profile")}
+                </Link>
+              </div>
+            ))
+          ) : (
+            <p role="status">
+              {rt(
+                "Nhu cầu ở ghép này không còn hiển thị. Hãy tải lại bản đồ.",
+                "This roommate post is no longer visible. Reload the map.",
+              )}
+            </p>
+          )}
+        </Dialog>
       )}
       {comparing && (
         <Comparison

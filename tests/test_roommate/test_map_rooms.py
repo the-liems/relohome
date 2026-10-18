@@ -61,6 +61,12 @@ async def test_map_lifecycle_consent_blocks_expiry_and_minimal_disclosure(tmp_pa
             AccessService(ctx).accept(viewer, True, TERMS_VERSION)
         shown = await markers()
         assert len(shown) == 1 and shown[0]["source_kind"] == "real"
+        own = await client.post(
+            "/api/v1/roommate/map/rooms",
+            json={"listing_ids": [content.room.listing_id]},
+            headers=headers("owner"),
+        )
+        assert own.status_code == 200 and own.json()["items"] == []
         legacy = await client.post(
             "/api/v1/roommate/map/rooms",
             json={"listing_ids": [content.room.listing_id], "include_demo": True},
@@ -114,6 +120,38 @@ async def test_map_lifecycle_consent_blocks_expiry_and_minimal_disclosure(tmp_pa
                 "/api/v1/roommate/map/rooms", json={"listing_ids": []}, headers=headers("demo_person_001")
             )
         ).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_shared_room_excludes_only_viewers_own_post_and_rejects_spoofed_owner(tmp_path):
+    app, runtime = make_app(tmp_path)
+    app.include_router(router, prefix="/api/v1")
+    body = complete().model_dump(mode="json")
+    body["facts"]["need"] = {"kind": "has_room", "willing_to_move": False}
+    body["room"] = {"listing_id": "shared-room", "public_location_consent": True}
+    content = RoommateProfile.model_validate(body)
+    with runtime.context() as ctx:
+        for owner_id in ("viewer", "other-poster"):
+            actor = Actor(id=owner_id)
+            AccessService(ctx).accept(actor, True, TERMS_VERSION)
+            service = ProfileService(ctx)
+            draft = service.save(actor, content, None)
+            service.transition(actor, "publish", draft.version, True)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        for actor_id, expected in (("viewer", "other-poster"), ("other-poster", "viewer")):
+            response = await client.post(
+                "/api/v1/roommate/map/rooms",
+                json={"listing_ids": ["shared-room"]},
+                headers=headers(actor_id),
+            )
+            assert response.status_code == 200
+            assert [p["profile_id"] for p in response.json()["items"]] == [expected]
+        spoof = await client.post(
+            "/api/v1/roommate/map/rooms",
+            json={"listing_ids": ["shared-room"], "actor_id": "other-poster"},
+            headers=headers(),
+        )
+        assert spoof.status_code == 422
 
 
 @pytest.mark.asyncio

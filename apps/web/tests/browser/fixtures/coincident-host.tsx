@@ -1,6 +1,7 @@
 // Browser-only fixture: production entrypoints never import this module.
 import { createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { Map as LibreMap } from "maplibre-gl";
 import { MapWorkspace } from "../../../src/components/MapWorkspace";
 import { setUiPreferences } from "../../../src/uiPreferences";
@@ -49,7 +50,7 @@ export function mount() {
     "position:fixed;inset:0;z-index:10000;background:white;display:flex;flex-direction:column";
   document.body.append(container);
   root = createRoot(container);
-  root.render(createElement(Host));
+  root.render(createElement(BrowserRouter, null, createElement(Host)));
 }
 
 export function pins() {

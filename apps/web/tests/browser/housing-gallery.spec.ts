@@ -297,15 +297,18 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
         }),
       )
       .toBeGreaterThanOrEqual(15.4);
-    await detail
-      .getByRole("button", { name: "Chọn căn này", exact: true })
-      .click();
+    await expect(
+      detail.getByRole("button", { name: "Chọn căn này", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      detail.getByRole("link", { name: "Liên hệ người đăng", exact: true }),
+    ).toHaveAttribute("href", "/roommate/profiles/user-anna");
     expect(
       await page.evaluate(
         async () =>
           (await import("/tests/browser/fixtures/coincident-host.tsx")).chosen,
       ),
-    ).toEqual(["gallery-home"]);
+    ).toEqual([]);
     await page.evaluate(async () =>
       (await import("/tests/browser/fixtures/coincident-host.tsx")).theme(
         "dark",
@@ -343,6 +346,15 @@ test("housing detail shows every safe photo and keeps nearby/selection actions o
     await expect(
       detail.getByRole("button", { name: "Ảnh tiếp theo", exact: true }),
     ).toHaveCount(0);
+    await detail
+      .getByRole("button", { name: "Chọn căn này", exact: true })
+      .click();
+    expect(
+      await page.evaluate(
+        async () =>
+          (await import("/tests/browser/fixtures/coincident-host.tsx")).chosen,
+      ),
+    ).toEqual(["single-home"]);
     await detail
       .getByRole("button", { name: "Đóng chi tiết", exact: true })
       .click();
