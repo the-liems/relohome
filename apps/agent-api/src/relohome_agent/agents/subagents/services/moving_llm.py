@@ -111,9 +111,11 @@ TOOL_SCHEMAS = {t["name"]: t["parameters"] for t in TOOLS}
 REQUEST_REJECTION_CODES = frozenset(
     {"PROVIDER_REJECTED", "VALIDATION_ERROR", "PROVIDER_NOT_FOUND", "PROVIDER_CONFLICT", "QUOTE_EXPIRED"}
 )
-MAX_SELECTION_CATALOG_CHARS = 20_000
-MAX_SELECTION_CONTEXT_CHARS = 24_000
-MAX_SELECTION_REQUEST_CHARS = 32_000
+# Application payload budget, NOT a model token/context-window guarantee. Count
+# the complete serialized UTF-8 request (including escaped input, tools and enums)
+# once; separate catalog/context character gates rejected ordinary 19-vehicle
+# catalogs before the actual request could be measured. No extra counting API call.
+MAX_SELECTION_REQUEST_BYTES = 64_000
 
 
 class MovingLlmAgent:
@@ -180,16 +182,13 @@ class MovingLlmAgent:
             "shared_fact_count": len(catalog.get("catalog_facts", {}))
             + len(defaults.get("constraints", {}))
             + len(set(defaults) - {"constraints"}),
+            "catalog_section_chars": {
+                key: len(model_json(catalog.get(key, {}))) for key in ("services", "catalog_defaults", "catalog_facts")
+            },
             "status": "prepared",
         }
-        # Bound the actual compact payload, not vehicle count. Never discard an alternative or restriction.
-        if execution.catalog_selection["catalog_chars"] > MAX_SELECTION_CATALOG_CHARS:
-            execution.catalog_selection["status"] = "catalog_limit"
-            return execution.ask("service_id", "Danh mục xe khá lớn; bạn chọn một gói xe để mình báo giá nhé.")
         if not self.api_key or self.api_key.startswith(("your-", "sk-your", "test-")):
             return execution.failed("provider_unavailable", "Chưa cấu hình LLM.")
-        if self.client is None:
-            self.client = AsyncOpenAI(api_key=self.api_key, max_retries=0, timeout=45, **client_options(self.api_key))
         ids_schema = {
             "type": "array",
             "items": {"type": "string", "enum": list(execution.catalog)},
@@ -224,9 +223,7 @@ class MovingLlmAgent:
         if options.get("remarks") is not None:
             context["remarks"] = public_data(options["remarks"])
         model_input = model_json(context)
-        execution.catalog_selection.update(context_chars=len(model_input), status="context_limit")
-        if len(model_input) > MAX_SELECTION_CONTEXT_CHARS:
-            return execution.ask("service_id", "Thông tin đồ đạc khá dài; bạn chọn một gói xe để mình báo giá nhé.")
+        execution.catalog_selection.update(context_chars=len(model_input))
         tools = [estimate, ask]
         model_request: dict[str, Any] = {
             "model": provider_model(self.api_key, self.model),
@@ -239,12 +236,24 @@ class MovingLlmAgent:
             "store": False,
             **({"reasoning": {"effort": "none"}} if self.model == "gpt-6-luna" else {}),
         }
-        # Enum IDs are repeated in the tool schema, so include it in the request budget too.
-        request_chars = len(json.dumps(model_request, ensure_ascii=False, separators=(",", ":")))
-        execution.catalog_selection.update(request_chars=request_chars, status="request_limit")
-        if request_chars > MAX_SELECTION_REQUEST_CHARS:
-            return execution.ask("service_id", "Danh mục xe khá lớn; bạn chọn một gói xe để mình báo giá nhé.")
+        # Catalog, custom load/remarks and enum IDs share ONE budget. Measure bytes
+        # rather than confusing Vietnamese characters or JSON size with token usage.
+        serialized = json.dumps(model_request, ensure_ascii=False, separators=(",", ":"))
+        request_bytes = len(serialized.encode("utf-8"))
+        execution.catalog_selection.update(
+            request_chars=len(serialized),
+            request_bytes=request_bytes,
+            request_byte_limit=MAX_SELECTION_REQUEST_BYTES,
+            tools_chars=len(json.dumps(tools, ensure_ascii=False, separators=(",", ":"))),
+            status="request_limit",
+        )
+        if request_bytes > MAX_SELECTION_REQUEST_BYTES:
+            return execution.ask(
+                "service_id", "Dữ liệu gợi ý vượt giới hạn an toàn; bạn chọn một gói xe để mình báo giá nhé."
+            )
         execution.catalog_selection["status"] = "ready"
+        if self.client is None:
+            self.client = AsyncOpenAI(api_key=self.api_key, max_retries=0, timeout=45, **client_options(self.api_key))
         execution.run.reserve()
         started = perf_counter()
         try:

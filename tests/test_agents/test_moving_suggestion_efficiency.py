@@ -13,7 +13,7 @@ from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.subagents.conformance import sample_request
 from relohome_agent.agents.subagents.services.moving import QuoteContact
 from relohome_agent.agents.subagents.services.moving_context import selection_catalog_for_model
-from relohome_agent.agents.subagents.services.moving_llm import MovingLlmAgent
+from relohome_agent.agents.subagents.services.moving_llm import MAX_SELECTION_REQUEST_BYTES, MovingLlmAgent
 from relohome_agent.agents.task_prompts import FORM_SELECTION, MOVING_CORE, MOVING_MODES
 from relohome_agent.services.adapters.mcp import ToolCallError
 from relohome_privacy import redact_pii
@@ -222,9 +222,11 @@ async def test_preparation_problem_asks_without_model_or_estimate(case):
     elif case == "missing_pin":
         del req.inputs["pickup_coordinate"]
     elif case == "too_large":
-        client.handlers["list_moving_services"]["services"][0]["description"] = "x" * 20_001
+        client.handlers["list_moving_services"]["services"][0]["description"] = "catalog rule " * (
+            MAX_SELECTION_REQUEST_BYTES // 12
+        )
     elif case == "large_load":
-        req.inputs["moving_options"] = {"packages": [{"weight_kg": 1, "description": "x" * 500}] * 100}
+        req.inputs["moving_options"] = {"packages": [{"weight_kg": 1, "description": "x" * 500}] * 200}
     result = await agent.run_form_quote(req)
     assert result.status == "needs_input" and not responses.calls and result.usage.llm_calls == 0
     assert all(name == "list_moving_services" for name, _ in client.calls)

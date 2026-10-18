@@ -1,5 +1,9 @@
 # Moving auto-suggestion: large catalogs (#226)
 
+Historical #227 behavior below. The follow-up [whole-request budget fix (#242)](moving-selection-request-budget.md)
+replaces the catalog/context/request character gates with one serialized UTF-8
+request byte budget; lossless factoring and the no-first-N policy remain intact.
+
 ## Cause
 
 The form previously stopped before LLM selection whenever its decision catalog

@@ -10,6 +10,7 @@ from relohome_agent.agents.subagents.services.moving_context import (
     compact_selection_catalog,
     selection_catalog_for_model,
 )
+from relohome_agent.agents.subagents.services.moving_llm import MAX_SELECTION_REQUEST_BYTES
 from relohome_privacy import redact_pii
 
 from tests.test_agents.test_moving_suggestion_efficiency import Responses, fixture_agent, form_request
@@ -49,6 +50,48 @@ def install_catalog(client, count, *, repeated_rules=False):
         {"service_id": selected, "service_name": services[-1]["name"], "fee": {"total_price": 234_000}}
     ]
     return services, selected
+
+
+def install_trace_sized_catalog(client):
+    """Synthetic size witness, NOT the user's unavailable production payload."""
+    services, _ = install_catalog(client, 19)
+    for index, service in enumerate(services):
+        service["service_id"] = f"observed-{index:02d}-" + "x" * 80
+        service["description"] = f"Xe {index}: cần xác nhận giới hạn vận chuyển và bửng nâng."
+    projected = selection_catalog_for_model({s["service_id"]: s for s in services})
+    current = len(model_json(compact_selection_catalog(projected)))
+    padding = ("Chỉ dùng xe kín; kiểm tra bửng nâng và giới hạn đường đi. " * 1000)[: 29_924 - current]
+    services[0]["description"] += padding
+    selected = services[-1]["service_id"]
+    client.handlers["estimate_move"]["quote"]["options"] = [
+        {"service_id": selected, "service_name": services[-1]["name"], "fee": {"total_price": 234_000}}
+    ]
+    return services, selected
+
+
+@pytest.mark.asyncio
+async def test_nineteen_services_at_trace_size_use_one_complete_bounded_request_without_losing_facts():
+    agent, client, responses = fixture_agent()
+    services, selected = install_trace_sized_catalog(client)
+    before = copy.deepcopy(services)
+    responses.output.output[0].arguments = json.dumps({"service_ids": [selected]})
+    note = "Cần xe có bửng nâng, không dùng xe thùng hở; gọi 0901234567"
+    result = await agent.run_form_quote(form_request(moving_options={"remarks": note}))
+    assert result.status == "done"
+    assert result.usage.llm_calls == len(responses.calls) == 1
+    assert [name for name, _ in client.calls] == ["list_moving_services", "estimate_move"]
+    context = json.loads(responses.calls[0]["input"][0]["content"])
+    assert expand_catalog(context) == selection_catalog_for_model({s["service_id"]: s for s in services})
+    assert context["remarks"] == redact_pii(note)
+    assert client.calls[-1][1]["services"] == [{"service_id": selected}]
+    assert services == before
+    metrics = result.data["agent_trace"]["catalog_selection"]
+    assert metrics["service_count"] == 19 and metrics["catalog_chars"] == 29_924
+    assert metrics["context_chars"] > 24_000 and metrics["request_chars"] > 32_000
+    serialized = json.dumps(responses.calls[0], ensure_ascii=False, separators=(",", ":"))
+    assert metrics["request_bytes"] == len(serialized.encode("utf-8")) <= metrics["request_byte_limit"]
+    assert metrics["request_byte_limit"] == MAX_SELECTION_REQUEST_BYTES and metrics["status"] == "ready"
+    assert "0901234567" not in json.dumps(metrics) and selected not in json.dumps(metrics)
 
 
 def expand_catalog(context):
@@ -123,12 +166,13 @@ async def test_more_than_fifty_small_services_is_not_refused_or_truncated():
 async def test_irreducible_catalog_stays_bounded_without_choosing_first_n_or_charging_a_model_call():
     agent, client, responses = fixture_agent()
     services, _ = install_catalog(client, 2)
-    services[0]["description"] = "x" * 21_000
+    services[0]["description"] = "catalog rule " * (MAX_SELECTION_REQUEST_BYTES // 12)
     result = await agent.run_form_quote(form_request())
     assert result.status == "needs_input" and result.usage.llm_calls == 0 and not responses.calls
     assert [name for name, _ in client.calls] == ["list_moving_services"]
     metrics = result.data["agent_trace"]["catalog_selection"]
-    assert metrics["status"] == "catalog_limit" and metrics["catalog_chars"] > 20_000
+    assert metrics["status"] == "request_limit"
+    assert metrics["request_bytes"] > MAX_SELECTION_REQUEST_BYTES
 
 
 @pytest.mark.asyncio
@@ -202,15 +246,57 @@ def test_compaction_round_trip_keeps_types_nested_values_and_unknowns(count):
 async def test_tool_enum_size_is_bounded_even_when_the_catalog_and_context_fit():
     agent, client, responses = fixture_agent()
     client.handlers["list_moving_services"] = {
-        "services": [{"service_id": f"observed-{i:03d}-" + "x" * 110} for i in range(110)]
+        "services": [{"service_id": f"observed-{i:03d}-" + "x" * 300} for i in range(110)]
     }
     result = await agent.run_form_quote(form_request())
     assert result.status == "needs_input" and result.usage.llm_calls == 0 and not responses.calls
     assert [name for name, _ in client.calls] == ["list_moving_services"]
     metrics = result.data["agent_trace"]["catalog_selection"]
     assert metrics["status"] == "request_limit"
-    assert metrics["catalog_chars"] <= 20_000 and metrics["context_chars"] <= 24_000
-    assert metrics["request_chars"] > 32_000
+    assert metrics["catalog_chars"] < MAX_SELECTION_REQUEST_BYTES
+    assert metrics["context_chars"] < MAX_SELECTION_REQUEST_BYTES
+    assert metrics["request_bytes"] > MAX_SELECTION_REQUEST_BYTES
+
+
+@pytest.mark.asyncio
+async def test_unicode_is_bounded_by_utf8_bytes_before_constructing_a_model_client(monkeypatch):
+    from relohome_agent.agents.subagents.services import moving_llm
+
+    agent, client, responses = fixture_agent()
+    services, _ = install_catalog(client, 2)
+    services[0]["description"] = "ế " * 17_000
+    agent.client = None
+
+    def unexpected_client(**kwargs):
+        raise AssertionError("Oversized input must stop before allocating a model client")
+
+    monkeypatch.setattr(moving_llm, "AsyncOpenAI", unexpected_client)
+    result = await agent.run_form_quote(form_request())
+    assert result.status == "needs_input" and not responses.calls and result.usage.llm_calls == 0
+    assert [name for name, _ in client.calls] == ["list_moving_services"]
+    metrics = result.data["agent_trace"]["catalog_selection"]
+    assert metrics["request_chars"] < MAX_SELECTION_REQUEST_BYTES < metrics["request_bytes"]
+    assert metrics["status"] == "request_limit"
+
+
+@pytest.mark.asyncio
+async def test_complete_request_boundary_includes_json_escaping_tools_and_unicode(monkeypatch):
+    from relohome_agent.agents.subagents.services import moving_llm
+
+    agent, client, responses = fixture_agent()
+    req = form_request(moving_options={"remarks": 'Xe kín; chữ "trích dẫn" và ký tự \\ cần giữ nguyên.'})
+    baseline = await agent.run_form_quote(req)
+    assert baseline.status == "done"
+    measured = len(json.dumps(responses.calls[0], ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    for limit, expected in ((measured, "done"), (measured - 1, "needs_input")):
+        monkeypatch.setattr(moving_llm, "MAX_SELECTION_REQUEST_BYTES", limit)
+        responses.calls.clear()
+        client.calls.clear()
+        result = await agent.run_form_quote(req)
+        assert result.status == expected
+        assert len(responses.calls) == result.usage.llm_calls == int(expected == "done")
+        metrics = result.data["agent_trace"]["catalog_selection"]
+        assert metrics["request_bytes"] == measured and metrics["request_byte_limit"] == limit
 
 
 @pytest.mark.asyncio
