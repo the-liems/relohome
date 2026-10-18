@@ -15,31 +15,35 @@ Phoenix submission/receipt and AI Log eligibility have not been verified here.
 ## Submission form
 
 The [README submission fields](../README.md#build-phase-submission) are the
-canonical place to fill the video, pitch deck and thumbnail URL placeholders.
-Use shareable links that the judges can open.
+canonical place for the video, pitch deck and thumbnail URLs supplied by the team.
+The URLs are recorded; duration, slide contents and judge access have not been
+verified in this update.
 
 - [x] Project name and description: **ReloHome — AI-assisted relocation planning**,
   with a reusable description in the README.
 - [ ] Final live MVP URL and judge access verified. The README links staging,
   which redirected to Cloudflare Access sign-in during the 18 October check.
-- [ ] Demo video URL filled in the README; recording is **at most 3 minutes**.
-- [ ] Pitch deck URL filled in the README; final slides cover **problem, solution,
-  feasibility and future development**.
-- [ ] One project thumbnail image URL filled in the README.
+- [x] Demo video URL supplied and linked in the README.
+- [x] Pitch deck URL supplied and linked in the README.
+- [x] One project thumbnail image URL supplied and linked in the README.
+- [ ] Verify the recording is **at most 3 minutes**.
+- [ ] Verify the final slides cover **problem, solution, feasibility and future
+  development**.
+- [ ] Verify judges can open the video, deck and thumbnail links.
 
 ## Required GitHub artifacts
 
 | # | Required item | Evidence / readiness |
 |---|---|---|
 | 1 | Full project source | Committed application/service/library source in `apps/`, `packages/`, `examples/`, with deployment configuration. Confirm the final intended code is merged; local-only changes are not part of the reviewed GitHub snapshot. |
-| 2 | README.md | [Project overview, setup navigation and submission fields](../README.md) present. Media URLs remain placeholders. |
+| 2 | README.md | [Project overview, setup navigation and submission fields](../README.md) present, including all three supplied media URLs. |
 | 3 | Architecture diagram | [Component and data flow overview](../ARCHITECTURE.md#implemented-system) present; check against the selected deployed revision. Historical/proposed diagrams remain labeled separately. |
 | 4 | Specifications and design | [Product brief](../docs/product.md), [specifications](../docs/specs/README.md), [design documents](../docs/design/) and [ADRs](../docs/adr/README.md) present. |
 | 5 | Testing documents | [Testing summary](../eval/results/report.md) links current CI, dated reports, actual outputs, failures and limits. Final deployed acceptance remains pending. |
 | 6 | Weekly logs | [Weekly worklog](../WORKLOG.md) and [development journal](../JOURNAL.md) reconstructed through 18 October; personal roles/hours are not invented. |
 | 7 | Live URL | [Staging](https://staging.c4-app-044.io.vn) linked in README; judge access and final deployed SHA pending. |
-| 8 | Demo video | **Pending** — fill the README video URL and verify duration/access. |
-| 9 | Pitch deck | **Pending** — fill the README deck URL and verify coverage/access. |
+| 8 | Demo video | URL supplied in the README; duration and judge access remain unverified. |
+| 9 | Pitch deck | URL supplied in the README; content coverage and judge access remain unverified. |
 | 10 | AI Log fully uploaded to the system | **Unverified in Phoenix** — hooks are documented, but upload success and all-member thresholds require dashboard verification. |
 
 ## Final repository and deployment checks
@@ -53,7 +57,7 @@ Use shareable links that the judges can open.
   finishes successfully and identify the revision actually served. It was still
   in progress at the cutoff; two earlier attempts on `25b3eb4` failed.
 - [ ] Verify the demo journey from a judge's access context and record its result
-  in the [testing summary](../eval/results/report.md#remaining-acceptance-evidence).
+  in the [testing summary](../eval/results/report.md#representative-recorded-inputs-and-actual-outputs).
 - [ ] Verify judge access to the private GitHub repository and all submitted links.
 - [ ] Ensure the README, deck, video and architecture describe the same tested
   capabilities and clearly identify provider/staging/sandbox transaction limits.

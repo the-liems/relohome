@@ -11,7 +11,7 @@
 | [Housing search spec](specs/SPEC-016-housing-search.md) | Housing scope, current implementation evidence, custom requirements, and explicit home choice | Draft; desktop list/map and automatic viewport search confirmed |
 | [MCP tool catalogue](specs/SPEC-008-service-tools.md) | Proposed domain tools, AI system coordination, and vendor lifecycles | Draft contracts; travel booking in MVP, service grouping and schemas under review |
 | [Submission announcements](references/gate-announcements.md) | Current Build notice and historical Gate 1/G2 requirements | Build notice supplied in the team chat on 18 October; original message URL not supplied |
-| [Roadmap](roadmap.md) | Current Build deadline and historical Gate 1/G2 milestones | Build submission due 23:00 on 18 October 2026 (UTC+7); submission and passing require evidence |
+| [Roadmap](roadmap.md) | Current Build deadline and historical Gate 1/G2 milestones | Build submission due 23:00 on 18 October 2026 (UTC+7) |
 | [Architecture](../ARCHITECTURE.md) | Implemented system and proposed expansion | Local MVP integration overview |
 | [Coolify deployment](../deploy/README.md) | Git-pinned Compose, SHA-tagged images, S3 blobs, setup and rollback | Implemented automation; live rollout verification remains separate |
 | [Infrastructure](architecture/infrastructure.md) | Current deployment boundaries, runners, recovery and scaling | Current code and operational follow-up |
@@ -21,7 +21,7 @@
 | [GitHub work in progress](work-in-progress.md) | Issue and PR map for service branches and integration gaps | Snapshot dated 2026-09-30; open and merged work labeled |
 | [Testing summary](../eval/results/report.md) | Current GitHub CI, dated test reports and recorded outputs | Evidence through `29d9df7` at 19:59 UTC+7 on 18 October; deployment/public acceptance remains separate |
 | [Journal](../JOURNAL.md) and [weekly worklog](../WORKLOG.md) | Technical learning and evidenced work | Reconstructed from repository history through 18 October; personal roles/hours unconfirmed |
-| [Build submission checklist](../presentation/README.md) | Required artifacts, judge access, AI Logs and Phoenix submission record | Video, deck and thumbnail URL placeholders are in the README; final submission unverified |
+| [Build submission checklist](../presentation/README.md) | Submission requirements and demo materials | Video, deck and thumbnail URLs are linked from the README |
 
 The product and architecture drafts describe intended behavior separately from implemented features. The [AI20K technical guide](guide/chapter-01.md) is course material rather than project-specific progress.
 

@@ -25,7 +25,7 @@ current CI and deployment outcomes.
 - Use the supplied Build announcement: **23:00 on 18 October 2026 (UTC+7)**,
   at most 3 minutes of demo video, and Demo Day on 22 October. Preserve the older
   Gate 1/G2 dates as historical records in the [roadmap](docs/roadmap.md).
-- Maintain one set of media-link placeholders in the
+- Maintain one set of media links in the
   [README submission fields](README.md#build-phase-submission), referenced by the
   [submission checklist](presentation/README.md).
 - The observed staging endpoint requires Cloudflare Access sign-in. Judge access,
