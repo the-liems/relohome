@@ -140,5 +140,5 @@ async def test_search_only_mode_excludes_simulated_booking_contract(
                 "plan_domestic_trip",
                 {"origin": "HAN", "destination": "DAD", "departure_date": FLIGHT_DAY.isoformat()},
             )
-        with pytest.raises(MCPError, match="[Rr]esource"):
+        with pytest.raises(MCPError, match=r"[Rr]esource"):
             await session.read_resource("flights://bookings/NOPE00")

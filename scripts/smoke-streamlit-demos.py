@@ -75,7 +75,7 @@ if __name__ == "__main__":
     for name in ("flight_demo", "payment_demo", "agent_chat"):
         try:
             check(name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - report every demo's failure, then exit non-zero
             failures.append(name)
             print(f"FAIL {name}: {exc}", file=sys.stderr)
     sys.exit(bool(failures))

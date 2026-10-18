@@ -27,8 +27,8 @@ class RoommateMaintenance:
                 try:
                     await asyncio.to_thread(self._reconcile)
                 except Exception:
-                    # Deliberately omit exception/body/contact data from logs.
-                    logger.error("roommate_maintenance_failed")
+                    # The traceback is the only way to find why a background pass failed.
+                    logger.error("roommate_maintenance_failed", exc_info=True)
 
     def start(self):
         self.task = asyncio.create_task(self._run())

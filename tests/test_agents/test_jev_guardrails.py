@@ -142,7 +142,7 @@ async def test_errors_never_echo_provider_body_or_follow_redirect(status):
 
     client = JevClient("sk-or-v1-test", transport=httpx.MockTransport(provider))
     try:
-        with pytest.raises(JevError, match="^provider_error$"):
+        with pytest.raises(JevError, match=r"^provider_error$"):
             await client.decide({}, PLAN_QUESTIONS)
     finally:
         await client.close()
@@ -158,7 +158,7 @@ async def test_timeout_has_no_retry_and_safe_code():
 
     client = JevClient("sk-or-v1-test", timeout_s=0.01, transport=httpx.MockTransport(provider))
     try:
-        with pytest.raises(JevError, match="^timeout$"):
+        with pytest.raises(JevError, match=r"^timeout$"):
             await client.decide({}, PLAN_QUESTIONS)
         assert len(calls) == 1
     finally:

@@ -221,13 +221,10 @@ def test_planner_cannot_invent_or_change_structured_options(trusted):
 @pytest.mark.asyncio
 async def test_catalog_endpoint_validates_coordinates_and_drops_provider_private_fields():
     class Client:
-        calls = []
-
         async def call(self, name, args):
             assert name == "list_moving_services"
             # The workspace reads the default catalog and the TRUCK catalog together.
             assert args in ({"lat": 10.77, "lng": 106.7}, {"lat": 10.77, "lng": 106.7, "delivery_type": "TRUCK"})
-            self.calls.append(args)
             return {"services": [{**SERVICE, "provider_data": {"secret": "private-value"}}]}
 
     service = SimpleNamespace(

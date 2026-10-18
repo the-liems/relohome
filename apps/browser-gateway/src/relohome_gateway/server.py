@@ -646,7 +646,7 @@ def create_app(database=None, transport=None, settings: GatewaySettings | None =
             try:
                 await finish_guest_claim(row, row["claim_target"])
             except Exception as exc:
-                logger.warning("guest claim reconcile failed: %s", type(exc).__name__)
+                logger.warning("guest claim reconcile failed: %s", type(exc).__name__, exc_info=True)
         for row in app.state.store.all(
             "SELECT * FROM guest_sessions WHERE claimed=0 AND claim_target IS NULL AND expires<=? LIMIT 10",
             (time.time(),),
@@ -656,7 +656,7 @@ def create_app(database=None, transport=None, settings: GatewaySettings | None =
                     await remove_thread(row["thread"], row["id"])
                 app.state.store.write("DELETE FROM guest_sessions WHERE id=?", (row["id"],))
             except Exception as exc:
-                logger.warning("guest expiry cleanup failed: %s", type(exc).__name__)
+                logger.warning("guest expiry cleanup failed: %s", type(exc).__name__, exc_info=True)
         app.state.store.write("DELETE FROM guest_sessions WHERE claimed=1")
 
     async def guest_maintenance():
