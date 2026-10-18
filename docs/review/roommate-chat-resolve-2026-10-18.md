@@ -42,3 +42,4 @@
 - Bộ browser sau cập nhật cuối: 94 đạt trên desktop/mobile, bao gồm kiểm tra chặn gửi khi giới tính trống, bổ sung giới tính cho bản giới thiệu cũ, accessibility tiếng Việt/Anh và chat hiện có.
 - Local đã build lại Web và restart backend; Roommate bật và gateway phục vụ đúng bundle mới. Không thay đổi env hoặc dữ liệu người dùng.
 - Sau rebase main `eedd7fc`: 215 test Roommate đạt (10 bỏ qua); 2 test khởi động fixture browser và gateway/session/API/SQLite thật đạt. Fixture browser cung cấp giới tính rõ ràng cho các nhân vật tổng hợp theo quy tắc bắt buộc mới.
+- Sau góp ý P3, cập nhật lời nhắc hủy yêu cầu chờ Việt/Anh; build Web đạt và 12 ca gỡ tin desktop/mobile đạt. Test chuyển tab hồ sơ bằng thao tác thu gọn/mở lại chat để không click xuyên cửa sổ nổi, nhất là khi lời nhắc dài hơn trên mobile.

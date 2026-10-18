@@ -52,7 +52,18 @@ async function fixture(page: Page, mode = "success") {
     else if (path === "/roommate/areas/hcm")
       data = { areas: [{ area_id: "city:hcm" }] };
     else if (path === "/roommate/chat/conversations")
-      data = { items: [], has_more: false };
+      data = {
+        items: [
+          {
+            id: "connection",
+            request_id: "connection",
+            state: mode === "closed" ? "closed" : "active",
+            counterparty_name: "Lan",
+            unread: 0,
+          },
+        ],
+        has_more: false,
+      };
     else if (path === "/roommate/requests/connection")
       data = {
         available: true,
@@ -127,11 +138,24 @@ async function fixture(page: Page, mode = "success") {
   return writes;
 }
 
+async function showProfileAndReopenChat(page: Page) {
+  await page
+    .getByRole("button", { name: "Thu gọn tin nhắn", exact: true })
+    .click();
+  await page.locator('a[href="/roommate?tab=profile"]').click();
+  await expect(page.getByLabel("Quản lý nhu cầu công khai")).toBeVisible();
+  await page.getByRole("button", { name: /^Tin nhắn và cập nhật ·/ }).click();
+  await page
+    .locator(".contact-messenger-conversations")
+    .getByRole("button", { name: /^Lan/ })
+    .click();
+}
+
 test("confirming co-living removes only own listing and preserves chat and profile status", async ({
   page,
 }, testInfo) => {
   const writes = await fixture(page);
-  await page.locator('a[href="/roommate?tab=profile"]').click();
+  await showProfileAndReopenChat(page);
   const ownStatus = page.getByLabel("Quản lý nhu cầu công khai");
   await expect(ownStatus.getByText("Đang tìm", { exact: true })).toBeVisible();
   const resolve = page.getByRole("button", {
@@ -183,7 +207,7 @@ test("lost resolve response is reconciled by reading status without a second wri
   page,
 }) => {
   const writes = await fixture(page, "unknown");
-  await page.locator('a[href="/roommate?tab=profile"]').click();
+  await showProfileAndReopenChat(page);
   await expect(
     page
       .getByLabel("Quản lý nhu cầu công khai")
