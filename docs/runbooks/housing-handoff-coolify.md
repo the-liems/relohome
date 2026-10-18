@@ -35,7 +35,7 @@ trước backend/schema. Không thêm service hoặc Web replica cho thay đổi
 
 | Biến | Cần cấu hình |
 | --- | --- |
-| `APP_URL` | Origin HTTPS của Web, không path/dấu `/` cuối; domain Web khớp giá trị này |
+| Web domain | Cấu hình domain HTTPS của service `web`; Coolify tự cấp `SERVICE_URL_WEB` làm public origin, không cần `APP_URL` |
 | `AGENT_API_TOKEN` | Secret nội bộ chung cho web/backend/platform |
 | `LOCATION_MCP_AUTH_TOKEN` | Secret nội bộ cho backend/location |
 | `POSTGRES_DB`, `POSTGRES_APP_USER`, `POSTGRES_APP_PASSWORD` | Cùng database/app role ở Platform, Location và migration; giữ cấu hình database hiện có |

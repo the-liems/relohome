@@ -31,6 +31,7 @@ processors:
     attributes:
       - {key: deployment.environment.name, value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}", action: upsert}
       - {key: service.namespace, value: relohome, action: upsert}
+      - {key: service.version, value: "${env:DEPLOYMENT_COMMIT}", action: upsert}
   # Langfuse shares the global tracer provider, so its spans also reach Tempo. Langfuse keeps the
   # prompt and completion text; Tempo keeps structure, timing, model and usage. Provider API keys
   # sent as query parameters (SerpApi, Vietmap) are masked in recorded URLs.
@@ -40,6 +41,25 @@ processors:
       - delete_matching_keys(span.attributes, "^langfuse\\.observation\\.(input|output)$")
       - replace_pattern(span.attributes["url.full"], "(?i)([?&]api_?key=)[^&]*", "$${1}REDACTED")
       - replace_pattern(span.attributes["url.query"], "(?i)((?:^|&)api_?key=)[^&]*", "$${1}REDACTED")
+  # Optional PR enrichment must never prevent telemetry export.
+  transform/preview:
+    error_mode: ignore
+    trace_statements:
+    - context: resource
+      statements: &preview_attributes
+      - delete_key(attributes, "preview.id")
+      - set(attributes["preview.hostname"], "${env:DEPLOYMENT_HOSTNAME}") where attributes["deployment.environment.name"] ==
+        "preview"
+      - set(attributes["preview.id"], ExtractPatterns(attributes["preview.hostname"], "^pr-(?P<id>[0-9]+)\\.[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*$")["id"])
+        where attributes["deployment.environment.name"] == "preview"
+      - delete_key(attributes, "preview.hostname") where not (attributes["deployment.environment.name"] == "preview")
+      - delete_key(attributes, "preview.id") where not (attributes["deployment.environment.name"] == "preview")
+    log_statements:
+    - context: resource
+      statements: *preview_attributes
+    metric_statements:
+    - context: resource
+      statements: *preview_attributes
   batch:
     timeout: 2s
     send_batch_size: 128
@@ -87,17 +107,17 @@ service:
   pipelines:
     traces/tempo:
       receivers: [otlp]
-      processors: [memory_limiter, resource/environment, transform/redact, batch]
+      processors: [memory_limiter, resource/environment, transform/redact, transform/preview, batch]
       exporters: [otlphttp/tempo]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resource/environment, batch]
+      processors: [memory_limiter, resource/environment, transform/preview, batch]
       exporters: [otlphttp/loki]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, resource/environment, batch]
+      processors: [memory_limiter, resource/environment, transform/preview, batch]
       exporters: [otlphttp/cortex]
     metrics/internal:
       receivers: [prometheus/internal]
-      processors: [memory_limiter, resource/environment, batch]
+      processors: [memory_limiter, resource/environment, transform/preview, batch]
       exporters: [otlphttp/cortex]

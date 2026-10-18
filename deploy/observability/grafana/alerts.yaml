@@ -25,8 +25,8 @@ groups:
         to: 0
       model:
         refId: A
-        expr: (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name!="",http_response_status_code=~"5.."}[10m])) / sum by (deployment_environment_name, service_name)
-          (increase(http_server_request_duration_seconds_count{deployment_environment_name!=""}[10m])) > 0.05) and (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name!=""}[10m]))
+        expr: (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name=~"staging|production",http_response_status_code=~"5.."}[10m])) / sum by (deployment_environment_name, service_name)
+          (increase(http_server_request_duration_seconds_count{deployment_environment_name=~"staging|production"}[10m])) > 0.05) and (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name=~"staging|production"}[10m]))
           >= 20)
         instant: true
         range: false
@@ -73,8 +73,8 @@ groups:
         to: 0
       model:
         refId: A
-        expr: (histogram_quantile(0.95, sum by (le, deployment_environment_name, service_name) (rate(http_server_request_duration_seconds_bucket{deployment_environment_name!="",http_route=~".*/chat"}[15m])))
-          > 120) and (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name!="",http_route=~".*/chat"}[15m])) >= 10)
+        expr: (histogram_quantile(0.95, sum by (le, deployment_environment_name, service_name) (rate(http_server_request_duration_seconds_bucket{deployment_environment_name=~"staging|production",http_route=~".*/chat"}[15m])))
+          > 120) and (sum by (deployment_environment_name, service_name) (increase(http_server_request_duration_seconds_count{deployment_environment_name=~"staging|production",http_route=~".*/chat"}[15m])) >= 10)
         instant: true
         range: false
         datasource:
@@ -120,7 +120,7 @@ groups:
         to: 0
       model:
         refId: A
-        expr: group by (deployment_environment_name) (max_over_time(up{deployment_environment_name!="",service_name="collectors"}[24h])) unless on (deployment_environment_name) (up{deployment_environment_name!="",service_name="collectors"} == 1)
+        expr: group by (deployment_environment_name) (max_over_time(up{deployment_environment_name=~"staging|production",service_name="collectors"}[24h])) unless on (deployment_environment_name) (up{deployment_environment_name=~"staging|production",service_name="collectors"} == 1)
         instant: true
         range: false
         datasource:
@@ -166,11 +166,11 @@ groups:
         to: 0
       model:
         refId: A
-        expr: sum by (deployment_environment_name) ((rate(otelcol_exporter_send_failed_spans_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_exporter_send_failed_log_records_total{deployment_environment_name!=""}[5m])
-          > 0) or (rate(otelcol_exporter_send_failed_metric_points_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_exporter_enqueue_failed_spans_total{deployment_environment_name!=""}[5m]) >
-          0) or (rate(otelcol_exporter_enqueue_failed_log_records_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_exporter_enqueue_failed_metric_points_total{deployment_environment_name!=""}[5m])
-          > 0) or (rate(otelcol_receiver_refused_spans_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_receiver_refused_log_records_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_receiver_refused_metric_points_total{deployment_environment_name!=""}[5m])
-          > 0) or (rate(otelcol_receiver_failed_spans_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_receiver_failed_log_records_total{deployment_environment_name!=""}[5m]) > 0) or (rate(otelcol_receiver_failed_metric_points_total{deployment_environment_name!=""}[5m])
+        expr: sum by (deployment_environment_name) ((rate(otelcol_exporter_send_failed_spans_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_exporter_send_failed_log_records_total{deployment_environment_name=~"staging|production"}[5m])
+          > 0) or (rate(otelcol_exporter_send_failed_metric_points_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_exporter_enqueue_failed_spans_total{deployment_environment_name=~"staging|production"}[5m]) >
+          0) or (rate(otelcol_exporter_enqueue_failed_log_records_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_exporter_enqueue_failed_metric_points_total{deployment_environment_name=~"staging|production"}[5m])
+          > 0) or (rate(otelcol_receiver_refused_spans_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_receiver_refused_log_records_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_receiver_refused_metric_points_total{deployment_environment_name=~"staging|production"}[5m])
+          > 0) or (rate(otelcol_receiver_failed_spans_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_receiver_failed_log_records_total{deployment_environment_name=~"staging|production"}[5m]) > 0) or (rate(otelcol_receiver_failed_metric_points_total{deployment_environment_name=~"staging|production"}[5m])
           > 0)) > 0
         instant: true
         range: false

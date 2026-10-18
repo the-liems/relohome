@@ -1,9 +1,9 @@
-# Instrumented entrypoints export to the separately deployed Collector.
+# Instrumented entrypoints export to the embedded Collector.
 x-telemetry: &telemetry-env
   # Privacy policy sees APP_ENV on every service, not only the Agent backend.
   APP_ENV: ${APP_ENV:-staging}
   OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://${SERVICE_NAME_COLLECTOR}:4318
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
@@ -13,6 +13,7 @@ x-telemetry: &telemetry-env
   OTEL_PYTHON_LOG_LEVEL: ${OTEL_PYTHON_LOG_LEVEL:-info}
   OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
+  PREVIEW_HOSTNAME: ${SERVICE_FQDN_WEB}
 
 # Coolify reads this Compose file from Git at the pinned commit.
 # Coolify resolves runtime variables and SOURCE_COMMIT. Only web gets a domain.
@@ -24,21 +25,21 @@ x-app: &app
   stop_grace_period: 35s
 
 x-location: &location-env
-  POSTGRES_HOST: postgis
+  POSTGRES_HOST: ${SERVICE_NAME_POSTGIS}
   POSTGRES_PORT: "5432"
   POSTGRES_DB: ${POSTGRES_DB:-p044_location}
   POSTGRES_APP_USER: ${POSTGRES_APP_USER:-p044_location_app}
   POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
   HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
-  OSRM_HCM_DRIVING_URL: http://hcm-driving:5000
-  OSRM_HCM_WALKING_URL: http://hcm-walking:5000
-  OSRM_HCM_MOTORCYCLE_URL: http://hcm-motorcycle:5000
-  OSRM_HANOI_DRIVING_URL: http://hanoi-driving:5000
-  OSRM_HANOI_WALKING_URL: http://hanoi-walking:5000
-  OSRM_HANOI_MOTORCYCLE_URL: http://hanoi-motorcycle:5000
-  OSRM_DANANG_DRIVING_URL: http://danang-driving:5000
-  OSRM_DANANG_WALKING_URL: http://danang-walking:5000
-  OSRM_DANANG_MOTORCYCLE_URL: http://danang-motorcycle:5000
+  OSRM_HCM_DRIVING_URL: http://${SERVICE_NAME_HCM_DRIVING}:5000
+  OSRM_HCM_WALKING_URL: http://${SERVICE_NAME_HCM_WALKING}:5000
+  OSRM_HCM_MOTORCYCLE_URL: http://${SERVICE_NAME_HCM_MOTORCYCLE}:5000
+  OSRM_HANOI_DRIVING_URL: http://${SERVICE_NAME_HANOI_DRIVING}:5000
+  OSRM_HANOI_WALKING_URL: http://${SERVICE_NAME_HANOI_WALKING}:5000
+  OSRM_HANOI_MOTORCYCLE_URL: http://${SERVICE_NAME_HANOI_MOTORCYCLE}:5000
+  OSRM_DANANG_DRIVING_URL: http://${SERVICE_NAME_DANANG_DRIVING}:5000
+  OSRM_DANANG_WALKING_URL: http://${SERVICE_NAME_DANANG_WALKING}:5000
+  OSRM_DANANG_MOTORCYCLE_URL: http://${SERVICE_NAME_DANANG_MOTORCYCLE}:5000
 
 x-moving: &moving-env
   AHAMOVE_ENV: ${AHAMOVE_ENV:-staging}
@@ -51,7 +52,7 @@ x-moving: &moving-env
   AHAMOVE_RATING_ENABLED: "false"
   AHAMOVE_PRODUCTION_ENABLED: ${AHAMOVE_PRODUCTION_ENABLED:-false}
   # Passwords embedded in URLs must be URL-safe (use 32 random hex bytes).
-  MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
+  MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@${SERVICE_NAME_MOVING_DB}:5432/${MOVING_DB_NAME:-p044_moving}
 
 x-osrm: &osrm
   <<: *app
@@ -110,8 +111,8 @@ services:
       OTEL_SERVICE_NAME: web
       <<: *telemetry-env
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
-      LIFEFLOW_API_BASE_URL: http://backend:8000/api/v1
-      SIU_PLATFORM_API_URL: http://platform:4100/v1
+      LIFEFLOW_API_BASE_URL: http://${SERVICE_NAME_BACKEND}:8000/api/v1
+      SIU_PLATFORM_API_URL: http://${SERVICE_NAME_PLATFORM}:4100/v1
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
       SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
@@ -127,7 +128,7 @@ services:
       SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
       # Owner-uploaded listing photos live on the persistent web-data volume.
       SIU_HOUSING_MEDIA_DIR: /app/data/housing-media
-      SIU_PUBLIC_BASE_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}
+      SIU_PUBLIC_BASE_URL: ${SERVICE_URL_WEB:?}
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
@@ -153,6 +154,7 @@ services:
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:?Set the self-hosted Langfuse HTTPS URL}
       LANGFUSE_TRACING_ENABLED: ${LANGFUSE_TRACING_ENABLED:-false}
       LANGFUSE_TRACING_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      LANGFUSE_RELEASE: ${SOURCE_COMMIT}
       LANGFUSE_MEDIA_UPLOAD_ENABLED: "false"
       <<: *telemetry-env
       # Team test phase: "staging" allows the tester payment control below. Set
@@ -176,16 +178,16 @@ services:
       AGENT_WRITES_ENABLED: "false"
       AGENT_SANDBOX_PAYMENTS_ENABLED: "false"
       AGENT_ALLOW_SIMULATED_TRANSACTIONS: "false"
-      LOCATION_MCP_URL: http://location:3000/mcp
+      LOCATION_MCP_URL: http://${SERVICE_NAME_LOCATION}:3000/mcp
       LOCATION_MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
-      MOVING_MCP_URL: http://moving-mcp:4400/mcp
+      MOVING_MCP_URL: http://${SERVICE_NAME_MOVING_MCP}:4400/mcp
       MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
       MOVING_ENVIRONMENT: ${AHAMOVE_ENV:-staging}
       MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
       MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
-      FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
+      FLIGHT_MCP_URL: http://${SERVICE_NAME_FLIGHTS_MCP}:8765/mcp
       FLIGHT_MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
-      PAYMENT_MCP_URL: http://payments-mcp:8766/mcp
+      PAYMENT_MCP_URL: http://${SERVICE_NAME_PAYMENTS_MCP}:8766/mcp
       PAYMENT_MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_SIMULATION_ENABLED: "false"
       # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
@@ -252,7 +254,7 @@ services:
       PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
       PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
       PAYMENT_DB_PATH: /app/data/payments.db
-      PAYMENT_REDIRECT_URL: ${APP_URL:?}/
+      PAYMENT_REDIRECT_URL: ${SERVICE_URL_WEB:?}/
     volumes: [payments-data:/app/data]
 
   postgis:
@@ -278,7 +280,7 @@ services:
     volumes: [location-seed-data:/seed-data:ro]
     environment:
       SEED_BLOB: *location-dump
-      PGHOST: postgis
+      PGHOST: ${SERVICE_NAME_POSTGIS}
       PGUSER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
       PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
       PGDATABASE: ${POSTGRES_DB:-p044_location}
@@ -374,7 +376,7 @@ services:
     restart: "no"
     exclude_from_hc: true
     environment:
-      MOVING_DATABASE_ADMIN_URL: postgresql://${MOVING_DB_ADMIN_USER:-p044_moving_admin}:${MOVING_DB_ADMIN_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
+      MOVING_DATABASE_ADMIN_URL: postgresql://${MOVING_DB_ADMIN_USER:-p044_moving_admin}:${MOVING_DB_ADMIN_PASSWORD:?}@${SERVICE_NAME_MOVING_DB}:5432/${MOVING_DB_NAME:-p044_moving}
       MOVING_DB_APP_USER: ${MOVING_DB_APP_USER:-p044_moving_app}
       MOVING_DB_APP_PASSWORD: ${MOVING_DB_APP_PASSWORD:?}
     depends_on:
@@ -432,6 +434,30 @@ services:
     <<: *osrm
     command: [osrm-routed, --algorithm, mld, /data/danang/motorcycle/danang.osrm]
 
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    restart: unless-stopped
+    user: "0:0"
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1
+    command:
+    - --config=/etc/otelcol/config.yaml
+    environment:
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      DEPLOYMENT_HOSTNAME: ${SERVICE_FQDN_WEB}
+      DEPLOYMENT_COMMIT: ${SOURCE_COMMIT}
+    volumes:
+    - ./deploy/observability/collector.yaml:/etc/otelcol/config.yaml:ro
+    - collector-queue:/var/lib/otelcol
+    networks:
+    # Coolify adds the resource network; only the Collector also joins ingestion.
+    - ingestion
+
 volumes:
   web-data:
   agent-data:
@@ -443,3 +469,9 @@ volumes:
   routing-data:
   location-seed-data:
   blob-cache:
+  collector-queue:
+
+networks:
+  ingestion:
+    external: true
+    name: ${OBSERVABILITY_INGEST_NETWORK:-relohome-observability-ingest}

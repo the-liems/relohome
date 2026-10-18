@@ -204,6 +204,7 @@ services:
       - ./grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/relohome.yaml:ro
       - ./grafana/alerts.yaml:/etc/grafana/provisioning/alerting/relohome.yaml:ro
       - ./grafana/overview.json:/var/lib/grafana/dashboards/overview.json:ro
+      - ./grafana/previews.json:/var/lib/grafana/dashboards/previews.json:ro
 networks:
   default:
   ingestion:

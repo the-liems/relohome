@@ -48,7 +48,7 @@ from relohome_agent.agents.routing import (
     route_from_validator,
 )
 from relohome_agent.agents.state import AgentInput, WorkflowState
-from relohome_agent.agents.telemetry import graph_callbacks
+from relohome_agent.agents.telemetry import graph_callbacks, preview_metadata
 
 LEGACY_MODELS_MODULE = "src.agents.models"  # Persisted before the ReloHome package migration.
 
@@ -133,5 +133,5 @@ def run_config(thread_id: str, deps: GraphDeps) -> dict:
         "recursion_limit": deps.settings.recursion_limit,
         "callbacks": graph_callbacks(),
         "run_name": "relohome-agent",
-        "metadata": {"langfuse_session_id": thread_id},
+        "metadata": {"langfuse_session_id": thread_id, **preview_metadata()},
     }

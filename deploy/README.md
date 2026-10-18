@@ -92,7 +92,7 @@ optionally `DATA_S3_ENDPOINT`. These are all the required (`:?`) Compose inputs:
 | Required variables | Purpose |
 | --- | --- |
 | `DATA_S3_BUCKET`, `DATA_S3_ACCESS_KEY_ID`, `DATA_S3_SECRET_ACCESS_KEY`, `DATA_S3_REGION` | Blob downloads |
-| `APP_URL` | Public application origin |
+| `SERVICE_URL_WEB` | Public application origin, supplied by Coolify from the web domain |
 | `OPENAI_API_KEY` | LLM access |
 | `AGENT_API_TOKEN`, `LOCATION_MCP_AUTH_TOKEN`, `MOVING_MCP_AUTH_TOKEN`, `FLIGHT_MCP_AUTH_TOKEN`, `PAYMENT_MCP_AUTH_TOKEN` | Internal service authentication |
 | `POSTGRES_ADMIN_PASSWORD`, `POSTGRES_APP_PASSWORD`, `POSTGRES_INGEST_PASSWORD` | Location database roles |
@@ -220,8 +220,11 @@ backend agent model settings. Supply either `AHAMOVE_USER_TOKEN` or both
 `MOVING_QUOTE_CONTACT_NAME` / `MOVING_QUOTE_CONTACT_MOBILE` for quotes. CD does
 not validate that credential combination.
 
-Set `APP_URL` to the public HTTPS origin without a path or trailing slash, and
-keep the `web` domain aligned with it. The payment redirect appends `/`.
+Set the `web` domain to the public HTTPS origin. Coolify supplies `SERVICE_URL_WEB`
+for public URLs and payment redirects; no separate `APP_URL` is required.
+Enable **Preserve repository during deployment** for the embedded Collector config.
+See the [Collector setup and migration](../docs/runbooks/observability.md#replace-standalone-collectors).
+The shared observability ingestion network must exist before application deployment.
 Web labels block public `/health`, `/docs`, `/redoc` and `/openapi.json` for the
 configured web hostname; container health checks call the service directly.
 Additional domain aliases need corresponding blocking rules in Compose.

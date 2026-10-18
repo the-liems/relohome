@@ -57,6 +57,27 @@ class DeploymentTests(unittest.TestCase):
     def prefix():
         return [{}, {"git_commit_sha": SHA}, QUEUED]
 
+    def test_preview_checks_its_own_health_without_changing_parent(self):
+        self.invoke(iter([{'deployment_uuid': 'preview-1'}, FINISHED,
+                          {'status': 'running:unhealthy'}, {'status': 'running:healthy'}]), preview_id=200)
+        request = self.requests[0][0]
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertTrue(request.full_url.endswith('/applications/staging-app/previews'))
+        self.assertEqual(json.loads(request.data), {'pull_request_id': 200, 'git_type': 'github', 'commit': SHA})
+        self.assertTrue(all(r.get_method() != 'PATCH' for r, _ in self.requests))
+        self.assertTrue(self.requests[-1][0].full_url.endswith('/previews/200'))
+
+    def test_preview_rejects_wrong_commit(self):
+        with self.assertRaisesRegex(RuntimeError, 'commit mismatch'):
+            self.invoke(iter([{'deployment_uuid': 'preview-1'},
+                              {'status': 'finished', 'commit': 'b' * 40}]), preview_id=200)
+
+    def test_preview_rejects_invalid_id_before_network(self):
+        for number in (0, -1, 2147483648):
+            with self.subTest(number=number), self.assertRaisesRegex(ValueError, 'Preview ID'):
+                self.invoke(iter([]), preview_id=number)
+            self.assertEqual(self.requests, [])
+
     def test_success_waits_for_deployment_and_application_health(self):
         inspect = self.invoke(iter(self.prefix() + [{"status": "queued"}, {"status": "in_progress"},
                                                    FINISHED, {"status": "running:unhealthy"},
@@ -251,7 +272,7 @@ esac
         self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
         payment = self.compose["services"]["payments-mcp"]
         self.assertEqual(payment["environment"]["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
-        self.assertEqual(backend["PAYMENT_MCP_URL"], "http://payments-mcp:8766/mcp")
+        self.assertEqual(backend["PAYMENT_MCP_URL"], "http://${SERVICE_NAME_PAYMENTS_MCP}:8766/mcp")
         self.assertNotIn("PAYMENT_ZALOPAY_KEY1", backend)
         self.assertNotIn("PAYMENT_ZALOPAY_KEY2", backend)
         self.assertNotIn("PAYMENT_MCP_STDIO", backend)

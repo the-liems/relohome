@@ -10,6 +10,10 @@ Cortex and Loki expose it as `deployment_environment_name`; Grafana dashboards
 and alerts filter or group by that label. The agent SDK sets the Langfuse
 tracing environment directly from `OTEL_DEPLOYMENT_ENVIRONMENT`.
 
+PR previews use one Collector per PR inside `compose.coolify.yaml`, forwarding
+to these same stores over the ingestion network. See the
+[preview deployment runbook](preview-deployments.md) for setup and PR attributes.
+
 ```mermaid
 flowchart LR
     S[Staging apps] --> SC[Staging Collector]
@@ -31,7 +35,7 @@ Configuration lives in `deploy/observability/`:
 | File | Purpose |
 | --- | --- |
 | `compose.yaml` | Shared platform: Langfuse (web, worker, Postgres, ClickHouse, Redis), Tempo, Loki, Cortex, Grafana |
-| `compose.collector.yaml`, `collector.yaml` | One Collector per environment |
+| Root `compose.coolify.yaml`, `collector.yaml` | Embedded Collector per deployment, including PR previews |
 | `loki.yaml`, `cortex.yaml`, `tempo.yaml` | Log, metric and trace storage on S3 |
 | `grafana/datasources.yaml`, `dashboards.yaml`, `overview.json`, `alerts.yaml` | Grafana data sources, the **ReloHome operations** dashboard and alert rules |
 | `.env.example` | Every variable both resources need |
@@ -131,27 +135,52 @@ signup. Test an allowed email and a non-allowed email, and keep a deployment-lev
 rollback route for restoring password login. Browser SSO does not replace Langfuse
 SDK/API keys; keep ingestion on its existing machine-authenticated route.
 
-### 2. One Collector per environment
+### 2. Embedded Collector in every application
 
-Create another Git-based Application per environment with the same settings and
-compose file **`/compose.collector.yaml`**:
+The root `compose.coolify.yaml` includes the Collector. Deploy the platform first:
+it creates `relohome-observability-ingest`. Applications and the shared platform
+must use the same Docker host. Set `OBSERVABILITY_INGEST_NETWORK` on the application
+only if that network has a different name.
 
-| Variable | Value |
-| --- | --- |
-| `OTEL_DEPLOYMENT_ENVIRONMENT` | `staging` or `production` |
-| `APPLICATION_NETWORK` | That environment's app network (`docker network ls`; Coolify names it after the app's UUID) |
+Use `/compose.coolify.yaml` with base directory `/` and **Preserve repository
+during deployment** enabled. The Collector mounts
+`./deploy/observability/collector.yaml`. Keep **Connect to predefined network**
+disabled: Coolify supplies the application resource network, and only the
+Collector explicitly joins ingestion. No manual `APPLICATION_NETWORK` is needed.
 
-Deploy the platform first: it creates the shared `relohome-observability-ingest`
-network that the Collectors join. Set the Collector and application environments consistently to separate
-staging from production data.
+Set `OTEL_DEPLOYMENT_ENVIRONMENT=staging` or `production` on the corresponding
+application; set `preview` in the dedicated preview Application's preview variables.
+Keep `APP_ENV=production` for production and `staging` for staging/previews.
+Coolify's web domain supplies the public application origin automatically.
 
 ### 3. Deploy the instrumented app images
 
 Python image entrypoints use `opentelemetry-instrument`; Node image entrypoints
-preload `@relohome/telemetry/register`. Both activate telemetry automatically.
-On the production app set `OTEL_DEPLOYMENT_ENVIRONMENT=production`; the default
-is `staging`. Redeploy with `deploy.yml`, because a plain restart does not apply
-new variables. The app Compose already sends to `http://otel-collector:4318`.
+preload `@relohome/telemetry/register`. Redeploy the application to apply settings.
+All services send to `http://${SERVICE_NAME_COLLECTOR}:4318`, using Coolify's
+actual service DNS name for that deployment. No custom OTLP endpoint is required.
+
+### Replace standalone Collectors
+
+Perform this direct cutover for staging first, then production. Telemetry gaps
+and loss of old queued telemetry are accepted; no queue copy, drain, dual export
+or database migration is required.
+
+1. Deploy the updated shared observability configuration for PR label promotion
+   and dashboards. Keep its existing ingestion network and storage.
+2. On the existing application, enable **Preserve repository during deployment**,
+   verify the web domain and environment settings above, and remove obsolete
+   `OTEL_EXPORTER_OTLP_ENDPOINT` overrides. Keep **Include Source Commit in Build**
+   enabled. Use the normal root `/compose.coolify.yaml`.
+3. Stop the old standalone Collector resource. Redeploy the application at the
+   release containing this change; its embedded Collector starts with a fresh
+   `collector-queue` volume. There may be a telemetry gap during this cutover.
+4. Verify application health and fresh traces, logs and metrics under the correct
+   environment. Inspect network membership: only the embedded Collector joins
+   both the resource network and shared ingestion network.
+5. Delete the old standalone Collector resource and its queue volume. Remove its
+   obsolete `APPLICATION_NETWORK` setting. Do not delete application databases,
+   the shared ingestion network, or observability storage: none needs resetting.
 
 To disable telemetry, rebuild and redeploy an image with the plain entrypoint:
 remove `opentelemetry-instrument` from the Python command, or remove Node's
@@ -170,7 +199,7 @@ From a host with access to the Collector and Loki (or SSH tunnels), run:
 
 ```sh
 python3 scripts/check-loki-export.py \
-  --collector http://otel-collector:4318 --loki http://loki:3100 \
+  --collector http://<generated-collector-service-name>:4318 --loki http://loki:3100 \
   --environment staging
 ```
 
