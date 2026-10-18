@@ -8,14 +8,14 @@ from relohome_agent.agents.deps import AgentRegistry, test_deps
 from relohome_agent.agents.intake import FixedIntake
 from relohome_agent.agents.intake_llm import LlmIntake
 from relohome_agent.agents.models import AgentName, RequestKind, SessionContext
-from relohome_agent.agents.nodes.intake import make_intake
+from relohome_agent.agents.nodes.intake import intake as intake_node
 from relohome_agent.agents.planner_llm import LlmPlanner
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.conformance import sample_request
 from relohome_agent.agents.subagents.services.location import LocationSubagent, requested_area_query
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
 
-from tests.test_agents.helpers import Session, fact, intake_result
+from tests.test_agents.helpers import Session, fact, intake_result, node_runtime
 from tests.test_agents.test_housing_filter_followups import SequenceModel, draft
 from tests.test_agents.test_intake import memory
 from tests.test_agents.test_map_workspace import FakeResponses, call
@@ -156,7 +156,7 @@ async def test_new_scope_cannot_restore_a_stale_city_from_account_preferences():
     )
     deps = test_deps(intake=FixedIntake(current), planner=LlmPlanner(Model(), BASELINE_CAPABILITIES))
     result = (
-        await make_intake(deps)(
+        await intake_node(
             {
                 "thread_id": "t",
                 "request_id": "r",
@@ -164,7 +164,8 @@ async def test_new_scope_cannot_restore_a_stale_city_from_account_preferences():
                 "intake": previous,
                 "session": SessionContext(preferences={"city": memory("Đà Nẵng")}),
                 "map_view": {"bounding_box": {"west": 108.1, "south": 16, "east": 108.2, "north": 16.1}},
-            }
+            },
+            node_runtime(deps),
         )
     )["intake"]
     assert result.constraints.values == {"district": "Cầu Giấy", "max_price_vnd": 5000000}

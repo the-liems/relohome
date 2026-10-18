@@ -234,7 +234,7 @@ class AgentService:
             await saver.setup()
             return cls(
                 deps,
-                build_graph(deps, saver),
+                build_graph(deps.agents.names(), saver),
                 approvals,
                 pii,
                 "live",
@@ -281,7 +281,7 @@ class AgentService:
             deps = replace(deps, agents=AgentRegistry(agents))
         return cls(
             deps=deps,
-            graph=build_graph(deps, default_checkpointer()),
+            graph=build_graph(deps.agents.names(), default_checkpointer()),
             approval_store=approvals,
             pii_store=pii,
             mode=services.agent_subagents,

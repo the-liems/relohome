@@ -7,8 +7,8 @@ from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.cost import subagent_llm_calls_left
 from relohome_agent.agents.execution import execute_agent
 from relohome_agent.agents.models import AgentName, Outcome, OutcomeCode, TaskStatus, ValidationIssue, ValidationReport
-from relohome_agent.agents.nodes.cost_summary import make_cost_summary
-from relohome_agent.agents.nodes.respond import make_respond
+from relohome_agent.agents.nodes.cost_summary import cost_summary
+from relohome_agent.agents.nodes.respond import respond
 from relohome_agent.agents.nodes.validator import DEFAULT_RULES, check_task
 from relohome_agent.agents.state import AgentInput, WorkflowState
 from relohome_agent.agents.telemetry import record_node_failure
@@ -104,8 +104,7 @@ async def moving_quote_validate(state: WorkflowState, runtime: Runtime[GraphCont
 
 
 async def moving_quote_summary(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
-    deps = runtime.context.deps
-    update = await make_cost_summary(deps)(state)
+    update = await cost_summary(state, runtime)
     # A quote plan has no commit actions. The normal summary's ANSWER would
     # hide a failed/needs-input/conflicting quote and its diagnostic detail.
     update.pop("outcome", None)
@@ -113,7 +112,6 @@ async def moving_quote_summary(state: WorkflowState, runtime: Runtime[GraphConte
 
 
 async def moving_quote_respond(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
-    deps = runtime.context.deps
-    update = await make_respond(deps)(state)
+    update = await respond(state, runtime)
     update["moving_quote_context"] = None
     return update

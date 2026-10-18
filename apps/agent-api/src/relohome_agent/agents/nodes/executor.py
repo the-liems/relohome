@@ -5,8 +5,9 @@ Code thuần: tính task READY, chọn task gửi đi song song, đếm lượt.
 
 from __future__ import annotations
 
+from langgraph.runtime import Runtime
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.cost import paid_slots_left, subagent_llm_calls_left
-from relohome_agent.agents.deps import GraphDeps
 from relohome_agent.agents.models import AgentUsage, Plan, TaskResult, TaskStatus
 from relohome_agent.agents.state import WorkflowState
 
@@ -51,68 +52,66 @@ def compute_ready(
     return changed, ready
 
 
-def make_executor(deps: GraphDeps):
-    async def executor(state: WorkflowState) -> dict:
-        """Chọn task READY để `Send` (tối đa `max_parallel_tasks`), kiểm trần task `paid`."""
-        plan = state["plan"]
-        now = deps.clock()
-        statuses = dict(state.get("task_status") or {})
-        attempts = dict(state.get("task_attempts") or {})
-        # Task RUNNING mà không có kết quả sau fan-in là bị mất (không nên xảy ra): coi như FAILED.
-        lost = {t.id: S.FAILED for t in plan.tasks if statuses.get(t.id) == S.RUNNING}
-        statuses.update(lost)
-        changed, ready = compute_ready(plan, statuses, attempts, deps.settings.max_task_attempts)
-        changed = {**lost, **changed}
-        thread_id, request_id = state.get("thread_id", ""), state.get("request_id", "")
-        slots = None
-        llm_left = subagent_llm_calls_left(await deps.usage.counts(thread_id, request_id), deps.settings)
-        budgets: dict[str, int] = {}
-        dispatch: list[str] = []
-        failures: dict[str, TaskResult] = {}
-        for task_id in ready:
-            if len(dispatch) >= deps.settings.max_parallel_tasks:
-                break  # task READY còn lại chờ vòng sau
-            task = plan.task(task_id)
-            capability = deps.agents.capability(task.agent)
-            wanted = capability.default_budget.max_llm_calls if capability else 0
-            # Reserve a whole invocation before fan-out. If another task can free
-            # unused budget at fan-in, defer this task instead of starving it.
-            if wanted > llm_left and dispatch:
+async def executor(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
+    """Chọn task READY để `Send` (tối đa `max_parallel_tasks`), kiểm trần task `paid`."""
+    deps = runtime.context.deps
+    plan = state["plan"]
+    now = deps.clock()
+    statuses = dict(state.get("task_status") or {})
+    attempts = dict(state.get("task_attempts") or {})
+    # Task RUNNING mà không có kết quả sau fan-in là bị mất (không nên xảy ra): coi như FAILED.
+    lost = {t.id: S.FAILED for t in plan.tasks if statuses.get(t.id) == S.RUNNING}
+    statuses.update(lost)
+    changed, ready = compute_ready(plan, statuses, attempts, deps.settings.max_task_attempts)
+    changed = {**lost, **changed}
+    thread_id, request_id = state.get("thread_id", ""), state.get("request_id", "")
+    slots = None
+    llm_left = subagent_llm_calls_left(await deps.usage.counts(thread_id, request_id), deps.settings)
+    budgets: dict[str, int] = {}
+    dispatch: list[str] = []
+    failures: dict[str, TaskResult] = {}
+    for task_id in ready:
+        if len(dispatch) >= deps.settings.max_parallel_tasks:
+            break  # task READY còn lại chờ vòng sau
+        task = plan.task(task_id)
+        capability = deps.agents.capability(task.agent)
+        wanted = capability.default_budget.max_llm_calls if capability else 0
+        # Reserve a whole invocation before fan-out. If another task can free
+        # unused budget at fan-in, defer this task instead of starving it.
+        if wanted > llm_left and dispatch:
+            continue
+        if capability is not None and capability.cost_tier == "paid":
+            if slots is None:
+                turn = await deps.usage.counts(thread_id, request_id)
+                whole = await deps.usage.counts(thread_id)
+                slots = paid_slots_left(turn, whole, deps.settings)
+            if slots <= 0:
+                changed[task_id] = S.FAILED
+                failures[task_id] = TaskResult(
+                    task_id=task_id,
+                    agent=task.agent,
+                    plan_version=plan.version,
+                    status="failed",
+                    source="graph",
+                    fetched_at=now,
+                    usage=AgentUsage(),
+                    error="budget_exceeded: vượt trần chi phí",
+                    error_code="budget_exceeded",
+                    retryable=False,
+                )
                 continue
-            if capability is not None and capability.cost_tier == "paid":
-                if slots is None:
-                    turn = await deps.usage.counts(thread_id, request_id)
-                    whole = await deps.usage.counts(thread_id)
-                    slots = paid_slots_left(turn, whole, deps.settings)
-                if slots <= 0:
-                    changed[task_id] = S.FAILED
-                    failures[task_id] = TaskResult(
-                        task_id=task_id,
-                        agent=task.agent,
-                        plan_version=plan.version,
-                        status="failed",
-                        source="graph",
-                        fetched_at=now,
-                        usage=AgentUsage(),
-                        error="budget_exceeded: vượt trần chi phí",
-                        error_code="budget_exceeded",
-                        retryable=False,
-                    )
-                    continue
-                slots -= 1
-            dispatch.append(task_id)
-            budgets[task_id] = min(wanted, llm_left)
-            llm_left -= budgets[task_id]
-            changed[task_id] = S.RUNNING
-            attempts[task_id] = attempts.get(task_id, 0) + 1
-        update: dict = {
-            "task_status": changed,
-            "dispatch": dispatch,
-            "dispatch_llm_budgets": budgets,
-            "task_attempts": {tid: attempts[tid] for tid in dispatch},
-        }
-        if failures:
-            update["task_results"] = failures
-        return update
-
-    return executor
+            slots -= 1
+        dispatch.append(task_id)
+        budgets[task_id] = min(wanted, llm_left)
+        llm_left -= budgets[task_id]
+        changed[task_id] = S.RUNNING
+        attempts[task_id] = attempts.get(task_id, 0) + 1
+    update: dict = {
+        "task_status": changed,
+        "dispatch": dispatch,
+        "dispatch_llm_budgets": budgets,
+        "task_attempts": {tid: attempts[tid] for tid in dispatch},
+    }
+    if failures:
+        update["task_results"] = failures
+    return update

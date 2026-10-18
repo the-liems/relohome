@@ -6,12 +6,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.messages import HumanMessage
+from langgraph.runtime import Runtime
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.models import AgentName, AgentResponse, ConfirmedFact, Quote, TaskStatus, active_commits
 from relohome_agent.agents.nodes.change_impact import selection_impact
-from relohome_agent.agents.nodes.cost_summary import make_cost_summary
+from relohome_agent.agents.nodes.cost_summary import cost_summary
 from relohome_agent.agents.progress import select_plan_option
 from relohome_agent.agents.selections import option_is_expired
 from relohome_agent.agents.subagents.services.location import to_candidate
@@ -329,7 +331,7 @@ async def _choose_result_locked(thread_id: str, body: ResultAction, service, use
         "task_results": {**state.get("task_results", {}), **update.get("task_results", {})},
         "task_status": {**state.get("task_status", {}), **update.get("task_status", {})},
     }
-    summary = await make_cost_summary(service.deps)(merged)
+    summary = await cost_summary(merged, Runtime(context=GraphContext(deps=service.deps)))
     update.update(cost_summary=summary["cost_summary"], response=response)
     await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
     return _to_response(thread_id, {"response": response}, service)
@@ -494,7 +496,7 @@ async def flight_outbound(thread_id: str, body: OutboundAction, service: Service
             **update,
             "task_results": {**state.get("task_results", {}), **update["task_results"]},
         }
-        summary = await make_cost_summary(service.deps)(merged)
+        summary = await cost_summary(merged, Runtime(context=GraphContext(deps=service.deps)))
         update.update(cost_summary=summary["cost_summary"], response=response)
         await service.graph.aupdate_state(run_config(thread_id, service.deps), update, as_node="respond")
         return _to_response(thread_id, {"response": response}, service)
