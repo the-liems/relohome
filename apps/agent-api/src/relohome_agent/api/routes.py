@@ -7,12 +7,14 @@ Approval và dữ liệu cá nhân do backend tạo; client không bao giờ t�
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 import uuid
 from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from relohome_agent.agents.common import utcnow
@@ -27,9 +29,15 @@ from relohome_agent.guest_access import is_guest, require_account
 from relohome_contracts.schemas import ChatRequest, ChatResponse, DecisionRequest, SimulatePaymentRequest
 from relohome_privacy import redact_pii
 
+logger = logging.getLogger(__name__)
+# Optional so fake mode and allowed guest routes still pass without a token.
+bearer = HTTPBearer(auto_error=False)
+
 
 async def authenticate(
-    request: Request, authorization: str | None = Header(default=None), x_user_id: str | None = Header(default=None)
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    x_user_id: str | None = Header(default=None),
 ):
     service = getattr(request.app.state, "agent_service", None)
     if x_user_id and x_user_id.startswith("guest_") and not is_guest(x_user_id):
@@ -37,10 +45,9 @@ async def authenticate(
     if service and (service.mode == "live" or is_guest(x_user_id)):
         expected = service.settings.agent_api_token.get_secret_value() if service.settings else ""
         if not expected:
-            error = HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
-            error.error_code = "missing_agent_api_token"
-            raise error
-        if not authorization or not secrets.compare_digest(authorization, "Bearer " + expected):
+            logger.error("Request failed: missing_agent_api_token")
+            raise HTTPException(503, "Configure AGENT_API_TOKEN for trusted local frontend/gateway.")
+        if not credentials or not secrets.compare_digest(credentials.credentials, expected):
             raise HTTPException(401, "Authentication required")
         if not x_user_id or x_user_id == "anonymous":
             raise HTTPException(401, "A gateway-verified X-User-Id is required")
@@ -54,9 +61,8 @@ router = APIRouter(dependencies=[Depends(authenticate)])
 def get_service(request: Request) -> AgentService:
     service = getattr(request.app.state, "agent_service", None)
     if service is None:
-        error = HTTPException(503, "Agent runtime has not started")
-        error.error_code = "agent_runtime_not_started"
-        raise error
+        logger.error("Request failed: agent_runtime_not_started")
+        raise HTTPException(503, "Agent runtime has not started")
     return service
 
 

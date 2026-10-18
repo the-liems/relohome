@@ -5,10 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.api.routes import Service, UserId, _owned, authenticate
-from relohome_agent.checkout.models import CheckoutError
 
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate)])
 
@@ -51,10 +49,6 @@ def checkout_of(service):
     return service.checkout
 
 
-def failure(exc: CheckoutError) -> JSONResponse:
-    return JSONResponse(status_code=exc.status, content={"detail": exc.message, "code": exc.code})
-
-
 async def _values(service, thread_id: str, user_id: str) -> dict:
     values, pending = await _owned(service, thread_id, user_id)
     if pending:
@@ -75,42 +69,30 @@ async def thread_checkout(thread_id: str, service: Service, user_id: UserId = "a
 async def checkout_summary(thread_id: str, body: SummaryRequest, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
     values = await _values(service, thread_id, user_id)
-    try:
-        return checkout.summary(user_id, thread_id, values, body.domain)
-    except CheckoutError as exc:
-        return failure(exc)
+    return checkout.summary(user_id, thread_id, values, body.domain)
 
 
 @router.post("/checkout/{transaction_id}/pay")
 async def checkout_pay(transaction_id: str, body: PayRequest, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
-    try:
-        attempt = await checkout.pay(user_id, transaction_id, body.payload_hash, body.request_key, body.passengers)
-        return {"attempt": attempt, "transaction": checkout.transaction_view(checkout.store.get_tx(transaction_id))}
-    except CheckoutError as exc:
-        return failure(exc)
+    attempt = await checkout.pay(user_id, transaction_id, body.payload_hash, body.request_key, body.passengers)
+    return {"attempt": attempt, "transaction": checkout.transaction_view(checkout.store.get_tx(transaction_id))}
 
 
 @router.post("/checkout/attempts/{attempt_id}/check")
 async def checkout_check(attempt_id: str, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
-    try:
-        attempt = await checkout.check(user_id, attempt_id)
-        tx = checkout.store.get_tx(attempt["transaction_id"])
-        return {"attempt": attempt, "transaction": checkout.transaction_view(tx)}
-    except CheckoutError as exc:
-        return failure(exc)
+    attempt = await checkout.check(user_id, attempt_id)
+    tx = checkout.store.get_tx(attempt["transaction_id"])
+    return {"attempt": attempt, "transaction": checkout.transaction_view(tx)}
 
 
 @router.post("/checkout/attempts/{attempt_id}/tester-paid")
 async def checkout_tester_paid(attempt_id: str, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
-    try:
-        attempt = await checkout.tester_paid(user_id, attempt_id)
-        tx = checkout.store.get_tx(attempt["transaction_id"])
-        return {"attempt": attempt, "transaction": checkout.transaction_view(tx)}
-    except CheckoutError as exc:
-        return failure(exc)
+    attempt = await checkout.tester_paid(user_id, attempt_id)
+    tx = checkout.store.get_tx(attempt["transaction_id"])
+    return {"attempt": attempt, "transaction": checkout.transaction_view(tx)}
 
 
 @router.get("/checkout/attempts/{attempt_id}/qr")
@@ -130,29 +112,20 @@ async def checkout_qr(attempt_id: str, service: Service, user_id: UserId = "anon
 async def housing_viewing(thread_id: str, body: ViewingRequest, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
     values = await _values(service, thread_id, user_id)
-    try:
-        return checkout.housing_viewing(user_id, thread_id, values, body.slot)
-    except CheckoutError as exc:
-        return failure(exc)
+    return checkout.housing_viewing(user_id, thread_id, values, body.slot)
 
 
 @router.post("/chat/{thread_id}/housing/agreement")
 async def housing_agreement(thread_id: str, body: AgreementRequest, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
     values = await _values(service, thread_id, user_id)
-    try:
-        return checkout.housing_agreement(
-            user_id, thread_id, values, body.agreed, body.deposit_vnd, body.rent_vnd, body.move_in
-        )
-    except CheckoutError as exc:
-        return failure(exc)
+    return checkout.housing_agreement(
+        user_id, thread_id, values, body.agreed, body.deposit_vnd, body.rent_vnd, body.move_in
+    )
 
 
 @router.post("/chat/{thread_id}/housing/paid")
 async def housing_paid(thread_id: str, body: LandlordPaidRequest, service: Service, user_id: UserId = "anonymous"):
     checkout = checkout_of(service)
     values = await _values(service, thread_id, user_id)
-    try:
-        return checkout.housing_paid(user_id, thread_id, values, body.amount_vnd, body.paid_on)
-    except CheckoutError as exc:
-        return failure(exc)
+    return checkout.housing_paid(user_id, thread_id, values, body.amount_vnd, body.paid_on)

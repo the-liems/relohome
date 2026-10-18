@@ -6,7 +6,6 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 from relohome_agent.agents.graph import run_config
@@ -69,10 +68,6 @@ def viewing_of(service):
     if getattr(service, "viewing", None) is None:
         raise HTTPException(404, "Chọn nhiều căn để hẹn xem chưa được bật trên máy chủ này.")
     return service.viewing
-
-
-def failure(exc: CheckoutError) -> JSONResponse:
-    return JSONResponse(status_code=exc.status, content={"detail": exc.message, "code": exc.code})
 
 
 async def _values(service, thread_id: str, user_id: str) -> dict:
@@ -145,10 +140,7 @@ async def _store_action(service, thread_id: str, user_id: str, action, *, sync: 
     viewing = viewing_of(service)
     async with _lock(service, thread_id):
         values = await _values(service, thread_id, user_id)
-        try:
-            await action(viewing)
-        except CheckoutError as exc:
-            return failure(exc)
+        await action(viewing)
         if sync:
             await _sync(service, thread_id, user_id)
         return viewing.thread_view(user_id, thread_id, values)
@@ -240,61 +232,58 @@ async def decide(thread_id: str, body: DecideBody, service: Service, user_id: Us
     # Other chat/UI mutations receive ThreadBusy rather than interleave.
     async with _lock(service, thread_id):
         values = await _values(service, thread_id, user_id)
-        try:
-            decision = viewing.begin_decision(
-                user_id, thread_id, body.listing_id, body.keep_listing_ids, form, body.decision_key
-            )
-            impact = "none"
-            if decision["step"] == "planned":
-                listing = await explored_listing(service, body.listing_id)
-                if listing is None:
-                    raise CheckoutError(409, "Tin nhà không còn khả dụng; không chốt được.", "listing_gone")
-                impact = viewing.moving_impact(user_id, thread_id, listing, values)
-                if impact == "different_paid" and not body.acknowledge_paid_moving:
-                    raise CheckoutError(
-                        409,
-                        "Chuyển đồ đã thanh toán tới địa chỉ khác căn này. Xác nhận giữ nguyên chuyển đồ để chốt.",
-                        "moving_paid_elsewhere",
-                    )
-                viewing.validate_decision(decision)
-                intake = values.get("intake")
-                current = intake.user_confirmed_facts.get("selected:property") if intake else None
-                if current is None or str(current.value) != body.listing_id:
-                    item = viewing.store.current_tx(user_id, thread_id, f"housing:{body.listing_id}")
-                    task_id = _housing_task(values, item.task_id if item else None)
-                    if task_id is None:
-                        raise CheckoutError(409, "Hãy mở lại kết quả tìm nhà trước khi chốt.", "no_housing_task")
-                    plan, result = values["plan"], values["task_results"][task_id]
-                    await _choose_result_locked(
-                        thread_id,
-                        ResultAction(
-                            kind="select",
-                            task_id=task_id,
-                            plan_version=plan.version,
-                            fetched_at=result.fetched_at,
-                            entity_id=body.listing_id,
-                        ),
-                        service,
-                        user_id,
-                        plan_choice=True,
-                    )
-                viewing.mark_decision(decision, "plan_chosen")
-            values = await _values(service, thread_id, user_id)
+        decision = viewing.begin_decision(
+            user_id, thread_id, body.listing_id, body.keep_listing_ids, form, body.decision_key
+        )
+        impact = "none"
+        if decision["step"] == "planned":
+            listing = await explored_listing(service, body.listing_id)
+            if listing is None:
+                raise CheckoutError(409, "Tin nhà không còn khả dụng; không chốt được.", "listing_gone")
+            impact = viewing.moving_impact(user_id, thread_id, listing, values)
+            if impact == "different_paid" and not body.acknowledge_paid_moving:
+                raise CheckoutError(
+                    409,
+                    "Chuyển đồ đã thanh toán tới địa chỉ khác căn này. Xác nhận giữ nguyên chuyển đồ để chốt.",
+                    "moving_paid_elsewhere",
+                )
+            viewing.validate_decision(decision)
             intake = values.get("intake")
             current = intake.user_confirmed_facts.get("selected:property") if intake else None
             if current is None or str(current.value) != body.listing_id:
-                raise CheckoutError(409, "Căn của kế hoạch đã đổi; không hoàn tất quyết định cũ.", "decision_stale")
-            if decision["step"] != "done":
-                viewing.finish_decision(decision)
-            # Repair the projection even on retry after a durable store commit.
-            await _sync(service, thread_id, user_id)
-            return {
-                **viewing.thread_view(user_id, thread_id, values),
-                "decided": body.listing_id,
-                "moving_impact": impact,
-            }
-        except CheckoutError as exc:
-            return failure(exc)
+                item = viewing.store.current_tx(user_id, thread_id, f"housing:{body.listing_id}")
+                task_id = _housing_task(values, item.task_id if item else None)
+                if task_id is None:
+                    raise CheckoutError(409, "Hãy mở lại kết quả tìm nhà trước khi chốt.", "no_housing_task")
+                plan, result = values["plan"], values["task_results"][task_id]
+                await _choose_result_locked(
+                    thread_id,
+                    ResultAction(
+                        kind="select",
+                        task_id=task_id,
+                        plan_version=plan.version,
+                        fetched_at=result.fetched_at,
+                        entity_id=body.listing_id,
+                    ),
+                    service,
+                    user_id,
+                    plan_choice=True,
+                )
+            viewing.mark_decision(decision, "plan_chosen")
+        values = await _values(service, thread_id, user_id)
+        intake = values.get("intake")
+        current = intake.user_confirmed_facts.get("selected:property") if intake else None
+        if current is None or str(current.value) != body.listing_id:
+            raise CheckoutError(409, "Căn của kế hoạch đã đổi; không hoàn tất quyết định cũ.", "decision_stale")
+        if decision["step"] != "done":
+            viewing.finish_decision(decision)
+        # Repair the projection even on retry after a durable store commit.
+        await _sync(service, thread_id, user_id)
+        return {
+            **viewing.thread_view(user_id, thread_id, values),
+            "decided": body.listing_id,
+            "moving_impact": impact,
+        }
 
 
 @router.post("/chat/{thread_id}/viewings/reopen")
@@ -303,10 +292,7 @@ async def reopen(thread_id: str, service: Service, body: ReopenBody | None = Non
     viewing = viewing_of(service)
     async with _lock(service, thread_id):
         values = await _values(service, thread_id, user_id)
-        try:
-            viewing.reopen(user_id, thread_id, rejected_report_key=body.rejected_report_key if body else None)
-        except CheckoutError as exc:
-            return failure(exc)
+        viewing.reopen(user_id, thread_id, rejected_report_key=body.rejected_report_key if body else None)
         update: dict = {}
         intake = values.get("intake")
         current = intake.user_confirmed_facts.get("selected:property") if intake else None
