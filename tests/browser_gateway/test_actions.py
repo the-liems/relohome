@@ -17,7 +17,7 @@ from relohome_agent.agents.models import (
 )
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api.web_actions import router
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ async def test_selection_is_grounded_owned_and_persisted_in_graph(monkeypatch):
     monkeypatch.setattr(
         "relohome_agent.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: FakeAgent(AgentName.PROPERTY)})
     )
-    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     app = FastAPI()
     app.state.agent_service = service
     app.include_router(router)
@@ -122,7 +122,7 @@ async def test_listing_explored_on_map_is_selectable_only_via_provider_record(mo
     housing = FakeAgent(AgentName.PROPERTY)
     housing.client = Location()
     monkeypatch.setattr("relohome_agent.agents.deps.fake_registry", lambda: AgentRegistry({AgentName.PROPERTY: housing}))
-    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     app = FastAPI()
     app.state.agent_service = service
     app.include_router(router)

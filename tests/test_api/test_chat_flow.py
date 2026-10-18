@@ -6,7 +6,7 @@ from relohome_agent.agents.intake import ScriptedIntake
 from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind
 from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.wiring import AgentService
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import commit_fact, intake_result
 
@@ -27,7 +27,7 @@ async def api(api_client_factory):
     service = AgentService.create(
         ScriptedIntake([booking_intake()]),
         TemplatePlanner(),
-        ServiceSettings(_env_file=None, agent_subagents="fake"),
+        Settings(_env_file=None, agent_subagents="fake"),
     )
     async with api_client_factory(service) as client:
         yield client, service
@@ -159,7 +159,7 @@ async def test_simulated_expiry_releases_hold(api):
 @pytest.mark.asyncio
 async def test_simulation_is_off_in_live_mode_by_default(api_client_factory, monkeypatch):
     monkeypatch.delenv("PAYMENT_SIMULATION_ENABLED", raising=False)
-    settings = ServiceSettings(
+    settings = Settings(
         _env_file=None,
         agent_subagents="live",
         agent_api_token="test-gateway-token",

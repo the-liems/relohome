@@ -118,10 +118,11 @@ async def generate(focus_areas=(), *, count=100, valid_days=30):
     import os
 
     from relohome_agent.agents.subagents.services.location import pick_city_area, pick_clear
-    from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+    from relohome_agent.config import Settings
+    from relohome_agent.services.adapters.registry import ServiceRegistry
 
     os.environ.update(runpy.run_path(str(ROOT / "scripts/local-integration.py"))["environment"]("api"))
-    client = ServiceRegistry.from_settings(ServiceSettings()).location.read_client()
+    client = ServiceRegistry.from_settings(Settings()).location.read_client()
     if client is None:
         raise RuntimeError("Location MCP must be configured")
     cities = (("hanoi", "Hà Nội"), ("hcm", "Thành phố Hồ Chí Minh"), ("danang", "Đà Nẵng"))

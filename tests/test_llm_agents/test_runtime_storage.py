@@ -39,9 +39,9 @@ async def test_real_runtime_checkpoint_survives_restart(tmp_path):
     from langchain_core.messages import HumanMessage
     from relohome_agent.agents.graph import run_config
     from relohome_agent.agents.wiring import AgentService
-    from relohome_agent.services.adapters.registry import ServiceSettings
+    from relohome_agent.config import Settings
 
-    settings = ServiceSettings(
+    settings = Settings(
         agent_state_dir=str(tmp_path), location_mcp_url="", moving_mcp_url="", flight_mcp_url=""
     )
     service = await AgentService.open(settings)

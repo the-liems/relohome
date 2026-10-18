@@ -11,11 +11,10 @@ import asyncio
 from pathlib import Path
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
 from relohome_agent.agents.graph import build_graph, checkpoint_serde, run_config
 from relohome_agent.agents.progress import plan_progress, record_selections
 from relohome_agent.agents.wiring import AgentService
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 
 def selected_count(values: dict) -> int:
@@ -24,7 +23,7 @@ def selected_count(values: dict) -> int:
 
 
 async def repair(database: Path, thread_id: str, *, apply: bool) -> None:
-    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     async with AsyncSqliteSaver.from_conn_string(str(database)) as saver:
         saver.serde = checkpoint_serde()
         graph = build_graph(service.deps, saver)

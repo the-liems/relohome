@@ -12,8 +12,9 @@ from relohome_agent.agents.models import AgentName, CommitActionKind, Receipt, R
 from relohome_agent.agents.planning import PlannerInput, TemplatePlanner
 from relohome_agent.agents.subagents.conformance import sample_request
 from relohome_agent.agents.subagents.services.moving import VN_TZ, MovingSubagent, QuoteContact, order_time
+from relohome_agent.config import Settings
 from relohome_agent.services.adapters.mcp import ToolCallError, unwrap
-from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 
 from tests.test_agents.helpers import Session, commit_fact, intake_result
 from tests.test_agents.test_service_subagents import FakeToolClient, listing, moving_client
@@ -126,8 +127,8 @@ def test_structured_mcp_error_uses_server_retryable():
 
 def test_no_write_endpoint_without_write_token():
     base = dict(_env_file=None, moving_mcp_url="http://moving-mcp:4400/mcp", moving_mcp_auth_token=SecretStr("r" * 32))
-    assert ServiceRegistry.from_settings(ServiceSettings(**base)).moving.write_client() is None
-    registry = ServiceRegistry.from_settings(ServiceSettings(**base, moving_mcp_write_token=SecretStr("w" * 32)))
+    assert ServiceRegistry.from_settings(Settings(**base)).moving.write_client() is None
+    registry = ServiceRegistry.from_settings(Settings(**base, moving_mcp_write_token=SecretStr("w" * 32)))
     assert registry.moving.write_client().endpoint.token == "w" * 32
 
 

@@ -16,7 +16,7 @@ from relohome_agent.agents.planner_llm import LlmPlanner
 from relohome_agent.agents.planning import PlannerInput
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import intake_result
 from tests.test_agents.test_moving_suggestion_efficiency import fixture_agent, form_request
@@ -29,7 +29,7 @@ pytestmark = [
 
 
 def settings():
-    config = ServiceSettings(_env_file=(".env", ".env.local"))
+    config = Settings(_env_file=(".env", ".env.local"))
     key = config.openai_api_key.get_secret_value()
     if not key or key.startswith(("test-", "your-", "sk-your")):
         # The offline suite installs a dummy process-level key in conftest.py.
@@ -38,7 +38,7 @@ def settings():
         configured = {**dotenv_values(".env"), **dotenv_values(".env.local")}
         key = configured.get("OPENAI_API_KEY") or ""
         assert key and not key.startswith(("test-", "your-", "sk-your")), "Real configured model key required"
-        config = ServiceSettings(_env_file=(".env", ".env.local"), openai_api_key=key)
+        config = Settings(_env_file=(".env", ".env.local"), openai_api_key=key)
     return config
 
 

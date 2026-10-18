@@ -30,7 +30,7 @@ from relohome_agent.agents.models import (
 from relohome_agent.agents.subagents.services.location import to_candidate
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api import routes, viewings, web_actions
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests import live
 
@@ -41,7 +41,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 async def test_real_api_decision_retry_concurrency_and_paid_protection(tmp_path):
-    settings = ServiceSettings(
+    settings = Settings(
         agent_subagents="live",
         agent_state_dir=str(tmp_path / "runtime"),
         agent_writes_enabled=False,

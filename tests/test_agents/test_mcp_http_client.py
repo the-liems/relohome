@@ -10,8 +10,9 @@ import httpx
 import pytest
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from relohome_agent.config import Settings
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
-from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 
 from tests.mcp_http import TEST_MCP_TOKEN, running_mcp
 
@@ -81,7 +82,7 @@ async def test_location_accepts_large_boundary_events_without_relaxing_other_ser
 
     async with running_mcp(server) as url:
         registry = ServiceRegistry.from_settings(
-            ServiceSettings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
+            Settings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
         )
         result = await registry.location.read_client().call("search_areas", {})
         assert result["results"][0]["geometry"] == boundary

@@ -7,8 +7,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from relohome_agent.agents.wiring import AgentService
+from relohome_agent.config import Settings
 from relohome_agent.main import app
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.fixture
@@ -35,6 +35,6 @@ def api_client_factory():
 
 @pytest_asyncio.fixture
 async def client(api_client_factory):
-    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     async with api_client_factory(service) as client:
         yield client

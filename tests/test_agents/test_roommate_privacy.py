@@ -4,7 +4,7 @@ from relohome_agent.agents.intake import FixedIntake
 from relohome_agent.agents.llm_context import result_context
 from relohome_agent.agents.models import AgentName, TaskResult
 from relohome_agent.agents.wiring import AgentService
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 from relohome_gateway.server import presentation
 from relohome_roommate.ports import Actor
 from relohome_roommate.services.access import AccessService
@@ -34,7 +34,7 @@ async def test_checkpoint_keeps_handles_and_fresh_read_hides_blocked_profile(tmp
     service = AgentService.create(
         intake=FixedIntake(intake),
         roommate_runtime=runtime,
-        services=ServiceSettings(_env_file=None, agent_subagents="fake"),
+        services=Settings(_env_file=None, agent_subagents="fake"),
     )
     session = Session(service.deps, user_id="viewer")
     out = await session.say("Tìm người ở cùng HCM")

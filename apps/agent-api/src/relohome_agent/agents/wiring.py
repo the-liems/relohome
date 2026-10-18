@@ -30,6 +30,7 @@ from relohome_agent.agents.subagents.base import DomainAgent
 from relohome_agent.agents.subagents.services.flight import FlightSubagent
 from relohome_agent.agents.subagents.services.location import LocationSubagent
 from relohome_agent.agents.subagents.services.moving import MovingSubagent, QuoteContact
+from relohome_agent.config import Settings
 from relohome_agent.runtime_paths import runtime_path
 from relohome_agent.services.adapters.commit import McpTransaction
 from relohome_agent.services.adapters.fakes import (
@@ -39,7 +40,7 @@ from relohome_agent.services.adapters.fakes import (
     InMemoryUsageMeter,
 )
 from relohome_agent.services.adapters.moving_approval import HttpMovingApprovalBridge
-from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 
 
 def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
@@ -66,7 +67,7 @@ def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
 
 
 def live_deps(
-    intake: Intake, planner: Planner, services: ServiceSettings | None = None, settings: GraphSettings | None = None
+    intake: Intake, planner: Planner, services: Settings | None = None, settings: GraphSettings | None = None
 ) -> tuple[GraphDeps, InMemoryApprovalStore, InMemoryPiiStore]:
     registry = ServiceRegistry.from_settings(services)
     s = registry.settings
@@ -110,7 +111,7 @@ class AgentService:
     payment_simulation: bool = False  # có nút "giả lập đã thanh toán" (fake mode, hoặc Payment mock đã bật)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
     resources: Any = None
-    settings: ServiceSettings | None = None
+    settings: Settings | None = None
     # LLM domain fanout shares this local lock so budgets cannot be oversubscribed.
     writes_enabled: bool = False
     sandbox_payment_client: Any = None
@@ -118,7 +119,7 @@ class AgentService:
     viewing: Any = None  # relohome_agent.checkout.viewing.ViewingService khi bật chọn nhiều căn để hẹn xem
 
     @classmethod
-    async def open(cls, services: ServiceSettings | None = None, *, roommate_runtime=None):
+    async def open(cls, services: Settings | None = None, *, roommate_runtime=None):
         """Application entrypoint: real LLMs + configured services + durable local stores."""
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
         from relohome_agent.agents.llm_components import build_llm_components
@@ -133,7 +134,7 @@ class AgentService:
             SqliteUsageMeter,
         )
 
-        services = services or ServiceSettings()
+        services = services or Settings()
         if services.agent_subagents != "live":
             raise ValueError("Application runtime requires AGENT_SUBAGENTS=live; no simulated services")
         if services.payment_simulation_enabled or services.agent_allow_simulated_transactions:
@@ -260,11 +261,11 @@ class AgentService:
         cls,
         intake: Intake | None = None,
         planner: Planner | None = None,
-        services: ServiceSettings | None = None,
+        services: Settings | None = None,
         *,
         roommate_runtime=None,
     ) -> AgentService:
-        services = services or ServiceSettings()
+        services = services or Settings()
         intake = intake or PassThroughIntake()
         planner = planner or TemplatePlanner()  # tất định; LLM Planner (#13) cắm vào làm fallback
         if services.agent_subagents == "live":
@@ -289,7 +290,7 @@ class AgentService:
         )
 
 
-async def verify_sandbox_payment_service(services: ServiceSettings):
+async def verify_sandbox_payment_service(services: Settings):
     """Verify service-owned provider configuration without reading merchant secrets."""
     from urllib.parse import urlsplit, urlunsplit
 
@@ -312,7 +313,7 @@ async def verify_sandbox_payment_service(services: ServiceSettings):
         raise ValueError("Payment service must be healthy and use the official ZaloPay sandbox") from exc
 
 
-def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, checkout=None):
+def build_viewing(services: Settings, registry: ServiceRegistry, db, checkout=None):
     """Chọn nhiều căn để hẹn xem; dùng chung kho giao dịch với thanh toán của app nếu có."""
     from relohome_agent.checkout.store import CheckoutStore
     from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
@@ -324,7 +325,7 @@ def build_viewing(services: ServiceSettings, registry: ServiceRegistry, db, chec
     )
 
 
-def build_checkout(services: ServiceSettings, registry: ServiceRegistry, db, pii):
+def build_checkout(services: Settings, registry: ServiceRegistry, db, pii):
     """Thanh toán của app: chỉ ZaloPay sandbox chính thức và đặt vé mô phỏng; production không có nút tester."""
     from relohome_agent.checkout.service import CheckoutService, CheckoutSettings
     from relohome_agent.checkout.store import CheckoutStore

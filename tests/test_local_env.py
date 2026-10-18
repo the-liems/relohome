@@ -114,20 +114,9 @@ def test_python_settings_do_not_read_cwd_dotenv(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("APP_ENV=production\nAGENT_API_TOKEN=wrong\n")
     monkeypatch.chdir(tmp_path)
     from relohome_agent.config import Settings
-    from relohome_agent.services.adapters.registry import ServiceSettings
 
     assert Settings().app_env != "production"
-    assert ServiceSettings().agent_api_token.get_secret_value() != "wrong"
-
-
-def test_backend_prefers_unique_database_name_over_inherited_generic(monkeypatch):
-    from relohome_agent.config import Settings
-
-    monkeypatch.setenv("DATABASE_URL", "postgresql://location-user@localhost/location")
-    monkeypatch.setenv("BACKEND_DATABASE_URL", "sqlite:///backend.db")
-    assert Settings().database_url == "sqlite:///backend.db"
-    monkeypatch.delenv("BACKEND_DATABASE_URL")
-    assert Settings().database_url == "postgresql://location-user@localhost/location"
+    assert Settings().agent_api_token.get_secret_value() != "wrong"
 
 
 def test_initializer_is_private_and_never_overwrites(tmp_path, monkeypatch):

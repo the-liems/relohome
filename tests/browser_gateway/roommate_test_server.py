@@ -24,7 +24,6 @@ from relohome_agent.api import (
 )
 from relohome_agent.config import Settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-from relohome_agent.services.adapters.registry import ServiceSettings
 from relohome_gateway.server import create_app
 from relohome_gateway.store import password_hash
 from relohome_roommate.media import MediaService
@@ -98,7 +97,7 @@ async def lifespan(gateway):
     )
     api.state.roommate_runtime = runtime
     api.state.agent_service = AgentService.create(
-        services=ServiceSettings(_env_file=None, agent_subagents="fake"), roommate_runtime=runtime
+        services=Settings(_env_file=None, agent_subagents="fake"), roommate_runtime=runtime
     )
     try:
         async with gateway_lifespan(gateway):

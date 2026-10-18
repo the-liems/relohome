@@ -8,7 +8,7 @@ from relohome_agent.agents.planning import PlannerInput, TemplatePlanner, valida
 from relohome_agent.agents.progress import plan_progress
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.wiring import AgentService
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import Session, intake_result
 from tests.test_roommate.test_discovery_api import make_app
@@ -21,7 +21,7 @@ async def test_roommate_opens_eligibility_entry_without_payment_or_llm(tmp_path)
     service = AgentService.create(
         intake=FixedIntake(intake),
         roommate_runtime=runtime,
-        services=ServiceSettings(_env_file=None, agent_subagents="fake"),
+        services=Settings(_env_file=None, agent_subagents="fake"),
     )
     session = Session(service.deps)
     out = await session.say("Tôi muốn tìm người ở cùng")
@@ -47,7 +47,7 @@ async def test_mixed_plan_keeps_domains_independent_and_scoped(tmp_path):
         values={"city": "Hà Nội", "roommate_criteria": {"city": "hcm"}},
     )
     service = AgentService.create(
-        roommate_runtime=runtime, services=ServiceSettings(_env_file=None, agent_subagents="fake")
+        roommate_runtime=runtime, services=Settings(_env_file=None, agent_subagents="fake")
     )
     out = await TemplatePlanner().plan(
         PlannerInput(intake=intake, session={}, available_agents=service.deps.agents.names())

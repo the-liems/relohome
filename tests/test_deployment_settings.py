@@ -14,7 +14,6 @@ import pytest
 import yaml
 from relohome_agent.checkout.viewing import ViewingSettings
 from relohome_agent.config import Settings, get_settings
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 ROOT = Path(__file__).resolve().parents[1]
 pytestmark = pytest.mark.skipif(shutil.which("docker") is None, reason="Docker Compose CLI required; no daemon needed")
@@ -92,7 +91,7 @@ def test_compose_viewing_test_toggle_reaches_runtime_and_respects_production(con
     monkeypatch.setenv("HOUSING_VIEWING_TEST_VISIT_ANYTIME", backend["HOUSING_VIEWING_TEST_VISIT_ANYTIME"])
     get_settings.cache_clear()
     try:
-        viewing = ViewingSettings.from_services(ServiceSettings(_env_file=None))
+        viewing = ViewingSettings.from_services(Settings(_env_file=None))
         assert viewing.visit_anytime is enabled
     finally:
         get_settings.cache_clear()
@@ -106,6 +105,6 @@ def test_viewing_proposal_window_is_one_setting_for_backend_and_platform(configu
     monkeypatch.setenv("HOUSING_VIEWING_PROPOSAL_DAYS", backend["HOUSING_VIEWING_PROPOSAL_DAYS"])
     get_settings.cache_clear()
     try:
-        assert ViewingSettings.from_services(ServiceSettings(_env_file=None)).proposal_days == days
+        assert ViewingSettings.from_services(Settings(_env_file=None)).proposal_days == days
     finally:
         get_settings.cache_clear()

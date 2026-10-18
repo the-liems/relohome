@@ -18,7 +18,7 @@ from relohome_agent.agents.models import AgentName, SessionContext
 from relohome_agent.agents.planner_llm import LlmPlanner
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests import live
 from tests.test_agents.helpers import Session
@@ -52,7 +52,7 @@ def configured_model(monkeypatch):
     return MeteredModel(
         live.env_test("OPENAI_API_KEY"),
         live.env_test("AGENT_INTAKE_MODEL", required=False)
-        or ServiceSettings.model_fields["agent_intake_model"].default,
+        or Settings.model_fields["agent_intake_model"].default,
         max_output_tokens=2000,
     )
 

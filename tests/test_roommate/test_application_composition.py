@@ -3,7 +3,6 @@ import pytest
 from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.config import Settings
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 
 @pytest.mark.asyncio
@@ -24,7 +23,7 @@ async def test_application_lifespan_wires_roommate_and_private_validation(tmp_pa
     async def isolated_agent_open(*, roommate_runtime):
         # Exercise app composition with an actual graph; replace only live provider startup.
         return AgentService.create(
-            services=ServiceSettings(_env_file=None, agent_subagents="fake"), roommate_runtime=roommate_runtime
+            services=Settings(_env_file=None, agent_subagents="fake"), roommate_runtime=roommate_runtime
         )
 
     monkeypatch.setattr(AgentService, "open", isolated_agent_open)

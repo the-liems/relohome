@@ -9,7 +9,6 @@ import pytest
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.config import Settings
 from relohome_agent.roommate_runtime import RoommateRuntime
-from relohome_agent.services.adapters.registry import ServiceSettings
 from relohome_roommate.models import RoommateProfile
 from relohome_roommate.ports import Actor
 from relohome_roommate.services.access import AccessService
@@ -52,7 +51,7 @@ async def test_real_roommate_intake_planner_reads_refs_without_candidate_llm(tmp
         draft = ProfileService(ctx).save(Actor(id=candidate), profile, None)
         ProfileService(ctx).transition(Actor(id=candidate), "publish", draft.version, True)
     service = await AgentService.open(
-        ServiceSettings(
+        Settings(
             _env_file=None,
             agent_state_dir=str(tmp_path / "graph"),
             agent_api_token=token,

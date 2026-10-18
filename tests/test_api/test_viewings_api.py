@@ -14,7 +14,7 @@ from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.checkout.store import CheckoutStore
 from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import intake_result
 
@@ -34,9 +34,9 @@ async def api(api_client_factory, monkeypatch):
     service = AgentService.create(
         ScriptedIntake([intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "HCM"})]),
         TemplatePlanner(),
-        ServiceSettings(_env_file=None, agent_subagents="fake"),
+        Settings(_env_file=None, agent_subagents="fake"),
     )
-    settings = ViewingSettings.from_services(ServiceSettings(_env_file=None, housing_viewing_lead_minutes=0))
+    settings = ViewingSettings.from_services(Settings(_env_file=None, housing_viewing_lead_minutes=0))
     clock = Clock(datetime.now(settings.timezone))
     service.viewing = ViewingService(
         store=CheckoutStore(sqlite3.connect(":memory:", isolation_level=None)), settings=settings, clock=clock
@@ -135,7 +135,7 @@ async def test_disabled_keeps_single_selection(api_client_factory):
     service = AgentService.create(
         ScriptedIntake([intake_result(RequestKind.NEW_GOAL, [AgentName.PROPERTY], values={"city": "HCM"})]),
         TemplatePlanner(),
-        ServiceSettings(_env_file=None, agent_subagents="fake"),
+        Settings(_env_file=None, agent_subagents="fake"),
     )
     async with api_client_factory(service) as client:
         thread_id, version, task_id, fetched_at = await search(client)

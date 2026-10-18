@@ -7,13 +7,13 @@ import pytest
 from relohome_agent.checkout.models import CheckoutError, ServiceTransaction
 from relohome_agent.checkout.store import CheckoutStore
 from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 
 def service_and_records():
     service = ViewingService(
         CheckoutStore(sqlite3.connect(":memory:", isolation_level=None)),
-        ViewingSettings.from_services(ServiceSettings(_env_file=None)),
+        ViewingSettings.from_services(Settings(_env_file=None)),
     )
     now = datetime.now(UTC)
     # These are internal transaction records, not external Housing search responses.

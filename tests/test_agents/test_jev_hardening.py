@@ -12,7 +12,7 @@ from relohome_agent.agents.guardrails.jev import JevClient, JevError, openrouter
 from relohome_agent.agents.guardrails.projection import ProjectionPrivacyError, assessment_projection, plan_projection
 from relohome_agent.agents.guardrails.shadow import ShadowGuardrail, build_guardrail
 from relohome_agent.agents.models import AgentUsage, RequestKind
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import fact
 from tests.test_agents.test_jev_guardrails import envelope, plan_state, result_input
@@ -38,7 +38,7 @@ def test_invalid_explicit_key_never_constructs_http_client(key, monkeypatch, cap
     # An invalid override may not hide behind a valid compatibility key.
     assert (
         build_guardrail(
-            ServiceSettings(agent_guardrail_mode="shadow", openrouter_api_key=key, openai_api_key="sk-or-v1-valid")
+            Settings(agent_guardrail_mode="shadow", openrouter_api_key=key, openai_api_key="sk-or-v1-valid")
         )
         is None
     )

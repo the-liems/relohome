@@ -37,8 +37,8 @@ from relohome_agent.agents.models import (
 from relohome_agent.agents.subagents.base import to_task_result
 from relohome_agent.agents.subagents.services.location import LocationSubagent
 from relohome_agent.agents.wiring import AgentService
+from relohome_agent.config import Settings
 from relohome_agent.main import app
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 from tests import live
 
@@ -50,7 +50,7 @@ pytestmark = [
 
 @pytest_asyncio.fixture
 async def runtime(tmp_path):
-    settings = ServiceSettings(
+    settings = Settings(
         _env_file=None,
         agent_state_dir=str(tmp_path / "agent-runtime"),
         agent_subagents="live",

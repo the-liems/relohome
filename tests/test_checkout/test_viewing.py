@@ -9,8 +9,8 @@ import pytest
 from relohome_agent.checkout.models import CheckoutError, ServiceTransaction
 from relohome_agent.checkout.store import CheckoutStore
 from relohome_agent.checkout.viewing import ViewingService, ViewingSettings
+from relohome_agent.config import Settings
 from relohome_agent.services.adapters.mcp import ToolCallError
-from relohome_agent.services.adapters.registry import ServiceSettings
 
 USER, THREAD = "user-a", "th_1"
 # 00:00 giờ Việt Nam ngày 10/10/2026.
@@ -57,7 +57,7 @@ def row(listing_id, price=4_000_000, lat=10.77, lng=106.70):
 def make(seconds=None, **overrides):
     clock = Clock()
     location = FakeLocation(seconds or {})
-    settings = ViewingSettings.from_services(ServiceSettings(_env_file=None, **overrides))
+    settings = ViewingSettings.from_services(Settings(_env_file=None, **overrides))
     service = ViewingService(
         store=CheckoutStore(sqlite3.connect(":memory:", isolation_level=None)),
         settings=settings,

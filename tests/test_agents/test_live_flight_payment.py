@@ -13,7 +13,7 @@ from relohome_agent.agents.intake import ScriptedIntake
 from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKind
 from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.wiring import live_deps
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 from relohome_flight.settings import FlightSettings
 from relohome_flights_mcp.server import create_server as flight_server
 from relohome_payment.settings import PaymentSettings
@@ -37,7 +37,7 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
 
 
 async def booking_flow(tmp_path, monkeypatch, flight_url, payment_url):
-    services = ServiceSettings(
+    services = Settings(
         _env_file=None,
         agent_subagents="live",
         agent_allow_simulated_transactions=True,

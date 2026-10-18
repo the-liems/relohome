@@ -36,7 +36,7 @@ from relohome_agent.agents.models import (
 )
 from relohome_agent.agents.nodes.orchestrator import make_orchestrator
 from relohome_agent.agents.planning import FixedPlanner
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 from tests.test_agents.helpers import fact, intake_result
 
@@ -442,12 +442,12 @@ async def test_graph_agent_observer_is_after_llm_execution_and_readonly(monkeypa
 
 
 def test_flags_are_opt_in_and_openai_key_never_forwarded():
-    assert build_guardrail(ServiceSettings(openai_api_key="sk-openai-private")) is None
-    assert build_guardrail(ServiceSettings(agent_guardrail_mode="shadow", openai_api_key="sk-openai-private")) is None
+    assert build_guardrail(Settings(openai_api_key="sk-openai-private")) is None
+    assert build_guardrail(Settings(agent_guardrail_mode="shadow", openai_api_key="sk-openai-private")) is None
     with pytest.raises(ValidationError):
-        ServiceSettings(agent_guardrail_mode="enforce")
+        Settings(agent_guardrail_mode="enforce")
     with pytest.raises(ValidationError):
-        ServiceSettings(agent_guardrail_timeout_s=60)
+        Settings(agent_guardrail_timeout_s=60)
 
 
 @pytest.mark.asyncio
@@ -456,7 +456,7 @@ async def test_openrouter_key_compatibility_and_explicit_override():
         {"openai_api_key": "sk-or-v1-test"},
         {"openrouter_api_key": "sk-or-v1-test", "openai_api_key": "sk-openai-private"},
     ):
-        observer = build_guardrail(ServiceSettings(agent_guardrail_mode="shadow", **fields))
+        observer = build_guardrail(Settings(agent_guardrail_mode="shadow", **fields))
         assert observer.client.http.headers["Authorization"] == "Bearer sk-or-v1-test"
         await observer.close()
 

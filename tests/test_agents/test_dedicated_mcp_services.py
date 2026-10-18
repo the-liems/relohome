@@ -5,8 +5,9 @@ import asyncio
 import httpx
 import pytest
 from relohome_agent.agents.wiring import verify_sandbox_payment_service
+from relohome_agent.config import Settings
 from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
-from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 from relohome_payment.settings import PaymentSettings
 from relohome_payments_mcp.server import create_server
 from relohome_payments_mcp.tools import build_services
@@ -31,7 +32,7 @@ async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, m
             assert (await http.post(url, headers={
                 "Authorization": "Bearer service-token-01234567890123456789", "Origin": "https://untrusted.example"
             })).status_code == 403
-        registry = ServiceRegistry.from_settings(ServiceSettings(
+        registry = ServiceRegistry.from_settings(Settings(
             _env_file=None, payment_mcp_url=url, payment_mcp_auth_token="service-token-01234567890123456789", payment_simulation_enabled=True
         ))
         denied = McpToolClient(McpEndpoint("payment", frozenset({"get_payment"}), url=url, token="wrong"))
@@ -54,7 +55,7 @@ async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, m
 async def test_missing_url_leaves_service_unconfigured_even_with_legacy_stdio_flags(monkeypatch):
     monkeypatch.setenv("FLIGHT_MCP_STDIO", "true")
     monkeypatch.setenv("PAYMENT_MCP_STDIO", "true")
-    registry = ServiceRegistry.from_settings(ServiceSettings(_env_file=None, flight_mcp_url="", payment_mcp_url=""))
+    registry = ServiceRegistry.from_settings(Settings(_env_file=None, flight_mcp_url="", payment_mcp_url=""))
     assert registry.flight.read_client() is None
     assert registry.payment.write_client() is None
     with pytest.raises(ToolCallError, match="not configured"):
@@ -75,7 +76,7 @@ async def test_sandbox_service_contract_without_local_merchant_keys(monkeypatch,
         return httpx.Response(200, json={"provider": provider, "environment": environment})
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: original(transport=httpx.MockTransport(respond), **kwargs))
-    settings = ServiceSettings(_env_file=None, payment_mcp_url="http://payments:8766/mcp", payment_mcp_auth_token="service-token-01234567890123456789")
+    settings = Settings(_env_file=None, payment_mcp_url="http://payments:8766/mcp", payment_mcp_auth_token="service-token-01234567890123456789")
     if accepted:
         await verify_sandbox_payment_service(settings)
     else:

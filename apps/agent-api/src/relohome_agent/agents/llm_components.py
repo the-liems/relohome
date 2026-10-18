@@ -11,7 +11,8 @@ from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.services.moving import QuoteContact
 from relohome_agent.agents.subagents.services.moving_llm import MovingLlmAgent
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
-from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+from relohome_agent.config import Settings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 
 
 @dataclass
@@ -30,8 +31,8 @@ class LlmComponents:
             await agent.close()
 
 
-def build_llm_components(settings: ServiceSettings | None = None) -> LlmComponents:
-    settings = settings or ServiceSettings()
+def build_llm_components(settings: Settings | None = None) -> LlmComponents:
+    settings = settings or Settings()
     key = settings.openai_api_key.get_secret_value()
     if not key or key.startswith(("your-", "sk-your", "test-")):
         raise LLMError("LLM_NOT_CONFIGURED", "Cần cấu hình OPENAI_API_KEY để chạy agent thật.")

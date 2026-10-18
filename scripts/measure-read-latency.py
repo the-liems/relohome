@@ -44,15 +44,16 @@ async def measure_live():
     from relohome_agent.agents.models import AgentBudget, AgentName
     from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
     from relohome_agent.agents.subagents.services.location import LocationSubagent
+    from relohome_agent.config import Settings
     from relohome_agent.main import app
-    from relohome_agent.services.adapters.registry import ServiceRegistry, ServiceSettings
+    from relohome_agent.services.adapters.registry import ServiceRegistry
 
     run_id = uuid.uuid4().hex[:10]
     run_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y%m%d")
     folder = ROOT / "data" / ("read-latency-" + run_date + "-" + run_id)
     os.environ["AGENT_STATE_DIR"] = str(folder / "runtime")
     actor = "read-latency-" + run_id
-    settings = ServiceSettings()
+    settings = Settings()
     flight_date = (datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date() + timedelta(days=15))
     cases = [
         ("housing", "housing_simple", "Tôi muốn tìm tối đa 5 nhà ở Cầu Giấy, thành phố Hà Nội, giá dưới 6 triệu/tháng. Chỉ tìm và liệt kê."),
@@ -124,11 +125,11 @@ async def measure_ui(report_path):
         raise ValueError("Use a report from this script's own ignored data directory.")
     os.environ["AGENT_STATE_DIR"] = str(folder / "runtime")
     from relohome_agent.agents.graph import run_config
+    from relohome_agent.config import Settings
     from relohome_agent.main import app
-    from relohome_agent.services.adapters.registry import ServiceSettings
 
     reports = json.loads(report_path.read_text(encoding="utf-8"))
-    settings = ServiceSettings()
+    settings = Settings()
     actor = "read-latency-" + folder.name.rsplit("-", 1)[1]
     headers = {"Authorization": "Bearer " + settings.agent_api_token.get_secret_value(), "X-User-Id": actor}
     output = []

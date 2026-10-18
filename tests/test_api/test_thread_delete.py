@@ -7,12 +7,12 @@ from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.models import MemoryUpdate
 from relohome_agent.agents.wiring import AgentService
 from relohome_agent.api.routes import router
-from relohome_agent.services.adapters.registry import ServiceSettings
+from relohome_agent.config import Settings
 
 
 @pytest.mark.asyncio
 async def test_delete_thread_drops_checkpoint_and_its_memory_only():
-    service = AgentService.create(services=ServiceSettings(_env_file=None, agent_subagents="fake"))
+    service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     app = FastAPI()
     app.state.agent_service = service
     app.include_router(router)
