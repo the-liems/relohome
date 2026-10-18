@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import { useId } from "react";
 import type { Budget, MoveIn, QuietHours } from "./types";
 import { rt } from "./text";
@@ -17,7 +18,7 @@ export function SelectField({
   const id = useId();
   return (
     <label htmlFor={id}>
-      <span id={id + "-label"}>{label}</span>
+      <span id={id + "-label"}>{label}<RequiredMark required={required} /></span>
       <select
         id={id}
         aria-labelledby={id + "-label"}
@@ -65,7 +66,7 @@ export function BudgetFields({
         />
       </label>
       <label>
-        {rt("Đến · VND/người/tháng", "Up to · VND/person/month")}
+        <span className="field-label">{rt("Đến · VND/người/tháng", "Up to · VND/person/month")}<RequiredMark required={required || Boolean(value)} /></span>
         <input
           type="number"
           min={Math.max(1, value?.min_vnd || 0)}
@@ -128,7 +129,7 @@ export function MoveInFields({
       />
       {value && value.kind !== "flexible" && (
         <label>
-          {rt("Ngày bắt đầu", "Start date")}
+          <span className="field-label">{rt("Ngày bắt đầu", "Start date")}<RequiredMark /></span>
           <input
             type="date"
             required
@@ -140,7 +141,7 @@ export function MoveInFields({
       )}
       {value?.kind === "range" && (
         <label>
-          {rt("Ngày kết thúc", "End date")}
+          <span className="field-label">{rt("Ngày kết thúc", "End date")}<RequiredMark /></span>
           <input
             type="date"
             required
@@ -163,7 +164,7 @@ export function QuietFields({
   return (
     <div className="rm-fields">
       <label>
-        {rt("Yên tĩnh từ", "Quiet from")}
+        <span className="field-label">{rt("Yên tĩnh từ", "Quiet from")}<RequiredMark required={Boolean(value?.end)} /></span>
         <input
           type="time"
           value={value?.start || ""}
@@ -178,7 +179,7 @@ export function QuietFields({
         />
       </label>
       <label>
-        {rt("Yên tĩnh đến", "Quiet until")}
+        <span className="field-label">{rt("Yên tĩnh đến", "Quiet until")}<RequiredMark required={Boolean(value?.start)} /></span>
         <input
           type="time"
           value={value?.end || ""}

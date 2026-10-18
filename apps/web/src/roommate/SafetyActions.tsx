@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import { useState } from "react";
 import { Dialog } from "../components/Dialog";
 import { useOperation } from "./useOperation";
@@ -73,7 +74,7 @@ export function SafetyActions({
             >
               {mode === "report" && (
                 <label>
-                  {rt("Lý do báo cáo", "Report reason")}
+                  <span className="field-label">{rt("Lý do báo cáo", "Report reason")}<RequiredMark /></span>
                   <textarea
                     required
                     maxLength={1000}

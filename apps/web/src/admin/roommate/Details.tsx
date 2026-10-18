@@ -1,3 +1,4 @@
+import { RequiredMark } from "../../components/RequiredMark";
 import { useState } from "react";
 import { ShieldAlert, History as HistoryIcon } from "lucide-react";
 import { Dialog } from "../../components/Dialog";
@@ -47,7 +48,7 @@ function Restriction({
       </p>
       <strong>{profile.display_name || profile.profile_id}</strong>
       <label>
-        {rt("Lý do xử lý", "Review reason")}
+        <span className="field-label">{rt("Lý do xử lý", "Review reason")}<RequiredMark /></span>
         <textarea
           value={reason}
           maxLength={1000}

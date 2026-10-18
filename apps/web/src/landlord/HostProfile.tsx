@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import { useState, type FormEvent } from "react";
 import {
   BadgeCheck,
@@ -217,7 +218,7 @@ export function HostProfileForm({
           })}
         </fieldset>
         <label>
-          {t("Tên hiển thị với người thuê")}
+          <span className="field-label">{t("Tên hiển thị với người thuê")}<RequiredMark /></span>
           <input
             name="display_name"
             required
@@ -227,7 +228,7 @@ export function HostProfileForm({
           />
         </label>
         <label>
-          {t("Họ tên đầy đủ")}
+          <span className="field-label">{t("Họ tên đầy đủ")}<RequiredMark /></span>
           <input
             name="legal_name"
             required
@@ -237,7 +238,7 @@ export function HostProfileForm({
           />
         </label>
         <label>
-          {t("Số điện thoại để ReloHome xác minh")}
+          <span className="field-label">{t("Số điện thoại để ReloHome xác minh")}<RequiredMark /></span>
           <input
             name="phone"
             required
@@ -261,7 +262,7 @@ export function HostProfileForm({
         {type === "business" && (
           <>
             <label>
-              {t("Tên doanh nghiệp hoặc hộ kinh doanh")}
+              <span className="field-label">{t("Tên doanh nghiệp hoặc hộ kinh doanh")}<RequiredMark /></span>
               <input
                 name="business_name"
                 required
@@ -283,9 +284,9 @@ export function HostProfileForm({
         {page.terms_version && (
           <label className="wide checkbox ll-terms">
             <input type="checkbox" name="accept_terms" required />
-            {formatUi("Tôi đồng ý Điều khoản người đăng (phiên bản {0})", [
+            <span className="field-label">{formatUi("Tôi đồng ý Điều khoản người đăng (phiên bản {0})", [
               page.terms_version,
-            ])}
+            ])}<RequiredMark /></span>
           </label>
         )}
         <p className="ll-form-hint wide">

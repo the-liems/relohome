@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, CalendarDays, Plane, ShieldCheck } from "lucide-react";
 import { t as uiText } from "../uiPreferences";
@@ -144,7 +145,7 @@ export function FlightSearchForm({
             <span>
               <CalendarDays size={15} aria-hidden="true" />
               {uiText("Ngày bay")}
-            </span>
+            <RequiredMark /></span>
             <input
               id={id + "date"}
               name="date"
@@ -157,7 +158,7 @@ export function FlightSearchForm({
           </label>
           {draft.trip === "round_trip" && (
             <label htmlFor={id + "return"}>
-              {uiText("Ngày về")}
+              <span className="field-label">{uiText("Ngày về")}<RequiredMark /></span>
               <input
                 id={id + "return"}
                 type="date"
@@ -169,11 +170,12 @@ export function FlightSearchForm({
             </label>
           )}
           <label htmlFor={id + "adults"}>
-            <span id={id + "adult-label"}>{uiText("Người lớn")}</span>
+            <span id={id + "adult-label"}>{uiText("Người lớn")}<RequiredMark /></span>
             <select
               id={id + "adults"}
               aria-labelledby={id + "adult-label"}
               name="adults"
+              aria-required="true"
               value={draft.adults}
               onChange={(e) => update("adults", e.target.value)}
             >

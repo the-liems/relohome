@@ -13,7 +13,7 @@ Source relocation #113: React is here; the [gateway](../browser-gateway/README.m
 Tên sản phẩm hiện tại là **ReloHome** (đổi ngày 07/10/2026): đồng nhất trên
 trang giới thiệu, đăng nhập, header, chat, dịch vụ, tài khoản, nhãn VI/EN và
 tiêu đề tab trình duyệt. Từ 08/10, biểu tượng robot đã được bỏ khỏi
-landing, đăng nhập, chat và favicon; liên kết chat dùng chữ `RH`, favicon là nhà.
+landing, đăng nhập, chat và favicon; liên kết chat dùng chữ `ReloHome`, favicon là nhà.
 Tên cấu hình `SIU_*`, header API, khóa lưu nháp/tùy chọn và đường dẫn asset
 giữ nguyên để tương thích hệ thống và dữ liệu đã lưu.
 

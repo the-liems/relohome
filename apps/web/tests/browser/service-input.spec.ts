@@ -233,6 +233,112 @@ async function fixture(page: Page, pending = false, withMoving = false) {
   };
 }
 
+test("persistent compact header and simplified housing form work across themes and viewports", async ({ page }, info) => {
+  await fixture(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/ai");
+  for (const theme of ["light", "dark"]) {
+    const current = await page.locator("html").getAttribute("data-theme");
+    if (current !== theme) await page.locator(".theme-switch").click();
+    for (const width of [320, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.mouse.move(width / 2, 500);
+      await page.locator(".composer textarea").blur();
+      const header = page.locator(".chat-header");
+      await expect(header).toBeVisible();
+      expect(await header.evaluate(el => getComputedStyle(el).transform)).toBe("none");
+      await expect(page.locator(".chat-home-link")).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Về chat", exact: true })).toHaveText("ReloHome");
+      const headerBox = (await header.boundingBox())!;
+      const welcomeBox = (await page.locator(".welcome").boundingBox())!;
+      expect(headerBox.height).toBeLessThanOrEqual(width < 768 ? 104 : 72);
+      expect(welcomeBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1);
+      await page.getByRole("button", { name: /Tìm nhà Một nơi/ }).click();
+      const dialog = page.getByRole("dialog");
+      expect(await dialog.locator('.form-grid').first().locator('input,select').evaluateAll(nodes => nodes.map(node => node.getAttribute('name'))))
+        .toEqual(["city", "district", "min", "max"]);
+      const optional = dialog.getByRole("region", { name: "Tiêu chí chi tiết · không bắt buộc" });
+      await expect(optional.getByLabel("Loại nhà")).toBeVisible();
+      await expect(optional.getByLabel("Gần địa điểm")).toBeVisible();
+      await expect(optional.locator('input,select')).toHaveCount(2);
+      await expect(dialog.locator('details')).toHaveCount(0);
+      await expect(dialog.locator('.required-mark')).toHaveCount(1);
+      expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      const violations = (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations;
+      expect(violations.map(v => ({ id:v.id,targets:v.nodes.map(n=>n.target) }))).toEqual([]);
+      await page.screenshot({ path:info.outputPath(`housing-${theme}-${width}.png`) });
+      await page.keyboard.press("Escape");
+    }
+  }
+});
+
+test("required marks match native required fields in flight and route forms", async ({ page }) => {
+  await fixture(page);
+  await page.goto("/ai");
+  for (const service of [/Tìm chuyến bay Sẵn sàng/, /Đường đi Khoảng cách/]) {
+    await page.getByRole("button", { name:service }).click();
+    const dialog = page.getByRole("dialog");
+    if (service.source.startsWith("Tìm")) await dialog.getByLabel("Khứ hồi", { exact:true }).check();
+    const missing = await dialog.locator('input:required,select:required,textarea:required,[aria-required="true"]').evaluateAll(nodes =>
+      nodes.filter(node => !node.closest('label')?.querySelector('.required-mark')).map(node => node.getAttribute('name') || node.id));
+    expect(missing).toEqual([]);
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("housing form validates the range and submits only the explicit visible criteria", async ({ page }) => {
+  const { turns } = await fixture(page);
+  await page.goto("/ai");
+  await page.getByRole("button", { name:/Tìm nhà Một nơi/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Thành phố", { exact:true }).selectOption("Thành phố Hồ Chí Minh");
+  await dialog.getByLabel("Quận / khu vực", { exact:true }).fill("Bình Thạnh");
+  await dialog.getByLabel("Giá từ · VND/tháng", { exact:true }).fill("6000000");
+  await dialog.getByLabel("Đến · VND/tháng", { exact:true }).fill("5000000");
+  await dialog.getByRole("button", { name:"Áp dụng", exact:true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Giá tối thiểu phải nhỏ hơn hoặc bằng giá tối đa.");
+  expect(turns).toHaveLength(0);
+  await dialog.getByLabel("Giá từ · VND/tháng", { exact:true }).fill("3000000");
+  await dialog.getByLabel("Loại nhà", { exact:true }).selectOption("phòng trọ");
+  await dialog.getByLabel("Gần địa điểm", { exact:true }).fill("Đại học HUTECH");
+  await dialog.getByRole("button", { name:"Áp dụng", exact:true }).click();
+  await expect.poll(() => turns.length).toBe(1);
+  expect(turns[0].message).toBe("Tìm phòng trọ tại Bình Thạnh, Thành phố Hồ Chí Minh, gần Đại học HUTECH, giá từ 3000000 đồng/tháng, không quá 5000000 đồng/tháng.");
+  expect(Object.keys(turns[0]).sort()).toEqual(["message", "request_id"]);
+});
+
+test("animated composer hint never becomes a draft or submits a message", async ({ page }) => {
+  const { turns } = await fixture(page);
+  await page.clock.install();
+  await page.emulateMedia({ reducedMotion:"no-preference" });
+  await page.goto("/ai");
+  const input = page.getByRole("textbox", { name:"Tin nhắn cho ReloHome" });
+  await page.clock.runFor(1400);
+  const partial = await input.getAttribute("placeholder");
+  expect(partial).toContain("Tôi muốn");
+  await page.clock.runFor(5000);
+  await expect(input).toHaveAttribute("placeholder", "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
+  await expect(input).toHaveValue("");
+  await expect(page.getByRole("button", { name:"Gửi tin nhắn", exact:true })).toBeDisabled();
+  expect(turns).toHaveLength(0);
+  await input.fill("Nội dung của tôi");
+  await page.clock.runFor(5000);
+  await expect(input).toHaveValue("Nội dung của tôi");
+  await input.press("Shift+Enter");
+  expect(turns).toHaveLength(0);
+  await expect(input).toHaveValue("Nội dung của tôi\n");
+});
+
+test("composer hint respects reduced motion and follows the selected language", async ({ page }) => {
+  await fixture(page);
+  await page.emulateMedia({ reducedMotion:"reduce" });
+  await page.goto("/ai");
+  const input = page.getByRole("textbox", { name:"Tin nhắn cho ReloHome" });
+  await expect(input).toHaveAttribute("placeholder", "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
+  await page.getByRole("button", { name:"EN", exact:true }).click();
+  await expect(page.locator(".composer textarea")).toHaveAttribute("placeholder", /I am looking for a home in Binh Thanh/);
+});
+
 test("a pending Moving task never steals Flight input; choosing a flight offers an explicit next step", async ({
   page,
 }) => {
@@ -805,7 +911,7 @@ test("new housing form reads the serialized current goal, not historical budget 
   const panel = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ" });
   await expect(panel.getByLabel("Thành phố", { exact: true })).toHaveValue("Thành phố Hồ Chí Minh");
   await expect(panel.locator('input[name="max"]')).toHaveValue("");
-  await expect(panel.locator('input[name="amenities"]')).toHaveValue("");
+  await expect(panel.locator('input[name="amenities"]')).toHaveCount(0);
   expect(turns).toHaveLength(0);
 });
 

@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -148,7 +149,7 @@ export function TravelerProfileForm() {
             </select>
           </label>
           <label>
-            {uiText("Họ")}
+            <span className="field-label">{uiText("Họ")}<RequiredMark /></span>
             <input
               name="last_name"
               required
@@ -158,7 +159,7 @@ export function TravelerProfileForm() {
             />
           </label>
           <label>
-            {uiText("Tên đệm và tên")}
+            <span className="field-label">{uiText("Tên đệm và tên")}<RequiredMark /></span>
             <input
               name="first_name"
               required
@@ -168,7 +169,7 @@ export function TravelerProfileForm() {
             />
           </label>
           <label>
-            {uiText("Ngày sinh")}
+            <span className="field-label">{uiText("Ngày sinh")}<RequiredMark /></span>
             <input
               name="date_of_birth"
               type="date"
@@ -178,7 +179,7 @@ export function TravelerProfileForm() {
             />
           </label>
           <label>
-            {uiText("Email nhận vé")}
+            <span className="field-label">{uiText("Email nhận vé")}<RequiredMark /></span>
             <input
               name="email"
               type="email"
@@ -188,7 +189,7 @@ export function TravelerProfileForm() {
             />
           </label>
           <label>
-            {uiText("Số điện thoại")}
+            <span className="field-label">{uiText("Số điện thoại")}<RequiredMark /></span>
             <input
               name="phone"
               required
@@ -937,7 +938,7 @@ function HousingSteps({
         >
           <div className="form-grid">
             <label>
-              {uiText("Số tiền đã trả (VND)")}
+              <span className="field-label">{uiText("Số tiền đã trả (VND)")}<RequiredMark /></span>
               <input
                 name="amount_vnd"
                 type="number"
@@ -950,7 +951,7 @@ function HousingSteps({
               />
             </label>
             <label>
-              {uiText("Ngày trả")}
+              <span className="field-label">{uiText("Ngày trả")}<RequiredMark /></span>
               <input
                 name="paid_on"
                 type="date"

@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
 import { ShieldCheck, ArrowRight, MapPin, Copy, House, Compass } from "lucide-react";
@@ -6,7 +7,6 @@ import type { Data } from "../types";
 import { Dialog } from "./Dialog";
 import { MovingSteps, MovingQuoteSummary } from "./MovingOptionsForm";
 import { FlightSearchForm } from "./FlightSearchForm";
-import { amenities as amenityNames } from "./Housing";
 
 const cities = ["Hà Nội", "Đà Nẵng", "Thành phố Hồ Chí Minh"];
 export function TaskForm({
@@ -53,7 +53,7 @@ export function TaskForm({
         setError("Giá tối thiểu phải nhỏ hơn hoặc bằng giá tối đa.");
         return;
       }
-      text = `${embedded ? "Bổ sung cho yêu cầu tìm nhà hiện tại: " : "Tìm "}${f.type || "nhà cho thuê"} tại ${f.district ? f.district + ", " : ""}${f.city}${f.near ? ", gần " + f.near : ""}${f.min ? ", giá từ " + f.min + " đồng/tháng" : ""}${f.max ? ", không quá " + f.max + " đồng/tháng" : ""}${f.bedrooms ? ", có đúng " + f.bedrooms + " phòng ngủ" : ""}${f.area ? ", diện tích ít nhất " + f.area + " m²" : ""}${f.amenities ? ", cần " + f.amenities : ""}.`;
+      text = `${embedded ? "Bổ sung cho yêu cầu tìm nhà hiện tại: " : "Tìm "}${f.type || "nhà cho thuê"} tại ${f.district ? f.district + ", " : ""}${f.city}${f.near ? ", gần " + f.near : ""}${f.min ? ", giá từ " + f.min + " đồng/tháng" : ""}${f.max ? ", không quá " + f.max + " đồng/tháng" : ""}.`;
     }
     if (kind === "map") {
       text = `${embedded ? "Bổ sung cho yêu cầu đường đi hiện tại: " : "Tính đường "}${f.profile} từ ${f.from} đến ${f.to} tại ${f.city}.`;
@@ -70,19 +70,14 @@ export function TaskForm({
   }
   const content = (
       <form onSubmit={submit} className="task-form service-request" data-service={kind} aria-label={uiText(title[kind])} aria-busy={busy}>
-        <div className="request-intro"><span className="request-symbol" aria-hidden="true">{kind === "property" ? <House size={24} /> : <Compass size={24} />}</span><div><h3>{uiText(title[kind])}</h3><p>{uiText("Điền một lần, ReloHome sẽ xử lý yêu cầu và mở kết quả để bạn lựa chọn.")}</p></div></div>
+        <div className="request-intro"><span className="request-symbol" aria-hidden="true">{kind === "property" ? <House size={24} /> : <Compass size={24} />}</span><div>{embedded && <h3>{uiText(title[kind])}</h3>}<p>{uiText("Điền một lần, ReloHome sẽ xử lý yêu cầu và mở kết quả để bạn lựa chọn.")}</p></div></div>
         <fieldset className="request-fields" disabled={busy || disabled}>
           <legend className="sr-only">{uiText("Thông tin dịch vụ")}</legend>
         {kind === "property" && (
           <>
-            <p className="muted">
-              {uiText(
-                "Điền những tiêu chí bạn cần. Bạn cũng có thể nhắn trực tiếp cho ReloHome.",
-              )}
-            </p>
             <div className="form-grid">
               <label>
-                {uiText("Thành phố")}
+                <span className="field-label">{uiText("Thành phố")}<RequiredMark /></span>
                 <select name="city" defaultValue={city} aria-label={uiText("Thành phố")} required>
                   <option value="">{uiText("Chọn thành phố")}</option>
                   {city && !cities.includes(city) && <option>{city}</option>}
@@ -96,8 +91,8 @@ export function TaskForm({
                 <input name="district" defaultValue={known.district || ""} placeholder={uiText("Ví dụ: Quận 7")} />
               </label>
               <label>
-                {uiText("Gần địa điểm")}
-                <input name="near" defaultValue={known.near || ""} placeholder={uiText("Trường học, công ty hoặc địa chỉ")} />
+                {uiText("Giá từ · VND/tháng")}
+                <input name="min" defaultValue={known.min_price_vnd ?? known.min_price?.amount ?? ""} type="number" min="0" step="100000" placeholder={uiText("Không giới hạn")} />
               </label>
               <label>
                 {uiText("Đến · VND/tháng")}
@@ -111,16 +106,12 @@ export function TaskForm({
                 />
               </label>
             </div>
-            <details className="request-extra" open={questions.some(q => ["room_type", "must_have", "min_price_vnd"].includes(String(q.field).split(".").at(-1)!)) || undefined}>
-              <summary>{uiText("Tiêu chí chi tiết · loại nhà, diện tích và tiện nghi")}</summary>
+            <section className="request-extra housing-optional" aria-label={uiText("Tiêu chí chi tiết · không bắt buộc")}>
+              <h4>{uiText("Tiêu chí chi tiết")} <span>{uiText("Không bắt buộc")}</span></h4>
               <div className="form-grid">
               <label>
-                {uiText("Giá từ · VND/tháng")}
-                <input name="min" defaultValue={known.min_price_vnd ?? known.min_price?.amount ?? ""} type="number" min="0" step="100000" placeholder={uiText("Không giới hạn")} />
-              </label>
-              <label>
                 {uiText("Loại nhà")}
-                <select name="type" defaultValue={({ room: "phòng trọ", apartment: "căn hộ", house: "nhà nguyên căn", studio: "studio" } as Record<string, string>)[known.room_type] || known.room_type || "nhà cho thuê"}>
+                <select name="type" aria-label={uiText("Loại nhà")} defaultValue={({ room: "phòng trọ", apartment: "căn hộ", house: "nhà nguyên căn", studio: "studio" } as Record<string, string>)[known.room_type] || known.room_type || "nhà cho thuê"}>
                   <option value="nhà cho thuê">{uiText("nhà cho thuê")}</option>
                   <option value="căn hộ">{uiText("căn hộ")}</option>
                   <option value="phòng trọ">{uiText("phòng trọ")}</option>
@@ -131,36 +122,11 @@ export function TaskForm({
                 </select>
               </label>
               <label>
-                {uiText("Số phòng ngủ chính xác")}
-                <input
-                  name="bedrooms"
-                  defaultValue={known.min_bedrooms != null && known.min_bedrooms === known.max_bedrooms ? known.min_bedrooms : ""}
-                  type="number"
-                  min="0"
-                  max="20"
-                  placeholder={uiText("Không yêu cầu")}
-                />
-              </label>
-              <label>
-                {uiText("Diện tích tối thiểu · m²")}
-                <input
-                  name="area"
-                  defaultValue={known.min_area_m2 ?? ""}
-                  type="number"
-                  min="0"
-                  placeholder={uiText("Không yêu cầu")}
-                />
-              </label>
-              <label>
-                {uiText("Tiện nghi cần có")}
-                <input
-                  name="amenities"
-                  defaultValue={Array.isArray(known.must_have || known.amenities) ? (known.must_have || known.amenities).map((a: string) => amenityNames[a] || a).join(", ") : ""}
-                  placeholder={uiText("Ví dụ: chỗ để xe, điều hòa")}
-                />
+                {uiText("Gần địa điểm")}
+                <input name="near" defaultValue={known.near || ""} placeholder={uiText("Trường học, công ty hoặc địa chỉ")} />
               </label>
             </div>
-            </details>
+            </section>
           </>
         )}
         {kind === "map" && <MapFields known={known} city={city} />}
@@ -188,7 +154,7 @@ function MapFields({ known, city }: { known: Data; city: string }) {
   return (
     <div className="form-grid">
       <label>
-        {uiText("Điểm đi")}
+        <span className="field-label">{uiText("Điểm đi")}<RequiredMark /></span>
         <input
           name="from"
           defaultValue={known.route_from && !String(known.route_from).startsWith("selected:") ? known.route_from : ""}
@@ -197,11 +163,11 @@ function MapFields({ known, city }: { known: Data; city: string }) {
         />
       </label>
       <label>
-        {uiText("Điểm đến")}
+        <span className="field-label">{uiText("Điểm đến")}<RequiredMark /></span>
         <input name="to" defaultValue={known.route_to && !String(known.route_to).startsWith("selected:") ? known.route_to : ""} placeholder={uiText("Nơi bạn muốn tới")} required />
       </label>
       <label>
-        {uiText("Thành phố")}
+        <span className="field-label">{uiText("Thành phố")}<RequiredMark /></span>
         <select name="city" defaultValue={city} aria-label={uiText("Thành phố")} required>
           <option value="">{uiText("Chọn thành phố")}</option>
           {city && !cities.includes(city) && <option>{city}</option>}
@@ -211,8 +177,8 @@ function MapFields({ known, city }: { known: Data; city: string }) {
         </select>
       </label>
       <label>
-        {uiText("Phương tiện")}
-        <select name="profile" defaultValue={({ walking: "đi bộ", motorcycle: "xe máy", driving: "ô tô" } as Record<string, string>)[known.route_profile] || "xe máy"}>
+        <span className="field-label">{uiText("Phương tiện")}<RequiredMark /></span>
+        <select name="profile" aria-required="true" defaultValue={({ walking: "đi bộ", motorcycle: "xe máy", driving: "ô tô" } as Record<string, string>)[known.route_profile] || "xe máy"}>
           <option value="đi bộ">{uiText("đi bộ")}</option>
           <option value="xe máy">{uiText("xe máy")}</option>
           <option value="ô tô">{uiText("ô tô")}</option>
@@ -420,7 +386,7 @@ export function Approval({
                 )}
                 <div className="form-grid">
                   <label>
-                    {uiText("Họ tên")}
+                    <span className="field-label">{uiText("Họ tên")}<RequiredMark required={field !== "order_update"} /></span>
                     <input
                       name={id + "|" + field + "|name"}
                       required={field !== "order_update"}
@@ -429,7 +395,7 @@ export function Approval({
                     />
                   </label>
                   <label>
-                    {uiText("Số điện thoại")}
+                    <span className="field-label">{uiText("Số điện thoại")}<RequiredMark required={field !== "order_update"} /></span>
                     <input
                       name={id + "|" + field + "|mobile"}
                       required={field !== "order_update"}
@@ -491,7 +457,7 @@ export function Approval({
         </p>
         <label className="checkbox">
           <input type="checkbox" required />
-          {uiText("Tôi đồng ý với toàn bộ thao tác và chi phí ở trên.")}
+          <span className="field-label">{uiText("Tôi đồng ý với toàn bộ thao tác và chi phí ở trên.")}<RequiredMark /></span>
         </label>
         {error && (
           <p className="notice error" role="alert">
@@ -542,7 +508,7 @@ export function Approval({
           }}
         >
           <label>
-            {uiText("Bạn muốn thay đổi điều gì?")}
+            <span className="field-label">{uiText("Bạn muốn thay đổi điều gì?")}<RequiredMark /></span>
             <input
               name="change"
               required

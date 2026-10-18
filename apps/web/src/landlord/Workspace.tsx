@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import {
   useCallback,
   useEffect,
@@ -642,7 +643,7 @@ function PropertyForm({
       )}
       <form className="ll-form" onSubmit={submit}>
         <label className="wide">
-          {t("Tên dễ nhận biết")}
+          <span className="field-label">{t("Tên dễ nhận biết")}<RequiredMark /></span>
           <input
             name="name"
             required
@@ -1420,11 +1421,11 @@ function ListingForm({
           </div>
           {bathroomType && (
             <label className="ll-bathroom-count">
-              {t(
+              <span className="field-label">{t(
                 bathroomType === "shared"
                   ? "Số phòng vệ sinh chung"
                   : "Số phòng vệ sinh khép kín",
-              )}
+              )}<RequiredMark /></span>
               <input
                 name="bathrooms"
                 required
@@ -2116,7 +2117,7 @@ function InboxPanel({
             }}
           >
             <label>
-              {t("Lý do / thông tin cần kiểm tra")}
+              <span className="field-label">{t("Lý do / thông tin cần kiểm tra")}<RequiredMark /></span>
               <textarea
                 required
                 maxLength={1000}
