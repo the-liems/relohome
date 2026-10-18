@@ -313,24 +313,24 @@ test("composer hints type, erase and loop until interaction without becoming a d
   await page.emulateMedia({ reducedMotion:"no-preference" });
   await page.goto("/ai");
   const input = page.getByRole("textbox", { name:"Tin nhắn cho ReloHome" });
-  await page.clock.runFor(1400);
-  const partial = await input.getAttribute("placeholder");
-  expect(partial).toContain("Tôi muốn");
+  await expect(input).toBeVisible();
   const home = "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu";
   const moving = "Tôi muốn chuyển đồ từ Bình Thạnh đến Gò Vấp";
-  const advanceToHint = async (text: string) => {
-    for (let i = 0; i < 160; i++) {
-      if (await input.getAttribute("placeholder") === text) return;
+  // React may mount/restart the effect after navigation or session loading.
+  // Advance the fake clock until the rendered state matches, not a timestamp.
+  const advanceUntilHint = async (description: string, matches: (hint: string) => boolean) => {
+    await expect.poll(async () => {
       await page.clock.runFor(100);
-    }
-    await expect(input).toHaveAttribute("placeholder", text);
+      return matches((await input.getAttribute("placeholder")) ?? "");
+    }, { message: description, intervals: [0], timeout: 15000 }).toBe(true);
   };
-  await advanceToHint(home);
-  await page.clock.runFor(2500);
-  const erasing = (await input.getAttribute("placeholder"))!;
-  expect(home.startsWith(erasing) && erasing.length < home.length).toBe(true);
-  await advanceToHint(moving);
-  await advanceToHint(home);
+  await advanceUntilHint("the housing hint is partially typed", hint =>
+    hint.startsWith("Tôi muốn") && home.startsWith(hint) && hint.length < home.length);
+  await advanceUntilHint("the housing hint is complete", hint => hint === home);
+  await advanceUntilHint("the housing hint starts erasing", hint =>
+    hint.length > 0 && hint.length < home.length && home.startsWith(hint));
+  await advanceUntilHint("the moving hint is complete", hint => hint === moving);
+  await advanceUntilHint("the housing hint loops back", hint => hint === home);
   await expect(input).toHaveValue("");
   await expect(page.getByRole("button", { name:"Gửi tin nhắn", exact:true })).toBeDisabled();
   expect(turns).toHaveLength(0);
