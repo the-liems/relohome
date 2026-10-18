@@ -141,7 +141,13 @@ async function fixture(
   await page.route("**/web/api/**", async (route) => {
     const request = route.request(),
       path = new URL(request.url()).pathname.replace("/web/api", "");
-    if (request.method() !== "GET") {
+    // These viewport/search endpoints read data via POST; all actual writes stay blocked.
+    const searchRead = request.method() === "POST" && [
+      "/platform/housing/map",
+      "/platform/housing/search",
+      "/platform/places/map",
+    ].includes(path);
+    if (request.method() !== "GET" && !searchRead) {
       writes.push(path);
       return route.fulfill({
         status: 409,
