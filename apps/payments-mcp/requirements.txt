@@ -1,6 +1,6 @@
 # Dependency tối thiểu của image payment MCP server (Dockerfile cùng thư mục).
 # Không kéo LangChain/FastAPI như requirements.txt gốc để image nhỏ và build nhanh.
-mcp[cli]>=2.3,<3
+mcp>=2.3,<3
 pydantic>=2.10.0
 pydantic-settings>=2.7.0
 httpx>=0.28.0
