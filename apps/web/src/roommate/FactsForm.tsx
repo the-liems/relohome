@@ -64,20 +64,24 @@ export function AreaFields({
 export function TraitsForm({
   value,
   change,
+  includeGender = true,
 }: {
   value: Traits;
   change: (value: Traits) => void;
+  includeGender?: boolean;
 }) {
   const set = (key: keyof Traits, next: unknown) =>
     change({ ...value, [key]: next });
   return (
     <div className="rm-fields">
-      <SelectField
-        label={rt("Giới tính của bạn", "Your gender")}
-        choices={options("gender")}
-        value={value.gender}
-        change={(v) => set("gender", v || null)}
-      />
+      {includeGender && (
+        <SelectField
+          label={rt("Giới tính của bạn", "Your gender")}
+          choices={options("gender")}
+          value={value.gender}
+          change={(v) => set("gender", v || null)}
+        />
+      )}
       <SelectField
         label={rt("Bạn hút thuốc thế nào?", "Your smoking habit")}
         choices={options("smoking")}

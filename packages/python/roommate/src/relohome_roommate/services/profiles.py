@@ -30,6 +30,7 @@ def validate_complete(content: RoommateProfile) -> None:
     if (
         not content.display_name
         or not content.introduction
+        or facts.self_traits.gender is None
         or not facts.city
         or not facts.area_ids
         or not facts.budget

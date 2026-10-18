@@ -1,3 +1,5 @@
+import type { OwnProfile } from "./types";
+
 export type ChatConversation = {
   id: string;
   request_id: string;
@@ -14,6 +16,7 @@ export type ChatMessage = {
 };
 export type ChatPage = ChatConversation & {
   viewer_id: string;
+  own_profile?: Pick<OwnProfile, "state" | "version"> | null;
   counterparty_read_message_id?: string | null;
   items: ChatMessage[];
   has_more: boolean;

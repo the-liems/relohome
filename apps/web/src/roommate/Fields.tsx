@@ -9,12 +9,14 @@ export function SelectField({
   choices,
   change,
   required = false,
+  placeholder,
 }: {
   label: string;
   value?: string | null;
   choices: [string, string][];
   change: (value: string) => void;
   required?: boolean;
+  placeholder?: string;
 }) {
   const id = useId();
   return (
@@ -31,7 +33,8 @@ export function SelectField({
         required={required}
       >
         <option value="">
-          {rt("Chưa khai / không chọn", "Not provided / no preference")}
+          {placeholder ||
+            rt("Chưa khai / không chọn", "Not provided / no preference")}
         </option>
         {choices.map(([key, text]) => (
           <option key={key} value={key}>

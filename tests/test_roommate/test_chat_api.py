@@ -79,5 +79,23 @@ async def test_chat_api_without_contact_and_server_derived_membership(tmp_path):
             "chat_messages"
         ] == []
         assert (await client.get(root + "/me/privacy/chat-messages?limit=501", headers=headers("a"))).status_code == 422
+        own_status = (await client.get(conversation + "/messages", headers=headers("a"))).json()["own_profile"]
+        assert own_status == {"state": "active", "version": 2}
+        response = await client.post(
+            root + "/me/profile/actions",
+            json={"action": "resolve", "expected_version": own_status["version"]},
+            headers=headers("a"),
+        )
+        assert response.status_code == 200, response.text
+        assert (await client.get(root + "/me/profile", headers=headers("b"))).json()["state"] == "active"
+        chat = (await client.get(conversation + "/messages", headers=headers("a"))).json()
+        assert chat["own_profile"] == {"state": "resolved", "version": 3}
+        assert chat["state"] == "active" and len(chat["items"]) == 1
+        response = await client.post(
+            conversation + "/messages",
+            json={"body": "We can still chat", "client_message_id": "chat-after-resolve01"},
+            headers=headers("a"),
+        )
+        assert response.status_code == 200, response.text
         with runtime.context() as ctx:
             assert ctx.storage.connection.execute("SELECT COUNT(*) FROM contacts").fetchone()[0] == 0

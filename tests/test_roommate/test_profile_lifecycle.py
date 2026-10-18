@@ -21,6 +21,7 @@ def complete():
             "budget": {"max_vnd": 4000000, "fee_basis": "rent_only"},
             "need": {"kind": "looking_together"},
             "move_in": {"kind": "flexible"},
+            "self_traits": {"gender": "male"},
         },
     )
 
@@ -62,3 +63,28 @@ def test_private_intro_never_publishes_and_validation(tmp_path):
         draft = service.save(actor, RoommateProfile(display_name="Draft"), None)
         with pytest.raises(RoommateError, match="intro_incomplete"):
             service.transition(actor, "publish", draft.version, True)
+
+
+def test_gender_is_required_to_publish_but_incomplete_private_drafts_remain_valid(tmp_path):
+    with Storage(tmp_path / "gender.db") as db:
+        ctx = RoommateContext(db)
+        actor = Actor(id="a")
+        AccessService(ctx).accept(actor, True, TERMS_VERSION)
+        service = ProfileService(ctx)
+        payload = complete().model_dump(mode="json")
+        payload["facts"]["self_traits"]["gender"] = None
+        content = RoommateProfile.model_validate(payload)
+        service.save_intro(actor, content)
+        draft = service.save(actor, content, None)
+        with pytest.raises(RoommateError, match="intro_incomplete"):
+            service.transition(actor, "publish", draft.version, True)
+        assert ctx.profiles.get(actor.id).state.value == "draft"
+
+
+@pytest.mark.parametrize("gender", ["female", "male", "non_binary", "other"])
+def test_all_supported_genders_are_accepted_for_complete_profiles(gender):
+    from relohome_roommate.services.profiles import validate_complete
+
+    payload = complete().model_dump(mode="json")
+    payload["facts"]["self_traits"]["gender"] = gender
+    validate_complete(RoommateProfile.model_validate(payload))

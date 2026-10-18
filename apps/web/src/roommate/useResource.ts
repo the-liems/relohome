@@ -10,6 +10,12 @@ export function useResource<T>(path: string | null) {
     [revision, setRevision] = useState(0);
   const [loadedPath, setLoadedPath] = useState(path);
   useEffect(() => {
+    if (path !== "/me/profile") return;
+    const refresh = () => setRevision((n) => n + 1);
+    window.addEventListener("roommate-profile-update", refresh);
+    return () => window.removeEventListener("roommate-profile-update", refresh);
+  }, [path]);
+  useEffect(() => {
     if (!(error instanceof RoommateError) || error.status !== 401) return;
     const resume = () => setRevision((n) => n + 1);
     window.addEventListener(AUTH_RESTORED, resume);

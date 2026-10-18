@@ -35,6 +35,7 @@ export function MyProfile() {
         expected_version: own.value.version,
         reviewed,
       });
+      window.dispatchEvent(new Event("roommate-profile-update"));
       setAction(null);
       if (value === "delete") {
         setContent(emptyProfile());
@@ -69,6 +70,7 @@ export function MyProfile() {
         expected_version: saved.version,
         reviewed,
       });
+      window.dispatchEvent(new Event("roommate-profile-update"));
       setPreview(false);
       own.reload();
       setNotice(

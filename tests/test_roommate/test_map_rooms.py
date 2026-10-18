@@ -87,6 +87,13 @@ async def test_map_lifecycle_consent_blocks_expiry_and_minimal_disclosure(tmp_pa
         with runtime.context() as ctx:
             ProfileService(ctx).transition(owner, "resume", paused.version, True)
         assert len(await markers()) == 1
+        with runtime.context() as ctx:
+            current = ctx.profiles.get(owner.id)
+            resolved = ProfileService(ctx).transition(owner, "resolve", current.version)
+        assert await markers() == []
+        with runtime.context() as ctx:
+            ProfileService(ctx).transition(owner, "resume", resolved.version, True)
+        assert len(await markers()) == 1
         with runtime.context() as ctx, ctx.transaction():
             ctx.safety.moderate("mod", owner.id, True, "contract policy check", ctx.clock.now())
         assert await markers() == []

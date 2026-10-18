@@ -109,6 +109,50 @@ def test_chat_outlives_public_profile_and_contact_grant_deadlines(chat_context):
     assert chat.messages(Actor(id="a"), identifier)["items"][0]["body"] == "Still here"
 
 
+def test_resolving_own_profile_in_chat_hides_only_own_listing_and_preserves_messages(chat_context):
+    from relohome_roommate.models import RoommateSearchCriteria
+    from relohome_roommate.policy import TERMS_VERSION
+    from relohome_roommate.services.access import AccessService
+    from relohome_roommate.services.discovery import DiscoveryService
+    from relohome_roommate.services.profiles import ProfileService
+
+    ctx = chat_context
+    chat, _, identifier = connect(ctx)
+    a, b, viewer = Actor(id="a"), Actor(id="b"), Actor(id="viewer")
+    AccessService(ctx).accept(viewer, True, TERMS_VERSION)
+    criteria = RoommateSearchCriteria(city="hcm", self_facts=complete().facts)
+    original = ctx.profiles.get(a.id)
+    assert chat.messages(a, identifier)["own_profile"] == {"state": "active", "version": original.version}
+    ProfileService(ctx).transition(a, "resolve", original.version)
+    remaining = DiscoveryService(ctx).search(viewer, criteria)["items"]
+    assert [item["profile"]["profile_id"] for item in remaining] == [b.id]
+    assert chat.messages(a, identifier)["own_profile"]["state"] == "resolved"
+    assert chat.messages(b, identifier)["own_profile"]["state"] == "active"
+    chat.send(a, identifier, "Moving in tomorrow", "resolved-profile-message-01")
+    assert chat.messages(b, identifier)["items"][0]["body"] == "Moving in tomorrow"
+    ProfileService(ctx).transition(b, "resolve", ctx.profiles.get(b.id).version)
+    assert DiscoveryService(ctx).search(viewer, criteria)["items"] == []
+    assert chat.messages(a, identifier)["state"] == "active"
+    assert chat.messages(b, identifier)["state"] == "active"
+
+
+def test_stale_chat_resolution_cannot_remove_a_republished_profile(chat_context):
+    from relohome_roommate.profile_repository import VersionConflictError
+    from relohome_roommate.services.profiles import ProfileService
+
+    ctx = chat_context
+    chat, _, identifier = connect(ctx)
+    actor = Actor(id="a")
+    service = ProfileService(ctx)
+    reviewed_version = chat.messages(actor, identifier)["own_profile"]["version"]
+    resolved = service.transition(actor, "resolve", reviewed_version)
+    published = service.transition(actor, "resume", resolved.version, True)
+    with pytest.raises(VersionConflictError):
+        service.transition(actor, "resolve", reviewed_version)
+    assert ctx.profiles.get(actor.id).version == published.version
+    assert ctx.profiles.get(actor.id).state.value == "active"
+
+
 def test_counterparty_read_receipt_tracks_the_exact_message_and_never_moves_back(notification_context):
     chat, _, identifier = connect(notification_context)
     sender, recipient = Actor(id="a"), Actor(id="b")
