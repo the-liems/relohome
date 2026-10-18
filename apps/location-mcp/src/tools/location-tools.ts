@@ -14,7 +14,7 @@ export function registerLocationTools(server: McpServer, dependencies: ReloHomeM
     {
       title: 'Search administrative areas',
       description:
-        'Use only for administrative boundaries: province, municipality, district, county, city, commune or ward. Examples include Hà Nội, Gò Vấp and Phường Bến Thành. Search is accent-insensitive and returns canonical area IDs, parents, centers and bounding boxes for downstream filtering. Do not use for landmarks, universities, buildings, hotels, POIs or housing listings.',
+        'Use only for administrative boundaries: province, municipality, district, county, city, commune or ward. Examples include Hà Nội, Gò Vấp and Phường Bến Thành. Search is accent-insensitive and returns canonical area IDs, parents, centers and bounding boxes for downstream filtering. Pass within_area_id from an already resolved city to restrict candidates to its actual boundary before ranking and limit; bounding_box alone is only a rectangular filter. Do not use for landmarks, universities, buildings, hotels, POIs or housing listings.',
       inputSchema: SearchAreasRequestSchema,
       outputSchema: SearchAreasResponseSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },

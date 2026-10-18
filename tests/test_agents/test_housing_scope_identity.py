@@ -3,6 +3,7 @@
 import pytest
 from relohome_agent.agents.models import AgentName
 from relohome_agent.agents.subagents.conformance import sample_request
+from relohome_agent.agents.subagents.services.domain_tools import DomainToolSession
 from relohome_agent.agents.subagents.services.location import LocationSubagent, pick_named_area
 
 from tests.test_agents.test_service_subagents import FakeToolClient, listing
@@ -76,3 +77,53 @@ async def test_unavailable_legacy_district_keeps_text_filter_without_wrong_polyg
     scope = result.data["map_context"]["search_scope"]
     assert scope["boundary_unavailable"] is True
     assert scope["geometry"] is None and scope["area_id"] is None
+
+
+@pytest.mark.parametrize("prepare", [False, True])
+@pytest.mark.asyncio
+async def test_city_scope_is_sent_before_candidate_limit_in_adapter_and_domain_preparation(prepare):
+    city = {
+        "area_id": "hcm",
+        "name": "Thành phố Hồ Chí Minh",
+        "match_type": "exact",
+        "bounding_box": {"west": 105, "south": 8, "east": 109, "north": 12},
+    }
+    wrong = {
+        "area_id": "tay-ninh",
+        "name": "Xã Bình Thành",
+        "match_type": "contains",
+        "bounding_box": {"west": 106.1, "south": 10.7, "east": 106.2, "north": 10.8},
+    }
+    right = {
+        **wrong,
+        "area_id": "binh-thanh-hcm",
+        "name": "Phường Bình Thạnh",
+        "bounding_box": {"west": 106.7, "south": 10.8, "east": 106.71, "north": 10.82},
+    }
+
+    def areas(args):
+        if args["text"] == "Hồ Chí Minh":
+            return {"results": [city]}
+        # An unscoped top-five response omits the real HCM ward, matching the reported failure.
+        return {"results": [right] if args.get("within_area_id") == "hcm" else [wrong]}
+
+    client = FakeToolClient({"search_areas": areas, "search_housing": {"results": [listing(1, 4_000_000)]}})
+    req = sample_request(AgentName.PROPERTY, {"city": "hcm", "district": "Bình Thạnh"})
+    adapter = LocationSubagent(client, AgentName.PROPERTY)
+    if prepare:
+        session = DomainToolSession(req, adapter)
+        await session.prepare("search_areas", "district")
+        assert session.anchors["district"]["area_id"] == right["area_id"]
+    else:
+        result = await adapter.run(req)
+        assert result.data["search_request"]["administrative_area_ids"] == [right["area_id"]]
+    district_reads = [args for name, args in client.calls if name == "search_areas" and args["text"] == "Bình Thạnh"]
+    assert district_reads and all(args.get("within_area_id") == "hcm" for args in district_reads)
+
+
+def test_explicit_vietnamese_name_cannot_silently_select_a_different_accented_name():
+    wrong = {"area_id": "wrong", "name": "Xã Bình Thành", "match_type": "contains", "match_score": 0.9}
+    right = {**wrong, "area_id": "right", "name": "Phường Bình Thạnh"}
+    assert pick_named_area([wrong], "Bình Thạnh") is None
+    assert pick_named_area([wrong, right], "Bình Thạnh") == right
+    assert pick_named_area([wrong, right], "binh thanh") is None
