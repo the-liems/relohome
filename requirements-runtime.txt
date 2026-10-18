@@ -27,7 +27,7 @@ httpx>=0.28.0
 httpx2>=2.13,<3
 
 # MCP servers (apps/flights-mcp, apps/payments-mcp)
-mcp[cli]>=2.3,<3
+mcp>=2.3,<3
 
 # Giao diện demo (examples/streamlit/src/relohome_demos/flight_demo.py, examples/streamlit/src/relohome_demos/payment_demo.py)
 streamlit>=1.46

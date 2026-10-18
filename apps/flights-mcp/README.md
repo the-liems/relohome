@@ -98,10 +98,10 @@ Server có cấu hình riêng (`settings.py`, tiền tố `FLIGHT_`) và không 
 
 ```bash
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt    # đã có mcp[cli] và langchain[mcp]
+pip install -r requirements.txt    # đã có MCP SDK
 ```
 
-Dùng MCP SDK 2.x (`MCPServer`) và `langchain[mcp]==1.4.5` cho cầu nối LangChain.
+Dùng MCP SDK 2.x (`MCPServer`).
 
 ## Cấu hình (`.env`)
 
