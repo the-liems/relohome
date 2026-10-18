@@ -40,3 +40,4 @@
 - Backend sau cập nhật: 215 đạt, 10 bỏ qua (PostgreSQL riêng). Build Web và Ruff đạt.
 - Bộ browser sau cập nhật cuối: 94 đạt trên desktop/mobile, bao gồm kiểm tra chặn gửi khi giới tính trống, bổ sung giới tính cho bản giới thiệu cũ, accessibility tiếng Việt/Anh và chat hiện có.
 - Local đã build lại Web và restart backend; Roommate bật và gateway phục vụ đúng bundle mới. Không thay đổi env hoặc dữ liệu người dùng.
+- Sau rebase main `eedd7fc`: 215 test Roommate đạt (10 bỏ qua); 2 test khởi động fixture browser và gateway/session/API/SQLite thật đạt. Fixture browser cung cấp giới tính rõ ràng cho các nhân vật tổng hợp theo quy tắc bắt buộc mới.
