@@ -167,6 +167,11 @@ export function MapWorkspace({
   const [roommateEnabled, setRoommateEnabled] = useState(false);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [roomMapRetry, setRoomMapRetry] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRoomMapRetry((n) => n + 1);
+    window.addEventListener("roommate-profile-update", refresh);
+    return () => window.removeEventListener("roommate-profile-update", refresh);
+  }, []);
   const [roomMapError, setRoomMapError] = useState("");
   const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
   const [comparing, setComparing] = useState(false);

@@ -3,9 +3,10 @@ import type { Profile } from "./types";
 import { FactsForm, TraitsForm } from "./FactsForm";
 import { FormDisclosure } from "./FormDisclosure";
 import { PreferencesForm } from "./PreferencesForm";
-import { rt } from "./text";
-import { useEffect, useState } from "react";
+import { options, rt } from "./text";
+import { useEffect, useId, useState } from "react";
 import { RoomPicker } from "./RoomPicker";
+import { SelectField } from "./Fields";
 export function ProfileEditor({
   value,
   change,
@@ -15,6 +16,7 @@ export function ProfileEditor({
   change: (value: Profile) => void;
   complete?: boolean;
 }) {
+  const introId = useId();
   const [roomId, setRoomId] = useState(value.room?.listing_id || "");
   useEffect(() => {
     if (value.room) setRoomId(value.room.listing_id);
@@ -23,8 +25,9 @@ export function ProfileEditor({
     setRoomId(value.room?.listing_id || "");
   }, [value.facts.city, value.facts.need?.kind]);
   const additionalCount =
-    Object.values(value.facts.self_traits).filter((item) => item != null)
-      .length +
+    Object.entries(value.facts.self_traits).filter(
+      ([key, item]) => key !== "gender" && item != null,
+    ).length +
     Object.values(value.preferences).filter(Boolean).length +
     Number(Boolean(value.room));
   return (
@@ -47,12 +50,33 @@ export function ProfileEditor({
               }
             />
           </label>
-          <label>
-            <span className="field-label">
+          <SelectField
+            label={rt("Giới tính của bạn", "Your gender")}
+            choices={options("gender")}
+            value={value.facts.self_traits.gender}
+            required={complete}
+            placeholder={rt("Chọn giới tính", "Select your gender")}
+            change={(gender) =>
+              change({
+                ...value,
+                facts: {
+                  ...value.facts,
+                  self_traits: {
+                    ...value.facts.self_traits,
+                    gender: gender || null,
+                  },
+                },
+              })
+            }
+          />
+          <label className="rm-intro-description">
+            <span className="field-label" id={introId + "-label"}>
               {rt("Giới thiệu ngắn", "Short introduction")}
               <RequiredMark required={complete} />
             </span>
             <textarea
+              aria-labelledby={introId + "-label"}
+              aria-describedby={introId + "-hint"}
               required={complete}
               rows={2}
               maxLength={1000}
@@ -61,7 +85,7 @@ export function ProfileEditor({
                 change({ ...value, introduction: e.target.value || null })
               }
             />
-            <small>
+            <small id={introId + "-hint"}>
               {rt(
                 "Nói về nhu cầu ở cùng. Không ghi điện thoại, email hay link liên hệ ở đây.",
                 "Describe your roommate needs. Do not include phone numbers, email or contact links here.",
@@ -105,6 +129,7 @@ export function ProfileEditor({
       >
         <FormDisclosure title={rt("Thói quen của bạn", "Your lifestyle")}>
           <TraitsForm
+            includeGender={false}
             value={value.facts.self_traits}
             change={(self_traits) =>
               change({

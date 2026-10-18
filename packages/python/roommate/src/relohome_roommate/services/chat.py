@@ -222,6 +222,7 @@ class ChatService:
         reconcile_if_due(self.ctx)
         with self.ctx.read_transaction():
             row = self._authorized(actor, identifier)
+            own_profile = self.ctx.profiles.get(actor.id)
             parameters = [identifier]
             where = "conversation=?"
             if before:
@@ -243,6 +244,9 @@ class ChatService:
             return {
                 **self._summary(actor, row),
                 "viewer_id": actor.id,
+                "own_profile": {"state": own_profile.state.value, "version": own_profile.version}
+                if own_profile
+                else None,
                 # This is the exact read cursor, not an inferred presence/online indicator.
                 "counterparty_read_message_id": receipt[0] if receipt else None,
                 "retention_days": self.ctx.chat_retention_days,

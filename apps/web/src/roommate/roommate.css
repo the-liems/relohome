@@ -534,6 +534,21 @@
   border-top: 1px solid var(--ui-line);
   margin-top: 12px;
 }
+.rm-chat-resolve {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--ui-line);
+}
+.rm-chat-resolve small {
+  color: var(--ui-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.rm-chat-resolve button {
+  min-height: 44px;
+  white-space: normal;
+}
 .rm-disclosure summary {
   padding: 12px 0;
   cursor: pointer;
@@ -589,8 +604,14 @@
   font-weight: 600;
 }
 .rm-profile-editor .rm-intro-fields {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+}
+.rm-profile-editor .rm-intro-description {
+  grid-column: 1 / -1;
+}
+.rm-profile-editor .rm-intro-description textarea {
+  min-height: 96px;
 }
 .rm-profile-editor .rm-fields,
 .rm-filter-panel .rm-fields {

@@ -6,7 +6,10 @@ import {
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import { MessageComposer, MessageReadReceipt } from "../components/MessageComposer";
+import {
+  MessageComposer,
+  MessageReadReceipt,
+} from "../components/MessageComposer";
 import { dateTime } from "../api";
 import { RoommateError } from "./client";
 import { useRoommateClient } from "./useRoommateClient";
@@ -14,6 +17,7 @@ import { ErrorNotice } from "./ErrorNotice";
 import { rt } from "./text";
 import type { ChatPage } from "./chatTypes";
 import { compareChatMessages, mergeChatPages } from "./chatHistory";
+import { ResolveProfileAction } from "./ResolveProfileAction";
 
 export function RoommateThread({
   conversationId,
@@ -139,6 +143,8 @@ export function RoommateThread({
       void load(true);
     };
     window.addEventListener("roommate-chat-update", invalidate);
+    const refreshProfile = () => void load(true);
+    window.addEventListener("roommate-profile-update", refreshProfile);
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void load();
     }, 15000);
@@ -149,6 +155,7 @@ export function RoommateThread({
       loading.current = false;
       window.clearInterval(timer);
       window.removeEventListener("roommate-chat-update", invalidate);
+      window.removeEventListener("roommate-profile-update", refreshProfile);
     };
   }, [load, clearHistory]);
   useEffect(() => {
@@ -304,17 +311,29 @@ export function RoommateThread({
           </ol>
           <div ref={end} />
           {page.state === "active" ? (
-            <MessageComposer
-              text={text}
-              change={setText}
-              send={send}
-              busy={busy}
-              locked={Boolean(pending)}
-              placeholder={rt(
-                "Chào bạn, mình muốn trao đổi về việc ở ghép…",
-                "Hi, I'd like to discuss sharing a home…",
-              )}
-            />
+            <>
+              <ResolveProfileAction
+                profile={page.own_profile}
+                viewerId={viewerId}
+                refresh={() => load(true)}
+                resolved={(profile) => {
+                  if (history.current)
+                    savePage({ ...history.current, own_profile: profile });
+                  window.dispatchEvent(new Event("roommate-profile-update"));
+                }}
+              />
+              <MessageComposer
+                text={text}
+                change={setText}
+                send={send}
+                busy={busy}
+                locked={Boolean(pending)}
+                placeholder={rt(
+                  "Chào bạn, mình muốn trao đổi về việc ở ghép…",
+                  "Hi, I'd like to discuss sharing a home…",
+                )}
+              />
+            </>
           ) : (
             <p role="status">
               {rt(

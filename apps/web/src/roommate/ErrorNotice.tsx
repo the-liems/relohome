@@ -84,8 +84,8 @@ export function errorText(error: unknown) {
       "Your account is currently restricted from this service.",
     ),
     intro_incomplete: rt(
-      "Bổ sung tên, giới thiệu, khu vực, ngân sách, nhu cầu và ngày vào ở.",
-      "Complete your name, introduction, area, budget, housing need and move-in date.",
+      "Bổ sung tên, giới tính, giới thiệu, khu vực, ngân sách, nhu cầu và ngày vào ở.",
+      "Complete your name, gender, introduction, area, budget, housing need and move-in date.",
     ),
     contact_in_public_text: rt(
       "Không ghi số điện thoại hoặc link liên hệ trong tên/giới thiệu.",
