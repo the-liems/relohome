@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { verifyLocation } from './housing-location.js'
 import { lockedListing, requireCompleteListing, revisionOf } from './housing-policy.js'
 import { endRentPeriod, startRentPeriod } from './housing-revenue.js'
+import { withTransaction } from './transaction.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -464,9 +465,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           input.location,
         )
       : null
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const created = await withTransaction(pool, async client => {
       const place = await client.query(
         `INSERT INTO catalog.places(category_id,name,geom,address,attributes)
          VALUES((SELECT id FROM catalog.place_categories WHERE slug='housing-self-service'),$1,
@@ -496,14 +495,9 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         `INSERT INTO housing.management_members(property_id,user_id,role,status) VALUES($1,$2,'owner','pending')`,
         [property.rows[0].id, user],
       )
-      await client.query('COMMIT')
-      return reply.status(201).send({ id: property.rows[0].id, management_status: 'pending' })
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+      return { id: property.rows[0].id, management_status: 'pending' }
+    })
+    return reply.status(201).send(created)
   })
 
   app.get('/v1/landlord/properties/:propertyId', async request => {
@@ -533,9 +527,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request),
       propertyId = Id.parse((request.params as { propertyId: string }).propertyId)
     const input = PropertyUpdate.parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await member(client, user, propertyId)
       const current = (
         await client.query(
@@ -583,14 +575,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           [current.place_id, input.name ?? null, address, location.lng, location.lat],
         )
       }
-      await client.query('COMMIT')
       return { id: propertyId, revision: current.revision + 1 }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   // One transaction for room details, listing content and costs. Photos use the
@@ -616,9 +602,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     const user = actor(request),
       input = RoomListingInput.parse(request.body)
     const params = request.params as { propertyId?: string; unitId?: string }
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const outcome = await withTransaction(pool, async client => {
       let room: Record<string, any> | undefined
       let propertyId = params.propertyId ? Id.parse(params.propertyId) : undefined
       if (params.unitId) {
@@ -651,16 +635,16 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         if (previous) {
           if (previous.attributes.create_payload_sha256 !== fingerprint)
             throw new ManagementError(409, 'Yêu cầu tạo phòng đã được dùng với nội dung khác.')
-          await client.query('COMMIT')
-          return reply
-            .status(200)
-            .send({
+          return {
+            status: 200,
+            body: {
               id: previous.listing_id,
               unit_id: previous.id,
               unit_revision: previous.unit_revision,
               revision: previous.revision,
               reused: true,
-            })
+            },
+          }
         }
         room = (
           await client.query(
@@ -800,18 +784,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           [listingId],
         )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
-      return reply
-        .status(existing ? 200 : 201)
-        .send({ id: listingId, unit_id: room!.id, unit_revision: room!.revision, ...result })
-    } catch (error) {
-      await client.query('ROLLBACK')
-      if ((error as { code?: string }).code === '23505')
-        throw new ManagementError(409, 'Mã phòng đã tồn tại trong nhà này.')
+      return {
+        status: existing ? 200 : 201,
+        body: { id: listingId, unit_id: room!.id, unit_revision: room!.revision, ...result },
+      }
+    }).catch((error: { code?: string }) => {
+      if (error.code === '23505') throw new ManagementError(409, 'Mã phòng đã tồn tại trong nhà này.')
       throw error
-    } finally {
-      client.release()
-    }
+    })
+    return reply.status(outcome.status).send(outcome.body)
   }
   app.post('/v1/landlord/properties/:propertyId/room-listing', saveRoomListing)
   app.put('/v1/landlord/units/:unitId/room-listing', saveRoomListing)
@@ -832,10 +813,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.patch('/v1/landlord/units/:unitId', async request => {
     const user = actor(request),
       unitId = Id.parse((request.params as { unitId: string }).unitId)
-    const input = UnitUpdate.parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = UnitUpdate.parse(request.body)
+    return withTransaction(pool, async client => {
       const current = (
         await client.query(
           'SELECT property_id,revision FROM housing.units WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',
@@ -863,14 +842,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           input.amenities ?? null,
         ],
       )
-      await client.query('COMMIT')
       return result.rows[0]
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/landlord/units/:unitId/listing', async (request, reply) => {
@@ -883,10 +856,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!owner.rows[0]) throw new ManagementError(404, 'Không tìm thấy phòng.')
     await member(pool, user, String(owner.rows[0].property_id))
     const input = ListingInput.parse(request.body)
-    const client = await pool.connect()
     const listingId = randomUUID()
-    try {
-      await client.query('BEGIN')
+    const outcome = await withTransaction(pool, async client => {
       await client.query('SELECT id FROM housing.units WHERE id=$1 FOR UPDATE', [unitId])
       const prior = await client.query(
         `SELECT l.id,l.attributes,ml.publication_status,ml.revision FROM housing.listings l
@@ -895,13 +866,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       )
       if (prior.rows[0]) {
         if (input.request_id && prior.rows[0].attributes.create_request_id === input.request_id) {
-          await client.query('COMMIT')
-          return reply.status(200).send({
-            id: prior.rows[0].id,
-            publication_status: prior.rows[0].publication_status,
-            revision: prior.rows[0].revision,
-            reused: true,
-          })
+          return {
+            status: 200,
+            body: {
+              id: prior.rows[0].id,
+              publication_status: prior.rows[0].publication_status,
+              revision: prior.rows[0].revision,
+              reused: true,
+            },
+          }
         }
         throw new ManagementError(409, 'Phòng này đã có tin. Hãy mở tin hiện có để chỉnh sửa.')
       }
@@ -931,23 +904,16 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       ])
       await replaceFees(client, listingId, input.fees)
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
-      return reply.status(201).send({ id: listingId, ...result })
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+      return { status: 201, body: { id: listingId, ...result } }
+    })
+    return reply.status(outcome.status).send(outcome.body)
   })
 
   app.patch('/v1/landlord/listings/:listingId', async request => {
     const user = actor(request),
       listingId = Id.parse((request.params as { listingId: string }).listingId)
-    const input = ListingUpdate.parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = ListingUpdate.parse(request.body)
+    return withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId, input.revision)
       if (row.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
       if (input.title !== undefined || input.description !== undefined)
@@ -999,14 +965,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [listingId],
       )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.get('/v1/landlord/listings/:listingId', async request => {
@@ -1042,10 +1002,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.post('/v1/landlord/listings/:listingId/hide', async request => {
     const user = actor(request),
       listingId = Id.parse((request.params as { listingId: string }).listingId)
-    const input = z.object({ revision: Revision }).parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = z.object({ revision: Revision }).parse(request.body)
+    return withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId, input.revision)
       await member(client, user, String(row.property_id), true)
       if (!['published', 'pending_review'].includes(row.publication_status))
@@ -1055,23 +1013,15 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [listingId],
       )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.delete('/v1/landlord/listings/:listingId', async request => {
     const user = actor(request),
       listingId = Id.parse((request.params as { listingId: string }).listingId)
-    const input = z.object({ revision: Revision }).parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = z.object({ revision: Revision }).parse(request.body)
+    return withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId, input.revision)
       await member(client, user, String(row.property_id), true)
       await client.query(
@@ -1083,14 +1033,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [listingId],
       )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/landlord/listings/:listingId/media', async (request, reply) => {
@@ -1110,9 +1054,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       .digest('hex')
     if (!equalSecret(String(request.headers['x-housing-media-signature'] || ''), expected))
       throw new ManagementError(403, 'Ảnh phải được tải qua dịch vụ upload đã kiểm tra.')
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const outcome = await withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId)
       if (row.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
       const existing = await client.query(
@@ -1120,10 +1062,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         WHERE listing_id=$1 AND content_sha256=$2 AND deleted_at IS NULL`,
         [listingId, input.content_sha256],
       )
-      if (existing.rows[0]) {
-        await client.query('COMMIT')
-        return existing.rows[0]
-      }
+      if (existing.rows[0]) return { status: 200, body: existing.rows[0] }
       const count = await client.query(
         'SELECT count(*)::int AS count FROM housing.listing_media WHERE listing_id=$1 AND deleted_at IS NULL',
         [listingId],
@@ -1144,23 +1083,16 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
           new URL(input.url).pathname.split('/').pop(),
         ],
       )
-      await client.query('COMMIT')
-      return reply.status(201).send(result.rows[0])
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+      return { status: 201, body: result.rows[0] }
+    })
+    return reply.status(outcome.status).send(outcome.body)
   })
 
   app.post('/v1/landlord/listings/:listingId/submit', async request => {
     const user = actor(request),
       listingId = Id.parse((request.params as { listingId: string }).listingId)
-    const input = z.object({ revision: Revision }).parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = z.object({ revision: Revision }).parse(request.body)
+    return withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId, input.revision)
       await member(client, user, String(row.property_id), true)
       await requireHostProfile(client, user)
@@ -1184,14 +1116,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [listingId],
       )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/landlord/listings/:listingId/availability', async request => {
@@ -1203,9 +1129,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         revision: Revision,
       })
       .parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       const row = await lockedListing(client, user, listingId, input.revision)
       await member(client, user, String(row.property_id), true)
       if (row.publication_status === 'deleted') throw new ManagementError(409, 'Tin đã được xóa.')
@@ -1218,14 +1142,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         await startRentPeriod(client, listingId, { source: 'manual' })
       else if (input.status !== 'rented' && row.availability_status === 'rented') await endRentPeriod(client, listingId)
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, availability_status: input.status, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/moderation/housing/properties/:propertyId/approve', async request => {
@@ -1233,9 +1151,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
     if (!moderator(user)) throw new ManagementError(403, 'Moderator permission is required.')
     const propertyId = Id.parse((request.params as { propertyId: string }).propertyId)
     const input = z.object({ revision: Revision }).parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await notOwnProperty(client, user, propertyId)
       const property = (
         await client.query(
@@ -1269,14 +1185,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [propertyId, user],
       )
       if (!result.rowCount) throw new ManagementError(409, 'Địa điểm không còn chờ duyệt.')
-      await client.query('COMMIT')
       return { property_id: propertyId, status: 'active' }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.get('/v1/moderation/housing/queue', async request => {
@@ -1332,9 +1242,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
       .parse(request.body)
     if (input.decision === 'reject' && !input.reason)
       throw new ManagementError(422, 'Hãy nhập lý do từ chối.', 'rejection_reason_required')
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       const row = (
         await client.query(
           `SELECT ml.*,l.property_id FROM housing.managed_listings ml JOIN housing.listings l ON l.id=ml.listing_id
@@ -1376,14 +1284,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
         [listingId, user, input.decision, input.reason || null, input.revision],
       )
       const result = await revisionOf(client, listingId)
-      await client.query('COMMIT')
       return { id: listingId, ...result }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/housing/:listingId/contact-requests', async (request, reply) => {
@@ -1517,9 +1419,7 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
   app.delete('/v1/housing/:listingId/viewing', async request => {
     const user = actor(request)
     const listingId = Id.parse((request.params as { listingId: string }).listingId)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await client.query(
         "SELECT id FROM housing.contact_requests WHERE listing_id=$1 AND tenant_user_id=$2 AND status IN ('new','contacted','viewing') FOR UPDATE",
         [listingId, user],
@@ -1540,14 +1440,8 @@ export function registerHousingManagement(app: FastifyInstance, pool: DatabasePo
        RETURNING id,status,viewing_status`,
         [listingId, user],
       )
-      await client.query('COMMIT')
       return { changed: Boolean(result.rowCount), ...(result.rows[0] || {}) }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/landlord/contact-requests/:requestId/viewing', async request => {

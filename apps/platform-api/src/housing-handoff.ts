@@ -4,6 +4,7 @@ import type { DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { actor, contactCounterpartySql, conversationRole, ManagementError } from './housing-management.js'
 import { calendarDate, plausibleRent, startRentPeriod } from './housing-revenue.js'
+import { withTransaction } from './transaction.js'
 
 const Id = z.string().uuid()
 const Revision = z.number().int().positive()
@@ -51,9 +52,7 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       end = now + days * 24 * 60 * 60_000
     if (dates.some((value) => Date.parse(value) <= now || Date.parse(value) > end))
       throw new ManagementError(422, `Chọn giờ phù hợp trong ${days} ngày tới.`)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await client.query('SELECT id FROM housing.contact_requests WHERE id=$1 FOR UPDATE', [id])
       const contact = await conversationRole(client, user, id)
       if (contact.role !== 'landlord') throw new ManagementError(403, 'Chỉ chủ nhà quản lý được đề xuất giờ.')
@@ -71,23 +70,15 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
         [id, input.revision, JSON.stringify(dates), OPEN],
       )
       if (!result.rowCount) throw new ManagementError(409, 'Lịch đã thay đổi; tải lại trước khi đề xuất giờ.')
-      await client.query('COMMIT')
       return result.rows[0]
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/housing/:listingId/payment-reports', async (request, reply) => {
     const user = actor(request),
       listing = Id.parse((request.params as { listingId: string }).listingId),
       input = Report.parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const outcome = await withTransaction(pool, async client => {
       // Serialize reports with landlord decisions and other contact state changes.
       const contacts = await client.query(
         `SELECT id FROM housing.contact_requests WHERE listing_id=$1 AND tenant_user_id=$2
@@ -120,8 +111,7 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
           !isDeepStrictEqual(row.agreement, input.agreement)
         )
           throw new ManagementError(409, 'Khóa báo cáo đã dùng cho nội dung khác.')
-        await client.query('COMMIT')
-        return row
+        return { status: 200, body: row }
       }
       if (!OPEN.includes(String(contact.status)) || contact.viewing_status !== 'confirmed' || !contact.viewing_slot)
         throw new ManagementError(409, 'Cần có lịch đã được chủ nhà xác nhận trước khi báo chuyển tiền.')
@@ -139,14 +129,9 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
         'UPDATE housing.contact_requests SET landlord_activity_at=now(),updated_at=now(),revision=revision+1 WHERE id=$1',
         [id],
       )
-      await client.query('COMMIT')
-      return reply.status(201).send(created.rows[0])
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+      return { status: 201, body: created.rows[0] }
+    })
+    return reply.status(outcome.status).send(outcome.body)
   })
 
   app.post('/v1/landlord/contact-requests/:requestId/payment-review', async (request) => {
@@ -155,9 +140,7 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
       input = Review.parse(request.body)
     if (input.decision === 'reject' && !input.reason)
       throw new ManagementError(422, 'Nhập phản hồi chưa nhận hoặc số tiền chưa khớp.')
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await client.query('SELECT id FROM housing.contact_requests WHERE id=$1 FOR UPDATE', [id])
       const contact = await conversationRole(client, user, id)
       if (contact.role !== 'landlord') throw new ManagementError(403, 'Chỉ chủ nhà quản lý được xác nhận nhận tiền.')
@@ -197,23 +180,15 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
           reportId: String(report.id),
         })
       }
-      await client.query('COMMIT')
       return result.rows[0]
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.post('/v1/landlord/contact-requests/:requestId/archive', async (request) => {
     const user = actor(request),
       id = Id.parse((request.params as { requestId: string }).requestId)
     const input = z.object({ revision: Revision }).parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await client.query('SELECT id FROM housing.contact_requests WHERE id=$1 FOR UPDATE', [id])
       const contact = await conversationRole(client, user, id)
       // Acting for a home needs an active membership. A legacy self-contact can be
@@ -237,14 +212,8 @@ export function registerHousingHandoff(app: FastifyInstance, pool: DatabasePool)
         'INSERT INTO housing.contact_archives(request_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
         [id, user],
       )
-      await client.query('COMMIT')
       return { archived: true }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
 
   app.get('/v1/housing/contact-notifications', async (request) => {

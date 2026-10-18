@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { hostReviewSummary, reviewSetting, type DatabasePool } from '@relohome/housing-query'
 import { z } from 'zod'
 import { actor, member, moderator, notOwnProperty, ManagementError } from './housing-management.js'
+import { withTransaction } from './transaction.js'
 
 type Db = Pick<DatabasePool, 'query'>
 const Id = z.string().uuid()
@@ -69,18 +70,11 @@ async function reviewById(db: Db, id: string) {
 }
 
 // Serialize rating mutations for one host; flags and review updates commit together.
-async function transaction<T>(pool: DatabasePool, host: string, work: (db: Db) => Promise<T>) {
-  const client = await pool.connect()
-  try {
-    await client.query('BEGIN')
+function transaction<T>(pool: DatabasePool, host: string, work: (db: Db) => Promise<T>) {
+  return withTransaction(pool, async client => {
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`housing-reviews:${host}`])
-    const result = await work(client)
-    await client.query('COMMIT')
-    return result
-  } catch (error) {
-    await client.query('ROLLBACK')
-    throw error
-  } finally { client.release() }
+    return work(client)
+  })
 }
 
 async function refreshFlag(db: Db, host: string) {

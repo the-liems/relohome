@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { actor, moderator, member, ManagementError } from './housing-management.js'
 import { listingIssues, lockedListing, revisionOf } from './housing-policy.js'
 import { searchHousingAddress, resolveHousingAddress } from './housing-location.js'
+import { withTransaction } from './transaction.js'
 
 const Id = z.string().uuid(),
   Revision = z.number().int().positive()
@@ -216,9 +217,7 @@ export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePoo
         cover_id: Id.optional(),
       })
       .parse(request.body)
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    return withTransaction(pool, async client => {
       await lockedListing(client, user, id, input.revision)
       const media = await client.query(
         'SELECT id FROM housing.listing_media WHERE listing_id=$1 AND deleted_at IS NULL ORDER BY id',
@@ -238,22 +237,14 @@ export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePoo
           [id, mediaId, position, input.cover_id ?? input.order[0] ?? null],
         )
       const result = await revisionOf(client, id)
-      await client.query('COMMIT')
       return result
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
   app.delete('/v1/landlord/listings/:listingId/media/:mediaId', async request => {
     const user = actor(request),
       params = z.object({ listingId: Id, mediaId: Id }).parse(request.params)
-    const input = z.object({ revision: Revision }).parse(request.body),
-      client = await pool.connect()
-    try {
-      await client.query('BEGIN')
+    const input = z.object({ revision: Revision }).parse(request.body)
+    return withTransaction(pool, async client => {
       await lockedListing(client, user, params.listingId, input.revision)
       const removed = await client.query(
         `UPDATE housing.listing_media SET deleted_at=now(),is_primary=false
@@ -267,14 +258,8 @@ export function registerHousingWorkspace(app: FastifyInstance, pool: DatabasePoo
         [params.listingId],
       )
       const result = await revisionOf(client, params.listingId)
-      await client.query('COMMIT')
       return result
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    })
   })
   app.get('/v1/housing-media/:filename/access', async request => {
     const user = actor(request),
