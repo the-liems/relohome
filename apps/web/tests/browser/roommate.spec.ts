@@ -36,6 +36,281 @@ const compatibility = {
   differences: [],
   missing: ["budget", "smoking", "pets_allowed"],
 };
+
+test("compact roommate profile keeps essentials visible and optional fields private", async ({
+  page,
+}, info) => {
+  const calls = await fixture(page);
+  const minimal = {
+    ...intro,
+    facts: {
+      ...facts,
+      budget: { ...facts.budget, min_vnd: 0 },
+      self_traits: {},
+    },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) =>
+    route.fulfill({ json: minimal }),
+  );
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  await expect(
+    editor.locator("input:visible, select:visible, textarea:visible"),
+  ).toHaveCount(8);
+  await expect(
+    editor.getByLabel("Từ · VND/người/tháng", { exact: true }).first(),
+  ).toBeHidden();
+  await expect(
+    editor.getByLabel("Bạn hút thuốc thế nào?", { exact: true }),
+  ).toBeHidden();
+  await expect(editor.locator(":scope > details")).toHaveCount(1);
+  await expect(
+    editor.getByRole("combobox", { name: "Thời điểm vào ở", exact: true }),
+  ).toBeVisible();
+  expect(
+    await editor
+      .locator("h3")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+  ).toBeGreaterThanOrEqual(22);
+  expect(
+    await editor.locator("textarea").evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+  ).toBeGreaterThanOrEqual(16);
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement)?.blur();
+    window.scrollTo(0, 0);
+  });
+  await page.screenshot({
+    path: info.outputPath("roommate-profile-compact.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Xem trước để đăng nhu cầu", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đăng nhu cầu", exact: true }),
+  ).toBeDisabled();
+  expect(
+    calls.find((c) => c.path === "/roommate/me/profile/preview")?.body,
+  ).toEqual(minimal);
+  expect(
+    calls.filter((c) => c.path === "/roommate/me/profile/actions"),
+  ).toHaveLength(0);
+});
+
+test("collapsing profile extras preserves budget, false traits, hard preferences and room consent", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const saved = {
+    ...intro,
+    facts: { ...facts, need: { kind: "has_room", willing_to_move: false } },
+    preferences: {
+      pets_allowed: { value: false, strength: "hard" },
+      budget: { value: facts.budget, strength: "soft" },
+    },
+    room: { listing_id: "my-room", public_location_consent: true },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) => {
+    if (route.request().method() === "PUT")
+      calls.push({
+        path: "/roommate/me/intro",
+        body: route.request().postDataJSON(),
+      });
+    return route.fulfill({ json: saved });
+  });
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  await editor.getByText("Thói quen của bạn", { exact: true }).click();
+  await expect(
+    editor.getByLabel("Bạn có thú cưng?", { exact: true }),
+  ).toHaveValue("false");
+  await editor
+    .getByText("Hiện phòng trên map (tùy chọn)", { exact: true })
+    .click();
+  await expect(
+    editor.getByLabel(/Tôi đồng ý công khai vị trí phòng này/),
+  ).toBeChecked();
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  // The existing positive minimum is initially expanded, but can be hidden safely.
+  await editor.getByText("Thêm mức tối thiểu", { exact: true }).first().click();
+  await expect(
+    editor.getByLabel("Từ · VND/người/tháng", { exact: true }).first(),
+  ).toBeHidden();
+  await editor.getByLabel("Tên hiển thị", { exact: true }).fill("Minh mới");
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Đã lưu bản giới thiệu riêng",
+  );
+  expect(calls.find((c) => c.path === "/roommate/me/intro")?.body).toEqual({
+    ...saved,
+    display_name: "Minh mới",
+  });
+  expect(
+    calls.filter((c) => c.path === "/roommate/me/profile/actions"),
+  ).toHaveLength(0);
+});
+
+test("native validation reveals and focuses an incomplete optional field inside collapsed sections", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const incomplete = {
+    ...intro,
+    facts: {
+      ...facts,
+      self_traits: { quiet_hours: { start: "21:00", end: "" } },
+    },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) => {
+    if (route.request().method() === "PUT")
+      calls.push({
+        path: "/roommate/me/intro",
+        body: route.request().postDataJSON(),
+      });
+    return route.fulfill({ json: incomplete });
+  });
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  const end = editor.getByLabel("Yên tĩnh đến", { exact: true }).first();
+  await expect(end).toBeHidden();
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(end).toBeVisible();
+  await expect(end).toBeFocused();
+  expect(calls.filter((c) => c.path === "/roommate/me/intro")).toHaveLength(0);
+  await end.fill("22:00");
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Đã lưu bản giới thiệu riêng",
+  );
+  expect(
+    calls.find((c) => c.path === "/roommate/me/intro")?.body,
+  ).toMatchObject({
+    facts: { self_traits: { quiet_hours: { start: "21:00", end: "22:00" } } },
+  });
+});
+
+test("compact discovery preserves stored filters and clears them only on request", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const criteria = {
+    city: "hcm",
+    self_facts: facts,
+    preferences: { pets_allowed: { value: false, strength: "hard" } },
+  };
+  await page.route("**/web/api/roommate/me/criteria", (route) =>
+    route.fulfill({ json: criteria }),
+  );
+  await page.goto("/roommate");
+  const panel = page.locator(".rm-filter-panel");
+  await expect(
+    page.getByRole("link", { name: "Xem hồ sơ", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.locator("input:visible, select:visible, textarea:visible"),
+  ).toHaveCount(1);
+  await expect(
+    panel.getByText("1 bộ lọc đang dùng", { exact: true }),
+  ).toBeVisible();
+  expect(calls.find((c) => c.path === "/roommate/search")?.body).toMatchObject({
+    criteria,
+  });
+  const refine = panel.locator("form > details > summary");
+  await refine.focus();
+  await page.keyboard.press("Enter");
+  await panel.getByText("Lọc theo người ở cùng", { exact: true }).click();
+  await panel
+    .getByText("Sinh hoạt và thói quen · tùy chọn", { exact: true })
+    .click();
+  await expect(
+    panel.getByLabel("Chấp nhận thú cưng", { exact: true }),
+  ).toHaveValue("false");
+  await refine.click();
+  await panel
+    .getByRole("button", { name: "Tìm người phù hợp", exact: true })
+    .click();
+  expect(
+    calls.filter((c) => c.path === "/roommate/search").at(-1)?.body,
+  ).toMatchObject({ criteria });
+  await refine.click();
+  await panel
+    .getByRole("button", { name: "Bỏ bộ lọc nâng cao", exact: true })
+    .click();
+  await expect(
+    panel.getByText("1 bộ lọc đang dùng", { exact: true }),
+  ).toHaveCount(0);
+  expect(
+    calls.filter((c) => c.path === "/roommate/search").at(-1)?.body,
+  ).toMatchObject({ criteria: { ...criteria, preferences: {} } });
+});
+
+for (const locale of ["vi", "en"] as const) {
+  test(`compact profile remains readable and accessible in ${locale}`, async ({
+    page,
+  }, info) => {
+    await page.addInitScript(
+      (locale) =>
+        localStorage.setItem(
+          "siu-ui-preferences",
+          JSON.stringify({ locale, theme: locale === "vi" ? "light" : "dark" }),
+        ),
+      locale,
+    );
+    await fixture(page);
+    await page.goto("/roommate?tab=profile");
+    const editor = page.locator(".rm-profile-editor");
+    await expect(editor.locator("textarea")).toBeVisible();
+    await editor.locator(":scope > details > summary").click();
+    await editor.locator("details").evaluateAll((sections) =>
+      sections.forEach((section) => {
+        section.open = true;
+      }),
+    );
+    await waitForUiMotion(page);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+    const audit = await new AxeBuilder({ page })
+      .include(".rm-profile-editor")
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(
+      audit.violations.map((v) => ({
+        id: v.id,
+        targets: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await page.screenshot({
+      path: info.outputPath(`roommate-profile-expanded-${locale}.png`),
+      fullPage: true,
+    });
+  });
+}
 async function fixture(
   page: Page,
   settings: {

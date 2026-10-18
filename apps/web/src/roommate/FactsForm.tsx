@@ -4,6 +4,7 @@ import { BudgetFields, MoveInFields, QuietFields, SelectField } from "./Fields";
 import { ErrorNotice } from "./ErrorNotice";
 import { areaName, cityName, options, rt } from "./text";
 import type { City, Facts, Traits } from "./types";
+import { FormDisclosure } from "./FormDisclosure";
 export function AreaFields({
   city,
   value,
@@ -20,7 +21,10 @@ export function AreaFields({
   );
   return (
     <fieldset className="rm-area-fields">
-      <legend>{rt("Khu vực muốn ở", "Preferred areas")}<RequiredMark required={required} /></legend>
+      <legend>
+        {rt("Khu vực muốn ở", "Preferred areas")}
+        <RequiredMark required={required} />
+      </legend>
       <ErrorNotice error={areas.error} retry={areas.reload} />
       {areas.loading && (
         <p role="status">{rt("Đang tải khu vực…", "Loading areas…")}</p>
@@ -113,11 +117,13 @@ export function FactsForm({
   change,
   required = false,
   fixedCity,
+  includeTraits = true,
 }: {
   value: Facts;
   change: (value: Facts) => void;
   required?: boolean;
   fixedCity?: City;
+  includeTraits?: boolean;
 }) {
   return (
     <>
@@ -182,8 +188,8 @@ export function FactsForm({
           />
         )}
       </div>
-      <fieldset className="rm-form-group">
-        <legend>{rt("Khu vực và ngân sách", "Area and budget")}</legend>
+      <section className="rm-essential-group">
+        <h3>{rt("Nơi ở và ngân sách", "Location and budget")}</h3>
         <AreaFields
           city={fixedCity || value.city}
           value={value.area_ids}
@@ -197,27 +203,25 @@ export function FactsForm({
           change={(budget) => change({ ...value, budget })}
           required={required}
         />
-      </fieldset>
-      <fieldset className="rm-form-group">
-        <legend>{rt("Thời điểm vào ở", "Move-in timing")}</legend>
         <MoveInFields
           value={value.move_in}
           change={(move_in) => change({ ...value, move_in })}
           required={required}
         />
-      </fieldset>
-      <details className="rm-disclosure">
-        <summary>
-          {rt(
+      </section>
+      {includeTraits && (
+        <FormDisclosure
+          title={rt(
             "Thói quen của bạn · không bắt buộc",
             "Your lifestyle · optional",
           )}
-        </summary>
-        <TraitsForm
-          value={value.self_traits}
-          change={(self_traits) => change({ ...value, self_traits })}
-        />
-      </details>
+        >
+          <TraitsForm
+            value={value.self_traits}
+            change={(self_traits) => change({ ...value, self_traits })}
+          />
+        </FormDisclosure>
+      )}
     </>
   );
 }
