@@ -36,6 +36,7 @@ from relohome_gateway.guest_sessions import GUEST_COOKIE, TTL, GuestSessions
 from relohome_gateway.guest_sessions import enabled as guest_enabled
 from relohome_gateway.roommate_gateway import attach_roommate_gateway
 from relohome_gateway.runtime_paths import database_path, media_path, runtime_root, traveler_key_path
+from relohome_gateway.settings import GatewaySettings
 from relohome_gateway.store import Store, TravelerProfiles, password_hash
 from relohome_privacy import redact_pii
 from relohome_roommate.access import RoommateError
@@ -198,7 +199,8 @@ def presentation(payload, state):
     return payload
 
 
-def create_app(database=None, transport=None):
+def create_app(database=None, transport=None, settings: GatewaySettings | None = None):
+    settings = settings or GatewaySettings()
     # The ASGI instrumentation returns each request's trace context as W3C `traceresponse`,
     # so a user or tester can quote the trace behind a failure.
     set_global_response_propagator(TraceResponsePropagator())
@@ -349,12 +351,8 @@ def create_app(database=None, transport=None):
         }
 
     async def upstream(method, path, owner, body=None, platform=False, extra_headers=None):
-        base = (
-            os.getenv("SIU_PLATFORM_API_URL", "http://127.0.0.1:4100/v1")
-            if platform
-            else os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
-        )
-        token = os.getenv("AGENT_API_TOKEN", "")
+        base = settings.siu_platform_api_url if platform else settings.lifeflow_api_base_url
+        token = settings.agent_api_token.get_secret_value()
         if not token and not platform:
             error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
             error.error_code = "missing_agent_api_token"
@@ -486,7 +484,7 @@ def create_app(database=None, transport=None):
                     GUEST_COOKIE,
                     token,
                     httponly=True,
-                    secure=os.getenv("SIU_SECURE_COOKIE", "false").lower() == "true",
+                    secure=settings.siu_secure_cookie,
                     samesite="strict",
                     max_age=TTL,
                     path="/",
@@ -514,7 +512,7 @@ def create_app(database=None, transport=None):
         email = body.email.strip().lower()
         store = app.state.store
         if action == "register":
-            if os.getenv("SIU_ALLOW_REGISTRATION", "true").lower() != "true":
+            if not settings.siu_allow_registration:
                 raise HTTPException(403, "Máy chủ chưa mở đăng ký tài khoản.")
             if not body.name.strip():
                 raise HTTPException(422, "Vui lòng nhập tên hiển thị.")
@@ -544,7 +542,7 @@ def create_app(database=None, transport=None):
             COOKIE,
             token,
             httponly=True,
-            secure=os.getenv("SIU_SECURE_COOKIE", "false").lower() == "true",
+            secure=settings.siu_secure_cookie,
             samesite="strict",
             max_age=86400 * 14,
             path="/",
@@ -829,12 +827,12 @@ def create_app(database=None, transport=None):
     # --- In-app payment (payment-design §7–§10). Typed calls straight to the Agent API: no LLM, no chat message.
 
     async def checkout_call(method, path, owner, body=None):
-        token = os.getenv("AGENT_API_TOKEN", "")
+        token = settings.agent_api_token.get_secret_value()
         if not token:
             error = HTTPException(503, "Chưa kết nối được hệ thống AI. Vui lòng kiểm tra cấu hình máy chủ.")
             error.error_code = "missing_agent_api_token"
             raise error
-        base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+        base = settings.lifeflow_api_base_url
         try:
             response = await app.state.http.request(
                 method,
@@ -1423,11 +1421,13 @@ def create_app(database=None, transport=None):
         target = media_dir / f"{identifier}.png"
         await asyncio.to_thread(target.write_bytes, clean)
         # An empty value (as in the env template) means "not configured", like a missing one.
-        public_base = (os.getenv("SIU_PUBLIC_BASE_URL") or str(request.base_url)).rstrip("/")
+        public_base = (settings.siu_public_base_url or str(request.base_url)).rstrip("/")
         url = f"{public_base}/web/media/housing/{identifier}.png"
         digest = hashlib.sha256(clean).hexdigest()
         signature = hmac.new(
-            os.getenv("AGENT_API_TOKEN", "").encode(), f"{listing_id}\n{url}\n{digest}".encode(), hashlib.sha256
+            settings.agent_api_token.get_secret_value().encode(),
+            f"{listing_id}\n{url}\n{digest}".encode(),
+            hashlib.sha256,
         ).hexdigest()
         try:
             result = await upstream(
@@ -1612,7 +1612,7 @@ def create_app(database=None, transport=None):
         app.state.store.write("DELETE FROM saved WHERE owner=? AND id=?", (user(request)["id"], listing_id))
         return {"ok": True}
 
-    attach_roommate_gateway(app, user)
+    attach_roommate_gateway(app, user, settings)
 
     @app.get("/{path:path}")
     async def static(path: str):

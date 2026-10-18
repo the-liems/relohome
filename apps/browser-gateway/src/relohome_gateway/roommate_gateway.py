@@ -1,12 +1,12 @@
 """Whitelisted Roommate proxy; trusted identity only comes from the HttpOnly session."""
 
 import json
-import os
 import re
 
 import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
+from relohome_gateway.settings import GatewaySettings
 
 IDENTIFIER = r"[A-Za-z0-9_.:-]{1,128}"
 ROUTES = {
@@ -54,7 +54,7 @@ ROUTES = {
 }
 
 
-def attach_roommate_gateway(app, user) -> None:
+def attach_roommate_gateway(app, user, settings: GatewaySettings) -> None:
     @app.api_route("/web/api/roommate/{resource:path}", methods=["GET", "POST", "PUT", "DELETE"])
     async def proxy(resource: str, request: Request):
         if not any(re.fullmatch(pattern, resource) for pattern in ROUTES.get(request.method, [])):
@@ -93,10 +93,10 @@ def attach_roommate_gateway(app, user) -> None:
         expected_actor = request.headers.get("X-Roommate-Actor")
         if not public and expected_actor and expected_actor != owner:
             raise HTTPException(409, {"code": "actor_changed"})
-        token = os.getenv("AGENT_API_TOKEN", "")
+        token = settings.agent_api_token.get_secret_value()
         if not public and not token:
             raise HTTPException(503, {"code": "service_unavailable"})
-        base = os.getenv("LIFEFLOW_API_BASE_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
+        base = settings.lifeflow_api_base_url.rstrip("/")
         headers = {"Authorization": "Bearer " + token}
         if owner:
             headers["X-User-Id"] = owner
