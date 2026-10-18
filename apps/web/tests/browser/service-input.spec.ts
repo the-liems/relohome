@@ -938,6 +938,37 @@ test("new housing form reads the serialized current goal, not historical budget 
   expect(turns).toHaveLength(0);
 });
 
+for (const withPrice of [false, true]) {
+  test(`housing amenities clarification remains answerable in chat (${withPrice ? "mixed form" : "chat only"})`, async ({ page }) => {
+    const { thread, turns } = await fixture(page, true);
+    const question = { field: "property.must_have", text: "Bạn cần những tiện nghi nào?" };
+    const price = { field: "property.max_price_vnd", text: "Ngân sách tối đa của bạn?" };
+    thread.state.intake = { intent: { domains: ["property"] }, constraints: { values: { city: "hanoi" } }, user_confirmed_facts: {} };
+    thread.state.progress.items = [];
+    thread.messages[0].content.response = {
+      kind: "CLARIFY",
+      text: [question.text, ...(withPrice ? [price.text] : [])].join("\n"),
+      questions: [question, ...(withPrice ? [price] : [])],
+    };
+    await page.goto("/ai/th_input");
+    await expect(page.getByText(question.text, { exact: true })).toBeVisible();
+    const panel = page.getByRole("region", { name: "Bổ sung thông tin dịch vụ" });
+    if (withPrice) {
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('input[name="max"]')).toBeVisible();
+      await panel.locator("form").getByRole("button", { name: "Tiếp tục bằng chat", exact: true }).click();
+      await expect(page.locator(".composer textarea")).toBeFocused();
+    } else {
+      await expect(panel).toHaveCount(0);
+    }
+    expect(turns).toHaveLength(0);
+    await page.locator(".composer textarea").fill("Tôi cần máy lạnh và chỗ để xe.");
+    await page.locator(".composer textarea").press("Enter");
+    await expect.poll(() => turns.length).toBe(1);
+    expect(turns[0].message).toBe("Tôi cần máy lạnh và chỗ để xe.");
+  });
+}
+
 test("explicit service navigation binds its form to the clicked task among two routes", async ({ page }) => {
   const { thread, turns } = await fixture(page, true);
   thread.state.intake = { intent: { domains: ["map"] }, constraints: { values: {} }, user_confirmed_facts: {} };

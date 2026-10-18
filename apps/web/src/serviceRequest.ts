@@ -148,6 +148,8 @@ export function requestDefaults(
   // The current plan is authoritative over its own historical progress entry.
   return { ...(task?.inputs || item?.inputs || {}), ...values };
 }
+// Only fields with controls in the service form may trigger that form or hide
+// their question text. Other criteria must remain answerable in chat.
 const fields: Record<FormService, string[]> = {
   flight: [
     "origin",
@@ -165,7 +167,6 @@ const fields: Record<FormService, string[]> = {
     "room_type",
     "max_price_vnd",
     "min_price_vnd",
-    "must_have",
   ],
   map: ["city", "route_from", "route_to", "route_profile"],
 };
