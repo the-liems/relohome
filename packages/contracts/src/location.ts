@@ -43,6 +43,8 @@ export const SearchAreasRequestSchema = z.object({
   text: z.string().trim().min(1).max(200),
   levels: z.array(z.string().trim().min(1)).min(1).max(20).optional(),
   bounding_box: BoundingBoxSchema.optional(),
+  // Restrict candidates to a known administrative polygon before ranking/limit.
+  within_area_id: z.string().trim().min(1).max(200).optional(),
   limit: z.number().int().min(1).max(50).default(10),
   // Render geometry only when requested, never in ordinary LLM lookups.
   include_geometry: z.boolean().default(false),

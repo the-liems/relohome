@@ -2,6 +2,12 @@ import { expect, it } from 'vitest'
 import { AreaGeometrySchema, SearchAreasRequestSchema } from '../src/location.js'
 import { HousingMapRequestSchema, HousingSearchRequestSchema } from '../src/housing.js'
 
+it('accepts an optional administrative parent ID without changing older area requests', () => {
+  expect(SearchAreasRequestSchema.parse({ text: 'Bình Thạnh', within_area_id: ' hcm ' }).within_area_id).toBe('hcm')
+  expect(SearchAreasRequestSchema.parse({ text: 'Bình Thạnh' }).within_area_id).toBeUndefined()
+  expect(SearchAreasRequestSchema.safeParse({ text: 'Bình Thạnh', within_area_id: '' }).success).toBe(false)
+})
+
 it('keeps a viewport AND radius; both are applied by the query service', () => {
   const input = { center: { lat: 21, lng: 105.8 }, radius_m: 2000,
     bounding_box: { west: 105.7, south: 20.9, east: 105.9, north: 21.1 } }

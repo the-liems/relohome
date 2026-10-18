@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { roommate, RoommateError } from "./client";
@@ -63,10 +64,10 @@ export function AccessGate({
             checked={adult}
             onChange={(e) => setAdult(e.target.checked)}
           />
-          {rt(
+          <span className="field-label">{rt(
             "Tôi xác nhận mình từ 18 tuổi.",
             "I confirm I am at least 18 years old.",
-          )}
+          )}<RequiredMark /></span>
         </label>
         <label className="rm-check">
           <input
@@ -75,10 +76,10 @@ export function AccessGate({
             checked={terms}
             onChange={(e) => setTerms(e.target.checked)}
           />
-          {rt(
+          <span className="field-label">{rt(
             "Tôi đồng ý quy tắc sử dụng: không đăng thông tin liên hệ công khai, tôn trọng consent và chỉ cung cấp thông tin đúng về nhu cầu của mình.",
             "I agree to the service rules: no public contact details, respect consent and provide accurate information about my housing needs.",
-          )}
+          )}<RequiredMark /></span>
         </label>
         <p className="rm-hint">
           {rt("Phiên bản điều kiện: ", "Terms version: ")}

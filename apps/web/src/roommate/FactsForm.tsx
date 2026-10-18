@@ -1,4 +1,5 @@
 import { useResource } from "./useResource";
+import { RequiredMark } from "../components/RequiredMark";
 import { BudgetFields, MoveInFields, QuietFields, SelectField } from "./Fields";
 import { ErrorNotice } from "./ErrorNotice";
 import { areaName, cityName, options, rt } from "./text";
@@ -19,7 +20,7 @@ export function AreaFields({
   );
   return (
     <fieldset className="rm-area-fields">
-      <legend>{rt("Khu vực muốn ở", "Preferred areas")}</legend>
+      <legend>{rt("Khu vực muốn ở", "Preferred areas")}<RequiredMark required={required} /></legend>
       <ErrorNotice error={areas.error} retry={areas.reload} />
       {areas.loading && (
         <p role="status">{rt("Đang tải khu vực…", "Loading areas…")}</p>

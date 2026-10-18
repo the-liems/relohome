@@ -1,4 +1,5 @@
 import { formatUi } from "../uiPreferences";
+import { RequiredMark } from "./RequiredMark";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useState } from "react";
 import {
@@ -462,6 +463,7 @@ export function MovingOptionsForm({
           >
             <legend>
               {formatUi("Các gói {0} tại điểm A", [uiText(familyLabel)])}
+              <RequiredMark />
             </legend>
             <p className="muted small">
               {uiText(

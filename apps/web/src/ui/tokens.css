@@ -14,7 +14,7 @@
   --font-body: 14px;
   --font-reading: 16px;
   --control-height: 40px;
-  --ui-header-height: 80px;
+  --ui-header-height: 72px;
   --ui-bg: #f4f6fa;
   --ui-surface: #ffffff;
   --ui-surface-raised: #ffffff;
@@ -161,7 +161,7 @@
 [data-service="roommate"] { --service-color: var(--service-roommate); --service-soft: var(--service-roommate-soft); }
 [data-service="landlord"] { --service-color: var(--service-landlord); --service-soft: var(--service-landlord-soft); }
 [data-service="guides"], [data-service="guide"] { --service-color: var(--service-guide); --service-soft: var(--service-guide-soft); }
-@media (max-width: 767px) { :root { --ui-header-height: 120px; --control-height: 44px; } }
+@media (max-width: 767px) { :root { --ui-header-height: 104px; --control-height: 44px; } }
 @media (pointer: coarse) { :root { --control-height: 44px; } }
 
 /* Tenant canvas: listing identity colors and separate cost/contact surfaces. */

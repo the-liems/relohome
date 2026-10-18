@@ -49,6 +49,15 @@ export class LocationService {
     if (request.levels) {
       conditions.push(`a.level = ANY(${sql.parameter(request.levels)}::text[])`)
     }
+    if (request.within_area_id) {
+      // A city's bbox can include neighbouring provinces or gaps between islands.
+      // Match the same representative-point membership used for the returned parent.
+      conditions.push(`EXISTS (
+        SELECT 1 FROM geo.administrative_areas scope
+        WHERE scope.id = ${sql.parameter(request.within_area_id)}
+          AND ST_Covers(scope.geom, ST_PointOnSurface(a.geom))
+      )`)
+    }
     if (request.bounding_box) {
       const box = request.bounding_box
       conditions.push(

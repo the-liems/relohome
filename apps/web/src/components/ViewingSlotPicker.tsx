@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { RequiredMark } from "./RequiredMark";
 import { t as uiText, formatUi } from "../uiPreferences";
 
 export type SlotDraft = { day: string; slot: string };
@@ -29,9 +30,10 @@ export function ViewingSlotPicker({
         </p>
       )}
       <label htmlFor={id + "day"}>
-        {uiText("Ngày xem")}
+        <span className="field-label">{uiText("Ngày xem")}<RequiredMark /></span>
         <select
           id={id + "day"}
+          aria-required="true"
           aria-label={formatUi("Ngày xem · {0}", [title])}
           disabled={disabled}
           value={day}
@@ -50,9 +52,10 @@ export function ViewingSlotPicker({
         </select>
       </label>
       <label htmlFor={id + "time"}>
-        {uiText("Giờ xem")}
+        <span className="field-label">{uiText("Giờ xem")}<RequiredMark /></span>
         <select
           id={id + "time"}
+          aria-required="true"
           aria-label={formatUi("Giờ xem · {0}", [title])}
           disabled={disabled || !days.length}
           value={

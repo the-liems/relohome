@@ -493,20 +493,18 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 .viewing-review-stars label { display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--ui-accent); }
 .viewing-review-stars input { accent-color:var(--ui-accent); }
 
-/* The shared header floats over chat, maps, account and service workspaces. */
-.header-reveal { position: fixed; inset: 0 0 auto; height: 12px; z-index: 60; }
+/* Persistent navigation reserves its own space in every workspace. */
+.header-reveal { position: fixed; inset: 0 0 auto; height: var(--ui-header-height); z-index: 60; }
 :root[data-theme] .header-reveal .chat-header {
   position: absolute; inset: 0 0 auto; width: 100%;
+  padding-block: 8px;
   background: var(--tenant-glass);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
-  transform: translateY(-100%); opacity: 0; pointer-events: none;
-  transition: transform 180ms ease, opacity 180ms ease;
 }
-:root[data-theme] .header-reveal:hover .chat-header,
-:root[data-theme] .header-reveal:focus-within .chat-header {
-  transform: translateY(0); opacity: 1; pointer-events: auto;
-}
+.chat-header .chat-brand .chat-title { font-size: 20px; }
+.chat-title > a { color: inherit; text-decoration: none; }
+.chat-title > a:hover { color: var(--ui-accent); }
 .chat-service-summary { width: fit-content; max-width: 100%; }
 .notice-symbol {
   display: inline-grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px;
@@ -592,21 +590,12 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 .map-workspace[data-service="property"] .ws-list .ws-compare-toggle, .map-workspace[data-service="property"] .ws-detail .ws-compare-toggle { color: var(--tenant-map-ink); border-color: var(--tenant-map-line); background: var(--tenant-map-card); }
 .map-workspace[data-service="property"] .ws-detail-price { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .housing-detail-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: var(--ui-info-soft); color: var(--ui-info); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
-@media (hover: none), (pointer: coarse), (max-width: 767px) {
-  :root[data-theme] .header-reveal .chat-header { transform: none; opacity: 1; pointer-events: auto; }
-  .header-reveal { height: var(--ui-header-height); }
-  .main-shell > .page-main { padding-top: var(--ui-header-height); }
-}
-@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-  .chat-only-shell .chat-page { height: 100dvh; }
-}
 @media (max-width: 900px) { .account-preferences .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
   .account-page .account-grid, .request-history-list { grid-template-columns: minmax(0, 1fr); }
   .request-history-card:is(:nth-child(odd), :not(:nth-child(3n))) { border-right: 0; }
   .account-preferences .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
-@media (prefers-reduced-motion: reduce) { :root[data-theme] .header-reveal .chat-header { transition: none; } }
 .viewing-panel { align-content: start; }
 .viewing-item > .form-actions:empty { display: none; }
 .viewing-item > .form-actions { margin-top: 0; padding-top: 8px; }
@@ -615,8 +604,29 @@ body, .app-shell, .main-shell, .chat-page:not(.map-mode) {
 .ws-list .ws-list-head :is(h2, .eyebrow) { color: var(--tenant-map-ink); }
 .plan-peek-footer:has(> .bulk-footer-mount:empty) { display: none; }
 
-/* Reserve the shared header's original space on document pages; it overlays them on scroll. */
-.main-shell > .page-main:not(.chat-main) { padding-top: var(--ui-header-height); }
+/* Content and map controls start below the always-visible header. */
+.main-shell > .page-main { padding-top: var(--ui-header-height); }
+
+.field-label { display: inline-flex; align-items: baseline; gap: 4px; color: inherit; }
+.required-mark { color: var(--ui-danger); font-size: .85em; font-weight: 700; margin-inline-start: 4px; }
+.required-mark::after { content: "*"; }
+.housing-optional { border: 1px solid var(--ui-line); background: var(--ui-soft); border-radius: var(--radius-panel); padding: 16px; }
+.housing-optional h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0 0 12px; font-size: 14px; }
+.housing-optional h4 > span { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.housing-optional .form-grid { margin-top: 0; }
+@media (max-width: 767px) { .chat-header .chat-brand .chat-title { font-size: 18px; } }
+@media (max-width: 767px) {
+  /* An expanded chat reserves space instead of covering flight result actions. */
+  .svc-workspace .svc-main > .ws-dock {
+    position: static;
+    inset: auto;
+    transform: none;
+    width: calc(100% - 16px);
+    margin: 8px;
+    flex: 0 0 auto;
+  }
+  .svc-workspace .svc-main:has(> .ws-dock) > .svc-list { padding-bottom: 16px; }
+}
 
 @media (max-width: 767px) {
   /* Quote workspaces use the filter bar directly; keep it in flow above the chat launcher. */

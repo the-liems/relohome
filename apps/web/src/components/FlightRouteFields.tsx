@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import { ArrowLeftRight } from "lucide-react";
 import { t as uiText } from "../uiPreferences";
 import { AIRPORT_OPTIONS, type FlightDraft } from "../serviceRequest";
@@ -17,7 +18,7 @@ export function FlightRouteFields({
     <>
       <div className="request-route">
         <label htmlFor={id + "from"}>
-          {uiText("Nơi đi")}
+          <span className="field-label">{uiText("Nơi đi")}<RequiredMark /></span>
           <input
             id={id + "from"}
             name="from"
@@ -39,7 +40,7 @@ export function FlightRouteFields({
           <ArrowLeftRight size={18} />
         </button>
         <label htmlFor={id + "to"}>
-          {uiText("Nơi đến")}
+          <span className="field-label">{uiText("Nơi đến")}<RequiredMark /></span>
           <input
             id={id + "to"}
             name="to"

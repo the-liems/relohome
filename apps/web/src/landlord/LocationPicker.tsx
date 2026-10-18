@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import { useEffect, useRef, useState } from "react";
 import type { Map, Marker } from "maplibre-gl";
 import { CheckCircle2, MapPin, Search } from "lucide-react";
@@ -139,7 +140,7 @@ export function LocationPicker({
   return (
     <div className="ll-address-picker wide">
       <label>
-        {t("Địa chỉ đầy đủ")}
+        <span className="field-label">{t("Địa chỉ đầy đủ")}<RequiredMark /></span>
         <span className="ll-inline-search">
           <input
             required

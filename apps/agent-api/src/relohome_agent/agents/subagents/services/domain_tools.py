@@ -20,6 +20,7 @@ from relohome_agent.agents.location_names import city_search_text
 from relohome_agent.agents.models import AgentName, Question
 from relohome_agent.agents.subagents.services.common import CountingClient
 from relohome_agent.agents.subagents.services.location import (
+    area_search_args,
     bbox_of_points,
     pick_city_area,
     pick_named_area,
@@ -409,7 +410,7 @@ class DomainToolSession:
             self.anchors["city"] = city
             bbox = city.get("bounding_box")
         if self.req.agent == AgentName.PROPERTY and name == "resolve_location" and field == "near":
-            matching = await self.adapter._areas_for_near(self.req, self.tools, bbox)
+            matching = await self.adapter._areas_for_near(self.req, self.tools, self.anchors.get("city"))
             if len(matching) > 1:
                 self.result = self.adapter._choose(
                     self.req, self.tools, "district", requested_area_query(self.req) or text, matching
@@ -424,8 +425,8 @@ class DomainToolSession:
                 return decision_data({"field": field, "resolved_area": matching[0], "next": "search_housing"})
         if name == "search_areas":
             arguments = {"text": text, "limit": 5}
-            if bbox and field == "district":
-                arguments["bounding_box"] = bbox
+            if field == "district":
+                arguments = area_search_args(text, city_scope=self.anchors.get("city"), bounding_box=bbox)
             options = ((await self.tools.call(name, arguments)) or {}).get("results") or []
             found = pick_city_area(options) if field == "city" else pick_named_area(options, text, bbox)
         else:

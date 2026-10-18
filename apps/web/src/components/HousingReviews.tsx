@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import {
   useCallback,
   useEffect,
@@ -190,7 +191,7 @@ function ReportForm({
       ) : (
         <form onSubmit={submit}>
           <label>
-            {t("Lý do báo cáo")}
+            <span className="field-label">{t("Lý do báo cáo")}<RequiredMark /></span>
             <textarea
               required
               maxLength={500}
@@ -370,7 +371,7 @@ function AccountTenantHostReviews({ listingId }: { listingId: string }) {
             editing ? (
               <form className="hr-editor" onSubmit={save}>
                 <fieldset>
-                  <legend>{t("Trải nghiệm với chủ nhà")}</legend>
+                  <legend>{t("Trải nghiệm với chủ nhà")}<RequiredMark /></legend>
                   <div className="hr-rating-picker">
                     {[1, 2, 3, 4, 5].map((value) => (
                       <label
@@ -551,7 +552,7 @@ function OwnerReview({
       {open ? (
         <form className="hr-editor" onSubmit={submit}>
           <label>
-            {t("Trả lời đánh giá")}
+            <span className="field-label">{t("Trả lời đánh giá")}<RequiredMark /></span>
             <textarea
               required
               maxLength={2000}

@@ -204,6 +204,28 @@ test("comparison questions and completed service results do not open search form
   expect(clarificationServices(thread)).toEqual([]);
 });
 
+test("housing questions without form controls stay in chat even alongside supported questions", () => {
+  for (const field of ["must_have", "bedrooms", "min_area_m2"]) {
+    for (const prefix of ["", "property."]) {
+      const question = { field: prefix + field, text: "Bạn cần tiêu chí nào?" };
+      const thread = {
+        state: { intake: { intent: { domains: ["property"] } } },
+        messages: [{ role: "assistant", content: { response: {
+          kind: "CLARIFY", text: question.text, questions: [question],
+        } } }],
+      } as unknown as Thread;
+      expect(clarificationServices(thread)).toEqual([]);
+      expect(guidedReplyText(question.text, [question], ["property"]))
+        .toBe(question.text);
+      const price = { field: "property.max_price_vnd", text: "Ngân sách tối đa?" };
+      thread.messages[0].content.response!.questions!.push(price);
+      expect(clarificationServices(thread)).toEqual(["property"]);
+      expect(guidedReplyText(`${question.text}\n${price.text}`, [question, price], ["property"]))
+        .toBe(question.text);
+    }
+  }
+});
+
 test("route forms only replace route questions and keep other notices intact", () => {
   const thread = {
     state: {

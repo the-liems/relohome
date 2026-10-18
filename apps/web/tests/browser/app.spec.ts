@@ -4091,7 +4091,8 @@ test("ReloHome branding has no robot logo on landing, login, or chat", async ({ 
   await page.locator('input[name="password"]').fill("strong-password");
   await page.locator('form button[type="submit"], .login-form form button').first().click();
   await page.goto("/ai/th_ui");
-  await expect(page.locator(".chat-home-link")).toHaveText("RH");
+  await expect(page.locator(".chat-title a")).toHaveText("ReloHome");
+  await expect(page.locator(".chat-home-link")).toHaveCount(0);
   await expect(page.locator(".message.assistant")).toHaveCount(1);
   await expect(page.locator(".robot")).toHaveCount(0);
 

@@ -138,6 +138,21 @@ def normalized_name(value: str) -> str:
     return " ".join("".join(c for c in value if not unicodedata.combining(c)).split())
 
 
+def area_search_args(
+    text: str, *, city_scope: dict | None = None, bounding_box: dict | None = None, include_geometry: bool = False
+) -> dict:
+    """Bind a known city ID before the provider applies its candidate limit."""
+    arguments: dict[str, Any] = {"text": text, "limit": 5}
+    bbox = bounding_box or (city_scope or {}).get("bounding_box")
+    if bbox:
+        arguments["bounding_box"] = bbox
+    if (city_scope or {}).get("area_id"):
+        arguments["within_area_id"] = city_scope["area_id"]
+    if include_geometry:
+        arguments["include_geometry"] = True
+    return arguments
+
+
 def named_areas(results: list[dict], text: str, city_bbox: dict | None = None) -> list[dict]:
     """Never turn a partial name/numeric match or another administrative unit into a polygon.
 
@@ -148,6 +163,7 @@ def named_areas(results: list[dict], text: str, city_bbox: dict | None = None) -
 
     unit = r"^(?:quan|huyen|phuong|xa|thi tran|thi xa|thanh pho|tinh)\s+"
     query = normalized_name(text)
+    spelling = " ".join(unicodedata.normalize("NFC", text).casefold().split())
     explicit_unit = bool(re.match(unit, query))
     matching = []
     for area in results:
@@ -156,6 +172,15 @@ def named_areas(results: list[dict], text: str, city_bbox: dict | None = None) -
         name = normalized_name(str(area.get("name") or ""))
         if (name if explicit_unit else re.sub(unit, "", name)) != query:
             continue
+        # Accent-free input stays supported. Explicit Vietnamese spelling must not
+        # turn Thành into Thạnh (or the reverse) merely because unaccent() agrees.
+        if spelling != query:
+            candidate = " ".join(unicodedata.normalize("NFC", str(area.get("name") or "")).casefold().split())
+            prefix = re.match(unit, name) if not explicit_unit else None
+            if prefix:
+                candidate = " ".join(candidate.split()[len(prefix.group().split()) :])
+            if candidate != spelling and candidate != query:
+                continue
         bbox = area.get("bounding_box")
         if city_bbox and bbox and not _encloses(city_bbox, bbox):
             continue
@@ -411,13 +436,14 @@ class LocationSubagent:
         results = ((await tools.call("resolve_location", arguments)) or {}).get("results") or []
         return pick_place(results), results
 
-    async def _areas_for_near(self, req: AgentTaskRequest, tools: CountingClient, city_bbox: dict | None) -> list[dict]:
+    async def _areas_for_near(
+        self, req: AgentTaskRequest, tools: CountingClient, city_scope: dict | None
+    ) -> list[dict]:
         query = requested_area_query(req)
         if not query:
             return []
-        arguments = {"text": query, "limit": 5, "include_geometry": True}
-        if city_bbox:
-            arguments["bounding_box"] = city_bbox
+        city_bbox = (city_scope or {}).get("bounding_box")
+        arguments = area_search_args(query, city_scope=city_scope, include_geometry=True)
         options = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
         return [a for a in named_areas(options, query, city_bbox) if a.get("area_id") and a.get("bounding_box")]
 
@@ -489,7 +515,7 @@ class LocationSubagent:
         elif inp.get("near"):
             query = requested_area_query(req)
             if query:
-                matching = await self._areas_for_near(req, tools, scope_bbox)
+                matching = await self._areas_for_near(req, tools, city_scope)
                 if len(matching) > 1:
                     return self._choose(req, tools, "district", query, matching)
                 if matching and matching[0].get("area_id"):
@@ -519,6 +545,7 @@ class LocationSubagent:
             area_name = found.get("name")
             scope_bbox = found.get("bounding_box")
             administrative_scope = found
+            city_scope = found
         elif inp.get("district"):
             # A district alone is a valid scope only after Location resolves it uniquely.
             areas = (
@@ -538,9 +565,9 @@ class LocationSubagent:
         # Resolve the user's named sub-area inside the city, using the current dataset's
         # actual unit/name. Never infer an old district from admin_level or from a ward.
         if inp.get("district") and not area.get("bounding_box"):
-            arguments = {"text": inp["district"], "limit": 5, "include_geometry": True}
-            if scope_bbox:
-                arguments["bounding_box"] = scope_bbox
+            arguments = area_search_args(
+                inp["district"], city_scope=city_scope, bounding_box=scope_bbox, include_geometry=True
+            )
             areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
             found = pick_named_area(areas, inp["district"], scope_bbox)
             if found is not None:
@@ -789,9 +816,9 @@ class LocationSubagent:
         if area.get("bounding_box"):
             return area["bounding_box"]
         if search_request.get("district"):
-            arguments: dict[str, Any] = {"text": search_request["district"], "limit": 5}
-            if scope_bbox:
-                arguments["bounding_box"] = scope_bbox
+            ids = area.get("administrative_area_ids") or []
+            city_scope = {"area_id": ids[0]} if len(ids) == 1 else None
+            arguments = area_search_args(search_request["district"], city_scope=city_scope, bounding_box=scope_bbox)
             try:
                 areas = ((await tools.call("search_areas", arguments)) or {}).get("results") or []
             except (ToolCallError, BudgetExceededError):

@@ -1,3 +1,4 @@
+import { RequiredMark } from "../components/RequiredMark";
 import type { Profile } from "./types";
 import { FactsForm } from "./FactsForm";
 import { PreferencesForm } from "./PreferencesForm";
@@ -24,7 +25,7 @@ export function ProfileEditor({
     <>
       <div className="rm-fields">
         <label>
-          {rt("Tên hiển thị", "Display name")}
+          <span className="field-label">{rt("Tên hiển thị", "Display name")}<RequiredMark required={complete} /></span>
           <input
             required={complete}
             maxLength={80}
@@ -37,7 +38,7 @@ export function ProfileEditor({
         </label>
       </div>
       <label>
-        {rt("Giới thiệu ngắn", "Short introduction")}
+        <span className="field-label">{rt("Giới thiệu ngắn", "Short introduction")}<RequiredMark required={complete} /></span>
         <textarea
           required={complete}
           rows={3}

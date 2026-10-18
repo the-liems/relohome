@@ -1,3 +1,4 @@
+import { RequiredMark } from "./RequiredMark";
 import { useSearchParams } from "react-router-dom";
 import { formatUi, t as uiText } from "../uiPreferences";
 import { useEffect, useRef, useState } from "react";
@@ -164,31 +165,34 @@ function DecideDialog({
         </p>
         <div className="form-grid">
           <label>
-            {uiText("Tiền thuê/tháng (VND)")}
+            <span className="field-label">{uiText("Tiền thuê/tháng (VND)")}<RequiredMark /></span>
             <input
               type="number"
               min="1"
               disabled={busy || uncertain}
               value={rent}
+              aria-required="true"
               onChange={(e) => setRent(e.target.value)}
             />
           </label>
           <label>
-            {uiText("Tiền cọc thực tế (VND)")}
+            <span className="field-label">{uiText("Tiền cọc thực tế (VND)")}<RequiredMark /></span>
             <input
               type="number"
               min="1"
               disabled={busy || uncertain}
               value={deposit}
+              aria-required="true"
               onChange={(e) => setDeposit(e.target.value)}
             />
           </label>
           <label>
-            {uiText("Ngày dọn vào")}
+            <span className="field-label">{uiText("Ngày dọn vào")}<RequiredMark /></span>
             <input
               type="date"
               disabled={busy || uncertain}
               value={moveIn}
+              aria-required="true"
               onChange={(e) => setMoveIn(e.target.value)}
             />
           </label>
@@ -763,7 +767,7 @@ export function ViewingPanel({
                   >
                     <div className="form-grid">
                       <label>
-                        {uiText("Số tiền đã trả (VND)")}
+                        <span className="field-label">{uiText("Số tiền đã trả (VND)")}<RequiredMark /></span>
                         <input
                           name="amount_vnd"
                           type="number"
@@ -776,7 +780,7 @@ export function ViewingPanel({
                         />
                       </label>
                       <label>
-                        {uiText("Ngày trả")}
+                        <span className="field-label">{uiText("Ngày trả")}<RequiredMark /></span>
                         <input name="paid_on" type="date" required />
                       </label>
                     </div>
@@ -910,7 +914,7 @@ export function ViewingPanel({
               )}
             </p>
             <fieldset disabled={busy}>
-              <legend>{uiText("Đánh giá trải nghiệm (bắt buộc)")}</legend>
+              <legend>{uiText("Đánh giá trải nghiệm (bắt buộc)")}<RequiredMark /></legend>
               <div className="viewing-review-stars">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <label key={value}>

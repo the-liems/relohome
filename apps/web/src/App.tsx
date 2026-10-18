@@ -1,3 +1,4 @@
+import { RequiredMark } from "./components/RequiredMark";
 import { formatUi, t as uiText } from "./uiPreferences";
 import {
   createContext,
@@ -38,7 +39,6 @@ import {
   Plane,
   Plus,
   Search,
-  Send,
   Settings2,
   ShieldCheck,
   UserRound,
@@ -82,6 +82,7 @@ import { MAX_COMPARISON_HOMES, toggleComparison } from "./housingInteraction";
 import { HousingComparison } from "./components/HousingComparison";
 import { Approval, TaskForm } from "./components/Forms";
 import { ServiceInputPanel } from "./components/ServiceInputPanel";
+import { ChatComposer } from "./components/ChatComposer";
 import { PlanNextStep } from "./components/PlanNextStep";
 import { clarificationServices, guidedReplyText, requestDefaults, type FormService } from "./serviceRequest";
 import { Results } from "./components/Results";
@@ -553,7 +554,7 @@ function Login({
           <form onSubmit={submit}>
             {register && (
               <label>
-                {uiText("Tên hiển thị")}
+                <span className="field-label">{uiText("Tên hiển thị")}<RequiredMark /></span>
                 <input
                   name="name"
                   autoComplete="name"
@@ -564,7 +565,7 @@ function Login({
               </label>
             )}
             <label>
-              Email
+              <span className="field-label">Email<RequiredMark /></span>
               <input
                 name="email"
                 type="email"
@@ -574,7 +575,7 @@ function Login({
               />
             </label>
             <label>
-              {uiText("Mật khẩu")}
+              <span className="field-label">{uiText("Mật khẩu")}<RequiredMark /></span>
               <input
                 name="password"
                 type="password"
@@ -671,16 +672,9 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="chat-header">
           {isChat ? (
             <div className="chat-brand">
-              <Link
-                className="chat-home-link"
-                to="/ai"
-                aria-label={uiText("Về chat")}
-              >
-                RH
-              </Link>
               <div>
                 <p className="chat-title">
-                  ReloHome
+                  <Link to="/ai" aria-label={uiText("Về chat")}>ReloHome</Link>
                 </p>
                 <p>
                   {uiText(" Cùng bạn sắp xếp cuộc sống")}
@@ -2291,46 +2285,14 @@ function Chat() {
                 </button>
               </div>
             )}
-            <form
-              className="composer"
-              data-tour="chat-composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(draft).catch(() => {});
-              }}
-            >
-              <span className="composer-spark">
-                <Sparkles size={21} />
-              </span>
-              <textarea
-                ref={input}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={1}
-                placeholder={uiText(
-                  "Nhắn cho ReloHome…",
-                )}
-                aria-label={uiText("Tin nhắn cho ReloHome")}
-                maxLength={5000}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    send(draft).catch(() => {});
-                  }
-                }}
-              />
-              <button
-                className="send-button"
-                disabled={busy || !draft.trim() || !status}
-                aria-label={uiText("Gửi tin nhắn")}
-              >
-                <Send size={20} />
-              </button>
-            </form>
+            <ChatComposer
+              value={draft}
+              onChange={setDraft}
+              onSend={text => { void send(text).catch(() => {}); }}
+              busy={busy}
+              online={Boolean(status)}
+              inputRef={input}
+            />
             <div className="composer-caption">
               <span>
                 {uiText(
@@ -2600,7 +2562,7 @@ function Account({ onLogout }: { onLogout: () => void }) {
                 {tab === "profile" ? (
                   <>
                     <label>
-                      {uiText("Tên hiển thị")}
+                      <span className="field-label">{uiText("Tên hiển thị")}<RequiredMark /></span>
                       <input
                         name="name"
                         required

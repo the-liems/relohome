@@ -1,4 +1,5 @@
 import { formatUi } from "../uiPreferences";
+import { RequiredMark } from "./RequiredMark";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LibreMap, GeoJSONSource } from "maplibre-gl";
@@ -1397,7 +1398,7 @@ export function MovingRequestWorkspace({
                       aria-pressed={active === field}
                     >
                       {uiText("Chọn điểm ")}
-                      {meta.tag} · {uiText(meta.label)}
+                      {meta.tag} · {uiText(meta.label)}<RequiredMark />
                     </button>
                     {asked[field] && (
                       <small className="mv-asked">{asked[field].text}</small>
@@ -1406,6 +1407,7 @@ export function MovingRequestWorkspace({
                       <Search size={16} aria-hidden="true" />
                       <input
                         aria-label={uiText(meta.input)}
+                        aria-required="true"
                         value={
                           home
                             ? house.address || house.title
@@ -1580,9 +1582,10 @@ export function MovingRequestWorkspace({
           </div>
           <div className="form-grid mv-when" data-moving-section="schedule">
             <label>
-              {uiText("Ngày chuyển")}
+              <span className="field-label">{uiText("Ngày chuyển")}<RequiredMark /></span>
               <input
                 type="date"
+                aria-required="true"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
@@ -1591,9 +1594,10 @@ export function MovingRequestWorkspace({
               )}
             </label>
             <label>
-              {uiText("Giờ xe đến")}
+              <span className="field-label">{uiText("Giờ xe đến")}<RequiredMark /></span>
               <input
                 type="time"
+                aria-required="true"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
               />
