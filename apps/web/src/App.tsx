@@ -1503,12 +1503,14 @@ function Chat() {
     });
   }
   function choosePlace(choice: Data, field: string) {
+    const parts = field.split(".");
+    const locationField = parts.length === 2 && ["property", "map"].includes(parts[0]) ? parts[1] : field;
     const place =
       choice.entity_type === "place" &&
-      ["near", "route_from", "route_to"].includes(field);
+      ["near", "route_from", "route_to"].includes(locationField);
     return send(
       "Chọn " + choice.label,
-      place ? { place_choice: { field, place_id: choice.id } } : {},
+      place ? { place_choice: { field: locationField, place_id: choice.id } } : {},
     );
   }
   return (

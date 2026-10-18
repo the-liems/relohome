@@ -80,6 +80,7 @@ class Question(BaseModel):
     options: list[str] = []
     choices: list[LocationChoice] = []  # ứng viên địa điểm có ID và toạ độ thật (chọn trên bản đồ)
     blocking: bool = True
+    reason: Literal["location_not_found", "location_ambiguous"] | None = None
 
 
 class AgentUsage(BaseModel):

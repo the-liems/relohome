@@ -56,6 +56,13 @@ def client_for(areas):
         ("Cầu Giấy", "Tìm gần Cầu Giấy", "Tìm nhà ở khu vực Cầu Giấy", None),
         ("Bệnh viện Cầu Giấy", "đổi lại khu vực cầu giấy", "", None),
         ("Ocean Park 2", "gần Ocean Park 2", "", None),
+        ("Ocean Park 1", "Tìm nhà ở khu Ocean Park 1 dưới 5 triệu", "", "Ocean Park 1"),
+        ("Ocean Park 1", "Tìm nhà trong khu Ocean Park 1 dưới 5 triệu", "", "Ocean Park 1"),
+        ("Ocean Park 1", "Tìm nhà tại khu Ocean Park 1 dưới 5 triệu", "", "Ocean Park 1"),
+        ("Ocean Park 1", "Tìm nhà ở khu đô thị Ocean Park 1", "", "Ocean Park 1"),
+        ("Ocean Park 1", "Tìm nhà trong khu dân cư Ocean Park 1", "", "Ocean Park 1"),
+        ("Ocean Park 1", "Tìm nhà gần khu Ocean Park 1", "Tìm trong khu Ocean Park 1", None),
+        ("Ocean Park 1", "Tìm nhà ở khu Ocean Park 2", "", None),
     ],
 )
 def test_recovery_requires_explicit_scope_intent_matching_the_input(near, message, goal, expected):

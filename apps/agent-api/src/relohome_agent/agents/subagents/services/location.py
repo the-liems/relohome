@@ -220,7 +220,10 @@ def requested_area_query(req: AgentTaskRequest) -> str | None:
             # An explicit latest 'near' instruction wins over a stale scope goal.
             return None
         if re.search(
-            r"\b(?:khu vuc|dia ban|quan|huyen|phuong|xa|o|trong|tai)\s+(?:sang\s+)?" + re.escape(bare) + r"(?!\w)", text
+            r"\b(?:khu vuc|khu do thi|khu dan cu|khu|dia ban|quan|huyen|phuong|xa|o|trong|tai)\s+(?:sang\s+)?"
+            + re.escape(bare)
+            + r"(?!\w)",
+            text,
         ):
             return query
     return None
@@ -456,13 +459,17 @@ class LocationSubagent:
         # automatic coordinate. Dropping them here hides useful real matches
         # whenever the user's natural name differs from the OSM formal name.
         suggested = all(o.get("match_type") == "fuzzy" for o in options)
+        candidate_count = len(options)
         if suggested:
             options = [o for o in options if (o.get("match_score") or 0) >= MIN_SUGGESTION_SCORE]
             if not options:
-                return self._not_found(req, tools, field, text)
+                return self._not_found(
+                    req, tools, field, text, resolution="below_suggestion_threshold", candidate_count=candidate_count
+                )
         labels = list(dict.fromkeys(label_of(o) for o in options))[:5]
         question = Question(
             field=field,
+            reason="location_ambiguous",
             text=(
                 f'Mình tìm thấy các địa điểm có tên gần với "{text}". Bạn chọn đúng địa điểm trên bản đồ nhé.'
                 if suggested
@@ -471,7 +478,20 @@ class LocationSubagent:
             options=labels,
             choices=location_choices(options),
         )
-        return self._result(req, tools, status="needs_input", questions=[question])
+        return self._result(
+            req,
+            tools,
+            status="needs_input",
+            questions=[question],
+            data={
+                "location_resolution": {
+                    "field": field,
+                    "status": "suggestions" if suggested else "ambiguous",
+                    "candidate_count": candidate_count,
+                    "offered_count": len(options),
+                }
+            },
+        )
 
     async def _property(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
         inp = req.inputs
@@ -509,7 +529,7 @@ class LocationSubagent:
             place = await tools.call("get_place", {"place_id": inp["near_place_id"]})
             location = (place or {}).get("location") or {}
             if location.get("lat") is None:
-                return self._not_found(req, tools, "near", inp.get("near") or "")
+                return self._not_found(req, tools, "near", inp.get("near") or "", resolution="missing_coordinates")
             area = {"center": location, "radius_m": search_radius}
             area_name = place.get("name") or inp.get("near")
         elif inp.get("near"):
@@ -832,18 +852,41 @@ class LocationSubagent:
                 return union_bbox(found["bounding_box"], bbox_of_points(candidates))
         return bbox_of_points(candidates) or scope_bbox
 
-    def _not_found(self, req: AgentTaskRequest, tools: CountingClient, field: str, text: str) -> AgentTaskResult:
+    def _not_found(
+        self,
+        req: AgentTaskRequest,
+        tools: CountingClient,
+        field: str,
+        text: str,
+        *,
+        resolution: str = "no_results",
+        candidate_count: int = 0,
+    ) -> AgentTaskResult:
         question = (
             f'Mình chưa có tọa độ đáng tin cậy cho "{text}". Bạn có thể ghim địa điểm trên bản đồ '
             "hoặc yêu cầu tìm theo quận/thành phố thay thế."
             if field == "near"
             else f'Mình chưa xác định được vị trí "{text}". Bạn nói rõ hơn được không?'
         )
+        if req.agent == AgentName.PROPERTY:
+            question = (
+                f'Mình chưa có tọa độ đáng tin cậy cho "{text}". Bạn gửi tên đầy đủ kèm địa chỉ hoặc '
+                "quận/thành phố để mình tra lại nhé. Mình giữ nguyên các tiêu chí tìm nhà còn lại; "
+                "chưa mở rộng sang khu vực khác."
+            )
         return self._result(
             req,
             tools,
             status="needs_input",
-            questions=[Question(field=field, text=question)],
+            questions=[Question(field=field, text=question, reason="location_not_found")],
+            data={
+                "location_resolution": {
+                    "field": field,
+                    "status": resolution,
+                    "candidate_count": candidate_count,
+                    "offered_count": 0,
+                }
+            },
         )
 
     async def _map(self, req: AgentTaskRequest, tools: CountingClient) -> AgentTaskResult:
