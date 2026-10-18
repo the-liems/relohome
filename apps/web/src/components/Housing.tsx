@@ -181,6 +181,7 @@ export function HousingDetail({
   onAsk,
   busy,
   roommateActions,
+  roommateNotice,
 }: {
   house: House;
   saved: boolean;
@@ -193,6 +194,7 @@ export function HousingDetail({
   busy: boolean;
   // A linked occupied room connects to its Roommate poster, never to a landlord.
   roommateActions?: ReactNode;
+  roommateNotice?: string;
 }) {
   const [detail, setDetail] = useState(house),
     [loading, setLoading] = useState(true),
@@ -292,7 +294,7 @@ export function HousingDetail({
       </div>
       {roommateActions ? (
         <p className="notice amber">
-          {rt(
+          {roommateNotice || rt(
             "Phòng đang tìm người ở cùng. Liên hệ người đăng qua Roommate; đây không phải yêu cầu thuê căn hoặc đặt lịch với chủ nhà.",
             "This room is seeking a roommate. Contact the poster through Roommate, not the landlord rental or viewing flow.",
           )}
@@ -321,7 +323,7 @@ export function HousingDetail({
         </a>
       )}
       {roommateActions ? (
-        <div className="detail-footer">{roommateActions}</div>
+        <div className="detail-footer ws-roommate-actions">{roommateActions}</div>
       ) : (
         onSelect && (
           <div className="detail-footer">

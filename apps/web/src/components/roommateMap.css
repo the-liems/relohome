@@ -46,3 +46,6 @@
 .ws-roommate-contact svg {
   flex-shrink: 0;
 }
+.ws-roommate-actions {
+  flex-wrap: wrap;
+}
