@@ -1624,6 +1624,7 @@ export function MovingRequestWorkspace({
           <button
             className="primary ws-select"
             disabled={sending || chat.busy}
+            data-tour="moving-quote"
             onClick={() => void confirm()}
           >
             {sending ? uiText("Đang gửi…") : uiText("Xác nhận và lấy báo giá")}

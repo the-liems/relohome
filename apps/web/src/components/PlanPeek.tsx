@@ -154,6 +154,7 @@ export function PlanPeek({
     <>
       <button
         ref={button}
+        data-tour="plan"
         className={"plan-peek-tab" + (open ? " active" : "")}
         aria-label={uiText("Xem nhanh kế hoạch")}
         aria-expanded={open}

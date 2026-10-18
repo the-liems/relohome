@@ -131,6 +131,9 @@ test("layout regression: moving sections, selected home and pickup catalog remai
     await navigation
       .getByRole("button", { name: "Giao nhận", exact: true })
       .click();
+    if (await form.locator(".mv-optional").getAttribute("open") === null)
+      await form.locator(".mv-optional summary").click();
+    await form.getByLabel("Yêu cầu bằng chứng giao hàng").scrollIntoViewIfNeeded();
     await expect(
       form.getByLabel("Yêu cầu bằng chứng giao hàng"),
     ).toBeInViewport();
@@ -1871,6 +1874,7 @@ test("moving form submits provider add-ons, packages and cash options with confi
   await form.getByLabel("Giá trị hàng · VND").fill("300000");
   await form.getByLabel("Tiền thu hộ · VND").fill("100000");
   await form.getByLabel("Ghi chú cho tài xế").fill("Cổng sau");
+  await form.locator(".mv-optional summary").click();
   await form.getByLabel("Mã khuyến mãi").fill("MOVING");
   await form
     .getByRole("checkbox", { name: "Yêu cầu bằng chứng giao hàng" })

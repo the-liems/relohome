@@ -1152,11 +1152,12 @@ export function MapWorkspace({
 
       <section
         className="ws-map"
+        data-tour="housing-map"
         aria-label={uiText("Bản đồ nhà ở")}
         aria-busy={!ready}
       >
         <div className="ws-top">
-          <div className={"ws-filterbar " + (filtersOpen ? "expanded" : "")}>
+          <div data-tour="housing-filters" className={"ws-filterbar " + (filtersOpen ? "expanded" : "")}>
             <button
               className="ws-pill-button ws-filter-toggle"
               aria-expanded={filtersOpen}

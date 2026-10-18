@@ -1,0 +1,213 @@
+.onboarding-dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  color: var(--ui-text);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.onboarding-dialog::backdrop {
+  background: transparent;
+}
+.onboarding-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.onboarding-welcome,
+.onboarding-card {
+  z-index: 1;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-line);
+  box-shadow: 0 16px 60px #071f2533;
+  border-radius: 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.onboarding-welcome {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  width: min(760px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+}
+.onboarding-content {
+  position: relative;
+  padding: 32px;
+}
+.onboarding-content h2 {
+  font-size: 1.55rem;
+  line-height: 1.3;
+  margin: 0 20px 14px 0;
+}
+.onboarding-content h2:focus {
+  outline: none;
+}
+.onboarding-content > p:not(.onboarding-eyebrow) {
+  margin: 0 0 20px;
+  line-height: 1.65;
+}
+.onboarding-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--ui-accent);
+  margin: 0 24px 12px 0;
+}
+.onboarding-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+}
+.onboarding-art {
+  color: #e0fff4;
+  background: #125344;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 28px;
+}
+.onboarding-art > span {
+  height: 28px;
+  border-left: 2px dashed #90cab6;
+}
+.onboarding-art p {
+  font-size: 1.4rem;
+  font-weight: 750;
+}
+.onboarding-choices {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.onboarding-choices button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  text-align: left;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+.onboarding-choices button:hover {
+  border-color: var(--ui-accent);
+}
+.onboarding-choices button > span {
+  flex: 1;
+  font-weight: 700;
+}
+.onboarding-choices small {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 400;
+  margin-top: 4px;
+}
+.onboarding-safety {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+.onboarding-safety svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.onboarding-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-line);
+}
+.onboarding-actions button {
+  min-height: 44px;
+}
+.onboarding-replay-note {
+  display: block;
+  margin-top: 14px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.onboarding-dialog .onboarding-card {
+  position: absolute;
+  width: min(370px, calc(100% - 32px));
+  max-height: min(80dvh, 420px);
+}
+.onboarding-card .onboarding-content {
+  padding: 24px;
+}
+.onboarding-card h2 {
+  font-size: 1.2rem;
+}
+.onboarding-card .onboarding-eyebrow {
+  letter-spacing: normal;
+}
+.onboarding-card .onboarding-unavailable {
+  font-size: 0.78rem;
+  border-left: 3px solid var(--ui-accent);
+  padding-left: 10px;
+}
+.header-actions .onboarding-help {
+  gap: 6px;
+}
+.mv-optional {
+  margin-top: 16px;
+  border-top: 1px solid var(--ui-line);
+  padding-top: 12px;
+}
+.mv-optional summary {
+  cursor: pointer;
+  font-weight: 650;
+  padding: 6px 0;
+}
+.mv-optional[open] summary {
+  margin-bottom: 12px;
+}
+.mv-optional > label {
+  margin-bottom: 12px;
+}
+@media (max-width: 719px) {
+  .onboarding-welcome {
+    display: block;
+  }
+  .onboarding-art {
+    display: none;
+  }
+  .onboarding-content {
+    padding: 26px 20px;
+  }
+  .onboarding-content h2 {
+    font-size: 1.35rem;
+  }
+  .onboarding-dialog .onboarding-card {
+    left: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    max-height: 48dvh;
+  }
+  .onboarding-card .onboarding-content {
+    padding: 20px;
+  }
+  .onboarding-help > span {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-dialog *,
+  .onboarding-dialog {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
