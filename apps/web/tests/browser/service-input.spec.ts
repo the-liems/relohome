@@ -307,7 +307,7 @@ test("housing form validates the range and submits only the explicit visible cri
   expect(Object.keys(turns[0]).sort()).toEqual(["message", "request_id"]);
 });
 
-test("animated composer hint never becomes a draft or submits a message", async ({ page }) => {
+test("composer hints type, erase and loop until interaction without becoming a draft", async ({ page }) => {
   const { turns } = await fixture(page);
   await page.clock.install();
   await page.emulateMedia({ reducedMotion:"no-preference" });
@@ -316,11 +316,31 @@ test("animated composer hint never becomes a draft or submits a message", async 
   await page.clock.runFor(1400);
   const partial = await input.getAttribute("placeholder");
   expect(partial).toContain("Tôi muốn");
-  await page.clock.runFor(5000);
-  await expect(input).toHaveAttribute("placeholder", "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
+  const home = "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu";
+  const moving = "Tôi muốn chuyển đồ từ Bình Thạnh đến Gò Vấp";
+  const advanceToHint = async (text: string) => {
+    for (let i = 0; i < 160; i++) {
+      if (await input.getAttribute("placeholder") === text) return;
+      await page.clock.runFor(100);
+    }
+    await expect(input).toHaveAttribute("placeholder", text);
+  };
+  await advanceToHint(home);
+  await page.clock.runFor(2500);
+  const erasing = (await input.getAttribute("placeholder"))!;
+  expect(home.startsWith(erasing) && erasing.length < home.length).toBe(true);
+  await advanceToHint(moving);
+  await advanceToHint(home);
   await expect(input).toHaveValue("");
   await expect(page.getByRole("button", { name:"Gửi tin nhắn", exact:true })).toBeDisabled();
   expect(turns).toHaveLength(0);
+  await input.focus();
+  await page.clock.runFor(20000);
+  await expect(input).toHaveAttribute("placeholder", "Nhắn cho ReloHome…");
+  await expect(input).toHaveValue("");
+  await input.blur();
+  await page.clock.runFor(20000);
+  await expect(input).toHaveAttribute("placeholder", "Nhắn cho ReloHome…");
   await input.fill("Nội dung của tôi");
   await page.clock.runFor(5000);
   await expect(input).toHaveValue("Nội dung của tôi");
@@ -331,9 +351,12 @@ test("animated composer hint never becomes a draft or submits a message", async 
 
 test("composer hint respects reduced motion and follows the selected language", async ({ page }) => {
   await fixture(page);
+  await page.clock.install();
   await page.emulateMedia({ reducedMotion:"reduce" });
   await page.goto("/ai");
   const input = page.getByRole("textbox", { name:"Tin nhắn cho ReloHome" });
+  await expect(input).toHaveAttribute("placeholder", "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
+  await page.clock.runFor(20000);
   await expect(input).toHaveAttribute("placeholder", "Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
   await page.getByRole("button", { name:"EN", exact:true }).click();
   await expect(page.locator(".composer textarea")).toHaveAttribute("placeholder", /I am looking for a home in Binh Thanh/);

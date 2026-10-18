@@ -12,29 +12,45 @@ export function ChatComposer({ value, onChange, onSend, busy, online, inputRef }
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const example = t("Tôi muốn tìm nhà khu vực Bình Thạnh, thành phố Hồ Chí Minh dưới 5 triệu");
+  const movingExample = t("Tôi muốn chuyển đồ từ Bình Thạnh đến Gò Vấp");
   const fallback = t("Nhắn cho ReloHome…");
   const [hint, setHint] = useState(fallback);
-  const [focused, setFocused] = useState(false);
+  const [interacted, setInteracted] = useState(false);
   useEffect(() => {
-    if (value || focused || busy) return;
+    if (value || interacted || busy) return;
+    const examples = [example, movingExample];
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let timer: ReturnType<typeof setTimeout>;
+    let index = 0;
     let position = 0;
+    let deleting = false;
     const tick = () => {
-      position += 1;
-      setHint(example.slice(0, position));
-      if (position < example.length) timer = setTimeout(tick, 45);
+      const sentence = examples[index];
+      position += deleting ? -1 : 1;
+      setHint(sentence.slice(0, position));
+      if (!deleting && position === sentence.length) {
+        deleting = true;
+        timer = setTimeout(tick, 1800);
+      } else if (deleting && position === 0) {
+        deleting = false;
+        index = (index + 1) % examples.length;
+        timer = setTimeout(tick, 350);
+      } else {
+        timer = setTimeout(tick, deleting ? 22 : 45);
+      }
     };
     const start = () => {
       clearTimeout(timer);
+      index = 0;
       position = 0;
+      deleting = false;
       setHint(motion.matches ? example : fallback);
       if (!motion.matches) timer = setTimeout(tick, 700);
     };
     start();
     motion.addEventListener("change", start);
     return () => { clearTimeout(timer); motion.removeEventListener("change", start); };
-  }, [example, fallback, value, focused, busy]);
+  }, [example, movingExample, fallback, value, interacted, busy]);
   return (
     <form className="composer" data-tour="chat-composer" onSubmit={event => { event.preventDefault(); onSend(value); }}>
       <span className="composer-spark" aria-hidden="true"><Sparkles size={21} /></span>
@@ -42,10 +58,9 @@ export function ChatComposer({ value, onChange, onSend, busy, online, inputRef }
         ref={inputRef}
         value={value}
         onChange={event => onChange(event.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={() => setInteracted(true)}
         rows={1}
-        placeholder={focused || busy ? fallback : hint}
+        placeholder={interacted || busy ? fallback : hint}
         aria-label={t("Tin nhắn cho ReloHome")}
         maxLength={5000}
         onKeyDown={event => {
