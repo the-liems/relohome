@@ -1821,5 +1821,8 @@
   "{0} – {1} · cao nhất {2} triệu ₫ vào {3}": "{0} – {1} · peak {2} million ₫ in {3}",
   "{0}/{1} phòng · {2}%": "{0}/{1} rooms · {2}%",
   "Đang tải doanh thu…": "Loading revenue…",
+  "Hướng dẫn sử dụng": "Usage guide",
+  "Hướng dẫn": "Help",
+  "Tùy chọn giao nhận (không bắt buộc)": "Delivery options (optional)",
   "Ước tính: giá thuê hằng tháng × số ngày phòng ở trạng thái đã thuê, tính đến {0}. Không gồm tiền cọc, tiền điện nước thu hộ và các khoản hoàn trả. Tháng hiện tại chỉ tính tới hôm nay.": "Estimate: monthly rent × days each room was marked rented, up to {0}. Excludes deposits, utilities collected on the tenant's behalf and refunds. The current month counts up to today."
 }

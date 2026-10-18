@@ -5,6 +5,11 @@ export default defineConfig({
   timeout: 45000,
   use: {
     baseURL: "http://127.0.0.1:5174",
+    // General feature regressions model a returning visitor. onboarding.spec.ts
+    // explicitly starts with empty storage to cover the first-visit invitation.
+    storageState: { cookies: [], origins: [{ origin: "http://127.0.0.1:5174", localStorage: [
+      { name: "relohome.onboarding.v1.seen", value: "1" },
+    ] }] },
     channel: "chrome",
     // Optional user-installed Chrome for Testing; default remains system Chrome.
     launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH },

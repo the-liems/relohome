@@ -51,6 +51,7 @@ import {
   Trash2,
   UsersRound,
   BookOpen,
+  CircleHelp,
 } from "lucide-react";
 import { api, ApiError, dateTime, domainLabels, money, requestId } from "./api";
 import { mergePlaceCandidates } from "./placeCandidates";
@@ -113,6 +114,7 @@ import { ContactMessengerProvider } from "./components/ContactMessenger";
 import { AccountIntroPanel } from "./roommate/AccountIntroPanel";
 import { AccountAccess } from "./accountAccess";
 import { AUTH_RESTORED } from "./authEvents";
+import { Onboarding, OPEN_ONBOARDING } from "./onboarding/Onboarding";
 
 interface AppContext {
   user: User;
@@ -701,6 +703,19 @@ function Shell({ children }: { children: ReactNode }) {
               <House size={18} />
             </Link>
             <AppearanceControls />
+            {isChat && (
+              <button
+                type="button"
+                className="secondary onboarding-help"
+                data-tour="help"
+                aria-label={uiText("Hướng dẫn sử dụng")}
+                title={uiText("Hướng dẫn sử dụng")}
+                onClick={() => window.dispatchEvent(new Event(OPEN_ONBOARDING))}
+              >
+                <CircleHelp size={18} aria-hidden="true" />
+                <span>{uiText("Hướng dẫn")}</span>
+              </button>
+            )}
             <Link
               className="secondary mode-switch"
               onClick={(event) => { if (user.is_guest) { event.preventDefault(); requestLogin("/landlord"); } }}
@@ -1504,6 +1519,17 @@ function Chat() {
   }
   return (
     <div className={"chat-page" + (workspace ? " map-mode" : "")}>
+      <Onboarding
+        key={user.id}
+        ready={!loading && !!status}
+        eligible={!threadId && !loading && !busy && !!status && !form && !workspace && !params.toString() && !draft.trim()}
+        context={
+          workspace === "property" ? "housing-map"
+            : workspace === "relocation-form" ? "moving-form"
+              : workspace ? "other" : "chat"
+        }
+        scope={`${threadId || "new"}:${form || ""}:${params.get("panel") || ""}`}
+      />
       {thread?.messages?.length ? (
         <h1 className="sr-only">{thread.title}</h1>
       ) : null}
@@ -2267,6 +2293,7 @@ function Chat() {
             )}
             <form
               className="composer"
+              data-tour="chat-composer"
               onSubmit={(e) => {
                 e.preventDefault();
                 send(draft).catch(() => {});

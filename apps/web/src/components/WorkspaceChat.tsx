@@ -74,6 +74,7 @@ export function WorkspaceChat({
     return (
       <button
         ref={launcher}
+        data-tour="workspace-chat"
         className="ws-chat-show"
         onClick={() => setHidden(false)}
         aria-label={uiText("Hiện khung chat")}
@@ -88,6 +89,7 @@ export function WorkspaceChat({
   return (
     <div
       id={panelId}
+      data-tour="workspace-chat"
       className="ws-dock ws-dock-compact"
       role="region"
       aria-label={uiText("Trò chuyện với ReloHome")}

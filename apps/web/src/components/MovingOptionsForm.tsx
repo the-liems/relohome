@@ -61,7 +61,16 @@ export function MovingOptionsForm({
     [all, setAll] = useState(false),
     [family, setFamily] = useState<string | null>(null),
     [showServices, setShowServices] = useState(false),
+    [advanced, setAdvanced] = useState(
+      Boolean(
+        value.require_pod || value.require_verification || value.promo_code,
+      ),
+    ),
     [guide, setGuide] = useState("");
+  useEffect(() => {
+    if (value.require_pod || value.require_verification || value.promo_code)
+      setAdvanced(true);
+  }, [value.require_pod, value.require_verification, value.promo_code]);
   useEffect(() => {
     const abort = new AbortController();
     setServices([]);
@@ -677,25 +686,10 @@ export function MovingOptionsForm({
             <p>{uiText("Thông tin gửi cùng yêu cầu báo giá.")}</p>
           </div>
         </div>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={!!value.require_pod}
-            onChange={(e) => update({ require_pod: e.target.checked })}
-          />{" "}
-          {uiText("Yêu cầu bằng chứng giao hàng")}
-        </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={!!value.require_verification}
-            onChange={(e) => update({ require_verification: e.target.checked })}
-          />{" "}
-          {uiText("Yêu cầu xác minh khi giao")}
-        </label>
         <label>
           {uiText("Ghi chú cho tài xế")}
           <textarea
+            aria-label={uiText("Ghi chú cho tài xế")}
             rows={3}
             maxLength={1000}
             value={value.remarks || ""}
@@ -705,17 +699,42 @@ export function MovingOptionsForm({
             onChange={(e) => update({ remarks: e.target.value || undefined })}
           />
         </label>
-        <label>
-          {uiText("Mã khuyến mãi")}
-          <input
-            maxLength={100}
-            value={value.promo_code || ""}
-            placeholder={uiText("Nhập mã nếu có")}
-            onChange={(e) =>
-              update({ promo_code: e.target.value.trim() || undefined })
-            }
-          />
-        </label>
+        <details
+          className="mv-optional"
+          open={advanced}
+          onToggle={(event) => setAdvanced(event.currentTarget.open)}
+        >
+          <summary>{uiText("Tùy chọn giao nhận (không bắt buộc)")}</summary>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={!!value.require_pod}
+              onChange={(e) => update({ require_pod: e.target.checked })}
+            />{" "}
+            {uiText("Yêu cầu bằng chứng giao hàng")}
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={!!value.require_verification}
+              onChange={(e) =>
+                update({ require_verification: e.target.checked })
+              }
+            />{" "}
+            {uiText("Yêu cầu xác minh khi giao")}
+          </label>
+          <label>
+            {uiText("Mã khuyến mãi")}
+            <input
+              maxLength={100}
+              value={value.promo_code || ""}
+              placeholder={uiText("Nhập mã nếu có")}
+              onChange={(e) =>
+                update({ promo_code: e.target.value.trim() || undefined })
+              }
+            />
+          </label>
+        </details>
       </section>
       <section className="mv-payment-tile">
         <CreditCard size={22} />
