@@ -4,13 +4,20 @@ import json
 from pathlib import Path
 
 import pytest
+from relohome_agent.agents.deps import AgentRegistry, test_deps
+from relohome_agent.agents.intake_llm import LlmIntake
 from relohome_agent.agents.models import AgentName, Question
 from relohome_agent.agents.nodes.respond import unique_questions
+from relohome_agent.agents.planner_llm import LlmPlanner
+from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.conformance import sample_request
 from relohome_agent.agents.subagents.services.location import LocationSubagent
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
 
+from tests.test_agents.helpers import Session
+from tests.test_agents.test_housing_filter_followups import SequenceModel, draft
 from tests.test_agents.test_service_subagents import FakeToolClient, listing
+from tests.test_agents.test_token_efficiency import Model
 
 MESSAGE = "Tìm nhà ở khu Ocean Park 1 dưới 5 triệu"
 
@@ -144,3 +151,45 @@ async def test_reported_production_candidates_never_become_the_housing_location(
     if fast_path:
         assert agent.llm_client is None
         assert result.data["agent_trace"]["implementation"] == "validated-filter-retrieval"
+
+
+@pytest.mark.asyncio
+async def test_actual_graph_preserves_resolution_reason_scope_and_budget_after_city_reply():
+    correction = "Ở Hà Nội, giữ Ocean Park 1 và giá dưới 5 triệu"
+    model = SequenceModel(
+        [
+            draft(MESSAGE, kind="new_goal", values={"near": "Ocean Park 1", "max_price_vnd": 5_000_000}),
+            draft(correction, values={"city": "Hà Nội"}),
+        ]
+    )
+    city = {
+        "area_id": "hanoi",
+        "name": "Hà Nội",
+        "match_type": "exact",
+        "bounding_box": {"west": 105, "south": 20, "east": 106, "north": 22},
+    }
+    client = FakeToolClient(
+        {
+            "search_areas": lambda args: {"results": [city] if args["text"] == "Hà Nội" else []},
+            "resolve_location": {"results": []},
+        }
+    )
+    agent = ReadLlmAgent("unused", "unused", LocationSubagent(client, AgentName.PROPERTY))
+    planner = Model()
+    session = Session(
+        test_deps(
+            intake=LlmIntake(model, max_calls=1),
+            planner=LlmPlanner(planner, BASELINE_CAPABILITIES),
+            agents=AgentRegistry({AgentName.PROPERTY: agent}),
+        )
+    )
+    for text in (MESSAGE, correction):
+        result = await session.say(text)
+        assert result["response"].kind == "CLARIFY"
+        assert result["response"].questions[0].reason == "location_not_found"
+        assert result["intake"].constraints.values["near"] == "Ocean Park 1"
+        assert result["intake"].constraints.values["max_price_vnd"] == 5_000_000
+    assert result["intake"].constraints.values["city"] == "Hà Nội"
+    assert agent.llm_client is None and not planner.calls
+    assert len(model.calls) == 2  # existing semantic Intake only, no new classifier or repair
+    assert not any(name == "search_housing" for name, _ in client.calls)

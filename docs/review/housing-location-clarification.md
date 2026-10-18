@@ -1,6 +1,6 @@
 # Housing location clarification recovery
 
-Issue #252. Baseline: main `8fa254a`.
+Issue #252. Started on main `8fa254a`; integrated and reverified main `eedd7fc`.
 
 ## Confirmed report and boundaries
 
@@ -54,10 +54,13 @@ diagnostic for that check. It was not run against production by this PR.
 
 ## Verification and delivery
 
-- Agent suite: 616 passed, 1 skipped, including the real-response fixture
+- Agent suite: 617 passed, 1 skipped, including the real-response fixture
   through the adapter and fast retrieval path with zero model calls and no
   housing search using unrelated coordinates. The fixture preserves all eight
   UI results; the domain test uses its first five, matching the domain tool limit.
+- A two-turn real graph test with mocked semantic Intake and provider confirms
+  that adding the city preserves the landmark, price and typed resolution reason;
+  only the existing Intake calls occur, with no planner or property-model call.
 - Frontend contracts: 54 passed (52 default cases and two map-follow-up cases).
 - Browser regressions: 12 passed (eight new cases and four existing map-follow-up
   cases, desktop/mobile), covering typed and legacy responses, a repeated
