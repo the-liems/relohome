@@ -15,6 +15,7 @@ import logging
 import secrets
 import string
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -81,6 +82,8 @@ class CheckoutService:
     _next_check: dict[str, tuple[datetime, timedelta]] = field(default_factory=dict)
     locks: dict[str, asyncio.Lock] = field(default_factory=dict)
     _worker: asyncio.Task | None = None
+    _jobs: set[asyncio.Task] = field(default_factory=set)
+    _stopping: asyncio.Event = field(default_factory=asyncio.Event)
 
     # ------------------------------------------------------------------ helpers
 
@@ -706,11 +709,20 @@ class CheckoutService:
     # ------------------------------------------------------------------ hoàn tất (bền, chạy một lần)
 
     def kick(self) -> None:
+        """Run new fulfilment now, beside the worker: a paid hold must not wait behind slow reconciliation reads."""
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        loop.create_task(self.run_jobs())
+        task = loop.create_task(self.run_jobs())
+        # Keep a reference until it finishes, as the asyncio docs require, so stop() can await it.
+        self._jobs.add(task)
+        task.add_done_callback(self._job_done)
+
+    def _job_done(self, task: asyncio.Task) -> None:
+        self._jobs.discard(task)
+        if not task.cancelled() and (error := task.exception()) is not None:
+            logger.error("checkout fulfilment failed", exc_info=error)
 
     async def reconcile_open(self) -> None:
         """Đối soát lần thanh toán còn mở dù người dùng không bấm Kiểm tra, để trả tiền xong là xuất vé
@@ -811,13 +823,14 @@ class CheckoutService:
         """Đối soát lần thanh toán còn mở, chạy tiếp công việc dở khi khởi động và quét định kỳ (một worker)."""
 
         async def loop():
-            while True:
+            while not self._stopping.is_set():
                 try:
                     await self.reconcile_open()
                     await self.run_jobs()
                 except Exception:  # pragma: no cover - log và chạy tiếp vòng sau
                     logger.exception("checkout job loop failed")
-                await asyncio.sleep(self.seconds_until_next(interval))
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(self._stopping.wait(), self.seconds_until_next(interval))
 
         self._worker = asyncio.create_task(loop())
 
@@ -831,8 +844,11 @@ class CheckoutService:
         return max(wait, 0.05)
 
     async def stop(self) -> None:
+        """Let the current pass and started fulfilment finish, so a provider call is never cut off mid-request."""
+        self._stopping.set()
         if self._worker:
-            self._worker.cancel()
+            await self._worker
+        await asyncio.gather(*self._jobs, return_exceptions=True)  # failures are logged by _job_done
 
     # ------------------------------------------------------------------ nhà (người dùng tự báo, app không thu tiền)
 
