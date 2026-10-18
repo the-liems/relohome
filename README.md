@@ -12,7 +12,7 @@ ReloHome is an AI system for people planning a relocation. Finding a home, arran
 |---|---|
 | Project | **ReloHome — AI-assisted relocation planning** |
 | Description | Helps people find housing, explore maps and nearby amenities, request moving quotes, and search flights through a conversational plan with explicit confirmation for supported paid actions. Provider availability and transaction limits are described below. |
-| Live MVP | [Staging application](https://staging.c4-app-044.io.vn) — Cloudflare Access sign-in was observed on 18 October. |
+| Live MVP | [https://c4-app-044.io.vn/](https://c4-app-044.io.vn/) |
 | Demo video, maximum 3 minutes | [Watch demo video](https://drive.google.com/file/d/1XJStE2vlBaC0gtNLLO2UYXvgQ4I_tBng/view?usp=drive_link) |
 | Pitch deck | [View pitch deck](https://drive.google.com/file/d/1Y9FUZp_jrP4-YjWiaRkhb99uI7BFshz9/view?usp=drive_link) |
 | Project thumbnail, one image | [View project thumbnail](https://drive.google.com/file/d/1MFbn6L1l4fgpaC4AKX9nBtUlNZFFzamB/view?usp=drive_link) |
