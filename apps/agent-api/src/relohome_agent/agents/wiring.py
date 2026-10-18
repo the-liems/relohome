@@ -143,9 +143,7 @@ class AgentService:
             raise ValueError("MVP transactions are restricted to AhaMove staging")
         if services.agent_sandbox_payments_enabled or services.app_payment_demo_enabled:
             await verify_sandbox_payment_service(services)
-        stack = AsyncExitStack()
-        await stack.__aenter__()
-        try:
+        async with AsyncExitStack() as stack:
             registry = ServiceRegistry.from_settings(services)
             stack.push_async_callback(registry.aclose)
             components = build_llm_components(services, registry)
@@ -240,7 +238,6 @@ class AgentService:
                 approvals,
                 pii,
                 "live",
-                resources=stack,
                 settings=services,
                 writes_enabled=services.agent_writes_enabled,
                 sandbox_payment_client=registry.payment.write_client()
@@ -248,10 +245,9 @@ class AgentService:
                 else None,
                 checkout=checkout,
                 viewing=viewing,
+                # Last, so the stack still closes everything if an argument above raises.
+                resources=stack.pop_all(),
             )
-        except BaseException:
-            await stack.aclose()
-            raise
 
     async def close(self):
         if self.resources:
