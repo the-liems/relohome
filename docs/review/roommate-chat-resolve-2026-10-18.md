@@ -6,6 +6,7 @@
 - Một lần bấm chuyển **tin của người bấm** sang `resolved` (Đã tìm được), loại khỏi tìm kiếm và lớp Roommate trên bản đồ.
 - Người còn lại phải tự bấm để gỡ tin của họ. Không tự thay đổi dữ liệu người khác.
 - Giữ bản giới thiệu riêng, nội dung tin và cuộc chat. Hai người vẫn gửi/đọc tin nhắn được.
+- Theo lifecycle `resolve` hiện có, hủy các yêu cầu kết nối đang chờ ở cả chiều gửi và nhận; đăng lại không khôi phục các yêu cầu này. Lời nhắc trước nút nêu rõ việc hủy yêu cầu và giữ chat đã kết nối bằng tiếng Việt/Anh.
 - Có thể tiếp tục tìm người bằng thao tác đăng lại nhu cầu hiện có trong Hồ sơ của tôi.
 - Không tác động tin nhà Housing, lịch xem nhà hoặc chat chủ nhà.
 

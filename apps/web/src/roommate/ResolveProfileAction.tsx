@@ -91,8 +91,8 @@ export function ResolveProfileAction({
     <div className="rm-chat-resolve">
       <small>
         {rt(
-          "Chỉ gỡ tin ở ghép của bạn khỏi tìm kiếm và bản đồ. Hai bạn vẫn nhắn tin được.",
-          "Remove only your roommate listing from search and the map. You can still chat.",
+          "Gỡ tin của bạn khỏi tìm kiếm, bản đồ và hủy các yêu cầu kết nối đang chờ (gửi đi và nhận vào). Các cuộc chat đã kết nối vẫn được giữ.",
+          "Remove your listing from search and the map and cancel pending connection requests, both sent and received. Existing connected chats are kept.",
         )}
       </small>
       <ErrorNotice error={error} />
