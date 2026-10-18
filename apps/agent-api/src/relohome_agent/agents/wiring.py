@@ -10,8 +10,7 @@
 | flight | Flight (Doan/api) | FLIGHT_MCP_URL |
 | (thanh toán) | Payment ZaloPay sandbox (Doan/api) | PAYMENT_MCP_URL |
 
-Service chưa cấu hình thì lĩnh vực đó không được đăng ký. Khi chủ service có subagent riêng
-(`run_task`), thay subagent nền bằng `RemoteAgent` ở đây; graph không đổi.
+Service chưa cấu hình thì lĩnh vực đó không được đăng ký.
 """
 
 from __future__ import annotations

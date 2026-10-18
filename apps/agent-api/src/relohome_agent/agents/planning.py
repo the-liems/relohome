@@ -101,18 +101,6 @@ class FixedPlanner:
         return PlannerOutput(plan=self._plan)
 
 
-class ScriptedPlanner:
-    def __init__(self, plans: Iterable[Plan]):
-        self.plans = list(plans)
-        self.inputs: list[PlannerInput] = []
-
-    async def plan(self, inp: PlannerInput) -> PlannerOutput:
-        self.inputs.append(inp)
-        if not self.plans:
-            raise RuntimeError("ScriptedPlanner has no more plans")
-        return PlannerOutput(plan=self.plans.pop(0))
-
-
 # --- validate_plan (§6.2 bước 3) ---
 
 COMMIT_DOMAIN: dict[CommitActionKind, tuple[AgentName, ...]] = {

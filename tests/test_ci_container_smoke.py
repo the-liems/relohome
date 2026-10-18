@@ -1,13 +1,11 @@
 """Failure-path coverage for resource ownership on persistent CI runners."""
 
-import importlib.util
 import json
 import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 FAKE_TOOL = '''#!/usr/bin/env python3
@@ -137,40 +135,3 @@ class MCPSmokeTests(unittest.TestCase):
                 self.assertIn(["docker", "rm", "-fv", f"{project}-verify"], calls)
                 self.assertFalse(any(".env" in arg for call in calls for arg in call))
 
-
-class AgentSmokeTests(unittest.TestCase):
-    def test_termination_before_container_name_does_not_enter_cleanup(self):
-        spec = importlib.util.spec_from_file_location("agent_smoke", ROOT / "scripts/smoke-agent-containers.py")
-        smoke = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(smoke)
-        with (
-            patch.object(smoke.signal, "signal"),
-            patch.object(smoke.secrets, "token_urlsafe", side_effect=SystemExit(143)),
-            patch.object(smoke, "docker") as docker,
-            patch.object(smoke, "remove") as cleanup,
-        ):
-            with self.assertRaises(SystemExit) as terminated:
-                smoke.main()
-        self.assertEqual(terminated.exception.code, 143)
-        docker.assert_not_called()
-        cleanup.assert_not_called()
-
-    def test_partial_docker_start_is_cleaned_up_with_run_scoped_image(self):
-        spec = importlib.util.spec_from_file_location("agent_smoke", ROOT / "scripts/smoke-agent-containers.py")
-        smoke = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(smoke)
-        failure = subprocess.CalledProcessError(125, ["docker", "run"])
-        with (
-            patch.dict(os.environ, {"AGENT_IMAGE_TAG": "ci-201-1"}),
-            patch.object(smoke.signal, "signal"),
-            patch.object(smoke, "docker", side_effect=failure) as docker,
-            patch.object(smoke.subprocess, "run") as cleanup,
-        ):
-            cleanup.return_value.returncode = 0
-            with self.assertRaises(subprocess.CalledProcessError):
-                smoke.main()
-        args = docker.call_args_list[0].args
-        self.assertIn("lifeflow-intake:ci-201-1", args)
-        self.assertIn("lifeflow.ci.agents=ci-201-1", args)
-        self.assertIn("/app/data:mode=1777", args)
-        self.assertEqual(cleanup.call_args.args[0], ["docker", "rm", "-fv", args[args.index("--name") + 1]])

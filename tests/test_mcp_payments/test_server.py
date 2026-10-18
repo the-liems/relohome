@@ -2,7 +2,6 @@ from typing import Any
 
 import pytest
 from mcp.client import Client
-from relohome_agent.agents.tools import payment_mcp
 from relohome_mcp_http import create_http_app
 from relohome_payment.engine import PaymentEngine
 from relohome_payments_mcp.server import SERVER_NAME, create_server
@@ -59,10 +58,3 @@ def test_health_and_container_host(engine: PaymentEngine) -> None:
     response = TestClient(create_http_app(server, TEST_MCP_TOKEN, host="0.0.0.0")).get("/health")
     assert response.json() == {"status": "ok", "server": SERVER_NAME, "provider": "mock", "simulation": True, "environment": "mock"}
 
-
-def test_agent_connection_selection(monkeypatch) -> None:
-    monkeypatch.setenv("PAYMENT_MCP_URL", "http://payments-mcp:8766/mcp")
-    assert payment_mcp.payment_server_connection().url == "http://payments-mcp:8766/mcp"
-    monkeypatch.delenv("PAYMENT_MCP_URL")
-    with pytest.raises(ValueError, match="PAYMENT_MCP_URL"):
-        payment_mcp.payment_server_connection()

@@ -100,12 +100,7 @@ def test_langgraph_and_openai_export_connected_generations():
             assert copy.get("attributes") == span.get("attributes")
             assert attrs(span)["langfuse.environment"] == "test"
 
-        all_generations = [s for s in spans if attrs(s).get("langfuse.observation.type") == "generation"]
-        standalone = [s for s in all_generations if attrs(s).get("session.id", "").startswith("standalone-")]
-        assert {attrs(s)["session.id"] for s in standalone} == {"standalone-intake", "standalone-planner"}
-        assert len(standalone) == 2
-        assert len({s["traceId"] for s in standalone}) == 2
-        generations = [s for s in all_generations if s not in standalone]
+        generations = [s for s in spans if attrs(s).get("langfuse.observation.type") == "generation"]
         assert len(generations) == 3, [(s["name"], attrs(s)) for s in spans]
         success = next(s for s in spans if s["name"] == "session-success")
         failure = next(s for s in spans if s["name"] == "session-failure")

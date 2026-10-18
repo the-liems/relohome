@@ -11,7 +11,6 @@ from relohome_agent.agents.models import AgentName, Constraints, Question, Reque
 from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.subagents.base import AgentPolicy, AgentTransportError, run_with_policy
 from relohome_agent.agents.subagents.fake import FakeAgent
-from relohome_agent.agents.subagents.fallback import FallbackAgent
 
 from tests.test_agents.helpers import Session, fact, intake_result
 
@@ -115,16 +114,6 @@ async def test_needs_input_maps_to_status():
     out = await run(FakeAgent(AgentName.PROPERTY, responder=ask))
     assert out["task_status"]["t1"] == TaskStatus.NEEDS_INPUT
 
-
-@pytest.mark.asyncio
-async def test_fallback_agent_uses_second_source():
-    def fail(req):
-        return {"status": "failed", "error": {"code": "provider_unavailable", "message": "x", "retryable": True}}
-
-    fallback = FallbackAgent([FakeAgent(AgentName.PROPERTY, responder=fail), FakeAgent(AgentName.PROPERTY)])
-    out = await run(fallback)
-    assert out["task_status"]["t1"] == TaskStatus.DONE
-    assert out["task_results"]["t1"].source == "fake-property"
 
 
 @pytest.mark.asyncio

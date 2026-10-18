@@ -86,7 +86,7 @@ packages/python/flight/src/relohome_flight/
 ├── schemas.py, settings.py, catalog.py, storage.py, booking_engine.py, errors.py
 ├── search/                          # base, mock, serpapi
 └── catalog_data/                    # airports.json, airlines.json (wheel resources)
-apps/agent-api/src/relohome_agent/agents/tools/flight_mcp.py  # HTTP client only
+apps/agent-api/src/relohome_agent/services/adapters/mcp.py  # backend MCP client
 tests/test_mcp_flights/
 ```
 
@@ -208,33 +208,10 @@ còn có test tự động trong `tests/test_agents/test_flight_mcp.py`.
 
 ### A. Agent LangGraph
 
-```python
-import asyncio
-
-from langchain.agents import create_agent
-
-from relohome_agent.agents.tools.flight_mcp import flight_tools_session, get_flight_tools
-from relohome_agent.services.llm import get_llm
-
-
-async def main() -> None:
-    # Cách 1: mỗi lần gọi tool mở một process server mới (đơn giản)
-    tools = await get_flight_tools()
-
-    # Cách 2: giữ một process cho cả phiên hội thoại (nhanh hơn)
-    async with flight_tools_session() as tools:
-        agent = create_agent(get_llm(), tools)
-        result = await agent.ainvoke({"messages": [("user", "Tìm vé SGN đi PQC ngày 2026-12-20")]})
-        print(result["messages"][-1].content)
-
-
-asyncio.run(main())
-```
-
-- Hai cách đều dùng được, vì offer và booking được lưu trong SQLite chứ không nằm trong RAM của process.
-- Tool nhận được là `BaseTool` của LangChain, nên dùng được với `ToolNode`, `bind_tools` hay `create_agent`.
-- Việc gắn tool vào graph chính (`apps/agent-api/src/relohome_agent/agents/graph.py`) do người phụ trách tool routing quyết định.
-- Cần `OPENAI_API_KEY` trong `.env` cho `get_llm()`.
+The backend calls this service through `relohome_agent.services.adapters.mcp.McpToolClient`.
+`ServiceRegistry` builds its endpoints from `FLIGHT_MCP_URL` and `FLIGHT_MCP_AUTH_TOKEN`
+(`apps/agent-api/src/relohome_agent/services/adapters/registry.py`). The model only sees the
+agent's curated tools, which call this server; it never gets the raw MCP tool list.
 
 ### B. Gọi trực tiếp như thư viện Python
 
@@ -289,8 +266,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Với LangGraph, dùng `MCPAdapter` với `StreamableHttpTransport` chứa URL/bearer header;
-`apps/agent-api/src/relohome_agent/agents/tools/flight_mcp.py` đọc `FLIGHT_MCP_URL` và `FLIGHT_MCP_AUTH_TOKEN`.
+Backend dùng `McpToolClient` (`apps/agent-api/src/relohome_agent/services/adapters/mcp.py`);
+`ServiceRegistry` đọc `FLIGHT_MCP_URL` và `FLIGHT_MCP_AUTH_TOKEN`.
 Server kiểm tra bearer token bắt buộc; xem
 [internal authentication contract](../../docs/specs/internal-mcp-auth.md).
 

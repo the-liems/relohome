@@ -3,7 +3,6 @@
 -r requirements-runtime.txt
 
 # Application metadata preserves the standalone dependency pins.
--e ./packages/python/agent-services
 -e ./packages/python/contracts
 -e ./packages/python/flight
 -e ./packages/python/mcp-http
@@ -14,8 +13,6 @@
 -e ./apps/browser-gateway
 -e ./apps/flights-mcp
 -e ./apps/payments-mcp
--e ./apps/intake-api
--e ./apps/orchestrator-api
 -e ./examples/location-streamlit
 -e ./examples/streamlit
 

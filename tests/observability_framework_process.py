@@ -80,23 +80,6 @@ async def main():
                 for path in ("/assets/SYNTHETIC_PRIVATE_ASSET", "/images/SYNTHETIC_PRIVATE_IMAGE"):
                     assert "x-trace-id" not in (await client.get(path)).headers
 
-                from relohome_agent_services.common import ServiceSettings
-                from relohome_intake.app import create_app as intake
-                from relohome_orchestrator.app import create_app as orchestrator
-
-                settings = ServiceSettings(orchestrator_db_path=":memory:")
-                for name, factory, method, path in (
-                    ("intake", intake, "POST", "/v1/intake"),
-                    ("orchestrator", orchestrator, "GET", "/v1/capabilities"),
-                ):
-                    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=factory(settings)),
-                                                 base_url="http://fixture") as standalone:
-                        trace_id = uuid.uuid4().hex
-                        result = await standalone.request(method, path, headers={
-                            "traceparent": f"00-{trace_id}-2222222222222222-01",
-                        })
-                        responses[name] = {"status": result.status_code, "trace_id": trace_id}
-
                 print(json.dumps(responses), flush=True)
         finally:
             server.should_exit = True

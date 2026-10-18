@@ -105,13 +105,6 @@ gateway:
 ui-agent-chat:
 	npm run dev:agent-chat
 
-.PHONY: agents-up agents-down
-agents-up:
-	docker compose --env-file .env.local -f compose.agents.yaml up -d --build
-
-agents-down:
-	docker compose --env-file .env.local -f compose.agents.yaml down
-
 .PHONY: ui-location ui-location-tools
 ui-location:
 	npm run dev:location-demo

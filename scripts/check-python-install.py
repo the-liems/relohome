@@ -16,8 +16,6 @@ APPS = {
     "backend": ("relohome-agent", "relohome_agent", ["main", "roommate_runtime", "agents.subagents.services"]),
     "flights-mcp": ("relohome-flights-mcp", "relohome_flights_mcp", ["__main__", "server", "tools"]),
     "payments-mcp": ("relohome-payments-mcp", "relohome_payments_mcp", ["__main__", "server", "tools"]),
-    "intake": ("relohome-intake-api", "relohome_intake", ["app", "service"]),
-    "orchestrator": ("relohome-orchestrator-api", "relohome_orchestrator", ["app", "registry", "store"]),
     "demos": (
         "relohome-demos",
         "relohome_demos",

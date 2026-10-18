@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-from types import SimpleNamespace
 
 import httpx
 from langfuse import get_client
@@ -103,23 +102,6 @@ async def main():
                     raise
 
     await asyncio.gather(run("session-success"), run("session-failure", True))
-    # Exercise standalone entry points with real SDK calls inside a minimal graph.
-    from relohome_intake.service import IntakeService
-    from relohome_orchestrator.planner import Planner
-
-    class DirectGraph:
-        async def ainvoke(self, state, config):
-            await client.responses.create(model="gpt-4.1-mini", input="standalone")
-            return {"result": "ok", "plan": "ok"}
-
-    intake = IntakeService.__new__(IntakeService)
-    intake.graph = DirectGraph()
-    planner = Planner.__new__(Planner)
-    planner.graph = DirectGraph()
-    await asyncio.gather(
-        intake.understand(SimpleNamespace(session_id="standalone-intake")),
-        planner.plan(SimpleNamespace(session_id="standalone-planner")),
-    )
     await client.close()
     get_client().flush()
     provider.force_flush()

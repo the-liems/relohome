@@ -58,7 +58,6 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
         assert cases["failure"]["status"] == 500
         assert cases["unknown"]["status"] == 404
         assert cases["starlette_failure"]["status"] == 500
-        assert cases["intake"]["status"] == cases["orchestrator"]["status"] == 503
         assert all(case["trace_id"] != "1" * 32 for case in cases.values())
         spans = [span for path, payload in received if path == "/v1/traces"
                  for resource in payload["resourceSpans"] for scope in resource["scopeSpans"] for span in scope["spans"]]
@@ -85,12 +84,6 @@ def test_official_framework_otlp_chain_has_errors_and_metrics():
         assert any(event["name"] == "exception" for event in failure.get("events", []))
         downstream_failure = next(span for span in spans if span["name"] == "GET /broken")
         assert any(event["name"] == "exception" for event in downstream_failure.get("events", []))
-        for name in ("intake", "orchestrator"):
-            standalone = next(span for span in spans
-                              if base64.b64decode(span["traceId"]).hex() == cases[name]["trace_id"]
-                              and span["kind"] == "SPAN_KIND_SERVER")
-            assert any(item["key"] == "error.type" and item["value"]["stringValue"] == "503"
-                       for item in standalone["attributes"])
         metric_names = {metric["name"] for path, payload in received if path == "/v1/metrics"
                         for resource in payload["resourceMetrics"] for scope in resource["scopeMetrics"]
                         for metric in scope["metrics"]}

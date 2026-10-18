@@ -16,8 +16,6 @@ APPLICATIONS = {
     "relohome_agent": "apps/agent-api/src/relohome_agent",
     "relohome_flights_mcp": "apps/flights-mcp/src/relohome_flights_mcp",
     "relohome_payments_mcp": "apps/payments-mcp/src/relohome_payments_mcp",
-    "relohome_intake": "apps/intake-api/src/relohome_intake",
-    "relohome_orchestrator": "apps/orchestrator-api/src/relohome_orchestrator",
 }
 
 

@@ -102,7 +102,7 @@ curl localhost:8766/health                    # {"status":"ok","server":"vn-paym
 docker run --rm -p 8766:8766 --env-file .env payments-mcp
 ```
 
-Agent LangGraph: `apps/agent-api/src/relohome_agent/agents/tools/payment_mcp.py` requires `PAYMENT_MCP_URL` and connects over HTTP. Provider credentials and SQLite state belong to the Payment service. Set `MCP_AUTH_TOKEN` on the service and the matching `PAYMENT_MCP_AUTH_TOKEN` on the client to authenticate internal requests.
+Agent LangGraph: the backend's `McpToolClient` (`apps/agent-api/src/relohome_agent/services/adapters/mcp.py`) connects over HTTP using `PAYMENT_MCP_URL` from `ServiceRegistry`. Provider credentials and SQLite state belong to the Payment service. Set `MCP_AUTH_TOKEN` on the service and the matching `PAYMENT_MCP_AUTH_TOKEN` on the client to authenticate internal requests.
 
 ## Giới hạn
 
