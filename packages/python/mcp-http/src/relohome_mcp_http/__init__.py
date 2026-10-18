@@ -1,5 +1,6 @@
 """SDK authentication for internal MCP services with pre-shared bearer tokens."""
 
+import json
 import re
 import secrets
 from functools import wraps
@@ -8,7 +9,7 @@ from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
 from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
 from mcp.server.auth.provider import AccessToken, TokenVerifier
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import CallToolResult, TextContent
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.responses import JSONResponse
 
@@ -63,11 +64,16 @@ def create_http_app(server: MCPServer, token: str, *, host: str = "127.0.0.1"):
 
 
 def tool_errors(fn, error_type):
-    """Expose only the service's safe business errors to MCP callers."""
+    """Return the service's safe business errors as structured tool errors: `{code, message, retryable}`.
+
+    A returned error result reaches the client unchanged; a raised ToolError would get an SDK prefix
+    (`Error executing tool …`) and lose its JSON shape. The TypeScript servers use the same shape.
+    """
     @wraps(fn)
     async def wrapped(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
         except error_type as exc:
-            raise ToolError(str(exc)) from exc
+            text = json.dumps({"code": exc.code, "message": str(exc), "retryable": exc.retryable}, ensure_ascii=False)
+            return CallToolResult(content=[TextContent(type="text", text=text)], is_error=True)
     return wrapped

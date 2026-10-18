@@ -573,3 +573,28 @@ async def test_payable_attempts_are_checked_at_a_steady_bounded_cadence(env):
     gaps = [(b - a).total_seconds() for a, b in zip([start, *times], times, strict=False)]
     assert max(gaps) <= service.settings.reconcile_active.total_seconds() + 5
     assert deadline - times[-1] <= service.settings.reconcile_final_margin
+
+
+@pytest.mark.asyncio
+async def test_rejected_payment_order_ends_the_attempt_and_releases_the_hold(env):
+    service, _, flight, payment, _ = env
+    payment.create_error = ToolCallError("INVALID_REQUEST", "order rejected")
+    with pytest.raises(CheckoutError) as rejected:
+        await pay_flight(service)
+    assert rejected.value.code == "payment_rejected"
+    assert [tool for tool, _ in payment.calls].count("create_payment") == 1
+    assert ("cancel_booking", {"booking_ref": "bk_1", "confirm": True}) in flight.calls
+
+
+@pytest.mark.asyncio
+async def test_rejection_during_reconciliation_cancels_once_and_stops(env):
+    service, _, flight, payment, _ = env
+    payment.create_error = ToolCallError("timeout", "payment timed out", retryable=True)
+    _, attempt = await pay_flight(service)
+    assert attempt["outcome"] == "needs_reconciliation"
+    payment.create_error = ToolCallError("INVALID_REQUEST", "order rejected")
+    checked = await service.check(USER, attempt["attempt_id"])
+    assert checked["outcome"] == "cancelled"
+    assert flight.calls.count(("cancel_booking", {"booking_ref": "bk_1", "confirm": True})) == 1
+    await service.check(USER, attempt["attempt_id"])  # A cancelled attempt is not retried.
+    assert [tool for tool, _ in payment.calls].count("create_payment") == 2

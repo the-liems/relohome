@@ -49,7 +49,17 @@ class PaymentSubagent:
                 fetched_at=utcnow(),
                 usage=usage,
             )
-        except (ToolCallError, ValueError, TypeError, AttributeError):
+        except ToolCallError as exc:
+            return failed_result(
+                req,
+                "provider_unavailable" if exc.retryable else "provider_rejected",
+                "Không xác minh được trạng thái thanh toán; không kết luận đã trả tiền.",
+                exc.retryable,
+                "zalopay",
+                "sandbox",
+                usage,
+            )
+        except (ValueError, TypeError, AttributeError):
             return failed_result(
                 req,
                 "provider_unavailable",

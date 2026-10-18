@@ -56,7 +56,8 @@ def unwrap(result: CallToolResult) -> Any:
         shape = _error_shape(message)
         if shape is not None:  # @relohome/mcp-core: {code, message, retryable}
             raise ToolCallError(shape["code"], str(shape.get("message", ""))[:500], retryable=shape["retryable"])
-        raise ToolCallError(_error_code(message), message[:500], retryable=_retryable(message))
+        # Unstructured text (e.g. the SDK's own schema errors) carries no code; treat it as non-retryable.
+        raise ToolCallError("TOOL_ERROR", message[:500])
     data = result.structured_content
     if data is None and texts:
         try:
@@ -79,26 +80,6 @@ def _error_shape(message: str) -> dict | None:
     if isinstance(err, dict) and isinstance(err.get("code"), str) and isinstance(err.get("retryable"), bool):
         return err
     return None
-
-
-def _error_code(message: str) -> str:
-    """Service trả mã lỗi dạng `CODE: message` hoặc JSON `{"code": ...}`; lấy mã nếu có."""
-    try:
-        payload = json.loads(message)
-        if isinstance(payload, dict):
-            err = payload.get("error", payload)
-            if isinstance(err, dict) and isinstance(err.get("code"), str):
-                return err["code"]
-    except ValueError:
-        pass
-    head = message.split(":", 1)[0].strip()
-    return head if head.replace("_", "").isalnum() and head.upper() == head and len(head) <= 40 else "TOOL_ERROR"
-
-
-def _retryable(message: str) -> bool:
-    """Chỉ dùng khi server trả lỗi dạng chữ (FastMCP của Flight / Payment)."""
-    text = message.lower()
-    return any(k in text for k in ("timeout", "timed out", "unavailable", "rate limit", "temporar", "503", "502"))
 
 
 def _auth_failure(exc: BaseException) -> int | None:

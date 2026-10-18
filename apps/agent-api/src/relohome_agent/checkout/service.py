@@ -530,6 +530,13 @@ class CheckoutService:
         except ToolCallError as exc:
             if exc.transport and not exc.retryable:
                 raise CheckoutError(502, "Chưa tạo được đơn thanh toán. Hãy thử lại.") from None
+            if not exc.retryable and exc.code != "TOOL_ERROR":
+                # The gateway explicitly rejected the order, so none exists; reconciling would only repeat it.
+                # Release the flight hold now: a cancelled attempt is never reconciled, so nothing else would.
+                await self._cancel_hold((attempt.hold or {}).get("booking_id"))
+                raise CheckoutError(
+                    502, "Cổng thanh toán từ chối tạo đơn. Hãy thử lại sau.", "payment_rejected"
+                ) from None
             # Đã gửi lệnh ghi mà không rõ kết quả: không tạo lại mù, chuyển đối soát.
             attempt.outcome, attempt.gateway_status = "needs_reconciliation", "unknown"
             attempt.note = "Chưa rõ kết quả tạo đơn thanh toán; đang đối soát."
@@ -587,7 +594,17 @@ class CheckoutService:
                 # Tạo lại với cùng mã đơn: Payment MCP trả lại đơn cũ nếu đã tạo, không tạo đơn thứ hai.
                 tx = self.store.get_tx(attempt.transaction_id)
                 attempt.outcome = "processing"
-                await self._create_payment(tx, attempt)
+                try:
+                    await self._create_payment(tx, attempt)
+                except CheckoutError as exc:
+                    if exc.code != "payment_rejected":
+                        raise
+                    # A definite rejection ends this attempt instead of repeating on every reconcile.
+                    attempt.outcome, attempt.note = "cancelled", exc.message
+                    self.store.put_attempt(self._touch(attempt))
+                    if tx and tx.status == "payment_processing":
+                        tx.status = "selected"
+                        self.store.put_tx(self._touch(tx))
             return
         expired = attempt.expires_at is not None and now >= attempt.expires_at
         if attempt.outcome == "awaiting_payment" and expired:

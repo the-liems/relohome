@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from datetime import timedelta
+from types import SimpleNamespace
 
 import httpx2
 import pytest
@@ -9,7 +10,7 @@ from mcp.types import CallToolResult
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.models import Approval, CommitAction, CommitActionKind
 from relohome_agent.services.adapters.commit import McpTransaction
-from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient
+from relohome_agent.services.adapters.mcp import McpEndpoint, McpToolClient, ToolCallError
 from relohome_agent.services.adapters.moving_approval import moving_approval_id
 from relohome_agent.services.adapters.ports import CommitError, CommitRequest
 from relohome_agent.services.adapters.sqlite_runtime import RuntimeDatabase
@@ -244,3 +245,22 @@ async def test_moving_disconnect_retry_boundary_survives_restart(tmp_path, monke
         assert len(provider_creates) == 1
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "uncertain"),
+    [
+        (ToolCallError("BOOKING_STATE", "hold expired"), False),
+        (ToolCallError("timeout", "flight timed out", retryable=True), True),
+    ],
+)
+async def test_paid_ticketing_failure_is_uncertain_only_when_its_outcome_is_unknown(error, uncertain):
+    def reject(_):
+        raise error
+
+    pending = SimpleNamespace(pre_payment_receipt=SimpleNamespace(receipt_id="bk_1"))
+    transaction = McpTransaction(flight=FakeToolClient({"confirm_booking": reject}), payment=None, moving=None)
+    with pytest.raises(CommitError) as failed:
+        await transaction.complete_after_payment(request(), pending)
+    assert failed.value.uncertain is uncertain

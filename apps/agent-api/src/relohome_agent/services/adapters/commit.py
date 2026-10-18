@@ -231,8 +231,9 @@ class McpTransaction:
             )
         except CommitError as exc:
             # Đã trả tiền mà xuất vé lỗi: không tự thử lại; cần hoàn tiền (refund chưa có trong MVP của Payment).
+            # A definite rejection means no ticket was issued; only an unknown outcome stays uncertain.
             raise CommitError(
-                f"đã thanh toán nhưng xuất vé lỗi ({exc.message}); cần hoàn tiền thủ công", uncertain=True
+                f"đã thanh toán nhưng xuất vé lỗi ({exc.message}); cần hoàn tiền thủ công", uncertain=exc.uncertain
             ) from exc
         self._holds.pop(req.idempotency_key, None)
         return self._receipt(
