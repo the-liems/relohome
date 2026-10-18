@@ -67,9 +67,9 @@ def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
 
 
 def live_deps(
-    intake: Intake, planner: Planner, services: Settings | None = None, settings: GraphSettings | None = None
+    intake: Intake, planner: Planner, registry: ServiceRegistry, settings: GraphSettings | None = None
 ) -> tuple[GraphDeps, InMemoryApprovalStore, InMemoryPiiStore]:
-    registry = ServiceRegistry.from_settings(services)
+    """The caller owns `registry` and closes its pooled MCP clients."""
     s = registry.settings
     approvals, pii = InMemoryApprovalStore(), InMemoryPiiStore()
     bridge = (
@@ -146,9 +146,10 @@ class AgentService:
         stack = AsyncExitStack()
         await stack.__aenter__()
         try:
-            components = build_llm_components(services)
-            stack.push_async_callback(components.close)
             registry = ServiceRegistry.from_settings(services)
+            stack.push_async_callback(registry.aclose)
+            components = build_llm_components(services, registry)
+            stack.push_async_callback(components.close)
             agents = live_agents(registry)
             if roommate_runtime is not None:
                 from relohome_agent.agents.subagents.services.roommate import RoommateSubagent
@@ -268,8 +269,10 @@ class AgentService:
         services = services or Settings()
         intake = intake or PassThroughIntake()
         planner = planner or TemplatePlanner()  # tất định; LLM Planner (#13) cắm vào làm fallback
+        registry = None
         if services.agent_subagents == "live":
-            deps, approvals, pii = live_deps(intake, planner, services)
+            registry = ServiceRegistry.from_settings(services)
+            deps, approvals, pii = live_deps(intake, planner, registry)
         else:
             base = default_deps()
             approvals, pii = base.approvals, base.pii
@@ -287,6 +290,7 @@ class AgentService:
             pii_store=pii,
             mode=services.agent_subagents,
             payment_simulation=services.agent_subagents == "fake" or services.payment_simulation_enabled,
+            resources=registry,
         )
 
 

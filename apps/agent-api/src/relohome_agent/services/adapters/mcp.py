@@ -101,21 +101,34 @@ async def _check_auth_response(response: httpx2.Response) -> None:
 class McpToolClient:
     def __init__(self, endpoint: McpEndpoint):
         self.endpoint = endpoint
+        self._http: httpx2.AsyncClient | None = None
+
+    def _http_client(self) -> httpx2.AsyncClient:
+        # One pooled client per endpoint: calls reuse connections. The transport neither closes nor
+        # changes a client it is given; each MCP session keeps its own session ID.
+        if self._http is None:
+            ep = self.endpoint
+            headers = {"Authorization": f"Bearer {ep.token}"} if ep.token else {}
+            self._http = httpx2.AsyncClient(
+                headers=headers, timeout=ep.timeout_s, event_hooks={"response": [_check_auth_response]}
+            )
+        return self._http
+
+    async def aclose(self) -> None:
+        if self._http is not None:
+            await self._http.aclose()
+            self._http = None
 
     @asynccontextmanager
     async def _session(self) -> AsyncIterator[ClientSession]:
         ep = self.endpoint
         if ep.url:
-            headers = {"Authorization": f"Bearer {ep.token}"} if ep.token else {}
-            async with httpx2.AsyncClient(
-                headers=headers, timeout=ep.timeout_s, event_hooks={"response": [_check_auth_response]}
-            ) as http:
-                async with streamable_http_client(
-                    ep.url, http_client=http, max_sse_event_size=ep.max_sse_event_size
-                ) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        yield session
+            async with streamable_http_client(
+                ep.url, http_client=self._http_client(), max_sse_event_size=ep.max_sse_event_size
+            ) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    yield session
         else:
             raise ToolCallError("not_configured", f"MCP endpoint for {ep.service} is not configured", transport=True)
 

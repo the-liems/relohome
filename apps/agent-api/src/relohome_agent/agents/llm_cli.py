@@ -15,10 +15,14 @@ from relohome_agent.agents.llm import LLMError
 from relohome_agent.agents.llm_components import build_llm_components
 from relohome_agent.agents.models import AgentName, CommitActionKind, SessionContext
 from relohome_agent.agents.planning import PlannerInput
+from relohome_agent.config import Settings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 
 
 async def run(component: str, data: dict) -> dict:
-    agents = build_llm_components()
+    settings = Settings()
+    registry = ServiceRegistry.from_settings(settings)
+    agents = build_llm_components(settings, registry)
     try:
         if component == "intake":
             message = data.get("message")
@@ -44,6 +48,7 @@ async def run(component: str, data: dict) -> dict:
         return (await agents.moving.run_task(AgentTaskRequest.model_validate(data))).model_dump(mode="json")
     finally:
         await agents.close()
+        await registry.aclose()
 
 
 def main():

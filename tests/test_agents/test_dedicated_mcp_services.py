@@ -1,6 +1,7 @@
 """Dedicated services own provider state; agent clients only use HTTP."""
 
 import asyncio
+from contextlib import aclosing
 
 import httpx
 import pytest
@@ -37,18 +38,20 @@ async def test_payment_http_auth_state_and_no_application_subprocess(tmp_path, m
         ))
         denied = McpToolClient(McpEndpoint("payment", frozenset({"get_payment"}), url=url, token="wrong"))
         with pytest.raises(ToolCallError) as error:
-            await denied.call("get_payment", {"payment_ref": "missing"})
+            async with aclosing(denied):
+                await denied.call("get_payment", {"payment_ref": "missing"})
         assert error.value.code == "UNAUTHORIZED"
         assert not error.value.retryable
-        writer, reader = registry.payment.write_client(), registry.payment.read_client()
-        created = await writer.call("create_payment", {"order_ref": "order_1", "amount": 100_000})
-        # A different HTTP session still reads the state owned by the service.
-        read = await reader.call("get_payment", {"payment_ref": created["payment_id"]})
-        assert read["payment_id"] == created["payment_id"]
-        await writer.call("simulate_payment_result", {"payment_ref": created["payment_id"], "outcome": "PAID"})
-        assert (await reader.call("get_payment", {"payment_ref": created["payment_id"]}))["status"] == "PAID"
-        with pytest.raises(ToolCallError, match="allowlist"):
-            await reader.call("create_payment", {})
+        async with aclosing(registry):
+            writer, reader = registry.payment.write_client(), registry.payment.read_client()
+            created = await writer.call("create_payment", {"order_ref": "order_1", "amount": 100_000})
+            # A different HTTP session still reads the state owned by the service.
+            read = await reader.call("get_payment", {"payment_ref": created["payment_id"]})
+            assert read["payment_id"] == created["payment_id"]
+            await writer.call("simulate_payment_result", {"payment_ref": created["payment_id"], "outcome": "PAID"})
+            assert (await reader.call("get_payment", {"payment_ref": created["payment_id"]}))["status"] == "PAID"
+            with pytest.raises(ToolCallError, match="allowlist"):
+                await reader.call("create_payment", {})
 
 
 @pytest.mark.asyncio
