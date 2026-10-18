@@ -33,7 +33,7 @@ from tests.test_agents.test_jev_guardrails import envelope, plan_state, result_i
 def test_invalid_explicit_key_never_constructs_http_client(key, monkeypatch, caplog):
     http = Mock(side_effect=AssertionError("No HTTP client may be constructed"))
     monkeypatch.setattr("relohome_agent.agents.guardrails.jev.httpx.AsyncClient", http)
-    with pytest.raises(JevError, match="^invalid_credential$"):
+    with pytest.raises(JevError, match=r"^invalid_credential$"):
         JevClient(key)
     # An invalid override may not hide behind a valid compatibility key.
     assert (

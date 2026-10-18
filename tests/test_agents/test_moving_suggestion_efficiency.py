@@ -305,7 +305,7 @@ async def test_concurrent_forms_keep_separate_routes_and_usage_on_one_shared_age
         pickup_coordinate={"lat": 10.77, "lng": 106.69}, destination_coordinate={"lat": 10.78, "lng": 106.7}
     )
     results = await asyncio.gather(agent.run_form_quote(first), agent.run_form_quote(second))
-    for result, req in zip(results, (first, second)):
+    for result, req in zip(results, (first, second), strict=True):
         assert result.status == "done" and result.usage.llm_calls == 1 and result.usage.provider_calls == 2
         assert result.data["route"]["pickup"]["lat"] == req.inputs["pickup_coordinate"]["lat"]
         assert result.data["route"]["destination"]["lng"] == req.inputs["destination_coordinate"]["lng"]
@@ -351,7 +351,7 @@ async def test_order_and_catalog_conversation_paths_retain_scoped_prompts_and_lo
             Responses(name="finish", args={"option_ids": []}).output,
         ]
 
-        async def create(**kwargs):
+        async def create(responses=responses, outputs=outputs, **kwargs):  # bind this iteration's fakes
             responses.calls.append(kwargs)
             return outputs.pop(0)
 

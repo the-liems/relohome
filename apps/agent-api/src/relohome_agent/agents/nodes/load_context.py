@@ -30,7 +30,7 @@ def make_load_context(deps: GraphDeps):
         try:
             update["session"] = await deps.session.load(state.get("user_id") or "anonymous")
         except Exception as exc:
-            logger.warning("session load failed: %s", type(exc).__name__)
+            logger.warning("session load failed: %s", type(exc).__name__, exc_info=True)
             update["session"] = SessionContext()
             update["errors"] = [error_record("load_context", "không đọc được bộ nhớ người dùng", deps.clock())]
         return update

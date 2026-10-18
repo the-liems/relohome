@@ -207,7 +207,7 @@ class AddressTests(unittest.TestCase):
             )
             FULL.export(out)
             after = list(MODULE.read_jsonl(out / "housing-geocoded.jsonl"))
-            for old, new in zip(rows, after):
+            for old, new in zip(rows, after, strict=True):
                 self.assertEqual(old["location"], new["location"])
                 self.assertEqual(new["derived"]["housing_geocoding"]["decision"], "preserve_provider_shared_pin")
 
@@ -595,7 +595,7 @@ class AddressTests(unittest.TestCase):
             MODULE.prepare(source, base / "output", 10)
             after = list(MODULE.read_jsonl(base / "output/housing-address-normalized.jsonl"))
             self.assertEqual(len(after), 2)
-            for old, new in zip(before, after):
+            for old, new in zip(before, after, strict=True):
                 self.assertEqual(old["location"], new["location"])
                 self.assertEqual(old["offer"], new["offer"])
                 self.assertEqual(old["unit"], new["unit"])
@@ -708,7 +708,7 @@ class AddressTests(unittest.TestCase):
             )
             FULL.export(out)
             after = list(MODULE.read_jsonl(out / "housing-geocoded.jsonl"))
-            for old, new in zip(rows, after):
+            for old, new in zip(rows, after, strict=True):
                 self.assertEqual(old["location"], new["location"])
                 self.assertEqual(new["derived"]["housing_geocoding"]["decision"], "preserve_provider_shared_pin")
 

@@ -5,10 +5,14 @@ Mỗi lần resume chỉ hỏi cổng thanh toán một lần (không tin client
 
 from __future__ import annotations
 
+import logging
+
 from langgraph.types import interrupt
 from relohome_agent.agents.deps import GraphDeps
 from relohome_agent.agents.models import error_record
 from relohome_agent.agents.state import WorkflowState
+
+logger = logging.getLogger(__name__)
 
 TERMINAL = {"PAID", "FAILED", "EXPIRED", "CANCELLED"}
 
@@ -35,6 +39,7 @@ def make_await_payment(deps: GraphDeps):
                 pending.payment_ref
             )
         except Exception as exc:
+            logger.warning("payment status check failed payment_ref=%s", pending.payment_ref, exc_info=True)
             status = "PENDING"
             update["errors"] = [
                 error_record("await_payment", f"không hỏi được cổng thanh toán: {type(exc).__name__}", deps.clock())
