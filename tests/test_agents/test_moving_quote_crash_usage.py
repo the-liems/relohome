@@ -116,15 +116,20 @@ async def test_http_form_graph_preserves_redacted_vehicle_notes_before_one_model
 
 
 @pytest.mark.asyncio
-async def test_http_form_graph_quotes_from_large_catalog_once_with_redacted_notes_and_safe_trace(ledger):
+@pytest.mark.parametrize("catalog_kind", ["repeated", "trace-sized"])
+async def test_http_form_graph_quotes_from_large_catalog_once_with_redacted_notes_and_safe_trace(ledger, catalog_kind):
     from relohome_agent.agents.subagents.services.moving_context import selection_catalog_for_model
 
-    from tests.test_agents.test_moving_large_catalog import expand_catalog, install_catalog
+    from tests.test_agents.test_moving_large_catalog import expand_catalog, install_catalog, install_trace_sized_catalog
 
     meter, records = ledger
     runtime, client = service(meter, auto_suggest=True)
     runtime.mode = "fake"
-    services, selected = install_catalog(client, 60, repeated_rules=True)
+    services, selected = (
+        install_trace_sized_catalog(client)
+        if catalog_kind == "trace-sized"
+        else install_catalog(client, 60, repeated_rules=True)
+    )
     responses = runtime.deps.moving_quote_agent.agent.client.responses
     responses.output.output[0].arguments = json.dumps({"service_ids": [selected]})
     note = "Cần xe có bửng nâng, không dùng xe thùng hở; gọi 0901234567"
@@ -148,7 +153,8 @@ async def test_http_form_graph_quotes_from_large_catalog_once_with_redacted_note
     result = next(iter(values["task_results"].values()))
     data = result.data if hasattr(result, "data") else result["data"]
     trace = data["agent_trace"]["catalog_selection"]
-    assert trace["service_count"] == 60 and trace["status"] == "ready"
+    assert trace["service_count"] == len(services) and trace["status"] == "ready"
+    assert trace["request_bytes"] <= trace["request_byte_limit"]
     assert "0901234567" not in json.dumps(trace) and "district-" not in json.dumps(trace)
     assert not values.get("committed") and not values["plan"].commit_actions
 
