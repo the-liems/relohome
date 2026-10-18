@@ -35,3 +35,17 @@
 .ws-roommate-badge a {
   text-decoration: underline;
 }
+.ws-roommate-contact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  text-align: center;
+}
+.ws-roommate-contact svg {
+  flex-shrink: 0;
+}
+.ws-roommate-actions {
+  flex-wrap: wrap;
+}

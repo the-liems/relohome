@@ -1,5 +1,6 @@
 import { formatUi, t as uiText } from "../uiPreferences";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { rt } from "../roommate/text";
 import {
   BadgeCheck,
   BedDouble,
@@ -179,6 +180,8 @@ export function HousingDetail({
   onSave,
   onAsk,
   busy,
+  roommateActions,
+  roommateNotice,
 }: {
   house: House;
   saved: boolean;
@@ -189,6 +192,9 @@ export function HousingDetail({
   onSave: () => void;
   onAsk?: (text: string) => void;
   busy: boolean;
+  // A linked occupied room connects to its Roommate poster, never to a landlord.
+  roommateActions?: ReactNode;
+  roommateNotice?: string;
 }) {
   const [detail, setDetail] = useState(house),
     [loading, setLoading] = useState(true),
@@ -286,8 +292,19 @@ export function HousingDetail({
           </span>
         ))}
       </div>
-      <HousingDecisionTools house={detail} />
-      {detail.management && <TenantHostReviews listingId={detail.id} />}
+      {roommateActions ? (
+        <p className="notice amber">
+          {roommateNotice || rt(
+            "Phòng đang tìm người ở cùng. Liên hệ người đăng qua Roommate; đây không phải yêu cầu thuê căn hoặc đặt lịch với chủ nhà.",
+            "This room is seeking a roommate. Contact the poster through Roommate, not the landlord rental or viewing flow.",
+          )}
+        </p>
+      ) : (
+        <HousingDecisionTools house={detail} />
+      )}
+      {!roommateActions && detail.management && (
+        <TenantHostReviews listingId={detail.id} />
+      )}
       <p className="notice">
         {detail.location_accuracy === "rooftop"
           ? uiText("Vị trí theo tin nhà.")
@@ -305,32 +322,36 @@ export function HousingDetail({
           <ExternalLink size={14} />
         </a>
       )}
-      {onSelect && (
-        <div className="detail-footer">
-          {onAsk && (
-            <button
-              className="secondary"
-              onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
-            >
-              <MessageCircle size={16} />
-              {uiText("Hỏi AI")}
-            </button>
-          )}
-          <button
-            className="primary"
-            disabled={busy || selected}
-            onClick={onSelect}
-          >
-            {selected ? (
-              <>
-                <Check size={16} />
-                {uiText("Đã chọn")}
-              </>
-            ) : (
-              uiText("Chọn căn này")
+      {roommateActions ? (
+        <div className="detail-footer ws-roommate-actions">{roommateActions}</div>
+      ) : (
+        onSelect && (
+          <div className="detail-footer">
+            {onAsk && (
+              <button
+                className="secondary"
+                onClick={() => onAsk("Tôi muốn hỏi thêm về căn nhà này.")}
+              >
+                <MessageCircle size={16} />
+                {uiText("Hỏi AI")}
+              </button>
             )}
-          </button>
-        </div>
+            <button
+              className="primary"
+              disabled={busy || selected}
+              onClick={onSelect}
+            >
+              {selected ? (
+                <>
+                  <Check size={16} />
+                  {uiText("Đã chọn")}
+                </>
+              ) : (
+                uiText("Chọn căn này")
+              )}
+            </button>
+          </div>
+        )
       )}
     </Dialog>
   );
