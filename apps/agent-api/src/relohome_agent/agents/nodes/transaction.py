@@ -117,6 +117,7 @@ def make_transaction(deps: GraphDeps):
                 try:
                     pii = await deps.pii.get(ref) if ref else {}
                 except Exception:
+                    logger.warning("pii lookup failed action=%s", action.id, exc_info=True)
                     pii = {}
                 missing = [f for f in action.pii_required if f not in pii]
                 if missing:
@@ -162,7 +163,7 @@ def make_transaction(deps: GraphDeps):
                     return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
                 return finish(OutcomeCode.TX_FAILED, "failed", f"{action.id}: {exc.message}", failed=action.id)
             except Exception as exc:
-                logger.warning("commit failed action=%s error_type=%s", action.id, type(exc).__name__)
+                logger.warning("commit failed action=%s error_type=%s", action.id, type(exc).__name__, exc_info=True)
                 reason = f"{action.id}: lỗi không rõ khi ghi ({type(exc).__name__}), cần đối soát"
                 return finish(OutcomeCode.PENDING_VERIFICATION, "pending_verification", reason, failed=action.id)
             new[action.id] = receipt

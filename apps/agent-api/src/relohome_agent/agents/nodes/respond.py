@@ -699,7 +699,7 @@ def make_respond(deps: GraphDeps):
             if updates:
                 await deps.session.save(state.get("user_id") or "anonymous", state.get("thread_id", ""), updates)
         except Exception as exc:
-            logger.warning("memory save failed: %s", type(exc).__name__)
+            logger.warning("memory save failed: %s", type(exc).__name__, exc_info=True)
             update["errors"] = [error_record("respond", "không lưu được bộ nhớ người dùng", deps.clock())]
         return update
 

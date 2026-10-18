@@ -2,8 +2,16 @@ target-version = "py311"
 line-length = 120
 
 [lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+# Bug-catching rules: silent broad excepts (BLE), bugbear (B), blocking calls in async code (ASYNC),
+# logging misuse (LOG), mutable class defaults (RUF012) and unescaped pytest.raises patterns (RUF043).
+select = ["E", "F", "I", "N", "W", "UP", "ASYNC", "B", "BLE", "LOG", "RUF012", "RUF043"]
 ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Tests may block during setup and poll for servers that expose no event to await.
+"tests/**" = ["ASYNC"]
+# Demo UIs show every error on the page instead of logging it.
+"examples/**" = ["BLE001"]
 
 [format]
 quote-style = "double"

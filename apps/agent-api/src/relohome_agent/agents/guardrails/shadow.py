@@ -222,7 +222,7 @@ class ShadowGuardrail:
             raise
         except Exception:
             self._terminal(point, "internal_error")
-            logger.warning("jev_shadow point=%s status=internal_error", point)
+            logger.warning("jev_shadow point=%s status=internal_error", point, exc_info=True)
 
     async def close(self):
         self._closed = True
