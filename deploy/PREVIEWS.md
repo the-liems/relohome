@@ -27,6 +27,14 @@ auto deployment and would deploy before Actions publishes the PR images. The
 preview API used by Actions works with that native webhook trigger disabled.
 Enable source commit availability during build and disable label escaping.
 
+The Compose file prefixes ordinary environment expressions with an empty
+`${COOLIFY_COMPOSE_EMPTY:-}` expansion. Coolify v4.4.6 otherwise substitutes
+some direct required/default values from the main environment while leaving
+connection URLs to resolve from the preview environment, causing mismatched
+database passwords. The empty prefix defers both to the deployment-specific
+`.env` while retaining Compose defaults and required-variable checks. Keep this
+optional variable unset or empty.
+
 Configure **Preview Deployment Environment Variables** with the required inputs
 listed in [the deployment guide](README.md). Give the preview environment fresh internal service
 tokens, database passwords, and a webhook secret. Use sandbox provider settings;
