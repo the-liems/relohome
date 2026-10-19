@@ -153,6 +153,17 @@ application; set `preview` in the dedicated preview Application's preview variab
 Keep `APP_ENV=production` for production and `staging` for staging/previews.
 Coolify's web domain supplies the public application origin automatically.
 
+The production Collector drops non-error spans for `/health`, `/healthz`,
+`/ready`, `/readyz`, `/live`, `/livez`, and `/metrics` before exporting to Tempo.
+The `filter/production_noise` processor in `collector.yaml` matches exact HTTP
+paths, allowing a trailing slash or query string, using both current and legacy
+HTTP attributes. Spans marked as errors or with an HTTP status of 400 or higher
+are retained. Staging and preview traces, logs, metrics, and direct Langfuse exports are
+unaffected. This filters individual spans; child spans without HTTP path
+attributes can remain. Edit the endpoint expressions to adjust the filter,
+then redeploy the production application in Coolify to apply it to its embedded
+Collector.
+
 ### 3. Deploy the instrumented app images
 
 Python image entrypoints use `opentelemetry-instrument`; Node image entrypoints
