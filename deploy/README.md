@@ -157,8 +157,8 @@ Actions image publishing. Deploy and verify the new stack before changing any
 legacy hostname or deployment target. New volumes start with the pinned snapshot;
 existing staging data is not migrated automatically.
 
-See [staging and PR preview automation](PREVIEWS.md) for the separate preview
-parent, existing URL format, and lifecycle settings.
+See [staging and PR preview automation](PREVIEWS.md) for the shared staging
+Application, existing URL format, and isolated PR lifecycle settings.
 
 ## One-time GitHub setup
 

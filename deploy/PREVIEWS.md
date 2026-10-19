@@ -3,10 +3,11 @@
 For `the-liems/relohome`, keep staging at
 `https://staging-v3.c4-app-044.io.vn` and PR previews at
 `https://pr-<number>.c4-app-044.io.vn`.
-Use separate Coolify Applications for staging and the preview parent, both
-connected to `main` through the installed GitHub App. Each PR preview receives
-its own containers and application-scoped volumes. The preview parent itself
-does not need a running main deployment.
+Use the **same Coolify Application** for staging and its PR previews, connected
+to `main` through the installed GitHub App. Coolify gives each PR its own
+containers, network, and volumes. Staging uses the normal environment variables;
+PRs use the separate **Preview Deployment Environment Variables** group. Both
+Actions UUID variables point to `ntflnu9xpuywluzvsp2oqnqf`.
 
 ## Staging automation
 
@@ -17,7 +18,7 @@ pins the exact commit, and checks that its images exist before queuing Coolify.
 Disable Coolify push auto deployment so GitHub App webhooks cannot race image
 publication. Manual workflow dispatch remains available.
 
-## Preview parent
+## Preview settings on the staging Application
 
 Load `/compose.coolify.yaml`, expose only `web` on target port **8503**, and set
 the preview URL template to `pr-{{pr_id}}.c4-app-044.io.vn`. Keep Coolify's native
@@ -27,14 +28,14 @@ preview API used by Actions works with that native webhook trigger disabled.
 Enable source commit availability during build and disable label escaping.
 
 Configure **Preview Deployment Environment Variables** with the required inputs
-listed in [the deployment guide](README.md). Give previews fresh internal service
+listed in [the deployment guide](README.md). Give the preview environment fresh internal service
 tokens, database passwords, and a webhook secret. Use sandbox provider settings;
 trusted same-repository PR code can read preview runtime credentials. Keep
 `APP_URL` empty so Compose uses the preview-specific `SERVICE_URL_WEB` generated
 by Coolify. Do not copy staging volumes or production user allowlists.
 
 For the new repository, set these image overrides in both Actions variables and
-the preview environment:
+the staging and preview environments:
 
 ```text
 APPLICATION_IMAGE_REPOSITORY=ghcr.io/the-liems/relohome
@@ -49,9 +50,9 @@ staging and production Applications do not need configuration changes.
 | Setting | Type | Value |
 | --- | --- | --- |
 | `COOLIFY_PREVIEW_URL` | Variable | `https://coolify.c4-app-044.io.vn` |
-| `COOLIFY_PREVIEW_APP_UUID` | Variable | `4ynamxycqujgkzxq9jsaojtz` for the new repository |
+| `COOLIFY_PREVIEW_APP_UUID` | Variable | `ntflnu9xpuywluzvsp2oqnqf` (same as staging) |
 | `COOLIFY_PREVIEW_TOKEN` | Secret | Coolify token with read, write, and deploy permissions |
-| `COOLIFY_PREVIEWS_ENABLED` | Variable | `true` after parent configuration is complete |
+| `COOLIFY_PREVIEWS_ENABLED` | Variable | `true` after preview configuration is complete |
 
 Coolify currently scopes these API permissions to the team; rotate expiring
 tokens and remember that they can control other team Applications. Source clone
@@ -64,7 +65,8 @@ uses trusted tooling from the base commit and verifies the resulting commit and
 running status.
 
 Closing or merging the PR runs the cleanup workflow, which removes that PR's
-preview and its disposable volumes. Cleanup uses the configured parent UUID
+preview and its disposable volumes. It targets the preview-specific API endpoint,
+so staging containers, environment variables, and volumes remain intact. Cleanup uses the configured shared Application UUID
 even when `COOLIFY_PREVIEWS_ENABLED=false`, so pausing new previews does not
 strand existing ones. Preview and cleanup jobs share a concurrency group.
 
