@@ -130,8 +130,13 @@ namespace from the GitHub repository. GitHub App source access does not grant
 private GHCR pull access; keep the server registry credential configured separately.
 
 Without this setting, Compose and deployment checks retain
-`ghcr.io/ai20k-build-phase-cohort-4/p-044`. PostGIS and OSRM infrastructure image
-pins remain unchanged and still need pull access. Earlier release Compose files
+`ghcr.io/ai20k-build-phase-cohort-4/p-044`. PostGIS uses a separate full-image
+override, `POSTGIS_IMAGE`, in both Coolify runtime variables and Actions variables.
+Run **PostGIS ARM64 image** on the new repository's `main` branch before setting
+`POSTGIS_IMAGE=ghcr.io/the-liems/relohome/postgis:16-3.5-alpine`. CI migration tests
+use this same override; the new repository's `GITHUB_TOKEN` cannot pull the old
+organization's private package. Unset or empty values retain the legacy PostGIS
+image. OSRM pins remain unchanged. Earlier release Compose files
 with literal legacy image paths remain deployable even when the override is set;
 the deploy checker verifies those exact paths. Retain old image tags for rollback.
 

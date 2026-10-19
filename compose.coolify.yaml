@@ -258,7 +258,7 @@ services:
     volumes: [payments-data:/app/data]
 
   postgis:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: unless-stopped
     environment:
@@ -273,7 +273,7 @@ services:
       retries: 20
 
   location-seed:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: "no"
     exclude_from_hc: true
