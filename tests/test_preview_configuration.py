@@ -20,7 +20,9 @@ def test_only_collector_explicitly_joins_ingestion_and_has_no_public_port():
         env = service.get('environment', {})
         if 'OTEL_SERVICE_NAME' in env:
             assert env['OTEL_EXPORTER_OTLP_ENDPOINT'] == 'http://${SERVICE_NAME_COLLECTOR}:4318'
-            assert env['OTEL_DEPLOYMENT_ENVIRONMENT'] == '${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}'
+            assert env['OTEL_DEPLOYMENT_ENVIRONMENT'] == (
+                '${COOLIFY_COMPOSE_EMPTY:-}${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}'
+            )
     assert services['web']['environment']['SIU_PUBLIC_BASE_URL'] == '${SERVICE_URL_WEB:?}'
     assert services['payments-mcp']['environment']['PAYMENT_REDIRECT_URL'] == '${SERVICE_URL_WEB:?}/'
 

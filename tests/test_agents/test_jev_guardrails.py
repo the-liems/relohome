@@ -467,7 +467,9 @@ def test_compose_routes_optional_secrets_to_backend_only():
     import yaml
 
     compose = yaml.safe_load((Path(__file__).resolve().parents[2] / "compose.coolify.yaml").read_text())
-    assert compose["services"]["backend"]["environment"]["AGENT_GUARDRAIL_MODE"] == "${AGENT_GUARDRAIL_MODE:-off}"
+    assert compose["services"]["backend"]["environment"]["AGENT_GUARDRAIL_MODE"] == (
+        "${COOLIFY_COMPOSE_EMPTY:-}${AGENT_GUARDRAIL_MODE:-off}"
+    )
     for name, service in compose["services"].items():
         if name != "backend":
             assert "OPENROUTER_API_KEY" not in service.get("environment", {})
