@@ -74,8 +74,10 @@ select the installed `coolify-build-phase` source. Its installation must include
 the repository URL or Actions secrets. Coolify handles GitHub App clone credentials.
 See [Coolify Git sources](https://coolify.io/docs/applications/sources/overview).
 
-Existing PAT-based Applications remain supported. If a repository does not allow
-GitHub Apps, keep **Public Repository** with a repository-read PAT in its URL:
+Existing deploy-key and PAT-based Applications remain supported; keep their
+current source authentication when retaining a legacy deployment. If a repository
+does not allow GitHub Apps, **Public Repository** can still use a repository-read
+PAT in its URL:
 
 ```text
 https://x-access-token:<token>@github.com/AI20K-Build-Phase-Cohort-4/P-044.git
