@@ -49,7 +49,7 @@ staging and production Applications do not need configuration changes.
 | Setting | Type | Value |
 | --- | --- | --- |
 | `COOLIFY_PREVIEW_URL` | Variable | `https://coolify.c4-app-044.io.vn` |
-| `COOLIFY_PREVIEW_APP_UUID` | Variable | Dedicated preview parent UUID |
+| `COOLIFY_PREVIEW_APP_UUID` | Variable | `4ynamxycqujgkzxq9jsaojtz` for the new repository |
 | `COOLIFY_PREVIEW_TOKEN` | Secret | Coolify token with read, write, and deploy permissions |
 | `COOLIFY_PREVIEWS_ENABLED` | Variable | `true` after parent configuration is complete |
 
@@ -75,6 +75,12 @@ existing deployment UUID in Coolify before dispatching another rollout. The
 client retries transient GET socket/gateway timeouts a bounded number of times;
 it never automatically repeats POST or PATCH requests, since the server might
 already have accepted them.
+
+The shared 16 GB host exhausted memory while starting staging-v3 alongside
+three legacy preview stacks. Those legacy previews were stopped with their
+volumes retained before retrying. Plan capacity for staging plus one new preview;
+check memory and disk before increasing concurrency or restarting legacy previews.
+Each full preview also restores a separate database snapshot.
 
 Before enabling more previews, verify host capacity for an additional full stack
 and exercise one PR deployment, synchronization, and closure. Do not remove
