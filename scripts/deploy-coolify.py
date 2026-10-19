@@ -14,6 +14,22 @@ from urllib.request import Request, urlopen
 import yaml
 
 IMAGE_PREFIX = "ghcr.io/ai20k-build-phase-cohort-4/p-044/"
+IMAGE_REPOSITORY_EXPRESSION = "${APPLICATION_IMAGE_REPOSITORY:-" + IMAGE_PREFIX.rstrip("/") + "}"
+
+
+def release_images(definition):
+    """Resolve the opt-in registry migration while retaining literal legacy releases."""
+    repository = os.environ.get("APPLICATION_IMAGE_REPOSITORY") or IMAGE_PREFIX.rstrip("/")
+    if not re.fullmatch(r"ghcr\.io/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._/-]*", repository):
+        raise ValueError("APPLICATION_IMAGE_REPOSITORY must be a lowercase GHCR repository without a tag")
+    images = set()
+    for service in definition["services"].values():
+        image = service.get("image", "")
+        if image.startswith(IMAGE_REPOSITORY_EXPRESSION + "/"):
+            image = image.replace(IMAGE_REPOSITORY_EXPRESSION, repository, 1)
+        if image.startswith((IMAGE_PREFIX, repository + "/")) and image.endswith(":${SOURCE_COMMIT}"):
+            images.add(image)
+    return images
 
 
 def https_url(value, name):
@@ -49,9 +65,7 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
     if preview_id is not None and not 1 <= preview_id <= 2147483647:
         raise ValueError("Preview ID must be a positive pull request number")
     definition = yaml.safe_load(Path(compose_path).read_text())
-    images = {service.get("image", "") for service in definition["services"].values()
-              if service.get("image", "").startswith(IMAGE_PREFIX)
-              and service.get("image", "").endswith(":${SOURCE_COMMIT}")}
+    images = release_images(definition)
     if not images:
         raise ValueError("This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
                          "deploy a commit at or after the Git-pinned deployment merge.")

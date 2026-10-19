@@ -67,20 +67,25 @@ same endpoint with `aws --endpoint-url <endpoint> s3 cp` when uploading.
 
 ## One-time Coolify setup per environment
 
-The organization blocks deploy keys and GitHub Apps, so Coolify clones this
-private repository with a personal access token in the repository URL. Create a
-token that can read this repository: a fine-grained token with **Contents:
-read-only** on `P-044` if the organization allows fine-grained tokens, otherwise
-a classic token with `repo` scope. Create the Application as a **Public
-Repository** with this URL, the Docker Compose build pack, branch `main` and
-Compose file `/compose.coolify.yaml`:
+For `the-liems/relohome`, use **Private Repository (with GitHub App)** and
+select the installed `coolify-build-phase` source. Its installation must include
+`the-liems/relohome`. Choose branch `main`, **Docker Compose**, and
+`/compose.coolify.yaml`. Do not put an installation token or App private key in
+the repository URL or Actions secrets. Coolify handles GitHub App clone credentials.
+See [Coolify Git sources](https://coolify.io/docs/applications/sources/overview).
+
+Existing PAT-based Applications remain supported. If a repository does not allow
+GitHub Apps, keep **Public Repository** with a repository-read PAT in its URL:
 
 ```text
 https://x-access-token:<token>@github.com/AI20K-Build-Phase-Cohort-4/P-044.git
 ```
 
-Coolify stores the token in the Application. When it expires or is revoked,
-deployments fail at the clone step; replace the URL with a new token.
+Use a fine-grained token with **Contents: read-only** when allowed, otherwise a
+classic token with `repo` scope. Rotate the URL credential when it expires.
+Creating the new GitHub App Application does not change legacy Applications,
+their source authentication, runtime variables, domains, or volumes.
+
 Use an ARM64 server. Give staging and production separate Applications and
 volumes. Set the `web` service domain with target port **8503**; keep the other
 services private.
@@ -112,6 +117,38 @@ docker login ghcr.io --username <github-user>
 Enter the PAT at the password prompt. This is separate from CI's `GITHUB_TOKEN`.
 CD sets `git_commit_sha`, turns auto-deploy off, turns **include source commit**
 on, and turns label escaping off. Do not change those settings by hand.
+
+## Repository migration and image compatibility
+
+Application images can opt into a new GHCR repository by setting
+`APPLICATION_IMAGE_REPOSITORY=ghcr.io/the-liems/relohome` in **both** the new
+Coolify Application's runtime variables and the new repository's Actions variables.
+The value has no trailing slash or tag. Image publishing already derives its
+namespace from the GitHub repository. GitHub App source access does not grant
+private GHCR pull access; keep the server registry credential configured separately.
+
+Without this setting, Compose and deployment checks retain
+`ghcr.io/ai20k-build-phase-cohort-4/p-044`. PostGIS and OSRM infrastructure image
+pins remain unchanged and still need pull access. Earlier release Compose files
+with literal legacy image paths remain deployable even when the override is set;
+the deploy checker verifies those exact paths. Retain old image tags for rollback.
+
+For a new repository, provision Linux ARM64 Actions runners carrying `team-44`
+before expecting CI or CD to run. Repository runners, variables, and secrets do
+not automatically move when the repository is copied. Create staging variables
+and its Coolify API secret independently; keep `STAGING_AUTO_DEPLOY=false` until
+all release images exist and a manual deployment has been verified. Leave preview
+and production targets unconfigured until their own cutovers are ready.
+
+Create the GitHub App Application alongside staging, with a separate hostname
+and application-scoped volumes. Use the required runtime configuration below,
+independent internal tokens/database passwords, and sandbox provider settings.
+Set `APP_URL` to the new hostname. Enable **include source commit**, disable
+**auto deploy**, and disable **container label escaping** before deployment.
+Pin a full SHA with a complete published image set; App webhooks must not race
+Actions image publishing. Deploy and verify the new stack before changing any
+legacy hostname or deployment target. New volumes start with the pinned snapshot;
+existing staging data is not migrated automatically.
 
 ## One-time GitHub setup
 
