@@ -51,7 +51,20 @@ def log_tail(deployment):
         print(line)
 
 
-def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=3000, health_timeout=600):
+def verify_saved_compose(application, expected):
+    """Compare raw definitions without printing environment values or secrets."""
+    source = application.get("docker_compose_raw")
+    if not isinstance(source, str) or not source.strip():
+        raise RuntimeError("Cannot verify Coolify Compose; the token needs read:sensitive to read docker_compose_raw")
+    try:
+        actual = yaml.safe_load(source)
+    except yaml.YAMLError:
+        raise RuntimeError("Coolify returned invalid Compose YAML; deployment stopped") from None
+    if actual != expected:
+        raise RuntimeError("Coolify Compose does not match the selected commit; deployment stopped")
+
+
+def deploy(compose_path, *, preview_id=None, check_config=False, interval=10, deployment_timeout=3000, health_timeout=600):
     base = https_url(os.environ["COOLIFY_URL"], "COOLIFY_URL") + "/api/v1"
     app = os.environ["COOLIFY_APP_UUID"]
     sha = os.environ["DEPLOY_SHA"]
@@ -60,17 +73,21 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
         raise ValueError("Set a valid Coolify Application UUID")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("DEPLOY_SHA must be a 40-hex commit SHA")
+    release_ref = "coolify-release/" + sha
     if not token:
         raise ValueError("Set the Coolify API token")
     if preview_id is not None and not 1 <= preview_id <= 2147483647:
         raise ValueError("Preview ID must be a positive pull request number")
-    definition = yaml.safe_load(Path(compose_path).read_text())
+    if preview_id is not None and check_config:
+        raise ValueError("--check-config is only supported for the main application, not previews")
+    compose_source = Path(compose_path).read_text()
+    definition = yaml.safe_load(compose_source)
     images = release_images(definition)
     if not images:
         raise ValueError("This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
                          "deploy a commit at or after the Git-pinned deployment merge.")
     missing = []
-    for image in sorted(images):
+    for image in sorted(images) if not check_config else []:
         image = image.replace("${SOURCE_COMMIT}", sha)
         try:
             subprocess.run(["docker", "manifest", "inspect", image], check=True,
@@ -106,6 +123,22 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
             time.sleep(2 ** attempt)
 
     application_path = "/applications/" + app
+    expected_repository = os.environ.get("GITHUB_REPOSITORY")
+    if expected_repository and preview_id is None:
+        repository = request(application_path).get("git_repository", "")
+        match = re.fullmatch(r"(?:git@github\.com:|https://(?:[^/@]+@)?github\.com/)?"
+                             r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?/?", repository)
+        if not match or match[1].lower() != expected_repository.lower():
+            raise RuntimeError("Coolify Git repository does not match GITHUB_REPOSITORY; deployment stopped")
+    if check_config:
+        application = request(application_path)
+        if application.get("git_commit_sha") != sha:
+            raise RuntimeError("Coolify commit pin does not match the selected commit; configuration check failed")
+        if application.get("git_branch") != release_ref:
+            raise RuntimeError("Coolify Git source must use the selected coolify-release tag; configuration check failed")
+        verify_saved_compose(application, definition)
+        print(f"Coolify Application {app} commit pin and saved Compose match {sha}; no changes made.")
+        return
     if preview_id is not None:
         queued = request(application_path + "/previews", "POST", {
             "pull_request_id": preview_id, "git_type": "github", "commit": sha,
@@ -113,11 +146,19 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
         deployment_id = queued.get("deployment_uuid")
         health_path = application_path + "/previews/" + str(preview_id)
     else:
-        request(application_path, "PATCH", {"git_commit_sha": sha, "is_auto_deploy_enabled": False,
+        # Coolify reloads Compose with a branch/tag clone that ignores git_commit_sha.
+        # The workflow creates this SHA-specific lightweight tag before calling us.
+        request(application_path, "PATCH", {"git_commit_sha": sha, "git_branch": release_ref,
+                                           "is_auto_deploy_enabled": False,
+                                           "docker_compose_raw": compose_source,
                                            "include_source_commit_in_build": True,
                                            "is_container_label_escape_enabled": False})
-        if request(application_path).get("git_commit_sha") != sha:
+        application = request(application_path)
+        if application.get("git_commit_sha") != sha:
             raise RuntimeError("Coolify did not retain git_commit_sha; deployment stopped")
+        if application.get("git_branch") != release_ref:
+            raise RuntimeError("Coolify did not retain the release tag; deployment stopped")
+        verify_saved_compose(application, definition)
         queued = request("/deploy?uuid=" + app, "POST")
         deployment_id = next((item.get("deployment_uuid") for item in queued.get("deployments", [])
                               if item.get("resource_uuid") == app), None)
@@ -161,8 +202,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compose", type=Path, default=Path(__file__).resolve().parents[1] / "compose.coolify.yaml")
     parser.add_argument("--preview-id", type=int, help="Deploy a PR preview without changing the main deployment")
+    parser.add_argument("--check-config", action="store_true",
+                        help="Check the commit pin and saved Compose without changing settings or deploying")
     args = parser.parse_args()
     try:
-        deploy(args.compose, preview_id=args.preview_id)
+        deploy(args.compose, preview_id=args.preview_id, check_config=args.check_config)
     except (KeyError, ValueError, RuntimeError) as error:
         raise SystemExit(str(error)) from None

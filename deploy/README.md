@@ -171,7 +171,7 @@ Set these repository Actions variables and secrets:
 | Optional variable | `STAGING_AUTO_DEPLOY=false` pauses automatic staging deployment |
 
 URLs are HTTPS Coolify origins. UUIDs identify the new Applications. Tokens need
-`read`, `read:sensitive` (so failed deployments print their log tail), `write`
+`read`, `read:sensitive` (to verify saved Compose and read failed deployment logs), `write`
 and `deploy` abilities for their selected resources. Old Coolify
 Service UUID variables can be deleted after cutover. The runner needs Python,
 Docker CLI for manifest checks, and outbound HTTPS access to Coolify and GHCR;
@@ -195,6 +195,46 @@ gh workflow run deploy.yml --ref main -f environment=production -f sha=<40-chara
 
 Verify a SHA on staging before selecting it for production. The workflow does
 not enforce that operator check. Deployments are serialized per environment.
+
+The workflow creates a lightweight tag `coolify-release/<sha>` at the selected
+commit, refusing to move an existing tag that points elsewhere. It sets both
+Coolify's Git source ref to that tag and its commit pin to the SHA, uploads the
+selected Compose, and verifies both settings and the saved Compose before
+queueing a deployment. The deploy job needs `contents: write` only to create
+these release tags. Keep the configured Coolify repository aligned with the
+repository running the workflow; a tag in the new repository does not update a
+legacy Application's Git source automatically. In GitHub Actions, a mismatched
+source repository stops the script before any configuration write or deployment.
+
+This matters on Coolify 4.4.6: its Compose loader clones the configured branch
+or tag independently of the pinned application checkout. A moving `main` can
+therefore supply newer Compose while application images still use an older SHA.
+Patching the cached Compose alone is insufficient because deployment reloads it.
+See the [Compose loader](https://github.com/coollabsio/coolify/blob/v4.4.6/app/Models/Application.php#L2045).
+
+To inspect saved configuration without modifying settings, checking registry
+manifests, or starting a deployment, extract Compose from the release and run:
+
+```sh
+git show "$DEPLOY_SHA:compose.coolify.yaml" > /tmp/release-compose.yaml
+python scripts/deploy-coolify.py --compose /tmp/release-compose.yaml --check-config
+```
+
+Use the same `COOLIFY_URL`, `COOLIFY_APP_UUID`, `COOLIFY_TOKEN`, and `DEPLOY_SHA`
+environment variables as a deployment. The check fails if the source ref,
+commit pin, or parsed Compose differs; it does not print configuration values.
+It checks saved settings, not the image tags or state of existing containers.
+
+For an existing drifted Application, record its running images and saved source
+settings first. Create and verify the release tag in its actual source repository,
+keep the commit pin unchanged, set its Git source ref to the release tag, and use
+**Reload compose**. Check that the displayed Compose is from that release before
+deploying. Saving and reloading settings does not recreate running containers;
+they retain their previous environment and configuration until a deployment.
+Preserve runtime variables, domains, credentials, and volumes. An older release
+may omit a collector service that a newer cached Compose added. Keep any manually
+stopped collector stopped during this reconciliation. Do not use the pending-change
+badge as proof that saved Compose matches Git or that running containers changed.
 
 Success means Coolify reports the deployment `finished`, its commit matches the
 requested SHA, and the Application reaches `running:healthy`. CD checks the
