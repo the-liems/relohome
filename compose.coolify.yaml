@@ -89,7 +89,7 @@ x-blobs:
 
 services:
   provisioner:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/provisioner:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/provisioner:${SOURCE_COMMIT}
     init: true
     security_opt: [no-new-privileges:true]
     restart: "no"
@@ -106,7 +106,7 @@ services:
 
   web:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/web:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/web:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: web
       <<: *telemetry-env
@@ -146,7 +146,7 @@ services:
 
   backend:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/backend:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/backend:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: backend
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
@@ -229,7 +229,7 @@ services:
 
   flights-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/flights-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/flights-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: flights-mcp
       <<: *telemetry-env
@@ -243,7 +243,7 @@ services:
 
   payments-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/payments-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/payments-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: payments-mcp
       <<: *telemetry-env
@@ -258,7 +258,7 @@ services:
     volumes: [payments-data:/app/data]
 
   postgis:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: unless-stopped
     environment:
@@ -273,7 +273,7 @@ services:
       retries: 20
 
   location-seed:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: "no"
     exclude_from_hc: true
@@ -304,7 +304,7 @@ services:
 
   location-migrate:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location-migrate:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/location-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
@@ -319,7 +319,7 @@ services:
 
   platform:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/platform:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/platform:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: platform
       <<: [*location-env, *telemetry-env]
@@ -346,7 +346,7 @@ services:
 
   location:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/location:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: location
       <<: [*location-env, *telemetry-env]
@@ -372,7 +372,7 @@ services:
 
   moving-migrate:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-migrate:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
@@ -384,7 +384,7 @@ services:
 
   moving-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-mcp
       <<: [*moving-env, *telemetry-env]
@@ -395,7 +395,7 @@ services:
 
   moving-api:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-api:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-api:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-api
       <<: [*moving-env, *telemetry-env]

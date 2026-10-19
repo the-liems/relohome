@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-IMAGE = "ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine"
+IMAGE = os.environ.get("POSTGIS_IMAGE") or "ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine"
 
 
 def run(*args, **kwargs):

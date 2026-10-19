@@ -117,6 +117,21 @@ class DeploymentTests(unittest.TestCase):
                              "deploy a commit at or after the Git-pinned deployment merge.")
             self.assertEqual(self.requests, [])
 
+    def test_registry_migration_preserves_literal_legacy_releases(self):
+        migrated = {"services": {"web": {"image": DEPLOY.IMAGE_REPOSITORY_EXPRESSION + "/web:${SOURCE_COMMIT}"}}}
+        legacy = DEPLOY.IMAGE_PREFIX + "web:${SOURCE_COMMIT}"
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(DEPLOY.release_images(migrated), {legacy})
+        with patch.dict(os.environ, {"APPLICATION_IMAGE_REPOSITORY": "ghcr.io/the-liems/relohome"}, clear=True):
+            self.assertEqual(DEPLOY.release_images(migrated), {"ghcr.io/the-liems/relohome/web:${SOURCE_COMMIT}"})
+            self.assertEqual(DEPLOY.release_images(COMPOSE), {
+                DEPLOY.IMAGE_PREFIX + "app:${SOURCE_COMMIT}", DEPLOY.IMAGE_PREFIX + "worker:${SOURCE_COMMIT}"})
+
+    def test_registry_override_rejects_credentials_and_tags(self):
+        for repository in ("https://ghcr.io/the-liems/relohome", "ghcr.io/user:token@host/repo", "ghcr.io/the-liems/relohome:latest"):
+            with self.subTest(repository=repository), patch.dict(os.environ, {"APPLICATION_IMAGE_REPOSITORY": repository}), self.assertRaises(ValueError):
+                DEPLOY.release_images(COMPOSE)
+
     def test_patch_must_retain_commit(self):
         with self.assertRaisesRegex(RuntimeError, "did not retain git_commit_sha"):
             self.invoke(iter([{}, {"git_commit_sha": "b" * 40}]))
@@ -166,10 +181,9 @@ class ComposeContractTests(unittest.TestCase):
 
     def test_release_images_match_catalog_in_both_directions(self):
         builds = json.loads((ROOT / "config/ci/application-images.json").read_text())
-        images = {service["image"][len(DEPLOY.IMAGE_PREFIX):].split(":")[0]
-                  for service in self.services.values()
-                  if service["image"].startswith(DEPLOY.IMAGE_PREFIX)
-                  and service["image"].endswith(":${SOURCE_COMMIT}")}
+        with patch.dict(os.environ, {}, clear=True):
+            images = {image[len(DEPLOY.IMAGE_PREFIX):].split(":")[0]
+                      for image in DEPLOY.release_images(self.compose)}
         self.assertEqual(images, {build["service"] for build in builds})
         self.assertTrue(all("build" not in service for service in self.services.values()))
         for obsolete in ("${IMAGE_PREFIX}", "${RELEASE_TAG}", "${DEPLOY_"):

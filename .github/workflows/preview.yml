@@ -87,6 +87,7 @@ jobs:
       - name: Check images and deploy preview
         if: steps.current.outputs.deploy == 'true'
         env:
+          APPLICATION_IMAGE_REPOSITORY: ${{ vars.APPLICATION_IMAGE_REPOSITORY }}
           COOLIFY_URL: ${{ vars.COOLIFY_PREVIEW_URL }}
           COOLIFY_APP_UUID: ${{ vars.COOLIFY_PREVIEW_APP_UUID }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_PREVIEW_TOKEN }}

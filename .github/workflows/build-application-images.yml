@@ -99,6 +99,7 @@ jobs:
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
         env:
           MIGRATION_KIND: ${{ matrix.service }}
+          POSTGIS_IMAGE: ${{ vars.POSTGIS_IMAGE }}
         run: python3 scripts/test-migration-image.py "$MIGRATION_KIND" "$IMAGE"
       - name: Smoke provisioner image
         if: matrix.service == 'provisioner'
