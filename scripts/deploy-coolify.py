@@ -87,14 +87,23 @@ def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=300
         if body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
-        try:
-            with urlopen(Request(base + path, data=data, headers=headers, method=method),
-                         context=context, timeout=30) as response:
-                return json.load(response)
-        except HTTPError as error:
-            raise RuntimeError(f"Coolify {method} {path} returned HTTP {error.code}") from None
-        except URLError:
-            raise RuntimeError("Cannot reach Coolify with verified TLS; check runner network and server certificate") from None
+        # Reads are safe to retry after transient gateway or socket timeouts. A
+        # write may already have reached Coolify, so never repeat it implicitly.
+        for attempt in range(4):
+            try:
+                with urlopen(Request(base + path, data=data, headers=headers, method=method),
+                             context=context, timeout=30) as response:
+                    return json.load(response)
+            except HTTPError as error:
+                transient = error.code in {502, 503, 504, 524}
+                message = f"Coolify {method} {path} returned HTTP {error.code}"
+            except (TimeoutError, URLError) as error:
+                transient = isinstance(error, TimeoutError) or isinstance(getattr(error, "reason", None), TimeoutError)
+                message = "Cannot reach Coolify with verified TLS; check runner network and server certificate"
+            if method != "GET" or not transient or attempt == 3:
+                raise RuntimeError(message) from None
+            print(f"Coolify GET {path} temporarily unavailable; retrying status read ({attempt + 1}/3).")
+            time.sleep(2 ** attempt)
 
     application_path = "/applications/" + app
     if preview_id is not None:

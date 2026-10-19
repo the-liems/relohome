@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import yaml
 
@@ -100,6 +100,25 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(len(self.output.getvalue().splitlines()), 1)
         self.assertIn(SHA, self.output.getvalue())
         self.assertNotIn(ENV["COOLIFY_TOKEN"], self.output.getvalue())
+
+    def test_transient_status_timeouts_retry_without_requeuing(self):
+        with patch.object(DEPLOY.time, "sleep"):
+            self.invoke(iter(self.prefix() + [TimeoutError("private network detail"), FINISHED,
+                                             URLError(TimeoutError()), {"status": "running:healthy"}]))
+        self.assertEqual(sum(r.get_method() == "POST" for r, _ in self.requests), 1)
+        self.assertNotIn("private network detail", self.output.getvalue())
+
+    def test_gateway_status_retry_is_bounded(self):
+        error = HTTPError("https://coolify.example.test", 524, "Timeout", {}, io.BytesIO())
+        with patch.object(DEPLOY.time, "sleep"), self.assertRaisesRegex(RuntimeError, "HTTP 524"):
+            self.invoke(iter(self.prefix() + [error] * 4))
+        self.assertEqual(len(self.requests), 7)
+
+    def test_deploy_write_timeout_is_never_retried(self):
+        with self.assertRaisesRegex(RuntimeError, "Cannot reach Coolify"):
+            self.invoke(iter([{}, {"git_commit_sha": SHA}, TimeoutError()]))
+        self.assertEqual(len(self.requests), 3)
+        self.assertEqual(self.requests[-1][0].get_method(), "POST")
 
     def test_missing_images_are_all_listed_before_api_access(self):
         error = subprocess.CalledProcessError(1, "docker", stderr=b"private registry response")
