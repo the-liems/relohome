@@ -6,10 +6,12 @@ from datetime import timedelta
 from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langgraph.runtime import Runtime
 from langgraph.types import Command
 from relohome_agent.agents.common import utcnow
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.deps import GraphDeps
-from relohome_agent.agents.graph import build_graph, default_checkpointer, run_config
+from relohome_agent.agents.graph import build_graph, default_checkpointer, run_config, run_kwargs
 from relohome_agent.agents.models import (
     AgentName,
     CommitActionKind,
@@ -48,12 +50,17 @@ def commit_fact(kind: CommitActionKind, evidence: str) -> tuple[str, ConfirmedFa
     return f"commit:{kind.value}", fact(True, evidence)
 
 
+def node_runtime(deps: GraphDeps) -> Runtime[GraphContext]:
+    """Runtime for calling one node directly, as LangGraph would inside a run."""
+    return Runtime(context=GraphContext(deps=deps))
+
+
 class Session:
     """Chạy nhiều lượt trên cùng một thread."""
 
     def __init__(self, deps: GraphDeps, thread_id: str = "th1", user_id: str = "u1"):
         self.deps = deps
-        self.graph = build_graph(deps, default_checkpointer())
+        self.graph = build_graph(deps.agents.names(), default_checkpointer())
         self.thread_id, self.user_id = thread_id, user_id
         self.turn = 0
 
@@ -70,11 +77,11 @@ class Session:
                 "thread_id": self.thread_id,
                 "request_id": f"r{self.turn}",
             },
-            self.config,
+            **run_kwargs(self.thread_id, self.deps),
         )
 
     async def resume(self, value: Any) -> dict:
-        return await self.graph.ainvoke(Command(resume=value), self.config)
+        return await self.graph.ainvoke(Command(resume=value), **run_kwargs(self.thread_id, self.deps))
 
     async def state(self) -> dict:
         return (await self.graph.aget_state(self.config)).values

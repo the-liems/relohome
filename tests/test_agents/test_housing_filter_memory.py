@@ -6,11 +6,11 @@ import pytest
 from langchain_core.messages import HumanMessage
 from relohome_agent.agents.intake_llm import LlmIntake, ScalarIntakeDraft
 from relohome_agent.agents.models import IntakeResult, MemoryUpdate
-from relohome_agent.agents.nodes.intake import make_intake
+from relohome_agent.agents.nodes.intake import intake as intake_node
 from relohome_agent.services.adapters.fakes import InMemorySessionPort
 from relohome_agent.services.adapters.sqlite_runtime import RuntimeDatabase, SqliteSessionPort
 
-from tests.test_agents.helpers import Session
+from tests.test_agents.helpers import Session, node_runtime
 from tests.test_agents.test_housing_filter_followups import draft, workflow
 from tests.test_agents.test_token_efficiency import Model
 
@@ -163,12 +163,13 @@ async def test_exclusions_survive_checkpoint_roundtrip_but_a_new_goal_can_use_ac
     text = "Bắt đầu mục tiêu tìm nhà mới."
     model = Model(draft(text, kind="new_goal"))
     deps = replace(session.deps, intake=LlmIntake(model, max_calls=1))
-    result = await make_intake(deps)(
+    result = await intake_node(
         {
             "intake": saved,
             "messages": [HumanMessage(text)],
             "session": await session_store.load(session.user_id),
-        }
+        },
+        node_runtime(deps),
     )
     current = result["intake"]
     assert not current.housing_prefill_exclusions

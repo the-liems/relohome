@@ -11,7 +11,7 @@ from pydantic import SecretStr
 from relohome_agent.agents.common import utcnow
 from relohome_agent.agents.graph import default_checkpointer, make_agent_node, run_config
 from relohome_agent.agents.models import AgentName, MemoryUpdate, Task
-from relohome_agent.agents.nodes.transaction import make_transaction
+from relohome_agent.agents.nodes.transaction import transaction as transaction_node
 from relohome_agent.agents.state import WorkflowState
 from relohome_agent.api.guest_claim import GuestClaim, claim
 from relohome_agent.api.routes import authenticate
@@ -19,6 +19,8 @@ from relohome_agent.checkout.models import ServiceTransaction
 from relohome_agent.checkout.store import CheckoutStore
 from relohome_agent.guest_access import allowed, is_guest
 from relohome_agent.services.adapters.fakes import InMemorySessionPort
+
+from tests.test_agents.helpers import node_runtime
 
 GUEST = "guest_" + "a" * 32
 ACCOUNT = "b" * 32
@@ -80,16 +82,17 @@ async def test_guest_cannot_run_roommate_moving_payment_tools_or_transaction():
 
     deps = SimpleNamespace(agents=SimpleNamespace(get=lambda name: NeverCalled()), clock=utcnow, transaction=None)
     for name in (AgentName.ROOMMATE, AgentName.RELOCATION, AgentName.PAYMENT):
-        update = await make_agent_node(deps, name)(
+        update = await make_agent_node(name)(
             {
                 "task": Task(id="private", agent=name),
                 "user_id": GUEST,
                 "plan_version": 1,
-            }
+            },
+            node_runtime(deps),
         )
         assert update["task_results"]["private"].data["authentication_required"]
     with pytest.raises(HTTPException):
-        await make_transaction(deps)({"user_id": GUEST})
+        await transaction_node({"user_id": GUEST}, node_runtime(deps))
 
 
 def test_guest_endpoint_matrix_does_not_allow_private_reads_or_writes():

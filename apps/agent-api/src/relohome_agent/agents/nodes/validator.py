@@ -12,8 +12,9 @@ from datetime import datetime
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from langgraph.runtime import Runtime
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.contracts import AgentCapability
-from relohome_agent.agents.deps import GraphDeps
 from relohome_agent.agents.models import (
     IntakeResult,
     Outcome,
@@ -219,31 +220,29 @@ def decide(
     return ValidationReport(verdict="NEED_MORE", action="GIVE_UP", issues=issues)
 
 
-def make_validator(deps: GraphDeps):
-    async def validator(state: WorkflowState) -> dict:
-        """Chọn PASS / RETRY_TASKS / REPLAN / ASK_USER / GIVE_UP."""
-        plan = state["plan"]
-        capabilities = {t.id: deps.agents.capability(t.agent) for t in plan.tasks}
-        ttl = {tid: deps.settings.stale_ttl(c).total_seconds() for tid, c in capabilities.items() if c is not None}
-        report = decide(
-            plan,
-            state.get("task_status") or {},
-            state.get("task_results") or {},
-            state.get("task_attempts") or {},
-            state["intake"],
-            capabilities,
-            ttl,
-            deps.clock(),
-            max_attempts=deps.settings.max_task_attempts,
-            replans_left=(state.get("replan_count") or 0) < deps.settings.max_replans,
-        )
-        update: dict = {"validation": report}
-        if report.action == "RETRY_TASKS":
-            update["task_status"] = {tid: S.PENDING for tid in report.retry_task_ids}
-        elif report.action == "ASK_USER":
-            update["outcome"] = Outcome(node="validator", code=OutcomeCode.ASK_USER)
-        elif report.action == "GIVE_UP":
-            update["outcome"] = Outcome(node="validator", code=OutcomeCode.GIVE_UP)
-        return update
-
-    return validator
+async def validator(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
+    """Chọn PASS / RETRY_TASKS / REPLAN / ASK_USER / GIVE_UP."""
+    deps = runtime.context.deps
+    plan = state["plan"]
+    capabilities = {t.id: deps.agents.capability(t.agent) for t in plan.tasks}
+    ttl = {tid: deps.settings.stale_ttl(c).total_seconds() for tid, c in capabilities.items() if c is not None}
+    report = decide(
+        plan,
+        state.get("task_status") or {},
+        state.get("task_results") or {},
+        state.get("task_attempts") or {},
+        state["intake"],
+        capabilities,
+        ttl,
+        deps.clock(),
+        max_attempts=deps.settings.max_task_attempts,
+        replans_left=(state.get("replan_count") or 0) < deps.settings.max_replans,
+    )
+    update: dict = {"validation": report}
+    if report.action == "RETRY_TASKS":
+        update["task_status"] = {tid: S.PENDING for tid in report.retry_task_ids}
+    elif report.action == "ASK_USER":
+        update["outcome"] = Outcome(node="validator", code=OutcomeCode.ASK_USER)
+    elif report.action == "GIVE_UP":
+        update["outcome"] = Outcome(node="validator", code=OutcomeCode.GIVE_UP)
+    return update

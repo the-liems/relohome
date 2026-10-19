@@ -84,7 +84,7 @@ def service(meter, auto_suggest=False):
             {name: agent if name == AgentName.RELOCATION else deps.agents.get(name) for name in deps.agents.names()}
         ),
     )
-    return SimpleNamespace(deps=deps, graph=build_graph(deps, default_checkpointer()), locks={}), client
+    return SimpleNamespace(deps=deps, graph=build_graph(deps.agents.names(), default_checkpointer()), locks={}), client
 
 
 @pytest.mark.asyncio

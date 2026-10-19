@@ -5,9 +5,8 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
 from langfuse import propagate_attributes
-from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.cost import paid_slots_left
-from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.graph import run_kwargs
 from relohome_agent.agents.models import (
     AgentName,
     ConfirmedFact,
@@ -151,7 +150,6 @@ async def quote_form(thread_id: str, body: MovingQuoteForm, service: Service, us
                         task.id: TaskStatus.RUNNING,
                     },
                 },
-                run_config(thread_id, service.deps),
-                context=GraphContext(deps=service.deps),
+                **run_kwargs(thread_id, service.deps),
             )
         return _to_response(thread_id, result, service)

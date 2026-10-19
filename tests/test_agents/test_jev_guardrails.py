@@ -34,11 +34,11 @@ from relohome_agent.agents.models import (
     Task,
     TaskResult,
 )
-from relohome_agent.agents.nodes.orchestrator import make_orchestrator
+from relohome_agent.agents.nodes.orchestrator import orchestrator as orchestrator_node
 from relohome_agent.agents.planning import FixedPlanner
 from relohome_agent.config import Settings
 
-from tests.test_agents.helpers import fact, intake_result
+from tests.test_agents.helpers import fact, intake_result, node_runtime
 
 
 def envelope(questions=PLAN_QUESTIONS, choice="supported"):
@@ -399,7 +399,7 @@ async def test_unavailable_shadow_does_not_modify_plan_or_grant_permissions():
     planner = FixedPlanner(plan)
     planner.uses_llm = True
     deps = test_deps(Mock(), planner, guardrail=observer)
-    output = await make_orchestrator(deps)(state)
+    output = await orchestrator_node(state, node_runtime(deps))
     assert output["plan"].tasks == plan.tasks
     assert output["plan"].commit_actions == []
     await asyncio.gather(*observer._tasks)
@@ -413,13 +413,13 @@ async def test_invalid_and_non_llm_plans_never_submit():
     observer = Mock()
     planner = FixedPlanner(plan)
     deps = test_deps(Mock(), planner, guardrail=observer)
-    await make_orchestrator(deps)(state)
+    await orchestrator_node(state, node_runtime(deps))
     observer.observe_plan.assert_not_called()
     planner.uses_llm = True
     invalid = Plan(version=0, tasks=[plan.tasks[0].model_copy(update={"depends_on": ["missing-task"]})])
     invalid_planner = FixedPlanner(invalid)
     invalid_planner.uses_llm = True
-    output = await make_orchestrator(replace(deps, planner=invalid_planner))(state)
+    output = await orchestrator_node(state, node_runtime(replace(deps, planner=invalid_planner)))
     assert output["outcome"].code.name == "PLAN_INVALID"
     observer.observe_plan.assert_not_called()
 
@@ -436,7 +436,7 @@ async def test_graph_agent_observer_is_after_llm_execution_and_readonly(monkeypa
         return {"task_results": {result.task_id: result}}
 
     monkeypatch.setattr("relohome_agent.agents.execution.run_with_policy", run)
-    output = await make_agent_node(deps, AgentName.PROPERTY)(inp)
+    output = await make_agent_node(AgentName.PROPERTY)(inp, node_runtime(deps))
     observer.observe_assessment.assert_called_once_with(inp, result)
     assert output["task_results"][result.task_id] is result
 

@@ -18,7 +18,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from relohome_agent.agents.common import utcnow
-from relohome_agent.agents.graph import run_config
+from relohome_agent.agents.graph import run_config, run_kwargs
 from relohome_agent.agents.progress import plan_progress
 from relohome_agent.agents.selections import selected_option, selection_is_current
 from relohome_agent.agents.wiring import AgentService
@@ -145,7 +145,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
     """Gửi một tin nhắn. Thread đang chờ xác nhận thì tin nhắn được coi là đổi ý."""
     thread_id = request.thread_id or f"th_{uuid.uuid4().hex}"
     async with _lock(service, thread_id):
-        config = run_config(thread_id, service.deps)
+        run = run_kwargs(thread_id, service.deps)
         values, pending = await _pending(service, thread_id)
         if values and values.get("user_id") != user_id:
             raise HTTPException(status_code=404, detail="Không tìm thấy hội thoại.")
@@ -163,7 +163,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                         "change_request": redact_pii(request.message),
                     },
                 ),
-                config,
+                **run,
             )
         else:
             result = await service.graph.ainvoke(
@@ -187,7 +187,7 @@ async def chat(request: ChatRequest, service: Service, user_id: UserId = "anonym
                     if request.place_choice
                     else None,
                 },
-                config,
+                **run,
             )
         return _to_response(thread_id, result, service)
 
@@ -270,7 +270,8 @@ async def decision(
                 pii_refs=pii_refs,
             )
             resume.update(approval_id=approval.approval_id, pii_refs=pii_refs)
-        result = await service.graph.ainvoke(Command(update={"request_id": uuid.uuid4().hex}, resume=resume), run_config(thread_id, service.deps)
+        result = await service.graph.ainvoke(
+            Command(update={"request_id": uuid.uuid4().hex}, resume=resume), **run_kwargs(thread_id, service.deps)
         )
         return _to_response(thread_id, result, service)
 
@@ -280,7 +281,7 @@ async def _payment(thread_id: str, action: str, service: AgentService, user_id: 
         _, pending = await _owned(service, thread_id, user_id)
         if not pending or pending.get("type") != "payment_required":
             raise HTTPException(status_code=409, detail="Không có thanh toán nào đang chờ.")
-        result = await service.graph.ainvoke(Command(resume={"action": action}), run_config(thread_id, service.deps))
+        result = await service.graph.ainvoke(Command(resume={"action": action}), **run_kwargs(thread_id, service.deps))
         return _to_response(thread_id, result, service)
 
 
@@ -313,7 +314,7 @@ async def payment_simulate(
             await service.deps.transaction.simulate_payment(payment.payment_ref, body.outcome)
         except Exception as exc:  # cổng không phải mock, giao dịch đã hết PENDING…
             raise HTTPException(status_code=409, detail="Không giả lập được thanh toán này.") from exc
-        result = await service.graph.ainvoke(Command(resume={"action": "check"}), run_config(thread_id, service.deps))
+        result = await service.graph.ainvoke(Command(resume={"action": "check"}), **run_kwargs(thread_id, service.deps))
         return _to_response(thread_id, result, service)
 
 

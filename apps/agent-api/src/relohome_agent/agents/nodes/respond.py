@@ -12,6 +12,8 @@ import unicodedata
 from typing import Any
 
 from langchain_core.messages import AIMessage
+from langgraph.runtime import Runtime
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.deps import GraphDeps
 from relohome_agent.agents.memory import memory_updates
 from relohome_agent.agents.models import (
@@ -669,42 +671,40 @@ def compose(state: WorkflowState, deps: GraphDeps) -> AgentResponse:
     return AgentResponse(kind=kind, text="\n".join(p for p in body if p), data=data, questions=questions)
 
 
-def make_respond(deps: GraphDeps):
-    async def respond(state: WorkflowState) -> dict:
-        """Soạn AgentResponse, gợi ý bước tiếp theo (S9) và ghi bộ nhớ cuối lượt."""
-        response = compose(state, deps)
-        from relohome_agent.guest_access import READ_AGENTS, is_guest
+async def respond(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
+    """Soạn AgentResponse, gợi ý bước tiếp theo (S9) và ghi bộ nhớ cuối lượt."""
+    deps = runtime.context.deps
+    response = compose(state, deps)
+    from relohome_agent.guest_access import READ_AGENTS, is_guest
 
-        if is_guest(state.get("user_id")):
-            blocked = set(state.get("auth_required") or [])
-            intake = state.get("intake")
-            blocked.update(name.value for name in (intake.domains if intake else []) if name.value not in READ_AGENTS)
-            if blocked:
-                response.data["authentication_required"] = sorted(blocked)
-                response.text += (
-                    "\nĐăng nhập để tiếp tục dịch vụ cần tài khoản. Hội thoại và lựa chọn của bạn được giữ lại."
-                )
-        response.suggestions = next_step_suggestions(state, deps.agents, deps.settings.max_suggestions, response.kind)
-        update: dict = {
-            "response": response,
-            "messages": [AIMessage(response.text)],
-            "goal_tasks": record_goal(state),
-            "goal_selections": record_selections(state),
-        }
-        for result in (state.get("task_results") or {}).values():
-            if result.agent == AgentName.PROPERTY and result.status == "done" and not result.data.get("comparison"):
-                if (result.data.get("execution") or {}).get("request_id") == state.get("request_id"):
-                    update["last_housing_search_options"] = [
-                        {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
-                        for c in result.data.get("candidates", [])
-                    ][:20]
-        try:
-            updates = memory_updates(state)
-            if updates:
-                await deps.session.save(state.get("user_id") or "anonymous", state.get("thread_id", ""), updates)
-        except Exception as exc:
-            logger.warning("memory save failed: %s", type(exc).__name__, exc_info=True)
-            update["errors"] = [error_record("respond", "không lưu được bộ nhớ người dùng", deps.clock())]
-        return update
-
-    return respond
+    if is_guest(state.get("user_id")):
+        blocked = set(state.get("auth_required") or [])
+        intake = state.get("intake")
+        blocked.update(name.value for name in (intake.domains if intake else []) if name.value not in READ_AGENTS)
+        if blocked:
+            response.data["authentication_required"] = sorted(blocked)
+            response.text += (
+                "\nĐăng nhập để tiếp tục dịch vụ cần tài khoản. Hội thoại và lựa chọn của bạn được giữ lại."
+            )
+    response.suggestions = next_step_suggestions(state, deps.agents, deps.settings.max_suggestions, response.kind)
+    update: dict = {
+        "response": response,
+        "messages": [AIMessage(response.text)],
+        "goal_tasks": record_goal(state),
+        "goal_selections": record_selections(state),
+    }
+    for result in (state.get("task_results") or {}).values():
+        if result.agent == AgentName.PROPERTY and result.status == "done" and not result.data.get("comparison"):
+            if (result.data.get("execution") or {}).get("request_id") == state.get("request_id"):
+                update["last_housing_search_options"] = [
+                    {"option_id": c["id"], "label": c.get("title") or "Tin nhà"}
+                    for c in result.data.get("candidates", [])
+                ][:20]
+    try:
+        updates = memory_updates(state)
+        if updates:
+            await deps.session.save(state.get("user_id") or "anonymous", state.get("thread_id", ""), updates)
+    except Exception as exc:
+        logger.warning("memory save failed: %s", type(exc).__name__, exc_info=True)
+        update["errors"] = [error_record("respond", "không lưu được bộ nhớ người dùng", deps.clock())]
+    return update
