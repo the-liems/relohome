@@ -6,7 +6,7 @@ import pytest
 from relohome_payment.engine import PaymentEngine
 from relohome_payment.errors import GatewayUnavailableError, PaymentStateError
 from relohome_payment.gateways import ZaloPayGateway, create_gateway
-from relohome_payment.gateways.zalopay import sign
+from relohome_payment.gateways.zalopay import link_qr_payload, sign
 from relohome_payment.settings import PaymentSettings
 from relohome_payment.storage import PaymentDatabase
 
@@ -101,3 +101,43 @@ def test_create_gateway_requires_credentials(settings: PaymentSettings) -> None:
     assert create_gateway(settings.model_copy(update={"provider": "zalopay"})).name == "zalopay"
     with pytest.raises(ValueError, match="PAYMENT_ZALOPAY"):
         create_gateway(settings.model_copy(update={"provider": "zalopay", "zalopay_key1": ""}))
+
+
+@pytest.mark.asyncio
+async def test_provider_qr_is_kept(zalopay_engine: PaymentEngine) -> None:
+    payment = await zalopay_engine.create("bk_1", 100_000)
+    assert payment.qr_code == "00020101021226530010vn.zalopay"
+
+
+@pytest.mark.asyncio
+async def test_missing_qr_falls_back_to_payment_link(zalopay_engine: PaymentEngine, fake_zalopay: FakeZaloPay) -> None:
+    fake_zalopay.qr_code = None  # app sandbox 2554 chỉ trả order_url
+    payment = await zalopay_engine.create("bk_1", 100_000)
+    assert payment.pay_url == fake_zalopay.order_url
+    assert payment.qr_code == fake_zalopay.order_url
+
+
+@pytest.mark.asyncio
+async def test_untrusted_link_never_becomes_qr(zalopay_engine: PaymentEngine, fake_zalopay: FakeZaloPay) -> None:
+    fake_zalopay.qr_code, fake_zalopay.order_url = None, "https://zalopay.vn.evil.example/pay"
+    payment = await zalopay_engine.create("bk_1", 100_000)
+    assert payment.qr_code is None
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://qcgateway.zalopay.vn/openinapp?order=abc", True),
+        ("https://sbgateway.zalopay.vn/pay/v2/x", True),
+        ("https://zalopay.vn/x", True),
+        ("http://qcgateway.zalopay.vn/openinapp", False),
+        ("https://zalopay.vn.evil.example/x", False),
+        ("https://evilzalopay.vn/x", False),
+        ("javascript:alert(1)", False),
+        ("https://qcgateway.zalopay.vn/" + "a" * 5000, False),
+        (None, False),
+        (123, False),
+    ],
+)
+def test_link_qr_payload_only_accepts_zalopay_https(url: object, expected: bool) -> None:
+    assert link_qr_payload(url) == (url if expected else None)
