@@ -27,10 +27,13 @@ def map_rooms(body: MapRoomsInput, actor: TrustedActor, ctx: Context):
         # Viewing room-linked profiles still requires the existing Roommate opt-in.
         if AccessService(ctx).status(actor)["eligible"]:
             excluded = ctx.safety.discovery_exclusions(actor.id)
+            # Discovery is for other people's posts. Keep the underlying housing
+            # listing independent; manage one's own post through /me/profile.
             records = [
                 p
                 for p in ctx.profiles.active_rooms(ids, now)
-                if (p.owner_id == actor.id or p.owner_id not in excluded)
+                if p.owner_id != actor.id
+                and p.owner_id not in excluded
                 and p.state is ProfileState.ACTIVE
                 and p.expires_at
                 and now < p.expires_at

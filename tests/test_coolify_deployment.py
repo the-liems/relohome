@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import yaml
 
@@ -57,6 +57,27 @@ class DeploymentTests(unittest.TestCase):
     def prefix():
         return [{}, {"git_commit_sha": SHA}, QUEUED]
 
+    def test_preview_checks_its_own_health_without_changing_parent(self):
+        self.invoke(iter([{'deployment_uuid': 'preview-1'}, FINISHED,
+                          {'status': 'running:unhealthy'}, {'status': 'running:healthy'}]), preview_id=200)
+        request = self.requests[0][0]
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertTrue(request.full_url.endswith('/applications/staging-app/previews'))
+        self.assertEqual(json.loads(request.data), {'pull_request_id': 200, 'git_type': 'github', 'commit': SHA})
+        self.assertTrue(all(r.get_method() != 'PATCH' for r, _ in self.requests))
+        self.assertTrue(self.requests[-1][0].full_url.endswith('/previews/200'))
+
+    def test_preview_rejects_wrong_commit(self):
+        with self.assertRaisesRegex(RuntimeError, 'commit mismatch'):
+            self.invoke(iter([{'deployment_uuid': 'preview-1'},
+                              {'status': 'finished', 'commit': 'b' * 40}]), preview_id=200)
+
+    def test_preview_rejects_invalid_id_before_network(self):
+        for number in (0, -1, 2147483648):
+            with self.subTest(number=number), self.assertRaisesRegex(ValueError, 'Preview ID'):
+                self.invoke(iter([]), preview_id=number)
+            self.assertEqual(self.requests, [])
+
     def test_success_waits_for_deployment_and_application_health(self):
         inspect = self.invoke(iter(self.prefix() + [{"status": "queued"}, {"status": "in_progress"},
                                                    FINISHED, {"status": "running:unhealthy"},
@@ -80,6 +101,25 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn(SHA, self.output.getvalue())
         self.assertNotIn(ENV["COOLIFY_TOKEN"], self.output.getvalue())
 
+    def test_transient_status_timeouts_retry_without_requeuing(self):
+        with patch.object(DEPLOY.time, "sleep"):
+            self.invoke(iter(self.prefix() + [TimeoutError("private network detail"), FINISHED,
+                                             URLError(TimeoutError()), {"status": "running:healthy"}]))
+        self.assertEqual(sum(r.get_method() == "POST" for r, _ in self.requests), 1)
+        self.assertNotIn("private network detail", self.output.getvalue())
+
+    def test_gateway_status_retry_is_bounded(self):
+        error = HTTPError("https://coolify.example.test", 524, "Timeout", {}, io.BytesIO())
+        with patch.object(DEPLOY.time, "sleep"), self.assertRaisesRegex(RuntimeError, "HTTP 524"):
+            self.invoke(iter(self.prefix() + [error] * 4))
+        self.assertEqual(len(self.requests), 7)
+
+    def test_deploy_write_timeout_is_never_retried(self):
+        with self.assertRaisesRegex(RuntimeError, "Cannot reach Coolify"):
+            self.invoke(iter([{}, {"git_commit_sha": SHA}, TimeoutError()]))
+        self.assertEqual(len(self.requests), 3)
+        self.assertEqual(self.requests[-1][0].get_method(), "POST")
+
     def test_missing_images_are_all_listed_before_api_access(self):
         error = subprocess.CalledProcessError(1, "docker", stderr=b"private registry response")
         with self.assertRaisesRegex(RuntimeError, "app:" + SHA + ".*worker:" + SHA):
@@ -95,6 +135,21 @@ class DeploymentTests(unittest.TestCase):
                              "This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
                              "deploy a commit at or after the Git-pinned deployment merge.")
             self.assertEqual(self.requests, [])
+
+    def test_registry_migration_preserves_literal_legacy_releases(self):
+        migrated = {"services": {"web": {"image": DEPLOY.IMAGE_REPOSITORY_EXPRESSION + "/web:${SOURCE_COMMIT}"}}}
+        legacy = DEPLOY.IMAGE_PREFIX + "web:${SOURCE_COMMIT}"
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(DEPLOY.release_images(migrated), {legacy})
+        with patch.dict(os.environ, {"APPLICATION_IMAGE_REPOSITORY": "ghcr.io/the-liems/relohome"}, clear=True):
+            self.assertEqual(DEPLOY.release_images(migrated), {"ghcr.io/the-liems/relohome/web:${SOURCE_COMMIT}"})
+            self.assertEqual(DEPLOY.release_images(COMPOSE), {
+                DEPLOY.IMAGE_PREFIX + "app:${SOURCE_COMMIT}", DEPLOY.IMAGE_PREFIX + "worker:${SOURCE_COMMIT}"})
+
+    def test_registry_override_rejects_credentials_and_tags(self):
+        for repository in ("https://ghcr.io/the-liems/relohome", "ghcr.io/user:token@host/repo", "ghcr.io/the-liems/relohome:latest"):
+            with self.subTest(repository=repository), patch.dict(os.environ, {"APPLICATION_IMAGE_REPOSITORY": repository}), self.assertRaises(ValueError):
+                DEPLOY.release_images(COMPOSE)
 
     def test_patch_must_retain_commit(self):
         with self.assertRaisesRegex(RuntimeError, "did not retain git_commit_sha"):
@@ -116,15 +171,72 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "commit mismatch"):
             self.invoke(iter(self.prefix() + [{"status": "finished", "commit": "b" * 40}]))
 
-    def test_application_must_be_healthy(self):
-        with self.assertRaisesRegex(RuntimeError, "last status: exited:unhealthy"):
-            self.invoke(iter(self.prefix() + [FINISHED, {"status": "exited:unhealthy"}]), health_timeout=0)
+    def test_running_without_healthcheck_is_accepted(self):
+        self.invoke(iter(self.prefix() + [FINISHED, {"status": "running:unknown"}]))
+        self.assertIn("running:unknown", self.output.getvalue())
+        self.invoke(iter([{'deployment_uuid': 'preview-1'}, FINISHED,
+                          {'status': 'running:unknown'}]), preview_id=200)
+        self.assertIn("running:unknown", self.output.getvalue())
+
+    def test_unhealthy_stopped_and_missing_statuses_are_rejected(self):
+        for status in ("running:unhealthy", "degraded:unhealthy", "exited:unhealthy",
+                       "starting:unknown", "exited", None):
+            with self.subTest(status=status), self.assertRaisesRegex(RuntimeError, "last status:"):
+                self.invoke(iter(self.prefix() + [FINISHED, {"status": status}]), health_timeout=0)
 
     def test_already_queued_missing_deployment_has_clear_error(self):
         queued = {"deployments": [QUEUED["deployments"][1] | {"message": "Deployment already queued for this commit."}]}
         error = HTTPError("https://coolify.example.test", 404, "Not found", {}, io.BytesIO())
         with self.assertRaisesRegex(RuntimeError, "UUID that no longer exists.*already be queued"):
             self.invoke(iter([{}, {"git_commit_sha": SHA}, queued, error]))
+
+
+class ComposeInterpolationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        docker = shutil.which("docker")
+        if not docker or subprocess.run([docker, "compose", "version"], capture_output=True).returncode:
+            raise unittest.SkipTest("Docker Compose CLI is required")
+        cls.command = [docker, "compose", "--project-name", "p044-compat", "--file", "-", "config", "--format", "json"]
+        cls.source = (ROOT / "compose.coolify.yaml").read_text()
+        cls.original = cls.source.replace("${COOLIFY_COMPOSE_EMPTY:-}", "")
+        names = set(re.findall(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)", cls.source))
+        cls.environment = {k: v for k, v in os.environ.items() if k not in names}
+        cls.environment.update({key: "a" * 64 for key in re.findall(r"\$\{([A-Z][A-Z0-9_]*):\?", cls.source)})
+        cls.environment.update({key: "service-" + key.lower().replace("_", "-")
+                                for key in names if key.startswith("SERVICE_NAME_")})
+        cls.environment.update(SERVICE_URL_WEB="https://preview.example.test", SERVICE_FQDN_WEB="preview.example.test",
+                               SOURCE_COMMIT=SHA)
+
+    def render(self, source, environment):
+        definition = yaml.safe_load(source)
+        for service in definition["services"].values():
+            service.pop("exclude_from_hc", None)  # Coolify consumes this extension before Compose.
+        return subprocess.run(self.command, input=yaml.safe_dump(definition), env=environment,
+                              text=True, capture_output=True)
+
+    def test_empty_expansion_preserves_defaults_and_distinct_preview_credentials(self):
+        for overrides in ({}, {"MOVING_DB_APP_PASSWORD": "b" * 64, "POSTGRES_APP_PASSWORD": "c" * 64,
+                               "AGENT_API_TOKEN": "d" * 64, "OTEL_DEPLOYMENT_ENVIRONMENT": "preview"}):
+            with self.subTest(overrides=list(overrides)):
+                environment = self.environment | overrides
+                before = self.render(self.original, environment)
+                after = self.render(self.source, environment)
+                self.assertEqual(before.returncode, 0, before.stderr)
+                self.assertEqual(after.returncode, 0, after.stderr)
+                self.assertEqual(json.loads(before.stdout), json.loads(after.stdout))
+                services = json.loads(after.stdout)["services"]
+                password = environment["MOVING_DB_APP_PASSWORD"]
+                self.assertEqual(services["moving-migrate"]["environment"]["MOVING_DB_APP_PASSWORD"], password)
+                self.assertIn(":" + password + "@", services["moving-api"]["environment"]["MOVING_DATABASE_URL"])
+
+    def test_empty_expansion_keeps_required_secret_checks(self):
+        for key in ("MOVING_DB_APP_PASSWORD", "OPENAI_API_KEY"):
+            with self.subTest(key=key):
+                environment = {k: v for k, v in self.environment.items() if k != key}
+                result = self.render(self.source, environment)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(key, result.stderr)
 
 
 class ComposeContractTests(unittest.TestCase):
@@ -136,10 +248,9 @@ class ComposeContractTests(unittest.TestCase):
 
     def test_release_images_match_catalog_in_both_directions(self):
         builds = json.loads((ROOT / "config/ci/application-images.json").read_text())
-        images = {service["image"][len(DEPLOY.IMAGE_PREFIX):].split(":")[0]
-                  for service in self.services.values()
-                  if service["image"].startswith(DEPLOY.IMAGE_PREFIX)
-                  and service["image"].endswith(":${SOURCE_COMMIT}")}
+        with patch.dict(os.environ, {}, clear=True):
+            images = {image[len(DEPLOY.IMAGE_PREFIX):].split(":")[0]
+                      for image in DEPLOY.release_images(self.compose)}
         self.assertEqual(images, {build["service"] for build in builds})
         self.assertTrue(all("build" not in service for service in self.services.values()))
         for obsolete in ("${IMAGE_PREFIX}", "${RELEASE_TAG}", "${DEPLOY_"):
@@ -247,11 +358,11 @@ esac
         # only listed gateway accounts see it. An unset list means nobody.
         backend = self.compose["services"]["backend"]["environment"]
         self.assertNotEqual(backend["APP_ENV"], "production")
-        self.assertEqual(backend["PAYMENT_TESTER_CONFIRM_ENABLED"], "${PAYMENT_TESTER_CONFIRM_ENABLED:-true}")
-        self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${PAYMENT_TESTER_USER_IDS:-}")
+        self.assertEqual(backend["PAYMENT_TESTER_CONFIRM_ENABLED"], "${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_TESTER_CONFIRM_ENABLED:-true}")
+        self.assertEqual(backend["PAYMENT_TESTER_USER_IDS"], "${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_TESTER_USER_IDS:-}")
         payment = self.compose["services"]["payments-mcp"]
         self.assertEqual(payment["environment"]["PAYMENT_ZALOPAY_ENDPOINT"], "https://sb-openapi.zalopay.vn/v2")
-        self.assertEqual(backend["PAYMENT_MCP_URL"], "http://payments-mcp:8766/mcp")
+        self.assertEqual(backend["PAYMENT_MCP_URL"], "http://${SERVICE_NAME_PAYMENTS_MCP}:8766/mcp")
         self.assertNotIn("PAYMENT_ZALOPAY_KEY1", backend)
         self.assertNotIn("PAYMENT_ZALOPAY_KEY2", backend)
         self.assertNotIn("PAYMENT_MCP_STDIO", backend)

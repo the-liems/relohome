@@ -9,6 +9,7 @@ const facts = {
   need: { kind: "looking_together" },
   move_in: { kind: "flexible" },
   self_traits: {
+    gender: "male",
     smoking: "non_smoker",
     has_pets: false,
     cleanliness: "daily",
@@ -36,6 +37,305 @@ const compatibility = {
   differences: [],
   missing: ["budget", "smoking", "pets_allowed"],
 };
+
+test("compact roommate profile keeps essentials visible and optional fields private", async ({
+  page,
+}, info) => {
+  const calls = await fixture(page);
+  const minimal = {
+    ...intro,
+    facts: {
+      ...facts,
+      budget: { ...facts.budget, min_vnd: 0 },
+      self_traits: {},
+    },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) =>
+    route.fulfill({ json: minimal }),
+  );
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  await expect(
+    editor.locator("input:visible, select:visible, textarea:visible"),
+  ).toHaveCount(9);
+  const gender = editor.getByLabel("Giới tính của bạn", { exact: true });
+  await expect(gender).toBeVisible();
+  await expect(gender).toHaveAttribute("required", "");
+  const nameBox = await editor
+    .getByLabel("Tên hiển thị", { exact: true })
+    .boundingBox();
+  const introductionBox = await editor
+    .getByLabel("Giới thiệu ngắn", { exact: true })
+    .boundingBox();
+  expect(introductionBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height);
+  expect(introductionBox!.width).toBeGreaterThanOrEqual(nameBox!.width);
+  await page
+    .getByRole("button", { name: "Xem trước để đăng nhu cầu", exact: true })
+    .click();
+  await expect(gender).toBeFocused();
+  expect(
+    calls.filter((c) => c.path === "/roommate/me/profile/preview"),
+  ).toHaveLength(0);
+  await gender.selectOption("male");
+  await expect(
+    editor.getByLabel("Từ · VND/người/tháng", { exact: true }).first(),
+  ).toBeHidden();
+  await expect(
+    editor.getByLabel("Bạn hút thuốc thế nào?", { exact: true }),
+  ).toBeHidden();
+  await expect(editor.locator(":scope > details")).toHaveCount(1);
+  await expect(
+    editor.getByRole("combobox", { name: "Thời điểm vào ở", exact: true }),
+  ).toBeVisible();
+  expect(
+    await editor
+      .locator("h3")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+  ).toBeGreaterThanOrEqual(22);
+  expect(
+    await editor
+      .locator("textarea")
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+  ).toBeGreaterThanOrEqual(16);
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement)?.blur();
+    window.scrollTo(0, 0);
+  });
+  await page.screenshot({
+    path: info.outputPath("roommate-profile-compact.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Xem trước để đăng nhu cầu", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đăng nhu cầu", exact: true }),
+  ).toBeDisabled();
+  expect(
+    calls.find((c) => c.path === "/roommate/me/profile/preview")?.body,
+  ).toEqual({
+    ...minimal,
+    facts: { ...minimal.facts, self_traits: { gender: "male" } },
+  });
+  expect(
+    calls.filter((c) => c.path === "/roommate/me/profile/actions"),
+  ).toHaveLength(0);
+});
+
+test("collapsing profile extras preserves budget, false traits, hard preferences and room consent", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const saved = {
+    ...intro,
+    facts: { ...facts, need: { kind: "has_room", willing_to_move: false } },
+    preferences: {
+      pets_allowed: { value: false, strength: "hard" },
+      budget: { value: facts.budget, strength: "soft" },
+    },
+    room: { listing_id: "my-room", public_location_consent: true },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) => {
+    if (route.request().method() === "PUT")
+      calls.push({
+        path: "/roommate/me/intro",
+        body: route.request().postDataJSON(),
+      });
+    return route.fulfill({ json: saved });
+  });
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  await editor.getByText("Thói quen của bạn", { exact: true }).click();
+  await expect(
+    editor.getByLabel("Bạn có thú cưng?", { exact: true }),
+  ).toHaveValue("false");
+  await editor
+    .getByText("Hiện phòng trên map (tùy chọn)", { exact: true })
+    .click();
+  await expect(
+    editor.getByLabel(/Tôi đồng ý công khai vị trí phòng này/),
+  ).toBeChecked();
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  // The existing positive minimum is initially expanded, but can be hidden safely.
+  await editor.getByText("Thêm mức tối thiểu", { exact: true }).first().click();
+  await expect(
+    editor.getByLabel("Từ · VND/người/tháng", { exact: true }).first(),
+  ).toBeHidden();
+  await editor.getByLabel("Tên hiển thị", { exact: true }).fill("Minh mới");
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Đã lưu bản giới thiệu riêng" }),
+  ).toBeVisible();
+  expect(calls.find((c) => c.path === "/roommate/me/intro")?.body).toEqual({
+    ...saved,
+    display_name: "Minh mới",
+  });
+  expect(
+    calls.filter((c) => c.path === "/roommate/me/profile/actions"),
+  ).toHaveLength(0);
+});
+
+test("native validation reveals and focuses an incomplete optional field inside collapsed sections", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const incomplete = {
+    ...intro,
+    facts: {
+      ...facts,
+      self_traits: { gender: "male", quiet_hours: { start: "21:00", end: "" } },
+    },
+  };
+  await page.route("**/web/api/roommate/me/intro", (route) => {
+    if (route.request().method() === "PUT")
+      calls.push({
+        path: "/roommate/me/intro",
+        body: route.request().postDataJSON(),
+      });
+    return route.fulfill({ json: incomplete });
+  });
+  await page.goto("/roommate?tab=profile");
+  const editor = page.locator(".rm-profile-editor");
+  await expect(editor.getByLabel("Tên hiển thị", { exact: true })).toHaveValue(
+    "Minh",
+  );
+  const end = editor.getByLabel("Yên tĩnh đến", { exact: true }).first();
+  await expect(end).toBeHidden();
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(end).toBeVisible();
+  await expect(end).toBeFocused();
+  expect(calls.filter((c) => c.path === "/roommate/me/intro")).toHaveLength(0);
+  await end.fill("22:00");
+  await editor.getByText("Thông tin bổ sung", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Lưu bản giới thiệu riêng", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Đã lưu bản giới thiệu riêng" }),
+  ).toBeVisible();
+  expect(
+    calls.find((c) => c.path === "/roommate/me/intro")?.body,
+  ).toMatchObject({
+    facts: { self_traits: { quiet_hours: { start: "21:00", end: "22:00" } } },
+  });
+});
+
+test("compact discovery preserves stored filters and clears them only on request", async ({
+  page,
+}) => {
+  const calls = await fixture(page);
+  const criteria = {
+    city: "hcm",
+    self_facts: facts,
+    preferences: { pets_allowed: { value: false, strength: "hard" } },
+  };
+  await page.route("**/web/api/roommate/me/criteria", (route) =>
+    route.fulfill({ json: criteria }),
+  );
+  await page.goto("/roommate");
+  const panel = page.locator(".rm-filter-panel");
+  await expect(
+    page.getByRole("link", { name: "Xem hồ sơ", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.locator("input:visible, select:visible, textarea:visible"),
+  ).toHaveCount(1);
+  await expect(
+    panel.getByText("1 bộ lọc đang dùng", { exact: true }),
+  ).toBeVisible();
+  expect(calls.find((c) => c.path === "/roommate/search")?.body).toMatchObject({
+    criteria,
+  });
+  const refine = panel.locator("form > details > summary");
+  await refine.focus();
+  await page.keyboard.press("Enter");
+  await panel.getByText("Lọc theo người ở cùng", { exact: true }).click();
+  await panel
+    .getByText("Sinh hoạt và thói quen · tùy chọn", { exact: true })
+    .click();
+  await expect(
+    panel.getByLabel("Chấp nhận thú cưng", { exact: true }),
+  ).toHaveValue("false");
+  await refine.click();
+  await panel
+    .getByRole("button", { name: "Tìm người phù hợp", exact: true })
+    .click();
+  expect(
+    calls.filter((c) => c.path === "/roommate/search").at(-1)?.body,
+  ).toMatchObject({ criteria });
+  await refine.click();
+  await panel
+    .getByRole("button", { name: "Bỏ bộ lọc nâng cao", exact: true })
+    .click();
+  await expect(
+    panel.getByText("1 bộ lọc đang dùng", { exact: true }),
+  ).toHaveCount(0);
+  expect(
+    calls.filter((c) => c.path === "/roommate/search").at(-1)?.body,
+  ).toMatchObject({ criteria: { ...criteria, preferences: {} } });
+});
+
+for (const locale of ["vi", "en"] as const) {
+  test(`compact profile remains readable and accessible in ${locale}`, async ({
+    page,
+  }, info) => {
+    await page.addInitScript(
+      (locale) =>
+        localStorage.setItem(
+          "siu-ui-preferences",
+          JSON.stringify({ locale, theme: locale === "vi" ? "light" : "dark" }),
+        ),
+      locale,
+    );
+    await fixture(page);
+    await page.goto("/roommate?tab=profile");
+    const editor = page.locator(".rm-profile-editor");
+    await expect(editor.locator("textarea")).toBeVisible();
+    await editor.locator(":scope > details > summary").click();
+    await editor.locator("details").evaluateAll((sections) =>
+      sections.forEach((section) => {
+        section.open = true;
+      }),
+    );
+    await waitForUiMotion(page);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+    const audit = await new AxeBuilder({ page })
+      .include(".rm-profile-editor")
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(
+      audit.violations.map((v) => ({
+        id: v.id,
+        targets: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await page.screenshot({
+      path: info.outputPath(`roommate-profile-expanded-${locale}.png`),
+      fullPage: true,
+    });
+  });
+}
 async function fixture(
   page: Page,
   settings: {
@@ -274,6 +574,49 @@ test("chat connection reuses intro without contact and survives browser focus", 
   expect(
     calls.filter((call) => call.path === "/roommate/requests"),
   ).toHaveLength(0);
+});
+
+test("a saved intro without gender must be completed before sending a chat request", async ({
+  page,
+}) => {
+  const calls = await fixture(page, { chat: true });
+  await page.route("**/web/api/roommate/me/intro", (route) =>
+    route.fulfill({
+      json: {
+        ...intro,
+        facts: {
+          ...facts,
+          self_traits: { ...facts.self_traits, gender: null },
+        },
+      },
+    }),
+  );
+  await page.goto("/roommate/profiles/anna");
+  await page
+    .getByRole("button", { name: "Gửi yêu cầu kết nối", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Gửi yêu cầu kết nối" });
+  const gender = dialog.getByLabel("Giới tính của bạn", { exact: true });
+  await expect(gender).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Gửi yêu cầu kết nối", exact: true })
+    .click();
+  await expect(gender).toBeFocused();
+  expect(
+    calls.filter((call) => call.path === "/roommate/chat/requests"),
+  ).toHaveLength(0);
+  await gender.selectOption("other");
+  await dialog
+    .getByRole("button", { name: "Gửi yêu cầu kết nối", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Chờ phản hồi" }),
+  ).toBeVisible();
+  expect(
+    calls.find((call) => call.path === "/roommate/chat/requests")?.body,
+  ).toMatchObject({
+    intro: { facts: { self_traits: { gender: "other" } } },
+  });
 });
 
 test("accept opens in-app chat and ambiguous retry keeps the same message ID", async ({
@@ -828,24 +1171,69 @@ test("unknown write outcome is reconciled without sending a second connection", 
   expect(calls.filter((c) => c.path === "/roommate/requests")).toHaveLength(1);
 });
 
-
 for (const state of ["unread", "earlier", "seen", "replied"] as const) {
-  test(`roommate read receipt follows the exact last unanswered message: ${state}`, async ({ page }) => {
+  test(`roommate read receipt follows the exact last unanswered message: ${state}`, async ({
+    page,
+  }) => {
     await fixture(page, { chat: true, received: true });
     const messages = [
-      { id: "earlier", sender_id: "viewer", body: "Chào bạn.", created_at: "2026-10-17T01:00:00.000001Z" },
-      { id: "last", sender_id: "viewer", body: "Mình đã gửi thông tin.", created_at: "2026-10-17T01:00:00.000002Z" },
-      ...(state === "replied" ? [{ id: "reply", sender_id: "anna", body: "Mình nhận được rồi.", created_at: "2026-10-17T01:01:00Z" }] : []),
+      {
+        id: "earlier",
+        sender_id: "viewer",
+        body: "Chào bạn.",
+        created_at: "2026-10-17T01:00:00.000001Z",
+      },
+      {
+        id: "last",
+        sender_id: "viewer",
+        body: "Mình đã gửi thông tin.",
+        created_at: "2026-10-17T01:00:00.000002Z",
+      },
+      ...(state === "replied"
+        ? [
+            {
+              id: "reply",
+              sender_id: "anna",
+              body: "Mình nhận được rồi.",
+              created_at: "2026-10-17T01:01:00Z",
+            },
+          ]
+        : []),
     ];
-    await page.route("**/roommate/chat/conversations/request-one/messages", route => route.fulfill({ json: {
-      id: "request-one", request_id: "request-one", state: "active", counterparty_name: "Anna Nguyễn", viewer_id: "viewer",
-      items: messages, has_more: false,
-      ...(state === "unread" ? {} : { counterparty_read_message_id: state === "earlier" ? "earlier" : "last" }),
-    } }));
+    await page.route(
+      "**/roommate/chat/conversations/request-one/messages",
+      (route) =>
+        route.fulfill({
+          json: {
+            id: "request-one",
+            request_id: "request-one",
+            state: "active",
+            counterparty_name: "Anna Nguyễn",
+            viewer_id: "viewer",
+            items: messages,
+            has_more: false,
+            ...(state === "unread"
+              ? {}
+              : {
+                  counterparty_read_message_id:
+                    state === "earlier" ? "earlier" : "last",
+                }),
+          },
+        }),
+    );
     await page.goto("/roommate/requests/request-one");
-    await page.getByRole("button", { name: "Đồng ý kết nối", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Nội dung tin nhắn" })).toBeVisible();
-    await expect(page.locator(".contact-thread-seen")).toHaveCount(state === "seen" ? 1 : 0);
-    if (state === "seen") await expect(page.locator(".contact-thread-list li.mine").last()).toContainText("Đã xem");
+    await page
+      .getByRole("button", { name: "Đồng ý kết nối", exact: true })
+      .click();
+    await expect(
+      page.getByRole("textbox", { name: "Nội dung tin nhắn" }),
+    ).toBeVisible();
+    await expect(page.locator(".contact-thread-seen")).toHaveCount(
+      state === "seen" ? 1 : 0,
+    );
+    if (state === "seen")
+      await expect(
+        page.locator(".contact-thread-list li.mine").last(),
+      ).toContainText("Đã xem");
   });
 }

@@ -15,7 +15,7 @@ lỗi không kéo theo việc tự huỷ thao tác khác đã đặt.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from datetime import datetime
 from typing import Any
 
@@ -56,16 +56,20 @@ class McpTransaction:
         moving_source_kind: SourceKind = "sandbox",
         payment_source_kind: SourceKind = "sandbox",
         clock: Callable[[], datetime] = utcnow,
+        receipts: MutableMapping[str, Receipt] | None = None,
+        holds: MutableMapping[str, PendingPayment] | None = None,
+        intent_store: Any = None,
     ):
         self.flight, self.payment, self.moving = flight, payment, moving
         self.moving_approvals = moving_approvals or MissingMovingApprovalBridge()
         self.moving_source_kind, self.payment_source_kind = moving_source_kind, payment_source_kind
         self.clock = clock
-        # Receipt theo idempotency_key trong process. Backend nên lưu bền (Q17); provider cũng tự chống trùng
-        # (Payment theo order_ref + amount, Moving theo workflow_id + action_id).
-        self._receipts: dict[str, Receipt] = {}
-        self._holds: dict[str, PendingPayment] = {}
-        self.intent_store = None
+        # Receipt theo idempotency_key; mặc định trong process, runtime truyền kho bền (Q17). Provider cũng tự
+        # chống trùng (Payment theo order_ref + amount, Moving theo workflow_id + action_id).
+        # `is None`, not `or`: an empty durable mapping is falsy.
+        self._receipts = receipts if receipts is not None else {}
+        self._holds = holds if holds is not None else {}
+        self.intent_store = intent_store
 
     async def guarded_commit(self, req):
         """Crash-safe fence: never blindly replay an uncertain write after restart."""

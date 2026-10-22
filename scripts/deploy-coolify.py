@@ -14,6 +14,22 @@ from urllib.request import Request, urlopen
 import yaml
 
 IMAGE_PREFIX = "ghcr.io/ai20k-build-phase-cohort-4/p-044/"
+IMAGE_REPOSITORY_EXPRESSION = "${APPLICATION_IMAGE_REPOSITORY:-" + IMAGE_PREFIX.rstrip("/") + "}"
+
+
+def release_images(definition):
+    """Resolve the opt-in registry migration while retaining literal legacy releases."""
+    repository = os.environ.get("APPLICATION_IMAGE_REPOSITORY") or IMAGE_PREFIX.rstrip("/")
+    if not re.fullmatch(r"ghcr\.io/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._/-]*", repository):
+        raise ValueError("APPLICATION_IMAGE_REPOSITORY must be a lowercase GHCR repository without a tag")
+    images = set()
+    for service in definition["services"].values():
+        image = service.get("image", "")
+        if image.startswith(IMAGE_REPOSITORY_EXPRESSION + "/"):
+            image = image.replace(IMAGE_REPOSITORY_EXPRESSION, repository, 1)
+        if image.startswith((IMAGE_PREFIX, repository + "/")) and image.endswith(":${SOURCE_COMMIT}"):
+            images.add(image)
+    return images
 
 
 def https_url(value, name):
@@ -35,7 +51,7 @@ def log_tail(deployment):
         print(line)
 
 
-def deploy(compose_path, *, interval=10, deployment_timeout=3000, health_timeout=600):
+def deploy(compose_path, *, preview_id=None, interval=10, deployment_timeout=3000, health_timeout=600):
     base = https_url(os.environ["COOLIFY_URL"], "COOLIFY_URL") + "/api/v1"
     app = os.environ["COOLIFY_APP_UUID"]
     sha = os.environ["DEPLOY_SHA"]
@@ -46,10 +62,10 @@ def deploy(compose_path, *, interval=10, deployment_timeout=3000, health_timeout
         raise ValueError("DEPLOY_SHA must be a 40-hex commit SHA")
     if not token:
         raise ValueError("Set the Coolify API token")
+    if preview_id is not None and not 1 <= preview_id <= 2147483647:
+        raise ValueError("Preview ID must be a positive pull request number")
     definition = yaml.safe_load(Path(compose_path).read_text())
-    images = {service.get("image", "") for service in definition["services"].values()
-              if service.get("image", "").startswith(IMAGE_PREFIX)
-              and service.get("image", "").endswith(":${SOURCE_COMMIT}")}
+    images = release_images(definition)
     if not images:
         raise ValueError("This commit predates Git-pinned deploys (its Compose file does not use ${SOURCE_COMMIT}); "
                          "deploy a commit at or after the Git-pinned deployment merge.")
@@ -71,24 +87,41 @@ def deploy(compose_path, *, interval=10, deployment_timeout=3000, health_timeout
         if body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
-        try:
-            with urlopen(Request(base + path, data=data, headers=headers, method=method),
-                         context=context, timeout=30) as response:
-                return json.load(response)
-        except HTTPError as error:
-            raise RuntimeError(f"Coolify {method} {path} returned HTTP {error.code}") from None
-        except URLError:
-            raise RuntimeError("Cannot reach Coolify with verified TLS; check runner network and server certificate") from None
+        # Reads are safe to retry after transient gateway or socket timeouts. A
+        # write may already have reached Coolify, so never repeat it implicitly.
+        for attempt in range(4):
+            try:
+                with urlopen(Request(base + path, data=data, headers=headers, method=method),
+                             context=context, timeout=30) as response:
+                    return json.load(response)
+            except HTTPError as error:
+                transient = error.code in {502, 503, 504, 524}
+                message = f"Coolify {method} {path} returned HTTP {error.code}"
+            except (TimeoutError, URLError) as error:
+                transient = isinstance(error, TimeoutError) or isinstance(getattr(error, "reason", None), TimeoutError)
+                message = "Cannot reach Coolify with verified TLS; check runner network and server certificate"
+            if method != "GET" or not transient or attempt == 3:
+                raise RuntimeError(message) from None
+            print(f"Coolify GET {path} temporarily unavailable; retrying status read ({attempt + 1}/3).")
+            time.sleep(2 ** attempt)
 
     application_path = "/applications/" + app
-    request(application_path, "PATCH", {"git_commit_sha": sha, "is_auto_deploy_enabled": False,
-                                       "include_source_commit_in_build": True,
-                                       "is_container_label_escape_enabled": False})
-    if request(application_path).get("git_commit_sha") != sha:
-        raise RuntimeError("Coolify did not retain git_commit_sha; deployment stopped")
-    queued = request("/deploy?uuid=" + app, "POST")
-    deployment_id = next((item.get("deployment_uuid") for item in queued.get("deployments", [])
-                          if item.get("resource_uuid") == app), None)
+    if preview_id is not None:
+        queued = request(application_path + "/previews", "POST", {
+            "pull_request_id": preview_id, "git_type": "github", "commit": sha,
+        })
+        deployment_id = queued.get("deployment_uuid")
+        health_path = application_path + "/previews/" + str(preview_id)
+    else:
+        request(application_path, "PATCH", {"git_commit_sha": sha, "is_auto_deploy_enabled": False,
+                                           "include_source_commit_in_build": True,
+                                           "is_container_label_escape_enabled": False})
+        if request(application_path).get("git_commit_sha") != sha:
+            raise RuntimeError("Coolify did not retain git_commit_sha; deployment stopped")
+        queued = request("/deploy?uuid=" + app, "POST")
+        deployment_id = next((item.get("deployment_uuid") for item in queued.get("deployments", [])
+                              if item.get("resource_uuid") == app), None)
+        health_path = application_path
     if not deployment_id:
         raise RuntimeError("Coolify did not return a deployment UUID for this Application")
     deadline = time.monotonic() + deployment_timeout
@@ -114,20 +147,22 @@ def deploy(compose_path, *, interval=10, deployment_timeout=3000, health_timeout
         raise RuntimeError(f"Coolify deployment commit mismatch: expected {sha}, got {deployment.get('commit')}")
     deadline = time.monotonic() + health_timeout
     while True:
-        status = request(application_path).get("status")
-        if status == "running:healthy":
+        status = request(health_path).get("status")
+        if status in {"running:healthy", "running:unknown"}:
             break
         if time.monotonic() >= deadline:
-            raise RuntimeError(f"Coolify Application never became running:healthy; last status: {status}")
+            raise RuntimeError(f"Coolify Application never reached an accepted running status; last status: {status}")
         time.sleep(interval)
-    print(f"Coolify Application {app} deployed {sha} and is running:healthy.")
+    target = f"Application {app}" + (f" preview PR #{preview_id}" if preview_id else "")
+    print(f"Coolify {target} deployed {sha} and has status {status}.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compose", type=Path, default=Path(__file__).resolve().parents[1] / "compose.coolify.yaml")
+    parser.add_argument("--preview-id", type=int, help="Deploy a PR preview without changing the main deployment")
     args = parser.parse_args()
     try:
-        deploy(args.compose)
+        deploy(args.compose, preview_id=args.preview_id)
     except (KeyError, ValueError, RuntimeError) as error:
         raise SystemExit(str(error)) from None

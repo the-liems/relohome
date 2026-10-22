@@ -22,15 +22,15 @@ from relohome_agent.agents.models import (
     TaskResult,
     ValidationReport,
 )
-from relohome_agent.agents.nodes.intake import make_intake
-from relohome_agent.agents.nodes.orchestrator import make_orchestrator
+from relohome_agent.agents.nodes.intake import intake as intake_node
+from relohome_agent.agents.nodes.orchestrator import orchestrator as orchestrator_node
 from relohome_agent.agents.planner_llm import LlmPlanner
 from relohome_agent.agents.planning import PlannerInput
 from relohome_agent.agents.routing import route_from_executor
 from relohome_agent.agents.subagents.capabilities import BASELINE_CAPABILITIES
 from relohome_agent.agents.subagents.services.read_llm import ReadLlmAgent
 
-from tests.test_agents.helpers import Session, fact, intake_result
+from tests.test_agents.helpers import Session, fact, intake_result, node_runtime
 from tests.test_agents.test_token_efficiency import Housing, Model, intake_draft, plan_draft
 
 BASE = {"city": "Hà Nội", "max_price_vnd": 5_000_000, "must_have": ["internet"]}
@@ -151,7 +151,9 @@ async def test_clear_last_amenity_does_not_resurrect_it_from_previous_facts(kind
     deps = intake_deps(
         intake=LlmIntake(Model(draft(text, kind=kind, patch={"remove_amenities": ["air_conditioning"]})), max_calls=1)
     )
-    result = await make_intake(deps)({"messages": [HumanMessage(text)], "intake": old, "session": SessionContext()})
+    result = await intake_node(
+        {"messages": [HumanMessage(text)], "intake": old, "session": SessionContext()}, node_runtime(deps)
+    )
     current = result["intake"]
     assert current.constraints.values == {**BASE, "must_have": []}
     assert current.user_confirmed_facts["must_have"].value == []
@@ -171,14 +173,15 @@ async def test_city_edit_invalidates_old_scope_pin_place_id_and_viewport_but_kee
         bounding_box=bbox,
     )
     deps = intake_deps(intake=LlmIntake(Model(draft(text, values={"city": "Đà Nẵng"})), max_calls=1))
-    result = await make_intake(deps)(
+    result = await intake_node(
         {
             "messages": [HumanMessage(text)],
             "intake": old,
             "session": SessionContext(),
             "housing_location": {"address": "Bách Khoa", "lat": 21.0, "lng": 105.8, "confirmed": True},
             "map_view": {"bounding_box": bbox},
-        }
+        },
+        node_runtime(deps),
     )
     current = result["intake"]
     assert current.constraints.values == {**BASE, "city": "Đà Nẵng"}
@@ -194,13 +197,14 @@ async def test_clear_near_removes_verified_pin_without_clearing_city_or_other_fi
     text = "Không cần gần Bách Khoa nữa."
     old = prior(near="Bách Khoa", near_coordinate={"lat": 21.0, "lng": 105.8}, near_place_id="old-place")
     deps = intake_deps(intake=LlmIntake(Model(draft(text, patch={"clear_fields": ["near"]})), max_calls=1))
-    result = await make_intake(deps)(
+    result = await intake_node(
         {
             "messages": [HumanMessage(text)],
             "intake": old,
             "session": SessionContext(),
             "housing_location": {"address": "Bách Khoa", "lat": 21.0, "lng": 105.8, "confirmed": True},
-        }
+        },
+        node_runtime(deps),
     )
     assert result["intake"].constraints.values == BASE and result["housing_location"] is None
 
@@ -232,7 +236,9 @@ async def test_invalid_model_patch_asks_again_and_does_not_remove_existing_filte
     text = "Thêm điều hòa."
     model = Model(draft(text, patch={"clear_fields": ["city"]}))
     deps = intake_deps(intake=LlmIntake(model, max_calls=1))
-    result = await make_intake(deps)({"messages": [HumanMessage(text)], "intake": prior(), "session": SessionContext()})
+    result = await intake_node(
+        {"messages": [HumanMessage(text)], "intake": prior(), "session": SessionContext()}, node_runtime(deps)
+    )
     assert result["intake"].needs_clarification and result["intake"].constraints.values == BASE
     assert len(model.calls) == 1
 
@@ -341,7 +347,9 @@ async def test_disabling_the_flag_keeps_filter_edits_but_uses_the_full_planner()
     text = "Thêm điều hòa."
     intake_model = Model(draft(text, patch={"add_amenities": ["air_conditioning"]}))
     deps = intake_deps(intake=LlmIntake(intake_model, enable_filter_fast_path=False, max_calls=1))
-    update = await make_intake(deps)({"messages": [HumanMessage(text)], "intake": prior(), "session": SessionContext()})
+    update = await intake_node(
+        {"messages": [HumanMessage(text)], "intake": prior(), "session": SessionContext()}, node_runtime(deps)
+    )
     current = update["intake"]
     assert not current.retrieval_only and current.constraints.values["must_have"] == ["internet", "air_conditioning"]
     inp = followup_input().model_copy(update={"intake": current})
@@ -376,7 +384,7 @@ async def test_prior_choices_and_non_filter_requirements_cannot_be_erased_by_a_f
     if state_change == "pending_payment":
         state["pending_payment"] = object()
     deps = intake_deps(intake=LlmIntake(Model(draft(text, values={"max_price_vnd": 4_000_000})), max_calls=1))
-    update = await make_intake(deps)(state)
+    update = await intake_node(state, node_runtime(deps))
     assert not update["intake"].retrieval_only
     assert update["intake"].constraints.values["max_price_vnd"] == 4_000_000
 
@@ -418,13 +426,14 @@ async def test_one_generation_budget_allows_filter_planning_but_not_a_model_fall
     # Intake has already consumed the turn's one generation.
     inp = followup_input()
     inp.intake.retrieval_only = False
-    update = await make_orchestrator(session.deps)(
+    update = await orchestrator_node(
         {
             "intake": inp.intake,
             "session": SessionContext(),
             "plan": inp.previous_plan,
             "thread_id": "th1",
             "request_id": "r2",
-        }
+        },
+        node_runtime(session.deps),
     )
     assert update["outcome"].code == OutcomeCode.BUDGET and not planner_model.calls

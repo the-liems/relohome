@@ -26,7 +26,7 @@ async def repair(database: Path, thread_id: str, *, apply: bool) -> None:
     service = AgentService.create(services=Settings(_env_file=None, agent_subagents="fake"))
     async with AsyncSqliteSaver.from_conn_string(str(database)) as saver:
         saver.serde = checkpoint_serde()
-        graph = build_graph(service.deps, saver)
+        graph = build_graph(service.deps.agents.names(), saver)
         config = run_config(thread_id, service.deps)
         history = [snapshot async for snapshot in graph.aget_state_history(config)]
         if not history:

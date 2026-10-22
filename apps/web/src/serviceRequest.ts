@@ -170,6 +170,23 @@ const fields: Record<FormService, string[]> = {
   ],
   map: ["city", "route_from", "route_to", "route_profile"],
 };
+const locationFields = ["city", "district", "near"];
+
+/** A populated location needs resolution/selection, not the same text form again.
+ * The populated-field/choices checks also support responses from older backends.
+ */
+function handledByForm(question: Data, service: FormService, known: Data): boolean {
+  const parts = String(question.field || "").split(".");
+  const field = parts.at(-1)!;
+  if ((parts.length > 1 && parts[0] !== service) || !fields[service].includes(field)) return false;
+  if (question.reason === "location_not_found" || question.reason === "location_ambiguous") return false;
+  if (service === "property" && locationFields.includes(field)) {
+    if (question.choices?.length || question.options?.length) return false;
+    if (typeof known[field] === "string" && known[field].trim()) return false;
+  }
+  return true;
+}
+
 export function clarificationServices(thread: Thread | null): FormService[] {
   const reply = [...(thread?.messages || [])]
     .reverse()
@@ -188,14 +205,7 @@ export function clarificationServices(thread: Thread | null): FormService[] {
     (service) =>
       active.has(service) &&
       (service !== "map" || routeRequest) &&
-      (reply.questions || []).some((q) => {
-        const field = String(q.field || "");
-        const parts = field.split(".");
-        return (
-          (parts.length === 1 || parts[0] === service) &&
-          fields[service].includes(parts.at(-1)!)
-        );
-      }),
+      (reply.questions || []).some((q) => handledByForm(q, service, requestDefaults(thread, service))),
   );
 }
 
@@ -206,6 +216,7 @@ export function guidedReplyText(
   services: FormService[],
 ): string {
   const handled = questions
+    .filter((q) => q.reason !== "location_not_found" && q.reason !== "location_ambiguous")
     // A location clarification can explain ambiguity or an unavailable match.
     // Controls cannot replace that explanation, even when a full form is shown.
     .filter((q) => {

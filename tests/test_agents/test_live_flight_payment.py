@@ -6,6 +6,7 @@ This is default-suite coverage: it starts test-owned HTTP services on loopback a
 chờ PAID → xuất vé.
 """
 
+from contextlib import aclosing
 from datetime import date, timedelta
 
 import pytest
@@ -14,6 +15,7 @@ from relohome_agent.agents.models import AgentName, CommitActionKind, RequestKin
 from relohome_agent.agents.planning import TemplatePlanner
 from relohome_agent.agents.wiring import live_deps
 from relohome_agent.config import Settings
+from relohome_agent.services.adapters.registry import ServiceRegistry
 from relohome_flight.settings import FlightSettings
 from relohome_flights_mcp.server import create_server as flight_server
 from relohome_payment.settings import PaymentSettings
@@ -33,23 +35,24 @@ async def test_book_flight_through_real_flight_and_payment_servers(tmp_path, mon
         _env_file=None, provider="mock", db_path=str(tmp_path / "payments.db")
     )))
     async with running_mcp(flights) as flight_url, running_mcp(payments) as payment_url:
-        await booking_flow(tmp_path, monkeypatch, flight_url, payment_url)
+        services = Settings(
+            _env_file=None,
+            agent_subagents="live",
+            agent_allow_simulated_transactions=True,
+            location_mcp_url="",
+            moving_mcp_url="",
+            flight_mcp_url=flight_url,
+            flight_mcp_auth_token=TEST_MCP_TOKEN,
+            payment_mcp_url=payment_url,
+            payment_mcp_auth_token=TEST_MCP_TOKEN,
+            payment_source_kind="demo",
+            payment_simulation_enabled=True,
+        )
+        async with aclosing(ServiceRegistry.from_settings(services)) as registry:
+            await booking_flow(monkeypatch, registry)
 
 
-async def booking_flow(tmp_path, monkeypatch, flight_url, payment_url):
-    services = Settings(
-        _env_file=None,
-        agent_subagents="live",
-        agent_allow_simulated_transactions=True,
-        location_mcp_url="",
-        moving_mcp_url="",
-        flight_mcp_url=flight_url,
-        flight_mcp_auth_token=TEST_MCP_TOKEN,
-        payment_mcp_url=payment_url,
-        payment_mcp_auth_token=TEST_MCP_TOKEN,
-        payment_source_kind="demo",
-        payment_simulation_enabled=True,
-    )
+async def booking_flow(monkeypatch, registry):
     day = (date.today() + timedelta(days=30)).isoformat()
     intake = intake_result(
         RequestKind.NEW_GOAL,
@@ -57,7 +60,7 @@ async def booking_flow(tmp_path, monkeypatch, flight_url, payment_url):
         values={"origin": "Hà Nội", "destination": "Đà Nẵng", "flight_date": day},
         facts=dict([commit_fact(CommitActionKind.FLIGHT_BOOKING, "Đặt vé")]),
     )
-    deps, _, _ = live_deps(ScriptedIntake([intake]), TemplatePlanner(), services)
+    deps, _, _ = live_deps(ScriptedIntake([intake]), TemplatePlanner(), registry)
     assert deps.agents.names() == [AgentName.FLIGHT]  # Location / Moving chưa cấu hình: không đăng ký
     assert "hold_booking" not in deps.agents.get(AgentName.FLIGHT).client.endpoint.allowed_tools
     assert "hold_booking" in deps.transaction.flight.endpoint.allowed_tools

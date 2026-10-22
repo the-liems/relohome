@@ -31,12 +31,11 @@ class LlmComponents:
             await agent.close()
 
 
-def build_llm_components(settings: Settings | None = None) -> LlmComponents:
-    settings = settings or Settings()
+def build_llm_components(settings: Settings, registry: ServiceRegistry) -> LlmComponents:
+    """The caller owns `registry` and closes its pooled MCP clients."""
     key = settings.openai_api_key.get_secret_value()
     if not key or key.startswith(("your-", "sk-your", "test-")):
         raise LLMError("LLM_NOT_CONFIGURED", "Cần cấu hình OPENAI_API_KEY để chạy agent thật.")
-    registry = ServiceRegistry.from_settings(settings)
     intake_llm = StructuredLLM(key, settings.agent_intake_model)
     planner_llm = StructuredLLM(key, settings.agent_planner_model, tier="heavy")
     moving_client = registry.moving.read_client()

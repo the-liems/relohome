@@ -15,6 +15,25 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_preview_metadata_is_scoped_to_valid_preview_hosts(monkeypatch):
+    from relohome_agent.agents.telemetry import preview_metadata
+
+    monkeypatch.setenv('OTEL_DEPLOYMENT_ENVIRONMENT', 'preview')
+    monkeypatch.setenv('PREVIEW_HOSTNAME', 'pr-200.c4-app-044.io.vn')
+    monkeypatch.setenv('RELEASE_SHA', 'a' * 40)
+    assert preview_metadata() == {
+        'preview.id': '200', 'preview.hostname': 'pr-200.c4-app-044.io.vn', 'service.version': 'a' * 40,
+    }
+    monkeypatch.setenv('OTEL_DEPLOYMENT_ENVIRONMENT', 'staging')
+    assert preview_metadata() == {}
+    monkeypatch.setenv('OTEL_DEPLOYMENT_ENVIRONMENT', 'preview')
+    monkeypatch.setenv('PREVIEW_HOSTNAME', 'pr-321.previews.example.net')
+    assert preview_metadata()['preview.id'] == '321'
+    for hostname in ('', 'unexpected.example.net', 'pr-nope.example.net', 'https://pr-200.example.net', 'pr-200.example.net/path'):
+        monkeypatch.setenv('PREVIEW_HOSTNAME', hostname)
+        assert preview_metadata() == {}
+
+
 def test_langgraph_and_openai_export_connected_generations():
     unexpected_paths = []
     received = {"/v1/traces": [], "/api/public/otel/v1/traces": []}

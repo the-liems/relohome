@@ -9,8 +9,8 @@ staging/production, độc lập với tài khoản local.
 
 ## 1. Cấu hình trước release
 
-- `APP_URL`: origin HTTPS cố định của ứng dụng. `SIU_PUBLIC_BASE_URL` trên web
-  lấy từ giá trị này để URL ảnh tồn tại sau restart/redeploy. Khi restore từ local,
+- Web domain: cấu hình domain HTTPS của service `web` trong Coolify.
+  `SIU_PUBLIC_BASE_URL` lấy từ `SERVICE_URL_WEB` do Coolify tự cấp (không cần `APP_URL`) để URL ảnh tồn tại sau restart/redeploy. Khi restore từ local,
   web client đưa các URL `/web/media/housing/<id>.png` về origin hiện tại; ảnh
   external và dữ liệu canonical không bị thay đổi. Phải restore đúng thư mục ảnh.
 - `AGENT_API_TOKEN`: cùng secret trên web/backend/platform. Platform và PostGIS

@@ -67,9 +67,9 @@ def live_agents(registry: ServiceRegistry) -> dict[AgentName, DomainAgent]:
 
 
 def live_deps(
-    intake: Intake, planner: Planner, services: Settings | None = None, settings: GraphSettings | None = None
+    intake: Intake, planner: Planner, registry: ServiceRegistry, settings: GraphSettings | None = None
 ) -> tuple[GraphDeps, InMemoryApprovalStore, InMemoryPiiStore]:
-    registry = ServiceRegistry.from_settings(services)
+    """The caller owns `registry` and closes its pooled MCP clients."""
     s = registry.settings
     approvals, pii = InMemoryApprovalStore(), InMemoryPiiStore()
     bridge = (
@@ -143,12 +143,11 @@ class AgentService:
             raise ValueError("MVP transactions are restricted to AhaMove staging")
         if services.agent_sandbox_payments_enabled or services.app_payment_demo_enabled:
             await verify_sandbox_payment_service(services)
-        stack = AsyncExitStack()
-        await stack.__aenter__()
-        try:
-            components = build_llm_components(services)
-            stack.push_async_callback(components.close)
+        async with AsyncExitStack() as stack:
             registry = ServiceRegistry.from_settings(services)
+            stack.push_async_callback(registry.aclose)
+            components = build_llm_components(services, registry)
+            stack.push_async_callback(components.close)
             agents = live_agents(registry)
             if roommate_runtime is not None:
                 from relohome_agent.agents.subagents.services.roommate import RoommateSubagent
@@ -197,10 +196,10 @@ class AgentService:
                 moving=registry.moving.write_client() if services.agent_writes_enabled else None,
                 moving_approvals=bridge,
                 moving_source_kind=registry.moving.source_kind,
+                receipts=DurableModels(db, "receipts", Receipt),
+                holds=DurableModels(db, "holds", PendingPayment),
+                intent_store=db,
             )
-            tx._receipts = DurableModels(db, "receipts", Receipt)
-            tx._holds = DurableModels(db, "holds", PendingPayment)
-            tx.intent_store = db
             checkout = build_checkout(services, registry, db, pii) if services.app_payment_demo_enabled else None
             viewing = build_viewing(services, registry, db, checkout) if services.housing_viewing_enabled else None
             from relohome_agent.agents.guardrails.shadow import build_guardrail
@@ -235,11 +234,10 @@ class AgentService:
             await saver.setup()
             return cls(
                 deps,
-                build_graph(deps, saver),
+                build_graph(deps.agents.names(), saver),
                 approvals,
                 pii,
                 "live",
-                resources=stack,
                 settings=services,
                 writes_enabled=services.agent_writes_enabled,
                 sandbox_payment_client=registry.payment.write_client()
@@ -247,10 +245,9 @@ class AgentService:
                 else None,
                 checkout=checkout,
                 viewing=viewing,
+                # Last, so the stack still closes everything if an argument above raises.
+                resources=stack.pop_all(),
             )
-        except BaseException:
-            await stack.aclose()
-            raise
 
     async def close(self):
         if self.resources:
@@ -268,8 +265,10 @@ class AgentService:
         services = services or Settings()
         intake = intake or PassThroughIntake()
         planner = planner or TemplatePlanner()  # tất định; LLM Planner (#13) cắm vào làm fallback
+        registry = None
         if services.agent_subagents == "live":
-            deps, approvals, pii = live_deps(intake, planner, services)
+            registry = ServiceRegistry.from_settings(services)
+            deps, approvals, pii = live_deps(intake, planner, registry)
         else:
             base = default_deps()
             approvals, pii = base.approvals, base.pii
@@ -282,11 +281,12 @@ class AgentService:
             deps = replace(deps, agents=AgentRegistry(agents))
         return cls(
             deps=deps,
-            graph=build_graph(deps, default_checkpointer()),
+            graph=build_graph(deps.agents.names(), default_checkpointer()),
             approval_store=approvals,
             pii_store=pii,
             mode=services.agent_subagents,
             payment_simulation=services.agent_subagents == "fake" or services.payment_simulation_enabled,
+            resources=registry,
         )
 
 

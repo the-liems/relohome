@@ -7,6 +7,7 @@ service chưa cấu hình thì lĩnh vực đó không được đăng ký (vali
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 
 from pydantic import SecretStr
 from relohome_agent.agents.models import SourceKind
@@ -70,10 +71,25 @@ class ServiceEntry:
     source_kind: SourceKind
 
     def read_client(self) -> McpToolClient | None:
-        return McpToolClient(self.read) if self.read and self.read.configured else None
+        return self._read_client
 
     def write_client(self) -> McpToolClient | None:
+        return self._write_client
+
+    # Cached: callers share one client, and so one connection pool, per endpoint.
+    @cached_property
+    def _read_client(self) -> McpToolClient | None:
+        return McpToolClient(self.read) if self.read and self.read.configured else None
+
+    @cached_property
+    def _write_client(self) -> McpToolClient | None:
         return McpToolClient(self.write) if self.write and self.write.configured else None
+
+    async def aclose(self) -> None:
+        # Close only the clients that were created; reading the property would create one.
+        for name in ("_read_client", "_write_client"):
+            if (client := self.__dict__.get(name)) is not None:
+                await client.aclose()
 
 
 @dataclass(frozen=True)
@@ -83,6 +99,10 @@ class ServiceRegistry:
     flight: ServiceEntry
     payment: ServiceEntry
     settings: Settings
+
+    async def aclose(self) -> None:
+        for entry in (self.location, self.moving, self.flight, self.payment):
+            await entry.aclose()
 
     @classmethod
     def from_settings(cls, s: Settings | None = None) -> ServiceRegistry:

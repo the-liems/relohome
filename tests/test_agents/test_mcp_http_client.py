@@ -5,6 +5,7 @@ import logging
 import os
 import socket
 import sys
+from contextlib import aclosing
 
 import httpx
 import pytest
@@ -45,29 +46,29 @@ async def test_http_client_calls_tool_and_enforces_allowlist(tmp_path):
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
-    try:
-        async with httpx.AsyncClient() as http:
-            for _ in range(100):
-                try:
-                    if (await http.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
-                        break
-                except httpx.HTTPError:
-                    await asyncio.sleep(0.1)
-        endpoint = McpEndpoint(
-            "flight", frozenset({"search_airports"}), url=f"http://127.0.0.1:{port}/mcp", token=TEST_MCP_TOKEN
-        )
-        client = McpToolClient(endpoint)
-        airports = await client.call("search_airports", {"query": "Đà Nẵng", "limit": 1})
-        assert airports[0]["code"] == "DAD"
-        with pytest.raises(ToolCallError) as denied:
-            await client.call("hold_booking", {"request": {}})
-        assert denied.value.code == "tool_not_allowed"
-    finally:
-        process.terminate()
-        await process.wait()
+    endpoint = McpEndpoint(
+        "flight", frozenset({"search_airports"}), url=f"http://127.0.0.1:{port}/mcp", token=TEST_MCP_TOKEN
+    )
+    async with aclosing(McpToolClient(endpoint)) as client:
+        try:
+            async with httpx.AsyncClient() as http:
+                for _ in range(100):
+                    try:
+                        if (await http.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
+                            break
+                    except httpx.HTTPError:
+                        await asyncio.sleep(0.1)
+            airports = await client.call("search_airports", {"query": "Đà Nẵng", "limit": 1})
+            assert airports[0]["code"] == "DAD"
+            with pytest.raises(ToolCallError) as denied:
+                await client.call("hold_booking", {"request": {}})
+            assert denied.value.code == "tool_not_allowed"
+        finally:
+            process.terminate()
+            await process.wait()
 
-    with pytest.raises(ToolCallError) as down:
-        await client.call("search_airports", {"query": "Huế"})
+        with pytest.raises(ToolCallError) as down:
+            await client.call("search_airports", {"query": "Huế"})
     assert down.value.transport and down.value.retryable
 
 
@@ -81,16 +82,16 @@ async def test_location_accepts_large_boundary_events_without_relaxing_other_ser
         return {"results": [{"area_id": "fixture-city", "geometry": boundary}]}
 
     async with running_mcp(server) as url:
-        registry = ServiceRegistry.from_settings(
-            Settings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
-        )
-        result = await registry.location.read_client().call("search_areas", {})
+        settings = Settings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
+        async with aclosing(ServiceRegistry.from_settings(settings)) as registry:
+            result = await registry.location.read_client().call("search_areas", {})
         assert result["results"][0]["geometry"] == boundary
 
         # Other endpoints retain the SDK's bounded 1 MiB default.
         ordinary = McpToolClient(McpEndpoint("flight", frozenset({"search_areas"}), url=url, token=TEST_MCP_TOKEN))
         with pytest.raises(ToolCallError) as limited:
-            await ordinary.call("search_areas", {})
+            async with aclosing(ordinary):
+                await ordinary.call("search_areas", {})
         assert limited.value.code == "unavailable"
         assert "1048576 byte limit" in repr(limited.value.__cause__)
 
@@ -107,7 +108,8 @@ async def test_tool_errors_and_unreachable_servers_are_logged_without_contacts(c
     async with running_mcp(server) as url:
         client = McpToolClient(McpEndpoint("moving", frozenset({"estimate_move"}), url=url, token=TEST_MCP_TOKEN))
         with pytest.raises(ToolCallError) as rejected:
-            await client.call("estimate_move", {})
+            async with aclosing(client):
+                await client.call("estimate_move", {})
     assert rejected.value.code == "TOOL_ERROR" and not rejected.value.transport
     logged = next(r for r in caplog.records if r.getMessage().startswith("mcp_tool_error"))
     assert logged.levelno == logging.WARNING
@@ -117,8 +119,31 @@ async def test_tool_errors_and_unreachable_servers_are_logged_without_contacts(c
     caplog.clear()
     down = McpToolClient(McpEndpoint("moving", frozenset({"estimate_move"}), url=url, token=TEST_MCP_TOKEN))
     with pytest.raises(ToolCallError) as unreachable:
-        await down.call("estimate_move", {})
+        async with aclosing(down):
+            await down.call("estimate_move", {})
     assert unreachable.value.code == "unavailable"
     logged = next(r for r in caplog.records if r.getMessage().startswith("mcp_tool_unavailable"))
     assert "service=moving tool=estimate_move sent=False" in logged.getMessage()
     assert logged.exc_info is not None  # The connection cause is kept for root-cause analysis.
+
+
+@pytest.mark.asyncio
+async def test_registry_shares_one_http_client_per_endpoint_until_closed():
+    server = MCPServer("pooled-fixture")
+
+    @server.tool()
+    def search_areas() -> dict:
+        return {"results": []}
+
+    async with running_mcp(server) as url:
+        registry = ServiceRegistry.from_settings(
+            Settings(_env_file=None, location_mcp_url=url, location_mcp_auth_token=TEST_MCP_TOKEN)
+        )
+        client = registry.location.read_client()
+        assert registry.location.read_client() is client
+        await client.call("search_areas", {})
+        http = client._http
+        await registry.location.read_client().call("search_areas", {})
+        assert client._http is http and not http.is_closed
+        await registry.aclose()
+        assert http.is_closed

@@ -96,7 +96,10 @@ class ImageSelectionTests(unittest.TestCase):
     def test_release_tag_is_commit_and_provisioner_has_smoke_checks(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/build-application-images.yml").read_text())
         build = workflow["jobs"]["build"]
-        self.assertEqual(build["env"]["RELEASE_TAG"], "${{ github.sha }}")
+        self.assertEqual(build["env"]["RELEASE_TAG"],
+                         "${{ inputs.preview && github.event.pull_request.head.sha || github.sha }}")
+        checkout = next(step for step in build['steps'] if step.get('uses') == 'actions/checkout@v4')
+        self.assertEqual(checkout['with']['ref'], build['env']['RELEASE_TAG'])
         smoke = next(step for step in build["steps"] if step.get("name") == "Smoke provisioner image")
         self.assertEqual(smoke["if"], "matrix.service == 'provisioner'")
         self.assertIn('docker run --rm --network none --entrypoint aws "$IMAGE" --version', smoke["run"])

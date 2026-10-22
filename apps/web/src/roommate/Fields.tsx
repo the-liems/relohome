@@ -2,23 +2,29 @@ import { RequiredMark } from "../components/RequiredMark";
 import { useId } from "react";
 import type { Budget, MoveIn, QuietHours } from "./types";
 import { rt } from "./text";
+import { FormDisclosure } from "./FormDisclosure";
 export function SelectField({
   label,
   value,
   choices,
   change,
   required = false,
+  placeholder,
 }: {
   label: string;
   value?: string | null;
   choices: [string, string][];
   change: (value: string) => void;
   required?: boolean;
+  placeholder?: string;
 }) {
   const id = useId();
   return (
     <label htmlFor={id}>
-      <span id={id + "-label"}>{label}<RequiredMark required={required} /></span>
+      <span id={id + "-label"}>
+        {label}
+        <RequiredMark required={required} />
+      </span>
       <select
         id={id}
         aria-labelledby={id + "-label"}
@@ -27,7 +33,8 @@ export function SelectField({
         required={required}
       >
         <option value="">
-          {rt("Chưa khai / không chọn", "Not provided / no preference")}
+          {placeholder ||
+            rt("Chưa khai / không chọn", "Not provided / no preference")}
         </option>
         {choices.map(([key, text]) => (
           <option key={key} value={key}>
@@ -51,22 +58,12 @@ export function BudgetFields({
   const set = (patch: Partial<Budget>) =>
     change({ min_vnd: 0, max_vnd: 0, fee_basis: null, ...value, ...patch });
   return (
-    <div className="rm-fields">
-      <label htmlFor={id + "min"}>
-        {rt("Từ · VND/người/tháng", "From · VND/person/month")}
-        <input
-          id={id + "min"}
-          type="number"
-          min="0"
-          max={value?.max_vnd || undefined}
-          step="1"
-          value={value?.min_vnd ?? ""}
-          onChange={(e) => set({ min_vnd: Number(e.target.value) })}
-          inputMode="numeric"
-        />
-      </label>
+    <div className="rm-fields rm-budget-fields">
       <label>
-        <span className="field-label">{rt("Đến · VND/người/tháng", "Up to · VND/person/month")}<RequiredMark required={required || Boolean(value)} /></span>
+        <span className="field-label">
+          {rt("Đến · VND/người/tháng", "Up to · VND/person/month")}
+          <RequiredMark required={required || Boolean(value)} />
+        </span>
         <input
           type="number"
           min={Math.max(1, value?.min_vnd || 0)}
@@ -91,6 +88,24 @@ export function BudgetFields({
         ]}
         change={(v) => set({ fee_basis: (v as Budget["fee_basis"]) || null })}
       />
+      <FormDisclosure
+        title={rt("Thêm mức tối thiểu", "Add a minimum budget")}
+        defaultOpen={Boolean(value?.min_vnd)}
+      >
+        <label htmlFor={id + "min"}>
+          {rt("Từ · VND/người/tháng", "From · VND/person/month")}
+          <input
+            id={id + "min"}
+            type="number"
+            min="0"
+            max={value?.max_vnd || undefined}
+            step="1"
+            value={value?.min_vnd ?? ""}
+            onChange={(e) => set({ min_vnd: Number(e.target.value) })}
+            inputMode="numeric"
+          />
+        </label>
+      </FormDisclosure>
       {!required && value && (
         <button
           className="text-button"
@@ -129,7 +144,10 @@ export function MoveInFields({
       />
       {value && value.kind !== "flexible" && (
         <label>
-          <span className="field-label">{rt("Ngày bắt đầu", "Start date")}<RequiredMark /></span>
+          <span className="field-label">
+            {rt("Ngày bắt đầu", "Start date")}
+            <RequiredMark />
+          </span>
           <input
             type="date"
             required
@@ -141,7 +159,10 @@ export function MoveInFields({
       )}
       {value?.kind === "range" && (
         <label>
-          <span className="field-label">{rt("Ngày kết thúc", "End date")}<RequiredMark /></span>
+          <span className="field-label">
+            {rt("Ngày kết thúc", "End date")}
+            <RequiredMark />
+          </span>
           <input
             type="date"
             required
@@ -164,7 +185,10 @@ export function QuietFields({
   return (
     <div className="rm-fields">
       <label>
-        <span className="field-label">{rt("Yên tĩnh từ", "Quiet from")}<RequiredMark required={Boolean(value?.end)} /></span>
+        <span className="field-label">
+          {rt("Yên tĩnh từ", "Quiet from")}
+          <RequiredMark required={Boolean(value?.end)} />
+        </span>
         <input
           type="time"
           value={value?.start || ""}
@@ -179,7 +203,10 @@ export function QuietFields({
         />
       </label>
       <label>
-        <span className="field-label">{rt("Yên tĩnh đến", "Quiet until")}<RequiredMark required={Boolean(value?.start)} /></span>
+        <span className="field-label">
+          {rt("Yên tĩnh đến", "Quiet until")}
+          <RequiredMark required={Boolean(value?.start)} />
+        </span>
         <input
           type="time"
           value={value?.end || ""}

@@ -1,0 +1,107 @@
+name: Coolify PR preview
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+# Serialize with cleanup, including across workflows. Never interrupt a rollout.
+concurrency:
+  group: coolify-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  select:
+    if: >-
+      vars.COOLIFY_PREVIEWS_ENABLED == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.catalog.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - id: catalog
+        run: |
+          python3 - <<'PY'
+          import json, os
+          with open('config/ci/application-images.json') as source:
+              matrix = {'include': json.load(source)}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('matrix=' + json.dumps(matrix) + '\n')
+          PY
+
+  images:
+    needs: select
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-application-images.yml
+    with:
+      matrix: ${{ needs.select.outputs.matrix }}
+      preview: true
+
+  deploy:
+    needs: images
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+    steps:
+      # Deployment tooling comes from the base; only Compose is read from the PR.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Check PR is still open at the built commit
+        id: current
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: context.payload.pull_request.number});
+            core.setOutput('deploy', pr.state === 'open' && !pr.draft && pr.head.repo?.full_name === context.payload.repository.full_name && pr.head.sha === context.payload.pull_request.head.sha);
+      - name: Load PR Compose
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          DEPLOY_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags origin "$DEPLOY_SHA"
+          git show "$DEPLOY_SHA:compose.coolify.yaml" > release-compose.yaml
+      - uses: actions/setup-python@v5
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          python-version: '3.11'
+      - name: Prepare deployment tools
+        if: steps.current.outputs.deploy == 'true'
+        run: bash scripts/setup-ci-python.sh
+      - name: Install deployment dependency
+        if: steps.current.outputs.deploy == 'true'
+        run: pip install PyYAML==6.0.3
+      - name: Check images and deploy preview
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          APPLICATION_IMAGE_REPOSITORY: ${{ vars.APPLICATION_IMAGE_REPOSITORY }}
+          COOLIFY_URL: ${{ vars.COOLIFY_PREVIEW_URL }}
+          COOLIFY_APP_UUID: ${{ vars.COOLIFY_PREVIEW_APP_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_PREVIEW_TOKEN }}
+          DEPLOY_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/p044-preview-docker.XXXXXX")
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          python scripts/deploy-coolify.py --compose release-compose.yaml --preview-id "$PR_NUMBER"
+          printf 'Preview PR #%s is running at commit `%s`. Open its domain in Coolify Preview Deployments.\n' "$PR_NUMBER" "$DEPLOY_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean up Python environment
+        if: always()
+        run: |
+          if [ -n "${CI_PYTHON_VENV:-}" ]; then rm -rf -- "$CI_PYTHON_VENV"; fi

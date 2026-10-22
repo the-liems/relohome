@@ -37,7 +37,7 @@ async def test_approval_and_encrypted_form_survive_restart(tmp_path):
 @pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="Real LLM runtime opt-in")
 async def test_real_runtime_checkpoint_survives_restart(tmp_path):
     from langchain_core.messages import HumanMessage
-    from relohome_agent.agents.graph import run_config
+    from relohome_agent.agents.graph import run_config, run_kwargs
     from relohome_agent.agents.wiring import AgentService
     from relohome_agent.config import Settings
 
@@ -53,7 +53,7 @@ async def test_real_runtime_checkpoint_survives_restart(tmp_path):
                 "thread_id": "runtime-check",
                 "request_id": "runtime-check",
             },
-            run_config("runtime-check", service.deps),
+            **run_kwargs("runtime-check", service.deps),
         )
         assert result.get("response") is not None
         assert (await service.deps.usage.counts("runtime-check")).llm_calls >= 1

@@ -7,6 +7,7 @@ import { useRoommateClient } from "./useRoommateClient";
 import { FactsForm } from "./FactsForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { SelectField } from "./Fields";
+import { FormDisclosure } from "./FormDisclosure";
 import { ProfileSummary, CompatibilityReasons } from "./ProfileSummary";
 import { ErrorNotice } from "./ErrorNotice";
 import { cityName, rt } from "./text";
@@ -124,8 +125,8 @@ export function Discovery({
           </h2>
           <p className="rm-hint">
             {rt(
-              "Danh sách tự tải theo thành phố. Không cần điền hết thông tin hoặc đăng hồ sơ để xem.",
-              "Profiles load by city. No full form or public profile is needed to browse.",
+              "Chọn thành phố để xem. Chưa cần đăng hồ sơ.",
+              "Choose a city to browse. No public profile needed.",
             )}
           </p>
           <SelectField
@@ -157,46 +158,56 @@ export function Discovery({
                 : rt("Tìm người phù hợp", "Find people")}
             </button>
           </div>
-          <details className="rm-disclosure">
-            <summary>
-              {rt("Thông tin của bạn · tùy chọn", "About you · optional")}
-            </summary>
-            <p className="rm-hint">
-              {rt(
-                "Dùng để kiểm tra điều kiện hai chiều. Không đăng công khai.",
-                "Used for mutual criteria checks. Not published.",
-              )}
-            </p>
-            <FactsForm
-              fixedCity={criteria.city}
-              value={criteria.self_facts}
-              change={(self_facts) => change({ ...criteria, self_facts })}
-            />
-          </details>
-          <details className="rm-disclosure">
-            <summary>
-              {rt("Lọc nâng cao · tùy chọn", "Advanced filters · optional")}
-              {preferenceCount > 0 && ` (${preferenceCount})`}
-            </summary>
-            <PreferencesForm
-              city={criteria.city}
-              value={criteria.preferences}
-              change={(preferences) => change({ ...criteria, preferences })}
-            />
-          </details>
-          {preferenceCount > 0 && (
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                const next = { ...criteria, preferences: {} };
-                change(next);
-                void search(next);
-              }}
+          <FormDisclosure
+            title={rt("Tinh chỉnh kết quả", "Refine results")}
+            hint={
+              preferenceCount
+                ? rt(
+                    `${preferenceCount} bộ lọc đang dùng`,
+                    `${preferenceCount} active filters`,
+                  )
+                : rt(
+                    "Tùy chọn · ngân sách, khu vực và thói quen",
+                    "Optional · budget, areas and lifestyle",
+                  )
+            }
+          >
+            <FormDisclosure title={rt("Thông tin của bạn", "About you")}>
+              <p className="rm-hint">
+                {rt(
+                  "Dùng để kiểm tra điều kiện hai chiều. Không đăng công khai.",
+                  "Used for mutual criteria checks. Not published.",
+                )}
+              </p>
+              <FactsForm
+                fixedCity={criteria.city}
+                value={criteria.self_facts}
+                change={(self_facts) => change({ ...criteria, self_facts })}
+              />
+            </FormDisclosure>
+            <FormDisclosure
+              title={rt("Lọc theo người ở cùng", "Roommate filters")}
             >
-              {rt("Bỏ bộ lọc nâng cao", "Clear advanced filters")}
-            </button>
-          )}
+              <PreferencesForm
+                city={criteria.city}
+                value={criteria.preferences}
+                change={(preferences) => change({ ...criteria, preferences })}
+              />
+            </FormDisclosure>
+            {preferenceCount > 0 && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  const next = { ...criteria, preferences: {} };
+                  change(next);
+                  void search(next);
+                }}
+              >
+                {rt("Bỏ bộ lọc nâng cao", "Clear advanced filters")}
+              </button>
+            )}
+          </FormDisclosure>
         </form>
       </aside>
       <section

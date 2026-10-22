@@ -44,10 +44,12 @@ async def test_new_housing_fields_and_monthly_vnd_filter():
 
 @pytest.mark.asyncio
 async def test_search_compare_uses_fresh_area_results_and_explains_price_basis():
-    client = FakeToolClient({
-        "search_areas": {"results": [{"area_id": "a", "name": "Cầu Giấy"}]},
-        "search_housing": {"results": [listing(1, 4_000_000), listing(2, 3_000_000)]},
-    })
+    client = FakeToolClient(
+        {
+            "search_areas": {"results": [{"area_id": "a", "name": "Cầu Giấy"}]},
+            "search_housing": {"results": [listing(1, 4_000_000), listing(2, 3_000_000)]},
+        }
+    )
     result = await LocationSubagent(client, AgentName.PROPERTY).run(
         sample_request(AgentName.PROPERTY, {"housing_mode": "search_compare", "district": "Cầu Giấy", "limit": 4})
     )
@@ -65,7 +67,7 @@ async def test_unknown_landmark_offers_map_pin_or_wider_area_instead_of_repeatin
     )
     assert result.status == "needs_input"
     assert result.questions[0].field == "near"
-    assert "ghim địa điểm" in result.questions[0].text
+    assert "tên đầy đủ" in result.questions[0].text
     assert "quận/thành phố" in result.questions[0].text
 
 

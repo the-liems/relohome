@@ -1,18 +1,22 @@
-# Instrumented entrypoints export to the separately deployed Collector.
+# Coolify v4.4.6 resolves a leading direct ${VAR:?} from the main environment.
+# An empty expansion first keeps the actual value for Compose to resolve from
+# the deployment-specific .env. Keep COOLIFY_COMPOSE_EMPTY unset or empty.
+# Instrumented entrypoints export to the embedded Collector.
 x-telemetry: &telemetry-env
   # Privacy policy sees APP_ENV on every service, not only the Agent backend.
-  APP_ENV: ${APP_ENV:-staging}
-  OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  APP_ENV: ${COOLIFY_COMPOSE_EMPTY:-}${APP_ENV:-staging}
+  OTEL_DEPLOYMENT_ENVIRONMENT: ${COOLIFY_COMPOSE_EMPTY:-}${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://${SERVICE_NAME_COLLECTOR}:4318
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=relohome,service.version=${SOURCE_COMMIT:-development},deployment.environment.name=${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-  OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
+  OTEL_LOGS_EXPORTER: ${COOLIFY_COMPOSE_EMPTY:-}${OTEL_LOGS_EXPORTER:-otlp}
   OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION: "true"
   # Root logger at INFO with trace IDs on stderr; otherwise Python keeps WARNING.
   OTEL_PYTHON_LOG_CORRELATION: "true"
-  OTEL_PYTHON_LOG_LEVEL: ${OTEL_PYTHON_LOG_LEVEL:-info}
+  OTEL_PYTHON_LOG_LEVEL: ${COOLIFY_COMPOSE_EMPTY:-}${OTEL_PYTHON_LOG_LEVEL:-info}
   OTEL_SEMCONV_STABILITY_OPT_IN: http
   RELEASE_SHA: ${SOURCE_COMMIT}
+  PREVIEW_HOSTNAME: ${SERVICE_FQDN_WEB}
 
 # Coolify reads this Compose file from Git at the pinned commit.
 # Coolify resolves runtime variables and SOURCE_COMMIT. Only web gets a domain.
@@ -24,34 +28,34 @@ x-app: &app
   stop_grace_period: 35s
 
 x-location: &location-env
-  POSTGRES_HOST: postgis
+  POSTGRES_HOST: ${SERVICE_NAME_POSTGIS}
   POSTGRES_PORT: "5432"
-  POSTGRES_DB: ${POSTGRES_DB:-p044_location}
-  POSTGRES_APP_USER: ${POSTGRES_APP_USER:-p044_location_app}
-  POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
-  HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
-  OSRM_HCM_DRIVING_URL: http://hcm-driving:5000
-  OSRM_HCM_WALKING_URL: http://hcm-walking:5000
-  OSRM_HCM_MOTORCYCLE_URL: http://hcm-motorcycle:5000
-  OSRM_HANOI_DRIVING_URL: http://hanoi-driving:5000
-  OSRM_HANOI_WALKING_URL: http://hanoi-walking:5000
-  OSRM_HANOI_MOTORCYCLE_URL: http://hanoi-motorcycle:5000
-  OSRM_DANANG_DRIVING_URL: http://danang-driving:5000
-  OSRM_DANANG_WALKING_URL: http://danang-walking:5000
-  OSRM_DANANG_MOTORCYCLE_URL: http://danang-motorcycle:5000
+  POSTGRES_DB: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_DB:-p044_location}
+  POSTGRES_APP_USER: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_APP_USER:-p044_location_app}
+  POSTGRES_APP_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_APP_PASSWORD:?}
+  HOUSING_REVIEW_MIN_COUNT: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_MIN_COUNT:-1}
+  OSRM_HCM_DRIVING_URL: http://${SERVICE_NAME_HCM_DRIVING}:5000
+  OSRM_HCM_WALKING_URL: http://${SERVICE_NAME_HCM_WALKING}:5000
+  OSRM_HCM_MOTORCYCLE_URL: http://${SERVICE_NAME_HCM_MOTORCYCLE}:5000
+  OSRM_HANOI_DRIVING_URL: http://${SERVICE_NAME_HANOI_DRIVING}:5000
+  OSRM_HANOI_WALKING_URL: http://${SERVICE_NAME_HANOI_WALKING}:5000
+  OSRM_HANOI_MOTORCYCLE_URL: http://${SERVICE_NAME_HANOI_MOTORCYCLE}:5000
+  OSRM_DANANG_DRIVING_URL: http://${SERVICE_NAME_DANANG_DRIVING}:5000
+  OSRM_DANANG_WALKING_URL: http://${SERVICE_NAME_DANANG_WALKING}:5000
+  OSRM_DANANG_MOTORCYCLE_URL: http://${SERVICE_NAME_DANANG_MOTORCYCLE}:5000
 
 x-moving: &moving-env
-  AHAMOVE_ENV: ${AHAMOVE_ENV:-staging}
-  AHAMOVE_BASE_URL: ${AHAMOVE_BASE_URL:-https://partner-apistg.ahamove.com/v3}
+  AHAMOVE_ENV: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_ENV:-staging}
+  AHAMOVE_BASE_URL: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_BASE_URL:-https://partner-apistg.ahamove.com/v3}
   # Supply either the user token or both API key and mobile.
-  AHAMOVE_API_KEY: ${AHAMOVE_API_KEY:-}
-  AHAMOVE_MOBILE: ${AHAMOVE_MOBILE:-}
-  AHAMOVE_USER_TOKEN: ${AHAMOVE_USER_TOKEN:-}
+  AHAMOVE_API_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_API_KEY:-}
+  AHAMOVE_MOBILE: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_MOBILE:-}
+  AHAMOVE_USER_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_USER_TOKEN:-}
   AHAMOVE_WRITE_ENABLED: "false"
   AHAMOVE_RATING_ENABLED: "false"
-  AHAMOVE_PRODUCTION_ENABLED: ${AHAMOVE_PRODUCTION_ENABLED:-false}
+  AHAMOVE_PRODUCTION_ENABLED: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_PRODUCTION_ENABLED:-false}
   # Passwords embedded in URLs must be URL-safe (use 32 random hex bytes).
-  MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
+  MOVING_DATABASE_URL: postgresql://${MOVING_DB_APP_USER:-p044_moving_app}:${MOVING_DB_APP_PASSWORD:?}@${SERVICE_NAME_MOVING_DB}:5432/${MOVING_DB_NAME:-p044_moving}
 
 x-osrm: &osrm
   <<: *app
@@ -88,46 +92,46 @@ x-blobs:
 
 services:
   provisioner:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/provisioner:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/provisioner:${SOURCE_COMMIT}
     init: true
     security_opt: [no-new-privileges:true]
     restart: "no"
     exclude_from_hc: true
     environment:
-      DATA_S3_BUCKET: ${DATA_S3_BUCKET:?}
-      AWS_ACCESS_KEY_ID: ${DATA_S3_ACCESS_KEY_ID:?}
-      AWS_SECRET_ACCESS_KEY: ${DATA_S3_SECRET_ACCESS_KEY:?}
-      AWS_DEFAULT_REGION: ${DATA_S3_REGION:?}
-      DATA_S3_ENDPOINT: ${DATA_S3_ENDPOINT:-}
+      DATA_S3_BUCKET: ${COOLIFY_COMPOSE_EMPTY:-}${DATA_S3_BUCKET:?}
+      AWS_ACCESS_KEY_ID: ${COOLIFY_COMPOSE_EMPTY:-}${DATA_S3_ACCESS_KEY_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${DATA_S3_SECRET_ACCESS_KEY:?}
+      AWS_DEFAULT_REGION: ${COOLIFY_COMPOSE_EMPTY:-}${DATA_S3_REGION:?}
+      DATA_S3_ENDPOINT: ${COOLIFY_COMPOSE_EMPTY:-}${DATA_S3_ENDPOINT:-}
       # <volume>=<blob>: rebuilt from the pinned blob on every deploy.
       SYNC_TARGETS: "routing-data=b021df942ac6aa6a859583429a55db66d354ea50f55ce9b7852ea3d7a031ec1f.tar.gz location-seed-data=e7bf3ea31659a756ecd7e75b935d925368f62317e123eb6b83b5320dcffaa119.tar.gz"
     volumes: [routing-data:/volumes/routing-data, location-seed-data:/volumes/location-seed-data, blob-cache:/cache]
 
   web:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/web:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/web:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: web
       <<: *telemetry-env
-      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
-      LIFEFLOW_API_BASE_URL: http://backend:8000/api/v1
-      SIU_PLATFORM_API_URL: http://platform:4100/v1
+      AGENT_API_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_API_TOKEN:?}
+      LIFEFLOW_API_BASE_URL: http://${SERVICE_NAME_BACKEND}:8000/api/v1
+      SIU_PLATFORM_API_URL: http://${SERVICE_NAME_PLATFORM}:4100/v1
       SIU_WEB_DB: /app/data/siu-web.sqlite3
       SIU_SECURE_COOKIE: "true"
-      SIU_ALLOW_REGISTRATION: ${SIU_ALLOW_REGISTRATION:-true}
+      SIU_ALLOW_REGISTRATION: ${COOLIFY_COMPOSE_EMPTY:-}${SIU_ALLOW_REGISTRATION:-true}
       # Guest chat is opt-in. Keep the existing single gateway worker/replica.
-      RELOHOME_GUEST_ENABLED: ${RELOHOME_GUEST_ENABLED:-false}
-      RELOHOME_GUEST_TURNS_30M: ${RELOHOME_GUEST_TURNS_30M:-10}
-      RELOHOME_GUEST_TURNS_DAY: ${RELOHOME_GUEST_TURNS_DAY:-30}
-      RELOHOME_GUEST_IP_TURNS_30M: ${RELOHOME_GUEST_IP_TURNS_30M:-30}
-      RELOHOME_GUEST_IP_TURNS_DAY: ${RELOHOME_GUEST_IP_TURNS_DAY:-100}
-      RELOHOME_GUEST_GLOBAL_TURNS_DAY: ${RELOHOME_GUEST_GLOBAL_TURNS_DAY:-300}
-      RELOHOME_GUEST_REQUESTS_MINUTE: ${RELOHOME_GUEST_REQUESTS_MINUTE:-120}
+      RELOHOME_GUEST_ENABLED: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_ENABLED:-false}
+      RELOHOME_GUEST_TURNS_30M: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_TURNS_30M:-10}
+      RELOHOME_GUEST_TURNS_DAY: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_TURNS_DAY:-30}
+      RELOHOME_GUEST_IP_TURNS_30M: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_IP_TURNS_30M:-30}
+      RELOHOME_GUEST_IP_TURNS_DAY: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_IP_TURNS_DAY:-100}
+      RELOHOME_GUEST_GLOBAL_TURNS_DAY: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_GLOBAL_TURNS_DAY:-300}
+      RELOHOME_GUEST_REQUESTS_MINUTE: ${COOLIFY_COMPOSE_EMPTY:-}${RELOHOME_GUEST_REQUESTS_MINUTE:-120}
       # Encrypts flight booker profiles. Empty: a key file is created in web-data.
-      SIU_TRAVELER_KEY: ${SIU_TRAVELER_KEY:-}
+      SIU_TRAVELER_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${SIU_TRAVELER_KEY:-}
       # Owner-uploaded listing photos live on the persistent web-data volume.
       SIU_HOUSING_MEDIA_DIR: /app/data/housing-media
-      SIU_PUBLIC_BASE_URL: ${APP_URL:-https://staging.c4-app-044.io.vn}
+      SIU_PUBLIC_BASE_URL: ${SERVICE_URL_WEB:?}
     volumes: [web-data:/app/data]
     expose: ["8503"]
     # Keep the health check and FastAPI's API docs off the public domain. Docker's
@@ -145,48 +149,49 @@ services:
 
   backend:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/backend:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/backend:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: backend
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:?Set the self-hosted Langfuse HTTPS URL}
-      LANGFUSE_TRACING_ENABLED: ${LANGFUSE_TRACING_ENABLED:-false}
-      LANGFUSE_TRACING_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      LANGFUSE_PUBLIC_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${COOLIFY_COMPOSE_EMPTY:-}${LANGFUSE_BASE_URL:?Set the self-hosted Langfuse HTTPS URL}
+      LANGFUSE_TRACING_ENABLED: ${COOLIFY_COMPOSE_EMPTY:-}${LANGFUSE_TRACING_ENABLED:-false}
+      LANGFUSE_TRACING_ENVIRONMENT: ${COOLIFY_COMPOSE_EMPTY:-}${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      LANGFUSE_RELEASE: ${SOURCE_COMMIT}
       LANGFUSE_MEDIA_UPLOAD_ENABLED: "false"
       <<: *telemetry-env
       # Team test phase: "staging" allows the tester payment control below. Set
       # "production" (and remove the tester variables) before outside users try it.
-      APP_ENV: ${APP_ENV:-staging}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:?}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      AGENT_GUARDRAIL_MODE: ${AGENT_GUARDRAIL_MODE:-off}
-      AGENT_GUARDRAIL_TIMEOUT_S: ${AGENT_GUARDRAIL_TIMEOUT_S:-1.5}
-      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
+      APP_ENV: ${COOLIFY_COMPOSE_EMPTY:-}${APP_ENV:-staging}
+      OPENAI_API_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${OPENAI_API_KEY:?}
+      OPENROUTER_API_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${OPENROUTER_API_KEY:-}
+      AGENT_GUARDRAIL_MODE: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_GUARDRAIL_MODE:-off}
+      AGENT_GUARDRAIL_TIMEOUT_S: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_GUARDRAIL_TIMEOUT_S:-1.5}
+      AGENT_API_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_API_TOKEN:?}
       # One Coolify setting selects the model for all seven agents.
-      AGENT_INTAKE_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_PLANNER_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_MOVING_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_HOUSING_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_MAP_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_FLIGHT_MODEL: ${AGENT_MODEL:-gpt-6-luna}
-      AGENT_PAYMENT_MODEL: ${AGENT_MODEL:-gpt-6-luna}
+      AGENT_INTAKE_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_PLANNER_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_MOVING_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_HOUSING_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_MAP_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_FLIGHT_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
+      AGENT_PAYMENT_MODEL: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_MODEL:-gpt-6-luna}
       AGENT_SUBAGENTS: live
       AGENT_STATE_DIR: /app/data/agent-runtime
       AGENT_WRITES_ENABLED: "false"
       AGENT_SANDBOX_PAYMENTS_ENABLED: "false"
       AGENT_ALLOW_SIMULATED_TRANSACTIONS: "false"
-      LOCATION_MCP_URL: http://location:3000/mcp
-      LOCATION_MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
-      MOVING_MCP_URL: http://moving-mcp:4400/mcp
-      MOVING_MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
-      MOVING_ENVIRONMENT: ${AHAMOVE_ENV:-staging}
-      MOVING_QUOTE_CONTACT_NAME: ${MOVING_QUOTE_CONTACT_NAME:-}
-      MOVING_QUOTE_CONTACT_MOBILE: ${MOVING_QUOTE_CONTACT_MOBILE:-}
-      FLIGHT_MCP_URL: http://flights-mcp:8765/mcp
-      FLIGHT_MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
-      PAYMENT_MCP_URL: http://payments-mcp:8766/mcp
-      PAYMENT_MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
+      LOCATION_MCP_URL: http://${SERVICE_NAME_LOCATION}:3000/mcp
+      LOCATION_MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${LOCATION_MCP_AUTH_TOKEN:?}
+      MOVING_MCP_URL: http://${SERVICE_NAME_MOVING_MCP}:4400/mcp
+      MOVING_MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_MCP_AUTH_TOKEN:?}
+      MOVING_ENVIRONMENT: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_ENV:-staging}
+      MOVING_QUOTE_CONTACT_NAME: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_QUOTE_CONTACT_NAME:-}
+      MOVING_QUOTE_CONTACT_MOBILE: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_QUOTE_CONTACT_MOBILE:-}
+      FLIGHT_MCP_URL: http://${SERVICE_NAME_FLIGHTS_MCP}:8765/mcp
+      FLIGHT_MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${FLIGHT_MCP_AUTH_TOKEN:?}
+      PAYMENT_MCP_URL: http://${SERVICE_NAME_PAYMENTS_MCP}:8766/mcp
+      PAYMENT_MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_SIMULATION_ENABLED: "false"
       # In-app checkout (docs/review/payment-design.md): ZaloPay sandbox, simulated
       # tickets, no AhaMove order. The tester "paid" control works only for the
@@ -195,27 +200,27 @@ services:
       # Choose several homes, schedule test-mode viewings, decide one (housing-viewing-design).
       HOUSING_VIEWING_ENABLED: "true"
       # Operator opt-in; production ignores this even when configured true.
-      HOUSING_VIEWING_TEST_VISIT_ANYTIME: ${HOUSING_VIEWING_TEST_VISIT_ANYTIME:-false}
+      HOUSING_VIEWING_TEST_VISIT_ANYTIME: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_VIEWING_TEST_VISIT_ANYTIME:-false}
       # Landlord replacement-time window; platform reads the same value.
-      HOUSING_VIEWING_PROPOSAL_DAYS: ${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
-      PAYMENT_TESTER_CONFIRM_ENABLED: ${PAYMENT_TESTER_CONFIRM_ENABLED:-true}
-      PAYMENT_TESTER_USER_IDS: ${PAYMENT_TESTER_USER_IDS:-}
+      HOUSING_VIEWING_PROPOSAL_DAYS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
+      PAYMENT_TESTER_CONFIRM_ENABLED: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_TESTER_CONFIRM_ENABLED:-true}
+      PAYMENT_TESTER_USER_IDS: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_TESTER_USER_IDS:-}
       # Background ZaloPay checks while an order is payable (seconds); see deploy guide.
-      PAYMENT_RECONCILE_ACTIVE_SECONDS: ${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
+      PAYMENT_RECONCILE_ACTIVE_SECONDS: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_RECONCILE_ACTIVE_SECONDS:-10}
       # Roommate (docs/runbooks/roommate.md): off until the team turns it on in Coolify.
       # Reuse existing Housing Admin IDs. Legacy ROOMMATE_MODERATORS remain additive.
       # At least one moderator is required. State must stay outside /app/data.
-      ROOMMATE_ENABLED: ${ROOMMATE_ENABLED:-false}
-      HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
-      ROOMMATE_MODERATORS: ${ROOMMATE_MODERATORS:-}
+      ROOMMATE_ENABLED: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_ENABLED:-false}
+      HOUSING_MODERATOR_IDS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_MODERATOR_IDS:-}
+      ROOMMATE_MODERATORS: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_MODERATORS:-}
       ROOMMATE_STATE_DIR: /app/private-roommate
       # Opt in to shared PostgreSQL after provisioning/import; never silently
       # replace the database from an existing private SQLite volume.
-      ROOMMATE_STORAGE: ${ROOMMATE_STORAGE:-sqlite}
-      ROOMMATE_DATABASE_URL: ${ROOMMATE_DATABASE_URL:-}
-      ROOMMATE_DATABASE_SCHEMA: ${ROOMMATE_DATABASE_SCHEMA:-roommate}
-      ROOMMATE_DATABASE_POOL_SIZE: ${ROOMMATE_DATABASE_POOL_SIZE:-8}
-      ROOMMATE_CONTACT_KEY: ${ROOMMATE_CONTACT_KEY:-}
+      ROOMMATE_STORAGE: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_STORAGE:-sqlite}
+      ROOMMATE_DATABASE_URL: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_DATABASE_URL:-}
+      ROOMMATE_DATABASE_SCHEMA: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_DATABASE_SCHEMA:-roommate}
+      ROOMMATE_DATABASE_POOL_SIZE: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_DATABASE_POOL_SIZE:-8}
+      ROOMMATE_CONTACT_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${ROOMMATE_CONTACT_KEY:-}
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
     volumes: [agent-data:/app/data, roommate-private:/app/private-roommate]
@@ -227,13 +232,13 @@ services:
 
   flights-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/flights-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/flights-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: flights-mcp
       <<: *telemetry-env
-      MCP_AUTH_TOKEN: ${FLIGHT_MCP_AUTH_TOKEN:?}
+      MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${FLIGHT_MCP_AUTH_TOKEN:?}
       FLIGHT_SEARCH_PROVIDER: serpapi
-      FLIGHT_SERPAPI_API_KEY: ${FLIGHT_SERPAPI_API_KEY:?}
+      FLIGHT_SERPAPI_API_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${FLIGHT_SERPAPI_API_KEY:?}
       # Simulated hold/ticket for in-app checkout; never a real airline booking.
       # Reachable only on the internal network (no public route).
       FLIGHT_SIMULATION_ENABLED: "true"
@@ -241,28 +246,28 @@ services:
 
   payments-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/payments-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/payments-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: payments-mcp
       <<: *telemetry-env
-      MCP_AUTH_TOKEN: ${PAYMENT_MCP_AUTH_TOKEN:?}
+      MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_MCP_AUTH_TOKEN:?}
       PAYMENT_PROVIDER: zalopay
       PAYMENT_ZALOPAY_ENDPOINT: https://sb-openapi.zalopay.vn/v2
-      PAYMENT_ZALOPAY_APP_ID: ${PAYMENT_ZALOPAY_APP_ID:?}
-      PAYMENT_ZALOPAY_KEY1: ${PAYMENT_ZALOPAY_KEY1:?}
-      PAYMENT_ZALOPAY_KEY2: ${PAYMENT_ZALOPAY_KEY2:?}
+      PAYMENT_ZALOPAY_APP_ID: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_ZALOPAY_APP_ID:?}
+      PAYMENT_ZALOPAY_KEY1: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_ZALOPAY_KEY1:?}
+      PAYMENT_ZALOPAY_KEY2: ${COOLIFY_COMPOSE_EMPTY:-}${PAYMENT_ZALOPAY_KEY2:?}
       PAYMENT_DB_PATH: /app/data/payments.db
-      PAYMENT_REDIRECT_URL: ${APP_URL:?}/
+      PAYMENT_REDIRECT_URL: ${SERVICE_URL_WEB:?}/
     volumes: [payments-data:/app/data]
 
   postgis:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-p044_location}
-      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+      POSTGRES_DB: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_DB:-p044_location}
+      POSTGRES_USER: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_USER:-p044_location_admin}
+      POSTGRES_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_PASSWORD:?}
     volumes: [location-data:/var/lib/postgresql/data]
     healthcheck:
       test: [CMD, pg_isready, -h, "127.0.0.1", -U, "${POSTGRES_ADMIN_USER:-p044_location_admin}", -d, "${POSTGRES_DB:-p044_location}"]
@@ -271,17 +276,17 @@ services:
       retries: 20
 
   location-seed:
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine
+    image: ${POSTGIS_IMAGE:-ghcr.io/ai20k-build-phase-cohort-4/p-044/postgis:16-3.5-alpine}
     platform: linux/arm64
     restart: "no"
     exclude_from_hc: true
     volumes: [location-seed-data:/seed-data:ro]
     environment:
       SEED_BLOB: *location-dump
-      PGHOST: postgis
-      PGUSER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
-      PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
-      PGDATABASE: ${POSTGRES_DB:-p044_location}
+      PGHOST: ${SERVICE_NAME_POSTGIS}
+      PGUSER: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_USER:-p044_location_admin}
+      PGPASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_PASSWORD:?}
+      PGDATABASE: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_DB:-p044_location}
     depends_on:
       postgis: {condition: service_healthy}
       provisioner: {condition: service_completed_successfully}
@@ -302,53 +307,53 @@ services:
 
   location-migrate:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location-migrate:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/location-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
       <<: *location-env
-      POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER:-p044_location_admin}
-      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
-      POSTGRES_INGEST_USER: ${POSTGRES_INGEST_USER:-p044_location_ingest}
-      POSTGRES_INGEST_PASSWORD: ${POSTGRES_INGEST_PASSWORD:?}
+      POSTGRES_ADMIN_USER: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_USER:-p044_location_admin}
+      POSTGRES_ADMIN_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_ADMIN_PASSWORD:?}
+      POSTGRES_INGEST_USER: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_INGEST_USER:-p044_location_ingest}
+      POSTGRES_INGEST_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${POSTGRES_INGEST_PASSWORD:?}
     depends_on:
       postgis: {condition: service_healthy}
       location-seed: {condition: service_completed_successfully}
 
   platform:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/platform:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/platform:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: platform
       <<: [*location-env, *telemetry-env]
       # Browser directions only: local first, public OSRM for unsupported routes.
       # Explicit empty disables public routing; no external agent/commute fallback.
-      OSRM_PUBLIC_DRIVING_URL: ${OSRM_PUBLIC_DRIVING_URL-https://routing.openstreetmap.de/routed-car/}
+      OSRM_PUBLIC_DRIVING_URL: ${COOLIFY_COMPOSE_EMPTY:-}${OSRM_PUBLIC_DRIVING_URL-https://routing.openstreetmap.de/routed-car/}
       # Housing owner workspace (docs/runbooks/housing-management.md): the web gateway
       # authenticates with the shared token; only these account IDs may moderate.
-      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?}
-      HOUSING_MODERATOR_IDS: ${HOUSING_MODERATOR_IDS:-}
+      AGENT_API_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${AGENT_API_TOKEN:?}
+      HOUSING_MODERATOR_IDS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_MODERATOR_IDS:-}
       # Server-only address lookup for owner forms; never put this key in VITE_* settings.
-      VIETMAP_API_KEY: ${VIETMAP_API_KEY:-}
+      VIETMAP_API_KEY: ${COOLIFY_COMPOSE_EMPTY:-}${VIETMAP_API_KEY:-}
       # Empty: no poster-terms step (team has not published terms yet).
-      HOST_TERMS_VERSION: ${HOST_TERMS_VERSION:-}
-      HOUSING_MESSAGE_RATE_PER_MINUTE: ${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
-      HOUSING_VIEWING_PROPOSAL_DAYS: ${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
-      HOUSING_REVIEW_MIN_COUNT: ${HOUSING_REVIEW_MIN_COUNT:-1}
-      HOUSING_REVIEW_PATTERN_DAYS: ${HOUSING_REVIEW_PATTERN_DAYS:-90}
-      HOUSING_REVIEW_LOW_STARS: ${HOUSING_REVIEW_LOW_STARS:-2}
-      HOUSING_REVIEW_PATTERN_PROPERTIES: ${HOUSING_REVIEW_PATTERN_PROPERTIES:-2}
-      HOUSING_REVIEW_PATTERN_AUTHORS: ${HOUSING_REVIEW_PATTERN_AUTHORS:-3}
+      HOST_TERMS_VERSION: ${COOLIFY_COMPOSE_EMPTY:-}${HOST_TERMS_VERSION:-}
+      HOUSING_MESSAGE_RATE_PER_MINUTE: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_MESSAGE_RATE_PER_MINUTE:-10}
+      HOUSING_VIEWING_PROPOSAL_DAYS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_VIEWING_PROPOSAL_DAYS:-7}
+      HOUSING_REVIEW_MIN_COUNT: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_MIN_COUNT:-1}
+      HOUSING_REVIEW_PATTERN_DAYS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_PATTERN_DAYS:-90}
+      HOUSING_REVIEW_LOW_STARS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_LOW_STARS:-2}
+      HOUSING_REVIEW_PATTERN_PROPERTIES: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_PATTERN_PROPERTIES:-2}
+      HOUSING_REVIEW_PATTERN_AUTHORS: ${COOLIFY_COMPOSE_EMPTY:-}${HOUSING_REVIEW_PATTERN_AUTHORS:-3}
     depends_on:
       location-migrate: {condition: service_completed_successfully}
 
   location:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/location:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/location:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: location
       <<: [*location-env, *telemetry-env]
-      MCP_AUTH_TOKEN: ${LOCATION_MCP_AUTH_TOKEN:?}
+      MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${LOCATION_MCP_AUTH_TOKEN:?}
       MCP_ALLOWED_HOSTS: localhost,127.0.0.1,location
       MCP_ALLOWED_ORIGIN_HOSTS: localhost,127.0.0.1
     depends_on:
@@ -358,9 +363,9 @@ services:
     image: postgres:16-bookworm
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${MOVING_DB_NAME:-p044_moving}
-      POSTGRES_USER: ${MOVING_DB_ADMIN_USER:-p044_moving_admin}
-      POSTGRES_PASSWORD: ${MOVING_DB_ADMIN_PASSWORD:?}
+      POSTGRES_DB: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_DB_NAME:-p044_moving}
+      POSTGRES_USER: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_DB_ADMIN_USER:-p044_moving_admin}
+      POSTGRES_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_DB_ADMIN_PASSWORD:?}
     volumes: [moving-data:/var/lib/postgresql/data]
     healthcheck:
       test: [CMD, pg_isready, -h, "127.0.0.1", -U, "${MOVING_DB_ADMIN_USER:-p044_moving_admin}", -d, "${MOVING_DB_NAME:-p044_moving}"]
@@ -370,35 +375,35 @@ services:
 
   moving-migrate:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-migrate:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-migrate:${SOURCE_COMMIT}
     restart: "no"
     exclude_from_hc: true
     environment:
-      MOVING_DATABASE_ADMIN_URL: postgresql://${MOVING_DB_ADMIN_USER:-p044_moving_admin}:${MOVING_DB_ADMIN_PASSWORD:?}@moving-db:5432/${MOVING_DB_NAME:-p044_moving}
-      MOVING_DB_APP_USER: ${MOVING_DB_APP_USER:-p044_moving_app}
-      MOVING_DB_APP_PASSWORD: ${MOVING_DB_APP_PASSWORD:?}
+      MOVING_DATABASE_ADMIN_URL: postgresql://${MOVING_DB_ADMIN_USER:-p044_moving_admin}:${MOVING_DB_ADMIN_PASSWORD:?}@${SERVICE_NAME_MOVING_DB}:5432/${MOVING_DB_NAME:-p044_moving}
+      MOVING_DB_APP_USER: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_DB_APP_USER:-p044_moving_app}
+      MOVING_DB_APP_PASSWORD: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_DB_APP_PASSWORD:?}
     depends_on:
       moving-db: {condition: service_healthy}
 
   moving-mcp:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-mcp:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-mcp:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-mcp
       <<: [*moving-env, *telemetry-env]
-      MCP_AUTH_TOKEN: ${MOVING_MCP_AUTH_TOKEN:?}
+      MCP_AUTH_TOKEN: ${COOLIFY_COMPOSE_EMPTY:-}${MOVING_MCP_AUTH_TOKEN:?}
       MOVING_MCP_ALLOWED_HOSTS: localhost,127.0.0.1,moving-mcp
     depends_on:
       moving-migrate: {condition: service_completed_successfully}
 
   moving-api:
     <<: *app
-    image: ghcr.io/ai20k-build-phase-cohort-4/p-044/moving-api:${SOURCE_COMMIT}
+    image: ${APPLICATION_IMAGE_REPOSITORY:-ghcr.io/ai20k-build-phase-cohort-4/p-044}/moving-api:${SOURCE_COMMIT}
     environment:
       OTEL_SERVICE_NAME: moving-api
       <<: [*moving-env, *telemetry-env]
       AHAMOVE_WEBHOOK_AUTH_MODE: api-key
-      AHAMOVE_WEBHOOK_SECRET: ${AHAMOVE_WEBHOOK_SECRET:?}
+      AHAMOVE_WEBHOOK_SECRET: ${COOLIFY_COMPOSE_EMPTY:-}${AHAMOVE_WEBHOOK_SECRET:?}
     depends_on:
       moving-migrate: {condition: service_completed_successfully}
 
@@ -432,6 +437,30 @@ services:
     <<: *osrm
     command: [osrm-routed, --algorithm, mld, /data/danang/motorcycle/danang.osrm]
 
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    restart: unless-stopped
+    user: "0:0"
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1
+    command:
+    - --config=/etc/otelcol/config.yaml
+    environment:
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${COOLIFY_COMPOSE_EMPTY:-}${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}
+      DEPLOYMENT_HOSTNAME: ${SERVICE_FQDN_WEB}
+      DEPLOYMENT_COMMIT: ${SOURCE_COMMIT}
+    volumes:
+    - ./deploy/observability/collector.yaml:/etc/otelcol/config.yaml:ro
+    - collector-queue:/var/lib/otelcol
+    networks:
+    # Coolify adds the resource network; only the Collector also joins ingestion.
+    - ingestion
+
 volumes:
   web-data:
   agent-data:
@@ -443,3 +472,9 @@ volumes:
   routing-data:
   location-seed-data:
   blob-cache:
+  collector-queue:
+
+networks:
+  ingestion:
+    external: true
+    name: ${OBSERVABILITY_INGEST_NETWORK:-relohome-observability-ingest}

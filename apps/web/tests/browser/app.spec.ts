@@ -1404,6 +1404,60 @@ const houses = [
     location_accuracy: "approximate",
   },
 ];
+for (const mode of ["typed", "legacy", "choices", "mixed"] as const) {
+  test(`housing location recovery avoids repeated generic forms: ${mode}`, async ({ page }) => {
+    const { thread, turns } = await fixture(page);
+    const values = { near: "Ocean Park 1", max_price_vnd: 5000000 };
+    thread.state.intake = { kind: "new_goal", intent: { domains: ["property"] }, constraints: { values, missing: [] }, user_confirmed_facts: {} };
+    thread.state.plan.tasks = [{ id: "housing", agent: "property", inputs: values }];
+    thread.state.progress.items = [{ task_id: "housing", agent: "property", inputs: values, state: "waiting", task_status: "needs_input", after: [], level: 0 }];
+    const text = "Mình chưa có tọa độ đáng tin cậy cho Ocean Park 1. Bạn gửi tên đầy đủ kèm địa chỉ nhé.";
+    const question: any = { field: mode === "choices" ? "property.near" : "near", text };
+    if (mode !== "legacy") question.reason = mode === "choices" ? "location_ambiguous" : "location_not_found";
+    if (mode === "choices") question.choices = [{ id: "provider-place-1", entity_type: "place", label: "Địa điểm do provider trả", lat: 21.0, lng: 105.94 }];
+    thread.messages.push({ id: "location-question", role: "assistant", created: Date.now() / 1000,
+      content: { status: "done", response: { kind: "CLARIFY", text, questions: [question, ...(mode === "mixed" ? [{ field: "property.room_type", text: "Bạn muốn loại nhà nào?" }] : [])] } } });
+    await page.goto("/ai/th_ui");
+    await expect(page.getByText(text, { exact: true }).first()).toBeVisible();
+    if (mode === "mixed") {
+      const form = page.locator(".guided-service-panel");
+      await expect(form).toBeVisible();
+      await expect(form.getByLabel("Đến · VND/tháng", { exact: true })).toHaveValue("5000000");
+      await expect(form.getByLabel("Gần địa điểm", { exact: true })).toHaveValue("Ocean Park 1");
+    } else {
+      await expect(page.locator(".guided-service-panel")).toHaveCount(0);
+    }
+    if (mode === "choices") {
+      await page.getByRole("button", { name: "Địa điểm do provider trả", exact: true }).click();
+      await expect.poll(() => turns.length).toBe(1);
+      expect(turns[0].place_choice).toEqual({ field: "near", place_id: "provider-place-1" });
+    } else if (mode !== "mixed") {
+      // Adding a city cannot magically resolve the landmark. A repeated provider
+      // clarification must stay in chat rather than reopening the same form.
+      await page.route("**/web/api/threads/th_ui/chat", async route => {
+        const body = route.request().postDataJSON();
+        turns.push(body);
+        const corrected = { ...values, city: "Hà Nội" };
+        thread.state.intake.constraints.values = corrected;
+        thread.state.plan.tasks[0].inputs = corrected;
+        thread.messages.push(
+          { id: "city-correction", role: "user", created: Date.now() / 1000, content: { status: "done", text: body.message } },
+          { id: "still-unresolved", role: "assistant", created: Date.now() / 1000, content: { status: "done", response: { kind: "CLARIFY", text, questions: [question] } } },
+        );
+        await route.fulfill({ json: thread });
+      });
+      await page.getByRole("textbox", { name: "Tin nhắn cho ReloHome" }).fill("Ở Hà Nội, giữ Ocean Park 1 và giá dưới 5 triệu");
+      await page.getByRole("button", { name: "Gửi tin nhắn" }).click();
+      await expect.poll(() => turns.length).toBe(1);
+      expect(turns[0]).not.toHaveProperty("place_choice");
+      expect(turns[0]).not.toHaveProperty("housing_location");
+      await expect(page.getByText(text, { exact: true }).last()).toBeVisible();
+      await expect(page.locator(".guided-service-panel")).toHaveCount(0);
+      expect(thread.state.intake.constraints.values).toEqual({ ...values, city: "Hà Nội" });
+    }
+  });
+}
+
 async function fixture(page: Page, authenticated = true, calls: any[] = []) {
   let logged = authenticated;
   const user = {

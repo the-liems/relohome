@@ -11,6 +11,10 @@ on:
         description: Publish the complete main release to GHCR
         default: false
         type: boolean
+      preview:
+        description: Publish the same-repository PR head for a preview
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -31,11 +35,13 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.matrix) }}
     env:
-      RELEASE_TAG: ${{ github.sha }}
+      RELEASE_TAG: ${{ inputs.preview && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Verify native ARM64 runner
         run: test "$(uname -m)" = aarch64
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.preview && github.event.pull_request.head.sha || github.sha }}
       - name: Set up Python for migration checks
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
         uses: actions/setup-python@v5
@@ -67,11 +73,11 @@ jobs:
         run: |
           options=()
           if [ -n "$BUILD_TARGET" ]; then options+=(--target "$BUILD_TARGET"); fi
-          if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$GITHUB_SHA"); fi
+          if [[ "$BUILD_TARGET" == moving-* ]]; then options+=(--build-arg "RELEASE_SHA=$RELEASE_TAG"); fi
           docker buildx build --load --pull --platform linux/arm64 "${options[@]}" \
             --file "$DOCKERFILE" --tag "$IMAGE" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" "$BUILD_CONTEXT"
+            --label "org.opencontainers.image.revision=$RELEASE_TAG" "$BUILD_CONTEXT"
           docker image inspect "$IMAGE" >/dev/null
         env:
           BUILD_CONTEXT: ${{ matrix.context }}
@@ -93,6 +99,7 @@ jobs:
         if: matrix.service == 'location-migrate' || matrix.service == 'moving-migrate'
         env:
           MIGRATION_KIND: ${{ matrix.service }}
+          POSTGIS_IMAGE: ${{ vars.POSTGIS_IMAGE }}
         run: python3 scripts/test-migration-image.py "$MIGRATION_KIND" "$IMAGE"
       - name: Smoke provisioner image
         if: matrix.service == 'provisioner'
@@ -100,11 +107,14 @@ jobs:
           docker run --rm --network none --entrypoint aws "$IMAGE" --version
           docker run --rm --network none --entrypoint sh "$IMAGE" -ec 'test -x /usr/local/bin/provision.sh'
       - name: Push image
-        if: inputs.publish && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: >-
+          (inputs.publish && github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+          (inputs.preview && github.event_name == 'pull_request' &&
+           github.event.pull_request.head.repo.full_name == github.repository && vars.COOLIFY_PREVIEWS_ENABLED == 'true')
         run: docker push "$IMAGE"
       - name: Record image identity
         run: |
-          printf 'Image: `%s`\nCommit: `%s`\nPlatform: `linux/arm64`\n' "$IMAGE" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Image: `%s`\nCommit: `%s`\nPlatform: `linux/arm64`\n' "$IMAGE" "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
           docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
       - name: Clean up image and registry credentials
         if: always()

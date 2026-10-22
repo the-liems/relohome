@@ -1,6 +1,7 @@
 import { formatUi, useUiPreferences } from "../uiPreferences";
 import { t as uiText } from "../uiPreferences";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import {
   Bath,
@@ -66,6 +67,9 @@ import { WorkspaceChat, type ChatDockProps } from "./WorkspaceChat";
 import { ContentSkeleton } from "./UiStates";
 import { roommate } from "../roommate/client";
 import type { Availability } from "../roommate/types";
+import { rt } from "../roommate/text";
+import { Dialog } from "./Dialog";
+import { RoommateRoomActions, type RoomMarker } from "./RoommateRoomActions";
 import "./roommateMap.css";
 
 const PRICES = [
@@ -93,14 +97,6 @@ const PLACE_FIELDS = ["near", "route_from", "route_to"];
 // POIs are only loaded close enough for them to be readable and the request to stay small.
 const POI_MIN_ZOOM = 14;
 type BBox = { west: number; south: number; east: number; north: number };
-type RoomMarker = {
-  listing_id: string;
-  profile_id: string;
-  display_name: string;
-  source_kind: "real" | "demo";
-  label: string;
-};
-
 export function MapWorkspace({
   focus,
   initialFilters,
@@ -163,10 +159,23 @@ export function MapWorkspace({
   const [pois, setPois] = useState<Data | null>(null);
   const [poiDetail, setPoiDetail] = useState<Data | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [roomMarkers, setRoomMarkers] = useState<RoomMarker[]>([]);
-  const [roommateEnabled, setRoommateEnabled] = useState(false);
+  const [roomSnapshot, setRoomSnapshot] = useState<{
+    scope: string;
+    status: "loading" | "ready" | "unavailable";
+    items: RoomMarker[];
+  }>({ scope: "", status: "loading", items: [] });
+  const [contactRoomId, setContactRoomId] = useState<string | null>(null);
+  const [roomAvailability, setRoomAvailability] = useState<
+    "loading" | "enabled" | "disabled" | "unavailable"
+  >("loading");
+  const roommateEnabled = roomAvailability === "enabled";
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [roomMapRetry, setRoomMapRetry] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRoomMapRetry((n) => n + 1);
+    window.addEventListener("roommate-profile-update", refresh);
+    return () => window.removeEventListener("roommate-profile-update", refresh);
+  }, []);
   const [roomMapError, setRoomMapError] = useState("");
   const [comparisonHomes, setComparisonHomes] = useState<House[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -178,14 +187,16 @@ export function MapWorkspace({
       .then((a) => {
         if (!abort.signal.aborted) {
           setRoomMapError("");
-          setRoommateEnabled(Boolean(a.enabled));
+          setRoomAvailability(a.enabled ? "enabled" : "disabled");
         }
       })
       .catch(() => {
-        if (!abort.signal.aborted)
+        if (!abort.signal.aborted) {
+          setRoomAvailability("unavailable");
           setRoomMapError(
             "Chưa kiểm tra được dịch vụ ghép trọ. Không ảnh hưởng danh sách nhà.",
           );
+        }
       });
     return () => abort.abort();
   }, [availabilityRetry]);
@@ -196,29 +207,45 @@ export function MapWorkspace({
       ),
     ].sort(),
   );
+  // Unknown/failed is not an authoritative empty result. Bind knowledge to the
+  // exact listing scope so a scope change cannot briefly restore rental actions.
+  const roomOverlayReady =
+    roomAvailability === "disabled" ||
+    (roommateEnabled && roomSnapshot.scope === roomIds && roomSnapshot.status === "ready");
+  const roomMarkers =
+    roommateEnabled && roomOverlayReady ? roomSnapshot.items : [];
+  const roomProfiles = (id: string) =>
+    roomMarkers.filter((p) => p.listing_id === id);
+  const contactProfiles = contactRoomId ? roomProfiles(contactRoomId) : [];
+  const roomStatusText = roomMapError
+    ? rt("Chưa xác minh được tin ở ghép", "Roommate status unavailable")
+    : rt("Đang kiểm tra tin ở ghép…", "Checking roommate status…");
   useEffect(() => {
     const abort = new AbortController();
-    setRoomMarkers([]);
     if (!roommateEnabled) return () => abort.abort();
     setRoomMapError("");
     const ids: string[] = JSON.parse(roomIds);
-    if (!ids.length) return;
     const gate = new OverlayPollGate();
     const load = () => {
       if (abort.signal.aborted || !gate.begin()) return;
-      return roommate<{ items: RoomMarker[] }>(
-        "/map/rooms",
-        "POST",
-        {
-          listing_ids: ids.slice(0, 250),
-        },
-        abort.signal,
-      )
-        .then((data) => {
+      setRoomSnapshot({ scope: roomIds, status: "loading", items: [] });
+      // The API accepts 250 IDs per call; verify the whole scope, not only its
+      // first batch, before allowing housing actions on any returned listing.
+      const batches = Array.from(
+        { length: Math.ceil(ids.length / 250) },
+        (_, i) => ids.slice(i * 250, (i + 1) * 250),
+      );
+      return Promise.all(batches.map((batch) =>
+        roommate<{ items: RoomMarker[] }>(
+          "/map/rooms", "POST", { listing_ids: batch }, abort.signal,
+        ),
+      ))
+        .then((pages) => {
           if (!abort.signal.aborted) {
-            setRoomMarkers(
-              data.items.filter((item) => item.source_kind === "real"),
-            );
+            const items = pages.flatMap((data) => data.items.filter(
+              (item) => item.source_kind === "real" && ids.includes(item.listing_id),
+            ));
+            setRoomSnapshot({ scope: roomIds, status: "ready", items });
             setRoomMapError("");
           }
         })
@@ -227,7 +254,7 @@ export function MapWorkspace({
             // Do not send failing optional requests every 30s/visibility change.
             // A manual retry or a changed listing scope starts a new attempt.
             gate.finish(true);
-            setRoomMarkers([]);
+            setRoomSnapshot({ scope: roomIds, status: "unavailable", items: [] });
             setRoomMapError(
               "Chưa đọc được nhu cầu ghép trọ. Không ảnh hưởng danh sách nhà.",
             );
@@ -747,6 +774,15 @@ export function MapWorkspace({
     }
   }
   async function choose_house(h: House) {
+    if (!roomOverlayReady) {
+      setListError(roomStatusText);
+      return;
+    }
+    if (roomProfiles(h.id).length) {
+      setFullDetail(null);
+      setContactRoomId(h.id);
+      return;
+    }
     setListError("");
     setSelecting(h.id);
     try {
@@ -818,43 +854,84 @@ export function MapWorkspace({
     id !== selectedId &&
     Boolean(onUnselect) &&
     Boolean(selectedIds?.includes(id));
-  const selectButton = (h: House, primary = false) => (
-    <button
-      className={primary ? "primary ws-select" : "ws-select-small"}
-      disabled={
-        readOnly ||
-        chat.busy ||
-        selecting !== null ||
-        (isChosen(h.id) && !removable(h.id))
-      }
-      onClick={() =>
-        void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
-          () => {},
-        )
-      }
-    >
-      {removable(h.id) ? (
-        selecting === h.id ? (
-          uiText("Đang bỏ…")
-        ) : (
-          <>
-            <X size={14} />
-            {uiText(" Bỏ chọn")}
-          </>
-        )
-      ) : isChosen(h.id) ? (
-        <>
-          <Check size={14} />
-          {uiText(" Đã chọn")}
-        </>
-      ) : selecting === h.id ? (
-        uiText("Đang chọn…")
-      ) : (
-        uiText("Chọn căn này")
-      )}
-    </button>
+  const roommateButton = (h: House, primary = false) => (
+    <RoommateRoomActions
+      profiles={roomProfiles(h.id)}
+      onChoosePoster={() => {
+        // Replace the detail dialog, rather than stacking native modals and
+        // leaving their body-scroll locks behind when navigating to a profile.
+        setFullDetail(null);
+        setContactRoomId(h.id);
+      }}
+      primary={primary}
+    />
   );
+  const unselectButton = (h: House) => removable(h.id) ? (
+    <button
+      type="button"
+      className="secondary ws-unselect"
+      disabled={readOnly || chat.busy || selecting !== null}
+      onClick={() => void unchoose_house(h)}
+    >
+      <X size={14} />
+      {selecting === h.id ? uiText("Đang bỏ…") : uiText("Bỏ chọn")}
+    </button>
+  ) : null;
+  const roommateActions = (h: House, primary = false) => (
+    <>
+      {roomOverlayReady ? roommateButton(h, primary) : (
+        <button
+          type="button"
+          className={primary ? "primary ws-select" : "ws-select-small"}
+          disabled
+        >
+          {roomStatusText}
+        </button>
+      )}
+      {unselectButton(h)}
+    </>
+  );
+  const selectButton = (h: House, primary = false) =>
+    !roomOverlayReady || roomProfiles(h.id).length ? (
+      roommateActions(h, primary)
+    ) : (
+      <button
+        className={primary ? "primary ws-select" : "ws-select-small"}
+        disabled={
+          readOnly ||
+          chat.busy ||
+          selecting !== null ||
+          (isChosen(h.id) && !removable(h.id))
+        }
+        onClick={() =>
+          void (removable(h.id) ? unchoose_house(h) : choose_house(h)).catch(
+            () => {},
+          )
+        }
+      >
+        {removable(h.id) ? (
+          selecting === h.id ? (
+            uiText("Đang bỏ…")
+          ) : (
+            <>
+              <X size={14} />
+              {uiText(" Bỏ chọn")}
+            </>
+          )
+        ) : isChosen(h.id) ? (
+          <>
+            <Check size={14} />
+            {uiText(" Đã chọn")}
+          </>
+        ) : selecting === h.id ? (
+          uiText("Đang chọn…")
+        ) : (
+          uiText("Chọn căn này")
+        )}
+      </button>
+    );
   const compareButton = (h: House) => {
+    if (!roomOverlayReady || roomProfiles(h.id).length) return null;
     const checked = comparisonHomes.some((home) => home.id === h.id);
     return (
       <button
@@ -1419,18 +1496,21 @@ export function MapWorkspace({
                 <div className="ws-roommate-badge" key={p.profile_id}>
                   <strong>{p.label}</strong>
                   <p>{p.display_name}</p>
-                  <a
-                    href={
+                  <Link
+                    to={
                       "/roommate/profiles/" + encodeURIComponent(p.profile_id)
                     }
                   >
                     {uiText("Xem nhu cầu ở ghép")}
-                  </a>
+                  </Link>
                 </div>
               ))}
             <div className="ws-detail-price">
               <strong className="price">{housePrice(detail)}</strong>
-              <button className="housing-detail-link" onClick={() => setFullDetail(detail)}>
+              <button
+                className="housing-detail-link"
+                onClick={() => setFullDetail(detail)}
+              >
                 {uiText("Thông tin chi tiết ›")}
               </button>
             </div>
@@ -1504,9 +1584,59 @@ export function MapWorkspace({
         </aside>
       )}
       {fullDetail && (
-        <HousingDetail house={fullDetail} saved={saved.has(fullDetail.id)} selected={isChosen(fullDetail.id)}
-          onClose={() => setFullDetail(null)} onSave={() => onSave(fullDetail)}
-          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)} busy={chat.busy || selecting !== null} />
+        <HousingDetail
+          house={fullDetail}
+          saved={saved.has(fullDetail.id)}
+          selected={isChosen(fullDetail.id)}
+          onClose={() => setFullDetail(null)}
+          onSave={() => onSave(fullDetail)}
+          roommateActions={
+            !roomOverlayReady || roomProfiles(fullDetail.id).length
+              ? roommateActions(fullDetail, true)
+              : undefined
+          }
+          roommateNotice={!roomOverlayReady ? rt(
+            "Chưa xác minh được trạng thái ở ghép. Tạm dừng chọn căn và liên hệ chủ nhà; bạn vẫn có thể bỏ căn đã chọn hoặc thử tải lại ghép trọ.",
+            "Roommate status is not verified. Home selection and landlord contact are paused; you can still remove a chosen home or retry the overlay.",
+          ) : undefined}
+          onSelect={readOnly ? undefined : () => void choose_house(fullDetail)}
+          busy={chat.busy || selecting !== null}
+        />
+      )}
+      {contactRoomId && (
+        <Dialog
+          title={rt(
+            "Chọn người đăng để kết nối",
+            "Choose a poster to connect with",
+          )}
+          onClose={() => setContactRoomId(null)}
+        >
+          <p>
+            {rt(
+              "Xem nhu cầu ở ghép rồi gửi yêu cầu kết nối nếu phù hợp. Chưa có yêu cầu nào được gửi.",
+              "Review the roommate profile before sending a connection request. No request has been sent.",
+            )}
+          </p>
+          {contactProfiles.length ? (
+            contactProfiles.map((p) => (
+              <div className="ws-roommate-badge" key={p.profile_id}>
+                <p>{p.display_name}</p>
+                <Link
+                  to={"/roommate/profiles/" + encodeURIComponent(p.profile_id)}
+                >
+                  {rt("Xem nhu cầu ở ghép", "View roommate profile")}
+                </Link>
+              </div>
+            ))
+          ) : (
+            <p role="status">
+              {rt(
+                "Nhu cầu ở ghép này không còn hiển thị. Hãy tải lại bản đồ.",
+                "This roommate post is no longer visible. Reload the map.",
+              )}
+            </p>
+          )}
+        </Dialog>
       )}
       {comparing && (
         <Comparison

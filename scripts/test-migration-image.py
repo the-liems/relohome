@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import secrets
 import signal
 import subprocess
@@ -26,15 +27,25 @@ def docker(*args, capture=False, timeout=180, check=True, quiet=False):
     return result.stdout if capture else result.returncode
 
 
+def resolve_database_image(kind, override=None):
+    if override:
+        return override
+    # Read raw YAML: Coolify adds fields that Docker Compose does not accept.
+    compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "compose.coolify.yaml").read_text())
+    image = compose["services"]["postgis" if kind == "location-migrate" else "moving-db"]["image"]
+    expression = "${POSTGIS_IMAGE:-"
+    if image.startswith(expression) and image.endswith("}"):
+        return os.environ.get("POSTGIS_IMAGE") or image[len(expression):-1]
+    return image
+
+
 def verify(kind, image, database_image=None):
     name = "migration-test-" + uuid.uuid4().hex[:12]
     database = name + "-db"
     migration = name + "-run"
     admin_password, app_password, ingest_password = [secrets.token_hex(24) for _ in range(3)]
     location = kind == "location-migrate"
-    # Read raw YAML: Coolify adds fields that Docker Compose does not accept.
-    compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "compose.coolify.yaml").read_text())
-    database_image = database_image or compose["services"]["postgis" if location else "moving-db"]["image"]
+    database_image = resolve_database_image(kind, database_image)
     history = "public.lifeflow_schema_migrations" if location else "moving.schema_migrations"
     env = (
         {

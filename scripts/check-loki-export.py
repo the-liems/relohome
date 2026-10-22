@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--collector", required=True, help="Collector HTTP base URL, e.g. http://otel-collector:4318")
+    parser.add_argument("--collector", required=True, help="Collector HTTP base URL, use http://<Coolify-generated-collector-service-name>:4318")
     parser.add_argument("--loki", required=True, help="Loki base URL, e.g. http://loki:3100")
     parser.add_argument("--environment", required=True, choices=["development", "staging", "production"])
     parser.add_argument("--environment-label", choices=["deployment_environment_name", "environment"],

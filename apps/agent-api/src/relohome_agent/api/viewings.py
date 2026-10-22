@@ -7,11 +7,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
+from langgraph.runtime import Runtime
 from pydantic import BaseModel, ConfigDict, Field
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.graph import run_config
 from relohome_agent.agents.models import AgentName, AgentResponse, TaskStatus
 from relohome_agent.agents.nodes.change_impact import selection_impact
-from relohome_agent.agents.nodes.cost_summary import make_cost_summary
+from relohome_agent.agents.nodes.cost_summary import cost_summary
 from relohome_agent.api.routes import Service, UserId, _lock, _owned, _to_response, authenticate
 from relohome_agent.checkout.models import CheckoutError
 
@@ -320,7 +322,7 @@ async def reopen(thread_id: str, service: Service, body: ReopenBody | None = Non
                 **update,
                 "task_status": {**values.get("task_status", {}), **update["task_status"]},
             }
-            summary = await make_cost_summary(service.deps)(merged)
+            summary = await cost_summary(merged, Runtime(context=GraphContext(deps=service.deps)))
             update["cost_summary"] = summary["cost_summary"]
         await _sync(service, thread_id, user_id, update)
         values = {**values, **update}

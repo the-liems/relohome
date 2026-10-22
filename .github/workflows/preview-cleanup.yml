@@ -1,0 +1,55 @@
+name: Remove Coolify PR preview
+
+on:
+  # Runs even if the PR no longer merges. Never checks out or executes PR code.
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: coolify-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: >-
+      vars.COOLIFY_PREVIEW_APP_UUID != '' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, team-44]
+    timeout-minutes: 5
+    steps:
+      - name: Delete only this PR preview
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_PREVIEW_URL }}
+          COOLIFY_APP_UUID: ${{ vars.COOLIFY_PREVIEW_APP_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_PREVIEW_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          origin = os.environ['COOLIFY_URL'].rstrip('/')
+          app = os.environ['COOLIFY_APP_UUID']
+          pr = os.environ['PR_NUMBER']
+          if not re.fullmatch(r'https://[A-Za-z0-9.-]+(?::[0-9]+)?', origin):
+              raise SystemExit('Invalid Coolify HTTPS origin')
+          if not re.fullmatch(r'[A-Za-z0-9_-]+', app) or not pr.isdecimal() or not 1 <= int(pr) <= 2147483647:
+              raise SystemExit('Invalid application UUID or PR number')
+          token = os.environ['COOLIFY_TOKEN']
+          if not token:
+              raise SystemExit('Missing preview token')
+          headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/json'}
+          path = origin + '/api/v1/applications/' + app + '/previews'
+          # Verify API support and app access before treating DELETE 404 as absent.
+          with urlopen(Request(path, headers=headers), timeout=30) as response:
+              json.load(response)
+          try:
+              with urlopen(Request(path + '/' + pr, headers=headers, method='DELETE'), timeout=60):
+                  pass
+          except HTTPError as error:
+              if error.code != 404:
+                  raise SystemExit(f'Preview deletion failed: HTTP {error.code}') from None
+          print(f'Preview PR #{pr} removed or already absent.')
+          PY

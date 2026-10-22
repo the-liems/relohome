@@ -133,6 +133,7 @@ async def lifespan(gateway):
                         "need": {"kind": "looking_together"},
                         "move_in": {"kind": "flexible"},
                         "self_traits": {
+                            "gender": "female",
                             "smoking": "non_smoker",
                             "has_pets": False,
                             "cleanliness": "daily",

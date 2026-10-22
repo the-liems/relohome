@@ -703,10 +703,11 @@ tham chiếu kiểu `$ref`.
 
 ## 6. Node và contract
 
-Mọi node: `async def node(state) -> dict`, chỉ trả field thay đổi, có docstring,
+Mọi node: `async def node(state, runtime: Runtime[GraphContext]) -> dict`, chỉ trả field thay đổi, có docstring,
 bắt exception và ghi `errors` thay vì làm crash graph (theo
 [guide nodes-and-edges.md](../guide/langgraph/nodes-and-edges.md)). Node lấy
-dependency qua closure do `build_graph(deps)` tạo, không import adapter trực tiếp.
+dependency qua `runtime.context.deps` (LangGraph runtime context); mỗi lần chạy hoặc resume truyền
+`run_kwargs(thread_id, deps)`. Node không import adapter trực tiếp.
 
 ### 6.0. `load_context` và bộ nhớ người dùng
 
@@ -1576,7 +1577,7 @@ Cuối lượt, sau khi soạn câu trả lời, `respond` gọi `SessionPort.sa
 
 ### 7.1. Workflow State / Checkpoint
 
-- `build_graph(deps, checkpointer=None)`. Dev/test dùng `InMemorySaver`
+- `build_graph(agent_names, checkpointer=None)`. Dev/test dùng `InMemorySaver`
   (`langgraph.checkpoint.memory`); môi trường thật dùng Postgres checkpointer. Chọn
   loại cụ thể trong một ADR mới (số ADR chốt khi merge, Q23; xem [project organization](../project-organization.md)).
 - `thread_id` = id phiên hội thoại; mỗi request gửi `config={"configurable": {"thread_id": ...}, "recursion_limit": ...}`.
@@ -1735,8 +1736,8 @@ class GraphDeps:
     usage: UsageMeter                # đo token / call provider, kiểm trần chi phí (§7.5)
     clock: Callable[[], datetime]    # inject để test V3 (stale), hạn approval, tuổi sở thích
 
-def build_graph(deps: GraphDeps, checkpointer: BaseCheckpointSaver | None = None):
-    """Dựng StateGraph theo §4. Node agent được tạo động từ deps.agents."""
+def build_graph(agents: Iterable[AgentName], checkpointer: BaseCheckpointSaver | None = None):
+    """Dựng StateGraph theo §4. Node agent được tạo cho mỗi agent đã đăng ký; deps đến qua runtime context."""
 ```
 
 - Một node `*_agent` được đăng ký cho mỗi agent có trong registry. Agent chưa có thì
@@ -1956,7 +1957,7 @@ dùng làm test case cho Intake và Orchestrator.
 
 ```text
 apps/agent-api/src/relohome_agent/agents/
-  graph.py              # build_graph(deps, checkpointer)
+  graph.py              # build_graph(agent_names, checkpointer), run_kwargs
   state.py              # WorkflowState, merge_dict, AgentInput
   models.py             # IntakeResult, Task, Plan, TaskResult, ValidationReport, CostSummary, Approval, enums…
   routing.py            # route_from_intake/orchestrator/executor/validator/cost_summary/confirm

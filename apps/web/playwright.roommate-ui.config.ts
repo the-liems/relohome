@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: [
     "roommate.spec.ts",
     "roommate-production.spec.ts",
+    "roommate-resolve.spec.ts",
     "roommate-admin.spec.ts",
     "app.spec.ts",
   ],

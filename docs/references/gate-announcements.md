@@ -1,4 +1,29 @@
-# Gate 1 and G2 announcements
+# Project submission announcements — Build Phase, Gate 1 and G2
+
+## Build Phase — 18 October 2026 update
+
+Recorded on 18 October 2026 from the Build Phase announcement pasted by the team
+in the repository-maintenance chat. The message identifies BTC AI20K as the sender;
+the original message URL and publication timestamp were not supplied. This records
+the supplied notice, not an independently authenticated announcement or submission receipt.
+
+- Single Build checkpoint: **23:00 on 18 October 2026**, Vietnam time (UTC+7).
+- Top Build projects are selected from submitted materials; there is no separate
+  team pitching round for that selection. Demo Day is **22 October 2026**, together
+  with VinUni Tech Career Day.
+- Required submission fields: project name and description, live MVP link, demo
+  video of **at most 3 minutes**, pitch deck, and **one thumbnail image link**.
+- The deck must cover the problem, solution, feasibility and future development.
+- GitHub must contain full project source, README, architecture diagram,
+  specifications/design, testing documents, weekly logs, live URL, demo video,
+  pitch deck, and AI Logs fully updated to the system.
+- One representative submits/updates the team entry at
+  [Phoenix](https://phoenix.note.transformerlabs.ai/demo-day).
+- Every member must reach the required AI Log threshold before the system opens
+  valid submission access. The notice does not state a numeric threshold.
+
+The [current checklist](../../presentation/README.md) applies this notice. Earlier
+Gate 1 and G2 instructions below remain historical context.
 
 ## Provenance
 

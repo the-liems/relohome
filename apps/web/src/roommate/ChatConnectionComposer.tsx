@@ -17,6 +17,7 @@ export function introComplete(value: Profile) {
   return Boolean(
     value.display_name?.trim() &&
     value.introduction?.trim() &&
+    facts.self_traits.gender &&
     facts.city &&
     facts.area_ids.length &&
     facts.budget?.fee_basis &&

@@ -1,8 +1,7 @@
 """Invocation dependencies, supplied via LangGraph context rather than checkpoint state.
 
 See https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration
-Quote runs and checkpoint resumes must supply GraphContext. Existing chat nodes
-continue to use their construction-time dependencies.
+Every node reads `runtime.context.deps`, so every run and resume passes `run_kwargs(...)`.
 """
 
 from dataclasses import dataclass, field

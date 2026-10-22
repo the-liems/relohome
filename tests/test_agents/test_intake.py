@@ -18,9 +18,10 @@ from relohome_agent.agents.models import (
     TaskResult,
     TaskStatus,
 )
-from relohome_agent.agents.nodes.intake import continue_referenced_goal, make_intake, remembered_home
+from relohome_agent.agents.nodes.intake import continue_referenced_goal, remembered_home
+from relohome_agent.agents.nodes.intake import intake as intake_node
 
-from tests.test_agents.helpers import fact, intake_result
+from tests.test_agents.helpers import fact, intake_result, node_runtime
 
 TIERS = {AgentName.PROPERTY: "cheap", AgentName.MAP: "cheap", AgentName.FLIGHT: "paid", AgentName.RELOCATION: "paid"}
 TTL = GraphSettings().prefill_ttl
@@ -54,7 +55,7 @@ async def test_new_named_city_replaces_old_housing_city_when_model_only_extracts
     deps = replace(default_deps(), intake=FixedIntake(current))
     state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage("Tìm nhà gần đại học bách khoa hà nội")],
              "intake": previous, "session": SessionContext()}
-    result = (await make_intake(deps)(state))["intake"]
+    result = (await intake_node(state, node_runtime(deps)))["intake"]
     assert result.constraints.values["city"] == "Hà Nội"
     assert result.constraints.values["near"] == "đại học bách khoa hà nội"
     assert not result.conflicts
@@ -72,7 +73,7 @@ async def test_new_district_does_not_inherit_unrelated_old_city_or_landmark():
     deps = replace(default_deps(), intake=FixedIntake(current))
     state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage("Tìm nhà ở Cầu Giấy")],
              "intake": previous, "session": SessionContext()}
-    result = (await make_intake(deps)(state))["intake"]
+    result = (await intake_node(state, node_runtime(deps)))["intake"]
     assert result.constraints.values["district"] == "Cầu Giấy"
     assert "city" not in result.constraints.values
     assert "near" not in result.constraints.values
@@ -92,7 +93,7 @@ async def test_compare_cheapest_in_new_area_searches_before_comparing():
     deps = replace(default_deps(), intake=FixedIntake(current))
     state = {"thread_id": "t", "request_id": "r", "messages": [HumanMessage(request)],
              "intake": previous, "session": SessionContext()}
-    result = (await make_intake(deps)(state))["intake"]
+    result = (await intake_node(state, node_runtime(deps)))["intake"]
     assert result.constraints.values["housing_mode"] == "search_compare"
     assert result.constraints.values["limit"] == 4
     assert not result.blocking_missing and not result.conflicts

@@ -142,10 +142,10 @@ async def test_user_endpoint_change_clears_only_that_endpoints_chosen_place_id(f
     from langchain_core.messages import HumanMessage
     from relohome_agent.agents.deps import test_deps
     from relohome_agent.agents.intake import ScriptedIntake
-    from relohome_agent.agents.nodes.intake import make_intake
+    from relohome_agent.agents.nodes.intake import intake as intake_node
     from relohome_agent.agents.planning import TemplatePlanner
 
-    from tests.test_agents.helpers import fact
+    from tests.test_agents.helpers import fact, node_runtime
 
     values = {
         "map_mode": "route",
@@ -167,9 +167,9 @@ async def test_user_endpoint_change_clears_only_that_endpoints_chosen_place_id(f
         values={field: "Cầu Sông Hàn"},
         facts={field: fact("Cầu Sông Hàn", "Cầu Sông Hàn")},
     )
-    node = make_intake(test_deps(ScriptedIntake([change]), TemplatePlanner()))
+    runtime = node_runtime(test_deps(ScriptedIntake([change]), TemplatePlanner()))
     endpoint = "đi" if field == "route_from" else "đến"
-    update = await node(
+    update = await intake_node(
         {
             "messages": [HumanMessage(f"Đổi điểm {endpoint} thành Cầu Sông Hàn")],
             "intake": previous,
@@ -177,7 +177,8 @@ async def test_user_endpoint_change_clears_only_that_endpoints_chosen_place_id(f
             "user_id": "u",
             "thread_id": "t",
             "request_id": "r",
-        }
+        },
+        runtime,
     )
     assert not update["intake"].conflicts
     current = update["intake"].constraints.values
@@ -462,8 +463,10 @@ async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_ki
     from relohome_agent.agents.intake import ScriptedIntake
     from relohome_agent.agents.models import TaskStatus
     from relohome_agent.agents.nodes.executor import compute_ready
-    from relohome_agent.agents.nodes.intake import make_intake
+    from relohome_agent.agents.nodes.intake import intake as intake_node
     from relohome_agent.agents.planning import TemplatePlanner
+
+    from tests.test_agents.helpers import node_runtime
 
     # Preserve the old fixture shape: conversion produces a typed entity reference.
     raw = amenity_intake(explore=True, legacy_anchor=True)
@@ -471,15 +474,16 @@ async def test_legacy_upstream_map_anchor_is_consumed_before_planning(planner_ki
     assert raw.constraints.values["map_near"] == "upstream:property"
     assert raw.constraints.values["map_categories"] == ["supermarket"]
     # Runtime passes every intake through this node before either planner sees it.
-    node = make_intake(test_deps(ScriptedIntake([raw]), TemplatePlanner()))
-    update = await node(
+    runtime = node_runtime(test_deps(ScriptedIntake([raw]), TemplatePlanner()))
+    update = await intake_node(
         {
             "messages": [HumanMessage("Tìm phòng ở Hà Nội rồi xem siêu thị quanh các phòng đó")],
             "session": SessionContext(),
             "user_id": "u",
             "thread_id": "t",
             "request_id": "r",
-        }
+        },
+        runtime,
     )
     normalized = update["intake"]
     assert not normalized.needs_clarification

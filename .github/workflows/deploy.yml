@@ -104,6 +104,7 @@ jobs:
         if: steps.release.outputs.deploy == 'true'
         run: python scripts/deploy-coolify.py --compose release-compose.yaml
         env:
+          APPLICATION_IMAGE_REPOSITORY: ${{ vars.APPLICATION_IMAGE_REPOSITORY }}
           DEPLOY_SHA: ${{ steps.release.outputs.sha }}
           COOLIFY_URL: ${{ steps.release.outputs.environment == 'staging' && vars.COOLIFY_STAGING_URL || (steps.release.outputs.environment == 'production' && vars.COOLIFY_PRODUCTION_URL || '') }}
           COOLIFY_TOKEN: ${{ steps.release.outputs.environment == 'staging' && secrets.COOLIFY_STAGING_TOKEN || (steps.release.outputs.environment == 'production' && secrets.COOLIFY_PRODUCTION_TOKEN || '') }}

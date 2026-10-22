@@ -5,8 +5,9 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta
 
+from langgraph.runtime import Runtime
 from relohome_agent.agents.approval import confirmation_hash
-from relohome_agent.agents.deps import GraphDeps
+from relohome_agent.agents.context import GraphContext
 from relohome_agent.agents.housing_operations import is_housing_comparison
 from relohome_agent.agents.intake import selected_fact_key
 from relohome_agent.agents.models import (
@@ -107,35 +108,33 @@ def build_summary(
     )
 
 
-def make_cost_summary(deps: GraphDeps):
-    async def cost_summary(state: WorkflowState) -> dict:
-        """Tổng chi phí bằng số nguyên VND và `payload_hash` để xác nhận."""
-        plan = state["plan"]
-        ttl = {}
-        for task in plan.tasks:
-            capability = deps.agents.capability(task.agent)
-            if capability is not None:
-                ttl[task.id] = deps.settings.stale_ttl(capability)
-        summary = build_summary(
-            plan,
-            state.get("task_status") or {},
-            state.get("task_results") or {},
-            state["intake"],
-            active_commits(state.get("committed")),
-            ttl,
-            deps.clock(),
-            deps.settings.approval_ttl,
-            deps.settings.price_tolerance,
-        )
-        from relohome_agent.guest_access import is_guest
+async def cost_summary(state: WorkflowState, runtime: Runtime[GraphContext]) -> dict:
+    """Tổng chi phí bằng số nguyên VND và `payload_hash` để xác nhận."""
+    deps = runtime.context.deps
+    plan = state["plan"]
+    ttl = {}
+    for task in plan.tasks:
+        capability = deps.agents.capability(task.agent)
+        if capability is not None:
+            ttl[task.id] = deps.settings.stale_ttl(capability)
+    summary = build_summary(
+        plan,
+        state.get("task_status") or {},
+        state.get("task_results") or {},
+        state["intake"],
+        active_commits(state.get("committed")),
+        ttl,
+        deps.clock(),
+        deps.settings.approval_ttl,
+        deps.settings.price_tolerance,
+    )
+    from relohome_agent.guest_access import is_guest
 
-        auth = []
-        if is_guest(state.get("user_id")) and summary.commit_actions:
-            auth = ["booking"]
-            summary = summary.model_copy(update={"commit_actions": []})
-        update: dict = {"cost_summary": summary, "auth_required": auth}
-        if not summary.commit_actions:  # chỉ tìm / báo giá (S2): không cần xác nhận
-            update["outcome"] = Outcome(node="cost_summary", code=OutcomeCode.ANSWER)
-        return update
-
-    return cost_summary
+    auth = []
+    if is_guest(state.get("user_id")) and summary.commit_actions:
+        auth = ["booking"]
+        summary = summary.model_copy(update={"commit_actions": []})
+    update: dict = {"cost_summary": summary, "auth_required": auth}
+    if not summary.commit_actions:  # chỉ tìm / báo giá (S2): không cần xác nhận
+        update["outcome"] = Outcome(node="cost_summary", code=OutcomeCode.ANSWER)
+    return update

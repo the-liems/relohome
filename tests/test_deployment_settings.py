@@ -35,7 +35,8 @@ def rendered_backend(variables, service="backend"):
         RELEASE_TAG="test-release",
         DEPLOY_RESOURCE="test-resource",
         DEPLOY_HOST="staging.example.test",
-        APP_URL="https://staging.example.test",
+        SERVICE_URL_WEB="https://staging.example.test",
+        SERVICE_FQDN_WEB="staging.example.test",
     )
     environment.update(variables)
     with TemporaryDirectory(prefix="relo-viewing-compose-") as directory:
@@ -51,6 +52,14 @@ def rendered_backend(variables, service="backend"):
             timeout=30,
         )
     return json.loads(result.stdout)["services"][service]["environment"]
+
+
+@pytest.mark.parametrize('hostname', ['staging.example.test', 'pr-200.previews.example.net'])
+def test_public_origins_follow_coolify_web_domain(hostname):
+    origin = 'https://' + hostname
+    variables = {'SERVICE_URL_WEB': origin, 'SERVICE_FQDN_WEB': hostname}
+    assert rendered_backend(variables, 'web')['SIU_PUBLIC_BASE_URL'] == origin
+    assert rendered_backend(variables, 'payments-mcp')['PAYMENT_REDIRECT_URL'] == origin + '/'
 
 
 @pytest.mark.parametrize(

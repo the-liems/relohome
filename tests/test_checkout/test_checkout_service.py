@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -598,3 +599,62 @@ async def test_rejection_during_reconciliation_cancels_once_and_stops(env):
     assert flight.calls.count(("cancel_booking", {"booking_ref": "bk_1", "confirm": True})) == 1
     await service.check(USER, attempt["attempt_id"])  # A cancelled attempt is not retried.
     assert [tool for tool, _ in payment.calls].count("create_payment") == 2
+
+
+@pytest.mark.asyncio
+async def test_paid_booking_is_ticketed_while_reconciliation_waits_on_another_payment(env, monkeypatch):
+    """Review #245: a slow status read for one payment must not hold back ticketing another whose hold may be ending."""
+    service, _, flight, payment, _ = env
+    _, paid = await pay_flight(service)
+    other = service.summary(USER, "th_2", flight_values(option="off_2"), "flight")
+    waiting = await service.pay(USER, other["transaction_id"], other["payload_hash"], "request-key-0002", PEOPLE)
+    waiting_ref = service.store.get_attempt(waiting["attempt_id"]).payment_id
+    reading, release, confirmed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    payment_call, flight_call = payment.call, flight.call
+
+    async def gateway(tool, args):
+        if tool == "get_payment" and args["payment_ref"] == waiting_ref:
+            reading.set()
+            await release.wait()
+            return {"status": "PENDING"}
+        return {"status": "PAID"} if tool == "get_payment" else await payment_call(tool, args)
+
+    async def provider(tool, args):
+        result = await flight_call(tool, args)
+        if tool == "confirm_booking":
+            confirmed.set()
+        return result
+
+    monkeypatch.setattr(payment, "call", gateway)
+    monkeypatch.setattr(flight, "call", provider)
+    await service.start()  # Reconciles the paid attempt first (creation order), then blocks on the other one.
+    await asyncio.wait_for(reading.wait(), 1)
+    await asyncio.wait_for(confirmed.wait(), 1)
+    assert service.store.get_tx(paid["transaction_id"]).status == "ticketed"
+    release.set()
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_lets_the_in_flight_confirmation_finish(env, monkeypatch):
+    service, _, flight, _, _ = env
+    confirming, release = asyncio.Event(), asyncio.Event()
+    call = flight.call
+
+    async def slow_call(tool, args):
+        if tool == "confirm_booking":
+            confirming.set()
+            await release.wait()
+        return await call(tool, args)
+
+    monkeypatch.setattr(flight, "call", slow_call)
+    _, attempt = await pay_flight(service)
+    await service.tester_paid(USER, attempt["attempt_id"])
+    await service.start()
+    await asyncio.wait_for(confirming.wait(), 1)
+    stopping = asyncio.create_task(service.stop())
+    await asyncio.sleep(0)
+    assert not stopping.done()  # Shutdown waits instead of cancelling the paid booking's confirmation.
+    release.set()
+    await asyncio.wait_for(stopping, 1)
+    assert service.store.get_tx(attempt["transaction_id"]).status == "ticketed"

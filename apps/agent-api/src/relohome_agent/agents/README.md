@@ -45,7 +45,7 @@ hệ) đi qua form → `pii_ref`, không vào LLM, state hay log.
 
 | Đường dẫn | Nội dung |
 |---|---|
-| `graph.py` | `build_graph(deps, checkpointer)`, checkpointer dev (`default_checkpointer`) |
+| `graph.py` | `build_graph(agent_names, checkpointer)`, `run_kwargs(thread_id, deps)` cho mỗi lần chạy/resume, checkpointer dev (`default_checkpointer`) |
 | `state.py`, `models.py` | `WorkflowState`, reducer, mọi kiểu dữ liệu (Pydantic) |
 | `routing.py` | hàm routing thuần giữa các node |
 | `nodes/` | một file cho mỗi node; node là vỏ mỏng, logic nằm ở hàm thuần |

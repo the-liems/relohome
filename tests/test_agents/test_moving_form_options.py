@@ -20,7 +20,7 @@ from relohome_agent.api.routes import router as chat_router
 from relohome_agent.api.web_actions import router
 from relohome_contracts.moving_options import MovingOptions, service_selection, validated_options
 
-from tests.test_agents.helpers import intake_result
+from tests.test_agents.helpers import intake_result, node_runtime
 from tests.test_agents.test_commit_adapter import RecordingBridge, booking_client, request, tx
 
 SERVICE = {
@@ -221,13 +221,10 @@ def test_planner_cannot_invent_or_change_structured_options(trusted):
 @pytest.mark.asyncio
 async def test_catalog_endpoint_validates_coordinates_and_drops_provider_private_fields():
     class Client:
-        calls = []
-
         async def call(self, name, args):
             assert name == "list_moving_services"
             # The workspace reads the default catalog and the TRUCK catalog together.
             assert args in ({"lat": 10.77, "lng": 106.7}, {"lat": 10.77, "lng": 106.7, "delivery_type": "TRUCK"})
-            self.calls.append(args)
             return {"services": [{**SERVICE, "provider_data": {"secret": "private-value"}}]}
 
     service = SimpleNamespace(
@@ -255,7 +252,7 @@ async def test_chat_passes_options_as_trusted_state_and_rejects_edits_during_app
                 tasks=[SimpleNamespace(interrupts=[SimpleNamespace(value=pending[0])])] if pending else [],
             )
 
-        async def ainvoke(self, state, config):
+        async def ainvoke(self, state, config, context):
             calls.append(state)
             return {}
 
@@ -286,7 +283,7 @@ async def test_intake_preserves_form_on_followup_but_clears_it_for_new_goal():
     from relohome_agent.agents.deps import default_deps
     from relohome_agent.agents.intake import FixedIntake
     from relohome_agent.agents.models import RequestKind
-    from relohome_agent.agents.nodes.intake import make_intake
+    from relohome_agent.agents.nodes.intake import intake as intake_node
 
     deps = default_deps()
     state = {
@@ -297,11 +294,11 @@ async def test_intake_preserves_form_on_followup_but_clears_it_for_new_goal():
         "moving_options": OPTIONS,
     }
     deps = replace(deps, intake=FixedIntake(intake_result(domains=[AgentName.RELOCATION])))
-    first = await make_intake(deps)(state)
+    first = await intake_node(state, node_runtime(deps))
     assert first["intake"].constraints.values["moving_options"] == OPTIONS
     deps = replace(deps, intake=FixedIntake(intake_result(kind=RequestKind.REFINE, domains=[AgentName.RELOCATION])))
     state.update(intake=first["intake"], moving_options=None)
-    followup = await make_intake(deps)(state)
+    followup = await intake_node(state, node_runtime(deps))
     assert followup["intake"].constraints.values["moving_options"] == OPTIONS
     deps = replace(
         deps,
@@ -309,5 +306,5 @@ async def test_intake_preserves_form_on_followup_but_clears_it_for_new_goal():
             intake_result(domains=[AgentName.RELOCATION], values={"moving_options": {"service_id": "invented"}})
         ),
     )
-    new = await make_intake(deps)({**state, "intake": followup["intake"]})
+    new = await intake_node({**state, "intake": followup["intake"]}, node_runtime(deps))
     assert "moving_options" not in new["intake"].constraints.values

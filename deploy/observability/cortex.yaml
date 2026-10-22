@@ -59,4 +59,4 @@ compactor:
       store: inmemory
 limits:
   compactor_blocks_retention_period: 30d
-  promote_resource_attributes: [service.name, service.namespace, deployment.environment.name]
+  promote_resource_attributes: [service.name, service.namespace, deployment.environment.name, preview.id]
