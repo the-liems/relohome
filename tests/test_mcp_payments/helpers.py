@@ -25,10 +25,19 @@ class FakeClock:
 class FakeZaloPay:
     """Giả lập sb-openapi.zalopay.vn: ghi lại mọi form gửi đi để kiểm tra không có dữ liệu cá nhân."""
 
-    def __init__(self, query_code: int = 3, create_code: int = 1, status: int = 200) -> None:
+    def __init__(
+        self,
+        query_code: int = 3,
+        create_code: int = 1,
+        status: int = 200,
+        qr_code: str | None = "00020101021226530010vn.zalopay",
+        order_url: str = "https://qcgateway.zalopay.vn/openinapp?order=abc",
+    ) -> None:
         self.query_code = query_code
         self.create_code = create_code
         self.status = status
+        self.qr_code = qr_code  # None = giống app sandbox 2554: ZaloPay không trả qr_code
+        self.order_url = order_url
         self.forms: list[tuple[str, dict[str, str]]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -40,10 +49,11 @@ class FakeZaloPay:
                 "return_code": self.create_code,
                 "return_message": "Giao dịch thành công" if self.create_code == 1 else "Giao dịch thất bại",
                 "sub_return_code": 1 if self.create_code == 1 else -401,
-                "order_url": "https://qcgateway.zalopay.vn/openinapp?order=abc",
-                "qr_code": "00020101021226530010vn.zalopay",
+                "order_url": self.order_url,
                 "zp_trans_token": "TOKEN_SHOULD_NOT_LEAK",
             }
+            if self.qr_code is not None:
+                body["qr_code"] = self.qr_code
         else:
             body = {"return_code": self.query_code, "return_message": "ok", "sub_return_code": 0}
         return httpx.Response(self.status, json=body)

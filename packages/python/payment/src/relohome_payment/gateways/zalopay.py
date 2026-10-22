@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -15,9 +16,28 @@ REQUEST_TIMEOUT_SECONDS = 20.0
 EMPTY_ITEMS = "[]"
 # return_code của API query: 1 = thành công, 2 = thất bại, 3 = chưa thanh toán / đang xử lý
 QUERY_STATUS: dict[int, GatewayStatus] = {1: "PAID", 2: "FAILED", 3: "PENDING"}
+ZALOPAY_DOMAIN = "zalopay.vn"
+# Giao diện chỉ vẽ QR cho chuỗi 1..4096 ký tự (browser-gateway)
+MAX_QR_LINK_LENGTH = 4096
 
 # Tránh log mức INFO của httpx; message lỗi cũng không bao giờ chứa key hay chữ ký.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def link_qr_payload(order_url: object) -> str | None:
+    """Nội dung QR dự phòng khi ZaloPay không trả `qr_code`: chính link thanh toán của ZaloPay.
+
+    Một số app sandbox (ví dụ 2554) chỉ trả `order_url`. Quét QR này mở trang thanh toán của ZaloPay
+    (không phải QR chuyển khoản VietQR). Chỉ nhận link https thuộc tên miền zalopay.vn, để không bao giờ
+    biến một URL lạ thành mã QR cho người dùng quét.
+    """
+    if not isinstance(order_url, str) or len(order_url) > MAX_QR_LINK_LENGTH:
+        return None
+    parsed = urlsplit(order_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not (host == ZALOPAY_DOMAIN or host.endswith("." + ZALOPAY_DOMAIN)):
+        return None
+    return order_url
 
 
 def sign(key: str, *parts: object) -> str:
@@ -60,7 +80,8 @@ class ZaloPayGateway:
         data = await self._post("/create", form)
         if data.get("return_code") != 1:
             raise GatewayUnavailableError(f"ZaloPay từ chối tạo đơn: {_reason(data)}")
-        return GatewayOrder(pay_url=data.get("order_url"), qr_code=data.get("qr_code"))
+        order_url = data.get("order_url")
+        return GatewayOrder(pay_url=order_url, qr_code=data.get("qr_code") or link_qr_payload(order_url))
 
     async def query(self, gateway_ref: str) -> GatewayStatus:
         form = {
