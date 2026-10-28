@@ -32,6 +32,23 @@ processors:
       - {key: deployment.environment.name, value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}", action: upsert}
       - {key: service.namespace, value: relohome, action: upsert}
       - {key: service.version, value: "${env:DEPLOYMENT_COMMIT}", action: upsert}
+  filter/production_noise:
+    error_mode: ignore
+    trace_conditions:
+      # Run after resource/environment so the Collector controls the environment.
+      # Match whole probe paths (including optional slash/query), never substrings.
+      - >-
+        resource.attributes["deployment.environment.name"] == "production" and
+        span.status.code != STATUS_CODE_ERROR and
+        (span.attributes["http.response.status_code"] == nil or span.attributes["http.response.status_code"] < 400) and
+        (span.attributes["http.status_code"] == nil or span.attributes["http.status_code"] < 400) and
+        (
+          IsMatch(span.attributes["url.path"], "^/(healthz?|readyz?|livez?|metrics)/?([?].*)?$") or
+          IsMatch(span.attributes["http.route"], "^/(healthz?|readyz?|livez?|metrics)/?([?].*)?$") or
+          IsMatch(span.attributes["http.target"], "^/(healthz?|readyz?|livez?|metrics)/?([?].*)?$") or
+          IsMatch(span.attributes["url.full"], "^https?://[^/?#]+/(healthz?|readyz?|livez?|metrics)/?([?].*)?$") or
+          IsMatch(span.attributes["http.url"], "^https?://[^/?#]+/(healthz?|readyz?|livez?|metrics)/?([?].*)?$")
+        )
   # Langfuse shares the global tracer provider, so its spans also reach Tempo. Langfuse keeps the
   # prompt and completion text; Tempo keeps structure, timing, model and usage. Provider API keys
   # sent as query parameters (SerpApi, Vietmap) are masked in recorded URLs.
@@ -107,7 +124,7 @@ service:
   pipelines:
     traces/tempo:
       receivers: [otlp]
-      processors: [memory_limiter, resource/environment, transform/redact, transform/preview, batch]
+      processors: [memory_limiter, resource/environment, filter/production_noise, transform/redact, transform/preview, batch]
       exporters: [otlphttp/tempo]
     logs:
       receivers: [otlp]
