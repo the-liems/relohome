@@ -32,7 +32,7 @@ FINISHED = {"status": "finished", "commit": SHA}
 
 
 class DeploymentTests(unittest.TestCase):
-    def invoke(self, responses, *, image_error=None, compose=COMPOSE, **settings):
+    def invoke(self, responses, *, image_error=None, compose=COMPOSE, environment=None, **settings):
         self.requests = []
         self.output = io.StringIO()
 
@@ -46,7 +46,7 @@ class DeploymentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "compose.yaml"
             source.write_text(yaml.safe_dump(compose))
-            with patch.dict(os.environ, ENV, clear=True), \
+            with patch.dict(os.environ, ENV | (environment or {}), clear=True), \
                     patch.object(DEPLOY, "urlopen", side_effect=respond), \
                     patch.object(DEPLOY.subprocess, "run", side_effect=image_error) as inspect, \
                     patch("sys.stdout", self.output):
@@ -55,7 +55,7 @@ class DeploymentTests(unittest.TestCase):
 
     @staticmethod
     def prefix():
-        return [{}, {"git_commit_sha": SHA}, QUEUED]
+        return [{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": yaml.safe_dump(COMPOSE)}, QUEUED]
 
     def test_preview_checks_its_own_health_without_changing_parent(self):
         self.invoke(iter([{'deployment_uuid': 'preview-1'}, FINISHED,
@@ -88,7 +88,8 @@ class DeploymentTests(unittest.TestCase):
         ])
         request = self.requests[0][0]
         self.assertEqual(request.get_method(), "PATCH")
-        self.assertEqual(json.loads(request.data), {"git_commit_sha": SHA, "is_auto_deploy_enabled": False,
+        self.assertEqual(json.loads(request.data), {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "is_auto_deploy_enabled": False,
+                                                  "docker_compose_raw": yaml.safe_dump(COMPOSE),
                                                   "include_source_commit_in_build": True,
                                                   "is_container_label_escape_enabled": False})
         self.assertTrue(request.full_url.endswith("/applications/staging-app"))
@@ -116,7 +117,7 @@ class DeploymentTests(unittest.TestCase):
 
     def test_deploy_write_timeout_is_never_retried(self):
         with self.assertRaisesRegex(RuntimeError, "Cannot reach Coolify"):
-            self.invoke(iter([{}, {"git_commit_sha": SHA}, TimeoutError()]))
+            self.invoke(iter([{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": yaml.safe_dump(COMPOSE)}, TimeoutError()]))
         self.assertEqual(len(self.requests), 3)
         self.assertEqual(self.requests[-1][0].get_method(), "POST")
 
@@ -156,6 +157,69 @@ class DeploymentTests(unittest.TestCase):
             self.invoke(iter([{}, {"git_commit_sha": "b" * 40}]))
         self.assertEqual(len(self.requests), 2)
 
+    def test_compose_drift_stops_before_queueing_deployment(self):
+        changed = json.loads(json.dumps(COMPOSE))
+        changed["services"]["collector"] = {"image": "otel/opentelemetry-collector-contrib:0.162.0"}
+        environment = json.loads(json.dumps(COMPOSE))
+        environment["services"]["app"]["environment"] = {"OTEL_LOGS_EXPORTER": "none"}
+        for definition in (changed, environment):
+            with self.subTest(definition=definition), self.assertRaisesRegex(RuntimeError, "Compose does not match"):
+                self.invoke(iter([{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": yaml.safe_dump(definition)}]))
+            self.assertEqual([request.get_method() for request, _ in self.requests], ["PATCH", "GET"])
+
+    def test_compose_read_must_be_available_and_valid_before_deploying(self):
+        for source, message in ((None, "read:sensitive"), ("", "read:sensitive"), ("services: [", "invalid Compose")):
+            with self.subTest(source=source), self.assertRaisesRegex(RuntimeError, message):
+                self.invoke(iter([{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": source}]))
+            self.assertEqual(len(self.requests), 2)
+
+    def test_compose_formatting_does_not_count_as_drift(self):
+        self.invoke(iter([{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA,
+                              "docker_compose_raw": "# Coolify reformatted YAML\n" + yaml.safe_dump(COMPOSE, sort_keys=False)},
+                          QUEUED, FINISHED, {"status": "running:healthy"}]))
+
+    def test_configuration_check_only_reads_without_checking_images(self):
+        inspect = self.invoke(iter([{"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": yaml.safe_dump(COMPOSE)}]),
+                              check_config=True)
+        inspect.assert_not_called()
+        self.assertEqual([request.get_method() for request, _ in self.requests], ["GET"])
+        self.assertIn("no changes made", self.output.getvalue())
+
+    def test_configuration_check_reports_drift_without_writes(self):
+        for response, message in (({"git_commit_sha": "b" * 40}, "commit pin"),
+                                  ({"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": "services: {}"}, "Compose does not match")):
+            with self.subTest(response=response), self.assertRaisesRegex(RuntimeError, message):
+                self.invoke(iter([response]), check_config=True)
+            self.assertEqual([request.get_method() for request, _ in self.requests], ["GET"])
+
+    def test_configuration_check_rejects_preview_before_network(self):
+        with self.assertRaisesRegex(ValueError, "only supported for the main application"):
+            self.invoke(iter([]), check_config=True, preview_id=200)
+        self.assertEqual(self.requests, [])
+
+    def test_release_ref_must_be_retained_even_when_commit_and_compose_match(self):
+        application = {"git_commit_sha": SHA, "git_branch": "main", "docker_compose_raw": yaml.safe_dump(COMPOSE)}
+        with self.assertRaisesRegex(RuntimeError, "did not retain the release tag"):
+            self.invoke(iter([{}, application]))
+        self.assertEqual([request.get_method() for request, _ in self.requests], ["PATCH", "GET"])
+        with self.assertRaisesRegex(RuntimeError, "Git source must use"):
+            self.invoke(iter([application]), check_config=True)
+        self.assertEqual([request.get_method() for request, _ in self.requests], ["GET"])
+
+    def test_workflow_cannot_deploy_new_repository_tags_against_legacy_source(self):
+        with self.assertRaisesRegex(RuntimeError, "Git repository does not match"):
+            self.invoke(iter([{"git_repository": "git@github.com:legacy/repo.git"}]),
+                        environment={"GITHUB_REPOSITORY": "the-liems/relohome"})
+        self.assertEqual([request.get_method() for request, _ in self.requests], ["GET"])
+
+    def test_workflow_accepts_matching_github_app_ssh_and_https_sources(self):
+        for repository in ("the-liems/relohome", "git@github.com:the-liems/relohome.git",
+                           "https://github.com/the-liems/relohome.git"):
+            with self.subTest(repository=repository):
+                self.invoke(iter([{"git_repository": repository}] + self.prefix() +
+                                 [FINISHED, {"status": "running:healthy"}]),
+                            environment={"GITHUB_REPOSITORY": "the-liems/relohome"})
+
     def test_failed_deployment_prints_only_last_40_non_hidden_lines(self):
         logs = [{"output": "\n".join(f"line {i}" for i in range(50))}, {"output": "secret", "hidden": True}]
         with self.assertRaisesRegex(RuntimeError, "status: failed"):
@@ -188,7 +252,69 @@ class DeploymentTests(unittest.TestCase):
         queued = {"deployments": [QUEUED["deployments"][1] | {"message": "Deployment already queued for this commit."}]}
         error = HTTPError("https://coolify.example.test", 404, "Not found", {}, io.BytesIO())
         with self.assertRaisesRegex(RuntimeError, "UUID that no longer exists.*already be queued"):
-            self.invoke(iter([{}, {"git_commit_sha": SHA}, queued, error]))
+            self.invoke(iter([{}, {"git_commit_sha": SHA, "git_branch": "coolify-release/" + SHA, "docker_compose_raw": yaml.safe_dump(COMPOSE)}, queued, error]))
+
+
+class ReleaseSourceTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("git"), "Git is required")
+    def test_no_checkout_clone_reads_release_compose_after_main_moves(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory) / "source"
+            repo.mkdir()
+
+            def git(*args):
+                return subprocess.run(["git", "-C", str(repo), *args], check=True,
+                                      text=True, capture_output=True).stdout.strip()
+
+            git("init", "--initial-branch=main")
+            compose = repo / "compose.coolify.yaml"
+            original = yaml.safe_dump(COMPOSE)
+            compose.write_text(original)
+            git("add", "compose.coolify.yaml")
+            identity = ("-c", "user.name=Release fixture", "-c", "user.email=fixture@example.test")
+            git(*identity, "commit", "--no-gpg-sign", "-m", "Original release")
+            sha = git("rev-parse", "HEAD")
+            ref = "coolify-release/" + sha
+            git("tag", ref)
+            changed = json.loads(json.dumps(COMPOSE))
+            changed["services"]["collector"] = {"image": "otel/opentelemetry-collector-contrib:0.162.0"}
+            compose.write_text(yaml.safe_dump(changed))
+            git(*identity, "commit", "--no-gpg-sign", "-am", "Newer collector on main")
+            checkout = Path(directory) / "checkout"
+            subprocess.run(["git", "clone", "--depth=1", "--no-checkout", "--branch", ref,
+                            repo.as_uri(), str(checkout)], check=True, capture_output=True)
+            result = subprocess.run(["git", "-C", str(checkout), "show", "HEAD:compose.coolify.yaml"],
+                                    check=True, text=True, capture_output=True)
+            self.assertEqual(result.stdout, original)
+            self.assertIn("collector", yaml.safe_load(compose.read_text())["services"])
+
+    @unittest.skipUnless(shutil.which("node"), "Node is required")
+    def test_release_tag_step_reuses_matching_tag_and_rejects_other_targets(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/deploy.yml").read_text())
+        step = next(step for step in workflow["jobs"]["deploy"]["steps"]
+                    if step.get("name") == "Pin Compose source to the selected release")
+        runner = """
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+process.env.DEPLOY_SHA = input.sha;
+const github = {rest: {git: {
+  createRef: async args => {
+    if (args.ref !== `refs/tags/coolify-release/${input.sha}` || args.sha !== input.sha) throw Error('Unexpected ref');
+    if (input.status) throw Object.assign(Error('Creation refused'), {status: input.status});
+  },
+  getRef: async () => ({data: {object: {sha: input.target, type: input.type}}})
+}}};
+const context = {repo: {owner: 'fixture', repo: 'repo'}};
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+new AsyncFunction('github', 'context', input.script)(github, context).catch(() => {process.exitCode = 1;});
+"""
+        for status, target, kind, success in ((None, SHA, "commit", True), (422, SHA, "commit", True),
+                                             (422, "b" * 40, "commit", False), (422, SHA, "tag", False),
+                                             (403, SHA, "commit", False)):
+            with self.subTest(status=status, target=target, kind=kind):
+                result = subprocess.run(["node", "-e", runner], text=True, capture_output=True,
+                                        input=json.dumps({"script": step["with"]["script"], "sha": SHA,
+                                                          "status": status, "target": target, "type": kind}))
+                self.assertEqual(result.returncode == 0, success, result.stderr)
 
 
 class ComposeInterpolationTests(unittest.TestCase):

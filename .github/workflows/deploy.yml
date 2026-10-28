@@ -33,6 +33,10 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, linux, team-44]
+    permissions:
+      contents: write # Create SHA-specific lightweight release tags; never move an existing tag.
+      packages: read
+      actions: read
     timeout-minutes: 75
     concurrency:
       group: coolify-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
@@ -82,6 +86,24 @@ jobs:
         if: steps.release.outputs.deploy == 'true'
         with:
           python-version: "3.11"
+      - name: Pin Compose source to the selected release
+        if: steps.release.outputs.deploy == 'true'
+        uses: actions/github-script@v8
+        env:
+          DEPLOY_SHA: ${{ steps.release.outputs.sha }}
+        with:
+          script: |
+            const sha = process.env.DEPLOY_SHA;
+            const ref = `tags/coolify-release/${sha}`;
+            try {
+              await github.rest.git.createRef({...context.repo, ref: `refs/${ref}`, sha});
+            } catch (error) {
+              if (error.status !== 422) throw error;
+            }
+            const {data: release} = await github.rest.git.getRef({...context.repo, ref});
+            if (release.object.type !== 'commit' || release.object.sha !== sha) {
+              throw new Error('Release tag does not point directly to the selected commit; refusing to move it.');
+            }
       - name: Create Python environment
         if: steps.release.outputs.deploy == 'true'
         run: bash scripts/setup-ci-python.sh
